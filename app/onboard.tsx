@@ -82,6 +82,12 @@ const ROW_B = [
 ];
 const WIDTHS = [148, 176, 156, 188, 142, 170];
 
+function gridMetrics(topInset: number) {
+  const gridH = Math.min(SCREEN_H * 0.5, 430);
+  const gridTop = topInset + 36;
+  return { gridH, gridTop, sheetMin: SCREEN_H - gridTop - gridH };
+}
+
 function DriftRow({
   images,
   height,
@@ -135,37 +141,41 @@ function DriftRow({
 function Catalog({
   onSignIn,
   insets,
+  covered,
 }: {
   onSignIn: () => void;
   insets: { top: number; bottom: number };
+  covered: boolean;
 }) {
-  const gridH = Math.min(SCREEN_H * 0.5, 430);
+  const { gridH, gridTop } = gridMetrics(insets.top);
   const tileH = (gridH - 10) / 2;
 
   return (
     <View style={styles.market}>
-      <View style={[styles.grid, { marginTop: insets.top + 36, height: gridH }]}>
+      <View style={[styles.grid, { marginTop: gridTop, height: gridH }]}>
         <DriftRow images={ROW_A} height={tileH} duration={18000} />
         <View style={{ height: 10 }} />
         <DriftRow images={ROW_B} height={tileH} duration={22000} />
       </View>
-      <View
-        style={[
-          styles.marketCopy,
-          { paddingBottom: Math.max(insets.bottom, 12) + 14 },
-        ]}
-      >
-        <View style={styles.dots}>
-          {PAGES.map((p, i) => (
-            <View key={p.title} style={[styles.dot, i === 2 && styles.dotOn]} />
-          ))}
+      {covered ? null : (
+        <View
+          style={[
+            styles.marketCopy,
+            { paddingBottom: Math.max(insets.bottom, 12) + 14 },
+          ]}
+        >
+          <View style={styles.dots}>
+            {PAGES.map((p, i) => (
+              <View key={p.title} style={[styles.dot, i === 2 && styles.dotOn]} />
+            ))}
+          </View>
+          <Text style={styles.title}>From coats to{"\n"}the last pin.</Text>
+          <View style={{ flex: 1 }} />
+          <Pressable onPress={onSignIn} style={styles.cta}>
+            <Text style={styles.ctaText}>Sign in</Text>
+          </Pressable>
         </View>
-        <Text style={styles.title}>From coats to{"\n"}the last pin.</Text>
-        <View style={{ flex: 1 }} />
-        <Pressable onPress={onSignIn} style={styles.cta}>
-          <Text style={styles.ctaText}>Sign in</Text>
-        </Pressable>
-      </View>
+      )}
     </View>
   );
 }
@@ -282,7 +292,7 @@ export default function Onboard() {
         {PAGES.map((p, i) => (
           <View key={p.title} style={{ width: SCREEN_W, height: "100%" }}>
             {p.kind === "market" ? (
-              <Catalog onSignIn={() => setAuth(true)} insets={insets} />
+              <Catalog onSignIn={() => setAuth(true)} insets={insets} covered={auth} />
             ) : (
               <Film source={p.source} active={page === i} />
             )}
@@ -319,7 +329,13 @@ export default function Onboard() {
       >
         <Pressable style={styles.sheetDim} onPress={() => setAuth(false)}>
           <Pressable
-            style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 18) + 8 }]}
+            style={[
+              styles.sheet,
+              {
+                minHeight: gridMetrics(insets.top).sheetMin,
+                paddingBottom: Math.max(insets.bottom, 18) + 8,
+              },
+            ]}
             onPress={() => undefined}
           >
             <Pressable onPress={() => setAuth(false)} style={styles.close} hitSlop={16}>
