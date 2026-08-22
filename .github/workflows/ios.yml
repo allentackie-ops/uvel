@@ -1,3 +1,33 @@
+name: iOS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python deps
+        run: pip install "PyJWT[crypto]" requests
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install JS dependencies
+        run: npm ci
+
       - name: Create iOS signing files
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -63,3 +93,4 @@
           PY
 
       - name: Build on EAS
+        run: npx eas-cli build --platform ios --profile ci --non-interactive --no-wait
