@@ -269,6 +269,8 @@ export default function Onboard() {
   const rtl = isRtl(locale || "en-US");
   const [langsOpen, setLangsOpen] = useState(false);
   const [langQuery, setLangQuery] = useState("");
+  const langY = useSharedValue(SCREEN_H);
+  const langDim = useSharedValue(0);
   const [page, setPage] = useState(0);
   const [auth, setAuth] = useState<null | "signup" | "login">(null);
   const [pane, setPane] = useState<"providers" | "email">("providers");
@@ -354,6 +356,80 @@ export default function Onboard() {
   const dimStyle = useAnimatedStyle(() => ({
     opacity: dim.value,
   }));
+
+  function closeLangs() {
+    setLangsOpen(false);
+    setLangQuery("");
+  }
+
+  function openLangs() {
+    langY.value = SCREEN_H;
+    langDim.value = 0;
+    setLangsOpen(true);
+  }
+
+  useEffect(() => {
+    if (!langsOpen) return;
+    langY.value = SCREEN_H;
+    langDim.value = 0;
+    langY.value = withTiming(0, {
+      duration: 400,
+      easing: Easing.out(Easing.cubic),
+    });
+    langDim.value = withTiming(1, { duration: 320 });
+  }, [langsOpen, langDim, langY]);
+
+  const dismissLangs = () => {
+    langDim.value = withTiming(0, { duration: 260 });
+    langY.value = withTiming(
+      SCREEN_H,
+      { duration: 340, easing: Easing.in(Easing.cubic) },
+      (finished) => {
+        if (finished) runOnJS(closeLangs)();
+      },
+    );
+  };
+
+  const langPan = Gesture.Pan()
+    .activeOffsetY(8)
+    .failOffsetX([-48, 48])
+    .onUpdate((e) => {
+      const y = Math.max(0, e.translationY);
+      langY.value = y;
+      langDim.value = Math.max(0, 1 - y / (SCREEN_H * 0.4));
+    })
+    .onEnd((e) => {
+      if (e.translationY > 90 || e.velocityY > 700) {
+        langDim.value = withTiming(0, { duration: 260 });
+        langY.value = withTiming(
+          SCREEN_H,
+          { duration: 320, easing: Easing.in(Easing.cubic) },
+          (finished) => {
+            if (finished) runOnJS(closeLangs)();
+          },
+        );
+      } else {
+        langY.value = withSpring(0, {
+          damping: 26,
+          stiffness: 220,
+          overshootClamping: true,
+        });
+        langDim.value = withTiming(1, { duration: 180 });
+      }
+    });
+
+  const langSlide = useAnimatedStyle(() => ({
+    transform: [{ translateY: langY.value }],
+  }));
+
+  const langDimStyle = useAnimatedStyle(() => ({
+    opacity: langDim.value,
+  }));
+
+  function pickLang(id: string) {
+    void setLocale(id);
+    dismissLangs();
+  }
 
   function finish(provider?: string) {
     closeAuth();
@@ -441,8 +517,7 @@ export default function Onboard() {
         <>
           <Pressable
             onPress={() => {
-              setLangsOpen(true);
-              setLangQuery("");
+              openLangs();
             }}
             style={[styles.langBtn, { top: insets.top + 6 }]}
             hitSlop={10}
@@ -670,19 +745,31 @@ export default function Onboard() {
       ) : null}
 
       {langsOpen ? (
-        <View style={styles.langOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setLangsOpen(false)} />
-          <View style={[styles.langSheet, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
-            <Text style={styles.langSheetTitle}>{C.language}</Text>
-            <TextInput
-              value={langQuery}
-              onChangeText={setLangQuery}
-              placeholder={C.search}
-              placeholderTextColor="rgba(255,255,255,0.38)"
-              autoCorrect={false}
-              autoCapitalize="none"
-              style={styles.langSearch}
-            />
+        <View style={styles.langOverlay} pointerEvents="box-none">
+          <Animated.View pointerEvents="none" style={[styles.langDim, langDimStyle]} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={dismissLangs} />
+          <Animated.View
+            style={[
+              styles.langSheet,
+              langSlide,
+              { paddingBottom: Math.max(insets.bottom, 12) + 8 },
+            ]}
+          >
+            <GestureDetector gesture={langPan}>
+              <View>
+                <View style={styles.langHandle} />
+                <Text style={styles.langSheetTitle}>{C.language}</Text>
+                <TextInput
+                  value={langQuery}
+                  onChangeText={setLangQuery}
+                  placeholder={C.search}
+                  placeholderTextColor="rgba(255,255,255,0.38)"
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  style={styles.langSearch}
+                />
+              </View>
+            </GestureDetector>
             <FlatList
               data={filteredLangs}
               keyExtractor={(item) => item.id}
@@ -691,21 +778,14 @@ export default function Onboard() {
               renderItem={({ item }) => {
                 const on = item.id === (locale || "en-US");
                 return (
-                  <Pressable
-                    onPress={() => {
-                      void setLocale(item.id);
-                      setLangsOpen(false);
-                      setLangQuery("");
-                    }}
-                    style={styles.langRow}
-                  >
+                  <Pressable onPress={() => pickLang(item.id)} style={styles.langRow}>
                     <Text style={[styles.langRowText, on && styles.langRowOn]}>{item.label}</Text>
                     {on ? <Text style={styles.langTick}>✓</Text> : null}
                   </Pressable>
                 );
               }}
             />
-          </View>
+          </Animated.View>
         </View>
       ) : null}
     </View>
@@ -758,17 +838,29 @@ const styles = StyleSheet.create({
   langChev: { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 1 },
   langOverlay: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "flex-end",
     zIndex: 50,
+  },
+  langDim: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(18, 20, 10, 0.72)",
   },
   langSheet: {
     backgroundColor: "#16180F",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    paddingTop: 18,
+    paddingTop: 8,
     paddingHorizontal: 8,
     maxHeight: SCREEN_H * 0.78,
+  },
+  langHandle: {
+    alignSelf: "center",
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "rgba(255,255,255,0.28)",
+    marginBottom: 10,
+    marginTop: 4,
   },
   langSheetTitle: {
     color: "#fff",
