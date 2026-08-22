@@ -16,7 +16,10 @@
     },
     "ci": {
       "autoIncrement": true,
-      "credentialsSource": "local"
+      "credentialsSource": "local",
+      "ios": {
+        "image": "latest"
+      }
     }
   },
   "submit": {
