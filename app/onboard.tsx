@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   AppState,
   Dimensions,
+  FlatList,
   Image as MosaicImg,
   KeyboardAvoidingView,
   Linking,
@@ -39,6 +40,7 @@ import {
   signUpEmail,
   type Session,
 } from "../lib/auth";
+import { LANGS, isRtl, langLabel, t } from "../lib/i18n";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
@@ -46,26 +48,14 @@ const PAGES = [
   {
     kind: "film" as const,
     source: require("../assets/onboarding/tryon.mp4"),
-    kicker: "TRY ON",
-    title: "See it on you\nbefore you buy.",
-    lede: "A look you love. On your body. Then you decide.",
-    cta: "Next",
   },
   {
     kind: "film" as const,
     source: require("../assets/onboarding/style.mp4"),
-    kicker: "YOUR STYLE",
-    title: "Clothes that\nactually suit you.",
-    lede: "Not the feed. What looks like you.",
-    cta: "Next",
   },
   {
     kind: "market" as const,
     source: 0,
-    kicker: "",
-    title: "From coats to\nthe last pin.",
-    lede: "",
-    cta: "Sign up",
   },
 ];
 
@@ -137,10 +127,14 @@ function Catalog({
   onSignUp,
   onLogIn,
   insets,
+  copy,
+  rtl,
 }: {
   onSignUp: () => void;
   onLogIn: () => void;
   insets: { top: number; bottom: number };
+  copy: { marketTitle: string; signUp: string; logIn: string };
+  rtl?: boolean;
 }) {
   const { gridH, gridTop } = gridMetrics(insets.top);
   const tileH = (gridH - 10) / 2;
@@ -163,17 +157,17 @@ function Catalog({
         ]}
       >
         <View style={styles.dots}>
-          {PAGES.map((p, i) => (
-            <View key={p.title} style={[styles.dot, i === 2 && styles.dotOn]} />
+          {PAGES.map((_, i) => (
+            <View key={i} style={[styles.dot, i === 2 && styles.dotOn]} />
           ))}
         </View>
-        <Text style={styles.title}>From coats to{"\n"}the last pin.</Text>
+        <Text style={[styles.title, rtl && styles.rtl]}>{copy.marketTitle}</Text>
         <View style={{ flex: 1 }} />
         <Pressable onPress={onSignUp} style={styles.cta}>
-          <Text style={styles.ctaText}>Sign up</Text>
+          <Text style={styles.ctaText}>{copy.signUp}</Text>
         </Pressable>
         <Pressable onPress={onLogIn} style={styles.ctaLogin}>
-          <Text style={styles.ctaLoginText}>Log in</Text>
+          <Text style={styles.ctaLoginText}>{copy.logIn}</Text>
         </Pressable>
       </View>
     </View>
@@ -269,8 +263,12 @@ function AuthBtn({
 }
 
 export default function Onboard() {
-  const { completeOnboard, acceptSession } = useUvel();
+  const { completeOnboard, acceptSession, locale, setLocale } = useUvel();
   const insets = useSafeAreaInsets();
+  const C = t(locale || "en-US");
+  const rtl = isRtl(locale || "en-US");
+  const [langsOpen, setLangsOpen] = useState(false);
+  const [langQuery, setLangQuery] = useState("");
   const [page, setPage] = useState(0);
   const [auth, setAuth] = useState<null | "signup" | "login">(null);
   const [pane, setPane] = useState<"providers" | "email">("providers");
@@ -393,8 +391,15 @@ export default function Onboard() {
     if (n !== page && n >= 0 && n < PAGES.length) setPage(n);
   }
 
-  const copy = PAGES[page];
   const isLogin = auth === "login";
+  const copy = [
+    { kicker: C.tryOnKicker, title: C.tryOnTitle, lede: C.tryOnLede, cta: C.next },
+    { kicker: C.styleKicker, title: C.styleTitle, lede: C.styleLede, cta: C.next },
+    { kicker: "", title: C.marketTitle, lede: "", cta: C.signUp },
+  ][page];
+  const filteredLangs = LANGS.filter((l) =>
+    l.label.toLowerCase().includes(langQuery.trim().toLowerCase()),
+  );
 
   return (
     <View style={styles.root}>
@@ -408,7 +413,7 @@ export default function Onboard() {
         style={StyleSheet.absoluteFill}
       >
         {PAGES.map((p, i) => (
-          <View key={p.title} style={{ width: SCREEN_W, height: "100%" }}>
+          <View key={i} style={{ width: SCREEN_W, height: "100%" }}>
             {p.kind === "market" ? (
               <Catalog
                 onSignUp={() => {
@@ -422,6 +427,8 @@ export default function Onboard() {
                   setError("");
                 }}
                 insets={insets}
+                copy={{ marketTitle: C.marketTitle, signUp: C.signUp, logIn: C.logIn }}
+                rtl={rtl}
               />
             ) : (
               <Film source={p.source} active={page === i} />
@@ -431,21 +438,40 @@ export default function Onboard() {
       </ScrollView>
 
       {auth === null || pane !== "email" ? (
-        <Pressable onPress={() => finish()} style={[styles.skip, { top: insets.top + 8 }]} hitSlop={16}>
-          <Text style={styles.skipText}>Skip</Text>
-        </Pressable>
+        <>
+          <Pressable
+            onPress={() => {
+              setLangsOpen(true);
+              setLangQuery("");
+            }}
+            style={[styles.langBtn, { top: insets.top + 6 }]}
+            hitSlop={10}
+          >
+            <View style={styles.globe}>
+              <View style={styles.globeMeridian} />
+              <View style={styles.globeEquator} />
+            </View>
+            <Text style={styles.langLabel} numberOfLines={1}>
+              {langLabel(locale || "en-US")}
+            </Text>
+            <Text style={styles.langChev}>▾</Text>
+          </Pressable>
+          <Pressable onPress={() => finish()} style={[styles.skip, { top: insets.top + 8 }]} hitSlop={16}>
+            <Text style={styles.skipText}>{C.skip}</Text>
+          </Pressable>
+        </>
       ) : null}
 
-      {copy.kind !== "market" ? (
+      {PAGES[page].kind !== "market" ? (
         <View style={[styles.copy, { paddingBottom: Math.max(insets.bottom, 12) + 14 }]}>
           <View style={styles.dots}>
-            {PAGES.map((p, i) => (
-              <View key={p.title} style={[styles.dot, i === page && styles.dotOn]} />
+            {PAGES.map((_, i) => (
+              <View key={i} style={[styles.dot, i === page && styles.dotOn]} />
             ))}
           </View>
-          <Text style={styles.kicker}>{copy.kicker}</Text>
-          <Text style={styles.title}>{copy.title}</Text>
-          <Text style={styles.lede}>{copy.lede}</Text>
+          <Text style={[styles.kicker, rtl && styles.rtl]}>{copy.kicker}</Text>
+          <Text style={[styles.title, rtl && styles.rtl]}>{copy.title}</Text>
+          <Text style={[styles.lede, rtl && styles.rtl]}>{copy.lede}</Text>
           <Pressable onPress={next} style={styles.cta}>
             <Text style={styles.ctaText}>{copy.cta}</Text>
           </Pressable>
@@ -470,15 +496,15 @@ export default function Onboard() {
               <Pressable onPress={dismissSheet} style={styles.close} hitSlop={16}>
                 <Text style={styles.closeX}>✕</Text>
               </Pressable>
-              <Text style={styles.sheetTitle}>{isLogin ? "Log in to Uvel" : "Sign up for Uvel"}</Text>
+              <Text style={styles.sheetTitle}>{isLogin ? C.logInTo : C.signUpFor}</Text>
               {isLogin ? (
                 <View style={{ height: 22 }} />
               ) : (
-                <Text style={styles.sheetLede}>It's quickest to use your Apple ID.</Text>
+                <Text style={styles.sheetLede}>{C.appleHint}</Text>
               )}
               <AuthBtn
                 icon={require("../assets/auth/apple.png")}
-                label="Continue with Apple"
+                label={C.continueApple}
                 filled
                 busy={busy === "apple"}
                 disabled={busy !== null}
@@ -491,7 +517,7 @@ export default function Onboard() {
               </View>
               <AuthBtn
                 icon={require("../assets/auth/google.png")}
-                label="Continue with Google"
+                label={C.continueGoogle}
                 busy={busy === "google"}
                 disabled={busy !== null}
                 onPress={() => void run("google", signInGoogle)}
@@ -505,7 +531,7 @@ export default function Onboard() {
                 }}
                 style={styles.email}
               >
-                <Text style={styles.emailText}>Continue with email</Text>
+                <Text style={styles.emailText}>{C.continueEmail}</Text>
               </Pressable>
             </Animated.View>
           </GestureDetector>
@@ -529,7 +555,7 @@ export default function Onboard() {
             >
               <Text style={styles.backText}>‹</Text>
             </Pressable>
-            <Text style={styles.emailHeadTitle}>Continue</Text>
+            <Text style={styles.emailHeadTitle}>{C.continue}</Text>
             <View style={{ width: 36 }} />
           </View>
           <ScrollView
@@ -543,7 +569,7 @@ export default function Onboard() {
               <TextInput
                 value={name}
                 onChangeText={setName}
-                placeholder="Full name"
+                placeholder={C.fullName}
                 placeholderTextColor="rgba(255,255,255,0.38)"
                 autoCapitalize="words"
                 autoCorrect={false}
@@ -554,7 +580,7 @@ export default function Onboard() {
             <TextInput
               value={email}
               onChangeText={setEmail}
-              placeholder="Email"
+              placeholder={C.email}
               placeholderTextColor="rgba(255,255,255,0.38)"
               autoCapitalize="none"
               autoCorrect={false}
@@ -566,14 +592,14 @@ export default function Onboard() {
               <TextInput
                 value={password}
                 onChangeText={setPassword}
-                placeholder="Password"
+                placeholder={C.password}
                 placeholderTextColor="rgba(255,255,255,0.38)"
                 secureTextEntry={!showPass}
                 textContentType={isLogin ? "password" : "newPassword"}
                 style={[styles.field, { paddingRight: 72 }]}
               />
               <Pressable onPress={() => setShowPass((v) => !v)} style={styles.eye} hitSlop={8}>
-                <Text style={styles.eyeText}>{showPass ? "Hide" : "Show"}</Text>
+                <Text style={styles.eyeText}>{showPass ? C.hide : C.show}</Text>
               </Pressable>
             </View>
             {error ? <Text style={[styles.error, { textAlign: "left" }]}>{error}</Text> : null}
@@ -584,25 +610,24 @@ export default function Onboard() {
                   {agreed ? <Text style={styles.tick}>✓</Text> : null}
                 </View>
                 <Text style={styles.agreeText}>
-                  By continuing I agree to Uvel’s{" "}
+                  {C.agree}{" "}
                   <Text
                     style={styles.agreeLink}
                     onPress={() => void Linking.openURL("https://allentackie-ops.github.io/")}
                   >
-                    Privacy Policy
+                    {C.privacy}
                   </Text>
-                  , and I confirm I am 18 or older.
                 </Text>
               </Pressable>
             ) : null}
             <Pressable
               onPress={() => {
                 if (!isLogin && !agreed) {
-                  setError("Tick the box to agree, then continue.");
+                  setError(C.tickAgree);
                   return;
                 }
                 if (!isLogin && !name.trim()) {
-                  setError("Add your name.");
+                  setError(C.addName);
                   return;
                 }
                 void run("email", () =>
@@ -616,7 +641,7 @@ export default function Onboard() {
                 <ActivityIndicator color="#111" />
               ) : (
                 <Text style={[styles.authLabel, styles.authLabelDark]}>
-                  {isLogin ? "Log in" : "Continue"}
+                  {isLogin ? C.logIn : C.continue}
                 </Text>
               )}
             </Pressable>
@@ -637,11 +662,51 @@ export default function Onboard() {
                 }}
                 style={styles.email}
               >
-                <Text style={styles.emailText}>Forgot password</Text>
+                <Text style={styles.emailText}>{C.forgot}</Text>
               </Pressable>
             ) : null}
           </ScrollView>
         </KeyboardAvoidingView>
+      ) : null}
+
+      {langsOpen ? (
+        <View style={styles.langOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setLangsOpen(false)} />
+          <View style={[styles.langSheet, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
+            <Text style={styles.langSheetTitle}>{C.language}</Text>
+            <TextInput
+              value={langQuery}
+              onChangeText={setLangQuery}
+              placeholder={C.search}
+              placeholderTextColor="rgba(255,255,255,0.38)"
+              autoCorrect={false}
+              autoCapitalize="none"
+              style={styles.langSearch}
+            />
+            <FlatList
+              data={filteredLangs}
+              keyExtractor={(item) => item.id}
+              keyboardShouldPersistTaps="handled"
+              style={{ maxHeight: SCREEN_H * 0.58 }}
+              renderItem={({ item }) => {
+                const on = item.id === (locale || "en-US");
+                return (
+                  <Pressable
+                    onPress={() => {
+                      void setLocale(item.id);
+                      setLangsOpen(false);
+                      setLangQuery("");
+                    }}
+                    style={styles.langRow}
+                  >
+                    <Text style={[styles.langRowText, on && styles.langRowOn]}>{item.label}</Text>
+                    {on ? <Text style={styles.langTick}>✓</Text> : null}
+                  </Pressable>
+                );
+              }}
+            />
+          </View>
+        </View>
       ) : null}
     </View>
   );
@@ -652,8 +717,88 @@ const styles = StyleSheet.create({
   market: { flex: 1, backgroundColor: "#12140A" },
   grid: { overflow: "hidden" },
   marketCopy: { flex: 1, paddingHorizontal: 22, paddingTop: 22 },
-  skip: { position: "absolute", right: 18, zIndex: 20 },
+  skip: { position: "absolute", right: 18, zIndex: 8 },
   skipText: { color: "rgba(255,255,255,0.82)", fontSize: 13, letterSpacing: 0.6 },
+  langBtn: {
+    position: "absolute",
+    left: 16,
+    zIndex: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    maxWidth: 210,
+    paddingVertical: 4,
+  },
+  globe: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.4,
+    borderColor: "rgba(255,255,255,0.92)",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  globeMeridian: {
+    position: "absolute",
+    width: 7,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.2,
+    borderColor: "rgba(255,255,255,0.92)",
+  },
+  globeEquator: {
+    position: "absolute",
+    width: 16,
+    height: 0,
+    borderTopWidth: 1.2,
+    borderColor: "rgba(255,255,255,0.92)",
+  },
+  langLabel: { color: "#fff", fontSize: 14, fontWeight: "500" },
+  langChev: { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 1 },
+  langOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
+    zIndex: 50,
+  },
+  langSheet: {
+    backgroundColor: "#16180F",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 18,
+    paddingHorizontal: 8,
+    maxHeight: SCREEN_H * 0.78,
+  },
+  langSheetTitle: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  langSearch: {
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    color: "#fff",
+    paddingHorizontal: 14,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    fontSize: 16,
+  },
+  langRow: {
+    height: 48,
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  langRowText: { color: "rgba(255,255,255,0.88)", fontSize: 16 },
+  langRowOn: { color: "#fff", fontWeight: "700" },
+  langTick: { color: "#C5D4A0", fontSize: 16, fontWeight: "700" },
+  rtl: { writingDirection: "rtl", textAlign: "right", alignSelf: "stretch" },
   copy: { position: "absolute", left: 22, right: 22, bottom: 0 },
   dots: { flexDirection: "row", gap: 6, marginBottom: 14 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.28)" },

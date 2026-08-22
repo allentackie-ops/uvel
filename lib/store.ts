@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import type { Session } from "./auth";
+import { guessLocale } from "./i18n";
 
 type State = {
   isPlus: boolean;
@@ -19,6 +20,7 @@ type State = {
   uid: string;
   email: string;
   displayName: string;
+  locale: string;
 };
 
 const KEY = "uvel-state-v1";
@@ -39,6 +41,7 @@ const defaults: State = {
   uid: "",
   email: "",
   displayName: "",
+  locale: "",
 };
 
 let memory = { ...defaults };
@@ -48,6 +51,7 @@ const listeners = new Set<() => void>();
 async function load() {
   const raw = await AsyncStorage.getItem(KEY);
   if (raw) memory = { ...defaults, ...JSON.parse(raw) };
+  if (!memory.locale) memory.locale = guessLocale();
   if ((memory.onboardVersion ?? 0) < 4) memory.onboarded = false;
   hydrated = true;
   listeners.forEach((l) => l());
@@ -115,6 +119,7 @@ export function useUvel() {
     setStyle: (patch: Partial<State>) => save(patch),
     setPerson: (uri: string | null) => save({ personUri: uri }),
     setAppearance: (appearance: "light" | "dark") => save({ appearance }),
+    setLocale: (locale: string) => save({ locale }),
     completeOnboard: (provider?: string) =>
       save({
         onboarded: true,
