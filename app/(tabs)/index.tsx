@@ -5,9 +5,11 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Glass, GlassContainer } from "../../components/Glass";
 import { ProductCard } from "../../components/ProductCard";
 import { GARMENTS, TRENDS, getGarment, type Trend } from "../../lib/catalog";
-import { colors } from "../../lib/theme";
+import { useColors, type Colors } from "../../lib/theme";
 
 export default function Today() {
+  const colors = useColors();
+  const styles = make(colors);
   const [source, setSource] = useState<"All" | Trend["source"]>("All");
   const visible = source === "All" ? TRENDS : TRENDS.filter((t) => t.source === source);
   const featured = visible[0] ?? TRENDS[0];
@@ -85,7 +87,8 @@ export default function Today() {
   );
 }
 
-const styles = StyleSheet.create({
+function make(colors: Colors) {
+  return StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.ink },
   hero: { width: "100%", height: 560 },
   heroCard: {
@@ -118,4 +121,5 @@ const styles = StyleSheet.create({
   trendImg: { width: "100%", height: 420, borderRadius: 28 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   cell: { width: "47%", flexGrow: 1 },
-});
+  });
+}

@@ -5,9 +5,11 @@ import { Glass } from "../../components/Glass";
 import { ProductCard } from "../../components/ProductCard";
 import { GARMENTS, getGarment, usd } from "../../lib/catalog";
 import { useUvel } from "../../lib/store";
-import { colors } from "../../lib/theme";
+import { useColors, type Colors } from "../../lib/theme";
 
 export default function Product() {
+  const colors = useColors();
+  const styles = make(colors);
   const { id } = useLocalSearchParams<{ id: string }>();
   const app = useUvel();
   const garment = getGarment(id);
@@ -81,7 +83,8 @@ export default function Product() {
   );
 }
 
-const styles = StyleSheet.create({
+function make(colors: Colors) {
+  return StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.ink },
   hero: { width: "100%", aspectRatio: 2 / 3 },
   body: { padding: 20 },
@@ -113,3 +116,4 @@ const styles = StyleSheet.create({
   cta: { backgroundColor: colors.pulse, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 12 },
   ctaText: { color: colors.bone, fontWeight: "600" },
 });
+}

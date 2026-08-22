@@ -3,9 +3,11 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Glass } from "../components/Glass";
 import { useUvel } from "../lib/store";
-import { colors } from "../lib/theme";
+import { useColors, type Colors } from "../lib/theme";
 
 export default function Plus() {
+  const colors = useColors();
+  const styles = make(colors);
   const app = useUvel();
   const [plan, setPlan] = useState<"monthly" | "yearly">("yearly");
 
@@ -54,7 +56,8 @@ export default function Plus() {
   );
 }
 
-const styles = StyleSheet.create({
+function make(colors: Colors) {
+  return StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.ink, padding: 24, paddingTop: 72 },
   kicker: { color: colors.subtle, letterSpacing: 2, fontSize: 11 },
   title: { color: colors.bone, fontFamily: "Georgia", fontSize: 32, marginTop: 8, marginBottom: 16 },
@@ -68,3 +71,4 @@ const styles = StyleSheet.create({
   ctaText: { color: colors.bone, fontWeight: "600" },
   note: { color: colors.subtle, fontSize: 11, marginTop: 14, lineHeight: 16, textAlign: "center" },
 });
+}

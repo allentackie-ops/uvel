@@ -3,9 +3,11 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { Glass, GlassContainer } from "../../components/Glass";
 import { ProductCard } from "../../components/ProductCard";
 import { CATEGORIES, GARMENTS } from "../../lib/catalog";
-import { colors } from "../../lib/theme";
+import { useColors, type Colors } from "../../lib/theme";
 
 export default function Shop() {
+  const colors = useColors();
+  const styles = make(colors);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("All");
   const filtered = useMemo(() => {
@@ -58,7 +60,8 @@ export default function Shop() {
   );
 }
 
-const styles = StyleSheet.create({
+function make(colors: Colors) {
+  return StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.ink },
   content: { padding: 20, paddingBottom: 48 },
   kicker: { color: colors.subtle, letterSpacing: 2, fontSize: 11 },
@@ -74,3 +77,4 @@ const styles = StyleSheet.create({
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 20 },
   cell: { width: "47%", flexGrow: 1 },
 });
+}

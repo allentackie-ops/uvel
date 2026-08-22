@@ -11,6 +11,8 @@ type State = {
   personUri: string | null;
   findsUsed: number;
   tryOnsUsed: number;
+  appearance: "light" | "dark";
+  onboarded: boolean;
 };
 
 const KEY = "uvel-state-v1";
@@ -24,14 +26,18 @@ const defaults: State = {
   personUri: null,
   findsUsed: 0,
   tryOnsUsed: 0,
+  appearance: "light",
+  onboarded: false,
 };
 
 let memory = { ...defaults };
+let hydrated = false;
 const listeners = new Set<() => void>();
 
 async function load() {
   const raw = await AsyncStorage.getItem(KEY);
   if (raw) memory = { ...defaults, ...JSON.parse(raw) };
+  hydrated = true;
   listeners.forEach((l) => l());
 }
 
@@ -55,6 +61,7 @@ export function useUvel() {
 
   return {
     ...memory,
+    hydrated,
     remainingFinds: memory.isPlus ? 99 : Math.max(0, 2 - memory.findsUsed),
     remainingTryOns: memory.isPlus ? 99 : Math.max(0, 1 - memory.tryOnsUsed),
     toggleSaved: (id: string) =>
@@ -78,5 +85,7 @@ export function useUvel() {
     activatePlus: (plan: string) => save({ isPlus: true, plusPlan: plan }),
     setStyle: (patch: Partial<State>) => save(patch),
     setPerson: (uri: string | null) => save({ personUri: uri }),
+    setAppearance: (appearance: "light" | "dark") => save({ appearance }),
+    completeOnboard: () => save({ onboarded: true }),
   };
 }

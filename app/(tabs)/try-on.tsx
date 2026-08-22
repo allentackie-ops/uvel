@@ -6,9 +6,11 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Glass } from "../../components/Glass";
 import { GARMENTS, getGarment, usd } from "../../lib/catalog";
 import { useUvel } from "../../lib/store";
-import { colors } from "../../lib/theme";
+import { useColors, type Colors } from "../../lib/theme";
 
 export default function TryOn() {
+  const colors = useColors();
+  const styles = make(colors);
   const { g } = useLocalSearchParams<{ g?: string }>();
   const app = useUvel();
   const [picked, setPicked] = useState(g ?? GARMENTS[0].id);
@@ -90,7 +92,8 @@ export default function TryOn() {
   );
 }
 
-const styles = StyleSheet.create({
+function make(colors: Colors) {
+  return StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.ink },
   content: { padding: 20, paddingBottom: 48 },
   kicker: { color: colors.subtle, letterSpacing: 2, fontSize: 11 },
@@ -110,3 +113,4 @@ const styles = StyleSheet.create({
   cta: { backgroundColor: colors.pulse, borderRadius: 999, paddingVertical: 16, alignItems: "center" },
   ctaText: { color: colors.bone, fontWeight: "600" },
 });
+}

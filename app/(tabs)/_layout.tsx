@@ -1,14 +1,11 @@
 import { NativeTabs } from "expo-router/unstable-native-tabs";
-import { DynamicColorIOS, Platform } from "react-native";
+import { useColors } from "../../lib/theme";
 
 export default function TabsLayout() {
-  const tint =
-    Platform.OS === "ios"
-      ? DynamicColorIOS({ dark: "#D6FF3C", light: "#16140F" })
-      : "#16140F";
+  const colors = useColors();
 
   return (
-    <NativeTabs tintColor={tint}>
+    <NativeTabs tintColor={colors.bone}>
       <NativeTabs.Trigger name="index">
         <NativeTabs.Trigger.Label>Today</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="safari" />
@@ -17,8 +14,8 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Label>Find</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="viewfinder" />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="try-on">
-        <NativeTabs.Trigger.Label>Try on</NativeTabs.Trigger.Label>
+      <NativeTabs.Trigger name="closet">
+        <NativeTabs.Trigger.Label>Closet</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="tshirt" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="shop">

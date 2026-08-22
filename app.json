@@ -6,7 +6,16 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/13230e71-d40b-45c8-8709-176f0c021198",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "ios": {
       "bundleIdentifier": "com.uvel.dressandshop",
       "supportsTablet": false,
@@ -15,7 +24,7 @@
         "NSCameraUsageDescription": "Uvel photographs looks and you, so it can find the piece and show it on your body before you buy.",
         "NSPhotoLibraryUsageDescription": "Uvel reads photos and screenshots you pick so it can find the clothes and try them on you.",
         "NSMicrophoneUsageDescription": "Video looks from TikTok, Reels, and Snapchat may include sound.",
-        "UIUserInterfaceStyle": "Light"
+        "UIUserInterfaceStyle": "Automatic"
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
@@ -29,7 +38,7 @@
     "android": {
       "package": "com.uvel.dressandshop",
       "adaptiveIcon": {
-        "backgroundColor": "#D6FF3C",
+        "backgroundColor": "#2A320E",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -55,10 +64,12 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#D6FF3C",
+          "backgroundColor": "#2A320E",
           "image": "./assets/splash-icon.png"
         }
-      ]
+      ],
+      "expo-video",
+      "expo-updates"
     ],
     "experiments": {
       "typedRoutes": true

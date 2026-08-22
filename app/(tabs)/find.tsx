@@ -14,11 +14,13 @@ import {
 import { Glass, GlassContainer } from "../../components/Glass";
 import { GARMENTS, usd, type Garment } from "../../lib/catalog";
 import { useUvel } from "../../lib/store";
-import { colors } from "../../lib/theme";
+import { useColors, type Colors } from "../../lib/theme";
 
 const SOURCES = ["Camera", "Photos", "Instagram", "Pinterest", "TikTok", "Snapchat", "Link"];
 
 export default function Find() {
+  const colors = useColors();
+  const styles = make(colors);
   const app = useUvel();
   const [source, setSource] = useState("Photos");
   const [preview, setPreview] = useState<string | null>(null);
@@ -144,7 +146,8 @@ export default function Find() {
   );
 }
 
-const styles = StyleSheet.create({
+function make(colors: Colors) {
+  return StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.ink },
   content: { padding: 20, paddingBottom: 48 },
   kicker: { color: colors.subtle, letterSpacing: 2, fontSize: 11 },
@@ -170,3 +173,4 @@ const styles = StyleSheet.create({
   resultName: { color: colors.bone, fontWeight: "600", marginTop: 2 },
   alt: { padding: 14, borderRadius: 18, marginBottom: 8 },
 });
+}
