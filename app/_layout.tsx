@@ -79,32 +79,15 @@ export default function Root() {
   const otaReady = useOtaReady();
   const [intro, setIntro] = useState(true);
   const dismiss = useCallback(() => setIntro(false), []);
-
-  if (intro || !hydrated || !otaReady) {
-    return (
-      <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#2A320E" }}>
-          <StatusBar style="light" />
-          <LaunchSplash onDone={dismiss} />
-        </GestureHandlerRootView>
-      </SafeAreaProvider>
-    );
-  }
-
-  if (!onboarded) {
-    return (
-      <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#2A320E" }}>
-          <StatusBar style="light" />
-          <Onboard />
-        </GestureHandlerRootView>
-      </SafeAreaProvider>
-    );
-  }
+  const ready = hydrated && otaReady;
 
   return (
     <SafeAreaProvider>
-      <AppStack />
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#2A320E" }}>
+        <StatusBar style="light" />
+        {ready ? onboarded ? <AppStack /> : <Onboard /> : null}
+        {intro ? <LaunchSplash ready={ready} onDone={dismiss} /> : null}
+      </GestureHandlerRootView>
     </SafeAreaProvider>
   );
 }
