@@ -7,6 +7,7 @@ import {
   Dimensions,
   FlatList,
   Image as MosaicImg,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   NativeScrollEvent,
@@ -161,9 +162,9 @@ function Catalog({
             <View key={i} style={[styles.dot, i === 2 && styles.dotOn]} />
           ))}
         </View>
-        <Text style={[styles.title, rtl && styles.rtl]}>{copy.marketTitle}</Text>
         <View style={{ flex: 1 }} />
-        <Pressable onPress={onSignUp} style={styles.cta}>
+        <Text style={[styles.title, rtl && styles.rtl]}>{copy.marketTitle}</Text>
+        <Pressable onPress={onSignUp} style={[styles.cta, { marginTop: 22 }]}>
           <Text style={styles.ctaText}>{copy.signUp}</Text>
         </Pressable>
         <Pressable onPress={onLogIn} style={styles.ctaLogin}>
@@ -288,6 +289,8 @@ export default function Onboard() {
   const scroller = useRef<ScrollView>(null);
   const sheetY = useSharedValue(SCREEN_H);
   const dim = useSharedValue(0);
+  const emailX = useSharedValue(SCREEN_W);
+  const [emailOn, setEmailOn] = useState(false);
 
   function closeAuth() {
     setAuth(null);
@@ -300,6 +303,8 @@ export default function Onboard() {
     setName("");
     setAgreed(false);
     setShowPass(false);
+    setEmailOn(false);
+    emailX.value = SCREEN_W;
   }
 
   useEffect(() => {
@@ -358,6 +363,46 @@ export default function Onboard() {
 
   const dimStyle = useAnimatedStyle(() => ({
     opacity: dim.value,
+  }));
+
+  function hideEmail() {
+    setPane("providers");
+    setEmailOn(false);
+    setError("");
+    setNote("");
+  }
+
+  function openEmail() {
+    Keyboard.dismiss();
+    setError("");
+    setNote("");
+    setPane("email");
+    emailX.value = SCREEN_W;
+    setEmailOn(true);
+  }
+
+  useEffect(() => {
+    if (!emailOn) return;
+    emailX.value = SCREEN_W;
+    emailX.value = withTiming(0, {
+      duration: 420,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
+    });
+  }, [emailOn, emailX]);
+
+  function backFromEmail() {
+    Keyboard.dismiss();
+    emailX.value = withTiming(
+      SCREEN_W,
+      { duration: 360, easing: Easing.in(Easing.cubic) },
+      (finished) => {
+        if (finished) runOnJS(hideEmail)();
+      },
+    );
+  }
+
+  const emailSlide = useAnimatedStyle(() => ({
+    transform: [{ translateX: emailX.value }],
   }));
 
   function closeLangs() {
@@ -516,7 +561,7 @@ export default function Onboard() {
         ))}
       </ScrollView>
 
-      {auth === null || pane !== "email" ? (
+      {auth === null || !emailOn ? (
         <>
           <Pressable
             onPress={() => {
@@ -556,7 +601,7 @@ export default function Onboard() {
         </View>
       ) : null}
 
-      {auth !== null && pane !== "email" ? (
+      {auth !== null ? (
         <View style={styles.overlay} pointerEvents="box-none">
           <Animated.View pointerEvents="none" style={[styles.dimFill, dimStyle]} />
           <Pressable style={StyleSheet.absoluteFill} onPress={dismissSheet} />
@@ -602,11 +647,7 @@ export default function Onboard() {
               />
               {error ? <Text style={styles.error}>{error}</Text> : null}
               <Pressable
-                onPress={() => {
-                  setPane("email");
-                  setError("");
-                  setNote("");
-                }}
+                onPress={openEmail}
                 style={styles.email}
               >
                 <Text style={styles.emailText}>{C.continueEmail}</Text>
@@ -616,18 +657,15 @@ export default function Onboard() {
         </View>
       ) : null}
 
-      {auth !== null && pane === "email" ? (
+      {emailOn ? (
+        <Animated.View style={[styles.emailScreen, emailSlide]}>
         <KeyboardAvoidingView
-          style={styles.emailScreen}
+          style={{ flex: 1 }}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
           <View style={[styles.emailHead, { paddingTop: insets.top + 6 }]}>
             <Pressable
-              onPress={() => {
-                setPane("providers");
-                setError("");
-                setNote("");
-              }}
+              onPress={backFromEmail}
               style={styles.emailBack}
               hitSlop={16}
             >
@@ -745,6 +783,7 @@ export default function Onboard() {
             ) : null}
           </ScrollView>
         </KeyboardAvoidingView>
+        </Animated.View>
       ) : null}
 
       {langsOpen ? (
