@@ -1,9 +1,10 @@
 import { Stack, router, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as Updates from "expo-updates";
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Appearance } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { LaunchSplash } from "../components/LaunchSplash";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 
@@ -48,13 +49,15 @@ function OnboardGate() {
 export default function Root() {
   const colors = useColors();
   const { appearance } = useUvel();
+  const [intro, setIntro] = useState(true);
+  const dismiss = useCallback(() => setIntro(false), []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#2A320E" }}>
       <ThemeSync />
       <OtaSync />
       <OnboardGate />
-      <StatusBar style={appearance === "dark" ? "light" : "dark"} />
+      <StatusBar style={intro || appearance === "dark" ? "light" : "dark"} />
       <Stack
         screenOptions={{
           headerTintColor: colors.bone,
@@ -97,6 +100,7 @@ export default function Root() {
           }}
         />
       </Stack>
+      {intro ? <LaunchSplash onDone={dismiss} /> : null}
     </GestureHandlerRootView>
   );
 }
