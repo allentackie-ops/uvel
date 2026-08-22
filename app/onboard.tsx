@@ -5,8 +5,6 @@ import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUvel } from "../lib/store";
 
-const SCRIM = [0.06, 0.12, 0.2, 0.32, 0.46, 0.6, 0.74, 0.84, 0.9];
-
 export default function Onboard() {
   const { completeOnboard } = useUvel();
   const insets = useSafeAreaInsets();
@@ -52,20 +50,14 @@ export default function Onboard() {
         contentFit="cover"
         nativeControls={false}
       />
-      <View pointerEvents="none" style={styles.scrim}>
-        {SCRIM.map((o, i) => (
-          <View key={i} style={{ height: 26, backgroundColor: `rgba(42,50,14,${o})` }} />
-        ))}
-        <View style={{ height: 90, backgroundColor: "rgba(42,50,14,0.94)" }} />
-      </View>
       <Pressable
         onPress={go}
-        style={[styles.skip, { top: Math.max(insets.top, 12) + 6 }]}
+        style={[styles.skip, { top: insets.top + 8 }]}
         hitSlop={16}
       >
         <Text style={styles.skipText}>Skip</Text>
       </Pressable>
-      <View style={[styles.copy, { paddingBottom: Math.max(insets.bottom, 14) + 12 }]}>
+      <View style={[styles.copy, { paddingBottom: Math.max(insets.bottom, 12) + 14 }]}>
         <Text style={styles.kicker}>TRY ON</Text>
         <Text style={styles.title}>See it on you{"\n"}before you buy.</Text>
         <Text style={styles.lede}>A look you love. On your body. Then you decide.</Text>
@@ -79,14 +71,13 @@ export default function Onboard() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#2A320E" },
-  scrim: { position: "absolute", left: 0, right: 0, bottom: 0 },
   skip: { position: "absolute", right: 18, zIndex: 2 },
-  skipText: { color: "rgba(255,255,255,0.78)", fontSize: 13, letterSpacing: 0.6 },
+  skipText: { color: "rgba(255,255,255,0.82)", fontSize: 13, letterSpacing: 0.6 },
   copy: { position: "absolute", left: 22, right: 22, bottom: 0 },
   kicker: { color: "rgba(255,255,255,0.7)", fontSize: 11, letterSpacing: 2.4, marginBottom: 8 },
   title: { color: "#fff", fontFamily: "Georgia", fontSize: 32, lineHeight: 34 },
   lede: {
-    color: "rgba(255,255,255,0.78)",
+    color: "rgba(255,255,255,0.8)",
     fontSize: 15,
     lineHeight: 21,
     marginTop: 10,

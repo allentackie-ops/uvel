@@ -1,32 +1,40 @@
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Dimensions, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export function LaunchSplash({ onDone }: { onDone: () => void }) {
   const insets = useSafeAreaInsets();
+  const { width, height } = Dimensions.get("window");
 
   useEffect(() => {
     void SplashScreen.hideAsync().catch(() => undefined);
-    const t = setTimeout(onDone, 1050);
+    const t = setTimeout(onDone, 1200);
     return () => clearTimeout(t);
   }, [onDone]);
 
   return (
-    <View style={styles.root} pointerEvents="auto">
-      <Text style={styles.word}>uvel</Text>
-      <Text style={[styles.fitza, { bottom: Math.max(insets.bottom, 16) + 28 }]}>from Fitza</Text>
+    <View style={[styles.root, { width, height }]}>
+      <View style={styles.middle}>
+        <Text style={styles.word}>uvel</Text>
+      </View>
+      <Text style={[styles.fitza, { marginBottom: Math.max(insets.bottom, 12) + 32 }]}>
+        from Fitza
+      </Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 200,
     backgroundColor: "#2A320E",
+    alignItems: "center",
+  },
+  middle: {
+    flex: 1,
+    width: "100%",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -34,18 +42,16 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontFamily: "Georgia",
     fontSize: 56,
-    letterSpacing: 7,
-    paddingLeft: 7,
+    letterSpacing: 8,
+    paddingLeft: 8,
     fontWeight: "600",
+    textAlign: "center",
   },
   fitza: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    textAlign: "center",
     color: "rgba(255,255,255,0.62)",
     fontSize: 13,
-    letterSpacing: 1.4,
+    letterSpacing: 1.6,
     fontWeight: "500",
+    textAlign: "center",
   },
 });
