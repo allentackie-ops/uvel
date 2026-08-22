@@ -7,6 +7,7 @@ import {
   Dimensions,
   Image as MosaicImg,
   KeyboardAvoidingView,
+  Linking,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
@@ -277,6 +278,9 @@ export default function Onboard() {
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [agreed, setAgreed] = useState(false);
+  const [showPass, setShowPass] = useState(false);
   const [note, setNote] = useState("");
   const scroller = useRef<ScrollView>(null);
   const sheetY = useSharedValue(SCREEN_H);
@@ -290,6 +294,9 @@ export default function Onboard() {
     setNote("");
     setEmail("");
     setPassword("");
+    setName("");
+    setAgreed(false);
+    setShowPass(false);
   }
 
   useEffect(() => {
@@ -423,9 +430,11 @@ export default function Onboard() {
         ))}
       </ScrollView>
 
-      <Pressable onPress={() => finish()} style={[styles.skip, { top: insets.top + 8 }]} hitSlop={16}>
-        <Text style={styles.skipText}>Skip</Text>
-      </Pressable>
+      {auth === null || pane !== "email" ? (
+        <Pressable onPress={() => finish()} style={[styles.skip, { top: insets.top + 8 }]} hitSlop={16}>
+          <Text style={styles.skipText}>Skip</Text>
+        </Pressable>
+      ) : null}
 
       {copy.kind !== "market" ? (
         <View style={[styles.copy, { paddingBottom: Math.max(insets.bottom, 12) + 14 }]}>
@@ -443,7 +452,7 @@ export default function Onboard() {
         </View>
       ) : null}
 
-      {auth !== null ? (
+      {auth !== null && pane !== "email" ? (
         <View style={styles.overlay} pointerEvents="box-none">
           <Animated.View pointerEvents="none" style={[styles.dimFill, dimStyle]} />
           <Pressable style={StyleSheet.absoluteFill} onPress={dismissSheet} />
@@ -461,130 +470,178 @@ export default function Onboard() {
               <Pressable onPress={dismissSheet} style={styles.close} hitSlop={16}>
                 <Text style={styles.closeX}>✕</Text>
               </Pressable>
-              {pane === "email" ? (
-                <Pressable
-                  onPress={() => {
-                    setPane("providers");
-                    setError("");
-                    setNote("");
-                  }}
-                  style={styles.back}
-                  hitSlop={16}
-                >
-                  <Text style={styles.backText}>‹</Text>
-                </Pressable>
-              ) : null}
               <Text style={styles.sheetTitle}>{isLogin ? "Log in to Uvel" : "Sign up for Uvel"}</Text>
-            {pane === "email" ? (
-              <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
-                {isLogin ? (
-                  <View style={{ height: 18 }} />
-                ) : (
-                  <Text style={styles.sheetLede}>Use the email you actually check.</Text>
-                )}
-                <TextInput
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="Email"
-                  placeholderTextColor="rgba(255,255,255,0.38)"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                  textContentType="emailAddress"
-                  style={styles.field}
-                />
-                <TextInput
-                  value={password}
-                  onChangeText={setPassword}
-                  placeholder="Password"
-                  placeholderTextColor="rgba(255,255,255,0.38)"
-                  secureTextEntry
-                  textContentType={isLogin ? "password" : "newPassword"}
-                  style={styles.field}
-                />
-                {error ? <Text style={styles.error}>{error}</Text> : null}
-                {note ? <Text style={styles.note}>{note}</Text> : null}
-                <Pressable
-                  onPress={() =>
-                    void run("email", () =>
-                      isLogin ? signInEmail(email, password) : signUpEmail(email, password),
-                    )
-                  }
-                  style={[styles.authBtn, styles.authFilled, { marginTop: 4 }]}
-                  disabled={busy !== null}
-                >
-                  {busy === "email" ? (
-                    <ActivityIndicator color="#111" />
-                  ) : (
-                    <Text style={[styles.authLabel, styles.authLabelDark]}>
-                      {isLogin ? "Log in" : "Create account"}
-                    </Text>
-                  )}
-                </Pressable>
-                {isLogin ? (
-                  <Pressable
-                    onPress={async () => {
-                      setError("");
-                      setNote("");
-                      setBusy("reset");
-                      try {
-                        await resetPassword(email);
-                        setNote("Check your email for a reset link.");
-                      } catch (err) {
-                        setError(err instanceof Error ? err.message : "Couldn’t send it.");
-                      } finally {
-                        setBusy(null);
-                      }
-                    }}
-                    style={styles.email}
-                  >
-                    <Text style={styles.emailText}>Forgot password</Text>
-                  </Pressable>
-                ) : null}
-              </KeyboardAvoidingView>
-            ) : (
-              <>
-                {isLogin ? (
-                  <View style={{ height: 22 }} />
-                ) : (
-                  <Text style={styles.sheetLede}>It's quickest to use your Apple ID.</Text>
-                )}
-                <AuthBtn
-                  icon={require("../assets/auth/apple.png")}
-                  label="Continue with Apple"
-                  filled
-                  busy={busy === "apple"}
-                  disabled={busy !== null}
-                  onPress={() => void run("apple", signInApple)}
-                />
-                <View style={styles.orRow}>
-                  <View style={styles.orLine} />
-                  <Text style={styles.orText}>or</Text>
-                  <View style={styles.orLine} />
-                </View>
-                <AuthBtn
-                  icon={require("../assets/auth/google.png")}
-                  label="Continue with Google"
-                  busy={busy === "google"}
-                  disabled={busy !== null}
-                  onPress={() => void run("google", signInGoogle)}
-                />
-                {error ? <Text style={styles.error}>{error}</Text> : null}
-                <Pressable
-                  onPress={() => {
-                    setPane("email");
-                    setError("");
-                    setNote("");
-                  }}
-                  style={styles.email}
-                >
-                  <Text style={styles.emailText}>Continue with email</Text>
-                </Pressable>
-              </>
-            )}
+              {isLogin ? (
+                <View style={{ height: 22 }} />
+              ) : (
+                <Text style={styles.sheetLede}>It's quickest to use your Apple ID.</Text>
+              )}
+              <AuthBtn
+                icon={require("../assets/auth/apple.png")}
+                label="Continue with Apple"
+                filled
+                busy={busy === "apple"}
+                disabled={busy !== null}
+                onPress={() => void run("apple", signInApple)}
+              />
+              <View style={styles.orRow}>
+                <View style={styles.orLine} />
+                <Text style={styles.orText}>or</Text>
+                <View style={styles.orLine} />
+              </View>
+              <AuthBtn
+                icon={require("../assets/auth/google.png")}
+                label="Continue with Google"
+                busy={busy === "google"}
+                disabled={busy !== null}
+                onPress={() => void run("google", signInGoogle)}
+              />
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+              <Pressable
+                onPress={() => {
+                  setPane("email");
+                  setError("");
+                  setNote("");
+                }}
+                style={styles.email}
+              >
+                <Text style={styles.emailText}>Continue with email</Text>
+              </Pressable>
             </Animated.View>
           </GestureDetector>
         </View>
+      ) : null}
+
+      {auth !== null && pane === "email" ? (
+        <KeyboardAvoidingView
+          style={styles.emailScreen}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <View style={[styles.emailHead, { paddingTop: insets.top + 6 }]}>
+            <Pressable
+              onPress={() => {
+                setPane("providers");
+                setError("");
+                setNote("");
+              }}
+              style={styles.emailBack}
+              hitSlop={16}
+            >
+              <Text style={styles.backText}>‹</Text>
+            </Pressable>
+            <Text style={styles.emailHeadTitle}>Continue</Text>
+            <View style={{ width: 36 }} />
+          </View>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{
+              paddingHorizontal: 20,
+              paddingBottom: Math.max(insets.bottom, 16) + 24,
+            }}
+          >
+            {!isLogin ? (
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                placeholder="Full name"
+                placeholderTextColor="rgba(255,255,255,0.38)"
+                autoCapitalize="words"
+                autoCorrect={false}
+                textContentType="name"
+                style={styles.field}
+              />
+            ) : null}
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Email"
+              placeholderTextColor="rgba(255,255,255,0.38)"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              style={styles.field}
+            />
+            <View>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Password"
+                placeholderTextColor="rgba(255,255,255,0.38)"
+                secureTextEntry={!showPass}
+                textContentType={isLogin ? "password" : "newPassword"}
+                style={[styles.field, { paddingRight: 72 }]}
+              />
+              <Pressable onPress={() => setShowPass((v) => !v)} style={styles.eye} hitSlop={8}>
+                <Text style={styles.eyeText}>{showPass ? "Hide" : "Show"}</Text>
+              </Pressable>
+            </View>
+            {error ? <Text style={[styles.error, { textAlign: "left" }]}>{error}</Text> : null}
+            {note ? <Text style={[styles.note, { textAlign: "left" }]}>{note}</Text> : null}
+            {!isLogin ? (
+              <Pressable onPress={() => setAgreed((v) => !v)} style={styles.agreeRow}>
+                <View style={[styles.box, agreed && styles.boxOn]}>
+                  {agreed ? <Text style={styles.tick}>✓</Text> : null}
+                </View>
+                <Text style={styles.agreeText}>
+                  By continuing I agree to Uvel’s{" "}
+                  <Text
+                    style={styles.agreeLink}
+                    onPress={() => void Linking.openURL("https://allentackie-ops.github.io/")}
+                  >
+                    Privacy Policy
+                  </Text>
+                  , and I confirm I am 18 or older.
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={() => {
+                if (!isLogin && !agreed) {
+                  setError("Tick the box to agree, then continue.");
+                  return;
+                }
+                if (!isLogin && !name.trim()) {
+                  setError("Add your name.");
+                  return;
+                }
+                void run("email", () =>
+                  isLogin ? signInEmail(email, password) : signUpEmail(email, password, name),
+                );
+              }}
+              style={[styles.authBtn, styles.authFilled, { marginTop: 10 }]}
+              disabled={busy !== null}
+            >
+              {busy === "email" ? (
+                <ActivityIndicator color="#111" />
+              ) : (
+                <Text style={[styles.authLabel, styles.authLabelDark]}>
+                  {isLogin ? "Log in" : "Continue"}
+                </Text>
+              )}
+            </Pressable>
+            {isLogin ? (
+              <Pressable
+                onPress={async () => {
+                  setError("");
+                  setNote("");
+                  setBusy("reset");
+                  try {
+                    await resetPassword(email);
+                    setNote("Check your email for a reset link.");
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Couldn’t send it.");
+                  } finally {
+                    setBusy(null);
+                  }
+                }}
+                style={styles.email}
+              >
+                <Text style={styles.emailText}>Forgot password</Text>
+              </Pressable>
+            ) : null}
+          </ScrollView>
+        </KeyboardAvoidingView>
       ) : null}
     </View>
   );
@@ -719,4 +776,59 @@ const styles = StyleSheet.create({
   },
   back: { position: "absolute", left: 16, top: 14, zIndex: 2, padding: 4 },
   backText: { color: "rgba(255,255,255,0.88)", fontSize: 28, lineHeight: 30, fontWeight: "300" },
+  emailScreen: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "#12140A",
+    zIndex: 30,
+  },
+  emailHead: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+    paddingBottom: 18,
+  },
+  emailBack: { width: 36, alignItems: "center" },
+  emailHeadTitle: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "600",
+  },
+  eye: {
+    position: "absolute",
+    right: 14,
+    top: 0,
+    height: 52,
+    justifyContent: "center",
+  },
+  eyeText: { color: "rgba(255,255,255,0.55)", fontSize: 14, fontWeight: "600" },
+  agreeRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 18,
+  },
+  box: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  boxOn: {
+    backgroundColor: "#C5D4A0",
+    borderColor: "#C5D4A0",
+  },
+  tick: { color: "#12140A", fontSize: 13, fontWeight: "700" },
+  agreeText: {
+    flex: 1,
+    color: "rgba(255,255,255,0.7)",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  agreeLink: { color: "#C5D4A0", textDecorationLine: "underline" },
 });

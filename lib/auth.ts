@@ -98,12 +98,12 @@ export function currentSession(): Session | null {
   return user ? session(user) : null;
 }
 
-export async function signUpEmail(email: string, password: string) {
+export async function signUpEmail(email: string, password: string, name?: string) {
   needFirebase();
   try {
     const cred = await createUserWithEmailAndPassword(firebaseAuth(), email.trim(), password);
-    const name = email.trim().split("@")[0];
-    await updateProfile(cred.user, { displayName: name }).catch(() => undefined);
+    const display = (name ?? "").trim() || email.trim().split("@")[0];
+    await updateProfile(cred.user, { displayName: display }).catch(() => undefined);
     await remember(cred.user, "email");
     return session(cred.user);
   } catch (err) {
