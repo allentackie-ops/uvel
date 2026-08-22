@@ -395,7 +395,7 @@ export default function Onboard() {
               onPress={() => finish("google")}
             />
             <AuthBtn
-              icon={require("../assets/auth/facebook-mark.png")}
+              icon={require("../assets/auth/facebook-vinted.png")}
               label="Continue with Facebook"
               mark
               onPress={() => finish("facebook")}
