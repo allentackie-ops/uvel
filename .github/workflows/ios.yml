@@ -9,16 +9,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ruby/setup-ruby@v1
+      - uses: actions/setup-python@v5
         with:
-          ruby-version: "3.3"
+          python-version: "3.12"
 
-      - name: Install Fastlane
-        run: gem install fastlane --no-document
+      - name: Install Python deps
+        run: pip install "PyJWT[crypto]" requests
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
       - uses: expo/expo-github-action@v8
         with:
@@ -31,30 +31,7 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
           CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
-        run: |
-          mkdir -p certs
-          fastlane ci_certs
-
-      - name: Write credentials.json
-        env:
-          CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
-        run: |
-          P12=$(ls certs/*.p12 | head -n 1)
-          PROFILE=$(ls certs/*.mobileprovision | head -n 1)
-          python3 -c "
-          import json
-          cred = {
-            'ios': {
-              'provisioningProfilePath': '$PROFILE',
-              'distributionCertificate': {
-                'path': '$P12',
-                'password': '''$CERT_PASSWORD'''
-              }
-            }
-          }
-          open('credentials.json','w').write(json.dumps(cred, indent=2))
-          print('credentials.json ready')
-          "
+        run: python3 scripts/ios_certs.py
 
       - name: Build on EAS
         run: npx eas-cli build --platform ios --profile ci --non-interactive --no-wait
