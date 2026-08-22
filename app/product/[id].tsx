@@ -110,6 +110,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
-  cta: { borderRadius: 999, paddingHorizontal: 16, paddingVertical: 12 },
+  cta: { backgroundColor: colors.pulse, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 12 },
   ctaText: { color: colors.bone, fontWeight: "600" },
 });

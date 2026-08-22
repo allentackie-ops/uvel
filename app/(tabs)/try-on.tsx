@@ -107,6 +107,6 @@ const styles = StyleSheet.create({
   pickImg: { width: 108, height: 148, borderRadius: 16 },
   pickOn: { borderWidth: 2, borderColor: colors.bone },
   pickName: { color: colors.bone, fontSize: 12, marginTop: 6 },
-  cta: { borderRadius: 999, paddingVertical: 16, alignItems: "center" },
+  cta: { backgroundColor: colors.pulse, borderRadius: 999, paddingVertical: 16, alignItems: "center" },
   ctaText: { color: colors.bone, fontWeight: "600" },
 });

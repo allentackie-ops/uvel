@@ -18,7 +18,7 @@ export function Glass({
       <GlassView
         glassEffectStyle={effect}
         isInteractive={interactive}
-        colorScheme="dark"
+        colorScheme="light"
         style={style}
       >
         {children}
@@ -32,8 +32,8 @@ export { GlassContainer };
 
 const styles = StyleSheet.create({
   fallback: {
-    backgroundColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.55)",
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.28)",
+    borderColor: "rgba(22,20,15,0.12)",
   },
 });

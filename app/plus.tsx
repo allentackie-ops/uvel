@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "space-between" },
   h3: { color: colors.bone, fontWeight: "600" },
   p: { color: colors.muted, marginTop: 4, fontSize: 12 },
-  cta: { marginTop: 20, borderRadius: 999, paddingVertical: 16, alignItems: "center" },
+  cta: { marginTop: 20, borderRadius: 999, paddingVertical: 16, alignItems: "center", backgroundColor: colors.pulse },
   ctaText: { color: colors.bone, fontWeight: "600" },
   note: { color: colors.subtle, fontSize: 11, marginTop: 14, lineHeight: 16, textAlign: "center" },
 });

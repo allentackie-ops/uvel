@@ -68,9 +68,9 @@ const styles = StyleSheet.create({
   input: { color: colors.bone, height: 48 },
   row: { flexDirection: "row", gap: 8 },
   chip: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
-  chipOn: { backgroundColor: colors.bone },
+  chipOn: { backgroundColor: colors.pulse },
   chipText: { color: colors.bone, fontSize: 13 },
-  chipTextOn: { color: colors.ink },
+  chipTextOn: { color: colors.bone },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 20 },
   cell: { width: "47%", flexGrow: 1 },
 });

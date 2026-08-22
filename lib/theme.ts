@@ -1,9 +1,11 @@
 export const colors = {
-  ink: "#0F0E0C",
-  surface: "#181614",
-  bone: "#F4EFE8",
-  muted: "#C4BBB1",
-  subtle: "#8A8278",
+  ink: "#F4F0E6",
+  surface: "#FFFFFF",
+  bone: "#16140F",
+  muted: "#6B6560",
+  subtle: "#8E887E",
+  pulse: "#D6FF3C",
+  pulseInk: "#16140F",
 };
 
 export const fonts = {

@@ -6,7 +6,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "ios": {
       "bundleIdentifier": "com.uvel.dressandshop",
       "supportsTablet": false,
@@ -15,7 +15,7 @@
         "NSCameraUsageDescription": "Uvel photographs looks and you, so it can find the piece and show it on your body before you buy.",
         "NSPhotoLibraryUsageDescription": "Uvel reads photos and screenshots you pick so it can find the clothes and try them on you.",
         "NSMicrophoneUsageDescription": "Video looks from TikTok, Reels, and Snapchat may include sound.",
-        "UIUserInterfaceStyle": "Dark"
+        "UIUserInterfaceStyle": "Light"
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
@@ -29,7 +29,7 @@
     "android": {
       "package": "com.uvel.dressandshop",
       "adaptiveIcon": {
-        "backgroundColor": "#0F0E0C",
+        "backgroundColor": "#D6FF3C",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -55,7 +55,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0F0E0C",
+          "backgroundColor": "#D6FF3C",
           "image": "./assets/splash-icon.png"
         }
       ]
