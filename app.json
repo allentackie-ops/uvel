@@ -82,7 +82,8 @@
         }
       ],
       "expo-video",
-      "expo-updates"
+      "expo-updates",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true

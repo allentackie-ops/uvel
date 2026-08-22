@@ -322,33 +322,20 @@ export async function signInFacebook() {
 
 export async function signInApple() {
   needFirebase();
-  let Apple: {
-    isAvailableAsync: () => Promise<boolean>;
-    signInAsync: (opts: {
-      requestedScopes: unknown[];
-    }) => Promise<{
-      identityToken: string | null;
-      fullName?: { givenName?: string | null; familyName?: string | null } | null;
-    }>;
-    AppleAuthenticationScope: { FULL_NAME: unknown; EMAIL: unknown };
-  } | null = null;
+  let Apple: typeof import("expo-apple-authentication") | null = null;
   try {
-    // Native module is not in this binary yet — require so Metro doesn't typecheck it.
     Apple = require("expo-apple-authentication");
   } catch {
     Apple = null;
   }
-  if (!Apple) {
+  if (!Apple?.isAvailableAsync) {
     throw new Error("Apple Sign In needs the next App Store build.");
   }
   try {
     const available = await Apple.isAvailableAsync();
     if (!available) throw new Error("Apple Sign In isn’t available on this device.");
     const apple = await Apple.signInAsync({
-      requestedScopes: [
-        Apple.AppleAuthenticationScope.FULL_NAME,
-        Apple.AppleAuthenticationScope.EMAIL,
-      ],
+      requestedScopes: [Apple.AppleAuthenticationScope.FULL_NAME, Apple.AppleAuthenticationScope.EMAIL],
     });
     if (!apple.identityToken) throw new Error("Apple didn’t return a sign-in token.");
     const provider = new OAuthProvider("apple.com");
