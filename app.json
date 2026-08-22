@@ -49,7 +49,6 @@
     },
     "plugins": [
       "expo-router",
-      "expo-glass-effect",
       [
         "expo-image-picker",
         {
