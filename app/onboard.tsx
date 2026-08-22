@@ -151,9 +151,9 @@ function Catalog({
   return (
     <View style={styles.market}>
       <View style={[styles.grid, { marginTop: insets.top + 36, height: gridH }]}>
-        <DriftRow images={ROW_A} height={tileH} duration={52000} />
+        <DriftRow images={ROW_A} height={tileH} duration={18000} />
         <View style={{ height: 10 }} />
-        <DriftRow images={ROW_B} height={tileH} duration={58000} />
+        <DriftRow images={ROW_B} height={tileH} duration={22000} />
       </View>
       <View
         style={[
