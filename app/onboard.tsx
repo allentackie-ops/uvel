@@ -388,11 +388,9 @@ export default function Onboard() {
               nudgeY={-1}
               onPress={() => finish("facebook")}
             />
-            {isLogin ? (
-              <Pressable onPress={() => finish("email")} style={styles.email}>
-                <Text style={styles.emailText}>Continue with email</Text>
-              </Pressable>
-            ) : null}
+            <Pressable onPress={() => finish("email")} style={styles.email}>
+              <Text style={styles.emailText}>Continue with email</Text>
+            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
