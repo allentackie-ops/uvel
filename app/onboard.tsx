@@ -48,7 +48,7 @@ const PAGES = [
     kicker: "",
     title: "From coats to\nthe last pin.",
     lede: "",
-    cta: "Sign in",
+    cta: "Sign up",
   },
 ];
 
@@ -139,11 +139,13 @@ function DriftRow({
 }
 
 function Catalog({
-  onSignIn,
+  onSignUp,
+  onLogIn,
   insets,
   covered,
 }: {
-  onSignIn: () => void;
+  onSignUp: () => void;
+  onLogIn: () => void;
   insets: { top: number; bottom: number };
   covered: boolean;
 }) {
@@ -171,8 +173,11 @@ function Catalog({
           </View>
           <Text style={styles.title}>From coats to{"\n"}the last pin.</Text>
           <View style={{ flex: 1 }} />
-          <Pressable onPress={onSignIn} style={styles.cta}>
-            <Text style={styles.ctaText}>Sign in</Text>
+          <Pressable onPress={onSignUp} style={styles.cta}>
+            <Text style={styles.ctaText}>Sign up</Text>
+          </Pressable>
+          <Pressable onPress={onLogIn} style={styles.ctaLogin}>
+            <Text style={styles.ctaLoginText}>Log in</Text>
           </Pressable>
         </View>
       )}
@@ -253,17 +258,17 @@ export default function Onboard() {
   const { completeOnboard } = useUvel();
   const insets = useSafeAreaInsets();
   const [page, setPage] = useState(0);
-  const [auth, setAuth] = useState(false);
+  const [auth, setAuth] = useState<null | "signup" | "login">(null);
   const scroller = useRef<ScrollView>(null);
 
   function finish(provider?: string) {
-    setAuth(false);
+    setAuth(null);
     void completeOnboard(provider);
   }
 
   function next() {
     if (page >= PAGES.length - 1) {
-      setAuth(true);
+      setAuth("signup");
       return;
     }
     const n = page + 1;
@@ -277,6 +282,7 @@ export default function Onboard() {
   }
 
   const copy = PAGES[page];
+  const isLogin = auth === "login";
 
   return (
     <View style={styles.root}>
@@ -292,7 +298,12 @@ export default function Onboard() {
         {PAGES.map((p, i) => (
           <View key={p.title} style={{ width: SCREEN_W, height: "100%" }}>
             {p.kind === "market" ? (
-              <Catalog onSignIn={() => setAuth(true)} insets={insets} covered={auth} />
+              <Catalog
+                onSignUp={() => setAuth("signup")}
+                onLogIn={() => setAuth("login")}
+                insets={insets}
+                covered={auth !== null}
+              />
             ) : (
               <Film source={p.source} active={page === i} />
             )}
@@ -321,13 +332,13 @@ export default function Onboard() {
       ) : null}
 
       <Modal
-        visible={auth}
+        visible={auth !== null}
         animationType="slide"
         transparent
         presentationStyle="overFullScreen"
-        onRequestClose={() => setAuth(false)}
+        onRequestClose={() => setAuth(null)}
       >
-        <Pressable style={styles.sheetDim} onPress={() => setAuth(false)}>
+        <Pressable style={styles.sheetDim} onPress={() => setAuth(null)}>
           <Pressable
             style={[
               styles.sheet,
@@ -338,11 +349,15 @@ export default function Onboard() {
             ]}
             onPress={() => undefined}
           >
-            <Pressable onPress={() => setAuth(false)} style={styles.close} hitSlop={16}>
+            <Pressable onPress={() => setAuth(null)} style={styles.close} hitSlop={16}>
               <Text style={styles.closeX}>✕</Text>
             </Pressable>
-            <Text style={styles.sheetTitle}>Sign up for Uvel</Text>
-            <Text style={styles.sheetLede}>It's quickest to use your Apple ID.</Text>
+            <Text style={styles.sheetTitle}>{isLogin ? "Log in to Uvel" : "Sign up for Uvel"}</Text>
+            {isLogin ? (
+              <View style={{ height: 22 }} />
+            ) : (
+              <Text style={styles.sheetLede}>It's quickest to use your Apple ID.</Text>
+            )}
             <AuthBtn
               icon={require("../assets/auth/apple.png")}
               label="Continue with Apple"
@@ -364,6 +379,11 @@ export default function Onboard() {
               label="Continue with Facebook"
               onPress={() => finish("facebook")}
             />
+            {isLogin ? (
+              <Pressable onPress={() => finish("email")} style={styles.email}>
+                <Text style={styles.emailText}>Continue with email</Text>
+              </Pressable>
+            ) : null}
           </Pressable>
         </Pressable>
       </Modal>
@@ -400,6 +420,19 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ctaText: { color: "#2A320E", fontSize: 15, fontWeight: "600" },
+  ctaLogin: {
+    height: 50,
+    borderRadius: 999,
+    marginTop: 10,
+    backgroundColor: "transparent",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.82)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  ctaLoginText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  email: { height: 44, alignItems: "center", justifyContent: "center", marginTop: 6 },
+  emailText: { color: "#C5D4A0", fontSize: 16, fontWeight: "600" },
   sheetDim: {
     flex: 1,
     backgroundColor: "transparent",
