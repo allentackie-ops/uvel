@@ -90,21 +90,25 @@ function DriftRow({
   images,
   height,
   duration,
+  reverse,
 }: {
   images: number[];
   height: number;
   duration: number;
+  reverse?: boolean;
 }) {
   const x = useSharedValue(0);
   const span = useSharedValue(0);
+  const dir = reverse ? 1 : -1;
 
   useFrameCallback((frame) => {
     "worklet";
-    const width = span.value;
-    if (width <= 1) return;
-    const dt = Math.min(frame.timeSincePreviousFrame ?? 16, 40);
-    let next = x.value - (width / duration) * dt;
-    if (next <= -width) next += width;
+    const w = span.value;
+    if (w <= 1) return;
+    const dt = Math.min(frame.timeSincePreviousFrame ?? 16, 24);
+    let next = x.value + dir * (w / duration) * dt;
+    if (next <= -w) next += w;
+    if (next > 0) next -= w;
     x.value = next;
   });
 
@@ -112,28 +116,36 @@ function DriftRow({
     transform: [{ translateX: x.value }],
   }));
 
-  const strip = [...images, ...images, ...images];
+  function tiles(prefix: string) {
+    return images.map((src, i) => (
+      <Image
+        key={`${prefix}${i}`}
+        source={src}
+        style={{
+          width: WIDTHS[i % WIDTHS.length],
+          height,
+          borderRadius: 18,
+          marginRight: 10,
+        }}
+        contentFit="cover"
+      />
+    ));
+  }
 
   return (
-    <Animated.View
-      style={[{ flexDirection: "row" }, style]}
-      onLayout={(e) => {
-        span.value = e.nativeEvent.layout.width / 3;
-      }}
-    >
-      {strip.map((src, i) => (
-        <Image
-          key={i}
-          source={src}
-          style={{
-            width: WIDTHS[i % WIDTHS.length],
-            height,
-            borderRadius: 18,
-            marginRight: 10,
-          }}
-          contentFit="cover"
-        />
-      ))}
+    <Animated.View style={[{ flexDirection: "row" }, style]}>
+      <View
+        style={{ flexDirection: "row" }}
+        onLayout={(e) => {
+          const w = Math.round(e.nativeEvent.layout.width);
+          if (w <= 1) return;
+          span.value = w;
+          if (reverse && x.value === 0) x.value = -w;
+        }}
+      >
+        {tiles("a")}
+      </View>
+      <View style={{ flexDirection: "row" }}>{tiles("b")}</View>
     </Animated.View>
   );
 }
@@ -155,9 +167,9 @@ function Catalog({
   return (
     <View style={styles.market}>
       <View style={[styles.grid, { marginTop: gridTop, height: gridH }]}>
-        <DriftRow images={ROW_A} height={tileH} duration={18000} />
+        <DriftRow images={ROW_A} height={tileH} duration={40000} />
         <View style={{ height: 10 }} />
-        <DriftRow images={ROW_B} height={tileH} duration={22000} />
+        <DriftRow images={ROW_B} height={tileH} duration={46000} reverse />
       </View>
       {covered ? null : (
         <View
