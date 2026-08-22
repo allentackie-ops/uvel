@@ -235,18 +235,26 @@ function AuthBtn({
   label,
   filled,
   onPress,
+  nudgeY = 0,
 }: {
   icon: number;
   label: string;
   filled?: boolean;
   onPress: () => void;
+  nudgeY?: number;
 }) {
   return (
     <Pressable
       onPress={onPress}
       style={[styles.authBtn, filled ? styles.authFilled : styles.authOutline]}
     >
-      <Image source={icon} style={styles.authIcon} contentFit="contain" />
+      <View style={styles.authIconWrap}>
+        <Image
+          source={icon}
+          style={[styles.authIcon, nudgeY ? { transform: [{ translateY: nudgeY }] } : null]}
+          contentFit="contain"
+        />
+      </View>
       <Text style={[styles.authLabel, filled ? styles.authLabelDark : styles.authLabelLight]}>
         {label}
       </Text>
@@ -377,6 +385,7 @@ export default function Onboard() {
             <AuthBtn
               icon={require("../assets/auth/facebook.png")}
               label="Continue with Facebook"
+              nudgeY={-1}
               onPress={() => finish("facebook")}
             />
             {isLogin ? (
@@ -476,6 +485,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.55)",
   },
+  authIconWrap: { width: 22, height: 22, alignItems: "center", justifyContent: "center" },
   authIcon: { width: 20, height: 20 },
   authLabel: { fontSize: 16, fontWeight: "600" },
   authLabelDark: { color: "#111" },
