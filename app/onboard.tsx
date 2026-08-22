@@ -1,25 +1,63 @@
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useRef } from "react";
-import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  AppState,
+  Dimensions,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUvel } from "../lib/store";
 
-export default function Onboard() {
-  const { completeOnboard } = useUvel();
-  const insets = useSafeAreaInsets();
+const { width: SCREEN_W } = Dimensions.get("window");
+
+const PAGES = [
+  {
+    source: require("../assets/onboarding/tryon.mp4"),
+    kicker: "TRY ON",
+    title: "See it on you\nbefore you buy.",
+    lede: "A look you love. On your body. Then you decide.",
+    cta: "Next",
+  },
+  {
+    source: require("../assets/onboarding/style.mp4"),
+    kicker: "YOUR STYLE",
+    title: "Clothes that\nactually suit you.",
+    lede: "Not the feed. What looks like you.",
+    cta: "Get started",
+  },
+] as const;
+
+function Film({
+  source,
+  active,
+}: {
+  source: number;
+  active: boolean;
+}) {
   const lastTime = useRef(0);
-  const player = useVideoPlayer(require("../assets/onboarding/tryon.mp4"), (p) => {
+  const player = useVideoPlayer(source, (p) => {
     p.loop = true;
     p.muted = true;
-    p.play();
+    if (active) p.play();
   });
+
+  useEffect(() => {
+    if (active) player.play();
+    else player.pause();
+  }, [active, player]);
 
   useEffect(() => {
     const tick = setInterval(() => {
       lastTime.current = player.currentTime;
     }, 250);
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") {
+      if (state === "active" && active) {
         try {
           if (lastTime.current > 0.05) player.currentTime = lastTime.current;
           player.play();
@@ -34,29 +72,78 @@ export default function Onboard() {
       clearInterval(tick);
       sub.remove();
     };
-  }, [player]);
+  }, [player, active]);
+
+  return (
+    <VideoView
+      player={player}
+      style={StyleSheet.absoluteFill}
+      contentFit="cover"
+      nativeControls={false}
+    />
+  );
+}
+
+export default function Onboard() {
+  const { completeOnboard } = useUvel();
+  const insets = useSafeAreaInsets();
+  const [page, setPage] = useState(0);
+  const scroller = useRef<ScrollView>(null);
 
   function go() {
     void completeOnboard();
   }
 
+  function next() {
+    if (page >= PAGES.length - 1) {
+      go();
+      return;
+    }
+    const n = page + 1;
+    scroller.current?.scrollTo({ x: n * SCREEN_W, animated: true });
+    setPage(n);
+  }
+
+  function onScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const n = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W);
+    if (n !== page && n >= 0 && n < PAGES.length) setPage(n);
+  }
+
+  const copy = PAGES[page];
+
   return (
     <View style={styles.root}>
-      <VideoView
-        player={player}
+      <ScrollView
+        ref={scroller}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={onScroll}
+        scrollEventThrottle={16}
         style={StyleSheet.absoluteFill}
-        contentFit="cover"
-        nativeControls={false}
-      />
+      >
+        {PAGES.map((p, i) => (
+          <View key={p.kicker} style={{ width: SCREEN_W, height: "100%" }}>
+            <Film source={p.source} active={page === i} />
+          </View>
+        ))}
+      </ScrollView>
+
       <Pressable onPress={go} style={[styles.skip, { top: insets.top + 8 }]} hitSlop={16}>
         <Text style={styles.skipText}>Skip</Text>
       </Pressable>
+
       <View style={[styles.copy, { paddingBottom: Math.max(insets.bottom, 12) + 14 }]}>
-        <Text style={styles.kicker}>TRY ON</Text>
-        <Text style={styles.title}>See it on you{"\n"}before you buy.</Text>
-        <Text style={styles.lede}>A look you love. On your body. Then you decide.</Text>
-        <Pressable onPress={go} style={styles.cta}>
-          <Text style={styles.ctaText}>Get started</Text>
+        <View style={styles.dots}>
+          {PAGES.map((p, i) => (
+            <View key={p.kicker} style={[styles.dot, i === page && styles.dotOn]} />
+          ))}
+        </View>
+        <Text style={styles.kicker}>{copy.kicker}</Text>
+        <Text style={styles.title}>{copy.title}</Text>
+        <Text style={styles.lede}>{copy.lede}</Text>
+        <Pressable onPress={next} style={styles.cta}>
+          <Text style={styles.ctaText}>{copy.cta}</Text>
         </Pressable>
       </View>
     </View>
@@ -68,6 +155,9 @@ const styles = StyleSheet.create({
   skip: { position: "absolute", right: 18, zIndex: 2 },
   skipText: { color: "rgba(255,255,255,0.82)", fontSize: 13, letterSpacing: 0.6 },
   copy: { position: "absolute", left: 22, right: 22, bottom: 0 },
+  dots: { flexDirection: "row", gap: 6, marginBottom: 14 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.28)" },
+  dotOn: { backgroundColor: "#fff", width: 16 },
   kicker: { color: "rgba(255,255,255,0.7)", fontSize: 11, letterSpacing: 2.4, marginBottom: 8 },
   title: { color: "#fff", fontFamily: "Georgia", fontSize: 32, lineHeight: 34 },
   lede: {
@@ -76,7 +166,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginTop: 10,
     marginBottom: 20,
-    maxWidth: 260,
+    maxWidth: 280,
   },
   cta: {
     height: 50,
