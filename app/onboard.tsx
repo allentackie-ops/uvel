@@ -51,32 +51,32 @@ const PAGES = [
 ];
 
 const ROW_A = [
-  require("../assets/onboarding/market/01.jpg"),
-  require("../assets/onboarding/market/06.jpg"),
-  require("../assets/onboarding/market/14.jpg"),
-  require("../assets/onboarding/market/07.jpg"),
-  require("../assets/onboarding/market/02.jpg"),
-  require("../assets/onboarding/market/12.jpg"),
-  require("../assets/onboarding/market/16.jpg"),
-  require("../assets/onboarding/market/09.jpg"),
-  require("../assets/onboarding/market/18.jpg"),
-  require("../assets/onboarding/market/15.jpg"),
-  require("../assets/onboarding/market/08.jpg"),
-  require("../assets/onboarding/market/20.jpg"),
+  require("../assets/onboarding/market/t01.jpg"),
+  require("../assets/onboarding/market/t06.jpg"),
+  require("../assets/onboarding/market/t14.jpg"),
+  require("../assets/onboarding/market/t07.jpg"),
+  require("../assets/onboarding/market/t02.jpg"),
+  require("../assets/onboarding/market/t12.jpg"),
+  require("../assets/onboarding/market/t16.jpg"),
+  require("../assets/onboarding/market/t09.jpg"),
+  require("../assets/onboarding/market/t18.jpg"),
+  require("../assets/onboarding/market/t15.jpg"),
+  require("../assets/onboarding/market/t08.jpg"),
+  require("../assets/onboarding/market/t20.jpg"),
 ];
 const ROW_B = [
-  require("../assets/onboarding/market/03.jpg"),
-  require("../assets/onboarding/market/11.jpg"),
-  require("../assets/onboarding/market/22.jpg"),
-  require("../assets/onboarding/market/04.jpg"),
-  require("../assets/onboarding/market/13.jpg"),
-  require("../assets/onboarding/market/17.jpg"),
-  require("../assets/onboarding/market/10.jpg"),
-  require("../assets/onboarding/market/19.jpg"),
-  require("../assets/onboarding/market/05.jpg"),
-  require("../assets/onboarding/market/21.jpg"),
-  require("../assets/onboarding/market/23.jpg"),
-  require("../assets/onboarding/market/24-hanger.jpg"),
+  require("../assets/onboarding/market/t03.jpg"),
+  require("../assets/onboarding/market/t11.jpg"),
+  require("../assets/onboarding/market/t22.jpg"),
+  require("../assets/onboarding/market/t04.jpg"),
+  require("../assets/onboarding/market/t13.jpg"),
+  require("../assets/onboarding/market/t17.jpg"),
+  require("../assets/onboarding/market/t10.jpg"),
+  require("../assets/onboarding/market/t19.jpg"),
+  require("../assets/onboarding/market/t05.jpg"),
+  require("../assets/onboarding/market/t21.jpg"),
+  require("../assets/onboarding/market/t23.jpg"),
+  require("../assets/onboarding/market/t24.jpg"),
 ];
 const WIDTHS = [148, 176, 156, 188, 142, 170];
 
@@ -121,6 +121,7 @@ function DriftRow({
       <Image
         key={`${prefix}${i}`}
         source={src}
+        cachePolicy="none"
         style={{
           width: WIDTHS[i % WIDTHS.length],
           height,
