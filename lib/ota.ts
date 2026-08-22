@@ -4,6 +4,10 @@ import { AppState } from "react-native";
 
 let inFlight = false;
 
+export async function pullOta(): Promise<"reload" | "ok"> {
+  return pull();
+}
+
 async function pull(): Promise<"reload" | "ok"> {
   if (__DEV__ || !Updates.isEnabled) return "ok";
   if (inFlight) return "ok";

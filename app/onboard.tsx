@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   AppState,
   Dimensions,
+  Image as MosaicImg,
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -19,6 +20,7 @@ import Animated, {
   useSharedValue,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { pullOta } from "../lib/ota";
 import { useUvel } from "../lib/store";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
@@ -118,18 +120,16 @@ function DriftRow({
 
   function tiles(prefix: string) {
     return images.map((src, i) => (
-      <Image
+      <MosaicImg
         key={`${prefix}${i}`}
         source={src}
-        cachePolicy="none"
-        recyclingKey={`p-${prefix}-${i}`}
         style={{
           width: WIDTHS[i % WIDTHS.length],
           height,
           borderRadius: 18,
           marginRight: 10,
         }}
-        contentFit="cover"
+        resizeMode="cover"
       />
     ));
   }
@@ -165,6 +165,10 @@ function Catalog({
 }) {
   const { gridH, gridTop } = gridMetrics(insets.top);
   const tileH = (gridH - 10) / 2;
+
+  useEffect(() => {
+    void pullOta();
+  }, []);
 
   return (
     <View style={styles.market}>
