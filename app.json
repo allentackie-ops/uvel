@@ -14,7 +14,7 @@
       "url": "https://u.expo.dev/13230e71-d40b-45c8-8709-176f0c021198",
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 2000
     },
     "ios": {
       "bundleIdentifier": "com.uvel.dressandshop",

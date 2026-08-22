@@ -1,11 +1,11 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import * as Updates from "expo-updates";
 import { useCallback, useEffect, useState } from "react";
 import { Appearance } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { LaunchSplash } from "../components/LaunchSplash";
+import { useOtaReady } from "../lib/ota";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 import Onboard from "./onboard";
@@ -18,31 +18,12 @@ function ThemeSync() {
   return null;
 }
 
-function OtaSync() {
-  useEffect(() => {
-    if (__DEV__) return;
-    void (async () => {
-      try {
-        const result = await Updates.checkForUpdateAsync();
-        if (result.isAvailable) {
-          await Updates.fetchUpdateAsync();
-          await Updates.reloadAsync();
-        }
-      } catch {
-        /* offline / first binary */
-      }
-    })();
-  }, []);
-  return null;
-}
-
 function AppStack() {
   const colors = useColors();
   const { appearance } = useUvel();
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
       <ThemeSync />
-      <OtaSync />
       <StatusBar style={appearance === "dark" ? "light" : "dark"} />
       <Stack
         screenOptions={{
@@ -92,10 +73,11 @@ function AppStack() {
 
 export default function Root() {
   const { onboarded, hydrated } = useUvel();
+  const otaReady = useOtaReady();
   const [intro, setIntro] = useState(true);
   const dismiss = useCallback(() => setIntro(false), []);
 
-  if (intro || !hydrated) {
+  if (intro || !hydrated || !otaReady) {
     return (
       <SafeAreaProvider>
         <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#2A320E" }}>
