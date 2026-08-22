@@ -65,35 +65,9 @@ const PAGES = [
   },
 ];
 
-const ROW_A = [
-  require("../assets/onboarding/market/p01.jpg"),
-  require("../assets/onboarding/market/p06.jpg"),
-  require("../assets/onboarding/market/p14.jpg"),
-  require("../assets/onboarding/market/p07.jpg"),
-  require("../assets/onboarding/market/p02.jpg"),
-  require("../assets/onboarding/market/p12.jpg"),
-  require("../assets/onboarding/market/p16.jpg"),
-  require("../assets/onboarding/market/p09.jpg"),
-  require("../assets/onboarding/market/p18.jpg"),
-  require("../assets/onboarding/market/p15.jpg"),
-  require("../assets/onboarding/market/p08.jpg"),
-  require("../assets/onboarding/market/p20.jpg"),
-];
-const ROW_B = [
-  require("../assets/onboarding/market/p03.jpg"),
-  require("../assets/onboarding/market/p11.jpg"),
-  require("../assets/onboarding/market/p22.jpg"),
-  require("../assets/onboarding/market/p04.jpg"),
-  require("../assets/onboarding/market/p13.jpg"),
-  require("../assets/onboarding/market/p17.jpg"),
-  require("../assets/onboarding/market/p10.jpg"),
-  require("../assets/onboarding/market/p19.jpg"),
-  require("../assets/onboarding/market/p05.jpg"),
-  require("../assets/onboarding/market/p21.jpg"),
-  require("../assets/onboarding/market/p23.jpg"),
-  require("../assets/onboarding/market/p24.jpg"),
-];
-const WIDTHS = [148, 176, 156, 188, 142, 170];
+const STRIP_A = require("../assets/onboarding/strips/a-k7.jpg");
+const STRIP_B = require("../assets/onboarding/strips/b-k7.jpg");
+const STRIP_ASPECT = 7008 / 800;
 
 function gridMetrics(topInset: number) {
   const gridH = Math.min(SCREEN_H * 0.5, 430);
@@ -102,12 +76,12 @@ function gridMetrics(topInset: number) {
 }
 
 function DriftRow({
-  images,
+  source,
   height,
   duration,
   reverse,
 }: {
-  images: number[];
+  source: number;
   height: number;
   duration: number;
   reverse?: boolean;
@@ -115,6 +89,7 @@ function DriftRow({
   const x = useSharedValue(0);
   const span = useSharedValue(0);
   const dir = reverse ? 1 : -1;
+  const stripW = Math.round(height * STRIP_ASPECT);
 
   useFrameCallback((frame) => {
     "worklet";
@@ -131,36 +106,25 @@ function DriftRow({
     transform: [{ translateX: x.value }],
   }));
 
-  function tiles(prefix: string) {
-    return images.map((src, i) => (
-      <MosaicImg
-        key={`${prefix}${i}`}
-        source={src}
-        style={{
-          width: WIDTHS[i % WIDTHS.length],
-          height,
-          borderRadius: 18,
-          marginRight: 10,
-        }}
-        resizeMode="cover"
-      />
-    ));
-  }
-
   return (
     <Animated.View style={[{ flexDirection: "row" }, style]}>
       <View
-        style={{ flexDirection: "row" }}
-        onLayout={(e) => {
-          const w = Math.round(e.nativeEvent.layout.width);
-          if (w <= 1) return;
-          span.value = w;
-          if (reverse && x.value === 0) x.value = -w;
+        onLayout={() => {
+          span.value = stripW;
+          if (reverse && x.value === 0) x.value = -stripW;
         }}
       >
-        {tiles("a")}
+        <MosaicImg
+          source={source}
+          style={{ width: stripW, height }}
+          resizeMode="stretch"
+        />
       </View>
-      <View style={{ flexDirection: "row" }}>{tiles("b")}</View>
+      <MosaicImg
+        source={source}
+        style={{ width: stripW, height }}
+        resizeMode="stretch"
+      />
     </Animated.View>
   );
 }
@@ -186,9 +150,9 @@ function Catalog({
   return (
     <View style={styles.market}>
       <View style={[styles.grid, { marginTop: gridTop, height: gridH }]}>
-        <DriftRow images={ROW_A} height={tileH} duration={40000} />
+        <DriftRow source={STRIP_A} height={tileH} duration={40000} />
         <View style={{ height: 10 }} />
-        <DriftRow images={ROW_B} height={tileH} duration={46000} reverse />
+        <DriftRow source={STRIP_B} height={tileH} duration={46000} reverse />
       </View>
       {covered ? null : (
         <View
