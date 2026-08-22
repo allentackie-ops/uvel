@@ -2,16 +2,20 @@ import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   AppState,
   Dimensions,
   Image as MosaicImg,
+  KeyboardAvoidingView,
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import Animated, {
@@ -22,6 +26,15 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { pullOta } from "../lib/ota";
 import { useUvel } from "../lib/store";
+import {
+  resetPassword,
+  signInApple,
+  signInEmail,
+  signInFacebook,
+  signInGoogle,
+  signUpEmail,
+  type Session,
+} from "../lib/auth";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
@@ -254,47 +267,90 @@ function AuthBtn({
   filled,
   onPress,
   mark,
+  busy,
+  disabled,
 }: {
   icon: number;
   label: string;
   filled?: boolean;
   onPress: () => void;
   mark?: boolean;
+  busy?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled || busy}
       style={[styles.authBtn, filled ? styles.authFilled : styles.authOutline]}
     >
-      <View style={styles.authIconWrap}>
-        <Image
-          source={icon}
-          style={mark ? styles.authMark : styles.authIcon}
-          contentFit="contain"
-        />
-      </View>
-      <Text style={[styles.authLabel, filled ? styles.authLabelDark : styles.authLabelLight]}>
-        {label}
-      </Text>
+      {busy ? (
+        <ActivityIndicator color={filled ? "#111" : "#fff"} />
+      ) : (
+        <>
+          <View style={styles.authIconWrap}>
+            <Image
+              source={icon}
+              style={mark ? styles.authMark : styles.authIcon}
+              contentFit="contain"
+            />
+          </View>
+          <Text style={[styles.authLabel, filled ? styles.authLabelDark : styles.authLabelLight]}>
+            {label}
+          </Text>
+        </>
+      )}
     </Pressable>
   );
 }
 
 export default function Onboard() {
-  const { completeOnboard } = useUvel();
+  const { completeOnboard, acceptSession } = useUvel();
   const insets = useSafeAreaInsets();
   const [page, setPage] = useState(0);
   const [auth, setAuth] = useState<null | "signup" | "login">(null);
+  const [pane, setPane] = useState<"providers" | "email">("providers");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [note, setNote] = useState("");
   const scroller = useRef<ScrollView>(null);
 
-  function finish(provider?: string) {
+  function closeAuth() {
     setAuth(null);
+    setPane("providers");
+    setBusy(null);
+    setError("");
+    setNote("");
+    setEmail("");
+    setPassword("");
+  }
+
+  function finish(provider?: string) {
+    closeAuth();
     void completeOnboard(provider);
+  }
+
+  async function run(kind: string, fn: () => Promise<Session>) {
+    setError("");
+    setNote("");
+    setBusy(kind);
+    try {
+      const session = await fn();
+      closeAuth();
+      void acceptSession(session);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn’t sign in.");
+    } finally {
+      setBusy(null);
+    }
   }
 
   function next() {
     if (page >= PAGES.length - 1) {
       setAuth("signup");
+      setPane("providers");
       return;
     }
     const n = page + 1;
@@ -325,8 +381,16 @@ export default function Onboard() {
           <View key={p.title} style={{ width: SCREEN_W, height: "100%" }}>
             {p.kind === "market" ? (
               <Catalog
-                onSignUp={() => setAuth("signup")}
-                onLogIn={() => setAuth("login")}
+                onSignUp={() => {
+                  setAuth("signup");
+                  setPane("providers");
+                  setError("");
+                }}
+                onLogIn={() => {
+                  setAuth("login");
+                  setPane("providers");
+                  setError("");
+                }}
                 insets={insets}
                 covered={auth !== null}
               />
@@ -362,9 +426,9 @@ export default function Onboard() {
         animationType="slide"
         transparent
         presentationStyle="overFullScreen"
-        onRequestClose={() => setAuth(null)}
+        onRequestClose={closeAuth}
       >
-        <Pressable style={styles.sheetDim} onPress={() => setAuth(null)}>
+        <Pressable style={styles.sheetDim} onPress={closeAuth}>
           <Pressable
             style={[
               styles.sheet,
@@ -375,40 +439,138 @@ export default function Onboard() {
             ]}
             onPress={() => undefined}
           >
-            <Pressable onPress={() => setAuth(null)} style={styles.close} hitSlop={16}>
+            <Pressable onPress={closeAuth} style={styles.close} hitSlop={16}>
               <Text style={styles.closeX}>✕</Text>
             </Pressable>
+            {pane === "email" ? (
+              <Pressable
+                onPress={() => {
+                  setPane("providers");
+                  setError("");
+                  setNote("");
+                }}
+                style={styles.back}
+                hitSlop={16}
+              >
+                <Text style={styles.backText}>‹</Text>
+              </Pressable>
+            ) : null}
             <Text style={styles.sheetTitle}>{isLogin ? "Log in to Uvel" : "Sign up for Uvel"}</Text>
-            {isLogin ? (
-              <View style={{ height: 22 }} />
+            {pane === "email" ? (
+              <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+                {isLogin ? (
+                  <View style={{ height: 18 }} />
+                ) : (
+                  <Text style={styles.sheetLede}>Use the email you actually check.</Text>
+                )}
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="Email"
+                  placeholderTextColor="rgba(255,255,255,0.38)"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                  style={styles.field}
+                />
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Password"
+                  placeholderTextColor="rgba(255,255,255,0.38)"
+                  secureTextEntry
+                  textContentType={isLogin ? "password" : "newPassword"}
+                  style={styles.field}
+                />
+                {error ? <Text style={styles.error}>{error}</Text> : null}
+                {note ? <Text style={styles.note}>{note}</Text> : null}
+                <Pressable
+                  onPress={() =>
+                    void run("email", () =>
+                      isLogin ? signInEmail(email, password) : signUpEmail(email, password),
+                    )
+                  }
+                  style={[styles.authBtn, styles.authFilled, { marginTop: 4 }]}
+                  disabled={busy !== null}
+                >
+                  {busy === "email" ? (
+                    <ActivityIndicator color="#111" />
+                  ) : (
+                    <Text style={[styles.authLabel, styles.authLabelDark]}>
+                      {isLogin ? "Log in" : "Create account"}
+                    </Text>
+                  )}
+                </Pressable>
+                {isLogin ? (
+                  <Pressable
+                    onPress={async () => {
+                      setError("");
+                      setNote("");
+                      setBusy("reset");
+                      try {
+                        await resetPassword(email);
+                        setNote("Check your email for a reset link.");
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : "Couldn’t send it.");
+                      } finally {
+                        setBusy(null);
+                      }
+                    }}
+                    style={styles.email}
+                  >
+                    <Text style={styles.emailText}>Forgot password</Text>
+                  </Pressable>
+                ) : null}
+              </KeyboardAvoidingView>
             ) : (
-              <Text style={styles.sheetLede}>It's quickest to use your Apple ID.</Text>
+              <>
+                {isLogin ? (
+                  <View style={{ height: 22 }} />
+                ) : (
+                  <Text style={styles.sheetLede}>It's quickest to use your Apple ID.</Text>
+                )}
+                <AuthBtn
+                  icon={require("../assets/auth/apple.png")}
+                  label="Continue with Apple"
+                  filled
+                  busy={busy === "apple"}
+                  disabled={busy !== null}
+                  onPress={() => void run("apple", signInApple)}
+                />
+                <View style={styles.orRow}>
+                  <View style={styles.orLine} />
+                  <Text style={styles.orText}>or</Text>
+                  <View style={styles.orLine} />
+                </View>
+                <AuthBtn
+                  icon={require("../assets/auth/google.png")}
+                  label="Continue with Google"
+                  busy={busy === "google"}
+                  disabled={busy !== null}
+                  onPress={() => void run("google", signInGoogle)}
+                />
+                <AuthBtn
+                  icon={require("../assets/auth/facebook-vinted.png")}
+                  label="Continue with Facebook"
+                  mark
+                  busy={busy === "facebook"}
+                  disabled={busy !== null}
+                  onPress={() => void run("facebook", signInFacebook)}
+                />
+                {error ? <Text style={styles.error}>{error}</Text> : null}
+                <Pressable
+                  onPress={() => {
+                    setPane("email");
+                    setError("");
+                    setNote("");
+                  }}
+                  style={styles.email}
+                >
+                  <Text style={styles.emailText}>Continue with email</Text>
+                </Pressable>
+              </>
             )}
-            <AuthBtn
-              icon={require("../assets/auth/apple.png")}
-              label="Continue with Apple"
-              filled
-              onPress={() => finish("apple")}
-            />
-            <View style={styles.orRow}>
-              <View style={styles.orLine} />
-              <Text style={styles.orText}>or</Text>
-              <View style={styles.orLine} />
-            </View>
-            <AuthBtn
-              icon={require("../assets/auth/google.png")}
-              label="Continue with Google"
-              onPress={() => finish("google")}
-            />
-            <AuthBtn
-              icon={require("../assets/auth/facebook-vinted.png")}
-              label="Continue with Facebook"
-              mark
-              onPress={() => finish("facebook")}
-            />
-            <Pressable onPress={() => finish("email")} style={styles.email}>
-              <Text style={styles.emailText}>Continue with email</Text>
-            </Pressable>
           </Pressable>
         </Pressable>
       </Modal>
@@ -516,4 +678,29 @@ const styles = StyleSheet.create({
   },
   orLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.22)" },
   orText: { color: "rgba(255,255,255,0.45)", fontSize: 13 },
+  field: {
+    height: 52,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.22)",
+    color: "#fff",
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    fontSize: 16,
+  },
+  error: {
+    color: "#E8B4B4",
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 10,
+    marginTop: 2,
+  },
+  note: {
+    color: "#C5D4A0",
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  back: { position: "absolute", left: 16, top: 14, zIndex: 2, padding: 4 },
+  backText: { color: "rgba(255,255,255,0.88)", fontSize: 28, lineHeight: 30, fontWeight: "300" },
 });

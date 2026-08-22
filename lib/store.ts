@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
+import type { Session } from "./auth";
 
 type State = {
   isPlus: boolean;
@@ -15,6 +16,9 @@ type State = {
   onboarded: boolean;
   onboardVersion: number;
   signedInWith: string;
+  uid: string;
+  email: string;
+  displayName: string;
 };
 
 const KEY = "uvel-state-v1";
@@ -32,6 +36,9 @@ const defaults: State = {
   onboarded: false,
   onboardVersion: 0,
   signedInWith: "",
+  uid: "",
+  email: "",
+  displayName: "",
 };
 
 let memory = { ...defaults };
@@ -46,7 +53,24 @@ async function load() {
   listeners.forEach((l) => l());
 }
 
-void load();
+void load().then(() => {
+  void import("./auth").then(({ subscribeAuth }) => {
+    subscribeAuth((user) => {
+      if (!user) return;
+      memory = {
+        ...memory,
+        uid: user.uid,
+        email: user.email,
+        displayName: user.name,
+        signedInWith: user.provider,
+        onboarded: true,
+        onboardVersion: 4,
+      };
+      listeners.forEach((l) => l());
+      void AsyncStorage.setItem(KEY, JSON.stringify(memory));
+    });
+  });
+});
 
 async function save(next: Partial<State>) {
   memory = { ...memory, ...next };
@@ -97,5 +121,25 @@ export function useUvel() {
         onboardVersion: 4,
         signedInWith: provider ?? memory.signedInWith,
       }),
+    acceptSession: (s: Session) =>
+      save({
+        onboarded: true,
+        onboardVersion: 4,
+        signedInWith: s.provider,
+        uid: s.uid,
+        email: s.email,
+        displayName: s.name,
+      }),
+    signOutAccount: async () => {
+      const { signOut } = await import("./auth");
+      await signOut();
+      await save({
+        onboarded: false,
+        signedInWith: "",
+        uid: "",
+        email: "",
+        displayName: "",
+      });
+    },
   };
 }

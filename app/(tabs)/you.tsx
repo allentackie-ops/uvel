@@ -28,7 +28,7 @@ export default function You() {
       <View style={styles.top}>
         <View>
           <Text style={styles.kicker}>YOU</Text>
-          <Text style={styles.title}>Your closet</Text>
+          <Text style={styles.title}>{app.displayName || "Your closet"}</Text>
         </View>
         <Pressable onPress={() => router.push("/settings")} style={styles.menuBtn} accessibilityLabel="Settings">
           <View style={[styles.dash, { backgroundColor: colors.bone }]} />

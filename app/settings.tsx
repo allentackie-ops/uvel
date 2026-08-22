@@ -3,7 +3,8 @@ import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 
 export default function Settings() {
-  const { appearance, setAppearance } = useUvel();
+  const { appearance, setAppearance, email, displayName, signedInWith, uid, signOutAccount } =
+    useUvel();
   const colors = useColors();
   const styles = make(colors);
 
@@ -12,6 +13,14 @@ export default function Settings() {
       <Text style={styles.kicker}>SETTINGS</Text>
       <Text style={styles.title}>The house</Text>
       <Text style={styles.p}>Olive and white. You pick the paper or the ink.</Text>
+
+      <Text style={styles.h2}>Account</Text>
+      <View style={styles.account}>
+        <Text style={styles.cardTitle}>{displayName || (uid ? "Uvel member" : "Guest")}</Text>
+        <Text style={styles.cardHint}>
+          {email || (signedInWith ? `Signed in with ${signedInWith}` : "Not signed in")}
+        </Text>
+      </View>
 
       <Text style={styles.h2}>Appearance</Text>
       <View style={styles.row}>
@@ -33,6 +42,12 @@ export default function Settings() {
           );
         })}
       </View>
+
+      {uid || signedInWith ? (
+        <Pressable onPress={() => void signOutAccount()} style={styles.out}>
+          <Text style={styles.outText}>Log out</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -51,10 +66,17 @@ function make(colors: ReturnType<typeof useColors>) {
       padding: 18,
       backgroundColor: colors.surface,
     },
+    account: {
+      borderRadius: 22,
+      padding: 18,
+      backgroundColor: colors.surface,
+    },
     cardOn: { backgroundColor: colors.pulse },
     cardTitle: { color: colors.bone, fontWeight: "600", fontSize: 16 },
     cardTitleOn: { color: colors.pulseInk },
     cardHint: { color: colors.muted, fontSize: 12, marginTop: 6 },
     cardHintOn: { color: colors.pulseInk, opacity: 0.7 },
+    out: { marginTop: 36, alignItems: "center", padding: 14 },
+    outText: { color: colors.muted, fontSize: 16, fontWeight: "600" },
   });
 }

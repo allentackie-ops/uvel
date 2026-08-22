@@ -79,6 +79,16 @@
     "extra": {
       "eas": {
         "projectId": "13230e71-d40b-45c8-8709-176f0c021198"
+      },
+      "firebase": {
+        "apiKey": "",
+        "authDomain": "",
+        "projectId": "",
+        "storageBucket": "",
+        "messagingSenderId": "",
+        "appId": "",
+        "googleWebClientId": "",
+        "facebookAppId": ""
       }
     }
   }
