@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
+    "babel-preset-expo": "~57.0.0",
     "expo": "~57.0.15",
     "expo-constants": "~57.0.13",
     "expo-glass-effect": "~57.0.1",
