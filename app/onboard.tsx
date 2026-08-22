@@ -34,7 +34,6 @@ import {
   resetPassword,
   signInApple,
   signInEmail,
-  signInFacebook,
   signInGoogle,
   signUpEmail,
   type Session,
@@ -569,14 +568,6 @@ export default function Onboard() {
                   busy={busy === "google"}
                   disabled={busy !== null}
                   onPress={() => void run("google", signInGoogle)}
-                />
-                <AuthBtn
-                  icon={require("../assets/auth/facebook-vinted.png")}
-                  label="Continue with Facebook"
-                  mark
-                  busy={busy === "facebook"}
-                  disabled={busy !== null}
-                  onPress={() => void run("facebook", signInFacebook)}
                 />
                 {error ? <Text style={styles.error}>{error}</Text> : null}
                 <Pressable
