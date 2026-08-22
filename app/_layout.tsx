@@ -4,6 +4,7 @@ import * as Updates from "expo-updates";
 import { useCallback, useEffect, useState } from "react";
 import { Appearance } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { LaunchSplash } from "../components/LaunchSplash";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
@@ -16,9 +17,9 @@ function ThemeSync() {
   return null;
 }
 
-function OtaSync() {
+function OtaSync({ enabled }: { enabled: boolean }) {
   useEffect(() => {
-    if (__DEV__) return;
+    if (!enabled || __DEV__) return;
     void (async () => {
       try {
         const result = await Updates.checkForUpdateAsync();
@@ -30,7 +31,7 @@ function OtaSync() {
         /* offline / first binary */
       }
     })();
-  }, []);
+  }, [enabled]);
   return null;
 }
 
@@ -52,12 +53,23 @@ export default function Root() {
   const [intro, setIntro] = useState(true);
   const dismiss = useCallback(() => setIntro(false), []);
 
+  if (intro) {
+    return (
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#2A320E" }}>
+          <StatusBar style="light" />
+          <LaunchSplash onDone={dismiss} />
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#2A320E" }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
       <ThemeSync />
-      <OtaSync />
+      <OtaSync enabled />
       <OnboardGate />
-      <StatusBar style={intro || appearance === "dark" ? "light" : "dark"} />
+      <StatusBar style={appearance === "dark" ? "light" : "dark"} />
       <Stack
         screenOptions={{
           headerTintColor: colors.bone,
@@ -100,7 +112,6 @@ export default function Root() {
           }}
         />
       </Stack>
-      {intro ? <LaunchSplash onDone={dismiss} /> : null}
     </GestureHandlerRootView>
   );
 }

@@ -5,6 +5,8 @@ import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUvel } from "../lib/store";
 
+const SCRIM = [0.06, 0.12, 0.2, 0.32, 0.46, 0.6, 0.74, 0.84, 0.9];
+
 export default function Onboard() {
   const { completeOnboard } = useUvel();
   const insets = useSafeAreaInsets();
@@ -25,7 +27,7 @@ export default function Onboard() {
           if (lastTime.current > 0.05) player.currentTime = lastTime.current;
           player.play();
         } catch {
-          /* player may still be attaching */
+          /* still attaching */
         }
       } else {
         lastTime.current = player.currentTime;
@@ -44,19 +46,26 @@ export default function Onboard() {
 
   return (
     <View style={styles.root}>
-      <View style={{ height: insets.top, backgroundColor: "#2A320E" }} />
-      <View style={styles.film}>
-        <VideoView
-          player={player}
-          style={StyleSheet.absoluteFill}
-          contentFit="cover"
-          nativeControls={false}
-        />
-        <Pressable onPress={go} style={styles.skip} hitSlop={16}>
-          <Text style={styles.skipText}>Skip</Text>
-        </Pressable>
+      <VideoView
+        player={player}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        nativeControls={false}
+      />
+      <View pointerEvents="none" style={styles.scrim}>
+        {SCRIM.map((o, i) => (
+          <View key={i} style={{ height: 26, backgroundColor: `rgba(42,50,14,${o})` }} />
+        ))}
+        <View style={{ height: 90, backgroundColor: "rgba(42,50,14,0.94)" }} />
       </View>
-      <View style={[styles.panel, { paddingBottom: Math.max(insets.bottom, 16) + 10 }]}>
+      <Pressable
+        onPress={go}
+        style={[styles.skip, { top: Math.max(insets.top, 12) + 6 }]}
+        hitSlop={16}
+      >
+        <Text style={styles.skipText}>Skip</Text>
+      </Pressable>
+      <View style={[styles.copy, { paddingBottom: Math.max(insets.bottom, 14) + 12 }]}>
         <Text style={styles.kicker}>TRY ON</Text>
         <Text style={styles.title}>See it on you{"\n"}before you buy.</Text>
         <Text style={styles.lede}>A look you love. On your body. Then you decide.</Text>
@@ -70,26 +79,14 @@ export default function Onboard() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#2A320E" },
-  film: {
-    width: "100%",
-    aspectRatio: 3 / 4,
-    maxHeight: "62%",
-    backgroundColor: "#2A320E",
-    overflow: "hidden",
-  },
-  skip: { position: "absolute", top: 14, right: 16, zIndex: 2 },
+  scrim: { position: "absolute", left: 0, right: 0, bottom: 0 },
+  skip: { position: "absolute", right: 18, zIndex: 2 },
   skipText: { color: "rgba(255,255,255,0.78)", fontSize: 13, letterSpacing: 0.6 },
-  panel: {
-    flex: 1,
-    backgroundColor: "#2A320E",
-    paddingHorizontal: 22,
-    paddingTop: 22,
-    justifyContent: "flex-end",
-  },
+  copy: { position: "absolute", left: 22, right: 22, bottom: 0 },
   kicker: { color: "rgba(255,255,255,0.7)", fontSize: 11, letterSpacing: 2.4, marginBottom: 8 },
   title: { color: "#fff", fontFamily: "Georgia", fontSize: 32, lineHeight: 34 },
   lede: {
-    color: "rgba(255,255,255,0.72)",
+    color: "rgba(255,255,255,0.78)",
     fontSize: 15,
     lineHeight: 21,
     marginTop: 10,
