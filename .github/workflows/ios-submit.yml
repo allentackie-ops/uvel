@@ -58,4 +58,4 @@ jobs:
           PY
 
       - name: Submit iOS IPA to App Store Connect
-        run: npx eas-cli submit --platform ios --id a917b999-3f86-41ab-a318-24bba442bf18 --profile production --non-interactive --no-wait
+        run: npx eas-cli submit --platform ios --latest --profile production --non-interactive --no-wait
