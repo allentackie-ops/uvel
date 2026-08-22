@@ -235,13 +235,13 @@ function AuthBtn({
   label,
   filled,
   onPress,
-  nudgeY = 0,
+  mark,
 }: {
   icon: number;
   label: string;
   filled?: boolean;
   onPress: () => void;
-  nudgeY?: number;
+  mark?: boolean;
 }) {
   return (
     <Pressable
@@ -251,7 +251,7 @@ function AuthBtn({
       <View style={styles.authIconWrap}>
         <Image
           source={icon}
-          style={[styles.authIcon, nudgeY ? { transform: [{ translateY: nudgeY }] } : null]}
+          style={mark ? styles.authMark : styles.authIcon}
           contentFit="contain"
         />
       </View>
@@ -383,9 +383,9 @@ export default function Onboard() {
               onPress={() => finish("google")}
             />
             <AuthBtn
-              icon={require("../assets/auth/facebook.png")}
+              icon={require("../assets/auth/facebook-mark.png")}
               label="Continue with Facebook"
-              nudgeY={-1}
+              mark
               onPress={() => finish("facebook")}
             />
             <Pressable onPress={() => finish("email")} style={styles.email}>
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
+    gap: 12,
     marginBottom: 12,
   },
   authFilled: { backgroundColor: "#fff" },
@@ -483,8 +483,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.55)",
   },
-  authIconWrap: { width: 22, height: 22, alignItems: "center", justifyContent: "center" },
-  authIcon: { width: 20, height: 20 },
+  authIconWrap: { width: 24, height: 24, alignItems: "center", justifyContent: "center" },
+  authIcon: { width: 22, height: 22 },
+  authMark: { width: 24, height: 24, borderRadius: 12 },
   authLabel: { fontSize: 16, fontWeight: "600" },
   authLabelDark: { color: "#111" },
   authLabelLight: { color: "#fff" },
