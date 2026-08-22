@@ -139,23 +139,49 @@ def main() -> None:
     print("Created distribution certificate", cert_id)
     cer_path.write_bytes(base64.b64decode(der_b64))
     run(["openssl", "x509", "-inform", "DER", "-in", str(cer_path), "-out", str(pem_path)])
-    run(
-        [
-            "openssl",
-            "pkcs12",
-            "-export",
-            "-inkey",
-            str(key_path),
-            "-in",
-            str(pem_path),
-            "-out",
-            str(p12_path),
-            "-passout",
-            f"pass:{password}",
-            "-name",
-            "Uvel Distribution",
-        ]
-    )
+    # macOS `security import` (EAS) cannot read OpenSSL 3 default PBES2 p12s.
+    p12_cmd = [
+        "openssl",
+        "pkcs12",
+        "-export",
+        "-inkey",
+        str(key_path),
+        "-in",
+        str(pem_path),
+        "-out",
+        str(p12_path),
+        "-passout",
+        f"pass:{password}",
+        "-name",
+        "Uvel Distribution",
+        "-legacy",
+    ]
+    try:
+        run(p12_cmd)
+    except subprocess.CalledProcessError:
+        run(
+            [
+                "openssl",
+                "pkcs12",
+                "-export",
+                "-inkey",
+                str(key_path),
+                "-in",
+                str(pem_path),
+                "-out",
+                str(p12_path),
+                "-passout",
+                f"pass:{password}",
+                "-name",
+                "Uvel Distribution",
+                "-certpbe",
+                "PBE-SHA1-3DES",
+                "-keypbe",
+                "PBE-SHA1-3DES",
+                "-macalg",
+                "sha1",
+            ]
+        )
 
     bundles = api(
         "GET",
