@@ -76,7 +76,7 @@ const ROW_B = [
   require("../assets/onboarding/market/05.jpg"),
   require("../assets/onboarding/market/21.jpg"),
   require("../assets/onboarding/market/23.jpg"),
-  require("../assets/onboarding/market/24.jpg"),
+  require("../assets/onboarding/market/24-hanger.jpg"),
 ];
 const WIDTHS = [148, 176, 156, 188, 142, 170];
 
