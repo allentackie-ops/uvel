@@ -48,5 +48,37 @@ jobs:
           print("submit config ready")
           PY
 
-      - name: Submit latest iOS build to App Store Connect
-        run: npx eas-cli submit --platform ios --profile production --latest --non-interactive --no-wait
+      - name: Wait for a finished iOS build, then submit
+        run: |
+          set -e
+          for i in $(seq 1 40); do
+            echo "poll $i"
+            npx eas-cli build:list --platform ios --limit 8 --non-interactive --json > /tmp/builds.json || true
+            python3 - <<'PY'
+          import json, pathlib
+          raw = pathlib.Path("/tmp/builds.json").read_text().strip()
+          print(raw[:2000])
+          try:
+              data = json.loads(raw)
+          except Exception:
+              raise SystemExit(0)
+          items = data if isinstance(data, list) else data.get("builds") or data.get("data") or []
+          pathlib.Path("/tmp/build_id").write_text("")
+          for b in items:
+              status = str(b.get("status") or "").upper()
+              bid = str(b.get("id") or b.get("uuid") or "")
+              print("build", bid, status, b.get("buildProfile") or b.get("profile"))
+              if status in {"FINISHED", "COMPLETE", "COMPLETED"} and bid:
+                  pathlib.Path("/tmp/build_id").write_text(bid)
+                  break
+          PY
+            ID=$(cat /tmp/build_id 2>/dev/null || true)
+            if [ -n "$ID" ]; then
+              echo "Submitting $ID"
+              npx eas-cli submit --platform ios --id "$ID" --profile production --non-interactive --no-wait
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "No finished iOS build on EAS yet"
+          exit 1
