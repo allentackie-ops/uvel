@@ -1,0 +1,31 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Create App Store distribution cert + profile from ASC API key"
+  lane :ci_certs do
+    api_key = app_store_connect_api_key(
+      key_id: ENV.fetch("ASC_KEY_ID"),
+      issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+      key_content: ENV.fetch("ASC_API_KEY"),
+      duration: 1200,
+      in_house: false
+    )
+
+    cert(
+      api_key: api_key,
+      team_id: "24TJHWVK8T",
+      filename: "dist",
+      output_path: "./certs"
+    )
+
+    sigh(
+      api_key: api_key,
+      team_id: "24TJHWVK8T",
+      app_identifier: "com.uvel.dressandshop",
+      provisioning_name: "Uvel App Store",
+      filename: "profile.mobileprovision",
+      output_path: "./certs",
+      force: true
+    )
+  end
+end
