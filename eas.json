@@ -9,24 +9,13 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "ios": {
-        "simulator": false
-      }
+      "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true,
-      "environment": "production"
+      "autoIncrement": true
     }
   },
   "submit": {
-    "production": {
-      "ios": {
-        "ascAppId": ""
-      },
-      "android": {
-        "track": "internal"
-      }
-    }
+    "production": {}
   }
 }
