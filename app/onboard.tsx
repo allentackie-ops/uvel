@@ -52,12 +52,6 @@ const PAGES = [
   },
 ];
 
-const PROVIDERS = [
-  { id: "apple", label: "Continue with Apple", bg: "#fff", fg: "#111" },
-  { id: "google", label: "Continue with Google", bg: "#fff", fg: "#111" },
-  { id: "facebook", label: "Continue with Facebook", bg: "#1877F2", fg: "#fff" },
-] as const;
-
 const ROW_A = [
   require("../assets/onboarding/market/01.jpg"),
   require("../assets/onboarding/market/06.jpg"),
@@ -221,6 +215,30 @@ function Film({ source, active }: { source: number; active: boolean }) {
   );
 }
 
+function AuthBtn({
+  icon,
+  label,
+  filled,
+  onPress,
+}: {
+  icon: number;
+  label: string;
+  filled?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={[styles.authBtn, filled ? styles.authFilled : styles.authOutline]}
+    >
+      <Image source={icon} style={styles.authIcon} contentFit="contain" />
+      <Text style={[styles.authLabel, filled ? styles.authLabelDark : styles.authLabelLight]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
 export default function Onboard() {
   const { completeOnboard } = useUvel();
   const insets = useSafeAreaInsets();
@@ -300,22 +318,36 @@ export default function Onboard() {
         onRequestClose={() => setAuth(false)}
       >
         <Pressable style={styles.sheetDim} onPress={() => setAuth(false)}>
-          <Pressable style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]} onPress={() => undefined}>
-            <View style={styles.handle} />
-            <Text style={styles.sheetTitle}>Sign in to Uvel</Text>
-            <Text style={styles.sheetLede}>Apple, Google, or Facebook.</Text>
-            {PROVIDERS.map((p) => (
-              <Pressable
-                key={p.id}
-                onPress={() => finish(p.id)}
-                style={[styles.provider, { backgroundColor: p.bg }]}
-              >
-                <Text style={[styles.providerText, { color: p.fg }]}>{p.label}</Text>
-              </Pressable>
-            ))}
-            <Pressable onPress={() => finish()} style={styles.guest}>
-              <Text style={styles.guestText}>Not now</Text>
+          <Pressable
+            style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 18) + 8 }]}
+            onPress={() => undefined}
+          >
+            <Pressable onPress={() => setAuth(false)} style={styles.close} hitSlop={16}>
+              <Text style={styles.closeX}>✕</Text>
             </Pressable>
+            <Text style={styles.sheetTitle}>Sign up for Uvel</Text>
+            <Text style={styles.sheetLede}>It's quickest to use your Apple ID.</Text>
+            <AuthBtn
+              icon={require("../assets/auth/apple.png")}
+              label="Continue with Apple"
+              filled
+              onPress={() => finish("apple")}
+            />
+            <View style={styles.orRow}>
+              <View style={styles.orLine} />
+              <Text style={styles.orText}>or</Text>
+              <View style={styles.orLine} />
+            </View>
+            <AuthBtn
+              icon={require("../assets/auth/google.png")}
+              label="Continue with Google"
+              onPress={() => finish("google")}
+            />
+            <AuthBtn
+              icon={require("../assets/auth/facebook.png")}
+              label="Continue with Facebook"
+              onPress={() => finish("facebook")}
+            />
           </Pressable>
         </Pressable>
       </Modal>
@@ -358,30 +390,54 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: "#12140A",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 22,
-    paddingTop: 10,
+    backgroundColor: "#16180F",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 18,
   },
-  handle: {
-    alignSelf: "center",
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "rgba(255,255,255,0.28)",
-    marginBottom: 18,
+  close: { position: "absolute", right: 18, top: 16, zIndex: 2 },
+  closeX: { color: "rgba(255,255,255,0.88)", fontSize: 18, fontWeight: "400" },
+  sheetTitle: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "700",
+    textAlign: "center",
+    marginTop: 8,
   },
-  sheetTitle: { color: "#fff", fontFamily: "Georgia", fontSize: 26 },
-  sheetLede: { color: "rgba(255,255,255,0.65)", fontSize: 14, marginTop: 6, marginBottom: 20 },
-  provider: {
+  sheetLede: {
+    color: "rgba(255,255,255,0.62)",
+    fontSize: 15,
+    textAlign: "center",
+    marginTop: 8,
+    marginBottom: 22,
+  },
+  authBtn: {
     height: 52,
-    borderRadius: 999,
+    borderRadius: 10,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
+    gap: 10,
+    marginBottom: 12,
   },
-  providerText: { fontSize: 16, fontWeight: "600" },
-  guest: { height: 44, alignItems: "center", justifyContent: "center", marginTop: 4 },
-  guestText: { color: "rgba(255,255,255,0.55)", fontSize: 14 },
+  authFilled: { backgroundColor: "#fff" },
+  authOutline: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.55)",
+  },
+  authIcon: { width: 20, height: 20 },
+  authLabel: { fontSize: 16, fontWeight: "600" },
+  authLabelDark: { color: "#111" },
+  authLabelLight: { color: "#fff" },
+  orRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 14,
+    marginTop: 2,
+  },
+  orLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.22)" },
+  orText: { color: "rgba(255,255,255,0.45)", fontSize: 13 },
 });
