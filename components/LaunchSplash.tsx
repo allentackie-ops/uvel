@@ -1,6 +1,6 @@
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
-import { Dimensions, StyleSheet, Text, View } from "react-native";
+import { Dimensions, Image, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -18,7 +18,7 @@ export function LaunchSplash({ onDone }: { onDone: () => void }) {
   return (
     <View style={[styles.root, { width, height }]}>
       <View style={styles.middle}>
-        <Text style={styles.word}>uvel</Text>
+        <Image source={require("../assets/splash-icon.png")} style={styles.mark} />
       </View>
       <Text style={[styles.fitza, { marginBottom: Math.max(insets.bottom, 12) + 32 }]}>
         from Fitza
@@ -28,25 +28,9 @@ export function LaunchSplash({ onDone }: { onDone: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    backgroundColor: "#2A320E",
-    alignItems: "center",
-  },
-  middle: {
-    flex: 1,
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  word: {
-    color: "#fff",
-    fontFamily: "Georgia",
-    fontSize: 56,
-    letterSpacing: 8,
-    paddingLeft: 8,
-    fontWeight: "600",
-    textAlign: "center",
-  },
+  root: { backgroundColor: "#2A320E", alignItems: "center" },
+  middle: { flex: 1, width: "100%", alignItems: "center", justifyContent: "center" },
+  mark: { width: 200, height: 200 },
   fitza: {
     color: "rgba(255,255,255,0.62)",
     fontSize: 13,

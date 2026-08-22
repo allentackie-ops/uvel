@@ -1,5 +1,4 @@
 import { useVideoPlayer, VideoView } from "expo-video";
-import { router } from "expo-router";
 import { useEffect, useRef } from "react";
 import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -39,7 +38,6 @@ export default function Onboard() {
 
   function go() {
     void completeOnboard();
-    router.replace("/");
   }
 
   return (
@@ -50,11 +48,7 @@ export default function Onboard() {
         contentFit="cover"
         nativeControls={false}
       />
-      <Pressable
-        onPress={go}
-        style={[styles.skip, { top: insets.top + 8 }]}
-        hitSlop={16}
-      >
+      <Pressable onPress={go} style={[styles.skip, { top: insets.top + 8 }]} hitSlop={16}>
         <Text style={styles.skipText}>Skip</Text>
       </Pressable>
       <View style={[styles.copy, { paddingBottom: Math.max(insets.bottom, 12) + 14 }]}>

@@ -1,4 +1,4 @@
-import { Stack, router, usePathname } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as Updates from "expo-updates";
 import { useCallback, useEffect, useState } from "react";
@@ -8,6 +8,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { LaunchSplash } from "../components/LaunchSplash";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
+import Onboard from "./onboard";
 
 function ThemeSync() {
   const { appearance } = useUvel();
@@ -17,9 +18,9 @@ function ThemeSync() {
   return null;
 }
 
-function OtaSync({ enabled }: { enabled: boolean }) {
+function OtaSync() {
   useEffect(() => {
-    if (!enabled || __DEV__) return;
+    if (__DEV__) return;
     void (async () => {
       try {
         const result = await Updates.checkForUpdateAsync();
@@ -31,44 +32,17 @@ function OtaSync({ enabled }: { enabled: boolean }) {
         /* offline / first binary */
       }
     })();
-  }, [enabled]);
+  }, []);
   return null;
 }
 
-function OnboardGate() {
-  const { onboarded, hydrated } = useUvel();
-  const pathname = usePathname();
-  useEffect(() => {
-    if (!hydrated) return;
-    if (!onboarded && pathname !== "/onboard") {
-      router.replace("/onboard");
-    }
-  }, [hydrated, onboarded, pathname]);
-  return null;
-}
-
-export default function Root() {
+function AppStack() {
   const colors = useColors();
   const { appearance } = useUvel();
-  const [intro, setIntro] = useState(true);
-  const dismiss = useCallback(() => setIntro(false), []);
-
-  if (intro) {
-    return (
-      <SafeAreaProvider>
-        <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#2A320E" }}>
-          <StatusBar style="light" />
-          <LaunchSplash onDone={dismiss} />
-        </GestureHandlerRootView>
-      </SafeAreaProvider>
-    );
-  }
-
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
       <ThemeSync />
-      <OtaSync enabled />
-      <OnboardGate />
+      <OtaSync />
       <StatusBar style={appearance === "dark" ? "light" : "dark"} />
       <Stack
         screenOptions={{
@@ -78,7 +52,7 @@ export default function Root() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="onboard" options={{ headerShown: false, animation: "fade" }} />
+        <Stack.Screen name="onboard" options={{ headerShown: false, animation: "none" }} />
         <Stack.Screen
           name="product/[id]"
           options={{
@@ -113,5 +87,39 @@ export default function Root() {
         />
       </Stack>
     </GestureHandlerRootView>
+  );
+}
+
+export default function Root() {
+  const { onboarded, hydrated } = useUvel();
+  const [intro, setIntro] = useState(true);
+  const dismiss = useCallback(() => setIntro(false), []);
+
+  if (intro || !hydrated) {
+    return (
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#2A320E" }}>
+          <StatusBar style="light" />
+          <LaunchSplash onDone={dismiss} />
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
+    );
+  }
+
+  if (!onboarded) {
+    return (
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#2A320E" }}>
+          <StatusBar style="light" />
+          <Onboard />
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
+    );
+  }
+
+  return (
+    <SafeAreaProvider>
+      <AppStack />
+    </SafeAreaProvider>
   );
 }
