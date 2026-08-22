@@ -18,6 +18,8 @@ type Extra = {
     messagingSenderId?: string;
     appId?: string;
     googleWebClientId?: string;
+    googleReversedClientId?: string;
+    appleHandler?: string;
     facebookAppId?: string;
   };
 };

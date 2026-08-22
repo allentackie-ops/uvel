@@ -160,8 +160,9 @@ function expoRedirect() {
 export async function signInGoogle() {
   needFirebase();
   const clientId = firebaseExtra.googleWebClientId;
+  const reversed = firebaseExtra.googleReversedClientId;
   if (!clientId) throw new Error("Google isn’t connected yet.");
-  const redirect = expoRedirect();
+  const redirect = reversed ? `${reversed}:/oauthredirect` : expoRedirect();
   const nonce = randomNonce();
   const url =
     "https://accounts.google.com/o/oauth2/v2/auth?" +

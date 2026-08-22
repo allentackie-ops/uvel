@@ -20,11 +20,21 @@
       "bundleIdentifier": "com.uvel.dressandshop",
       "supportsTablet": false,
       "buildNumber": "1",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Uvel photographs looks and you, so it can find the piece and show it on your body before you buy.",
         "NSPhotoLibraryUsageDescription": "Uvel reads photos and screenshots you pick so it can find the clothes and try them on you.",
         "NSMicrophoneUsageDescription": "Video looks from TikTok, Reels, and Snapchat may include sound.",
-        "UIUserInterfaceStyle": "Automatic"
+        "UIUserInterfaceStyle": "Automatic",
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "uvel",
+              "com.googleusercontent.apps.296904495728-e7k7v6jcshvh976drg33aqc3bec288v0"
+            ]
+          }
+        ]
       },
       "privacyManifests": {
         "NSPrivacyAccessedAPITypes": [
@@ -81,13 +91,15 @@
         "projectId": "13230e71-d40b-45c8-8709-176f0c021198"
       },
       "firebase": {
-        "apiKey": "",
-        "authDomain": "",
-        "projectId": "",
-        "storageBucket": "",
-        "messagingSenderId": "",
-        "appId": "",
-        "googleWebClientId": "",
+        "apiKey": "AIzaSyBYacCvSdirUvZkw6nFZAjm894ZoAPAaPw",
+        "authDomain": "uvel-32d32.firebaseapp.com",
+        "projectId": "uvel-32d32",
+        "storageBucket": "uvel-32d32.firebasestorage.app",
+        "messagingSenderId": "296904495728",
+        "appId": "1:296904495728:ios:eedde876c2939eb65d5ab5",
+        "googleWebClientId": "296904495728-e7k7v6jcshvh976drg33aqc3bec288v0.apps.googleusercontent.com",
+        "googleReversedClientId": "com.googleusercontent.apps.296904495728-e7k7v6jcshvh976drg33aqc3bec288v0",
+        "appleHandler": "https://uvel-32d32.firebaseapp.com/__/auth/handler",
         "facebookAppId": ""
       }
     }
