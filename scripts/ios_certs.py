@@ -96,6 +96,16 @@ def main() -> None:
 
     jwt_token = token()
 
+    # Previous CI runs created certs whose private keys were discarded.
+    existing_certs = api("GET", "/certificates?limit=200", jwt_token)
+    for item in (existing_certs or {}).get("data", []):
+        ctype = (item.get("attributes") or {}).get("certificateType") or ""
+        if ctype not in {"DISTRIBUTION", "IOS_DISTRIBUTION"}:
+            continue
+        cid = item["id"]
+        print("Revoking leftover", ctype, cid)
+        api("DELETE", f"/certificates/{cid}", jwt_token)
+
     created = api(
         "POST",
         "/certificates",
