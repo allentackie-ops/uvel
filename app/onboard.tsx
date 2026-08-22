@@ -7,7 +7,6 @@ import {
   Dimensions,
   Image as MosaicImg,
   KeyboardAvoidingView,
-  Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Platform,
@@ -19,6 +18,7 @@ import {
   View,
 } from "react-native";
 import Animated, {
+  Easing,
   runOnJS,
   useAnimatedStyle,
   useFrameCallback,
@@ -137,12 +137,10 @@ function Catalog({
   onSignUp,
   onLogIn,
   insets,
-  covered,
 }: {
   onSignUp: () => void;
   onLogIn: () => void;
   insets: { top: number; bottom: number };
-  covered: boolean;
 }) {
   const { gridH, gridTop } = gridMetrics(insets.top);
   const tileH = (gridH - 10) / 2;
@@ -158,28 +156,26 @@ function Catalog({
         <View style={{ height: 10 }} />
         <DriftRow source={STRIP_B} height={tileH} duration={46000} reverse />
       </View>
-      {covered ? null : (
-        <View
-          style={[
-            styles.marketCopy,
-            { paddingBottom: Math.max(insets.bottom, 12) + 14 },
-          ]}
-        >
-          <View style={styles.dots}>
-            {PAGES.map((p, i) => (
-              <View key={p.title} style={[styles.dot, i === 2 && styles.dotOn]} />
-            ))}
-          </View>
-          <Text style={styles.title}>From coats to{"\n"}the last pin.</Text>
-          <View style={{ flex: 1 }} />
-          <Pressable onPress={onSignUp} style={styles.cta}>
-            <Text style={styles.ctaText}>Sign up</Text>
-          </Pressable>
-          <Pressable onPress={onLogIn} style={styles.ctaLogin}>
-            <Text style={styles.ctaLoginText}>Log in</Text>
-          </Pressable>
+      <View
+        style={[
+          styles.marketCopy,
+          { paddingBottom: Math.max(insets.bottom, 12) + 14 },
+        ]}
+      >
+        <View style={styles.dots}>
+          {PAGES.map((p, i) => (
+            <View key={p.title} style={[styles.dot, i === 2 && styles.dotOn]} />
+          ))}
         </View>
-      )}
+        <Text style={styles.title}>From coats to{"\n"}the last pin.</Text>
+        <View style={{ flex: 1 }} />
+        <Pressable onPress={onSignUp} style={styles.cta}>
+          <Text style={styles.ctaText}>Sign up</Text>
+        </Pressable>
+        <Pressable onPress={onLogIn} style={styles.ctaLogin}>
+          <Text style={styles.ctaLoginText}>Log in</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -284,7 +280,8 @@ export default function Onboard() {
   const [password, setPassword] = useState("");
   const [note, setNote] = useState("");
   const scroller = useRef<ScrollView>(null);
-  const sheetY = useSharedValue(0);
+  const sheetY = useSharedValue(SCREEN_H);
+  const dim = useSharedValue(0);
 
   function closeAuth() {
     setAuth(null);
@@ -294,37 +291,64 @@ export default function Onboard() {
     setNote("");
     setEmail("");
     setPassword("");
-    sheetY.value = 0;
   }
 
   useEffect(() => {
-    if (auth) sheetY.value = 0;
-  }, [auth, sheetY]);
+    if (!auth) return;
+    sheetY.value = SCREEN_H;
+    dim.value = 0;
+    sheetY.value = withTiming(0, {
+      duration: 360,
+      easing: Easing.out(Easing.cubic),
+    });
+    dim.value = withTiming(1, { duration: 280 });
+  }, [auth, dim, sheetY]);
 
   const dismissSheet = () => {
-    sheetY.value = withTiming(SCREEN_H, { duration: 220 }, (finished) => {
-      if (finished) runOnJS(closeAuth)();
-    });
+    dim.value = withTiming(0, { duration: 240 });
+    sheetY.value = withTiming(
+      SCREEN_H,
+      { duration: 300, easing: Easing.in(Easing.cubic) },
+      (finished) => {
+        if (finished) runOnJS(closeAuth)();
+      },
+    );
   };
 
   const pan = Gesture.Pan()
-    .activeOffsetY(10)
-    .failOffsetX([-28, 28])
+    .activeOffsetY(12)
+    .failOffsetX([-40, 40])
     .onUpdate((e) => {
-      sheetY.value = Math.max(0, e.translationY);
+      const y = Math.max(0, e.translationY);
+      sheetY.value = y;
+      dim.value = Math.max(0, 1 - y / (SCREEN_H * 0.42));
     })
     .onEnd((e) => {
-      if (e.translationY > 110 || e.velocityY > 850) {
-        sheetY.value = withTiming(SCREEN_H, { duration: 220 }, (finished) => {
-          if (finished) runOnJS(closeAuth)();
-        });
+      if (e.translationY > 100 || e.velocityY > 800) {
+        dim.value = withTiming(0, { duration: 240 });
+        sheetY.value = withTiming(
+          SCREEN_H,
+          { duration: 300, easing: Easing.in(Easing.cubic) },
+          (finished) => {
+            if (finished) runOnJS(closeAuth)();
+          },
+        );
       } else {
-        sheetY.value = withSpring(0, { damping: 24, stiffness: 260 });
+        sheetY.value = withSpring(0, {
+          damping: 28,
+          stiffness: 240,
+          overshootClamping: true,
+        });
+        dim.value = withTiming(1, { duration: 180 });
       }
     });
 
   const sheetSlide = useAnimatedStyle(() => ({
     transform: [{ translateY: sheetY.value }],
+  }));
+
+  const dimStyle = useAnimatedStyle(() => ({
+    opacity: dim.value,
   }));
 
   function finish(provider?: string) {
@@ -392,7 +416,6 @@ export default function Onboard() {
                   setError("");
                 }}
                 insets={insets}
-                covered={auth !== null}
               />
             ) : (
               <Film source={p.source} active={page === i} />
@@ -421,15 +444,10 @@ export default function Onboard() {
         </View>
       ) : null}
 
-      <Modal
-        visible={auth !== null}
-        animationType="slide"
-        transparent
-        presentationStyle="overFullScreen"
-        onRequestClose={dismissSheet}
-      >
-        <View style={styles.sheetDim}>
-          <Pressable style={styles.sheetScrim} onPress={dismissSheet} />
+      {auth !== null ? (
+        <View style={styles.overlay} pointerEvents="box-none">
+          <Animated.View pointerEvents="none" style={[styles.dimFill, dimStyle]} />
+          <Pressable style={StyleSheet.absoluteFill} onPress={dismissSheet} />
           <GestureDetector gesture={pan}>
             <Animated.View
               style={[
@@ -441,9 +459,9 @@ export default function Onboard() {
                 },
               ]}
             >
-              <View style={styles.handleWrap}>
-                <View style={styles.handle} />
-              </View>
+              <Pressable onPress={dismissSheet} style={styles.close} hitSlop={16}>
+                <Text style={styles.closeX}>✕</Text>
+              </Pressable>
               {pane === "email" ? (
                 <Pressable
                   onPress={() => {
@@ -576,7 +594,7 @@ export default function Onboard() {
             </Animated.View>
           </GestureDetector>
         </View>
-      </Modal>
+      ) : null}
     </View>
   );
 }
@@ -586,7 +604,7 @@ const styles = StyleSheet.create({
   market: { flex: 1, backgroundColor: "#12140A" },
   grid: { overflow: "hidden" },
   marketCopy: { flex: 1, paddingHorizontal: 22, paddingTop: 22 },
-  skip: { position: "absolute", right: 18, zIndex: 2 },
+  skip: { position: "absolute", right: 18, zIndex: 20 },
   skipText: { color: "rgba(255,255,255,0.82)", fontSize: 13, letterSpacing: 0.6 },
   copy: { position: "absolute", left: 22, right: 22, bottom: 0 },
   dots: { flexDirection: "row", gap: 6, marginBottom: 14 },
@@ -623,26 +641,24 @@ const styles = StyleSheet.create({
   ctaLoginText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   email: { height: 44, alignItems: "center", justifyContent: "center", marginTop: 6 },
   emailText: { color: "#C5D4A0", fontSize: 16, fontWeight: "600" },
-  sheetDim: {
-    flex: 1,
-    backgroundColor: "transparent",
+  overlay: {
+    ...StyleSheet.absoluteFill,
     justifyContent: "flex-end",
+    zIndex: 10,
   },
-  sheetScrim: { ...StyleSheet.absoluteFill },
+  dimFill: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(0,0,0,0.52)",
+  },
   sheet: {
     backgroundColor: "#16180F",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
-    paddingTop: 6,
+    paddingTop: 18,
   },
-  handleWrap: { alignItems: "center", paddingTop: 6, paddingBottom: 10 },
-  handle: {
-    width: 40,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.32)",
-  },
+  close: { position: "absolute", right: 18, top: 16, zIndex: 2 },
+  closeX: { color: "rgba(255,255,255,0.88)", fontSize: 18, fontWeight: "400" },
   sheetTitle: {
     color: "#fff",
     fontSize: 22,
@@ -710,6 +726,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 10,
   },
-  back: { position: "absolute", left: 16, top: 28, zIndex: 2, padding: 4 },
+  back: { position: "absolute", left: 16, top: 14, zIndex: 2, padding: 4 },
   backText: { color: "rgba(255,255,255,0.88)", fontSize: 28, lineHeight: 30, fontWeight: "300" },
 });
