@@ -1,33 +1,3 @@
-name: iOS
-
-on:
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Python deps
-        run: pip install "PyJWT[crypto]" requests
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Install JS dependencies
-        run: npm ci
-
       - name: Create iOS signing files
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -36,5 +6,60 @@ jobs:
           CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
         run: python3 scripts/ios_certs.py
 
+      - name: Link EAS project
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          python3 <<'PY'
+          import json, os, urllib.request
+          from pathlib import Path
+
+          token = os.environ["EXPO_TOKEN"]
+          pid = None
+
+          def gql(query: str):
+              req = urllib.request.Request(
+                  "https://api.expo.dev/graphql",
+                  data=json.dumps({"query": query}).encode(),
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Content-Type": "application/json",
+                  },
+              )
+              with urllib.request.urlopen(req) as r:
+                  return json.load(r)
+
+          queries = [
+              '{ app { byFullName(fullName: "@allentackie/uvel") { id } } }',
+              '{ account { byName(accountName: "allentackie") { apps(limit: 30) { id slug fullName } } } }',
+          ]
+          for q in queries:
+              try:
+                  data = gql(q)
+                  print("gql", json.dumps(data)[:1500])
+              except Exception as e:
+                  print("gql failed", q, e)
+                  continue
+              app = (data.get("data") or {}).get("app") or {}
+              by = app.get("byFullName")
+              if by and by.get("id"):
+                  pid = by["id"]
+                  break
+              acc = ((data.get("data") or {}).get("account") or {}).get("byName") or {}
+              for a in acc.get("apps") or []:
+                  if a.get("slug") == "uvel":
+                      pid = a.get("id")
+                      break
+              if pid:
+                  break
+
+          if not pid:
+              raise SystemExit("Could not find Expo project @allentackie/uvel")
+
+          app_json = json.loads(Path("app.json").read_text())
+          app_json.setdefault("expo", {}).setdefault("extra", {}).setdefault("eas", {})["projectId"] = pid
+          Path("app.json").write_text(json.dumps(app_json, indent=2) + "\n")
+          print("Linked projectId", pid)
+          PY
+
       - name: Build on EAS
-        run: npx eas-cli build --platform ios --profile ci --non-interactive --no-wait
