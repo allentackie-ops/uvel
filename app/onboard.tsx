@@ -14,11 +14,9 @@ import {
   View,
 } from "react-native";
 import Animated, {
-  Easing,
   useAnimatedStyle,
+  useFrameCallback,
   useSharedValue,
-  withRepeat,
-  withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUvel } from "../lib/store";
@@ -98,30 +96,32 @@ function DriftRow({
   duration: number;
 }) {
   const x = useSharedValue(0);
-  const [span, setSpan] = useState(0);
+  const span = useSharedValue(0);
 
-  useEffect(() => {
-    if (span <= 0) return;
-    x.value = 0;
-    x.value = withRepeat(
-      withTiming(-span, { duration, easing: Easing.linear }),
-      -1,
-      false,
-    );
-  }, [span, duration, x]);
+  useFrameCallback((frame) => {
+    "worklet";
+    const width = span.value;
+    if (width <= 1) return;
+    const dt = Math.min(frame.timeSincePreviousFrame ?? 16, 40);
+    let next = x.value - (width / duration) * dt;
+    if (next <= -width) next += width;
+    x.value = next;
+  });
 
   const style = useAnimatedStyle(() => ({
     transform: [{ translateX: x.value }],
   }));
 
-  const doubled = [...images, ...images];
+  const strip = [...images, ...images, ...images];
 
   return (
     <Animated.View
       style={[{ flexDirection: "row" }, style]}
-      onLayout={(e) => setSpan(e.nativeEvent.layout.width / 2)}
+      onLayout={(e) => {
+        span.value = e.nativeEvent.layout.width / 3;
+      }}
     >
-      {doubled.map((src, i) => (
+      {strip.map((src, i) => (
         <Image
           key={i}
           source={src}
