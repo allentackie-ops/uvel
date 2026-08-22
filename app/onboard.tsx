@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -12,13 +13,21 @@ import {
   Text,
   View,
 } from "react-native";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUvel } from "../lib/store";
 
-const { width: SCREEN_W } = Dimensions.get("window");
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
 const PAGES = [
   {
+    kind: "film" as const,
     source: require("../assets/onboarding/tryon.mp4"),
     kicker: "TRY ON",
     title: "See it on you\nbefore you buy.",
@@ -26,6 +35,7 @@ const PAGES = [
     cta: "Next",
   },
   {
+    kind: "film" as const,
     source: require("../assets/onboarding/style.mp4"),
     kicker: "YOUR STYLE",
     title: "Clothes that\nactually suit you.",
@@ -33,19 +43,138 @@ const PAGES = [
     cta: "Next",
   },
   {
-    source: require("../assets/onboarding/market.mp4"),
+    kind: "market" as const,
+    source: 0,
     kicker: "",
     title: "From coats to\nthe last pin.",
     lede: "",
     cta: "Sign in",
   },
-] as const;
+];
 
 const PROVIDERS = [
   { id: "apple", label: "Continue with Apple", bg: "#fff", fg: "#111" },
   { id: "google", label: "Continue with Google", bg: "#fff", fg: "#111" },
   { id: "facebook", label: "Continue with Facebook", bg: "#1877F2", fg: "#fff" },
 ] as const;
+
+const ROW_A = [
+  require("../assets/onboarding/market/01.jpg"),
+  require("../assets/onboarding/market/06.jpg"),
+  require("../assets/onboarding/market/14.jpg"),
+  require("../assets/onboarding/market/07.jpg"),
+  require("../assets/onboarding/market/02.jpg"),
+  require("../assets/onboarding/market/12.jpg"),
+  require("../assets/onboarding/market/16.jpg"),
+  require("../assets/onboarding/market/09.jpg"),
+  require("../assets/onboarding/market/18.jpg"),
+  require("../assets/onboarding/market/15.jpg"),
+  require("../assets/onboarding/market/08.jpg"),
+  require("../assets/onboarding/market/20.jpg"),
+];
+const ROW_B = [
+  require("../assets/onboarding/market/03.jpg"),
+  require("../assets/onboarding/market/11.jpg"),
+  require("../assets/onboarding/market/22.jpg"),
+  require("../assets/onboarding/market/04.jpg"),
+  require("../assets/onboarding/market/13.jpg"),
+  require("../assets/onboarding/market/17.jpg"),
+  require("../assets/onboarding/market/10.jpg"),
+  require("../assets/onboarding/market/19.jpg"),
+  require("../assets/onboarding/market/05.jpg"),
+  require("../assets/onboarding/market/21.jpg"),
+  require("../assets/onboarding/market/23.jpg"),
+  require("../assets/onboarding/market/24.jpg"),
+];
+const WIDTHS = [148, 176, 156, 188, 142, 170];
+
+function DriftRow({
+  images,
+  height,
+  duration,
+}: {
+  images: number[];
+  height: number;
+  duration: number;
+}) {
+  const x = useSharedValue(0);
+  const [span, setSpan] = useState(0);
+
+  useEffect(() => {
+    if (span <= 0) return;
+    x.value = 0;
+    x.value = withRepeat(
+      withTiming(-span, { duration, easing: Easing.linear }),
+      -1,
+      false,
+    );
+  }, [span, duration, x]);
+
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: x.value }],
+  }));
+
+  const doubled = [...images, ...images];
+
+  return (
+    <Animated.View
+      style={[{ flexDirection: "row" }, style]}
+      onLayout={(e) => setSpan(e.nativeEvent.layout.width / 2)}
+    >
+      {doubled.map((src, i) => (
+        <Image
+          key={i}
+          source={src}
+          style={{
+            width: WIDTHS[i % WIDTHS.length],
+            height,
+            borderRadius: 18,
+            marginRight: 10,
+          }}
+          contentFit="cover"
+        />
+      ))}
+    </Animated.View>
+  );
+}
+
+function Catalog({
+  onSignIn,
+  insets,
+}: {
+  onSignIn: () => void;
+  insets: { top: number; bottom: number };
+}) {
+  const gridH = Math.min(SCREEN_H * 0.5, 430);
+  const tileH = (gridH - 10) / 2;
+
+  return (
+    <View style={styles.market}>
+      <View style={[styles.grid, { marginTop: insets.top + 36, height: gridH }]}>
+        <DriftRow images={ROW_A} height={tileH} duration={52000} />
+        <View style={{ height: 10 }} />
+        <DriftRow images={ROW_B} height={tileH} duration={58000} />
+      </View>
+      <View
+        style={[
+          styles.marketCopy,
+          { paddingBottom: Math.max(insets.bottom, 12) + 14 },
+        ]}
+      >
+        <View style={styles.dots}>
+          {PAGES.map((p, i) => (
+            <View key={p.title} style={[styles.dot, i === 2 && styles.dotOn]} />
+          ))}
+        </View>
+        <Text style={styles.title}>From coats to{"\n"}the last pin.</Text>
+        <View style={{ flex: 1 }} />
+        <Pressable onPress={onSignIn} style={styles.cta}>
+          <Text style={styles.ctaText}>Sign in</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
 
 function Film({ source, active }: { source: number; active: boolean }) {
   const lastTime = useRef(0);
@@ -134,7 +263,11 @@ export default function Onboard() {
       >
         {PAGES.map((p, i) => (
           <View key={p.title} style={{ width: SCREEN_W, height: "100%" }}>
-            <Film source={p.source} active={page === i} />
+            {p.kind === "market" ? (
+              <Catalog onSignIn={() => setAuth(true)} insets={insets} />
+            ) : (
+              <Film source={p.source} active={page === i} />
+            )}
           </View>
         ))}
       </ScrollView>
@@ -143,19 +276,21 @@ export default function Onboard() {
         <Text style={styles.skipText}>Skip</Text>
       </Pressable>
 
-      <View style={[styles.copy, { paddingBottom: Math.max(insets.bottom, 12) + 14 }]}>
-        <View style={styles.dots}>
-          {PAGES.map((p, i) => (
-            <View key={p.title} style={[styles.dot, i === page && styles.dotOn]} />
-          ))}
+      {copy.kind !== "market" ? (
+        <View style={[styles.copy, { paddingBottom: Math.max(insets.bottom, 12) + 14 }]}>
+          <View style={styles.dots}>
+            {PAGES.map((p, i) => (
+              <View key={p.title} style={[styles.dot, i === page && styles.dotOn]} />
+            ))}
+          </View>
+          <Text style={styles.kicker}>{copy.kicker}</Text>
+          <Text style={styles.title}>{copy.title}</Text>
+          <Text style={styles.lede}>{copy.lede}</Text>
+          <Pressable onPress={next} style={styles.cta}>
+            <Text style={styles.ctaText}>{copy.cta}</Text>
+          </Pressable>
         </View>
-        {copy.kicker ? <Text style={styles.kicker}>{copy.kicker}</Text> : null}
-        <Text style={styles.title}>{copy.title}</Text>
-        {copy.lede ? <Text style={styles.lede}>{copy.lede}</Text> : <View style={{ height: 18 }} />}
-        <Pressable onPress={next} style={styles.cta}>
-          <Text style={styles.ctaText}>{copy.cta}</Text>
-        </Pressable>
-      </View>
+      ) : null}
 
       <Modal visible={auth} animationType="slide" transparent onRequestClose={() => setAuth(false)}>
         <Pressable style={styles.sheetDim} onPress={() => setAuth(false)}>
@@ -184,6 +319,9 @@ export default function Onboard() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#12140A" },
+  market: { flex: 1, backgroundColor: "#12140A" },
+  grid: { overflow: "hidden" },
+  marketCopy: { flex: 1, paddingHorizontal: 22, paddingTop: 22 },
   skip: { position: "absolute", right: 18, zIndex: 2 },
   skipText: { color: "rgba(255,255,255,0.82)", fontSize: 13, letterSpacing: 0.6 },
   copy: { position: "absolute", left: 22, right: 22, bottom: 0 },

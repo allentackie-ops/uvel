@@ -41,7 +41,7 @@ const listeners = new Set<() => void>();
 async function load() {
   const raw = await AsyncStorage.getItem(KEY);
   if (raw) memory = { ...defaults, ...JSON.parse(raw) };
-  if ((memory.onboardVersion ?? 0) < 3) memory.onboarded = false;
+  if ((memory.onboardVersion ?? 0) < 4) memory.onboarded = false;
   hydrated = true;
   listeners.forEach((l) => l());
 }
@@ -94,7 +94,7 @@ export function useUvel() {
     completeOnboard: (provider?: string) =>
       save({
         onboarded: true,
-        onboardVersion: 3,
+        onboardVersion: 4,
         signedInWith: provider ?? memory.signedInWith,
       }),
   };
