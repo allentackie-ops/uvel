@@ -179,6 +179,9 @@ function Film({ source, active }: { source: number; active: boolean }) {
   const player = useVideoPlayer(source, (p) => {
     p.loop = true;
     p.muted = true;
+    p.volume = 0;
+    p.audioMixingMode = "mixWithOthers";
+    p.allowsExternalPlayback = false;
     if (active) p.play();
   });
 
