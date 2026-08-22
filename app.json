@@ -1,0 +1,74 @@
+{
+  "expo": {
+    "name": "Uvel",
+    "slug": "uvel",
+    "scheme": "uvel",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F0E0C"
+    },
+    "ios": {
+      "bundleIdentifier": "com.uvel.dressandshop",
+      "supportsTablet": false,
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Uvel photographs looks and you, so it can find the piece and show it on your body before you buy.",
+        "NSPhotoLibraryUsageDescription": "Uvel reads photos and screenshots you pick so it can find the clothes and try them on you.",
+        "NSMicrophoneUsageDescription": "Video looks from TikTok, Reels, and Snapchat may include sound.",
+        "UIUserInterfaceStyle": "Dark"
+      },
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          }
+        ]
+      }
+    },
+    "android": {
+      "package": "com.uvel.dressandshop",
+      "adaptiveIcon": {
+        "backgroundColor": "#0F0E0C",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": ["CAMERA", "READ_MEDIA_IMAGES"],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-glass-effect",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Uvel reads photos and screenshots so it can find the clothes.",
+          "cameraPermission": "Uvel photographs looks and you for try-on."
+        }
+      ],
+      "expo-web-browser",
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0F0E0C",
+          "image": "./assets/splash-icon.png"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
