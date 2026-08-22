@@ -14,7 +14,7 @@
       "url": "https://u.expo.dev/13230e71-d40b-45c8-8709-176f0c021198",
       "enabled": true,
       "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 2000
+      "fallbackToCacheTimeout": 0
     },
     "ios": {
       "bundleIdentifier": "com.uvel.dressandshop",
@@ -65,7 +65,9 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#2A320E",
-          "image": "./assets/splash-icon.png"
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "enableFullScreenImage_legacy": true
         }
       ],
       "expo-video",

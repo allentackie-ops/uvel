@@ -1,4 +1,5 @@
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useState } from "react";
 import { Appearance } from "react-native";
@@ -9,6 +10,8 @@ import { useOtaReady } from "../lib/ota";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 import Onboard from "./onboard";
+
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function ThemeSync() {
   const { appearance } = useUvel();
