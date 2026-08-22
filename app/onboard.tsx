@@ -19,10 +19,14 @@ import {
   View,
 } from "react-native";
 import Animated, {
+  runOnJS,
   useAnimatedStyle,
   useFrameCallback,
   useSharedValue,
+  withSpring,
+  withTiming,
 } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { pullOta } from "../lib/ota";
 import { useUvel } from "../lib/store";
@@ -280,6 +284,7 @@ export default function Onboard() {
   const [password, setPassword] = useState("");
   const [note, setNote] = useState("");
   const scroller = useRef<ScrollView>(null);
+  const sheetY = useSharedValue(0);
 
   function closeAuth() {
     setAuth(null);
@@ -289,7 +294,38 @@ export default function Onboard() {
     setNote("");
     setEmail("");
     setPassword("");
+    sheetY.value = 0;
   }
+
+  useEffect(() => {
+    if (auth) sheetY.value = 0;
+  }, [auth, sheetY]);
+
+  const dismissSheet = () => {
+    sheetY.value = withTiming(SCREEN_H, { duration: 220 }, (finished) => {
+      if (finished) runOnJS(closeAuth)();
+    });
+  };
+
+  const pan = Gesture.Pan()
+    .activeOffsetY(10)
+    .failOffsetX([-28, 28])
+    .onUpdate((e) => {
+      sheetY.value = Math.max(0, e.translationY);
+    })
+    .onEnd((e) => {
+      if (e.translationY > 110 || e.velocityY > 850) {
+        sheetY.value = withTiming(SCREEN_H, { duration: 220 }, (finished) => {
+          if (finished) runOnJS(closeAuth)();
+        });
+      } else {
+        sheetY.value = withSpring(0, { damping: 24, stiffness: 260 });
+      }
+    });
+
+  const sheetSlide = useAnimatedStyle(() => ({
+    transform: [{ translateY: sheetY.value }],
+  }));
 
   function finish(provider?: string) {
     closeAuth();
@@ -390,36 +426,38 @@ export default function Onboard() {
         animationType="slide"
         transparent
         presentationStyle="overFullScreen"
-        onRequestClose={closeAuth}
+        onRequestClose={dismissSheet}
       >
-        <Pressable style={styles.sheetDim} onPress={closeAuth}>
-          <Pressable
-            style={[
-              styles.sheet,
-              {
-                minHeight: gridMetrics(insets.top).sheetMin,
-                paddingBottom: Math.max(insets.bottom, 18) + 8,
-              },
-            ]}
-            onPress={() => undefined}
-          >
-            <Pressable onPress={closeAuth} style={styles.close} hitSlop={16}>
-              <Text style={styles.closeX}>✕</Text>
-            </Pressable>
-            {pane === "email" ? (
-              <Pressable
-                onPress={() => {
-                  setPane("providers");
-                  setError("");
-                  setNote("");
-                }}
-                style={styles.back}
-                hitSlop={16}
-              >
-                <Text style={styles.backText}>‹</Text>
-              </Pressable>
-            ) : null}
-            <Text style={styles.sheetTitle}>{isLogin ? "Log in to Uvel" : "Sign up for Uvel"}</Text>
+        <View style={styles.sheetDim}>
+          <Pressable style={styles.sheetScrim} onPress={dismissSheet} />
+          <GestureDetector gesture={pan}>
+            <Animated.View
+              style={[
+                styles.sheet,
+                sheetSlide,
+                {
+                  minHeight: gridMetrics(insets.top).sheetMin,
+                  paddingBottom: Math.max(insets.bottom, 18) + 8,
+                },
+              ]}
+            >
+              <View style={styles.handleWrap}>
+                <View style={styles.handle} />
+              </View>
+              {pane === "email" ? (
+                <Pressable
+                  onPress={() => {
+                    setPane("providers");
+                    setError("");
+                    setNote("");
+                  }}
+                  style={styles.back}
+                  hitSlop={16}
+                >
+                  <Text style={styles.backText}>‹</Text>
+                </Pressable>
+              ) : null}
+              <Text style={styles.sheetTitle}>{isLogin ? "Log in to Uvel" : "Sign up for Uvel"}</Text>
             {pane === "email" ? (
               <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
                 {isLogin ? (
@@ -535,8 +573,9 @@ export default function Onboard() {
                 </Pressable>
               </>
             )}
-          </Pressable>
-        </Pressable>
+            </Animated.View>
+          </GestureDetector>
+        </View>
       </Modal>
     </View>
   );
@@ -589,15 +628,21 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     justifyContent: "flex-end",
   },
+  sheetScrim: { ...StyleSheet.absoluteFill },
   sheet: {
     backgroundColor: "#16180F",
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
-    paddingTop: 18,
+    paddingTop: 6,
   },
-  close: { position: "absolute", right: 18, top: 16, zIndex: 2 },
-  closeX: { color: "rgba(255,255,255,0.88)", fontSize: 18, fontWeight: "400" },
+  handleWrap: { alignItems: "center", paddingTop: 6, paddingBottom: 10 },
+  handle: {
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "rgba(255,255,255,0.32)",
+  },
   sheetTitle: {
     color: "#fff",
     fontSize: 22,
@@ -665,6 +710,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 10,
   },
-  back: { position: "absolute", left: 16, top: 14, zIndex: 2, padding: 4 },
+  back: { position: "absolute", left: 16, top: 28, zIndex: 2, padding: 4 },
   backText: { color: "rgba(255,255,255,0.88)", fontSize: 28, lineHeight: 30, fontWeight: "300" },
 });
