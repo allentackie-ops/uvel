@@ -1,0 +1,52 @@
+name: iOS Submit
+
+on:
+  workflow_dispatch:
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install JS dependencies
+        run: npm ci
+
+      - name: Write App Store Connect API key
+        env:
+          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          Path("AuthKey.p8").write_text(os.environ["ASC_API_KEY"].replace("\\n", "\n").strip() + "\n")
+          eas = json.loads(Path("eas.json").read_text())
+          eas["submit"] = {
+            "production": {
+              "ios": {
+                "appleTeamId": "24TJHWVK8T",
+                "ascApiKeyPath": "AuthKey.p8",
+                "ascApiKeyId": os.environ["ASC_KEY_ID"].strip(),
+                "ascApiKeyIssuerId": os.environ["ASC_ISSUER_ID"].strip(),
+                "companyName": "Uvel",
+                "language": "en-US",
+              }
+            }
+          }
+          Path("eas.json").write_text(json.dumps(eas, indent=2) + "\n")
+          print("submit config ready")
+          PY
+
+      - name: Submit latest iOS build to App Store Connect
+        run: npx eas-cli submit --platform ios --profile production --latest --non-interactive --no-wait
