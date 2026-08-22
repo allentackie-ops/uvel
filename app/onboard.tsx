@@ -292,7 +292,13 @@ export default function Onboard() {
         </View>
       ) : null}
 
-      <Modal visible={auth} animationType="slide" transparent onRequestClose={() => setAuth(false)}>
+      <Modal
+        visible={auth}
+        animationType="slide"
+        transparent
+        presentationStyle="overFullScreen"
+        onRequestClose={() => setAuth(false)}
+      >
         <Pressable style={styles.sheetDim} onPress={() => setAuth(false)}>
           <Pressable style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]} onPress={() => undefined}>
             <View style={styles.handle} />
@@ -348,11 +354,11 @@ const styles = StyleSheet.create({
   ctaText: { color: "#2A320E", fontSize: 15, fontWeight: "600" },
   sheetDim: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.45)",
+    backgroundColor: "transparent",
     justifyContent: "flex-end",
   },
   sheet: {
-    backgroundColor: "#1A1C14",
+    backgroundColor: "#12140A",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 22,
