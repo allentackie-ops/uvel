@@ -14,6 +14,7 @@ type State = {
   appearance: "light" | "dark";
   onboarded: boolean;
   onboardVersion: number;
+  signedInWith: string;
 };
 
 const KEY = "uvel-state-v1";
@@ -30,6 +31,7 @@ const defaults: State = {
   appearance: "light",
   onboarded: false,
   onboardVersion: 0,
+  signedInWith: "",
 };
 
 let memory = { ...defaults };
@@ -39,7 +41,7 @@ const listeners = new Set<() => void>();
 async function load() {
   const raw = await AsyncStorage.getItem(KEY);
   if (raw) memory = { ...defaults, ...JSON.parse(raw) };
-  if ((memory.onboardVersion ?? 0) < 2) memory.onboarded = false;
+  if ((memory.onboardVersion ?? 0) < 3) memory.onboarded = false;
   hydrated = true;
   listeners.forEach((l) => l());
 }
@@ -89,6 +91,11 @@ export function useUvel() {
     setStyle: (patch: Partial<State>) => save(patch),
     setPerson: (uri: string | null) => save({ personUri: uri }),
     setAppearance: (appearance: "light" | "dark") => save({ appearance }),
-    completeOnboard: () => save({ onboarded: true, onboardVersion: 2 }),
+    completeOnboard: (provider?: string) =>
+      save({
+        onboarded: true,
+        onboardVersion: 3,
+        signedInWith: provider ?? memory.signedInWith,
+      }),
   };
 }
