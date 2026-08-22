@@ -14,10 +14,16 @@ from pathlib import Path
 import jwt
 import requests
 
-TEAM_ID = "24TJHWVK8T"
 BUNDLE_ID = "com.uvel.dressandshop"
 PROFILE_NAME = "Uvel App Store"
 ASC = "https://api.appstoreconnect.apple.com/v1"
+
+
+class AppleApiError(RuntimeError):
+    def __init__(self, status: int, path: str, body: object):
+        super().__init__(f"Apple API {path} -> {status}: {body}")
+        self.status = status
+        self.body = body
 
 
 def die(msg: str, extra: object | None = None) -> None:
@@ -61,7 +67,7 @@ def api(method: str, path: str, jwt_token: str, **kwargs):
             body = r.json()
         except Exception:
             body = r.text
-        die(f"Apple API {method} {path} -> {r.status_code}", body)
+        raise AppleApiError(r.status_code, f"{method} {path}", body)
     if r.status_code == 204 or not r.content:
         return None
     return r.json()
@@ -93,33 +99,41 @@ def main() -> None:
         ]
     )
     csr = csr_path.read_text()
-
     jwt_token = token()
 
-    # Previous CI runs created certs whose private keys were discarded.
-    existing_certs = api("GET", "/certificates?limit=200", jwt_token)
-    for item in (existing_certs or {}).get("data", []):
-        ctype = (item.get("attributes") or {}).get("certificateType") or ""
-        if ctype not in {"DISTRIBUTION", "IOS_DISTRIBUTION"}:
-            continue
-        cid = item["id"]
-        print("Revoking leftover", ctype, cid)
-        api("DELETE", f"/certificates/{cid}", jwt_token)
+    def create_cert():
+        return api(
+            "POST",
+            "/certificates",
+            jwt_token,
+            json={
+                "data": {
+                    "type": "certificates",
+                    "attributes": {
+                        "csrContent": csr,
+                        "certificateType": "DISTRIBUTION",
+                    },
+                }
+            },
+        )
 
-    created = api(
-        "POST",
-        "/certificates",
-        jwt_token,
-        json={
-            "data": {
-                "type": "certificates",
-                "attributes": {
-                    "csrContent": csr,
-                    "certificateType": "DISTRIBUTION",
-                },
-            }
-        },
-    )
+    try:
+        created = create_cert()
+    except AppleApiError as exc:
+        print(exc)
+        if exc.status != 409:
+            die("Certificate create failed", exc.body)
+        print("Distribution cert slot full — revoking leftover CI certs, then retrying once")
+        existing_certs = api("GET", "/certificates?limit=200", jwt_token)
+        for item in (existing_certs or {}).get("data", []):
+            ctype = (item.get("attributes") or {}).get("certificateType") or ""
+            if ctype not in {"DISTRIBUTION", "IOS_DISTRIBUTION"}:
+                continue
+            cid = item["id"]
+            print("Revoking leftover", ctype, cid)
+            api("DELETE", f"/certificates/{cid}", jwt_token)
+        created = create_cert()
+
     cert_id = created["data"]["id"]
     der_b64 = created["data"]["attributes"]["certificateContent"]
     print("Created distribution certificate", cert_id)
@@ -153,7 +167,6 @@ def main() -> None:
     bundle_res_id = bundles["data"][0]["id"]
     print("Bundle id resource", bundle_res_id)
 
-    # Drop an old profile with the same name so we can recreate it.
     existing = api("GET", f"/profiles?filter[name]={requests.utils.quote(PROFILE_NAME)}&limit=20", jwt_token)
     for prof in (existing or {}).get("data", []):
         if prof.get("attributes", {}).get("name") == PROFILE_NAME:
@@ -196,4 +209,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except AppleApiError as exc:
+        die(str(exc), exc.body)
