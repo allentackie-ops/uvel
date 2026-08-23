@@ -90,23 +90,23 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
   return (
     <View style={styles.page}>
       <StatusBar style={colors.bone === "#F4F0E6" ? "light" : "dark"} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 220 }} showsVerticalScrollIndicator={false}>
-        <Image source={{ uri: gallery[0] }} style={styles.hero} contentFit="cover" />
+      <View style={styles.heroWrap}>
+        <Image source={{ uri: gallery[0] }} style={StyleSheet.absoluteFill} contentFit="cover" />
         <Pressable onPress={() => router.back()} style={[styles.iconBtn, { top: insets.top + 6 }]} hitSlop={8}>
           <Text style={styles.iconTxt}>‹</Text>
         </Pressable>
         <View style={[styles.badge, { top: insets.top + 14 }]}>
           <Text style={styles.badgeTxt}>{status}</Text>
         </View>
+      </View>
 
-        <View style={styles.body}>
-          <Text style={styles.kicker}>Your listing</Text>
-          <Text style={styles.title}>{piece.name}</Text>
-          <Text style={styles.price}>{usd(piece.listPriceCents, piece.currency || "USD")}</Text>
-          <Text style={styles.meta}>{[piece.size, piece.color, piece.condition].filter(Boolean).join("  ·  ")}</Text>
-          {piece.shopLook && piece.shopLook !== "uvel" ? <Text style={styles.look}>Shop look · {look.name}</Text> : null}
-        </View>
-      </ScrollView>
+      <View style={styles.body}>
+        <Text style={styles.kicker}>Your listing</Text>
+        <Text style={styles.title}>{piece.name}</Text>
+        <Text style={styles.price}>{usd(piece.listPriceCents, piece.currency || "USD")}</Text>
+        <Text style={styles.meta}>{[piece.size, piece.color, piece.condition].filter(Boolean).join("  ·  ")}</Text>
+        {piece.shopLook && piece.shopLook !== "uvel" ? <Text style={styles.look}>Shop look · {look.name}</Text> : null}
+      </View>
 
       <View style={[styles.dock, { paddingBottom: insets.bottom + 10 }]}>
         <Pressable onPress={() => router.push({ pathname: "/sell", params: { id: piece.id } })} style={styles.edit}>
@@ -362,7 +362,7 @@ export default function ClosetPiece() {
 function ownerStyles(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    hero: { width: W, height: HERO_H, backgroundColor: colors.surface },
+    heroWrap: { flex: 1, backgroundColor: colors.surface, overflow: "hidden" },
     iconBtn: {
       position: "absolute",
       left: 16,
@@ -383,19 +383,15 @@ function ownerStyles(colors: Colors) {
       paddingVertical: 5,
     },
     badgeTxt: { color: "#16140F", fontSize: 11, fontWeight: "700", letterSpacing: 0.4 },
-    body: { paddingHorizontal: 22, paddingTop: 22 },
+    body: { paddingHorizontal: 22, paddingTop: 16, paddingBottom: 12 },
     kicker: { color: colors.subtle, fontSize: 11, letterSpacing: 1.8, textTransform: "uppercase" },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 28, lineHeight: 34, marginTop: 8 },
     price: { color: colors.bone, fontWeight: "700", fontSize: 24, marginTop: 10 },
     meta: { color: colors.muted, fontSize: 14, marginTop: 8 },
     look: { color: colors.subtle, fontSize: 13, marginTop: 10 },
     dock: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
       paddingHorizontal: 16,
-      paddingTop: 12,
+      paddingTop: 10,
       gap: 8,
       backgroundColor: colors.ink,
       borderTopWidth: StyleSheet.hairlineWidth,
