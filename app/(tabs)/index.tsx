@@ -1,5 +1,4 @@
 import { Image } from "expo-image";
-import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { router, useFocusEffect } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
@@ -17,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { unreadFor, useInbox } from "../../lib/chat";
+import { frameAtTime, prefetchLookVideo } from "../../lib/lookFrame";
 import { forYou, matchListings } from "../../lib/lookMatch";
 import { setLookScan } from "../../lib/lookSearch";
 import { useUvel } from "../../lib/store";
@@ -48,10 +48,13 @@ function MutedLoop({
   handleRef?: MutableRefObject<FrameGrab | null>;
 }) {
   const held = useRef(false);
+  const lastTime = useRef(0);
+  const frozenAt = useRef(0);
   const player = useVideoPlayer({ uri }, (p) => {
     p.loop = true;
     p.muted = true;
     p.audioMixingMode = "mixWithOthers";
+    p.timeUpdateEventInterval = 0.04;
   });
 
   const playIfFree = useCallback(() => {
@@ -62,15 +65,22 @@ function MutedLoop({
   }, [player]);
 
   useEffect(() => {
-    const sub = player.addListener("statusChange", ({ status }) => {
-      if (status === "readyToPlay") playIfFree();
+    const status = player.addListener("statusChange", ({ status }) => {
+      if (status === "readyToPlay") {
+        prefetchLookVideo(uri);
+        playIfFree();
+      }
+    });
+    const time = player.addListener("timeUpdate", ({ currentTime }) => {
+      if (!held.current) lastTime.current = currentTime;
     });
     playIfFree();
     const app = AppState.addEventListener("change", (s) => {
       if (s === "active") playIfFree();
     });
     return () => {
-      sub.remove();
+      status.remove();
+      time.remove();
       app.remove();
     };
   }, [player, uri, playIfFree]);
@@ -88,26 +98,14 @@ function MutedLoop({
     handleRef.current = {
       freeze: () => {
         held.current = true;
-        const time = Math.max(0, Number(player.currentTime) || 0);
+        frozenAt.current = lastTime.current || Number(player.currentTime) || 0;
         player.pause();
-        player.currentTime = time;
       },
       frame: async () => {
-        try {
-          held.current = true;
-          const time = Math.max(0, Number(player.currentTime) || 0);
-          player.pause();
-          player.currentTime = time;
-          const thumbs = await player.generateThumbnailsAsync([time], { maxWidth: 720, maxHeight: 1280 });
-          const thumb = thumbs[0];
-          if (!thumb) return null;
-          const image = await ImageManipulator.manipulate(thumb).renderAsync();
-          const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.78, base64: true });
-          if (saved.base64) return `data:image/jpeg;base64,${saved.base64}`;
-          return saved.uri;
-        } catch {
-          return null;
-        }
+        held.current = true;
+        const time = frozenAt.current || lastTime.current || Number(player.currentTime) || 0;
+        player.pause();
+        return frameAtTime(player, time, uri);
       },
     };
     return () => {
@@ -162,8 +160,8 @@ function where(url?: string): Exclude<Source, "All"> | null {
 
 async function scanLook(look: Look, grab: FrameGrab | null) {
   grab?.freeze();
-  const frame = (await grab?.frame()) || look.imageUrl || "";
-  setLookScan(frame, look.title);
+  const frame = await grab?.frame();
+  setLookScan(frame || look.imageUrl || "", look.title);
   router.push({
     pathname: "/(tabs)/shop",
     params: { look: look.id, q: look.shopQuery || look.title, scan: "1" },
