@@ -207,7 +207,6 @@ function Hero({
     <View>
       <View style={styles.heroWrap}>
         <LookMedia look={look} style={styles.hero} />
-        <View style={styles.heroScrim} />
         <View style={styles.heroBar}>
           <Pressable
             onPress={() =>
@@ -270,14 +269,6 @@ function make(colors: Colors) {
     page: { flex: 1, backgroundColor: colors.ink },
     heroWrap: { height: Math.min(560, H * 0.62), backgroundColor: "#0B0A08", overflow: "hidden" },
     hero: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-    heroScrim: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
-      height: 120,
-      backgroundColor: "rgba(11,10,8,0.28)",
-    },
     heroBar: {
       position: "absolute",
       left: 16,
