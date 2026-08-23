@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { LANGS } from "../lib/i18n";
 import { getMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
@@ -111,7 +111,15 @@ export default function Settings() {
       </View>
 
       {app.uid || app.signedInWith ? (
-        <Pressable onPress={() => void app.signOutAccount()} style={styles.out}>
+        <Pressable
+          onPress={() =>
+            Alert.alert("Log out?", "You’ll need to sign in again to sell, buy, or message.", [
+              { text: "Stay", style: "cancel" },
+              { text: "Log out", style: "destructive", onPress: () => void app.signOutAccount() },
+            ])
+          }
+          style={styles.out}
+        >
           <Text style={styles.outText}>Log out</Text>
         </Pressable>
       ) : null}
