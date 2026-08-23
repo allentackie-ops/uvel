@@ -43,7 +43,7 @@ export function forYou(pieces: ClosetPiece[], styles: string[], country: string)
 }
 
 async function asRemoteImage(uri: string) {
-  if (/^https?:/i.test(uri)) return uri;
+  if (/^https?:/i.test(uri) || uri.startsWith("data:")) return uri;
   const res = await fetch(uri);
   if (!res.ok) throw new Error("photo");
   const bytes = new Uint8Array(await res.arrayBuffer());
@@ -83,7 +83,7 @@ export async function matchLookImage(imageUrl: string, pieces: ClosetPiece[]): P
             content: [
               {
                 type: "text",
-                text: `This is a fashion look (photo or a frame from a video). Match it to items people are actually selling on Uvel. Only pick pieces that are the same kind of garment, colour, or silhouette. If nothing is close, return {"ids":[]}.\n\nInventory:\n${inventory}\n\nJSON: {"ids":["id"]}`,
+                text: `This is a frozen frame from a fashion video or photo. Identify the clothes on the person (top, bottom, dress, shoes, bag). Match them to items people are actually selling on Uvel. Same kind of garment and similar colour/silhouette only. If nothing is close, return {"ids":[]}.\n\nInventory:\n${inventory}\n\nJSON: {"ids":["id"]}`,
               },
               { type: "image_url", image_url: { url: await asRemoteImage(imageUrl), detail: "low" } },
             ],

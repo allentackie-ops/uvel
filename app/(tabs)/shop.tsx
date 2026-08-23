@@ -1,3 +1,4 @@
+import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -5,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { CATEGORIES } from "../../lib/catalog";
 import { forYou, matchListings, matchLookImage } from "../../lib/lookMatch";
+import { takeLookScan, clearLookScan } from "../../lib/lookSearch";
 import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
@@ -17,10 +19,13 @@ export default function Shop() {
   const insets = useSafeAreaInsets();
   const { country, styles: taste } = useUvel();
   const market = getMarket(country);
-  const { q: qParam, look: lookParam } = useLocalSearchParams<{ q?: string; look?: string }>();
+  const { q: qParam, look: lookParam, scan } = useLocalSearchParams<{ q?: string; look?: string; scan?: string }>();
   const [q, setQ] = useState(qParam ?? "");
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("All");
   const [aiIds, setAiIds] = useState<string[] | null>(null);
+  const [scanning, setScanning] = useState(false);
+  const [frame, setFrame] = useState<string | null>(null);
+  const [scanTitle, setScanTitle] = useState("");
   useWardrobe();
 
   const look = useMemo(
@@ -32,25 +37,46 @@ export default function Shop() {
     if (typeof qParam === "string") setQ(qParam);
   }, [qParam]);
 
+  useEffect(() => {
+    const grabbed = takeLookScan();
+    if (grabbed.frame) {
+      setFrame(grabbed.frame);
+      setScanTitle(grabbed.title);
+    } else if (look?.imageUrl) {
+      setFrame(look.imageUrl);
+    }
+    return () => clearLookScan();
+  }, [lookParam, scan, look?.imageUrl]);
+
   const live = listedPieces();
 
   useEffect(() => {
-    if (!look?.imageUrl || !live.length) {
+    if (!frame || !live.length) {
       setAiIds(null);
+      setScanning(false);
       return;
     }
     let gone = false;
-    void matchLookImage(look.imageUrl, live).then((ids) => {
-      if (!gone && ids) setAiIds(ids);
+    setScanning(true);
+    setAiIds(null);
+    void matchLookImage(frame, live).then((ids) => {
+      if (gone) return;
+      setAiIds(ids);
+      setScanning(false);
     });
     return () => {
       gone = true;
     };
-  }, [look?.id, live.length]);
+  }, [frame, live.length]);
+
+  const scanningLook = Boolean(look || frame);
 
   const ranked = useMemo(() => {
     let rows = look ? matchListings(look, live, taste) : forYou(live, taste, country);
-    if (look && aiIds?.length) {
+    if (scanningLook && aiIds) {
+      const hit = new Set(aiIds);
+      rows = rows.filter((p) => hit.has(p.id));
+    } else if (look && aiIds?.length) {
       const hit = new Set(aiIds);
       rows = [...rows.filter((p) => hit.has(p.id)), ...rows.filter((p) => !hit.has(p.id))];
     }
@@ -65,7 +91,7 @@ export default function Shop() {
         p.notes.toLowerCase().includes(needle)
       );
     });
-  }, [live, look, aiIds, q, cat, taste, country]);
+  }, [live, look, aiIds, q, cat, taste, country, scanningLook]);
 
   return (
     <ScrollView
@@ -73,9 +99,9 @@ export default function Shop() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>{look ? "Shop the look" : "Shop"}</Text>
-      {look ? (
-        <Text style={styles.look}>{look.title}</Text>
+      <Text style={styles.title}>{scanningLook ? "Shop the look" : "Shop"}</Text>
+      {scanningLook ? (
+        <Text style={styles.look}>{scanTitle || look?.title || "This frame"}</Text>
       ) : (
         <Pressable onPress={() => router.push("/store")} style={styles.store}>
           <Text style={styles.storeTxt}>
@@ -85,10 +111,13 @@ export default function Shop() {
         </Pressable>
       )}
 
+      {frame ? <Image source={{ uri: frame }} style={styles.frame} contentFit="cover" /> : null}
+      {scanning ? <Text style={styles.scanning}>Searching this frame on Uvel…</Text> : null}
+
       <View style={styles.search}>
         <Text style={styles.searchIcon}>⌕</Text>
         <TextInput
-          placeholder={look ? "Narrow this look" : "Search what’s listed"}
+          placeholder={scanningLook ? "Narrow this look" : "Search what’s listed"}
           placeholderTextColor={colors.subtle}
           value={q}
           onChangeText={setQ}
@@ -115,19 +144,23 @@ export default function Shop() {
       </ScrollView>
 
       <Text style={styles.count}>
-        {ranked.length} {ranked.length === 1 ? "listing" : "listings"} · real people selling
+        {scanning
+          ? "Matching clothes in this frame"
+          : `${ranked.length} ${ranked.length === 1 ? "listing" : "listings"} · real people selling`}
       </Text>
 
       <View style={styles.grid}>
-        {ranked.map((p) => (
-          <View key={p.id} style={styles.cell}>
-            <ListingCard piece={p} />
-          </View>
-        ))}
+        {scanning
+          ? null
+          : ranked.map((p) => (
+              <View key={p.id} style={styles.cell}>
+                <ListingCard piece={p} />
+              </View>
+            ))}
       </View>
 
-      {ranked.length === 0 ? (
-        <ListingEmpty copy="Nothing listed yet that matches. When someone puts a piece up, it shows here — not catalog filler." />
+      {!scanning && ranked.length === 0 ? (
+        <ListingEmpty copy="Nothing listed yet that matches this frame. When someone puts the piece up, it shows here." />
       ) : null}
     </ScrollView>
   );
@@ -139,6 +172,13 @@ function make(colors: Colors) {
     content: { paddingHorizontal: 16, paddingBottom: 48 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 36 },
     look: { color: colors.muted, marginTop: 6, fontSize: 16 },
+    frame: {
+      marginTop: 16,
+      height: 220,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+    },
+    scanning: { color: "#D6E27A", marginTop: 10, fontSize: 13, fontWeight: "600" },
     store: { flexDirection: "row", alignItems: "center", marginTop: 8, gap: 8 },
     storeTxt: { color: colors.muted, fontSize: 15 },
     storeGo: { color: "#D6E27A", fontSize: 13, fontWeight: "700" },

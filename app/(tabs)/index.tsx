@@ -1,7 +1,8 @@
 import { Image } from "expo-image";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { router } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import {
   AppState,
   Dimensions,
@@ -17,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { unreadFor, useInbox } from "../../lib/chat";
 import { forYou, matchListings } from "../../lib/lookMatch";
+import { setLookScan } from "../../lib/lookSearch";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
@@ -31,7 +33,17 @@ const DOT: Record<Exclude<Source, "All">, string> = {
   X: "#F4F0E6",
 };
 
-function MutedLoop({ uri, style }: { uri: string; style: object }) {
+type FrameGrab = { pauseAndFrame: () => Promise<string | null> };
+
+function MutedLoop({
+  uri,
+  style,
+  handleRef,
+}: {
+  uri: string;
+  style: object;
+  handleRef?: MutableRefObject<FrameGrab | null>;
+}) {
   const player = useVideoPlayer({ uri }, (p) => {
     p.loop = true;
     p.muted = true;
@@ -56,6 +68,31 @@ function MutedLoop({ uri, style }: { uri: string; style: object }) {
       app.remove();
     };
   }, [player, uri]);
+
+  useEffect(() => {
+    if (!handleRef) return;
+    handleRef.current = {
+      pauseAndFrame: async () => {
+        try {
+          player.pause();
+          const time = Math.max(0, Number(player.currentTime) || 0);
+          const thumbs = await player.generateThumbnailsAsync(time, { maxWidth: 720, maxHeight: 1280 });
+          const thumb = thumbs[0];
+          if (!thumb) return null;
+          const image = await ImageManipulator.manipulate(thumb).renderAsync();
+          const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.72, base64: true });
+          if (saved.base64) return `data:image/jpeg;base64,${saved.base64}`;
+          return saved.uri;
+        } catch {
+          return null;
+        }
+      },
+    };
+    return () => {
+      handleRef.current = null;
+    };
+  }, [player, handleRef, uri]);
+
   return (
     <View style={[style, { overflow: "hidden", backgroundColor: "#0B0A08" }]}>
       <VideoView
@@ -68,8 +105,25 @@ function MutedLoop({ uri, style }: { uri: string; style: object }) {
   );
 }
 
-function LookMedia({ look, style }: { look: Look; style: object }) {
-  if (look.videoUrl) return <MutedLoop uri={look.videoUrl} style={style} />;
+function LookMedia({
+  look,
+  style,
+  handleRef,
+}: {
+  look: Look;
+  style: object;
+  handleRef?: MutableRefObject<FrameGrab | null>;
+}) {
+  useEffect(() => {
+    if (look.videoUrl || !handleRef) return;
+    handleRef.current = {
+      pauseAndFrame: async () => look.imageUrl || null,
+    };
+    return () => {
+      handleRef.current = null;
+    };
+  }, [look.videoUrl, look.imageUrl, handleRef]);
+  if (look.videoUrl) return <MutedLoop uri={look.videoUrl} style={style} handleRef={handleRef} />;
   return <Image source={lookImage(look)} style={style} contentFit="cover" />;
 }
 
@@ -81,6 +135,15 @@ function where(url?: string): Exclude<Source, "All"> | null {
   if (u.includes("snapchat.com")) return "Snapchat";
   if (u.includes("x.com") || u.includes("twitter.com")) return "X";
   return null;
+}
+
+async function scanLook(look: Look, grab: FrameGrab | null) {
+  const frame = (await grab?.pauseAndFrame()) || look.imageUrl || "";
+  setLookScan(frame, look.title);
+  router.push({
+    pathname: "/(tabs)/shop",
+    params: { look: look.id, q: look.shopQuery || look.title, scan: "1" },
+  });
 }
 
 export default function Today() {
@@ -203,18 +266,26 @@ function Hero({
 }) {
   const styles = make(colors);
   const seen = where(look.postUrl) || look.source;
+  const grab = useRef<FrameGrab | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function shopThis() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await scanLook(look, grab.current);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <View>
       <View style={styles.heroWrap}>
-        <LookMedia look={look} style={styles.hero} />
+        <LookMedia look={look} style={styles.hero} handleRef={grab} />
         <View style={styles.heroBar}>
-          <Pressable
-            onPress={() =>
-              router.push({ pathname: "/(tabs)/shop", params: look.id ? { look: look.id } : { q: look.shopQuery || look.title } })
-            }
-            style={styles.cta}
-          >
-            <Text style={styles.ctaTxt}>Shop the look</Text>
+          <Pressable onPress={() => void shopThis()} style={styles.cta}>
+            <Text style={styles.ctaTxt}>{busy ? "Searching…" : "Shop the look"}</Text>
           </Pressable>
           {look.postUrl ? (
             <Pressable onPress={() => void Linking.openURL(look.postUrl!)} style={styles.ghost}>
@@ -238,18 +309,26 @@ function Hero({
 
 function LookCard({ look, colors }: { look: Look; colors: Colors }) {
   const styles = make(colors);
+  const grab = useRef<FrameGrab | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function shopThis() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await scanLook(look, grab.current);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <Pressable
-      onPress={() =>
-        router.push({
-          pathname: "/(tabs)/shop",
-          params: look.id ? { look: look.id } : { q: look.shopQuery || look.title },
-        })
-      }
-      style={styles.card}
-    >
+    <View style={styles.card}>
       <View style={styles.cardFrame}>
-        <LookMedia look={look} style={styles.cardFill} />
+        <LookMedia look={look} style={styles.cardFill} handleRef={grab} />
+        <Pressable onPress={() => void shopThis()} style={styles.searchFab} hitSlop={8}>
+          <Text style={styles.searchFabTxt}>{busy ? "…" : "⌕"}</Text>
+        </Pressable>
       </View>
       <View style={styles.cardMeta}>
         <View style={styles.srcRow}>
@@ -260,7 +339,7 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
           {look.title}
         </Text>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -277,27 +356,6 @@ function make(colors: Colors) {
       flexDirection: "row",
       gap: 10,
     },
-    playHit: { position: "absolute", right: 16, bottom: 16 },
-    play: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
-      backgroundColor: "rgba(0,0,0,0.55)",
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    playTxt: { color: "#fff", fontSize: 16, marginLeft: 2 },
-    cardPlay: {
-      position: "absolute",
-      right: 10,
-      top: 10,
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      backgroundColor: "rgba(0,0,0,0.55)",
-      alignItems: "center",
-      justifyContent: "center",
-    },
     heroCopy: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 4 },
     date: {
       color: colors.subtle,
@@ -311,7 +369,6 @@ function make(colors: Colors) {
     src: { color: colors.muted, fontSize: 12, letterSpacing: 0.4 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, marginTop: 10 },
     summary: { color: colors.muted, marginTop: 10, fontSize: 15, lineHeight: 22 },
-    actions: { flexDirection: "row", gap: 10, marginTop: 18 },
     cta: {
       backgroundColor: "rgba(244,240,230,0.94)",
       paddingHorizontal: 18,
@@ -379,7 +436,18 @@ function make(colors: Colors) {
       backgroundColor: colors.surface,
     },
     cardFill: { width: 168, height: 240 },
-    cardImg: { width: 168, height: 240, borderRadius: 16, backgroundColor: colors.surface },
+    searchFab: {
+      position: "absolute",
+      right: 10,
+      top: 10,
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: "rgba(244,240,230,0.94)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    searchFabTxt: { color: "#16140F", fontSize: 16, fontWeight: "700", marginTop: -1 },
     cardMeta: { paddingTop: 10, paddingRight: 4 },
     cardSrc: { color: colors.subtle, fontSize: 11, fontWeight: "600" },
     cardTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 16, marginTop: 4, lineHeight: 20 },
@@ -387,3 +455,4 @@ function make(colors: Colors) {
     cell: { width: "47%", flexGrow: 1 },
   });
 }
+
