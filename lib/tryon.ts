@@ -1,20 +1,15 @@
-import {
-  getGenerativeModel,
-  HarmBlockThreshold,
-  HarmCategory,
-  ResponseModality,
-} from "firebase/ai";
+import Constants from "expo-constants";
 import { Image, type ImageSourcePropType } from "react-native";
-import { firebaseAi, firebaseReady } from "./firebase";
+import { firebaseExtra, firebaseReady } from "./firebase";
 
 const MODELS = ["gemini-3.1-flash-image", "gemini-2.5-flash-image"];
 
-const SAFETY = [
-  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-];
+type Extra = { geminiApiKey?: string };
+
+function geminiKey() {
+  const extra = (Constants.expoConfig?.extra ?? {}) as Extra;
+  return extra.geminiApiKey || firebaseExtra.apiKey || "";
+}
 
 function bytesToBase64(bytes: Uint8Array) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -46,18 +41,13 @@ export function resolveSource(src: ImageSourcePropType | { uri: string }) {
   return r.uri;
 }
 
-async function uriToPart(uri: string) {
+async function uriToInline(uri: string) {
   const res = await fetch(uri);
   if (!res.ok) throw new Error("Couldn’t read that photo.");
   const buf = await res.arrayBuffer();
   const bytes = new Uint8Array(buf);
   if (!bytes.length) throw new Error("That photo is empty.");
-  return {
-    inlineData: {
-      mimeType: mimeOf(uri),
-      data: bytesToBase64(bytes),
-    },
-  };
+  return { mimeType: mimeOf(uri), data: bytesToBase64(bytes) };
 }
 
 function promptFor(name: string, category: string) {
@@ -84,41 +74,88 @@ They must look like they are actually wearing it in this same photo — same fac
 Output only the finished photograph.`;
 }
 
-function nice(err: unknown) {
-  const text = err instanceof Error ? err.message : String(err);
+function nice(text: string) {
   const low = text.toLowerCase();
-  if (low.includes("ai logic") || low.includes("not found") || low.includes("404") || low.includes("permission") || low.includes("api has not been used") || low.includes("enable")) {
-    return "Turn on Gemini in Firebase (AI Logic → Get started), then try again.";
+  if (low.includes("app check")) {
+    return "Gemini is locked. In Firebase: App Check → APIs → Firebase AI Logic → Monitor, not Enforce.";
   }
-  if (low.includes("blocked") || low.includes("safety") || low.includes("image-rejected")) {
+  if (
+    low.includes("has not been used") ||
+    low.includes("service_disabled") ||
+    low.includes("api-not-enabled") ||
+    low.includes("enable it by visiting")
+  ) {
+    return "Turn on Gemini: Firebase → AI Logic → Get started.";
+  }
+  if (low.includes("are blocked") || low.includes("api_key_ios_app_blocked") || low.includes("requests to this api")) {
+    return "The Firebase key can’t call Gemini. Make a Gemini API key in Google AI Studio (aistudio.google.com/apikey) and send it.";
+  }
+  if (low.includes("blocked") || low.includes("safety") || low.includes("image-rejected") || low.includes("prohibited")) {
     return "That photo was blocked. Try a full-length mirror pic with your face in frame.";
   }
-  if (low.includes("quota") || low.includes("resource-exhausted") || low.includes("429")) {
-    return "Try-on is busy. Wait a moment.";
+  if (low.includes("quota") || low.includes("resource-exhausted") || low.includes("billing")) {
+    return "Gemini needs billing on this Firebase project (Spark can’t generate images). Upgrade to Blaze, then retry.";
   }
   if (low.includes("network") || low.includes("failed to fetch")) return "No connection. Try again.";
-  return text || "Couldn’t dress you in that. Try again.";
+  return text.replace(/^AI:\s*/, "").slice(0, 220) || "Couldn’t dress you in that. Try again.";
 }
 
-async function once(modelName: string, person: Awaited<ReturnType<typeof uriToPart>>, garment: Awaited<ReturnType<typeof uriToPart>>, prompt: string) {
-  const model = getGenerativeModel(
-    firebaseAi(),
-    {
-      model: modelName,
+type Part = {
+  text?: string;
+  inlineData?: { mimeType?: string; data?: string };
+  inline_data?: { mime_type?: string; data?: string };
+};
+
+function imageFrom(json: {
+  error?: { message?: string };
+  candidates?: { content?: { parts?: Part[] } }[];
+}) {
+  if (json.error?.message) throw new Error(json.error.message);
+  const parts = json.candidates?.[0]?.content?.parts ?? [];
+  for (const p of parts) {
+    const blob = p.inlineData || p.inline_data;
+    const data = blob?.data;
+    if (data) {
+      const mime = ("mimeType" in (blob ?? {}) ? p.inlineData?.mimeType : p.inline_data?.mime_type) || "image/png";
+      return `data:${mime};base64,${data}`;
+    }
+  }
+  throw new Error("No image came back.");
+}
+
+async function once(model: string, person: { mimeType: string; data: string }, garment: { mimeType: string; data: string }, prompt: string) {
+  const key = geminiKey();
+  if (!key) throw new Error("Gemini isn’t connected yet.");
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: person.mimeType, data: person.data } },
+            { inline_data: { mime_type: garment.mimeType, data: garment.data } },
+          ],
+        },
+      ],
       generationConfig: {
-        responseModalities: [ResponseModality.IMAGE],
+        responseModalities: ["IMAGE"],
         imageConfig: { aspectRatio: "3:4", imageSize: "1K" },
       },
-      safetySettings: SAFETY,
-    },
-    { timeout: 55000 },
-  );
-  const result = await model.generateContent([prompt, person, garment]);
-  const parts = result.response.inlineDataParts();
-  const data = parts?.[0]?.inlineData;
-  if (!data?.data) throw new Error("No image came back.");
-  const mime = data.mimeType || "image/png";
-  return `data:${mime};base64,${data.data}`;
+      safetySettings: [
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
+      ],
+    }),
+  });
+  const json = (await res.json()) as Parameters<typeof imageFrom>[0];
+  if (!res.ok) throw new Error(json.error?.message || `Try-on failed (${res.status}).`);
+  return imageFrom(json);
 }
 
 export async function dressPerson(opts: {
@@ -127,10 +164,10 @@ export async function dressPerson(opts: {
   garmentName?: string;
   category?: string;
 }) {
-  if (!firebaseReady()) throw new Error("Firebase isn’t connected yet.");
+  if (!firebaseReady() && !geminiKey()) throw new Error("Firebase isn’t connected yet.");
   const [person, garment] = await Promise.all([
-    uriToPart(opts.personUri),
-    uriToPart(resolveSource(opts.garment)),
+    uriToInline(opts.personUri),
+    uriToInline(resolveSource(opts.garment)),
   ]);
   const prompt = promptFor(opts.garmentName ?? "this piece", opts.category ?? "clothes");
   let last = "Couldn’t dress you in that.";
@@ -138,9 +175,9 @@ export async function dressPerson(opts: {
     try {
       return await once(name, person, garment, prompt);
     } catch (err) {
-      last = nice(err);
       const raw = err instanceof Error ? err.message : String(err);
-      if (!/404|not found|not supported|unknown model/i.test(raw)) throw new Error(last);
+      last = nice(raw);
+      if (!/404|not found|not supported|unknown model|is not found/i.test(raw)) throw new Error(last);
     }
   }
   throw new Error(last);
