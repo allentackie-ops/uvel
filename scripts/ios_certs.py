@@ -193,6 +193,28 @@ def main() -> None:
     bundle_res_id = bundles["data"][0]["id"]
     print("Bundle id resource", bundle_res_id)
 
+    try:
+        api(
+            "POST",
+            "/bundleIdCapabilities",
+            jwt_token,
+            json={
+                "data": {
+                    "type": "bundleIdCapabilities",
+                    "attributes": {"capabilityType": "PUSH_NOTIFICATIONS"},
+                    "relationships": {
+                        "bundleId": {"data": {"type": "bundleIds", "id": bundle_res_id}}
+                    },
+                }
+            },
+        )
+        print("Enabled Push Notifications on", BUNDLE_ID)
+    except AppleApiError as exc:
+        if exc.status in {409, 422}:
+            print("Push Notifications already on", BUNDLE_ID)
+        else:
+            die("Couldn’t enable Push Notifications", exc.body)
+
     existing = api("GET", f"/profiles?filter[name]={requests.utils.quote(PROFILE_NAME)}&limit=20", jwt_token)
     for prof in (existing or {}).get("data", []):
         if prof.get("attributes", {}).get("name") == PROFILE_NAME:
