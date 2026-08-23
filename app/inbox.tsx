@@ -1,11 +1,15 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useInbox, unreadFor, type ChatThread } from "../lib/chat";
+import { unreadFor, useInbox, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
+
+type Filter = "All" | "Messages" | "Selling" | "Buying";
+const FILTERS: Filter[] = ["All", "Messages", "Selling", "Buying"];
 
 function when(ms: number) {
   const min = Math.max(1, Math.round((Date.now() - ms) / 60000));
@@ -20,7 +24,27 @@ export default function Inbox() {
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { uid } = useUvel();
-  const threads = useInbox(uid || "me");
+  const me = uid || "me";
+  const threads = useInbox(me);
+  const [filter, setFilter] = useState<Filter>("All");
+
+  const visible = useMemo(() => {
+    return threads.filter((t) => {
+      const selling = t.sellerId === me;
+      const buying = t.buyerId === me;
+      if (filter === "Selling") return selling;
+      if (filter === "Buying") return buying;
+      if (filter === "Messages") return Boolean(t.lastText);
+      return true;
+    });
+  }, [threads, filter, me]);
+
+  const empty =
+    filter === "Selling"
+      ? "Asks on your listings land here."
+      : filter === "Buying"
+        ? "When you ask a seller, it lands here."
+        : "When someone asks about a listing, it lands here.";
 
   return (
     <View style={styles.page}>
@@ -29,14 +53,32 @@ export default function Inbox() {
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>
           <Text style={styles.navBack}>‹</Text>
         </Pressable>
-        <Text style={styles.navTitle}>Chats</Text>
-        <View style={{ width: 44 }} />
+        <Text style={styles.navTitle}>Inbox</Text>
+        <Pressable
+          onPress={() => Alert.alert("Notifications", "New asks, offers, and sold pieces will ping here.")}
+          hitSlop={12}
+          style={styles.bell}
+        >
+          <Text style={styles.bellTxt}>🔔</Text>
+        </Pressable>
       </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        {FILTERS.map((f) => {
+          const on = filter === f;
+          return (
+            <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, on && styles.chipOn]}>
+              <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{f}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
-        {threads.length === 0 ? (
-          <Text style={styles.empty}>When someone asks about a listing, it lands here. Your replies live here too.</Text>
+        {visible.length === 0 ? (
+          <Text style={styles.empty}>{empty}</Text>
         ) : (
-          threads.map((t) => <Row key={t.id} thread={t} uid={uid || "me"} colors={colors} />)
+          visible.map((t) => <Row key={t.id} thread={t} uid={me} colors={colors} />)
         )}
       </ScrollView>
     </View>
@@ -59,7 +101,13 @@ function Row({
   const unread = unreadFor(t, uid);
   return (
     <Pressable onPress={() => router.push({ pathname: "/ask/[id]", params: { id: t.pieceId } })} style={styles.row}>
-      <Image source={{ uri: t.piecePhoto }} style={styles.thumb} contentFit="cover" />
+      {t.piecePhoto ? (
+        <Image source={{ uri: t.piecePhoto }} style={styles.thumb} contentFit="cover" />
+      ) : (
+        <View style={[styles.thumb, styles.avatar]}>
+          <Text style={styles.avatarTxt}>{who.slice(0, 1).toUpperCase()}</Text>
+        </View>
+      )}
       <View style={{ flex: 1 }}>
         <View style={styles.line}>
           <Text style={[styles.name, unread ? { fontWeight: "800" } : null]} numberOfLines={1}>
@@ -67,18 +115,11 @@ function Row({
           </Text>
           {t.lastAt ? <Text style={styles.time}>{when(t.lastAt)}</Text> : null}
         </View>
-        <Text style={styles.piece} numberOfLines={1}>
-          {t.pieceName}
-        </Text>
         <Text style={[styles.prev, unread ? { color: "#F4F0E6" } : null]} numberOfLines={1}>
-          {t.lastText ? `${you ? "You: " : ""}${t.lastText}` : iAmSeller ? "Waiting on their first message" : "Say hi"}
+          {t.lastText ? `${you ? "You: " : ""}${t.lastText}` : t.pieceName}
         </Text>
       </View>
-      {unread ? (
-        <View style={styles.badge}>
-          <Text style={styles.badgeTxt}>{unread > 9 ? "9+" : String(unread)}</Text>
-        </View>
-      ) : null}
+      {unread ? <View style={styles.dot} /> : null}
     </Pressable>
   );
 }
@@ -91,36 +132,50 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "space-between",
       paddingHorizontal: 6,
-      paddingBottom: 8,
+      paddingBottom: 10,
     },
     navBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
     navBack: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
-    navTitle: { color: colors.bone, fontSize: 16, fontWeight: "600" },
+    navTitle: { color: colors.bone, fontSize: 17, fontWeight: "700" },
+    bell: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: "rgba(244,240,230,0.18)",
+      alignItems: "center",
+      justifyContent: "center",
+      marginRight: 8,
+    },
+    bellTxt: { fontSize: 16 },
+    chips: { paddingHorizontal: 16, paddingBottom: 12, gap: 8, flexDirection: "row" },
+    chip: {
+      height: 36,
+      paddingHorizontal: 16,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: "rgba(244,240,230,0.28)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    chipOn: { backgroundColor: "#F4F0E6", borderColor: "#F4F0E6" },
+    chipTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
+    chipTxtOn: { color: "#16140F" },
     empty: { color: colors.muted, padding: 24, lineHeight: 22, fontSize: 15 },
     row: {
       flexDirection: "row",
       gap: 12,
       paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingVertical: 14,
       alignItems: "center",
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: "rgba(244,240,230,0.1)",
     },
-    thumb: { width: 56, height: 56, borderRadius: 8, backgroundColor: colors.surface },
+    thumb: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.surface },
+    avatar: { alignItems: "center", justifyContent: "center" },
+    avatarTxt: { color: colors.bone, fontWeight: "700", fontSize: 18 },
     line: { flexDirection: "row", alignItems: "center", gap: 8 },
-    name: { flex: 1, color: colors.bone, fontWeight: "700", fontSize: 15 },
+    name: { flex: 1, color: colors.bone, fontWeight: "700", fontSize: 16 },
     time: { color: colors.subtle, fontSize: 12 },
-    piece: { color: colors.muted, marginTop: 2, fontSize: 13 },
-    prev: { color: colors.subtle, marginTop: 3, fontSize: 13 },
-    badge: {
-      minWidth: 22,
-      height: 22,
-      borderRadius: 11,
-      backgroundColor: "#D6E27A",
-      alignItems: "center",
-      justifyContent: "center",
-      paddingHorizontal: 6,
-    },
-    badgeTxt: { color: "#16140F", fontWeight: "800", fontSize: 11 },
+    prev: { color: colors.subtle, marginTop: 4, fontSize: 14 },
+    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#E24B4B" },
   });
 }
