@@ -46,30 +46,11 @@ async function uriToDataUrl(uri: string) {
   return `data:image/jpeg;base64,${saved.base64}`;
 }
 
-const HOT =
-  /\b(bodycon|bandeau|micro|mini|strapless|sexy|lingerie|sheer|cut-?outs?|low-?cut|plunging|revealing|nude|mesh|see-?through|thong|bikini|intimate|skintight|skin-tight|clubwear)\b/gi;
+const PROMPT =
+  "Photo 1 is the person. Photo 2 is a clothing item. Put the clothes from photo 2 onto the person in photo 1. Keep the same person, face, hair, pose and room. Catalog photo. Photorealistic. No text.";
 
-export function catalogName(name: string, category = "piece") {
-  const cleaned = name.replace(HOT, " ").replace(/[^a-zA-Z0-9 &\-]/g, " ").replace(/\s+/g, " ").trim();
-  if (cleaned.length >= 4) return cleaned;
-  return category || "piece";
-}
-
-function lookbookPrompt(name: string, category: string) {
-  return `E-commerce catalog composite. Department store lookbook. PG fashion photography.
-
-Image 1 is the customer. Image 2 is a ${name} (${category}) sold on a clothing app.
-
-Put that same ${name} onto the customer in image 1. Keep their face, hair, pose and room. They stay fully dressed in ordinary day clothes. Photorealistic. No text, no collage, no extra people.`;
-}
-
-function modestPrompt(name: string, category: string) {
-  return `Department store catalog photo. Dress the person in image 1 in a regular ${category} that matches the colour and fabric of the item in image 2. Everyday daywear, fully clothed. Same face, hair, pose and room. Photorealistic. No text.`;
-}
-
-function textOnlyPrompt(name: string, category: string) {
-  return `Department store catalog photo of the person in this picture wearing a regular ${name} (${category}). Everyday daywear, fully clothed. Same face, hair, pose and room. Photorealistic. No text.`;
-}
+const FALLBACK =
+  "Combine these two photos into one catalog photo. Keep the person from photo 1. Use the clothes from photo 2. Same room. Photorealistic. No text.";
 
 function nice(text: string) {
   const low = text.toLowerCase();
@@ -129,10 +110,10 @@ function postJson(url: string, headers: Record<string, string>, body: string, ms
   });
 }
 
-async function openaiEdits(images: string[], prompt: string) {
+async function openaiEdits(images: string[], prompt: string, model: string) {
   const key = openaiKey();
   const body = JSON.stringify({
-    model: "gpt-image-2",
+    model,
     prompt,
     images: images.map((image_url) => ({ image_url })),
     size: "1024x1536",
@@ -166,22 +147,21 @@ export async function dressPerson(opts: {
   category?: string;
 }) {
   if (!openaiKey()) throw new Error("Add your OpenAI key and I’ll turn try-on on.");
-  const category = opts.category ?? "clothes";
-  const name = catalogName(opts.garmentName ?? "this piece", category);
   try {
     const [personUrl, garmentUrl] = await Promise.all([
       uriToDataUrl(opts.personUri),
       uriToDataUrl(resolveSource(opts.garment)),
     ]);
-    const attempts: { images: string[]; prompt: string }[] = [
-      { images: [personUrl, garmentUrl], prompt: lookbookPrompt(name, category) },
-      { images: [personUrl, garmentUrl], prompt: modestPrompt(name, category) },
-      { images: [personUrl], prompt: textOnlyPrompt(name, category) },
+    const images = [personUrl, garmentUrl];
+    const attempts: { prompt: string; model: string }[] = [
+      { prompt: PROMPT, model: "gpt-image-2" },
+      { prompt: FALLBACK, model: "gpt-image-2" },
+      { prompt: PROMPT, model: "gpt-image-1" },
     ];
     let last: unknown;
     for (const step of attempts) {
       try {
-        return await openaiEdits(step.images, step.prompt);
+        return await openaiEdits(images, step.prompt, step.model);
       } catch (err) {
         last = err;
         if (!isBlocked(err)) throw err;
