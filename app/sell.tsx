@@ -370,7 +370,6 @@ export default function Sell() {
                 autoFocus={false}
               />
             </View>
-            <Text style={styles.must}>Required</Text>
 
             <TextInput
               style={styles.titleIn}
@@ -644,7 +643,6 @@ function make(colors: Colors) {
       padding: 0,
       includeFontPadding: false,
     },
-    must: { color: colors.muted, fontSize: 13, marginTop: 6 },
     titleIn: {
       color: colors.bone,
       fontFamily: "Georgia",
