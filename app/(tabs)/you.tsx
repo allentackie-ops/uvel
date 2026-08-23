@@ -28,6 +28,7 @@ export default function You() {
   const [hub, setHub] = useState<Hub>("shop");
   const [soldFilter, setSoldFilter] = useState("all");
   const [buyFilter, setBuyFilter] = useState("all");
+  const [dnaOpen, setDnaOpen] = useState(false);
 
   const listed = pieces.filter((p) => p.status === "listed" && (!p.ownerId || p.ownerId === app.uid));
   const soldPieces = pieces.filter((p) => p.status === "sold" && (!p.ownerId || p.ownerId === app.uid));
@@ -141,38 +142,50 @@ export default function You() {
         </Pressable>
       </View>
 
-      <Text style={styles.h2}>Style DNA</Text>
-      <Text style={styles.lede}>
-        This is how Uvel decides what you see on Today, and which pieces we put in front of you to buy.
-      </Text>
-
-      <ChipBlock
-        label="Style"
-        items={[...ARCH]}
-        value={app.archetype}
-        hint={app.archetype ? dnaHint("arch", app.archetype) : ""}
-        onPick={(v) => pick({ archetype: v })}
-      />
-      <ChipBlock
-        label="Palette"
-        items={[...PALS]}
-        value={app.palette}
-        hint={app.palette ? dnaHint("pal", app.palette) : ""}
-        onPick={(v) => pick({ palette: v })}
-      />
-      <ChipBlock
-        label="Silhouette"
-        items={[...SILS]}
-        value={app.silhouette}
-        hint={app.silhouette ? dnaHint("sil", app.silhouette) : ""}
-        onPick={(v) => pick({ silhouette: v })}
-      />
-
-      <Text style={styles.foot}>
-        {dnaReady
-          ? "Today and Shop now pull looks that match this mix. Change it anytime."
-          : "Pick a style to start. We’ll reshape Today around it."}
-      </Text>
+      <Pressable onPress={() => setDnaOpen((v) => !v)} style={styles.dnaHead}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.dnaTitle}>Style DNA</Text>
+          <Text style={styles.dnaSum} numberOfLines={1}>
+            {dnaReady
+              ? [app.archetype, app.palette, app.silhouette].filter(Boolean).join("  ·  ")
+              : "Set how Today picks looks"}
+          </Text>
+        </View>
+        <Text style={[styles.dnaChevron, dnaOpen && styles.dnaChevronOpen]}>⌄</Text>
+      </Pressable>
+      {dnaOpen ? (
+        <View style={styles.dnaBody}>
+          <Text style={styles.lede}>
+            This is how Uvel decides what you see on Today, and which pieces we put in front of you to buy.
+          </Text>
+          <ChipBlock
+            label="Style"
+            items={[...ARCH]}
+            value={app.archetype}
+            hint={app.archetype ? dnaHint("arch", app.archetype) : ""}
+            onPick={(v) => pick({ archetype: v })}
+          />
+          <ChipBlock
+            label="Palette"
+            items={[...PALS]}
+            value={app.palette}
+            hint={app.palette ? dnaHint("pal", app.palette) : ""}
+            onPick={(v) => pick({ palette: v })}
+          />
+          <ChipBlock
+            label="Silhouette"
+            items={[...SILS]}
+            value={app.silhouette}
+            hint={app.silhouette ? dnaHint("sil", app.silhouette) : ""}
+            onPick={(v) => pick({ silhouette: v })}
+          />
+          <Text style={styles.foot}>
+            {dnaReady
+              ? "Today and Shop now pull looks that match this mix. Change it anytime."
+              : "Pick a style to start. We’ll reshape Today around it."}
+          </Text>
+        </View>
+      ) : null}
 
       <Pressable onPress={() => router.push("/plus")} style={styles.plan}>
         <View>
@@ -612,7 +625,22 @@ function make(_colors: Colors) {
     },
     dash: { width: 16, height: 1.5, borderRadius: 1, backgroundColor: "#F4F0E6" },
     h2: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 26, marginTop: 22 },
-    lede: { color: "rgba(244,240,230,0.58)", fontSize: 15, lineHeight: 22, marginTop: 8 },
+    dnaHead: {
+      marginTop: 22,
+      backgroundColor: "#161512",
+      borderRadius: 20,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    dnaTitle: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 20 },
+    dnaSum: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 4 },
+    dnaChevron: { color: "rgba(244,240,230,0.55)", fontSize: 22, marginTop: -6 },
+    dnaChevronOpen: { transform: [{ rotate: "180deg" }], marginTop: 4 },
+    dnaBody: { paddingHorizontal: 2, paddingBottom: 4 },
+    lede: { color: "rgba(244,240,230,0.58)", fontSize: 15, lineHeight: 22, marginTop: 12 },
     foot: { color: "rgba(244,240,230,0.4)", fontSize: 13, lineHeight: 19, marginTop: 16 },
     plan: {
       marginTop: 22,
