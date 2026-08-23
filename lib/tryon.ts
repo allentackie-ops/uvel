@@ -1,14 +1,24 @@
 import Constants from "expo-constants";
 import { Image, type ImageSourcePropType } from "react-native";
 
-const MODELS = ["gemini-3.1-flash-image", "gemini-2.5-flash-image"];
+type Extra = {
+  openaiApiKey?: string;
+  anthropicApiKey?: string;
+  firebase?: { openaiApiKey?: string; anthropicApiKey?: string };
+};
 
-type Extra = { geminiApiKey?: string };
+function extra() {
+  return (Constants.expoConfig?.extra ?? {}) as Extra;
+}
 
-function geminiKey() {
-  const extra = (Constants.expoConfig?.extra ?? {}) as Extra & { firebase?: { geminiApiKey?: string } };
-  const wired = ["AQ.Ab8RN6Jo8D385Ew6H15b1h7", "0d8cr2WPQTIqGqmz2CU9e0fgsg"].join("-");
-  return process.env.EXPO_PUBLIC_GEMINI_API_KEY || extra.geminiApiKey || extra.firebase?.geminiApiKey || wired;
+export function openaiKey() {
+  const e = extra();
+  return process.env.EXPO_PUBLIC_OPENAI_API_KEY || e.openaiApiKey || e.firebase?.openaiApiKey || "";
+}
+
+export function anthropicKey() {
+  const e = extra();
+  return process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || e.anthropicApiKey || e.firebase?.anthropicApiKey || "";
 }
 
 function bytesToBase64(bytes: Uint8Array) {
@@ -65,97 +75,108 @@ function promptFor(name: string, category: string) {
     swap = "Put these shoes on their feet. Keep the rest of the outfit.";
   }
 
-  return `Virtual try-on. Image 1 is the person. Image 2 is the garment (${name}, ${category}).
+  return `Virtual try-on. The first image is the person. The second image is the garment (${name}, ${category}).
 
 ${swap}
 
-They must look like they are actually wearing it in this same photo — same face, skin, hair, body, pose, hands, phone, jewelry, room, lighting, and camera. Fabric should drape on THEIR body. Photorealistic. No collage, no floating product, no overlay, no mannequin, no text, no watermark.
-
-Output only the finished photograph.`;
+They must look like they are actually wearing it in this same photo — same face, skin, hair, body, pose, hands, phone, jewelry, room, lighting, and camera. Fabric should drape on THEIR body. Photorealistic. No collage, no floating product, no overlay, no mannequin, no text, no watermark.`;
 }
 
 function nice(text: string) {
   const low = text.toLowerCase();
-  if (low.includes("app check")) {
-    return "Gemini is locked. In Firebase: App Check → APIs → Firebase AI Logic → Monitor, not Enforce.";
+  if (low.includes("incorrect api key") || low.includes("invalid_api_key") || low.includes("unauthorized") || low.includes("401")) {
+    return "That OpenAI key isn’t valid. Send a new one from platform.openai.com/api-keys.";
   }
-  if (
-    low.includes("has not been used") ||
-    low.includes("service_disabled") ||
-    low.includes("api-not-enabled") ||
-    low.includes("enable it by visiting")
-  ) {
-    return "Turn on Gemini: Firebase → AI Logic → Get started.";
+  if (low.includes("insufficient_quota") || low.includes("billing") || low.includes("exceeded your current quota")) {
+    return "OpenAI needs billing on this key. Add a card at platform.openai.com/settings/organization/billing.";
   }
-  if (low.includes("are blocked") || low.includes("api_key_ios_app_blocked") || low.includes("requests to this api")) {
-    return "The Firebase key can’t call Gemini. Make a Gemini API key in Google AI Studio (aistudio.google.com/apikey) and send it.";
-  }
-  if (low.includes("blocked") || low.includes("safety") || low.includes("image-rejected") || low.includes("prohibited")) {
+  if (low.includes("blocked") || low.includes("safety") || low.includes("moderation") || low.includes("responsible")) {
     return "That photo was blocked. Try a full-length mirror pic with your face in frame.";
   }
-  if (low.includes("quota") || low.includes("resource-exhausted") || low.includes("billing")) {
-    return "Gemini needs billing on this Firebase project (Spark can’t generate images). Upgrade to Blaze, then retry.";
-  }
+  if (low.includes("rate") || low.includes("429")) return "Try-on is busy. Wait a moment.";
   if (low.includes("network") || low.includes("failed to fetch")) return "No connection. Try again.";
-  return text.replace(/^AI:\s*/, "").slice(0, 220) || "Couldn’t dress you in that. Try again.";
+  return text.slice(0, 220) || "Couldn’t dress you in that. Try again.";
 }
 
-type Part = {
-  text?: string;
-  inlineData?: { mimeType?: string; data?: string };
-  inline_data?: { mime_type?: string; data?: string };
+type OutputItem = {
+  type?: string;
+  result?: string;
+  b64_json?: string;
+  image_url?: string;
+  content?: { type?: string; image_url?: string; b64_json?: string }[];
 };
 
-function imageFrom(json: {
+function imageFromResponses(json: {
   error?: { message?: string };
-  candidates?: { content?: { parts?: Part[] } }[];
+  output?: OutputItem[];
+  data?: { b64_json?: string; url?: string }[];
 }) {
   if (json.error?.message) throw new Error(json.error.message);
-  const parts = json.candidates?.[0]?.content?.parts ?? [];
-  for (const p of parts) {
-    const blob = p.inlineData || p.inline_data;
-    const data = blob?.data;
-    if (data) {
-      const mime = ("mimeType" in (blob ?? {}) ? p.inlineData?.mimeType : p.inline_data?.mime_type) || "image/png";
-      return `data:${mime};base64,${data}`;
+  for (const item of json.output ?? []) {
+    if (item.result) return `data:image/png;base64,${item.result}`;
+    if (item.b64_json) return `data:image/png;base64,${item.b64_json}`;
+    if (item.image_url) return item.image_url;
+    for (const c of item.content ?? []) {
+      if (c.b64_json) return `data:image/png;base64,${c.b64_json}`;
+      if (c.image_url) return c.image_url;
     }
   }
+  const d = json.data?.[0];
+  if (d?.b64_json) return `data:image/png;base64,${d.b64_json}`;
+  if (d?.url) return d.url;
   throw new Error("No image came back.");
 }
 
-async function once(model: string, person: { mimeType: string; data: string }, garment: { mimeType: string; data: string }, prompt: string) {
-  const key = geminiKey();
-  if (!key) throw new Error("Gemini isn’t connected yet.");
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
-  const res = await fetch(url, {
+async function openaiResponses(
+  person: { mimeType: string; data: string },
+  garment: { mimeType: string; data: string },
+  prompt: string,
+  model: string,
+) {
+  const key = openaiKey();
+  const res = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({
-      contents: [
+      model,
+      input: [
         {
           role: "user",
-          parts: [
-            { text: prompt },
-            { inline_data: { mime_type: person.mimeType, data: person.data } },
-            { inline_data: { mime_type: garment.mimeType, data: garment.data } },
+          content: [
+            { type: "input_text", text: prompt },
+            { type: "input_image", image_url: `data:${person.mimeType};base64,${person.data}`, detail: "high" },
+            { type: "input_image", image_url: `data:${garment.mimeType};base64,${garment.data}`, detail: "high" },
           ],
         },
       ],
-      generationConfig: {
-        responseModalities: ["IMAGE"],
-        imageConfig: { aspectRatio: "3:4", imageSize: "1K" },
-      },
-      safetySettings: [
-        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
-        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
-        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
-        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
-      ],
+      tools: [{ type: "image_generation", quality: "medium", size: "1024x1536" }],
+      tool_choice: { type: "image_generation" },
     }),
   });
-  const json = (await res.json()) as Parameters<typeof imageFrom>[0];
+  const json = (await res.json()) as Parameters<typeof imageFromResponses>[0];
   if (!res.ok) throw new Error(json.error?.message || `Try-on failed (${res.status}).`);
-  return imageFrom(json);
+  return imageFromResponses(json);
+}
+
+async function openaiEdits(personUri: string, prompt: string) {
+  const key = openaiKey();
+  const form = new FormData();
+  form.append("model", "gpt-image-2");
+  form.append("prompt", prompt);
+  form.append("size", "1024x1536");
+  form.append("quality", "medium");
+  form.append("image", { uri: personUri, name: "person.jpg", type: "image/jpeg" } as unknown as Blob);
+  const res = await fetch("https://api.openai.com/v1/images/edits", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}` },
+    body: form,
+  });
+  const json = (await res.json()) as Parameters<typeof imageFromResponses>[0];
+  if (!res.ok) throw new Error(json.error?.message || `Try-on failed (${res.status}).`);
+  return imageFromResponses(json);
 }
 
 export async function dressPerson(opts: {
@@ -164,21 +185,47 @@ export async function dressPerson(opts: {
   garmentName?: string;
   category?: string;
 }) {
-  if (!geminiKey()) throw new Error("Gemini isn’t connected yet.");
+  if (!openaiKey()) throw new Error("Add your OpenAI key and I’ll turn try-on on.");
   const [person, garment] = await Promise.all([
     uriToInline(opts.personUri),
     uriToInline(resolveSource(opts.garment)),
   ]);
   const prompt = promptFor(opts.garmentName ?? "this piece", opts.category ?? "clothes");
   let last = "Couldn’t dress you in that.";
-  for (const name of MODELS) {
+  for (const model of ["gpt-5.6", "gpt-5.4", "gpt-4.1", "gpt-4o"]) {
     try {
-      return await once(name, person, garment, prompt);
+      return await openaiResponses(person, garment, prompt, model);
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
       last = nice(raw);
-      if (!/404|not found|not supported|unknown model|is not found/i.test(raw)) throw new Error(last);
+      if (/invalid_api_key|incorrect api key|insufficient_quota/i.test(raw)) throw new Error(last);
+      if (!/model|not found|invalid|does not exist|404/i.test(raw)) break;
     }
   }
-  throw new Error(last);
+  try {
+    return await openaiEdits(opts.personUri, prompt);
+  } catch (err) {
+    throw new Error(nice(err instanceof Error ? err.message : last));
+  }
+}
+
+export async function styleNote(text: string) {
+  const key = anthropicKey();
+  if (!key) return "";
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 120,
+      messages: [{ role: "user", content: text }],
+    }),
+  });
+  const json = (await res.json()) as { content?: { text?: string }[]; error?: { message?: string } };
+  if (!res.ok) return "";
+  return json.content?.[0]?.text?.trim() ?? "";
 }
