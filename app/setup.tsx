@@ -12,6 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GARMENTS } from "../lib/catalog";
@@ -20,11 +21,14 @@ import { dressPerson } from "../lib/tryon";
 import { pickFromLibrary, takePhoto } from "../lib/photo";
 import { addPiece } from "../lib/wardrobe";
 
-const BG = "#12140A";
-const CREAM = "#F4F0E6";
-const MUTED = "rgba(244,240,230,0.58)";
-const LINE = "rgba(244,240,230,0.16)";
-const OLIVE = "#D6E27A";
+const BG = "#FFFFFF";
+const INK = "#16140F";
+const MUTED = "rgba(22,20,15,0.5)";
+const LINE = "rgba(22,20,15,0.12)";
+const OLIVE = "#5E7018";
+const LIME = "#D6E27A";
+const WASH = "rgba(214,226,122,0.28)";
+const SOFT = "#F5F3EC";
 const STEPS = 5;
 
 const STYLES = [
@@ -221,6 +225,7 @@ export default function ProfileSetup() {
 
   return (
     <Animated.View entering={FadeIn.duration(380)} style={[styles.root, { paddingTop: insets.top + 8 }]}>
+      <StatusBar style="dark" />
       <View style={styles.head}>
         {step > 0 ? (
           <Pressable onPress={() => go(step - 1)} hitSlop={16} style={styles.back}>
@@ -379,7 +384,7 @@ export default function ProfileSetup() {
                     <Image source={{ uri: worn ?? photo }} style={styles.fullPic} contentFit="contain" />
                     {rendering ? (
                       <View style={styles.spin}>
-                        <ActivityIndicator color={CREAM} />
+                        <ActivityIndicator color={INK} />
                         <Text style={styles.spinTxt}>{rendering ? "Dressing you" : "Rendering"}</Text>
                       </View>
                     ) : null}
@@ -546,18 +551,18 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   back: { width: 36, height: 36, alignItems: "center", justifyContent: "center" },
-  backTxt: { color: CREAM, fontSize: 32, lineHeight: 34, marginTop: -4 },
+  backTxt: { color: INK, fontSize: 32, lineHeight: 34, marginTop: -4 },
   barTrack: {
     flex: 1,
     height: 3,
     borderRadius: 2,
-    backgroundColor: "rgba(244,240,230,0.14)",
+    backgroundColor: "rgba(22,20,15,0.1)",
     overflow: "hidden",
   },
-  barFill: { height: 3, backgroundColor: OLIVE, borderRadius: 2 },
+  barFill: { height: 3, backgroundColor: LIME, borderRadius: 2 },
   body: { paddingHorizontal: 24, paddingTop: 22, flexGrow: 1 },
   h: {
-    color: CREAM,
+    color: INK,
     fontFamily: "Georgia",
     fontSize: 32,
     lineHeight: 40,
@@ -573,11 +578,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: LINE,
     borderRadius: 12,
-    color: CREAM,
+    color: INK,
     fontSize: 16,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 14,
+    backgroundColor: SOFT,
   },
   dobRow: { flexDirection: "row", gap: 10 },
   dob: {
@@ -585,25 +591,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: LINE,
     borderRadius: 14,
-    color: CREAM,
+    color: INK,
     fontSize: 18,
     textAlign: "center",
     paddingVertical: 16,
-    backgroundColor: "rgba(244,240,230,0.03)",
+    backgroundColor: SOFT,
   },
   dobY: { flex: 1.3 },
-  dobOn: { borderColor: OLIVE },
-  err: { color: "#E8A0A0", marginTop: 12, fontSize: 14 },
+  dobOn: { borderColor: OLIVE, backgroundColor: WASH },
+  err: { color: "#B42318", marginTop: 12, fontSize: 14 },
   cta: {
     marginTop: 28,
     height: 54,
     borderRadius: 27,
-    backgroundColor: CREAM,
+    backgroundColor: LIME,
     alignItems: "center",
     justifyContent: "center",
   },
-  ctaOff: { opacity: 0.38 },
-  ctaTxt: { color: "#16140F", fontSize: 16, fontWeight: "600" },
+  ctaOff: { backgroundColor: "rgba(214,226,122,0.38)" },
+  ctaTxt: { color: INK, fontSize: 16, fontWeight: "600" },
   choice: {
     flexDirection: "row",
     alignItems: "center",
@@ -614,15 +620,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 18,
     marginBottom: 10,
+    backgroundColor: "#fff",
   },
-  choiceOn: { borderColor: OLIVE, backgroundColor: "rgba(214,226,122,0.08)" },
-  choiceTxt: { color: CREAM, fontSize: 17 },
+  choiceOn: { borderColor: OLIVE, backgroundColor: WASH },
+  choiceTxt: { color: INK, fontSize: 17 },
   radio: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 1.5,
-    borderColor: "rgba(244,240,230,0.4)",
+    borderColor: "rgba(22,20,15,0.28)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -632,7 +639,7 @@ const styles = StyleSheet.create({
     height: 420,
     borderRadius: 18,
     overflow: "hidden",
-    backgroundColor: "#0E1008",
+    backgroundColor: SOFT,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -653,12 +660,12 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    backgroundColor: "rgba(18,20,10,0.45)",
+    backgroundColor: "rgba(255,255,255,0.55)",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
   },
-  spinTxt: { color: CREAM, fontSize: 13, letterSpacing: 1.2, textTransform: "uppercase" },
+  spinTxt: { color: INK, fontSize: 13, letterSpacing: 1.2, textTransform: "uppercase" },
   row: { flexDirection: "row", gap: 10, marginTop: 12 },
   ghost: {
     flex: 1,
@@ -669,8 +676,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: 10,
+    backgroundColor: "#fff",
   },
-  ghostTxt: { color: CREAM, fontSize: 15, fontWeight: "600" },
+  ghostTxt: { color: INK, fontSize: 15, fontWeight: "600" },
   meta: {
     color: MUTED,
     fontSize: 11,
@@ -689,10 +697,11 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 9,
+    backgroundColor: "#fff",
   },
-  chipOn: { backgroundColor: OLIVE, borderColor: OLIVE },
-  chipTxt: { color: CREAM, fontSize: 14 },
-  chipTxtOn: { color: "#16140F", fontWeight: "600" },
+  chipOn: { backgroundColor: LIME, borderColor: LIME },
+  chipTxt: { color: INK, fontSize: 14 },
+  chipTxtOn: { color: INK, fontWeight: "600" },
   fits: { flexDirection: "row", gap: 8 },
   fit: {
     flex: 1,
@@ -703,7 +712,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-    backgroundColor: "#1A1C12",
+    backgroundColor: SOFT,
   },
   fitImg: { width: "100%", height: "100%" },
   fitPlus: { color: MUTED, fontSize: 22 },
@@ -713,10 +722,10 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: OLIVE,
+    backgroundColor: LIME,
     marginTop: 8,
   },
-  bullet: { color: CREAM, fontSize: 16, lineHeight: 22, flex: 1 },
+  bullet: { color: INK, fontSize: 16, lineHeight: 22, flex: 1 },
   skipBtn: { alignItems: "center", paddingVertical: 14 },
   skipTxt: { color: MUTED, fontSize: 15 },
 });
