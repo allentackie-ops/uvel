@@ -22,7 +22,8 @@ import { addPiece } from "../lib/wardrobe";
 const BG = "#12140A";
 const CREAM = "#F4F0E6";
 const MUTED = "rgba(244,240,230,0.58)";
-const LINE = "rgba(244,240,230,0.18)";
+const LINE = "rgba(244,240,230,0.16)";
+const OLIVE = "#D6E27A";
 const STEPS = 5;
 
 const STYLES = [
@@ -52,6 +53,10 @@ const LOOKS = GARMENTS.filter((g) =>
     "field-jacket",
   ].includes(g.id),
 );
+
+function Name({ children }: { children: string }) {
+  return <Text style={styles.name}>{children}</Text>;
+}
 
 function parseDob(mm: string, dd: string, yyyy: string) {
   const m = Number(mm);
@@ -222,7 +227,13 @@ export default function ProfileSetup() {
               contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 28 }]}
             >
               <Text style={styles.h}>
-                {first ? `Hey ${first}.` : "Hey."}
+                {first ? (
+                  <>
+                    Hey <Name>{first}</Name>.
+                  </>
+                ) : (
+                  "Hey."
+                )}
                 {"\n"}What’s your date of birth?
               </Text>
               <Text style={styles.lede}>
@@ -292,7 +303,15 @@ export default function ProfileSetup() {
           {step === 1 ? (
             <View style={[styles.body, { paddingBottom: insets.bottom + 28 }]}>
               <Text style={styles.h}>How do you identify?</Text>
-              <Text style={styles.lede}>This helps us try clothes on you — woman, man, or something else.</Text>
+              <Text style={styles.lede}>
+                {first ? (
+                  <>
+                    This is so we can try clothes on <Name>{first}</Name> — woman, man, or something else.
+                  </>
+                ) : (
+                  "This helps us try clothes on you — woman, man, or something else."
+                )}
+              </Text>
               {(
                 [
                   ["woman", "Woman"],
@@ -323,7 +342,15 @@ export default function ProfileSetup() {
 
           {step === 2 ? (
             <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 28 }]}>
-              <Text style={styles.h}>A mirror pic of you.</Text>
+              <Text style={styles.h}>
+                {first ? (
+                  <>
+                    A mirror pic of <Name>{first}</Name>.
+                  </>
+                ) : (
+                  "A mirror pic of you."
+                )}
+              </Text>
               <Text style={styles.lede}>
                 The whole you, not a crop. We’ll put the clothes on your body so you can see the outfit before you
                 buy.
@@ -397,7 +424,15 @@ export default function ProfileSetup() {
 
           {step === 3 ? (
             <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 28 }]}>
-              <Text style={styles.h}>What feels like you?</Text>
+              <Text style={styles.h}>
+                {first ? (
+                  <>
+                    What feels like <Name>{first}</Name>?
+                  </>
+                ) : (
+                  "What feels like you?"
+                )}
+              </Text>
               <Text style={styles.lede}>
                 Tap the styles you wear. Or show us up to 5 fits from your wardrobe — we’ll learn from them and
                 recommend pieces brands are actually selling.
@@ -444,14 +479,29 @@ export default function ProfileSetup() {
 
           {step === 4 ? (
             <View style={[styles.body, { paddingBottom: insets.bottom + 28 }]}>
-              <Text style={styles.h}>Stay in the loop</Text>
+              <Text style={styles.h}>
+                {first ? (
+                  <>
+                    Stay in the loop, <Name>{first}</Name>
+                  </>
+                ) : (
+                  "Stay in the loop"
+                )}
+              </Text>
               <Text style={styles.lede}>
                 Offers, drops, and fits that actually suit you. You can change this later.
               </Text>
               <View style={styles.bullets}>
-                <Text style={styles.bullet}>Pieces that match your style</Text>
-                <Text style={styles.bullet}>Price drops and new listings</Text>
-                <Text style={styles.bullet}>Messages about things you like</Text>
+                {[
+                  "Pieces that match your style",
+                  "Price drops and new listings",
+                  "Messages about things you like",
+                ].map((line) => (
+                  <View key={line} style={styles.bulletRow}>
+                    <View style={styles.dot} />
+                    <Text style={styles.bullet}>{line}</Text>
+                  </View>
+                ))}
               </View>
               <View style={{ flex: 1 }} />
               <Pressable onPress={() => finish(false)} style={styles.skipBtn}>
@@ -481,21 +531,26 @@ const styles = StyleSheet.create({
   backTxt: { color: CREAM, fontSize: 32, lineHeight: 34, marginTop: -4 },
   barTrack: {
     flex: 1,
-    height: 4,
+    height: 3,
     borderRadius: 2,
-    backgroundColor: "rgba(244,240,230,0.16)",
+    backgroundColor: "rgba(244,240,230,0.14)",
     overflow: "hidden",
   },
-  barFill: { height: 4, backgroundColor: CREAM, borderRadius: 2 },
-  body: { paddingHorizontal: 24, paddingTop: 18, flexGrow: 1 },
+  barFill: { height: 3, backgroundColor: OLIVE, borderRadius: 2 },
+  body: { paddingHorizontal: 24, paddingTop: 22, flexGrow: 1 },
   h: {
     color: CREAM,
     fontFamily: "Georgia",
     fontSize: 32,
-    lineHeight: 38,
-    letterSpacing: -0.4,
+    lineHeight: 40,
+    letterSpacing: -0.5,
   },
-  lede: { color: MUTED, fontSize: 15, lineHeight: 22, marginTop: 10, marginBottom: 22 },
+  name: {
+    color: OLIVE,
+    fontFamily: "Georgia",
+    fontStyle: "italic",
+  },
+  lede: { color: MUTED, fontSize: 15, lineHeight: 22, marginTop: 12, marginBottom: 26 },
   field: {
     borderWidth: 1,
     borderColor: LINE,
@@ -511,14 +566,15 @@ const styles = StyleSheet.create({
     flex: 1,
     borderWidth: 1,
     borderColor: LINE,
-    borderRadius: 12,
+    borderRadius: 14,
     color: CREAM,
     fontSize: 18,
     textAlign: "center",
     paddingVertical: 16,
+    backgroundColor: "rgba(244,240,230,0.03)",
   },
   dobY: { flex: 1.3 },
-  dobOn: { borderColor: CREAM },
+  dobOn: { borderColor: OLIVE },
   err: { color: "#E8A0A0", marginTop: 12, fontSize: 14 },
   cta: {
     marginTop: 28,
@@ -541,7 +597,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     marginBottom: 10,
   },
-  choiceOn: { borderColor: CREAM },
+  choiceOn: { borderColor: OLIVE, backgroundColor: "rgba(214,226,122,0.08)" },
   choiceTxt: { color: CREAM, fontSize: 17 },
   radio: {
     width: 22,
@@ -552,8 +608,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  radioOn: { borderColor: CREAM },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: CREAM },
+  radioOn: { borderColor: OLIVE },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: OLIVE },
   stage: {
     height: 420,
     borderRadius: 18,
@@ -566,11 +622,12 @@ const styles = StyleSheet.create({
   fullPic: { width: "100%", height: "100%" },
   stageHint: { color: MUTED, textAlign: "center", paddingHorizontal: 28, lineHeight: 22 },
   savedLook: {
-    color: CREAM,
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 10,
-    opacity: 0.8,
+    color: OLIVE,
+    fontFamily: "Georgia",
+    fontStyle: "italic",
+    fontSize: 15,
+    lineHeight: 20,
+    marginTop: 12,
   },
   spin: {
     position: "absolute",
@@ -605,7 +662,7 @@ const styles = StyleSheet.create({
   },
   look: { width: 88, marginRight: 10 },
   lookImg: { width: 88, height: 110, borderRadius: 10 },
-  lookOn: { borderWidth: 2, borderColor: CREAM },
+  lookOn: { borderWidth: 2, borderColor: OLIVE },
   lookName: { color: MUTED, fontSize: 11, marginTop: 6 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: {
@@ -615,7 +672,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 9,
   },
-  chipOn: { backgroundColor: CREAM, borderColor: CREAM },
+  chipOn: { backgroundColor: OLIVE, borderColor: OLIVE },
   chipTxt: { color: CREAM, fontSize: 14 },
   chipTxtOn: { color: "#16140F", fontWeight: "600" },
   fits: { flexDirection: "row", gap: 8 },
@@ -632,8 +689,16 @@ const styles = StyleSheet.create({
   },
   fitImg: { width: "100%", height: "100%" },
   fitPlus: { color: MUTED, fontSize: 22 },
-  bullets: { gap: 16, marginTop: 8 },
-  bullet: { color: CREAM, fontSize: 16, lineHeight: 22, paddingLeft: 4 },
+  bullets: { gap: 18, marginTop: 6 },
+  bulletRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: OLIVE,
+    marginTop: 8,
+  },
+  bullet: { color: CREAM, fontSize: 16, lineHeight: 22, flex: 1 },
   skipBtn: { alignItems: "center", paddingVertical: 14 },
   skipTxt: { color: MUTED, fontSize: 15 },
 });
