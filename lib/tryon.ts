@@ -39,18 +39,18 @@ export function resolveSource(src: ImageSourcePropType | { uri: string }) {
 async function uriToDataUrl(uri: string) {
   if (uri.startsWith("data:")) return uri;
   const ctx = ImageManipulator.manipulate(uri);
-  ctx.resize({ width: 768 });
+  ctx.resize({ width: 1024 });
   const rendered = await ctx.renderAsync();
-  const saved = await rendered.saveAsync({ compress: 0.7, format: SaveFormat.JPEG, base64: true });
+  const saved = await rendered.saveAsync({ compress: 0.86, format: SaveFormat.JPEG, base64: true });
   if (!saved.base64) throw new Error("Couldn’t read that photo.");
   return `data:image/jpeg;base64,${saved.base64}`;
 }
 
 const PROMPT =
-  "Photo 1 is the person. Photo 2 is a clothing item. Put the clothes from photo 2 onto the person in photo 1. Keep the same person, face, hair, pose and room. Catalog photo. Photorealistic. No text.";
+  "Edit photo 1 only. Keep this exact photograph: same person, same face, same body, same pose, same room, same lighting, same camera angle. Replace only the clothing with the garment from photo 2. Do not redraw the person. Do not invent a new face. Photorealistic. No text.";
 
 const FALLBACK =
-  "Combine these two photos into one catalog photo. Keep the person from photo 1. Use the clothes from photo 2. Same room. Photorealistic. No text.";
+  "Photo 1 is the person. Photo 2 is a clothing item. Put the clothes from photo 2 onto the person in photo 1. Keep the same person, face, hair, pose and room. Catalog photo. Photorealistic. No text.";
 
 function nice(text: string) {
   const low = text.toLowerCase();
@@ -82,7 +82,7 @@ function nice(text: string) {
 function imageFrom(json: { error?: { message?: string }; data?: { b64_json?: string; url?: string }[] }) {
   if (json.error?.message) throw new Error(json.error.message);
   const d = json.data?.[0];
-  if (d?.b64_json) return `data:image/png;base64,${d.b64_json}`;
+  if (d?.b64_json) return `data:image/jpeg;base64,${d.b64_json}`;
   if (d?.url) return d.url;
   throw new Error("No image came back.");
 }
@@ -110,21 +110,22 @@ function postJson(url: string, headers: Record<string, string>, body: string, ms
   });
 }
 
-async function openaiEdits(images: string[], prompt: string, model: string) {
+async function openaiEdits(images: string[], prompt: string) {
   const key = openaiKey();
   const body = JSON.stringify({
-    model,
+    model: "gpt-image-2",
     prompt,
     images: images.map((image_url) => ({ image_url })),
     size: "1024x1536",
-    quality: "low",
+    quality: "medium",
     moderation: "low",
+    output_format: "jpeg",
   });
   const res = await postJson(
     "https://api.openai.com/v1/images/edits",
     { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body,
-    90000,
+    120000,
   );
   if (!res.ok) throw new Error(res.json.error?.message || `Try-on failed (${res.status}).`);
   return imageFrom(res.json);
@@ -153,21 +154,12 @@ export async function dressPerson(opts: {
       uriToDataUrl(resolveSource(opts.garment)),
     ]);
     const images = [personUrl, garmentUrl];
-    const attempts: { prompt: string; model: string }[] = [
-      { prompt: PROMPT, model: "gpt-image-2" },
-      { prompt: FALLBACK, model: "gpt-image-2" },
-      { prompt: PROMPT, model: "gpt-image-1" },
-    ];
-    let last: unknown;
-    for (const step of attempts) {
-      try {
-        return await openaiEdits(images, step.prompt, step.model);
-      } catch (err) {
-        last = err;
-        if (!isBlocked(err)) throw err;
-      }
+    try {
+      return await openaiEdits(images, PROMPT);
+    } catch (err) {
+      if (!isBlocked(err)) throw err;
+      return await openaiEdits(images, FALLBACK);
     }
-    throw last;
   } catch (err) {
     throw new Error(nice(err instanceof Error ? err.message : String(err)));
   }
