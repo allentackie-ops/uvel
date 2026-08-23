@@ -79,18 +79,8 @@ export default function Shop() {
   const scanningLook = Boolean(look || frame);
 
   const ranked = useMemo(() => {
-    const query = terms.length ? terms.join(" ") : look?.shopQuery || look?.title || q;
-    let rows = scanningLook
-      ? matchListings({ title: query, summary: query, shopQuery: query }, live, taste)
-      : look
-        ? matchListings(look, live, taste)
-        : forYou(live, taste, country);
-    if (aiIds?.length) {
-      const hit = new Set(aiIds);
-      rows = [...rows.filter((p) => hit.has(p.id)), ...rows.filter((p) => !hit.has(p.id))];
-    }
     const needle = q.trim().toLowerCase();
-    return rows.filter((p) => {
+    const passQ = (p: (typeof live)[number]) => {
       if (cat !== "All" && p.category !== cat) return false;
       if (!needle) return true;
       return (
@@ -99,8 +89,16 @@ export default function Shop() {
         p.color.toLowerCase().includes(needle) ||
         p.notes.toLowerCase().includes(needle)
       );
-    });
-  }, [live, look, aiIds, terms, q, cat, taste, country, scanningLook]);
+    };
+
+    if (scanningLook) {
+      const hit = new Set(aiIds ?? []);
+      return live.filter((p) => hit.has(p.id)).filter(passQ);
+    }
+
+    const rows = look ? matchListings(look, live, taste) : forYou(live, taste, country);
+    return rows.filter(passQ);
+  }, [live, look, aiIds, q, cat, taste, country, scanningLook]);
 
   return (
     <ScrollView

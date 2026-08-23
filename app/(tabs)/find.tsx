@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { Glass, GlassContainer } from "../../components/Glass";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
-import { matchListings, matchLookImage } from "../../lib/lookMatch";
+import { matchLookImage } from "../../lib/lookMatch";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { listedPieces, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
@@ -49,12 +49,7 @@ export default function Find() {
     const ai = image.startsWith("http") || image.startsWith("file") || image.startsWith("ph://") || image.startsWith("content:")
       ? await matchLookImage(image, live)
       : null;
-    const ranked = matchListings(
-      { title: "", summary: url, shopQuery: url || "outfit" },
-      live,
-      app.styles,
-    );
-    const picked = ai?.length ? ranked.filter((p) => ai.includes(p.id)) : ranked.slice(0, 6);
+    const picked = ai?.length ? live.filter((p) => ai.includes(p.id)) : [];
     setHits(picked);
     setBusy(false);
   }

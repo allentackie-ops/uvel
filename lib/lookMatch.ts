@@ -1,6 +1,19 @@
 import { openaiKey } from "./tryon";
+import type { Category } from "./catalog";
 import type { ClosetPiece } from "./wardrobe";
 import type { Look } from "./trends";
+
+const CATS: Category[] = [
+  "Outerwear",
+  "Dresses",
+  "Tops",
+  "Trousers",
+  "Knitwear",
+  "Skirts",
+  "Shoes",
+  "Bags",
+  "Accessories",
+];
 
 function bag(s: string) {
   return s
@@ -61,15 +74,65 @@ async function asRemoteImage(uri: string) {
   return `data:image/jpeg;base64,${out}`;
 }
 
-export type LensHit = { ids: string[]; terms: string[] };
+export function asCategory(raw?: string): Category | null {
+  const s = (raw || "").toLowerCase().trim();
+  if (!s) return null;
+  if (/(outerwear|jacket|coat|blazer|trench|parka)/.test(s)) return "Outerwear";
+  if (/(dress|gown|slip dress)/.test(s)) return "Dresses";
+  if (/(skirt)/.test(s)) return "Skirts";
+  if (/(trouser|pant|jean|denim|short|chino)/.test(s)) return "Trousers";
+  if (/(knit|sweater|cardigan|crew|turtleneck)/.test(s)) return "Knitwear";
+  if (/(shoe|sneaker|boot|loafer|heel|sandal)/.test(s)) return "Shoes";
+  if (/(bag|tote|purse|clutch)/.test(s)) return "Bags";
+  if (/(accessor|belt|hat|scarf|jewel|glass)/.test(s)) return "Accessories";
+  if (/(top|tee|t-shirt|shirt|blouse|cami|bodysuit|corset|tank)/.test(s)) return "Tops";
+  const exact = CATS.find((c) => c.toLowerCase() === s);
+  return exact ?? null;
+}
+
+export function listingAudience(piece: ClosetPiece): "men" | "women" | "unisex" {
+  const t = `${piece.name} ${piece.notes} ${piece.category}`.toLowerCase();
+  if (
+    /(bodysuit|corset|blouse|dress|skirt|heel|cami|bralette|gown|women|ladies|crop top|sleeveless bodysuit)/.test(t)
+  ) {
+    return "women";
+  }
+  if (/\b(men'?s|menswear|male)\b/.test(t)) return "men";
+  return "unisex";
+}
+
+export function pieceFitsLook(
+  piece: ClosetPiece,
+  opts: { wearer: "man" | "woman" | "unknown"; categories: Category[] },
+) {
+  if (opts.categories.length && !opts.categories.includes(piece.category)) return false;
+  const who = listingAudience(piece);
+  if (opts.wearer === "man" && who === "women") return false;
+  if (opts.wearer === "woman" && who === "men") return false;
+  return true;
+}
+
+export type LensHit = {
+  ids: string[];
+  terms: string[];
+  categories: Category[];
+  wearer: "man" | "woman" | "unknown";
+};
 
 export async function lensScan(imageUrl: string, pieces: ClosetPiece[]): Promise<LensHit | null> {
-  if (!pieces.length) return { ids: [], terms: [] };
+  const empty: LensHit = { ids: [], terms: [], categories: [], wearer: "unknown" };
+  if (!pieces.length) return empty;
   const key = openaiKey();
   if (!key || !imageUrl) return null;
   const inventory = pieces
     .slice(0, 50)
-    .map((p) => `${p.id} | ${p.name} | ${p.category} | ${p.color} | ${p.material} | ${p.notes}`.slice(0, 160))
+    .map(
+      (p) =>
+        `${p.id} | SALE_ITEM=${p.name} | CATEGORY=${p.category} | COLOR=${p.color} | ${p.material} | ${p.notes}`.slice(
+          0,
+          180,
+        ),
+    )
     .join("\n");
   try {
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -85,12 +148,24 @@ export async function lensScan(imageUrl: string, pieces: ClosetPiece[]): Promise
             content: [
               {
                 type: "text",
-                text: `Google Lens for clothes. Look at the FULL person in this frozen video frame. Name every garment you can see (top, bottom, dress, outerwear, shoes, bag). Then find visually similar listings on Uvel.
+                text: `You match clothes for a resale app. Be strict. Empty is better than wrong.
 
-Return JSON:
-{"garments":[{"kind":"tops","color":"pink floral","terms":"pink floral cami crop top"},{"kind":"bottoms","color":"blue denim","terms":"denim shorts"}],"ids":["listingId"]}
+1. Look at the person in this frozen frame. wearer = "man" or "woman" or "unknown".
+2. List only garments ON THEIR BODY. category must be one of: Outerwear, Dresses, Tops, Trousers, Knitwear, Skirts, Shoes, Bags, Accessories.
+   A t-shirt is Tops. Jeans/trousers/shorts are Trousers. A dress is Dresses. Never mix these.
+3. Inventory rows are what the seller is SELLING (SALE_ITEM + CATEGORY). Ignore other clothes that happen to appear in a listing photo. A Tops listing is not trousers just because jeans are in the photo.
+4. Match a listing only if ALL of these are true:
+   - same category as a garment on the person
+   - gender-right (men's tee ≠ women's bodysuit/corset/blouse/dress; women's top ≠ men's oxford)
+   - similar colour and silhouette
+5. If nothing qualifies, ids must be [].
 
-ids = inventory rows that look like those garments (same kind + similar colour/pattern/silhouette). If none are close, ids can be empty. terms must still describe what is on screen.
+Examples:
+- Man in a cream tee and beige trousers. Women's white corset bodysuit → not a match.
+- Shirtless man in jeans. Looking for trousers. A bodysuit listing whose photo also has jeans → not a match. Only a Trousers listing of similar jeans.
+
+JSON:
+{"wearer":"man","garments":[{"category":"Tops","color":"cream"},{"category":"Trousers","color":"beige"}],"ids":[]}
 
 Inventory:
 ${inventory}`,
@@ -106,14 +181,28 @@ ${inventory}`,
     const raw = json.choices?.[0]?.message?.content || "{}";
     const parsed = JSON.parse(raw) as {
       ids?: unknown;
-      garments?: { kind?: string; color?: string; terms?: string }[];
+      wearer?: string;
+      garments?: { category?: string; color?: string; kind?: string }[];
     };
+    const wearer: LensHit["wearer"] =
+      parsed.wearer === "man" || parsed.wearer === "woman" ? parsed.wearer : "unknown";
+    const categories = [
+      ...new Set(
+        (parsed.garments ?? [])
+          .map((g) => asCategory(g.category) || asCategory(g.kind))
+          .filter((c): c is Category => Boolean(c)),
+      ),
+    ];
     const have = new Set(pieces.map((p) => p.id));
-    const ids = Array.isArray(parsed.ids) ? parsed.ids.map(String).filter((id) => have.has(id)) : [];
+    const rawIds = Array.isArray(parsed.ids) ? parsed.ids.map(String).filter((id) => have.has(id)) : [];
+    const ids = rawIds.filter((id) => {
+      const piece = pieces.find((p) => p.id === id);
+      return piece ? pieceFitsLook(piece, { wearer, categories }) : false;
+    });
     const terms = (parsed.garments ?? [])
-      .flatMap((g) => [g.kind, g.color, g.terms])
+      .flatMap((g) => [g.category, g.color, g.kind])
       .filter((x): x is string => Boolean(x && x.trim()));
-    return { ids, terms };
+    return { ids, terms, categories, wearer };
   } catch {
     return null;
   }
