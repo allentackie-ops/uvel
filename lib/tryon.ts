@@ -46,11 +46,8 @@ async function uriToDataUrl(uri: string, width = 1280) {
   return `data:image/jpeg;base64,${saved.base64}`;
 }
 
-const EXTRACT =
-  "Product catalog photo of only the clothing item from this picture. Lay the garment on a plain white background. No person, no mannequin, no skin, no face. Photorealistic product shot. No text.";
-
-const IDENT =
-  "Edit photo 1 only. Keep this exact photograph: same person, same face, same pose, same room, same lighting, same camera angle, same proportions. Snapshot, not a retouch. Do not beautify. Replace only the clothing with the garment from photo 2. Do not redraw the person. Photorealistic. No text.";
+const PROMPT =
+  "Edit photo 1 only. Keep this exact phone photo: same person, same face, same body proportions, same pose, same room, same lighting, same camera. Replace only the clothes with the garment from photo 2. Real cloth: natural fabric texture, real folds, shadows that match the room light. Photorealistic camera snapshot. No illustration, no CGI, no painted look, no digital art, no retouch. No text.";
 
 function nice(text: string) {
   const low = text.toLowerCase();
@@ -110,13 +107,13 @@ function postJson(url: string, headers: Record<string, string>, body: string, ms
   });
 }
 
-async function openaiEdits(images: string[], prompt: string, quality: "low" | "medium", size: "1024x1024" | "1024x1536") {
+async function openaiEdits(images: string[], prompt: string, quality: "low" | "medium") {
   const key = openaiKey();
   const body = JSON.stringify({
     model: "gpt-image-2",
     prompt,
     images: images.map((image_url) => ({ image_url })),
-    size,
+    size: "1024x1536",
     quality,
     moderation: "low",
     output_format: "jpeg",
@@ -125,7 +122,7 @@ async function openaiEdits(images: string[], prompt: string, quality: "low" | "m
     "https://api.openai.com/v1/images/edits",
     { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body,
-    120000,
+    90000,
   );
   if (!res.ok) throw new Error(res.json.error?.message || `Try-on failed (${res.status}).`);
   return imageFrom(res.json);
@@ -150,28 +147,15 @@ export async function dressPerson(opts: {
   if (!openaiKey()) throw new Error("Add your OpenAI key and I’ll turn try-on on.");
   try {
     const [personUrl, garmentUrl] = await Promise.all([
-      uriToDataUrl(opts.personUri, 1400),
+      uriToDataUrl(opts.personUri, 1280),
       uriToDataUrl(resolveSource(opts.garment), 1024),
     ]);
 
     try {
-      return await openaiEdits([personUrl, garmentUrl], IDENT, "medium", "1024x1536");
-    } catch (first) {
-      if (!isBlocked(first)) throw first;
-    }
-
-    let product = garmentUrl;
-    try {
-      product = await openaiEdits([garmentUrl], EXTRACT, "low", "1024x1024");
-    } catch {
-      product = garmentUrl;
-    }
-
-    try {
-      return await openaiEdits([personUrl, product], IDENT, "medium", "1024x1536");
+      return await openaiEdits([personUrl, garmentUrl], PROMPT, "medium");
     } catch (err) {
       if (!isBlocked(err)) throw err;
-      return await openaiEdits([personUrl, product], IDENT, "low", "1024x1536");
+      return await openaiEdits([personUrl, garmentUrl], PROMPT, "low");
     }
   } catch (err) {
     throw new Error(nice(err instanceof Error ? err.message : String(err)));
