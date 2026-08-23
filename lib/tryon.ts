@@ -46,11 +46,11 @@ async function uriToDataUrl(uri: string) {
   return `data:image/jpeg;base64,${saved.base64}`;
 }
 
-const PROMPT =
-  "Edit photo 1 only. Keep this exact photograph: same person, same face, same body, same pose, same room, same lighting, same camera angle. Replace only the clothing with the garment from photo 2. Do not redraw the person. Do not invent a new face. Photorealistic. No text.";
+const EXTRACT =
+  "Product catalog photo of only the clothing item from this picture. Lay the garment on a plain white background. No person, no mannequin, no skin, no face. Photorealistic product shot. No text.";
 
-const FALLBACK =
-  "Photo 1 is the person. Photo 2 is a clothing item. Put the clothes from photo 2 onto the person in photo 1. Keep the same person, face, hair, pose and room. Catalog photo. Photorealistic. No text.";
+const IDENT =
+  "Edit photo 1 only. Keep this exact photograph: same person, same face, same pose, same room, same lighting, same camera angle. Replace only the clothing with the garment from photo 2. Do not redraw the person. Photorealistic. No text.";
 
 function nice(text: string) {
   const low = text.toLowerCase();
@@ -110,14 +110,14 @@ function postJson(url: string, headers: Record<string, string>, body: string, ms
   });
 }
 
-async function openaiEdits(images: string[], prompt: string) {
+async function openaiEdits(images: string[], prompt: string, quality: "low" | "medium", size: "1024x1024" | "1024x1536") {
   const key = openaiKey();
   const body = JSON.stringify({
     model: "gpt-image-2",
     prompt,
     images: images.map((image_url) => ({ image_url })),
-    size: "1024x1536",
-    quality: "medium",
+    size,
+    quality,
     moderation: "low",
     output_format: "jpeg",
   });
@@ -153,12 +153,19 @@ export async function dressPerson(opts: {
       uriToDataUrl(opts.personUri),
       uriToDataUrl(resolveSource(opts.garment)),
     ]);
-    const images = [personUrl, garmentUrl];
+
+    let product = garmentUrl;
     try {
-      return await openaiEdits(images, PROMPT);
+      product = await openaiEdits([garmentUrl], EXTRACT, "low", "1024x1024");
+    } catch {
+      product = garmentUrl;
+    }
+
+    try {
+      return await openaiEdits([personUrl, product], IDENT, "medium", "1024x1536");
     } catch (err) {
       if (!isBlocked(err)) throw err;
-      return await openaiEdits(images, FALLBACK);
+      return await openaiEdits([personUrl, product], IDENT, "low", "1024x1536");
     }
   } catch (err) {
     throw new Error(nice(err instanceof Error ? err.message : String(err)));
