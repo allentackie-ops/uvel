@@ -83,7 +83,15 @@
       ],
       "expo-video",
       "expo-updates",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#2A320E",
+          "sounds": []
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

@@ -90,7 +90,7 @@ export default function ProfileSetup() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [worn, setWorn] = useState<string | null>(null);
   const [look, setLook] = useState(LOOKS[0]?.id ?? "");
-  const [rendering, setRendering] = useState(false);
+  const [asking, setAsking] = useState(false);
   const [rendered, setRendered] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
   const [fits, setFits] = useState<string[]>([]);
@@ -169,7 +169,19 @@ export default function ProfileSetup() {
     }
   }
 
-  function finish(updates: boolean) {
+  async function finish(updates: boolean) {
+    if (asking) return;
+    setAsking(true);
+    if (updates) {
+      try {
+        const Notifications = await import("expo-notifications");
+        await Notifications.requestPermissionsAsync({
+          ios: { allowAlert: true, allowBadge: true, allowSound: true },
+        });
+      } catch {
+        /* current TestFlight may not have the native module yet */
+      }
+    }
     const dt = parseDob(mm, dd, yyyy);
     const iso = dt ? dt.toISOString().slice(0, 10) : "";
     fits.forEach((uri, i) => {
@@ -185,7 +197,7 @@ export default function ProfileSetup() {
         listPriceCents: 0,
       });
     });
-    void app.completeProfile({
+    await app.completeProfile({
       displayName: name.trim(),
       birthday: iso,
       gender,
@@ -194,6 +206,7 @@ export default function ProfileSetup() {
       wardrobeUris: fits,
       wantsUpdates: updates,
     });
+    setAsking(false);
   }
 
   const bar = useMemo(
@@ -508,11 +521,11 @@ export default function ProfileSetup() {
                 ))}
               </View>
               <View style={{ flex: 1 }} />
-              <Pressable onPress={() => finish(false)} style={styles.skipBtn}>
+              <Pressable onPress={() => void finish(false)} disabled={asking} style={styles.skipBtn}>
                 <Text style={styles.skipTxt}>No thanks</Text>
               </Pressable>
-              <Pressable onPress={() => finish(true)} style={styles.cta}>
-                <Text style={styles.ctaTxt}>Keep me posted</Text>
+              <Pressable onPress={() => void finish(true)} disabled={asking} style={styles.cta}>
+                <Text style={styles.ctaTxt}>{asking ? "One moment…" : "Keep me posted"}</Text>
               </Pressable>
             </View>
           ) : null}
