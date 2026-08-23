@@ -299,6 +299,7 @@ export default function Sell() {
             ) : null}
           </Pressable>
 
+          <Text style={[styles.label, { marginTop: 16, marginLeft: 20 }]}>Photos *</Text>
           <View style={styles.slotRow}>
             {photos.map((p, i) => (
               <View key={p.uri} style={{ position: "relative" }}>
@@ -357,7 +358,7 @@ export default function Sell() {
           ) : null}
 
           <View style={styles.sheet}>
-            <Text style={styles.priceLabel}>Price</Text>
+            <Text style={styles.priceLabel}>Price *</Text>
             <View style={styles.priceRow}>
               <Text style={[styles.dollar, !price && { color: ph }]}>$</Text>
               <TextInput
@@ -371,6 +372,7 @@ export default function Sell() {
               />
             </View>
 
+            <Text style={styles.label}>Title *</Text>
             <TextInput
               style={styles.titleIn}
               value={name}
@@ -387,8 +389,7 @@ export default function Sell() {
               multiline
             />
 
-            <Text style={styles.label}>Category</Text>
-            <Text style={styles.hint}>{category ? "Tap to change" : "Tap one — required"}</Text>
+            <Text style={styles.label}>Category *</Text>
             <View style={styles.chips}>
               {CATS.map((c) => (
                 <Pressable key={c} onPress={() => setCategory(c)} style={[styles.chip, category === c && styles.chipOn]}>
@@ -443,8 +444,7 @@ export default function Sell() {
               </View>
             </View>
 
-            <Text style={styles.label}>Condition</Text>
-            <Text style={styles.hint}>{condition ? "Tap to change" : "Tap one — required"}</Text>
+            <Text style={styles.label}>Condition *</Text>
             <View style={styles.chips}>
               {CONDITIONS.map((c) => (
                 <Pressable key={c} onPress={() => setCondition(c)} style={[styles.chip, condition === c && styles.chipOn]}>
@@ -651,8 +651,7 @@ function make(colors: Colors) {
       marginTop: 8,
     },
     bodyIn: { color: colors.muted, fontSize: 16, lineHeight: 22, minHeight: 72, marginTop: 10 },
-    label: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 20, marginBottom: 4 },
-    hint: { color: colors.subtle, fontSize: 12, marginBottom: 8 },
+    label: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 20, marginBottom: 8 },
     field: {
       height: 48,
       borderRadius: 14,
