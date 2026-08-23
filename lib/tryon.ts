@@ -70,24 +70,35 @@ async function uriToDataUrl(uri: string) {
 
 function promptFor(name: string, category: string) {
   const kind = category.toLowerCase();
-  let swap = "Replace their current outfit with this piece so they are wearing it.";
+  let swap = `Show them wearing the ${name} from photo 2 as everyday street fashion.`;
   if (kind.includes("top") || kind.includes("knit") || kind.includes("blouse") || kind.includes("shirt")) {
-    swap = "Replace only their top with this piece. Keep their bottoms unless the top is a long tunic.";
+    swap = `Swap only the top for the ${name}. Keep whatever they're wearing on the bottom.`;
   } else if (kind.includes("trouser") || kind.includes("skirt") || kind.includes("pant") || kind.includes("denim")) {
-    swap = "Replace only their bottoms with this piece. Keep their top.";
+    swap = `Swap only the bottoms for the ${name}. Keep the top they're wearing.`;
   } else if (kind.includes("outer") || kind.includes("coat") || kind.includes("jacket") || kind.includes("blazer")) {
-    swap = "Put this outerwear on them over their existing clothes, as if they just put the jacket on.";
-  } else if (kind.includes("dress") || kind.includes("slip")) {
-    swap = "Dress them in this as a one-piece. Remove the current outfit.";
+    swap = `Add the ${name} over their current clothes, like they just put it on.`;
+  } else if (kind.includes("dress")) {
+    swap = `Show them wearing the ${name} as a regular day dress.`;
   } else if (kind.includes("shoe")) {
-    swap = "Put these shoes on their feet. Keep the rest of the outfit.";
+    swap = `Put the ${name} on their feet. Keep the rest of the clothes.`;
   }
 
-  return `Fashion try-on for a shopping app. Photo 1 is the customer. Photo 2 is the clothing (${name}, ${category}).
+  return `Retail virtual try-on for a clothing marketplace. Safe for a general audience.
+
+Photo 1: the shopper, fully clothed, in their room.
+Photo 2: the ${name} (${category}) they want to see on themselves.
 
 ${swap}
 
-Keep the same person, face, hair, pose, hands, jewelry, room, and lighting. Make a photorealistic photo of them wearing that piece. No collage, no floating product, no extra text.`;
+Keep the same person, face, hair, pose, skin, jewelry, room, and lighting. Photorealistic. They stay fully clothed. No collage, no extra people, no text, no logos.`;
+}
+
+function safeRetryPrompt(name: string, category: string) {
+  return `E-commerce product visualization. Combine these two photos:
+1) a clothed person in a bedroom
+2) a clothing item (${name}, ${category}) sold on a fashion app
+
+Output: the same person, still fully dressed, now wearing that item. Modest, SFW, catalog style. Same face, hair, pose, room. Photorealistic. No text.`;
 }
 
 function nice(text: string) {
@@ -99,7 +110,7 @@ function nice(text: string) {
     return "OpenAI needs billing on this key. Add a card at platform.openai.com/settings/organization/billing.";
   }
   if (low.includes("moderation_blocked") || low.includes("safety system") || low.includes("rejected as a result")) {
-    return "That look was flagged. Try another piece — slips and swimwear can get blocked.";
+    return "Couldn’t generate that look. Try once more — this isn’t you, it’s the image filter.";
   }
   if (low.includes("formdatapart")) return "Couldn’t send that photo. Try Library again.";
   if (low.includes("rate") || low.includes("429")) return "Try-on is busy. Wait a moment.";
@@ -137,6 +148,11 @@ async function openaiEdits(personUrl: string, garmentUrl: string, prompt: string
   return imageFrom(json);
 }
 
+function isBlocked(err: unknown) {
+  const low = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return low.includes("moderation_blocked") || low.includes("safety system") || low.includes("rejected as a result");
+}
+
 export async function dressPerson(opts: {
   personUri: string;
   garment: ImageSourcePropType | { uri: string };
@@ -144,13 +160,19 @@ export async function dressPerson(opts: {
   category?: string;
 }) {
   if (!openaiKey()) throw new Error("Add your OpenAI key and I’ll turn try-on on.");
-  const prompt = promptFor(opts.garmentName ?? "this piece", opts.category ?? "clothes");
+  const name = opts.garmentName ?? "this piece";
+  const category = opts.category ?? "clothes";
   try {
     const [personUrl, garmentUrl] = await Promise.all([
       uriToDataUrl(opts.personUri),
       uriToDataUrl(resolveSource(opts.garment)),
     ]);
-    return await openaiEdits(personUrl, garmentUrl, prompt);
+    try {
+      return await openaiEdits(personUrl, garmentUrl, promptFor(name, category));
+    } catch (first) {
+      if (!isBlocked(first)) throw first;
+      return await openaiEdits(personUrl, garmentUrl, safeRetryPrompt(name, category));
+    }
   } catch (err) {
     throw new Error(nice(err instanceof Error ? err.message : String(err)));
   }
