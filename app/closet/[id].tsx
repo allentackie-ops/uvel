@@ -9,7 +9,7 @@ import { getMarket } from "../../lib/markets";
 import { shopLookOf, type ShopLook } from "../../lib/shopLook";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
-import { getPiece, markSold, removePiece, unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { getPiece, markSold, unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
 const HERO_H = Math.round(W * 1.28);
@@ -87,20 +87,6 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
     ]);
   }
 
-  function drop() {
-    Alert.alert("Remove listing?", "This deletes it from your closet.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: () => {
-          removePiece(piece.id);
-          router.back();
-        },
-      },
-    ]);
-  }
-
   return (
     <View style={styles.page}>
       <StatusBar style={colors.bone === "#F4F0E6" ? "light" : "dark"} />
@@ -147,9 +133,6 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
             <Text style={styles.ghostTxt}>List this piece</Text>
           </Pressable>
         ) : null}
-        <Pressable onPress={drop} hitSlop={8}>
-          <Text style={styles.danger}>Remove</Text>
-        </Pressable>
       </View>
     </View>
   );
@@ -445,7 +428,6 @@ function ownerStyles(colors: Colors) {
       justifyContent: "center",
     },
     ghostTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
-    danger: { color: "#C45B5B", textAlign: "center", fontSize: 13, marginTop: 4, marginBottom: 2 },
   });
 }
 
