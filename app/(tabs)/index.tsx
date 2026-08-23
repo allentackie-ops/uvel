@@ -28,6 +28,16 @@ const DOT: Record<Exclude<Source, "All">, string> = {
   X: "#F4F0E6",
 };
 
+function where(url?: string): Exclude<Source, "All"> | null {
+  if (!url) return null;
+  const u = url.toLowerCase();
+  if (u.includes("instagram.com") || u.includes("instagr.am")) return "Instagram";
+  if (u.includes("tiktok.com")) return "TikTok";
+  if (u.includes("snapchat.com")) return "Snapchat";
+  if (u.includes("x.com") || u.includes("twitter.com")) return "X";
+  return null;
+}
+
 export default function Today() {
   const colors = useColors();
   const styles = make(colors);
@@ -35,7 +45,7 @@ export default function Today() {
   const { uid } = useUvel();
   const chats = useInbox(uid || "me");
   const unread = chats.reduce((n, t) => n + unreadFor(t, uid || "me"), 0);
-  const { looks, refreshing, refresh, stamp } = useLooks();
+  const { looks, refreshing, refresh } = useLooks();
   const [source, setSource] = useState<Source>("All");
 
   const visible = useMemo(
@@ -52,10 +62,10 @@ export default function Today() {
   return (
     <ScrollView
       style={styles.page}
-      contentContainerStyle={{ paddingBottom: 128 }}
+      contentContainerStyle={{ paddingBottom: 88 + insets.bottom }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor="#F4F0E6" />}
     >
-      {featured ? <Hero look={featured} today={today} stamp={stamp} top={insets.top} colors={colors} /> : null}
+      {featured ? <Hero look={featured} today={today} colors={colors} /> : null}
 
       <View style={styles.body}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
@@ -124,30 +134,21 @@ export default function Today() {
 function Hero({
   look,
   today,
-  stamp,
-  top,
   colors,
 }: {
   look: Look;
   today: string;
-  stamp: string;
-  top: number;
   colors: Colors;
 }) {
   const styles = make(colors);
+  const seen = where(look.postUrl) || look.source;
   return (
     <View>
       <View style={styles.heroWrap}>
         <Image source={lookImage(look)} style={styles.hero} contentFit="cover" />
-        <View style={[styles.heroTop, { top: top + 6 }]}>
-          <Text style={styles.liveK}>{today.toUpperCase()}</Text>
-          <View style={styles.live}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveT}>{stamp ? "LIVE" : "TODAY"}</Text>
-          </View>
-        </View>
       </View>
       <View style={styles.heroCopy}>
+        <Text style={styles.date}>{today}</Text>
         <View style={styles.srcRow}>
           <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
           <Text style={styles.src}>{look.heat || look.source}</Text>
@@ -165,7 +166,7 @@ function Hero({
           </Pressable>
           {look.postUrl ? (
             <Pressable onPress={() => void Linking.openURL(look.postUrl!)} style={styles.ghost}>
-              <Text style={styles.ghostTxt}>See on {look.source}</Text>
+              <Text style={styles.ghostTxt}>See on {seen}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -200,36 +201,15 @@ function make(colors: Colors) {
     page: { flex: 1, backgroundColor: colors.ink },
     heroWrap: { height: Math.min(560, H * 0.62), backgroundColor: "#0B0A08", overflow: "hidden" },
     hero: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-    heroTop: {
-      position: "absolute",
-      left: 20,
-      right: 20,
-      top: 10,
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-    },
-    liveK: {
-      color: "#F4F0E6",
+    heroCopy: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 4 },
+    date: {
+      color: colors.subtle,
       fontSize: 11,
       letterSpacing: 1.8,
       fontWeight: "600",
-      textShadowColor: "rgba(0,0,0,0.55)",
-      textShadowOffset: { width: 0, height: 1 },
-      textShadowRadius: 4,
+      textTransform: "uppercase",
+      marginBottom: 10,
     },
-    live: { flexDirection: "row", alignItems: "center", gap: 6 },
-    liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#FE2C55" },
-    liveT: {
-      color: "#F4F0E6",
-      fontSize: 11,
-      letterSpacing: 1.6,
-      fontWeight: "700",
-      textShadowColor: "rgba(0,0,0,0.55)",
-      textShadowOffset: { width: 0, height: 1 },
-      textShadowRadius: 4,
-    },
-    heroCopy: { paddingHorizontal: 20, paddingTop: 22, paddingBottom: 4 },
     srcRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     src: { color: colors.muted, fontSize: 12, letterSpacing: 0.4 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, marginTop: 10 },
