@@ -18,137 +18,124 @@ export type DeskLook = {
   heat: string;
 };
 
-type Seed = {
-  id: string;
-  source: Source;
-  postUrl: string;
-  handle: string;
-  title: string;
-  summary: string;
-  shopQuery: string;
-  fallbackVideo?: string;
-  fallbackImage?: string;
-};
+const TAGS = [
+  { id: "13251", tag: "ootd" },
+  { id: "1613431309176854", tag: "fitcheck" },
+  { id: "11885", tag: "fashion" },
+  { id: "72878", tag: "grwm" },
+  { id: "15193", tag: "streetstyle" },
+  { id: "3958603", tag: "outfitinspo" },
+];
 
 const RAW = "https://raw.githubusercontent.com/allentackie-ops/uvel/main/docs/looks";
 
-const SEED: Seed[] = [
-  {
-    id: "lexia",
-    source: "TikTok",
-    postUrl: "https://www.tiktok.com/@notverylexi/video/7624626484992298253",
-    handle: "@notverylexi",
-    title: "OOTD — the grey dress",
-    summary: "Square-neck grey maxi, a small black bag. The actual TikTok.",
-    shopQuery: "grey maxi dress",
-    fallbackVideo: `${RAW}/lexia.mp4`,
-    fallbackImage: `${RAW}/lexia.jpg`,
-  },
-  {
-    id: "lexia-today",
-    source: "TikTok",
-    postUrl: "https://www.tiktok.com/@notverylexi/video/7626790931278187789",
-    handle: "@notverylexi",
-    title: "OOTD for today",
-    summary: "Same creator, another fitcheck that’s actually moving.",
-    shopQuery: "bodycon dress",
-    fallbackVideo: `${RAW}/lexia-white.mp4`,
-    fallbackImage: `${RAW}/lexia-white.jpg`,
-  },
-  {
-    id: "kiki",
-    source: "TikTok",
-    postUrl: "https://www.tiktok.com/tag/ootd",
-    handle: "fitcheck",
-    title: "Fit check, posted",
-    summary: "A real OOTD video. Hair, knit, denim — moving.",
-    shopQuery: "denim tank",
-    fallbackVideo: `${RAW}/kiki.mp4`,
-    fallbackImage: `${RAW}/kiki.jpg`,
-  },
-  {
-    id: "nthabi",
-    source: "TikTok",
-    postUrl: "https://www.tiktok.com/tag/fitcheck",
-    handle: "@itsnthabimm9zb",
-    title: "Same pants, three lengths",
-    summary: "One pair of trousers, three ways. The video, not a still.",
-    shopQuery: "trousers shirt",
-    fallbackVideo: `${RAW}/nthabi.mp4`,
-    fallbackImage: `${RAW}/nthabi.jpg`,
-  },
-  {
-    id: "asooke",
-    source: "Instagram",
-    postUrl: "https://www.instagram.com/explore/tags/asooke/",
-    handle: "@styledbyfeesah",
-    title: "Aso-oke cargos, linen shirt",
-    summary: "Heritage trousers, a crisp shirt. Filmed, not faked.",
-    shopQuery: "linen shirt trousers",
-    fallbackVideo: `${RAW}/asooke.mp4`,
-    fallbackImage: `${RAW}/asooke.jpg`,
-  },
+const FALLBACK: DeskLook[] = [
+  look("lexia", "Grey maxi dress", "TikTok", "@notverylexi", "https://www.tiktok.com/@notverylexi/video/7624626484992298253", `${RAW}/lexia.mp4`, `${RAW}/lexia.jpg`, "grey dress"),
+  look("lexia-today", "OOTD grey knit", "TikTok", "@notverylexi", "https://www.tiktok.com/@notverylexi/video/7626790931278187789", `${RAW}/lexia-white.mp4`, `${RAW}/lexia-white.jpg`, "knit dress"),
+  look("kiki", "Fit check", "TikTok", "fitcheck", "https://www.tiktok.com/tag/ootd", `${RAW}/kiki.mp4`, `${RAW}/kiki.jpg`, "denim"),
+  look("nthabi", "Same pants three ways", "TikTok", "@itsnthabimm9zb", "https://www.tiktok.com/tag/fitcheck", `${RAW}/nthabi.mp4`, `${RAW}/nthabi.jpg`, "trousers"),
+  look("asooke", "Aso oke cargos", "Instagram", "@styledbyfeesah", "https://www.instagram.com/explore/tags/asooke/", `${RAW}/asooke.mp4`, `${RAW}/asooke.jpg`, "linen shirt"),
 ];
 
-type Resolved = Seed & { videoUrl?: string; imageUrl?: string };
-
-async function tikwm(postUrl: string): Promise<{ play?: string; cover?: string; title?: string; handle?: string }> {
-  if (!postUrl.includes("tiktok.com/@") || !postUrl.includes("/video/")) return {};
-  const res = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(postUrl)}&hd=1`);
-  if (!res.ok) return {};
-  const json = (await res.json()) as {
-    code?: number;
-    data?: { play?: string; hdplay?: string; cover?: string; origin_cover?: string; title?: string; author?: { unique_id?: string } };
-  };
-  const d = json.data;
-  if (!d) return {};
+function look(
+  id: string,
+  title: string,
+  source: Source,
+  handle: string,
+  postUrl: string,
+  videoUrl: string,
+  imageUrl: string,
+  shopQuery: string,
+): DeskLook {
   return {
-    play: d.hdplay || d.play,
-    cover: d.origin_cover || d.cover,
-    title: d.title,
-    handle: d.author?.unique_id ? `@${d.author.unique_id}` : undefined,
-  };
-}
-
-async function resolve(seed: Seed): Promise<Resolved> {
-  try {
-    const live = await tikwm(seed.postUrl);
-    return {
-      ...seed,
-      videoUrl: live.play || seed.fallbackVideo,
-      imageUrl: live.cover || seed.fallbackImage,
-      handle: live.handle || seed.handle,
-      title: seed.title,
-    };
-  } catch {
-    return { ...seed, videoUrl: seed.fallbackVideo, imageUrl: seed.fallbackImage };
-  }
-}
-
-function asLook(row: Resolved): DeskLook {
-  return {
-    id: row.id,
-    slug: row.id,
-    title: row.title,
-    source: row.source,
-    summary: row.summary,
-    image: { uri: row.imageUrl || row.fallbackImage || "" },
-    imageUrl: row.imageUrl || row.fallbackImage,
-    videoUrl: row.videoUrl || row.fallbackVideo,
-    postUrl: row.postUrl,
-    handle: row.handle,
+    id,
+    slug: id,
+    title,
+    source,
+    summary: title,
+    image: { uri: imageUrl },
+    imageUrl,
+    videoUrl,
+    postUrl,
+    handle,
     garmentIds: [],
-    shopQuery: row.shopQuery,
-    heat: `${row.source} · ${row.handle}`,
+    shopQuery,
+    heat: `${source} · ${handle}`,
   };
 }
 
-async function anthropicOrder(rows: Resolved[]): Promise<Resolved[]> {
+function captionFrom(title: string, tag: string) {
+  const cleaned = title
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/[#@]\w+/g, " ")
+    .replace(/[-—–_|•·.,!?'"`]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const stop = new Set(["the", "and", "this", "that", "with", "from", "just", "today", "for", "you", "my", "a", "to", "of", "in", "on", "is", "it"]);
+  const words = cleaned.split(" ").filter((w) => w.length > 1 && !stop.has(w.toLowerCase()));
+  if (words.length >= 2) return words.slice(0, 5).join(" ");
+  if (words.length === 1) return words[0];
+  return tag;
+}
+
+type Clip = {
+  id: string;
+  tag: string;
+  title: string;
+  play: string;
+  cover: string;
+  handle: string;
+  postUrl: string;
+};
+
+async function tagClips(tag: { id: string; tag: string }): Promise<Clip[]> {
+  const res = await fetch(`https://www.tikwm.com/api/challenge/posts?challenge_id=${tag.id}&count=8`);
+  if (!res.ok) return [];
+  const json = (await res.json()) as {
+    data?: {
+      videos?: {
+        video_id?: string;
+        title?: string;
+        play?: string;
+        cover?: string;
+        origin_cover?: string;
+        ai_dynamic_cover?: string;
+        duration?: number;
+        is_ad?: boolean;
+        author?: { unique_id?: string };
+      }[];
+    };
+  };
+  const vids = json.data?.videos ?? [];
+  const out: Clip[] = [];
+  for (const v of vids) {
+    if (v.is_ad || !v.play || !v.video_id) continue;
+    if ((v.duration ?? 0) < 3) continue;
+    const handle = v.author?.unique_id ? `@${v.author.unique_id}` : `#${tag.tag}`;
+    out.push({
+      id: v.video_id,
+      tag: tag.tag,
+      title: captionFrom(v.title || tag.tag, tag.tag),
+      play: v.play,
+      cover: v.origin_cover || v.cover || v.ai_dynamic_cover || "",
+      handle,
+      postUrl: v.author?.unique_id
+        ? `https://www.tiktok.com/@${v.author.unique_id}/video/${v.video_id}`
+        : `https://www.tiktok.com/tag/${tag.tag}`,
+    });
+  }
+  return out;
+}
+
+async function recaption(clips: Clip[]): Promise<Record<string, string>> {
   const key = anthropicKey();
-  if (!key || rows.length < 2) return rows;
+  if (!key || !clips.length) return {};
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 2500);
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
+      signal: ctrl.signal,
       headers: {
         "x-api-key": key,
         "anthropic-version": "2023-06-01",
@@ -156,39 +143,75 @@ async function anthropicOrder(rows: Resolved[]): Promise<Resolved[]> {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 700,
+        max_tokens: 500,
         messages: [
           {
             role: "user",
-            content: `You are Uvel’s fashion desk. These are LIVE social videos (TikTok / IG / X), not stock photos. Rank them for a homepage of what normal people are wearing today. Prefer real OOTD / fitcheck videos of people in clothes. Skip product-only flats.
+            content: `These are live OOTD / fitcheck / fashion videos. Write a 2 to 5 word caption for each that names the clothes on screen. No dashes. No hashtags. No quotes. Plain words only.
 
-Return ONLY JSON: {"ids":["id",...]} using these ids, most relevant first.
+Return ONLY JSON: {"captions":{"id":"caption"}}
 
-${rows.map((r) => `- ${r.id} | ${r.source} | ${r.handle} | ${r.title} | ${r.summary}`).join("\n")}`,
+${clips.map((c) => `${c.id} | #${c.tag} | ${c.handle} | ${c.title}`).join("\n")}`,
           },
         ],
       }),
     });
-    if (!res.ok) return rows;
+    if (!res.ok) return {};
     const json = (await res.json()) as { content?: { type: string; text?: string }[] };
     const text = json.content?.find((c) => c.type === "text")?.text || "";
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
-    if (start < 0 || end < 0) return rows;
-    const parsed = JSON.parse(text.slice(start, end + 1)) as { ids?: unknown };
-    const ids = Array.isArray(parsed.ids) ? parsed.ids.map(String) : [];
-    const map = new Map(rows.map((r) => [r.id, r]));
-    const ordered = ids.map((id) => map.get(id)).filter((x): x is Resolved => Boolean(x));
-    for (const r of rows) if (!ordered.includes(r)) ordered.push(r);
-    return ordered;
+    if (start < 0 || end < 0) return {};
+    const parsed = JSON.parse(text.slice(start, end + 1)) as { captions?: Record<string, string> };
+    const out: Record<string, string> = {};
+    for (const [id, cap] of Object.entries(parsed.captions || {})) {
+      const clean = cap.replace(/[-—–]/g, " ").replace(/[#@]/g, "").replace(/\s+/g, " ").trim();
+      if (clean) out[id] = clean;
+    }
+    return out;
   } catch {
-    return rows;
+    return {};
+  } finally {
+    clearTimeout(timer);
   }
 }
 
+function asLook(c: Clip, title: string): DeskLook {
+  return {
+    id: c.id,
+    slug: c.id,
+    title,
+    source: "TikTok",
+    summary: `#${c.tag}`,
+    image: { uri: c.cover },
+    imageUrl: c.cover,
+    videoUrl: c.play,
+    postUrl: c.postUrl,
+    handle: c.handle,
+    garmentIds: [],
+    shopQuery: title,
+    heat: `TikTok · #${c.tag}`,
+  };
+}
+
 export async function liveDesk(): Promise<DeskLook[]> {
-  const resolved = await Promise.all(SEED.map((s) => resolve(s)));
-  const withVideo = resolved.filter((r) => r.videoUrl);
-  const ordered = await anthropicOrder(withVideo.length ? withVideo : resolved);
-  return ordered.map(asLook);
+  const batches = await Promise.allSettled(TAGS.map((t) => tagClips(t)));
+  const picked: Clip[] = [];
+  const seen = new Set<string>();
+  for (const b of batches) {
+    if (b.status !== "fulfilled") continue;
+    let n = 0;
+    for (const c of b.value) {
+      if (seen.has(c.id)) continue;
+      seen.add(c.id);
+      picked.push(c);
+      n += 1;
+      if (n >= 2) break;
+    }
+  }
+  if (!picked.length) return FALLBACK;
+  const caps = await recaption(picked);
+  const liveLooks = picked.map((c) => asLook(c, caps[c.id] || c.title));
+  const extra = FALLBACK.filter((f) => f.source !== "TikTok");
+  return [...liveLooks, ...extra];
 }

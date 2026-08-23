@@ -1,8 +1,9 @@
 import { Image } from "expo-image";
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  AppState,
   Dimensions,
   Linking,
   Pressable,
@@ -18,7 +19,7 @@ import { unreadFor, useInbox } from "../../lib/chat";
 import { forYou, matchListings } from "../../lib/lookMatch";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
-import { SOURCES, lookImage, pullLooks, useLooks, type Look, type Source } from "../../lib/trends";
+import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
 import { listedPieces, useWardrobe } from "../../lib/wardrobe";
 
 const { height: H } = Dimensions.get("window");
@@ -40,8 +41,20 @@ function MutedLoop({ uri, style }: { uri: string; style: object }) {
     const sub = player.addListener("statusChange", ({ status }) => {
       if (status === "readyToPlay") player.play();
     });
+    player.loop = true;
+    player.muted = true;
     player.play();
-    return () => sub.remove();
+    const app = AppState.addEventListener("change", (s) => {
+      if (s === "active") {
+        player.loop = true;
+        player.muted = true;
+        player.play();
+      }
+    });
+    return () => {
+      sub.remove();
+      app.remove();
+    };
   }, [player, uri]);
   return (
     <View style={[style, { overflow: "hidden", backgroundColor: "#0B0A08" }]}>
@@ -81,11 +94,6 @@ export default function Today() {
   useWardrobe();
   const live = listedPieces();
   const [source, setSource] = useState<Source>("All");
-  useFocusEffect(
-    useCallback(() => {
-      void pullLooks();
-    }, []),
-  );
 
   const visible = useMemo(
     () => (source === "All" ? looks : looks.filter((t) => t.source === source)),
@@ -199,16 +207,8 @@ function Hero({
     <View>
       <View style={styles.heroWrap}>
         <LookMedia look={look} style={styles.hero} />
-      </View>
-      <View style={styles.heroCopy}>
-        <Text style={styles.date}>{today}</Text>
-        <View style={styles.srcRow}>
-          <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
-          <Text style={styles.src}>{look.handle ? `${look.source} · ${look.handle}` : look.heat || look.source}</Text>
-        </View>
-        <Text style={styles.title}>{look.title}</Text>
-        <Text style={styles.summary}>{look.summary}</Text>
-        <View style={styles.actions}>
+        <View style={styles.heroScrim} />
+        <View style={styles.heroBar}>
           <Pressable
             onPress={() =>
               router.push({ pathname: "/(tabs)/shop", params: look.id ? { look: look.id } : { q: look.shopQuery || look.title } })
@@ -223,6 +223,15 @@ function Hero({
             </Pressable>
           ) : null}
         </View>
+      </View>
+      <View style={styles.heroCopy}>
+        <Text style={styles.date}>{today}</Text>
+        <View style={styles.srcRow}>
+          <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
+          <Text style={styles.src}>{look.handle ? `${look.source} · ${look.handle}` : look.heat || look.source}</Text>
+        </View>
+        <Text style={styles.title}>{look.title}</Text>
+        {look.summary ? <Text style={styles.summary}>{look.summary}</Text> : null}
       </View>
     </View>
   );
@@ -261,6 +270,22 @@ function make(colors: Colors) {
     page: { flex: 1, backgroundColor: colors.ink },
     heroWrap: { height: Math.min(560, H * 0.62), backgroundColor: "#0B0A08", overflow: "hidden" },
     hero: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+    heroScrim: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: 120,
+      backgroundColor: "rgba(11,10,8,0.28)",
+    },
+    heroBar: {
+      position: "absolute",
+      left: 16,
+      right: 16,
+      bottom: 18,
+      flexDirection: "row",
+      gap: 10,
+    },
     playHit: { position: "absolute", right: 16, bottom: 16 },
     play: {
       width: 44,
@@ -297,7 +322,7 @@ function make(colors: Colors) {
     summary: { color: colors.muted, marginTop: 10, fontSize: 15, lineHeight: 22 },
     actions: { flexDirection: "row", gap: 10, marginTop: 18 },
     cta: {
-      backgroundColor: "#F4F0E6",
+      backgroundColor: "rgba(244,240,230,0.94)",
       paddingHorizontal: 18,
       height: 42,
       borderRadius: 21,
@@ -309,12 +334,13 @@ function make(colors: Colors) {
       paddingHorizontal: 16,
       height: 42,
       borderRadius: 21,
+      backgroundColor: "rgba(11,10,8,0.38)",
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.28)",
+      borderColor: "rgba(244,240,230,0.55)",
       alignItems: "center",
       justifyContent: "center",
     },
-    ghostTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
+    ghostTxt: { color: "#F4F0E6", fontWeight: "600", fontSize: 14 },
     body: { paddingTop: 18 },
     chips: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },
     filter: {

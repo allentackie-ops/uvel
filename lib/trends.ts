@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { AppState } from "react-native";
 import { TRENDS, type Trend } from "./catalog";
 import desk from "../docs/trends.json";
 import { liveDesk } from "./desk";
@@ -103,12 +102,8 @@ export function useLooks() {
     const l = (next: Look[]) => setLooks(next);
     listeners.add(l);
     void pullLooks();
-    const sub = AppState.addEventListener("change", (s) => {
-      if (s === "active") void pullLooks();
-    });
     return () => {
       listeners.delete(l);
-      sub.remove();
     };
   }, []);
 
