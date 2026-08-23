@@ -65,7 +65,7 @@ export default function Sell() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, fits } = useLocalSearchParams<{ id?: string; fits?: string }>();
   useWardrobe();
   const existing = id ? getPiece(id) : undefined;
   const { wardrobeUris, appearance, uid, displayName, country } = useUvel();
@@ -92,7 +92,7 @@ export default function Sell() {
   const [was, setWas] = useState(
     existing?.originalPriceCents ? String(Math.round(existing.originalPriceCents / 100)) : "",
   );
-  const [fitsOpen, setFitsOpen] = useState(false);
+  const [fitsOpen, setFitsOpen] = useState(fits === "1");
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
 
