@@ -192,7 +192,6 @@ export default function ClosetPiece() {
   const seller = (mine && app.displayName) || piece.ownerName || "Uvel member";
   const sellerPhoto = (mine && app.personUri) || piece.ownerPhoto || null;
   const ship = getMarket((mine && app.country) || piece.country || app.country);
-  const plusLook = Boolean(piece.shopLook && piece.shopLook !== "uvel");
 
   function tryOnMe() {
     if (!app.isPlus && app.remainingTryOns <= 0) {
@@ -351,8 +350,6 @@ export default function ClosetPiece() {
               <Text style={styles.sellerP}>Ships from {ship.name}</Text>
             </View>
           </View>
-
-          {plusLook ? <Text style={styles.lookMark}>{look.name}</Text> : null}
         </View>
       </ScrollView>
 
@@ -576,14 +573,6 @@ function make(look: ShopLook) {
     sellerK: { color: look.muted, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase" },
     sellerN: { color: look.bone, fontSize: 16, fontWeight: "600", marginTop: 2 },
     sellerP: { color: look.muted, fontSize: 13, marginTop: 2 },
-    lookMark: {
-      marginTop: 28,
-      color: look.muted,
-      fontSize: 11,
-      letterSpacing: 2,
-      textTransform: "uppercase",
-      textAlign: "center",
-    },
     p: { color: look.muted, lineHeight: 22 },
     ctaTxt: { color: look.accentInk, fontWeight: "700", fontSize: 16 },
     dock: {
