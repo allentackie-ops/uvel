@@ -5,7 +5,6 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BrandLoader } from "../../components/BrandLoader";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
@@ -156,7 +155,6 @@ export default function Shop() {
   }, [live, look, aiIds, q, cat, taste, country, scanningLook]);
 
   return (
-    <View style={styles.page}>
     <ScrollView
       style={styles.page}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
@@ -230,8 +228,6 @@ export default function Shop() {
         <ListingEmpty copy="Nothing listed yet that looks like this. When someone puts the piece up, it shows here." />
       ) : null}
     </ScrollView>
-    {scanning ? <BrandLoader /> : null}
-    </View>
   );
 }
 

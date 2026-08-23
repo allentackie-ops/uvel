@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActionSheetIOS,
+  ActivityIndicator,
   Alert,
   Dimensions,
   Keyboard,
@@ -16,7 +17,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BrandMark } from "../components/BrandLoader";
 import type { Category } from "../lib/catalog";
 import { usd } from "../lib/catalog";
 import { uvelFeeCents } from "../lib/fees";
@@ -325,7 +325,8 @@ export default function Sell() {
             )}
             {cover?.status === "checking" ? (
               <View style={styles.heroMask}>
-                <BrandMark size={64} />
+                <ActivityIndicator color="#16140F" />
+                <Text style={styles.heroCheck}>Checking this shot</Text>
               </View>
             ) : null}
           </Pressable>
@@ -575,7 +576,7 @@ export default function Sell() {
           ) : null}
           {gate.phase === "review" ? (
             <>
-              <BrandMark />
+              <ActivityIndicator color="#D6E27A" />
               <Text style={styles.gateH}>{STAGES[stage]}</Text>
               <Text style={styles.gateP}>About 20 seconds. Nothing goes live until this is clean.</Text>
             </>

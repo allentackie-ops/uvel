@@ -1,8 +1,8 @@
 import { Image } from "expo-image";
-import { BrandLoader, BrandMark } from "../components/BrandLoader";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   AppState,
   Dimensions,
   FlatList,
@@ -248,7 +248,7 @@ function AuthBtn({
       style={[styles.authBtn, filled ? styles.authFilled : styles.authOutline]}
     >
       {busy ? (
-        <BrandMark size={28} />
+        <ActivityIndicator color={filled ? "#111" : "#fff"} />
       ) : (
         <>
           <View style={styles.authIconWrap}>
@@ -780,7 +780,7 @@ export default function Onboard() {
               disabled={busy !== null}
             >
               {busy === "email" ? (
-                <BrandMark size={28} />
+                <ActivityIndicator color="#111" />
               ) : (
                 <Text style={[styles.authLabel, styles.authLabelDark]}>
                   {isLogin ? C.logIn : C.continue}
@@ -811,8 +811,6 @@ export default function Onboard() {
         </KeyboardAvoidingView>
         </Animated.View>
       ) : null}
-
-      {busy ? <BrandLoader /> : null}
 
       {langsOpen ? (
         <View style={styles.langOverlay} pointerEvents="box-none">

@@ -66,15 +66,9 @@ function normalize(p: ClosetPiece): ClosetPiece {
   };
 }
 
-let ready = false;
-export function wardrobeReady() {
-  return ready;
-}
-
 async function hydrate() {
   const raw = await AsyncStorage.getItem(KEY);
   if (raw) pieces = (JSON.parse(raw) as ClosetPiece[]).map(normalize);
-  ready = true;
   listeners.forEach((l) => l());
 }
 void hydrate();
