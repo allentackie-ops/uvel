@@ -41,6 +41,8 @@ export default function ClosetPiece() {
     );
   }
 
+  const onFloor = piece.status === "listed";
+
   const gallery = piece.photos?.length ? piece.photos : piece.photo ? [piece.photo] : [];
   const facts = [
     { k: "Size", v: piece.size },
@@ -89,7 +91,7 @@ export default function ClosetPiece() {
     <View style={styles.page}>
       <StatusBar style="light" />
       <ScrollView
-        contentContainerStyle={{ paddingBottom: buying ? 168 : 48 }}
+        contentContainerStyle={{ paddingBottom: onFloor ? 168 : 48 }}
         showsVerticalScrollIndicator={false}
       >
         <View style={{ height: HERO_H }}>
@@ -113,7 +115,7 @@ export default function ClosetPiece() {
           <Pressable onPress={() => router.back()} style={[styles.back, { top: insets.top + 6 }]} hitSlop={8}>
             <Text style={styles.backTxt}>‹</Text>
           </Pressable>
-          {!buying && piece.status === "listed" ? (
+          {onFloor && !buying ? (
             <Pressable onPress={manage} style={[styles.more, { top: insets.top + 6 }]} hitSlop={8}>
               <Text style={styles.moreTxt}>···</Text>
             </Pressable>
@@ -171,7 +173,7 @@ export default function ClosetPiece() {
         </View>
       </ScrollView>
 
-      {buying && piece.status === "listed" ? (
+      {onFloor ? (
         <View style={[styles.dock, { paddingBottom: insets.bottom + 10 }]}>
           <Pressable onPress={tryOnMe} style={styles.try}>
             <Text style={styles.tryTxt}>Try on me</Text>
