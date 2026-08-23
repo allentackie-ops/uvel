@@ -146,6 +146,14 @@ function AppStack() {
               contentStyle: { backgroundColor: "#12110E" },
             }}
           />
+          <Stack.Screen
+            name="inbox"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#12110E" },
+            }}
+          />
         </Stack>
       </GestureHandlerRootView>
     </ThemeProvider>

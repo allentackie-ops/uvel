@@ -49,81 +49,84 @@ export default function Ask() {
   const scroller = useRef<ScrollView>(null);
 
   const sellerId = piece?.ownerId && piece.ownerId !== app.uid ? piece.ownerId : piece?.ownerId || "";
-  const mine = app.uid;
+  const mine = app.uid || "me";
   const otherId = sellerId && sellerId !== mine ? sellerId : "";
 
   useEffect(() => {
-    if (!piece || !mine) return;
-    let unsub: () => void = () => undefined;
-    const listedByMe = Boolean(piece.ownerId && piece.ownerId === mine);
+    if (!piece) return;
+    const listedByMe = Boolean(piece.ownerId && piece.ownerId === app.uid);
     const handle =
-      (piece.ownerId && piece.ownerId !== mine && piece.ownerName) ||
+      (piece.ownerId && piece.ownerId !== app.uid && piece.ownerName) ||
       (listedByMe && piece.ownerName) ||
       (piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "") ||
       "Seller";
     setSellerHandle(handle);
-    void (async () => {
-      const targetSeller = otherId || piece.ownerId || "";
-      const tid = await openThread({
-        pieceId: piece.id,
-        buyerId: mine,
-        sellerId: targetSeller || "seller",
-        pieceName: piece.name,
-        piecePhoto: piece.photo,
-        piecePriceCents: piece.listPriceCents,
-        sellerName: handle,
-        buyerName: app.displayName || "You",
-      });
-      setThread(tid);
-      unsub = listenMessages(tid, (next) => {
-        setMsgs(next);
-        setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 50);
-      });
-      if (targetSeller && targetSeller !== mine) {
-        const lite = await readUserLite(targetSeller);
-        const n = typeof lite?.name === "string" ? lite.name.trim() : "";
+    const targetSeller = otherId || piece.ownerId || "seller";
+    const tid = openThread({
+      pieceId: piece.id,
+      buyerId: mine,
+      sellerId: targetSeller,
+      pieceName: piece.name,
+      piecePhoto: piece.photo,
+      piecePriceCents: piece.listPriceCents,
+      sellerName: handle,
+      buyerName: app.displayName || "You",
+    });
+    setThread(tid);
+    const unsub = listenMessages(tid, (next) => {
+      setMsgs(next);
+      setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 50);
+    });
+    if (targetSeller && targetSeller !== mine && targetSeller !== "seller") {
+      void readUserLite(targetSeller).then((lite) => {
+        if (!lite) return;
+        const n = typeof lite.name === "string" ? lite.name.trim() : "";
         if (n) setSellerHandle(n);
-        setSeen(lastSeenLabel(lite?.lastSeen));
-        if (typeof lite?.location === "string" && lite.location) setPlace(lite.location);
-      } else {
-        setSeen("Usually replies in a few hours");
-      }
-    })();
+        setSeen(lastSeenLabel(lite.lastSeen));
+        if (typeof lite.location === "string" && lite.location) setPlace(lite.location);
+      });
+    } else {
+      setSeen("Usually replies in a few hours");
+    }
     return () => unsub();
   }, [piece?.id, mine]);
 
   async function send(text: string, kind: ChatMsg["kind"] = "text", offerCents?: number, photoUrl?: string) {
-    if (!thread || !mine || !text.trim()) return;
+    const body = text.trim();
+    if (!body) return;
+    const tid =
+      thread ||
+      (piece
+        ? openThread({
+            pieceId: piece.id,
+            buyerId: mine,
+            sellerId: otherId || piece.ownerId || "seller",
+            pieceName: piece.name,
+            piecePhoto: piece.photo,
+            piecePriceCents: piece.listPriceCents,
+            sellerName: sellerHandle,
+            buyerName: app.displayName || "You",
+          })
+        : "");
+    if (!tid) return;
+    if (!thread) setThread(tid);
     setSending(true);
-    const optimistic: ChatMsg = {
-      id: `local-${Date.now()}`,
-      text: text.trim(),
-      from: mine,
-      kind,
-      createdAt: Date.now(),
-      photoUrl,
-      offerCents,
-    };
     try {
-      const ok = await sendChat({
-        threadId: thread,
+      await sendChat({
+        threadId: tid,
         from: mine,
-        to: otherId || sellerId,
-        text,
+        to: otherId || "seller",
+        text: body,
         kind,
         offerCents,
         photoUrl,
         fromName: app.displayName || "Someone on Uvel",
         pieceId: piece?.id ?? "",
       });
-      if (!ok) setMsgs((cur) => [...cur, optimistic]);
       setDraft("");
       setOffer("");
       setOfferOn(false);
-      setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 50);
-    } catch {
-      setMsgs((cur) => [...cur, optimistic]);
-      setDraft("");
+      setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 40);
     } finally {
       setSending(false);
     }
@@ -259,14 +262,13 @@ export default function Ask() {
             placeholder="Write a message here"
             placeholderTextColor={colors.subtle}
             returnKeyType="send"
+            enablesReturnKeyAutomatically
             onSubmitEditing={() => void send(draft)}
             blurOnSubmit={false}
           />
-          {draft.trim() ? (
-            <Pressable onPress={() => void send(draft)} disabled={sending} style={styles.send}>
-              <Text style={styles.sendTxt}>Send</Text>
-            </Pressable>
-          ) : null}
+          <Pressable onPress={() => void send(draft)} disabled={sending || !draft.trim()} style={styles.send}>
+            <Text style={[styles.sendTxt, (!draft.trim() || sending) && { opacity: 0.35 }]}>Send</Text>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
 

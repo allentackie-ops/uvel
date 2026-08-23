@@ -5,11 +5,15 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Glass, GlassContainer } from "../../components/Glass";
 import { ProductCard } from "../../components/ProductCard";
 import { GARMENTS, TRENDS, getGarment, type Trend } from "../../lib/catalog";
+import { useInbox } from "../../lib/chat";
+import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 
 export default function Today() {
   const colors = useColors();
   const styles = make(colors);
+  const { uid } = useUvel();
+  const chats = useInbox(uid || "me");
   const [source, setSource] = useState<"All" | Trend["source"]>("All");
   const visible = source === "All" ? TRENDS : TRENDS.filter((t) => t.source === source);
   const featured = visible[0] ?? TRENDS[0];
@@ -41,6 +45,20 @@ export default function Today() {
       </View>
 
       <View style={styles.body}>
+        <Pressable onPress={() => router.push("/inbox")} style={styles.inbox}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.inboxK}>Chats</Text>
+            <Text style={styles.inboxP} numberOfLines={1}>
+              {chats[0]?.lastText
+                ? chats[0].lastText
+                : chats.length
+                  ? `${chats.length} open`
+                  : "Asks on your listings land here"}
+            </Text>
+          </View>
+          <Text style={styles.inboxGo}>{chats.length ? String(chats.length) : "›"}</Text>
+        </Pressable>
+
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <GlassContainer spacing={8} style={styles.chips}>
             {(["All", "TikTok", "Instagram", "Snapchat", "X"] as const).map((s) => (
@@ -109,6 +127,19 @@ function make(colors: Colors) {
   cta: { backgroundColor: colors.pulse, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
   ctaText: { color: colors.bone, fontWeight: "600", fontSize: 13 },
   body: { padding: 20 },
+  inbox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 18,
+  },
+  inboxK: { color: colors.bone, fontWeight: "700", fontSize: 16 },
+  inboxP: { color: colors.muted, marginTop: 3, fontSize: 13 },
+  inboxGo: { color: "#D6E27A", fontWeight: "700", fontSize: 16 },
   chips: { flexDirection: "row", gap: 8, marginBottom: 8 },
   filter: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
   filterOn: { backgroundColor: colors.pulse },

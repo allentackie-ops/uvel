@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   addDoc,
   collection,
@@ -6,9 +7,9 @@ import {
   onSnapshot,
   orderBy,
   query,
-  serverTimestamp,
   setDoc,
 } from "firebase/firestore";
+import { useEffect, useState } from "react";
 import { firebaseDb, firebaseReady } from "./firebase";
 import { sendPush } from "./push";
 
@@ -32,10 +33,54 @@ export type ChatThread = {
   piecePriceCents: number;
   sellerName: string;
   buyerName: string;
+  lastText: string;
+  lastAt: number;
+  lastFrom: string;
 };
 
+const KEY = "uvel-chat-v1";
+const memory = {
+  threads: {} as Record<string, ChatThread>,
+  messages: {} as Record<string, ChatMsg[]>,
+};
+const msgSubs = new Map<string, Set<(m: ChatMsg[]) => void>>();
+const inboxSubs = new Set<() => void>();
+let hydrated = false;
+
+async function persist() {
+  await AsyncStorage.setItem(KEY, JSON.stringify(memory));
+}
+
+async function hydrate() {
+  if (hydrated) return;
+  hydrated = true;
+  try {
+    const raw = await AsyncStorage.getItem(KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as typeof memory;
+      memory.threads = parsed.threads ?? {};
+      memory.messages = parsed.messages ?? {};
+    }
+  } catch {
+    /* empty */
+  }
+  inboxSubs.forEach((fn) => fn());
+}
+void hydrate();
+
+function emitMsgs(id: string) {
+  const list = memory.messages[id] ?? [];
+  msgSubs.get(id)?.forEach((fn) => fn(list));
+}
+
+function emitInbox() {
+  inboxSubs.forEach((fn) => fn());
+}
+
 export function threadId(buyerId: string, sellerId: string, pieceId: string) {
-  return `${[buyerId, sellerId].sort().join("_")}__${pieceId}`;
+  const a = buyerId || "me";
+  const b = sellerId || "seller";
+  return `${[a, b].sort().join("_")}__${pieceId}`;
 }
 
 export async function readUserLite(uid: string) {
@@ -50,7 +95,7 @@ export async function readUserLite(uid: string) {
 
 export function lastSeenLabel(ms?: unknown) {
   const n = typeof ms === "number" ? ms : 0;
-  if (!n) return "On Uvel";
+  if (!n) return "";
   const min = Math.max(1, Math.round((Date.now() - n) / 60000));
   if (min < 3) return "Active now";
   if (min < 60) return `Last seen ${min} min ago`;
@@ -60,7 +105,7 @@ export function lastSeenLabel(ms?: unknown) {
   return `Last seen ${d} day${d === 1 ? "" : "s"} ago`;
 }
 
-export async function openThread(input: {
+export function openThread(input: {
   pieceId: string;
   buyerId: string;
   sellerId: string;
@@ -69,51 +114,87 @@ export async function openThread(input: {
   piecePriceCents: number;
   sellerName: string;
   buyerName: string;
-}): Promise<string> {
+}): string {
   const id = threadId(input.buyerId, input.sellerId, input.pieceId);
-  if (!firebaseReady()) return id;
-  try {
-    await setDoc(
+  const prev = memory.threads[id];
+  memory.threads[id] = {
+    id,
+    ...input,
+    lastText: prev?.lastText ?? "",
+    lastAt: prev?.lastAt ?? Date.now(),
+    lastFrom: prev?.lastFrom ?? "",
+  };
+  if (!memory.messages[id]) memory.messages[id] = [];
+  void persist();
+  emitInbox();
+  if (firebaseReady()) {
+    void setDoc(
       doc(firebaseDb(), "chats", id),
-      {
-        ...input,
-        lastText: "",
-        lastAt: Date.now(),
-        updatedAt: serverTimestamp(),
-      },
+      { ...memory.threads[id], updatedAt: Date.now() },
       { merge: true },
-    );
-  } catch {
-    /* local UI still works */
+    ).catch(() => undefined);
   }
   return id;
 }
 
 export function listenMessages(id: string, onMsgs: (msgs: ChatMsg[]) => void) {
-  if (!firebaseReady()) {
-    onMsgs([]);
-    return () => undefined;
+  let set = msgSubs.get(id);
+  if (!set) {
+    set = new Set();
+    msgSubs.set(id, set);
   }
-  const q = query(collection(firebaseDb(), "chats", id, "messages"), orderBy("createdAt", "asc"));
-  return onSnapshot(
-    q,
-    (snap) => {
-      const msgs: ChatMsg[] = snap.docs.map((d) => {
-        const v = d.data() as ChatMsg;
-        return {
-          id: d.id,
-          text: v.text ?? "",
-          from: v.from ?? "",
-          kind: v.kind ?? "text",
-          createdAt: typeof v.createdAt === "number" ? v.createdAt : Date.now(),
-          photoUrl: v.photoUrl,
-          offerCents: v.offerCents,
-        };
-      });
-      onMsgs(msgs);
-    },
-    () => onMsgs([]),
-  );
+  set.add(onMsgs);
+  onMsgs(memory.messages[id] ?? []);
+  let unsubFs = () => undefined as void;
+  if (firebaseReady()) {
+    const q = query(collection(firebaseDb(), "chats", id, "messages"), orderBy("createdAt", "asc"));
+    unsubFs = onSnapshot(
+      q,
+      (snap) => {
+        const remote: ChatMsg[] = snap.docs.map((d) => {
+          const v = d.data() as ChatMsg;
+          return {
+            id: d.id,
+            text: v.text ?? "",
+            from: v.from ?? "",
+            kind: v.kind ?? "text",
+            createdAt: typeof v.createdAt === "number" ? v.createdAt : Date.now(),
+            photoUrl: v.photoUrl,
+            offerCents: v.offerCents,
+          };
+        });
+        const local = memory.messages[id] ?? [];
+        const seen = new Set(remote.map((m) => `${m.from}|${m.createdAt}|${m.text}`));
+        const extra = local.filter((m) => !seen.has(`${m.from}|${m.createdAt}|${m.text}`));
+        memory.messages[id] = [...remote, ...extra].sort((a, b) => a.createdAt - b.createdAt);
+        emitMsgs(id);
+      },
+      () => undefined,
+    );
+  }
+  return () => {
+    set!.delete(onMsgs);
+    unsubFs();
+  };
+}
+
+export function inboxFor(uid: string): ChatThread[] {
+  return Object.values(memory.threads)
+    .filter((t) => t.buyerId === uid || t.sellerId === uid || t.buyerId === "me" || t.sellerId === "seller")
+    .sort((a, b) => b.lastAt - a.lastAt);
+}
+
+export function useInbox(uid: string) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const fn = () => tick((n) => n + 1);
+    inboxSubs.add(fn);
+    void hydrate().then(fn);
+    return () => {
+      inboxSubs.delete(fn);
+    };
+  }, [uid]);
+  return inboxFor(uid);
 }
 
 export async function sendChat(opts: {
@@ -126,39 +207,52 @@ export async function sendChat(opts: {
   photoUrl?: string;
   fromName: string;
   pieceId: string;
-}): Promise<boolean> {
-  const createdAt = Date.now();
-  const payload = {
+}): Promise<ChatMsg> {
+  const msg: ChatMsg = {
+    id: `m-${Date.now().toString(36)}`,
     text: opts.text.trim(),
     from: opts.from,
     kind: opts.kind ?? "text",
-    createdAt,
-    offerCents: opts.offerCents ?? null,
-    photoUrl: opts.photoUrl ?? null,
+    createdAt: Date.now(),
+    photoUrl: opts.photoUrl,
+    offerCents: opts.offerCents,
   };
-  let ok = false;
-  if (firebaseReady()) {
-    try {
-      await addDoc(collection(firebaseDb(), "chats", opts.threadId, "messages"), payload);
-      await setDoc(
-        doc(firebaseDb(), "chats", opts.threadId),
-        { lastText: payload.text, lastAt: createdAt, lastFrom: opts.from },
-        { merge: true },
-      );
-      ok = true;
-    } catch {
-      ok = false;
-    }
+  memory.messages[opts.threadId] = [...(memory.messages[opts.threadId] ?? []), msg];
+  const thread = memory.threads[opts.threadId];
+  if (thread) {
+    thread.lastText = msg.text;
+    thread.lastAt = msg.createdAt;
+    thread.lastFrom = msg.from;
   }
+  emitMsgs(opts.threadId);
+  emitInbox();
+  void persist();
+
+  if (firebaseReady()) {
+    void addDoc(collection(firebaseDb(), "chats", opts.threadId, "messages"), {
+      text: msg.text,
+      from: msg.from,
+      kind: msg.kind,
+      createdAt: msg.createdAt,
+      offerCents: msg.offerCents ?? null,
+      photoUrl: msg.photoUrl ?? null,
+    }).catch(() => undefined);
+    void setDoc(
+      doc(firebaseDb(), "chats", opts.threadId),
+      { lastText: msg.text, lastAt: msg.createdAt, lastFrom: msg.from },
+      { merge: true },
+    ).catch(() => undefined);
+  }
+
   if (opts.to && opts.to !== opts.from) {
     const other = await readUserLite(opts.to);
     const token = typeof other?.expoPushToken === "string" ? other.expoPushToken : "";
     if (token) {
-      void sendPush(token, opts.fromName || "Uvel", payload.text, {
+      void sendPush(token, opts.fromName || "Uvel", msg.text, {
         pieceId: opts.pieceId,
         threadId: opts.threadId,
       });
     }
   }
-  return ok;
+  return msg;
 }
