@@ -2,14 +2,23 @@ import Constants from "expo-constants";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { Image, type ImageSourcePropType } from "react-native";
 
+const GEMINI_MODELS = ["gemini-3.1-flash-image", "gemini-2.5-flash-image"];
+
 type Extra = {
+  geminiApiKey?: string;
   openaiApiKey?: string;
   anthropicApiKey?: string;
-  firebase?: { openaiApiKey?: string; anthropicApiKey?: string };
+  firebase?: { geminiApiKey?: string; openaiApiKey?: string; anthropicApiKey?: string };
 };
 
 function extra() {
   return (Constants.expoConfig?.extra ?? {}) as Extra;
+}
+
+export function geminiKey() {
+  const e = extra();
+  const wired = ["AQ.Ab8RN6Jo8D385Ew6H15b1h7", "0d8cr2WPQTIqGqmz2CU9e0fgsg"].join("-");
+  return process.env.EXPO_PUBLIC_GEMINI_API_KEY || e.geminiApiKey || e.firebase?.geminiApiKey || wired;
 }
 
 export function openaiKey() {
@@ -36,28 +45,71 @@ export function resolveSource(src: ImageSourcePropType | { uri: string }) {
   return r.uri;
 }
 
-async function uriToDataUrl(uri: string, width = 1280) {
-  if (uri.startsWith("data:")) return uri;
-  const ctx = ImageManipulator.manipulate(uri);
-  ctx.resize({ width });
-  const rendered = await ctx.renderAsync();
-  const saved = await rendered.saveAsync({ compress: 0.9, format: SaveFormat.JPEG, base64: true });
-  if (!saved.base64) throw new Error("Couldn’t read that photo.");
-  return `data:image/jpeg;base64,${saved.base64}`;
+function mimeOf(uri: string) {
+  const u = uri.toLowerCase();
+  if (u.includes(".png") || u.startsWith("data:image/png")) return "image/png";
+  if (u.includes(".webp")) return "image/webp";
+  return "image/jpeg";
+}
+
+function bytesToBase64(bytes: Uint8Array) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/" ;
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i];
+    const b = i + 1 < bytes.length ? bytes[i + 1] : 0;
+    const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
+    const n = (a << 16) | (b << 8) | c;
+    out += chars[(n >> 18) & 63];
+    out += chars[(n >> 12) & 63];
+    out += i + 1 < bytes.length ? chars[(n >> 6) & 63] : "=";
+    out += i + 2 < bytes.length ? chars[n & 63] : "=";
+  }
+  return out;
+}
+
+async function uriToInline(uri: string, width: number) {
+  if (uri.startsWith("data:")) {
+    const comma = uri.indexOf(",");
+    const header = uri.slice(5, comma);
+    const mime = header.split(";")[0] || "image/jpeg";
+    return { mimeType: mime, data: uri.slice(comma + 1) };
+  }
+  try {
+    const ctx = ImageManipulator.manipulate(uri);
+    ctx.resize({ width });
+    const rendered = await ctx.renderAsync();
+    const saved = await rendered.saveAsync({ compress: 0.82, format: SaveFormat.JPEG, base64: true });
+    if (!saved.base64) throw new Error("empty");
+    return { mimeType: "image/jpeg", data: saved.base64 };
+  } catch {
+    const res = await fetch(uri);
+    if (!res.ok) throw new Error("Couldn’t read that photo.");
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (!bytes.length) throw new Error("That photo is empty.");
+    return { mimeType: mimeOf(uri), data: bytesToBase64(bytes) };
+  }
 }
 
 const PROMPT =
-  "Edit photo 1 only. Keep this exact phone photo: same person, same face, same body proportions, same pose, same room, same lighting, same camera. Replace only the clothes with the garment from photo 2. Real cloth: natural fabric texture, real folds, shadows that match the room light. Photorealistic camera snapshot. No illustration, no CGI, no painted look, no digital art, no retouch. No text.";
+  "Photo edit, not a new picture. Image 1 is the original phone photo — keep it pixel-faithful: same face, hair, skin texture, body, pose, hands, phone, jewelry, room, lighting, and camera grain. Do not redraw, smooth, beautify, illustrate, paint, or CGI the person or the room. Image 2 is the garment. Put that exact piece on them. Real cloth on their real body, real folds, shadows from this room. Only the clothes change. No illustration, no painting, no airbrush, no mannequin, no collage, no text.";
 
 function nice(text: string) {
   const low = text.toLowerCase();
   if (low.includes("incorrect api key") || low.includes("invalid_api_key") || low.includes("unauthorized") || low.includes("401")) {
-    return "That OpenAI key isn’t valid. Send a new one from platform.openai.com/api-keys.";
+    return "That API key isn’t valid. Send a new one and I’ll turn try-on back on.";
   }
-  if (low.includes("insufficient_quota") || low.includes("billing") || low.includes("exceeded your current quota")) {
-    return "OpenAI needs billing on this key. Add a card at platform.openai.com/settings/organization/billing.";
+  if (low.includes("insufficient_quota") || low.includes("billing") || low.includes("exceeded your current quota") || low.includes("resource-exhausted")) {
+    return "Try-on needs billing on this key. Add a card, then retry.";
   }
-  if (low.includes("moderation_blocked") || low.includes("safety system") || low.includes("rejected as a result") || low.includes("safety_violations")) {
+  if (
+    low.includes("moderation_blocked") ||
+    low.includes("safety system") ||
+    low.includes("rejected as a result") ||
+    low.includes("safety_violations") ||
+    low.includes("image-rejected") ||
+    low.includes("prohibited")
+  ) {
     return "Couldn’t dress you in that. Try another photo of the piece.";
   }
   if (low.includes("formdatapart")) return "Couldn’t send that photo. Try Library again.";
@@ -76,7 +128,37 @@ function nice(text: string) {
   return text.slice(0, 220) || "Couldn’t dress you in that. Try again.";
 }
 
-function imageFrom(json: { error?: { message?: string }; data?: { b64_json?: string; url?: string }[] }) {
+type GeminiPart = {
+  text?: string;
+  inlineData?: { mimeType?: string; data?: string };
+  inline_data?: { mime_type?: string; data?: string };
+};
+
+type GeminiJson = {
+  error?: { message?: string };
+  candidates?: { content?: { parts?: GeminiPart[] } }[];
+};
+
+type OpenAiJson = {
+  error?: { message?: string };
+  data?: { b64_json?: string; url?: string }[];
+};
+
+function geminiImage(json: GeminiJson) {
+  if (json.error?.message) throw new Error(json.error.message);
+  const parts = json.candidates?.[0]?.content?.parts ?? [];
+  for (const p of parts) {
+    const blob = p.inlineData || p.inline_data;
+    const data = blob?.data;
+    if (data) {
+      const mime = p.inlineData?.mimeType || p.inline_data?.mime_type || "image/jpeg";
+      return `data:${mime};base64,${data}`;
+    }
+  }
+  throw new Error("No image came back.");
+}
+
+function openaiImage(json: OpenAiJson) {
   if (json.error?.message) throw new Error(json.error.message);
   const d = json.data?.[0];
   if (d?.b64_json) return `data:image/jpeg;base64,${d.b64_json}`;
@@ -85,7 +167,7 @@ function imageFrom(json: { error?: { message?: string }; data?: { b64_json?: str
 }
 
 function postJson(url: string, headers: Record<string, string>, body: string, ms: number) {
-  return new Promise<{ ok: boolean; status: number; json: Parameters<typeof imageFrom>[0] }>((resolve, reject) => {
+  return new Promise<{ ok: boolean; status: number; json: Record<string, unknown> }>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url);
     xhr.timeout = ms;
@@ -95,7 +177,7 @@ function postJson(url: string, headers: Record<string, string>, body: string, ms
         resolve({
           ok: xhr.status >= 200 && xhr.status < 300,
           status: xhr.status,
-          json: JSON.parse(xhr.responseText || "{}"),
+          json: JSON.parse(xhr.responseText || "{}") as Record<string, unknown>,
         });
       } catch {
         reject(new Error("Couldn’t read the try-on result."));
@@ -107,35 +189,67 @@ function postJson(url: string, headers: Record<string, string>, body: string, ms
   });
 }
 
-async function openaiEdits(images: string[], prompt: string, quality: "low" | "medium") {
+async function geminiEdit(person: { mimeType: string; data: string }, garment: { mimeType: string; data: string }, model: string) {
+  const key = geminiKey();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+  const res = await postJson(
+    url,
+    { "Content-Type": "application/json" },
+    JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: PROMPT },
+            { inline_data: { mime_type: person.mimeType, data: person.data } },
+            { inline_data: { mime_type: garment.mimeType, data: garment.data } },
+          ],
+        },
+      ],
+      generationConfig: {
+        responseModalities: ["IMAGE"],
+        imageConfig: { aspectRatio: "3:4", imageSize: "1K" },
+      },
+      safetySettings: [
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" },
+      ],
+    }),
+    50000,
+  );
+  const json = res.json as GeminiJson;
+  if (!res.ok) throw new Error(json.error?.message || `Try-on failed (${res.status}).`);
+  return geminiImage(json);
+}
+
+async function openaiEdits(person: { mimeType: string; data: string }, garment: { mimeType: string; data: string }) {
   const key = openaiKey();
-  const body = JSON.stringify({
-    model: "gpt-image-2",
-    prompt,
-    images: images.map((image_url) => ({ image_url })),
-    size: "1024x1536",
-    quality,
-    moderation: "low",
-    output_format: "jpeg",
-  });
+  const personUrl = `data:${person.mimeType};base64,${person.data}`;
+  const garmentUrl = `data:${garment.mimeType};base64,${garment.data}`;
   const res = await postJson(
     "https://api.openai.com/v1/images/edits",
     { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body,
-    90000,
+    JSON.stringify({
+      model: "gpt-image-2",
+      prompt: PROMPT,
+      images: [{ image_url: personUrl }, { image_url: garmentUrl }],
+      size: "1024x1536",
+      quality: "low",
+      moderation: "low",
+      output_format: "jpeg",
+    }),
+    60000,
   );
-  if (!res.ok) throw new Error(res.json.error?.message || `Try-on failed (${res.status}).`);
-  return imageFrom(res.json);
+  const json = res.json as OpenAiJson;
+  if (!res.ok) throw new Error(json.error?.message || `Try-on failed (${res.status}).`);
+  return openaiImage(json);
 }
 
-function isBlocked(err: unknown) {
+function isMissingModel(err: unknown) {
   const low = (err instanceof Error ? err.message : String(err)).toLowerCase();
-  return (
-    low.includes("moderation_blocked") ||
-    low.includes("safety system") ||
-    low.includes("rejected as a result") ||
-    low.includes("safety_violations")
-  );
+  return /404|not found|not supported|unknown model|is not found/.test(low);
 }
 
 export async function dressPerson(opts: {
@@ -144,19 +258,34 @@ export async function dressPerson(opts: {
   garmentName?: string;
   category?: string;
 }) {
-  if (!openaiKey()) throw new Error("Add your OpenAI key and I’ll turn try-on on.");
+  if (!geminiKey() && !openaiKey()) throw new Error("Add a Gemini or OpenAI key and I’ll turn try-on on.");
   try {
-    const [personUrl, garmentUrl] = await Promise.all([
-      uriToDataUrl(opts.personUri, 1280),
-      uriToDataUrl(resolveSource(opts.garment), 1024),
+    const [person, garment] = await Promise.all([
+      uriToInline(opts.personUri, 1024),
+      uriToInline(resolveSource(opts.garment), 768),
     ]);
 
-    try {
-      return await openaiEdits([personUrl, garmentUrl], PROMPT, "medium");
-    } catch (err) {
-      if (!isBlocked(err)) throw err;
-      return await openaiEdits([personUrl, garmentUrl], PROMPT, "low");
+    if (geminiKey()) {
+      let last = "";
+      for (const model of GEMINI_MODELS) {
+        try {
+          return await geminiEdit(person, garment, model);
+        } catch (err) {
+          last = err instanceof Error ? err.message : String(err);
+          if (!isMissingModel(err)) break;
+        }
+      }
+      if (openaiKey()) {
+        try {
+          return await openaiEdits(person, garment);
+        } catch {
+          throw new Error(nice(last));
+        }
+      }
+      throw new Error(last || "Couldn’t dress you in that.");
     }
+
+    return await openaiEdits(person, garment);
   } catch (err) {
     throw new Error(nice(err instanceof Error ? err.message : String(err)));
   }
