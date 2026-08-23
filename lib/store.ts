@@ -21,6 +21,12 @@ type State = {
   email: string;
   displayName: string;
   locale: string;
+  profileDone: boolean;
+  birthday: string;
+  gender: string;
+  styles: string[];
+  wardrobeUris: string[];
+  wantsUpdates: boolean;
 };
 
 const KEY = "uvel-state-v1";
@@ -42,6 +48,12 @@ const defaults: State = {
   email: "",
   displayName: "",
   locale: "",
+  profileDone: false,
+  birthday: "",
+  gender: "",
+  styles: [],
+  wardrobeUris: [],
+  wantsUpdates: false,
 };
 
 let memory = { ...defaults };
@@ -133,7 +145,23 @@ export function useUvel() {
         signedInWith: s.provider,
         uid: s.uid,
         email: s.email,
-        displayName: s.name,
+        displayName: s.name || memory.displayName,
+        profileDone: memory.profileDone,
+      }),
+    completeProfile: (patch: {
+      displayName?: string;
+      birthday: string;
+      gender: string;
+      personUri: string | null;
+      styles: string[];
+      wardrobeUris: string[];
+      wantsUpdates: boolean;
+    }) =>
+      save({
+        ...patch,
+        profileDone: true,
+        onboarded: true,
+        onboardVersion: 4,
       }),
     signOutAccount: async () => {
       const { signOut } = await import("./auth");
@@ -144,6 +172,13 @@ export function useUvel() {
         uid: "",
         email: "",
         displayName: "",
+        profileDone: false,
+        birthday: "",
+        gender: "",
+        styles: [],
+        wardrobeUris: [],
+        wantsUpdates: false,
+        personUri: null,
       });
     },
   };

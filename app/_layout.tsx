@@ -10,6 +10,7 @@ import { useOtaReady } from "../lib/ota";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 import Onboard from "./onboard";
+import ProfileSetup from "./setup";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -75,17 +76,26 @@ function AppStack() {
 }
 
 export default function Root() {
-  const { onboarded, hydrated } = useUvel();
+  const { onboarded, hydrated, uid, profileDone } = useUvel();
   const otaReady = useOtaReady();
   const [intro, setIntro] = useState(true);
   const dismiss = useCallback(() => setIntro(false), []);
   const ready = hydrated && otaReady;
+  const needProfile = Boolean(uid) && !profileDone;
 
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#2A320E" }}>
         <StatusBar style="light" />
-        {ready ? onboarded ? <AppStack /> : <Onboard /> : null}
+        {ready ? (
+          !onboarded ? (
+            <Onboard />
+          ) : needProfile ? (
+            <ProfileSetup />
+          ) : (
+            <AppStack />
+          )
+        ) : null}
         {intro ? <LaunchSplash ready={ready} onDone={dismiss} /> : null}
       </GestureHandlerRootView>
     </SafeAreaProvider>

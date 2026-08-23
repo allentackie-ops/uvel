@@ -484,17 +484,31 @@ export default function Onboard() {
     void completeOnboard(provider);
   }
 
+  function afterSignIn(session: Session) {
+    closeAuth();
+    void acceptSession(session);
+  }
+
   async function run(kind: string, fn: () => Promise<Session>) {
     setError("");
     setNote("");
     setBusy(kind);
     try {
       const session = await fn();
-      closeAuth();
-      void acceptSession(session);
+      if (emailOn) {
+        afterSignIn(session);
+        return;
+      }
+      dim.value = withTiming(0, { duration: 200 });
+      sheetY.value = withTiming(
+        SCREEN_H,
+        { duration: 280, easing: Easing.in(Easing.cubic) },
+        (finished) => {
+          if (finished) runOnJS(afterSignIn)(session);
+        },
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn’t sign in.");
-    } finally {
       setBusy(null);
     }
   }
