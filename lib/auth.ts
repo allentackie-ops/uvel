@@ -6,7 +6,10 @@ import {
   GoogleAuthProvider,
   OAuthProvider,
   User,
+  UserCredential,
   createUserWithEmailAndPassword,
+  fetchSignInMethodsForEmail,
+  getAdditionalUserInfo,
   onAuthStateChanged,
   sendPasswordResetEmail,
   signInWithCredential,
@@ -42,9 +45,11 @@ function session(user: User): Session {
   };
 }
 
+export const ALREADY_ACCOUNT = "You already have an account. Log in instead.";
+
 function nice(err: unknown) {
   const code = typeof err === "object" && err && "code" in err ? String((err as { code: string }).code) : "";
-  if (code.includes("email-already-in-use")) return "That email already has an account. Log in instead.";
+  if (code.includes("email-already-in-use")) return ALREADY_ACCOUNT;
   if (code.includes("invalid-email")) return "That doesn’t look like an email.";
   if (code.includes("weak-password")) return "Password needs at least 6 characters.";
   if (code.includes("invalid-credential") || code.includes("wrong-password") || code.includes("user-not-found")) {
@@ -53,10 +58,25 @@ function nice(err: unknown) {
   if (code.includes("too-many-requests")) return "Too many tries. Wait a moment.";
   if (code.includes("network-request-failed")) return "No connection. Try again.";
   if (code.includes("account-exists-with-different-credential")) {
-    return "That email is already used with another sign-in.";
+    return ALREADY_ACCOUNT;
   }
   if (err instanceof Error && err.message) return err.message;
   return "Couldn’t sign in. Try again.";
+}
+
+export function isAlreadyAccount(err: unknown) {
+  const msg = err instanceof Error ? err.message : String(err);
+  return msg.includes(ALREADY_ACCOUNT) || /already have an account|email-already-in-use|already used with another/i.test(msg);
+}
+
+async function afterAuth(cred: UserCredential, provider: string, mode: "signup" | "login") {
+  const extra = getAdditionalUserInfo(cred);
+  if (mode === "signup" && extra?.isNewUser === false) {
+    await fbSignOut(firebaseAuth());
+    throw new Error(ALREADY_ACCOUNT);
+  }
+  await remember(cred.user, provider);
+  return session(cred.user);
 }
 
 async function remember(user: User, provider: string) {
@@ -101,6 +121,12 @@ export function currentSession(): Session | null {
 export async function signUpEmail(email: string, password: string, name?: string) {
   needFirebase();
   try {
+    try {
+      const methods = await fetchSignInMethodsForEmail(firebaseAuth(), email.trim());
+      if (methods.length) throw new Error(ALREADY_ACCOUNT);
+    } catch (err) {
+      if (isAlreadyAccount(err)) throw err;
+    }
     const cred = await createUserWithEmailAndPassword(firebaseAuth(), email.trim(), password);
     const display = (name ?? "").trim() || email.trim().split("@")[0];
     await updateProfile(cred.user, { displayName: display }).catch(() => undefined);
@@ -243,7 +269,7 @@ async function sha256Base64Url(value: string) {
   return bytesToB64Url(sha256Js(value));
 }
 
-export async function signInGoogle() {
+export async function signInGoogle(mode: "signup" | "login" = "login") {
   needFirebase();
   const clientId = firebaseExtra.googleWebClientId;
   const reversed = firebaseExtra.googleReversedClientId;
@@ -285,8 +311,7 @@ export async function signInGoogle() {
   }
   try {
     const cred = await signInWithCredential(firebaseAuth(), GoogleAuthProvider.credential(tokens.id_token));
-    await remember(cred.user, "google");
-    return session(cred.user);
+    return await afterAuth(cred, "google", mode);
   } catch (err) {
     throw new Error(nice(err));
   }
@@ -320,7 +345,7 @@ export async function signInFacebook() {
   }
 }
 
-export async function signInApple() {
+export async function signInApple(mode: "signup" | "login" = "login") {
   needFirebase();
   let Apple: typeof import("expo-apple-authentication") | null = null;
   try {
@@ -343,8 +368,7 @@ export async function signInApple() {
     const cred = await signInWithCredential(firebaseAuth(), oauth);
     const given = [apple.fullName?.givenName, apple.fullName?.familyName].filter(Boolean).join(" ");
     if (given) await updateProfile(cred.user, { displayName: given }).catch(() => undefined);
-    await remember(cred.user, "apple");
-    return session(cred.user);
+    return await afterAuth(cred, "apple", mode);
   } catch (err) {
     const code = typeof err === "object" && err && "code" in err ? String((err as { code: string }).code) : "";
     if (code.includes("ERR_REQUEST_CANCELED") || code.includes("ERR_CANCELED")) {

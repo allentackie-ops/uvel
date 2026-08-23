@@ -34,6 +34,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { pullOta } from "../lib/ota";
 import { useUvel } from "../lib/store";
 import {
+  isAlreadyAccount,
   resetPassword,
   signInApple,
   signInEmail,
@@ -316,7 +317,7 @@ export default function Onboard() {
       easing: Easing.out(Easing.cubic),
     });
     dim.value = withTiming(1, { duration: 280 });
-  }, [auth, dim, sheetY]);
+  }, [!!auth, dim, sheetY]);
 
   const dismissSheet = () => {
     dim.value = withTiming(0, { duration: 240 });
@@ -508,8 +509,13 @@ export default function Onboard() {
         },
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn’t sign in.");
       setBusy(null);
+      if (auth === "signup" && isAlreadyAccount(err)) {
+        setAuth("login");
+        setError("You already have an account. Log in instead.");
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Couldn’t sign in.");
     }
   }
 
@@ -645,7 +651,7 @@ export default function Onboard() {
                 filled
                 busy={busy === "apple"}
                 disabled={busy !== null}
-                onPress={() => void run("apple", signInApple)}
+                onPress={() => void run("apple", () => signInApple(auth === "login" ? "login" : "signup"))}
               />
               <View style={styles.orRow}>
                 <View style={styles.orLine} />
@@ -657,7 +663,7 @@ export default function Onboard() {
                 label={C.continueGoogle}
                 busy={busy === "google"}
                 disabled={busy !== null}
-                onPress={() => void run("google", signInGoogle)}
+                onPress={() => void run("google", () => signInGoogle(auth === "login" ? "login" : "signup"))}
               />
               {error ? <Text style={styles.error}>{error}</Text> : null}
               <Pressable
