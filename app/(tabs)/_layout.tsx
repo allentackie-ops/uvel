@@ -15,8 +15,8 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Icon sf="person.crop.rectangle" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="closet">
-        <NativeTabs.Trigger.Label>Closet</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="tshirt" />
+        <NativeTabs.Trigger.Label>Sell</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="plus" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="shop">
         <NativeTabs.Trigger.Label>Shop</NativeTabs.Trigger.Label>
