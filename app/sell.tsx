@@ -2,9 +2,11 @@ import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
+  ActionSheetIOS,
   ActivityIndicator,
   Alert,
   Dimensions,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -63,7 +65,7 @@ export default function Sell() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   useWardrobe();
   const existing = id ? getPiece(id) : undefined;
-  const { wardrobeUris } = useUvel();
+  const { wardrobeUris, appearance } = useUvel();
 
   const [photos, setPhotos] = useState<Slot[]>(
     existing?.photos?.length
@@ -86,7 +88,7 @@ export default function Sell() {
   const [was, setWas] = useState(
     existing?.originalPriceCents ? String(Math.round(existing.originalPriceCents / 100)) : "",
   );
-  const [picker, setPicker] = useState(false);
+  const [fitsOpen, setFitsOpen] = useState(false);
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
 
@@ -131,7 +133,7 @@ export default function Sell() {
   }
 
   async function fromCamera() {
-    setPicker(false);
+    Keyboard.dismiss();
     try {
       const uri = await takeListingPhoto();
       if (uri) await addUri(uri);
@@ -141,13 +143,41 @@ export default function Sell() {
   }
 
   async function fromLibrary() {
-    setPicker(false);
+    Keyboard.dismiss();
     try {
       const uri = await pickListingPhoto();
       if (uri) await addUri(uri);
     } catch (err) {
       Alert.alert("Photos", err instanceof Error ? err.message : "Couldn’t open photos.");
     }
+  }
+
+  function choosePhoto() {
+    if (photos.length >= MAX) return;
+    Keyboard.dismiss();
+    const hasFits = wardrobeUris.length > 0;
+    if (Platform.OS === "ios") {
+      const options = hasFits ? ["Camera", "Library", "From your fits", "Cancel"] : ["Camera", "Library", "Cancel"];
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options,
+          cancelButtonIndex: options.length - 1,
+          userInterfaceStyle: appearance,
+        },
+        (i) => {
+          if (i === 0) void fromCamera();
+          else if (i === 1) void fromLibrary();
+          else if (hasFits && i === 2) setFitsOpen(true);
+        },
+      );
+      return;
+    }
+    Alert.alert("Add a photo", undefined, [
+      { text: "Camera", onPress: () => void fromCamera() },
+      { text: "Library", onPress: () => void fromLibrary() },
+      ...(hasFits ? [{ text: "From your fits", onPress: () => setFitsOpen(true) }] : []),
+      { text: "Cancel", style: "cancel" as const },
+    ]);
   }
 
   function removePhoto(uri: string) {
@@ -222,7 +252,7 @@ export default function Sell() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Pressable onPress={() => (cover ? setPicker((v) => !v) : setPicker(true))} style={styles.hero}>
+          <Pressable onPress={choosePhoto} style={styles.hero}>
             {cover ? (
               <Image source={{ uri: cover.uri }} style={styles.heroImg} contentFit="cover" />
             ) : (
@@ -248,28 +278,27 @@ export default function Sell() {
               </Pressable>
             ))}
             {photos.length < MAX ? (
-              <Pressable onPress={() => setPicker((v) => !v)} style={styles.miniAdd}>
+              <Pressable onPress={choosePhoto} style={styles.miniAdd}>
                 <Text style={styles.miniPlus}>+</Text>
                 <Text style={styles.miniCount}>{photos.length}/5</Text>
               </Pressable>
             ) : null}
           </View>
 
-          {picker ? (
+          {fitsOpen && wardrobeUris.length ? (
             <View style={styles.picker}>
-              <Pressable onPress={() => void fromCamera()} style={styles.pickBtn}>
-                <Text style={styles.pickTxt}>Camera</Text>
-              </Pressable>
-              <Pressable onPress={() => void fromLibrary()} style={styles.pickBtn}>
-                <Text style={styles.pickTxt}>Library</Text>
-              </Pressable>
-              {wardrobeUris.length ? <Text style={styles.fitLbl}>From your fits</Text> : null}
+              <View style={styles.fitHead}>
+                <Text style={styles.fitLbl}>From your fits</Text>
+                <Pressable onPress={() => setFitsOpen(false)}>
+                  <Text style={styles.fitLbl}>Done</Text>
+                </Pressable>
+              </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {wardrobeUris.map((uri) => (
                   <Pressable
                     key={uri}
                     onPress={() => {
-                      setPicker(false);
+                      setFitsOpen(false);
                       void addUri(uri);
                     }}
                   >
@@ -305,6 +334,7 @@ export default function Sell() {
                 keyboardType="number-pad"
                 placeholder="0"
                 placeholderTextColor={colors.subtle}
+                autoFocus={false}
               />
             </View>
             {was ? (
@@ -506,14 +536,7 @@ function make(colors: Colors) {
       backgroundColor: "#C45C26",
     },
     picker: { paddingHorizontal: 16, paddingTop: 12, gap: 8 },
-    pickBtn: {
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: colors.surface,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    pickTxt: { color: colors.bone, fontWeight: "600" },
+    fitHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     fitLbl: { color: colors.subtle, fontSize: 12, marginTop: 4 },
     fit: { width: 64, height: 86, borderRadius: 10, marginRight: 8, marginTop: 8 },
     warnBox: {
@@ -529,8 +552,8 @@ function make(colors: Colors) {
     warnCta: { color: colors.bone, fontWeight: "700", textDecorationLine: "underline", marginTop: 6 },
     sheet: { paddingHorizontal: 20, paddingTop: 8 },
     priceRow: { flexDirection: "row", alignItems: "flex-end", gap: 4, marginTop: 8 },
-    dollar: { color: colors.bone, fontFamily: "Georgia", fontSize: 40, paddingBottom: 4 },
-    price: { flex: 1, color: colors.bone, fontFamily: "Georgia", fontSize: 48, height: 64 },
+    dollar: { color: colors.bone, fontWeight: "700", fontSize: 36, paddingBottom: 6 },
+    price: { flex: 1, color: colors.bone, fontWeight: "700", fontSize: 44, height: 58 },
     was: { color: colors.subtle, textDecorationLine: "line-through", marginBottom: 8 },
     wasIn: { color: colors.subtle, fontSize: 14, marginBottom: 8 },
     titleIn: {
