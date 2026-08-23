@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { useMemo, useState } from "react";
 import {
   Dimensions,
@@ -27,6 +28,20 @@ const DOT: Record<Exclude<Source, "All">, string> = {
   Snapchat: "#FFFC00",
   X: "#F4F0E6",
 };
+
+function MutedLoop({ uri, style }: { uri: string; style: object }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
+  return <VideoView player={player} style={style} contentFit="cover" nativeControls={false} />;
+}
+
+function LookMedia({ look, style }: { look: Look; style: object }) {
+  if (look.videoUrl) return <MutedLoop uri={look.videoUrl} style={style} />;
+  return <Image source={lookImage(look)} style={style} contentFit="cover" />;
+}
 
 function where(url?: string): Exclude<Source, "All"> | null {
   if (!url) return null;
@@ -145,13 +160,23 @@ function Hero({
   return (
     <View>
       <View style={styles.heroWrap}>
-        <Image source={lookImage(look)} style={styles.hero} contentFit="cover" />
+        <LookMedia look={look} style={styles.hero} />
+        {look.source === "TikTok" || look.videoUrl ? (
+          <Pressable
+            onPress={() => look.postUrl && void Linking.openURL(look.postUrl)}
+            style={styles.playHit}
+          >
+            <View style={styles.play}>
+              <Text style={styles.playTxt}>▶</Text>
+            </View>
+          </Pressable>
+        ) : null}
       </View>
       <View style={styles.heroCopy}>
         <Text style={styles.date}>{today}</Text>
         <View style={styles.srcRow}>
           <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
-          <Text style={styles.src}>{look.heat || look.source}</Text>
+          <Text style={styles.src}>{look.handle ? `${look.source} · ${look.handle}` : look.heat || look.source}</Text>
         </View>
         <Text style={styles.title}>{look.title}</Text>
         <Text style={styles.summary}>{look.summary}</Text>
@@ -179,10 +204,19 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
   const styles = make(colors);
   return (
     <Pressable
-      onPress={() => router.push({ pathname: "/(tabs)/shop", params: { q: look.shopQuery || look.title } })}
+      onPress={() =>
+        look.postUrl
+          ? void Linking.openURL(look.postUrl)
+          : router.push({ pathname: "/(tabs)/shop", params: { q: look.shopQuery || look.title } })
+      }
       style={styles.card}
     >
-      <Image source={lookImage(look)} style={styles.cardImg} contentFit="cover" />
+      <LookMedia look={look} style={styles.cardImg} />
+      {look.source === "TikTok" || look.videoUrl ? (
+        <View style={styles.cardPlay}>
+          <Text style={styles.playTxt}>▶</Text>
+        </View>
+      ) : null}
       <View style={styles.cardMeta}>
         <View style={styles.srcRow}>
           <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
@@ -201,6 +235,27 @@ function make(colors: Colors) {
     page: { flex: 1, backgroundColor: colors.ink },
     heroWrap: { height: Math.min(560, H * 0.62), backgroundColor: "#0B0A08", overflow: "hidden" },
     hero: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+    playHit: { position: "absolute", right: 16, bottom: 16 },
+    play: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: "rgba(0,0,0,0.55)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    playTxt: { color: "#fff", fontSize: 16, marginLeft: 2 },
+    cardPlay: {
+      position: "absolute",
+      right: 10,
+      top: 10,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: "rgba(0,0,0,0.55)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
     heroCopy: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 4 },
     date: {
       color: colors.subtle,

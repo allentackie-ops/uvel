@@ -8,7 +8,9 @@ export const SOURCES: Source[] = ["All", "TikTok", "Instagram", "Snapchat", "X"]
 export type Look = Trend & {
   id: string;
   imageUrl?: string;
+  videoUrl?: string;
   postUrl?: string;
+  handle?: string;
   heat?: string;
 };
 
@@ -38,6 +40,8 @@ function parse(raw: unknown): Look[] {
         image: localImage(id),
         imageUrl: typeof r.imageUrl === "string" ? r.imageUrl : undefined,
         postUrl: typeof r.postUrl === "string" ? r.postUrl : undefined,
+        videoUrl: typeof r.videoUrl === "string" ? r.videoUrl : undefined,
+        handle: typeof r.handle === "string" ? r.handle : undefined,
         garmentIds,
         shopQuery: String(r.shopQuery || ""),
         heat: typeof r.heat === "string" ? r.heat : `Latest on ${source}`,
