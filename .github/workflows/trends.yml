@@ -16,8 +16,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python scripts/refresh_trends.py
+      - name: Recaption hosted looks
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "OPENAI_API_KEY not set — skip recaption"
+            exit 0
+          fi
+          mkdir -p /tmp/desk
+          cp docs/looks/*.jpg /tmp/desk/
+          python scripts/refresh_desk.py /tmp/desk
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Refresh today's fashion desk"
+          commit_message: "AI desk: recaption today's looks"
           file_pattern: docs/trends.json
