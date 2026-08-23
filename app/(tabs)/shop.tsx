@@ -1,58 +1,71 @@
-import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ProductCard } from "../../components/ProductCard";
-import { CATEGORIES, GARMENTS, usd } from "../../lib/catalog";
+import { ListingCard, ListingEmpty } from "../../components/ListingCard";
+import { CATEGORIES } from "../../lib/catalog";
+import { forYou, matchListings, matchLookImage } from "../../lib/lookMatch";
 import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
+import { bundledLooks } from "../../lib/trends";
 import { listedPieces, useWardrobe } from "../../lib/wardrobe";
 
 export default function Shop() {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
-  const { country } = useUvel();
+  const { country, styles: taste } = useUvel();
   const market = getMarket(country);
-  const { q: qParam } = useLocalSearchParams<{ q?: string }>();
+  const { q: qParam, look: lookParam } = useLocalSearchParams<{ q?: string; look?: string }>();
   const [q, setQ] = useState(qParam ?? "");
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("All");
+  const [aiIds, setAiIds] = useState<string[] | null>(null);
   useWardrobe();
+
+  const look = useMemo(
+    () => (typeof lookParam === "string" ? bundledLooks().find((l) => l.id === lookParam) : undefined),
+    [lookParam],
+  );
 
   useEffect(() => {
     if (typeof qParam === "string") setQ(qParam);
   }, [qParam]);
 
-  const live = listedPieces()
-    .filter((p) => {
+  const live = listedPieces();
+
+  useEffect(() => {
+    if (!look?.imageUrl || !live.length) {
+      setAiIds(null);
+      return;
+    }
+    let gone = false;
+    void matchLookImage(look.imageUrl, live).then((ids) => {
+      if (!gone && ids) setAiIds(ids);
+    });
+    return () => {
+      gone = true;
+    };
+  }, [look?.id, live.length]);
+
+  const ranked = useMemo(() => {
+    let rows = look ? matchListings(look, live, taste) : forYou(live, taste, country);
+    if (look && aiIds?.length) {
+      const hit = new Set(aiIds);
+      rows = [...rows.filter((p) => hit.has(p.id)), ...rows.filter((p) => !hit.has(p.id))];
+    }
+    const needle = q.trim().toLowerCase();
+    return rows.filter((p) => {
       if (cat !== "All" && p.category !== cat) return false;
-      const needle = q.trim().toLowerCase();
       if (!needle) return true;
       return (
         p.name.toLowerCase().includes(needle) ||
         p.brand.toLowerCase().includes(needle) ||
-        p.color.toLowerCase().includes(needle)
+        p.color.toLowerCase().includes(needle) ||
+        p.notes.toLowerCase().includes(needle)
       );
-    })
-    .sort((a, b) => rank(a.country || "US", country) - rank(b.country || "US", country));
-
-  const catalog = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    return GARMENTS.filter((g) => {
-      if (cat !== "All" && g.category !== cat) return false;
-      if (!needle) return true;
-      return (
-        g.name.toLowerCase().includes(needle) ||
-        g.brand.toLowerCase().includes(needle) ||
-        g.color.toLowerCase().includes(needle) ||
-        g.tags.some((t) => t.includes(needle))
-      );
-    }).sort((a, b) => rank(a.country, country) - rank(b.country, country));
-  }, [q, cat, country]);
-
-  const total = live.length + catalog.length;
+    });
+  }, [live, look, aiIds, q, cat, taste, country]);
 
   return (
     <ScrollView
@@ -60,18 +73,22 @@ export default function Shop() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>Shop</Text>
-      <Pressable onPress={() => router.push("/store")} style={styles.store}>
-        <Text style={styles.storeTxt}>
-          {market.name} · {market.currency}
-        </Text>
-        <Text style={styles.storeGo}>Change</Text>
-      </Pressable>
+      <Text style={styles.title}>{look ? "Shop the look" : "Shop"}</Text>
+      {look ? (
+        <Text style={styles.look}>{look.title}</Text>
+      ) : (
+        <Pressable onPress={() => router.push("/store")} style={styles.store}>
+          <Text style={styles.storeTxt}>
+            {market.name} · {market.currency}
+          </Text>
+          <Text style={styles.storeGo}>Change</Text>
+        </Pressable>
+      )}
 
       <View style={styles.search}>
         <Text style={styles.searchIcon}>⌕</Text>
         <TextInput
-          placeholder="Search"
+          placeholder={look ? "Narrow this look" : "Search what’s listed"}
           placeholderTextColor={colors.subtle}
           value={q}
           onChangeText={setQ}
@@ -98,45 +115,22 @@ export default function Shop() {
       </ScrollView>
 
       <Text style={styles.count}>
-        {total} {total === 1 ? "item" : "items"} · prices in {market.currency}
+        {ranked.length} {ranked.length === 1 ? "listing" : "listings"} · real people selling
       </Text>
 
       <View style={styles.grid}>
-        {live.map((p) => {
-          const from = getMarket(p.country || country);
-          return (
-            <Pressable
-              key={p.id}
-              style={styles.cell}
-              onPress={() => router.push({ pathname: "/closet/[id]", params: { id: p.id, v: "buy" } })}
-            >
-              <Image source={{ uri: p.photo }} style={styles.img} contentFit="cover" />
-              <Text style={styles.brand} numberOfLines={1}>
-                {from.code === market.code ? (p.brand === "Unlabeled" ? "Uvel" : p.brand) : from.name}
-              </Text>
-              <Text style={styles.name} numberOfLines={2}>
-                {p.name}
-              </Text>
-              <Text style={styles.price}>{usd(p.listPriceCents, p.currency || "USD")}</Text>
-            </Pressable>
-          );
-        })}
-        {catalog.map((g) => (
-          <View key={g.id} style={styles.cell}>
-            <ProductCard garment={g} />
+        {ranked.map((p) => (
+          <View key={p.id} style={styles.cell}>
+            <ListingCard piece={p} />
           </View>
         ))}
       </View>
 
-      {total === 0 ? <Text style={styles.empty}>Nothing in {cat === "All" ? "shop" : cat} for that search.</Text> : null}
+      {ranked.length === 0 ? (
+        <ListingEmpty copy="Nothing listed yet that matches. When someone puts a piece up, it shows here — not catalog filler." />
+      ) : null}
     </ScrollView>
   );
-}
-
-function rank(itemCountry: string, shopCountry: string) {
-  if (itemCountry === shopCountry) return 0;
-  if (getMarket(itemCountry).region === getMarket(shopCountry).region) return 1;
-  return 2;
 }
 
 function make(colors: Colors) {
@@ -144,6 +138,7 @@ function make(colors: Colors) {
     page: { flex: 1, backgroundColor: colors.ink },
     content: { paddingHorizontal: 16, paddingBottom: 48 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 36 },
+    look: { color: colors.muted, marginTop: 6, fontSize: 16 },
     store: { flexDirection: "row", alignItems: "center", marginTop: 8, gap: 8 },
     storeTxt: { color: colors.muted, fontSize: 15 },
     storeGo: { color: "#D6E27A", fontSize: 13, fontWeight: "700" },
@@ -176,15 +171,5 @@ function make(colors: Colors) {
     count: { color: colors.subtle, fontSize: 12, letterSpacing: 0.4, marginBottom: 12 },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
     cell: { width: "47.4%" },
-    img: {
-      width: "100%",
-      aspectRatio: 3 / 4,
-      borderRadius: 14,
-      backgroundColor: colors.surface,
-    },
-    brand: { color: colors.subtle, fontSize: 11, marginTop: 8, letterSpacing: 0.4 },
-    name: { color: colors.bone, fontSize: 14, fontWeight: "600", marginTop: 3, lineHeight: 18 },
-    price: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 4 },
-    empty: { color: colors.muted, marginTop: 28, textAlign: "center" },
   });
 }

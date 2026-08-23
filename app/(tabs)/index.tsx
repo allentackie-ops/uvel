@@ -13,12 +13,13 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ProductCard } from "../../components/ProductCard";
-import { GARMENTS, getGarment } from "../../lib/catalog";
+import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { unreadFor, useInbox } from "../../lib/chat";
+import { forYou, matchListings } from "../../lib/lookMatch";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
+import { listedPieces, useWardrobe } from "../../lib/wardrobe";
 
 const { height: H } = Dimensions.get("window");
 
@@ -64,10 +65,12 @@ export default function Today() {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
-  const { uid } = useUvel();
+  const { uid, styles: taste, country } = useUvel();
   const chats = useInbox(uid || "me");
   const unread = chats.reduce((n, t) => n + unreadFor(t, uid || "me"), 0);
   const { looks, refreshing, refresh } = useLooks();
+  useWardrobe();
+  const live = listedPieces();
   const [source, setSource] = useState<Source>("All");
 
   const visible = useMemo(
@@ -126,28 +129,42 @@ export default function Today() {
         {featured ? (
           <>
             <Text style={styles.h2}>Shop the look</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
-              {featured.garmentIds.map((id) => {
-                const g = getGarment(id);
-                if (!g) return null;
+            {(() => {
+              const hits = matchListings(featured, live, taste).slice(0, 8);
+              if (!hits.length) {
                 return (
-                  <View key={id} style={{ width: 148 }}>
-                    <ProductCard garment={g} />
+                  <View style={{ paddingHorizontal: 16 }}>
+                    <ListingEmpty copy="No listings match this look yet. When someone sells the real piece, it lands here." />
                   </View>
                 );
-              })}
-            </ScrollView>
+              }
+              return (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
+                  {hits.map((p) => (
+                    <View key={p.id} style={{ width: 148 }}>
+                      <ListingCard piece={p} />
+                    </View>
+                  ))}
+                </ScrollView>
+              );
+            })()}
           </>
         ) : null}
 
-        <Text style={styles.h2}>On Uvel now</Text>
-        <View style={styles.grid}>
-          {GARMENTS.slice(0, 6).map((g) => (
-            <View key={g.id} style={styles.cell}>
-              <ProductCard garment={g} />
-            </View>
-          ))}
-        </View>
+        <Text style={styles.h2}>For you</Text>
+        {live.length ? (
+          <View style={styles.grid}>
+            {forYou(live, taste, country).slice(0, 8).map((p) => (
+              <View key={p.id} style={styles.cell}>
+                <ListingCard piece={p} />
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={{ paddingHorizontal: 16 }}>
+            <ListingEmpty copy="Only real listings show here. Sell something from Closet and it appears on the floor." />
+          </View>
+        )}
       </View>
     </ScrollView>
   );
@@ -180,7 +197,7 @@ function Hero({
         <View style={styles.actions}>
           <Pressable
             onPress={() =>
-              router.push({ pathname: "/(tabs)/shop", params: { q: look.shopQuery || look.title } })
+              router.push({ pathname: "/(tabs)/shop", params: look.id ? { look: look.id } : { q: look.shopQuery || look.title } })
             }
             style={styles.cta}
           >
@@ -202,9 +219,10 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
   return (
     <Pressable
       onPress={() =>
-        look.postUrl
-          ? void Linking.openURL(look.postUrl)
-          : router.push({ pathname: "/(tabs)/shop", params: { q: look.shopQuery || look.title } })
+        router.push({
+          pathname: "/(tabs)/shop",
+          params: look.id ? { look: look.id } : { q: look.shopQuery || look.title },
+        })
       }
       style={styles.card}
     >
