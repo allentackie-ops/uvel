@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
   Linking,
@@ -30,11 +30,18 @@ const DOT: Record<Exclude<Source, "All">, string> = {
 };
 
 function MutedLoop({ uri, style }: { uri: string; style: object }) {
-  const player = useVideoPlayer(uri, (p) => {
+  const player = useVideoPlayer({ uri }, (p) => {
     p.loop = true;
     p.muted = true;
-    p.play();
+    p.audioMixingMode = "mixWithOthers";
   });
+  useEffect(() => {
+    const sub = player.addListener("statusChange", ({ status }) => {
+      if (status === "readyToPlay") player.play();
+    });
+    player.play();
+    return () => sub.remove();
+  }, [player]);
   return <VideoView player={player} style={style} contentFit="cover" nativeControls={false} />;
 }
 
@@ -161,16 +168,6 @@ function Hero({
     <View>
       <View style={styles.heroWrap}>
         <LookMedia look={look} style={styles.hero} />
-        {look.source === "TikTok" || look.videoUrl ? (
-          <Pressable
-            onPress={() => look.postUrl && void Linking.openURL(look.postUrl)}
-            style={styles.playHit}
-          >
-            <View style={styles.play}>
-              <Text style={styles.playTxt}>▶</Text>
-            </View>
-          </Pressable>
-        ) : null}
       </View>
       <View style={styles.heroCopy}>
         <Text style={styles.date}>{today}</Text>
@@ -211,12 +208,9 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
       }
       style={styles.card}
     >
-      <LookMedia look={look} style={styles.cardImg} />
-      {look.source === "TikTok" || look.videoUrl ? (
-        <View style={styles.cardPlay}>
-          <Text style={styles.playTxt}>▶</Text>
-        </View>
-      ) : null}
+      <View style={styles.cardFrame}>
+        <LookMedia look={look} style={styles.cardFill} />
+      </View>
       <View style={styles.cardMeta}>
         <View style={styles.srcRow}>
           <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
@@ -328,7 +322,15 @@ function make(colors: Colors) {
     },
     strip: { paddingHorizontal: 16, gap: 12 },
     card: { width: 168 },
-    cardImg: { width: 168, height: 210, borderRadius: 16, backgroundColor: colors.surface },
+    cardFrame: {
+      width: 168,
+      height: 240,
+      borderRadius: 16,
+      overflow: "hidden",
+      backgroundColor: colors.surface,
+    },
+    cardFill: { width: 168, height: 240 },
+    cardImg: { width: 168, height: 240, borderRadius: 16, backgroundColor: colors.surface },
     cardMeta: { paddingTop: 10, paddingRight: 4 },
     cardSrc: { color: colors.subtle, fontSize: 11, fontWeight: "600" },
     cardTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 16, marginTop: 4, lineHeight: 20 },
