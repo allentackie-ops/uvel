@@ -1,0 +1,91 @@
+{
+  "updatedAt": "2026-08-23T11:00:00Z",
+  "looks": [
+    {
+      "id": "bourgeois-chic",
+      "slug": "bourgeois-chic",
+      "title": "Bourgeois chic, not costume",
+      "source": "TikTok",
+      "summary": "Quiet luxury loosened its collar. Camel knit, stone wide-legs, a bag that looks inherited.",
+      "garmentIds": ["cashmere-crew", "oxford-shirt", "wide-trousers", "loafer"],
+      "shopQuery": "camel cashmere",
+      "heat": "TikTok · today",
+      "postUrl": "https://www.whowhatwear.com/fashion/trends/tiktok-fashion-trends-2026"
+    },
+    {
+      "id": "layered-max",
+      "slug": "layered-max",
+      "title": "More is more, on purpose",
+      "source": "TikTok",
+      "summary": "Multi-layered tops and culottes. The 90s styling hack is the feed again.",
+      "garmentIds": ["oxford-shirt", "poet-blouse", "wide-trousers"],
+      "shopQuery": "layered blouse",
+      "heat": "Rising · TikTok",
+      "postUrl": "https://www.whowhatwear.com/fashion/trends/tiktok-fashion-trends-2026"
+    },
+    {
+      "id": "boho-26",
+      "slug": "boho-26",
+      "title": "Boho, not Coachella",
+      "source": "TikTok",
+      "summary": "Soft volume, a poet blouse, a bag that looks found. 2026 boho is quieter.",
+      "garmentIds": ["poet-blouse", "satin-skirt", "silk-slip"],
+      "shopQuery": "poet blouse",
+      "heat": "TikTok · summer 26"
+    },
+    {
+      "id": "western-city",
+      "slug": "western-city",
+      "title": "Western, after 6",
+      "source": "Instagram",
+      "summary": "Suede yokes and oxblood boots on city pavement. One western piece, not a costume.",
+      "garmentIds": ["suede-jacket", "vintage-denim", "cowboy-boots"],
+      "shopQuery": "suede western",
+      "heat": "Instagram · tonight",
+      "postUrl": "https://www.instagram.com/explore/tags/westernfashion/"
+    },
+    {
+      "id": "napoleon",
+      "slug": "napoleon",
+      "title": "Shoulder, then fringe",
+      "source": "Instagram",
+      "summary": "Napoleon jackets and a strong shoulder. One dramatic layer over something plain.",
+      "garmentIds": ["leather-trench", "wool-blazer", "herringbone-coat"],
+      "shopQuery": "blazer trench",
+      "heat": "Instagram · editorial",
+      "postUrl": "https://www.instagram.com/explore/tags/napoleonjacket/"
+    },
+    {
+      "id": "liquid-evening",
+      "slug": "liquid-evening",
+      "title": "Liquid evening",
+      "source": "Snapchat",
+      "summary": "Ivory slip, champagne satin. After-dark dressing went fluid again.",
+      "garmentIds": ["silk-slip", "satin-skirt", "poet-blouse"],
+      "shopQuery": "silk slip",
+      "heat": "Snapchat · after dark"
+    },
+    {
+      "id": "utility-real",
+      "slug": "utility-real",
+      "title": "Utility that actually works",
+      "source": "X",
+      "summary": "Field jackets over knits. Weather-ready cotton, worn like clothes.",
+      "garmentIds": ["field-jacket", "cashmere-crew", "vintage-denim"],
+      "shopQuery": "field jacket",
+      "heat": "X · latest day",
+      "postUrl": "https://x.com/search?q=field%20jacket%20outfit&src=typed_query&f=live"
+    },
+    {
+      "id": "sunday-fit",
+      "slug": "sunday-fit",
+      "title": "Sunday fit, posted",
+      "source": "X",
+      "summary": "X is just people in clothes they actually wore. Knit, oxford, loafers.",
+      "garmentIds": ["cashmere-crew", "oxford-shirt", "loafer"],
+      "shopQuery": "oxford loafers",
+      "heat": "X · this morning",
+      "postUrl": "https://x.com/search?q=sunday%20outfit&src=typed_query&f=live"
+    }
+  ]
+}

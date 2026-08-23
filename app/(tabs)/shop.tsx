@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
-import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProductCard } from "../../components/ProductCard";
@@ -16,9 +16,14 @@ export default function Shop() {
   const insets = useSafeAreaInsets();
   const { country } = useUvel();
   const market = getMarket(country);
-  const [q, setQ] = useState("");
+  const { q: qParam } = useLocalSearchParams<{ q?: string }>();
+  const [q, setQ] = useState(qParam ?? "");
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("All");
   useWardrobe();
+
+  useEffect(() => {
+    if (typeof qParam === "string") setQ(qParam);
+  }, [qParam]);
 
   const live = listedPieces()
     .filter((p) => {

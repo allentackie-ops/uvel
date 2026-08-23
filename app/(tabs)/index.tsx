@@ -1,23 +1,48 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Glass, GlassContainer } from "../../components/Glass";
+import { useMemo, useState } from "react";
+import {
+  Dimensions,
+  Linking,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProductCard } from "../../components/ProductCard";
-import { GARMENTS, TRENDS, getGarment, type Trend } from "../../lib/catalog";
+import { GARMENTS, getGarment } from "../../lib/catalog";
 import { unreadFor, useInbox } from "../../lib/chat";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
+import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
+
+const { height: H } = Dimensions.get("window");
+
+const DOT: Record<Exclude<Source, "All">, string> = {
+  TikTok: "#FE2C55",
+  Instagram: "#E1306C",
+  Snapchat: "#FFFC00",
+  X: "#F4F0E6",
+};
 
 export default function Today() {
   const colors = useColors();
   const styles = make(colors);
+  const insets = useSafeAreaInsets();
   const { uid } = useUvel();
   const chats = useInbox(uid || "me");
   const unread = chats.reduce((n, t) => n + unreadFor(t, uid || "me"), 0);
-  const [source, setSource] = useState<"All" | Trend["source"]>("All");
-  const visible = source === "All" ? TRENDS : TRENDS.filter((t) => t.source === source);
-  const featured = visible[0] ?? TRENDS[0];
+  const { looks, refreshing, refresh, stamp } = useLooks();
+  const [source, setSource] = useState<Source>("All");
+
+  const visible = useMemo(
+    () => (source === "All" ? looks : looks.filter((t) => t.source === source)),
+    [looks, source],
+  );
+  const featured = visible[0] ?? looks[0];
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -25,27 +50,26 @@ export default function Today() {
   });
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={{ paddingBottom: 48 }}>
-      <View>
-        <Image source={featured.image} style={styles.hero} contentFit="cover" />
-        <Glass effect="clear" style={styles.heroCard}>
-          <Text style={styles.kicker}>{today}</Text>
-          <Text style={styles.title}>{featured.title}</Text>
-          <Text style={styles.summary}>{featured.summary}</Text>
-          <View style={styles.row}>
-            <Glass style={styles.chip}>
-              <Text style={styles.chipText}>{featured.source}</Text>
-            </Glass>
-            <Pressable onPress={() => router.push("/(tabs)/shop")} style={styles.ctaWrap}>
-              <Glass effect="regular" interactive style={styles.cta}>
-                <Text style={styles.ctaText}>Shop the look</Text>
-              </Glass>
-            </Pressable>
-          </View>
-        </Glass>
-      </View>
+    <ScrollView
+      style={styles.page}
+      contentContainerStyle={{ paddingBottom: 128 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor="#F4F0E6" />}
+    >
+      {featured ? <Hero look={featured} today={today} stamp={stamp} top={insets.top} colors={colors} /> : null}
 
       <View style={styles.body}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+          {SOURCES.map((s) => {
+            const on = source === s;
+            return (
+              <Pressable key={s} onPress={() => setSource(s)} style={[styles.filter, on && styles.filterOn]}>
+                {s !== "All" ? <View style={[styles.dot, { backgroundColor: DOT[s] }]} /> : null}
+                <Text style={[styles.filterTxt, on && styles.filterTxtOn]}>{s}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
         <Pressable onPress={() => router.push("/inbox")} style={styles.inbox}>
           <View style={{ flex: 1 }}>
             <Text style={styles.inboxK}>Chats</Text>
@@ -60,42 +84,33 @@ export default function Today() {
           <Text style={styles.inboxGo}>{unread ? String(unread) : chats.length ? String(chats.length) : "›"}</Text>
         </Pressable>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <GlassContainer spacing={8} style={styles.chips}>
-            {(["All", "TikTok", "Instagram", "Snapchat", "X"] as const).map((s) => (
-              <Pressable key={s} onPress={() => setSource(s)}>
-                <Glass interactive style={[styles.filter, source === s && styles.filterOn]}>
-                  <Text style={[styles.filterText, source === s && styles.filterTextOn]}>{s}</Text>
-                </Glass>
-              </Pressable>
-            ))}
-          </GlassContainer>
+        <Text style={styles.h2}>{source === "All" ? "Moving now" : `Now on ${source}`}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
+          {visible.map((look) => (
+            <LookCard key={look.id} look={look} colors={colors} />
+          ))}
         </ScrollView>
 
-        <Text style={styles.h2}>Today in fashion</Text>
-        {visible.map((trend) => (
-          <View key={trend.slug} style={{ marginBottom: 28 }}>
-            <Image source={trend.image} style={styles.trendImg} contentFit="cover" />
-            <Text style={styles.meta}>{trend.source} · Latest day</Text>
-            <Text style={styles.h3}>{trend.title}</Text>
-            <Text style={styles.p}>{trend.summary}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
-              {trend.garmentIds.map((id) => {
+        {featured ? (
+          <>
+            <Text style={styles.h2}>Shop the look</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
+              {featured.garmentIds.map((id) => {
                 const g = getGarment(id);
                 if (!g) return null;
                 return (
-                  <View key={id} style={{ width: 140, marginRight: 12 }}>
+                  <View key={id} style={{ width: 148 }}>
                     <ProductCard garment={g} />
                   </View>
                 );
               })}
             </ScrollView>
-          </View>
-        ))}
+          </>
+        ) : null}
 
         <Text style={styles.h2}>On Uvel now</Text>
         <View style={styles.grid}>
-          {GARMENTS.slice(0, 8).map((g) => (
+          {GARMENTS.slice(0, 6).map((g) => (
             <View key={g.id} style={styles.cell}>
               <ProductCard garment={g} />
             </View>
@@ -106,52 +121,191 @@ export default function Today() {
   );
 }
 
+function Hero({
+  look,
+  today,
+  stamp,
+  top,
+  colors,
+}: {
+  look: Look;
+  today: string;
+  stamp: string;
+  top: number;
+  colors: Colors;
+}) {
+  const styles = make(colors);
+  return (
+    <View style={styles.heroWrap}>
+      <Image source={lookImage(look)} style={styles.hero} contentFit="cover" />
+      <View pointerEvents="none" style={styles.heroFadeTop} />
+      <View pointerEvents="none" style={styles.heroFade} />
+      <View style={[styles.heroTop, { paddingTop: top + 8 }]}>
+        <Text style={styles.liveK}>{today.toUpperCase()}</Text>
+        <View style={styles.live}>
+          <View style={styles.liveDot} />
+          <Text style={styles.liveT}>{stamp ? "LIVE" : "TODAY"}</Text>
+        </View>
+      </View>
+      <View style={styles.heroCopy}>
+        <View style={styles.srcRow}>
+          <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
+          <Text style={styles.src}>{look.heat || look.source}</Text>
+        </View>
+        <Text style={styles.title}>{look.title}</Text>
+        <Text style={styles.summary}>{look.summary}</Text>
+        <View style={styles.actions}>
+          <Pressable
+            onPress={() =>
+              router.push({ pathname: "/(tabs)/shop", params: { q: look.shopQuery || look.title } })
+            }
+            style={styles.cta}
+          >
+            <Text style={styles.ctaTxt}>Shop the look</Text>
+          </Pressable>
+          {look.postUrl ? (
+            <Pressable onPress={() => void Linking.openURL(look.postUrl!)} style={styles.ghost}>
+              <Text style={styles.ghostTxt}>See on {look.source}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function LookCard({ look, colors }: { look: Look; colors: Colors }) {
+  const styles = make(colors);
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: "/(tabs)/shop", params: { q: look.shopQuery || look.title } })}
+      style={styles.card}
+    >
+      <Image source={lookImage(look)} style={styles.cardImg} contentFit="cover" />
+      <View style={styles.cardFade} />
+      <View style={styles.cardMeta}>
+        <View style={styles.srcRow}>
+          <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
+          <Text style={styles.cardSrc}>{look.source}</Text>
+        </View>
+        <Text style={styles.cardTitle} numberOfLines={2}>
+          {look.title}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
 function make(colors: Colors) {
   return StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.ink },
-  hero: { width: "100%", height: 560 },
-  heroCard: {
-    position: "absolute",
-    left: 16,
-    right: 16,
-    bottom: 24,
-    borderRadius: 28,
-    padding: 18,
-  },
-  kicker: { color: colors.muted, fontSize: 11, letterSpacing: 2, textTransform: "uppercase" },
-  title: { color: colors.bone, fontSize: 32, fontFamily: "Georgia", marginTop: 6 },
-  summary: { color: colors.bone, opacity: 0.9, marginTop: 8, fontSize: 14, lineHeight: 20 },
-  row: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14 },
-  chip: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
-  chipText: { color: colors.bone, fontSize: 12 },
-  ctaWrap: { borderRadius: 999, overflow: "hidden" },
-  cta: { backgroundColor: colors.pulse, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
-  ctaText: { color: colors.bone, fontWeight: "600", fontSize: 13 },
-  body: { padding: 20 },
-  inbox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 18,
-  },
-  inboxK: { color: colors.bone, fontWeight: "700", fontSize: 16 },
-  inboxP: { color: colors.muted, marginTop: 3, fontSize: 13 },
-  inboxGo: { color: "#D6E27A", fontWeight: "700", fontSize: 16 },
-  chips: { flexDirection: "row", gap: 8, marginBottom: 8 },
-  filter: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
-  filterOn: { backgroundColor: colors.pulse },
-  filterText: { color: colors.bone, fontSize: 13 },
-  filterTextOn: { color: colors.bone },
-  h2: { color: colors.bone, fontFamily: "Georgia", fontSize: 26, marginTop: 18, marginBottom: 12 },
-  h3: { color: colors.bone, fontFamily: "Georgia", fontSize: 22, marginTop: 8 },
-  p: { color: colors.muted, marginTop: 6, lineHeight: 20 },
-  meta: { color: colors.subtle, fontSize: 12, marginTop: 10 },
-  trendImg: { width: "100%", height: 420, borderRadius: 28 },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-  cell: { width: "47%", flexGrow: 1 },
+    page: { flex: 1, backgroundColor: colors.ink },
+    heroWrap: { height: Math.min(640, H * 0.72), backgroundColor: "#0B0A08" },
+    hero: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+    heroFadeTop: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: 0,
+      height: 120,
+      backgroundColor: "rgba(12,11,8,0.28)",
+    },
+    heroFade: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: "52%",
+      backgroundColor: "rgba(12,11,8,0.55)",
+    },
+    heroTop: {
+      position: "absolute",
+      left: 20,
+      right: 20,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    liveK: { color: "rgba(244,240,230,0.72)", fontSize: 11, letterSpacing: 1.8, fontWeight: "600" },
+    live: { flexDirection: "row", alignItems: "center", gap: 6 },
+    liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#FE2C55" },
+    liveT: { color: "#F4F0E6", fontSize: 11, letterSpacing: 1.6, fontWeight: "700" },
+    heroCopy: { position: "absolute", left: 20, right: 20, bottom: 28 },
+    srcRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+    src: { color: "rgba(244,240,230,0.82)", fontSize: 12, letterSpacing: 0.4 },
+    title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 34, lineHeight: 38, marginTop: 10 },
+    summary: { color: "rgba(244,240,230,0.82)", marginTop: 10, fontSize: 15, lineHeight: 22 },
+    actions: { flexDirection: "row", gap: 10, marginTop: 18 },
+    cta: {
+      backgroundColor: "#F4F0E6",
+      paddingHorizontal: 18,
+      height: 42,
+      borderRadius: 21,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    ctaTxt: { color: "#16140F", fontWeight: "700", fontSize: 14 },
+    ghost: {
+      paddingHorizontal: 16,
+      height: 42,
+      borderRadius: 21,
+      borderWidth: 1,
+      borderColor: "rgba(244,240,230,0.35)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    ghostTxt: { color: "#F4F0E6", fontWeight: "600", fontSize: 14 },
+    body: { paddingTop: 18 },
+    chips: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },
+    filter: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 7,
+      height: 36,
+      paddingHorizontal: 14,
+      borderRadius: 18,
+      borderWidth: 1,
+      borderColor: "rgba(244,240,230,0.18)",
+    },
+    filterOn: { backgroundColor: "#F4F0E6", borderColor: "#F4F0E6" },
+    filterTxt: { color: colors.bone, fontWeight: "600", fontSize: 13 },
+    filterTxtOn: { color: "#16140F" },
+    dot: { width: 8, height: 8, borderRadius: 4 },
+    inbox: {
+      marginHorizontal: 16,
+      marginTop: 16,
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.surface,
+      borderRadius: 16,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+    },
+    inboxK: { color: colors.bone, fontWeight: "700", fontSize: 15 },
+    inboxP: { color: colors.muted, marginTop: 2, fontSize: 13 },
+    inboxGo: { color: "#D6E27A", fontWeight: "700", fontSize: 16 },
+    h2: {
+      color: colors.bone,
+      fontFamily: "Georgia",
+      fontSize: 26,
+      marginTop: 26,
+      marginBottom: 14,
+      paddingHorizontal: 16,
+    },
+    strip: { paddingHorizontal: 16, gap: 12 },
+    card: { width: 168, height: 240, borderRadius: 18, overflow: "hidden", backgroundColor: colors.surface },
+    cardImg: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+    cardFade: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: "55%",
+      backgroundColor: "rgba(12,11,8,0.7)",
+    },
+    cardMeta: { position: "absolute", left: 12, right: 12, bottom: 12 },
+    cardSrc: { color: "rgba(244,240,230,0.8)", fontSize: 11, fontWeight: "600" },
+    cardTitle: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 16, marginTop: 4, lineHeight: 20 },
+    grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 16 },
+    cell: { width: "47%", flexGrow: 1 },
   });
 }
