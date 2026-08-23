@@ -83,11 +83,11 @@ function promptFor(name: string, category: string) {
     swap = "Put these shoes on their feet. Keep the rest of the outfit.";
   }
 
-  return `Virtual try-on. The first image is the person. The second image is the garment (${name}, ${category}).
+  return `Fashion try-on for a shopping app. Photo 1 is the customer. Photo 2 is the clothing (${name}, ${category}).
 
 ${swap}
 
-They must look like they are actually wearing it in this same photo — same face, skin, hair, body, pose, hands, phone, jewelry, room, lighting, and camera. Fabric should drape on THEIR body. Photorealistic. No collage, no floating product, no overlay, no mannequin, no text, no watermark.`;
+Keep the same person, face, hair, pose, hands, jewelry, room, and lighting. Make a photorealistic photo of them wearing that piece. No collage, no floating product, no extra text.`;
 }
 
 function nice(text: string) {
@@ -98,8 +98,8 @@ function nice(text: string) {
   if (low.includes("insufficient_quota") || low.includes("billing") || low.includes("exceeded your current quota")) {
     return "OpenAI needs billing on this key. Add a card at platform.openai.com/settings/organization/billing.";
   }
-  if (low.includes("blocked") || low.includes("safety") || low.includes("moderation") || low.includes("responsible")) {
-    return "That photo was blocked. Try a full-length mirror pic with your face in frame.";
+  if (low.includes("moderation_blocked") || low.includes("safety system") || low.includes("rejected as a result")) {
+    return "That look was flagged. Try another piece — slips and swimwear can get blocked.";
   }
   if (low.includes("formdatapart")) return "Couldn’t send that photo. Try Library again.";
   if (low.includes("rate") || low.includes("429")) return "Try-on is busy. Wait a moment.";
@@ -128,7 +128,8 @@ async function openaiEdits(personUrl: string, garmentUrl: string, prompt: string
       prompt,
       images: [{ image_url: personUrl }, { image_url: garmentUrl }],
       size: "1024x1536",
-      quality: "medium",
+      quality: "low",
+      moderation: "low",
     }),
   });
   const json = (await res.json()) as Parameters<typeof imageFrom>[0];
