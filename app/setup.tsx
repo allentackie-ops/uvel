@@ -91,6 +91,7 @@ export default function ProfileSetup() {
   const [worn, setWorn] = useState<string | null>(null);
   const [look, setLook] = useState(LOOKS[0]?.id ?? "");
   const [asking, setAsking] = useState(false);
+  const [rendering, setRendering] = useState(false);
   const [rendered, setRendered] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
   const [fits, setFits] = useState<string[]>([]);
