@@ -334,17 +334,6 @@ function Hero({ look, colors, height }: { look: Look; colors: Colors; height: nu
   return (
     <View style={[styles.heroWrap, { height }]}>
       <LookMedia look={look} style={styles.hero} handleRef={grab} />
-      <View pointerEvents="none" style={styles.topFade}>
-        <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.5)" }]} />
-        <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.28)" }]} />
-        <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.1)" }]} />
-        <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0)" }]} />
-      </View>
-      <View pointerEvents="none" style={styles.botFade}>
-        <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0)" }]} />
-        <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.18)" }]} />
-        <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.42)" }]} />
-      </View>
       <View style={styles.heroCopy}>
         <View style={styles.heroBar}>
           <Pressable onPress={() => void shopThis()} style={styles.cta}>
@@ -443,9 +432,6 @@ function make(colors: Colors) {
     page: { flex: 1, backgroundColor: "#0B0A08" },
     heroWrap: { width: W, backgroundColor: "#0B0A08", overflow: "hidden" },
     hero: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-    topFade: { position: "absolute", top: 0, left: 0, right: 0, height: 120 },
-    botFade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 220 },
-    fadeBand: { flex: 1 },
     heroCopy: { position: "absolute", left: 16, right: 16, bottom: 18 },
     heroBar: { flexDirection: "row", gap: 10, marginBottom: 16 },
     srcRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
