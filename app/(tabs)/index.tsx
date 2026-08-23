@@ -29,6 +29,13 @@ import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/
 import { listedPieces, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const { width: W, height: H } = Dimensions.get("screen");
+
+const orbitHold = {
+  ...StyleSheet.absoluteFillObject,
+  alignItems: "center" as const,
+  justifyContent: "center" as const,
+  zIndex: 8,
+};
 const CARD_W = Math.round((W - 32) / 2.28);
 const CARD_H = Math.round(CARD_W * 1.42);
 
@@ -60,6 +67,7 @@ function MutedLoop({
   const frozenAt = useRef(0);
   const src = playableLookVideo(uri);
   const [on, setOn] = useState(false);
+  const [wait, setWait] = useState(true);
   const player = useVideoPlayer({ uri: src }, (p) => {
     p.loop = true;
     p.muted = true;
@@ -80,7 +88,12 @@ function MutedLoop({
     const status = player.addListener("statusChange", ({ status }) => {
       if (status === "readyToPlay") {
         setOn(true);
+        setWait(false);
         playIfFree();
+      } else if (status === "loading") {
+        setWait(true);
+      } else if (status === "error") {
+        setWait(false);
       }
     });
     const time = player.addListener("timeUpdate", ({ currentTime }) => {
@@ -135,15 +148,20 @@ function MutedLoop({
 
   return (
     <View style={[style, { overflow: "hidden", backgroundColor: "#0B0A08" }]}>
-      {cover && !on ? (
-        <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" />
-      ) : null}
       <VideoView
         player={player}
-        style={StyleSheet.absoluteFill}
+        style={[StyleSheet.absoluteFill, !on ? { opacity: 0 } : null]}
         contentFit="cover"
         nativeControls={false}
       />
+      {cover && !on ? (
+        <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" />
+      ) : null}
+      {wait ? (
+        <View style={orbitHold} pointerEvents="none">
+          <OrbitLoader />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -236,7 +254,8 @@ export default function Today() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => void refresh()}
-            tintColor="#F4F0E6"
+            tintColor="transparent"
+            colors={["transparent"]}
             progressViewOffset={insets.top}
           />
         }
@@ -328,6 +347,11 @@ export default function Today() {
           )}
         </View>
       </ScrollView>
+      {refreshing ? (
+        <View style={orbitHold} pointerEvents="none">
+          <OrbitLoader label="Loading your feed" />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -349,6 +373,11 @@ function Hero({ look, colors, height }: { look: Look; colors: Colors; height: nu
   return (
     <View style={[styles.heroWrap, { height }]}>
       <LookMedia look={look} style={styles.hero} handleRef={grab} />
+      {busy ? (
+        <View style={orbitHold} pointerEvents="none">
+          <OrbitLoader />
+        </View>
+      ) : null}
       <View style={styles.heroCopy}>
         <View style={styles.heroBar}>
           <Pressable onPress={() => void shopThis()} style={styles.cta}>
