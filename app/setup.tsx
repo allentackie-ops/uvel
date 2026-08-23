@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GARMENTS } from "../lib/catalog";
 import { useUvel } from "../lib/store";
 import { dressPerson } from "../lib/tryon";
+import { pickFromLibrary, takePhoto } from "../lib/photo";
 import { addPiece } from "../lib/wardrobe";
 
 const BG = "#12140A";
@@ -123,12 +124,15 @@ export default function ProfileSetup() {
   }
 
   async function pickPhoto(camera: boolean) {
-    const fn = camera ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync;
-    const res = await fn({ mediaTypes: ["images"], quality: 0.55 });
-    if (!res.canceled) {
-      setPhoto(res.assets[0].uri);
+    setErr("");
+    try {
+      const uri = camera ? await takePhoto(true) : await pickFromLibrary();
+      if (!uri) return;
+      setPhoto(uri);
       setWorn(null);
       setRendered(false);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn’t open that.");
     }
   }
 
