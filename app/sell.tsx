@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { LISTING_RATIO, PhotoCrop } from "../components/PhotoCrop";
 import type { Category } from "../lib/catalog";
 import { usd } from "../lib/catalog";
 import { pickListingPhoto, takeListingPhoto } from "../lib/photo";
@@ -89,6 +90,7 @@ export default function Sell() {
     existing?.originalPriceCents ? String(Math.round(existing.originalPriceCents / 100)) : "",
   );
   const [fitsOpen, setFitsOpen] = useState(false);
+  const [cropUri, setCropUri] = useState<string | null>(null);
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
 
@@ -136,7 +138,7 @@ export default function Sell() {
     Keyboard.dismiss();
     try {
       const uri = await takeListingPhoto();
-      if (uri) await addUri(uri);
+      if (uri) setCropUri(uri);
     } catch (err) {
       Alert.alert("Camera", err instanceof Error ? err.message : "Couldn’t open camera.");
     }
@@ -146,7 +148,7 @@ export default function Sell() {
     Keyboard.dismiss();
     try {
       const uri = await pickListingPhoto();
-      if (uri) await addUri(uri);
+      if (uri) setCropUri(uri);
     } catch (err) {
       Alert.alert("Photos", err instanceof Error ? err.message : "Couldn’t open photos.");
     }
@@ -252,9 +254,14 @@ export default function Sell() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Pressable onPress={choosePhoto} style={styles.hero}>
+          <Pressable onPress={cover ? undefined : choosePhoto} style={styles.hero}>
             {cover ? (
-              <Image source={{ uri: cover.uri }} style={styles.heroImg} contentFit="cover" />
+              <>
+                <Image source={{ uri: cover.uri }} style={styles.heroImg} contentFit="cover" />
+                <Pressable onPress={() => removePhoto(cover.uri)} hitSlop={8} style={styles.heroX}>
+                  <Text style={styles.heroXTxt}>×</Text>
+                </Pressable>
+              </>
             ) : (
               <View style={styles.heroEmpty}>
                 <Text style={styles.heroPlus}>＋</Text>
@@ -272,10 +279,13 @@ export default function Sell() {
 
           <View style={styles.slotRow}>
             {photos.map((p, i) => (
-              <Pressable key={p.uri} onLongPress={() => removePhoto(p.uri)} onPress={() => {}}>
+              <View key={p.uri} style={{ position: "relative" }}>
                 <Image source={{ uri: p.uri }} style={[styles.mini, i === 0 && styles.miniOn]} contentFit="cover" />
                 {p.status === "warn" ? <View style={styles.warnDot} /> : null}
-              </Pressable>
+                <Pressable onPress={() => removePhoto(p.uri)} hitSlop={8} style={styles.miniX}>
+                  <Text style={styles.miniXTxt}>×</Text>
+                </Pressable>
+              </View>
             ))}
             {photos.length < MAX ? (
               <Pressable onPress={choosePhoto} style={styles.miniAdd}>
@@ -299,7 +309,7 @@ export default function Sell() {
                     key={uri}
                     onPress={() => {
                       setFitsOpen(false);
-                      void addUri(uri);
+                      setCropUri(uri);
                     }}
                   >
                     <Image source={{ uri }} style={styles.fit} contentFit="cover" />
@@ -325,30 +335,20 @@ export default function Sell() {
           ) : null}
 
           <View style={styles.sheet}>
+            <Text style={styles.priceLabel}>Price</Text>
             <View style={styles.priceRow}>
               <Text style={styles.dollar}>$</Text>
               <TextInput
                 style={styles.price}
                 value={price}
-                onChangeText={setPrice}
+                onChangeText={(v) => setPrice(v.replace(/[^0-9]/g, ""))}
                 keyboardType="number-pad"
-                placeholder="0"
+                placeholder="24"
                 placeholderTextColor={colors.subtle}
                 autoFocus={false}
               />
             </View>
-            {was ? (
-              <Text style={styles.was}>was ${was}</Text>
-            ) : (
-              <TextInput
-                style={styles.wasIn}
-                value={was}
-                onChangeText={setWas}
-                keyboardType="number-pad"
-                placeholder="Original price, optional"
-                placeholderTextColor={colors.subtle}
-              />
-            )}
+            <Text style={styles.must}>Required — what a buyer pays</Text>
 
             <TextInput
               style={styles.titleIn}
@@ -429,6 +429,15 @@ export default function Sell() {
                 </Pressable>
               ))}
             </View>
+            <Text style={styles.label}>Original price</Text>
+            <TextInput
+              style={styles.field}
+              value={was}
+              onChangeText={(v) => setWas(v.replace(/[^0-9]/g, ""))}
+              keyboardType="number-pad"
+              placeholder="Optional"
+              placeholderTextColor={colors.subtle}
+            />
           </View>
         </ScrollView>
 
@@ -478,6 +487,16 @@ export default function Sell() {
           ) : null}
         </View>
       ) : null}
+      {cropUri ? (
+        <PhotoCrop
+          uri={cropUri}
+          onCancel={() => setCropUri(null)}
+          onDone={(uri) => {
+            setCropUri(null);
+            void addUri(uri);
+          }}
+        />
+      ) : null}
     </View>
   );
 }
@@ -496,10 +515,22 @@ function make(colors: Colors) {
     topTitle: { color: colors.bone, fontSize: 16, fontWeight: "600" },
     hero: {
       width: W,
-      height: W * 1.12,
+      height: W / LISTING_RATIO,
       backgroundColor: colors.surface,
     },
     heroImg: { width: "100%", height: "100%" },
+    heroX: {
+      position: "absolute",
+      top: 12,
+      right: 12,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: "rgba(14,13,11,0.72)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    heroXTxt: { color: "#F4F0E6", fontSize: 22, lineHeight: 24, marginTop: -1 },
     heroEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8, padding: 28 },
     heroPlus: { color: colors.bone, fontSize: 44 },
     heroHint: { color: colors.bone, fontFamily: "Georgia", fontSize: 22 },
@@ -513,11 +544,11 @@ function make(colors: Colors) {
     },
     heroCheck: { color: "#16140F", fontWeight: "600" },
     slotRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 12 },
-    mini: { width: 52, height: 68, borderRadius: 10, backgroundColor: colors.surface },
+    mini: { width: 52, height: 65, borderRadius: 10, backgroundColor: colors.surface },
     miniOn: { borderWidth: 2, borderColor: "#D6E27A" },
     miniAdd: {
       width: 52,
-      height: 68,
+      height: 65,
       borderRadius: 10,
       borderWidth: 1,
       borderColor: colors.subtle + "55",
@@ -526,6 +557,18 @@ function make(colors: Colors) {
     },
     miniPlus: { color: colors.bone, fontSize: 20, marginTop: -2 },
     miniCount: { color: colors.subtle, fontSize: 10 },
+    miniX: {
+      position: "absolute",
+      top: -6,
+      right: -6,
+      width: 20,
+      height: 20,
+      borderRadius: 10,
+      backgroundColor: "#16140F",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    miniXTxt: { color: "#F4F0E6", fontSize: 14, lineHeight: 16, fontWeight: "700" },
     warnDot: {
       position: "absolute",
       right: 4,
@@ -551,11 +594,26 @@ function make(colors: Colors) {
     warnTip: { color: colors.bone, fontStyle: "italic" },
     warnCta: { color: colors.bone, fontWeight: "700", textDecorationLine: "underline", marginTop: 6 },
     sheet: { paddingHorizontal: 20, paddingTop: 8 },
-    priceRow: { flexDirection: "row", alignItems: "flex-end", gap: 4, marginTop: 8 },
-    dollar: { color: colors.bone, fontWeight: "700", fontSize: 36, paddingBottom: 6 },
-    price: { flex: 1, color: colors.bone, fontWeight: "700", fontSize: 44, height: 58 },
-    was: { color: colors.subtle, textDecorationLine: "line-through", marginBottom: 8 },
-    wasIn: { color: colors.subtle, fontSize: 14, marginBottom: 8 },
+    priceLabel: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 12, marginBottom: 6 },
+    priceRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+    dollar: {
+      color: colors.bone,
+      fontWeight: "700",
+      fontSize: 34,
+      lineHeight: 40,
+      includeFontPadding: false,
+    },
+    price: {
+      flex: 1,
+      color: colors.bone,
+      fontWeight: "700",
+      fontSize: 34,
+      lineHeight: 40,
+      height: 40,
+      padding: 0,
+      includeFontPadding: false,
+    },
+    must: { color: colors.muted, fontSize: 13, marginTop: 6 },
     titleIn: {
       color: colors.bone,
       fontFamily: "Georgia",
