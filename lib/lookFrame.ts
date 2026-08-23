@@ -1,6 +1,6 @@
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { cacheDirectory, downloadAsync, getInfoAsync } from "expo-file-system/legacy";
-import { createVideoPlayer, type VideoPlayer, type VideoThumbnail } from "expo-video";
+import type { VideoPlayer, VideoThumbnail } from "expo-video";
 
 function cacheName(url: string) {
   let h = 0;
@@ -9,6 +9,10 @@ function cacheName(url: string) {
 }
 
 const downloads = new Map<string, Promise<string | null>>();
+
+function wait(ms: number) {
+  return new Promise<null>((resolve) => setTimeout(() => resolve(null), ms));
+}
 
 async function localVideo(url: string) {
   const dest = cacheName(url);
@@ -37,44 +41,19 @@ async function saveThumb(thumb: VideoThumbnail) {
   return saved.uri;
 }
 
-function waitReady(player: VideoPlayer) {
-  return new Promise<void>((resolve) => {
-    if (Number(player.duration) > 0) {
-      resolve();
-      return;
-    }
-    const t = setTimeout(() => {
-      sub.remove();
-      resolve();
-    }, 4000);
-    const sub = player.addListener("statusChange", ({ status }) => {
-      if (status === "readyToPlay") {
-        clearTimeout(t);
-        sub.remove();
-        resolve();
-      }
-    });
-  });
-}
-
-export async function frameAtTime(_player: VideoPlayer, time: number, sourceUrl: string) {
+export async function frameAtTime(player: VideoPlayer, time: number, _sourceUrl: string) {
   const t = Math.max(0, Number(time) || 0);
-  const local = await localVideo(sourceUrl);
-  if (!local) return null;
-  const probe = createVideoPlayer(local);
-  try {
-    await waitReady(probe);
-    const duration = Number(probe.duration) || 0;
-    const at = duration > 0 ? Math.min(t, Math.max(0, duration - 0.05)) : t;
-    const thumbs = await probe.generateThumbnailsAsync([at], { maxWidth: 720, maxHeight: 1280 });
-    const thumb = thumbs[0];
-    if (!thumb) return null;
-    return await saveThumb(thumb);
-  } catch {
-    return null;
-  } finally {
-    (probe as { release?: () => void }).release?.();
-  }
+  const grab = (async () => {
+    try {
+      const thumbs = await player.generateThumbnailsAsync([t], { maxWidth: 720, maxHeight: 1280 });
+      const thumb = thumbs[0];
+      if (!thumb) return null;
+      return await saveThumb(thumb);
+    } catch {
+      return null;
+    }
+  })();
+  return (await Promise.race([grab, wait(2500)])) ?? (await Promise.race([grab, wait(1500)]));
 }
 
 export function prefetchLookVideo(url?: string) {

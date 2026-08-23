@@ -1,17 +1,70 @@
 import { Image } from "expo-image";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { router, useLocalSearchParams } from "expo-router";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
-import { takeLookScan, clearLookScan } from "../../lib/lookSearch";
+import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
 import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
 import { listedPieces, useWardrobe } from "../../lib/wardrobe";
+
+function FrozenClip({
+  uri,
+  time,
+  style,
+}: {
+  uri: string;
+  time: number;
+  style: object;
+}) {
+  const player = useVideoPlayer({ uri }, (p) => {
+    p.loop = false;
+    p.muted = true;
+    p.audioMixingMode = "mixWithOthers";
+    p.currentTime = time;
+  });
+
+  useEffect(() => {
+    let gone = false;
+    const apply = () => {
+      player.currentTime = time;
+      player.pause();
+    };
+    const sub = player.addListener("statusChange", ({ status }) => {
+      if (status !== "readyToPlay") return;
+      apply();
+      void player
+        .generateThumbnailsAsync([time], { maxWidth: 720, maxHeight: 1280 })
+        .then(async (thumbs) => {
+          const thumb = thumbs[0];
+          if (!thumb || gone) return;
+          const image = await ImageManipulator.manipulate(thumb).renderAsync();
+          const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.8, base64: true });
+          const frame = saved.base64 ? `data:image/jpeg;base64,${saved.base64}` : saved.uri;
+          if (!gone && frame) finishLookScan(frame);
+        })
+        .catch(() => undefined);
+    });
+    apply();
+    return () => {
+      gone = true;
+      sub.remove();
+    };
+  }, [player, time]);
+
+  return (
+    <View style={[style, { overflow: "hidden" }]}>
+      <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="contain" nativeControls={false} />
+    </View>
+  );
+}
 
 export default function Shop() {
   const colors = useColors();
@@ -23,10 +76,8 @@ export default function Shop() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("All");
   const [aiIds, setAiIds] = useState<string[] | null>(null);
-  const [terms, setTerms] = useState<string[]>([]);
   const [scanning, setScanning] = useState(false);
-  const [frame, setFrame] = useState<string | null>(null);
-  const [scanTitle, setScanTitle] = useState("");
+  const [job, setJob] = useState<LookScan | null>(null);
   useWardrobe();
 
   const look = useMemo(
@@ -43,40 +94,43 @@ export default function Shop() {
   }, [qParam, scan]);
 
   useEffect(() => {
-    const grabbed = takeLookScan();
-    if (grabbed.frame) {
-      setFrame(grabbed.frame);
-      setScanTitle(grabbed.title);
-    } else if (look?.imageUrl) {
-      setFrame(look.imageUrl);
-    }
-    return () => clearLookScan();
-  }, [lookParam, scan, look?.imageUrl]);
+    const stop = watchLookScan(setJob);
+    return () => {
+      stop();
+      clearLookScan();
+    };
+  }, [lookParam, scan]);
 
+  const frame = job?.frame || "";
+  const videoUrl = job?.videoUrl || "";
+  const freezeAt = job?.time || 0;
   const live = listedPieces();
+  const scanningLook = Boolean(scan === "1" || look || frame || videoUrl);
 
   useEffect(() => {
-    if (!frame || !live.length) {
+    if (!scanningLook) return;
+    if (!frame) {
+      setScanning(true);
       setAiIds(null);
+      return;
+    }
+    if (!live.length) {
+      setAiIds([]);
       setScanning(false);
       return;
     }
     let gone = false;
     setScanning(true);
     setAiIds(null);
-    setTerms([]);
     void lensScan(frame, live).then((hit) => {
       if (gone) return;
       setAiIds(hit?.ids ?? []);
-      setTerms(hit?.terms ?? []);
       setScanning(false);
     });
     return () => {
       gone = true;
     };
-  }, [frame, live.length]);
-
-  const scanningLook = Boolean(look || frame);
+  }, [frame, live.length, scanningLook]);
 
   const ranked = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -108,7 +162,7 @@ export default function Shop() {
     >
       <Text style={styles.title}>{scanningLook ? "Shop the look" : "Shop"}</Text>
       {scanningLook ? (
-        <Text style={styles.look}>{scanTitle || look?.title || "This frame"}</Text>
+        <Text style={styles.look}>{job?.title || look?.title || "This frame"}</Text>
       ) : (
         <Pressable onPress={() => router.push("/store")} style={styles.store}>
           <Text style={styles.storeTxt}>
@@ -118,7 +172,11 @@ export default function Shop() {
         </Pressable>
       )}
 
-      {frame ? <Image source={{ uri: frame }} style={styles.frame} contentFit="contain" /> : null}
+      {videoUrl ? (
+        <FrozenClip uri={videoUrl} time={freezeAt} style={styles.frame} />
+      ) : frame ? (
+        <Image source={{ uri: frame }} style={styles.frame} contentFit="contain" />
+      ) : null}
       {scanning ? <Text style={styles.scanning}>Visual search · finding these clothes on Uvel…</Text> : null}
 
       <View style={styles.search}>
@@ -204,19 +262,19 @@ function make(colors: Colors) {
     clear: { color: colors.muted, fontSize: 22, paddingHorizontal: 4 },
     chips: { gap: 8, paddingVertical: 16 },
     chip: {
-      height: 34,
+      height: 36,
       paddingHorizontal: 14,
-      borderRadius: 17,
+      borderRadius: 18,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.22)",
+      borderColor: colors.subtle,
       alignItems: "center",
       justifyContent: "center",
     },
-    chipOn: { backgroundColor: "#F4F0E6", borderColor: "#F4F0E6" },
-    chipTxt: { color: colors.bone, fontSize: 13, fontWeight: "600" },
-    chipTxtOn: { color: "#16140F" },
-    count: { color: colors.subtle, fontSize: 12, letterSpacing: 0.4, marginBottom: 12 },
-    grid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
-    cell: { width: "47.4%" },
+    chipOn: { backgroundColor: colors.bone, borderColor: colors.bone },
+    chipTxt: { color: colors.muted, fontSize: 13, fontWeight: "600" },
+    chipTxtOn: { color: colors.ink },
+    count: { color: colors.subtle, fontSize: 13, marginBottom: 12 },
+    grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    cell: { width: "48%", flexGrow: 1, maxWidth: "48.5%" },
   });
 }

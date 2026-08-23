@@ -158,7 +158,9 @@ export async function lensScan(imageUrl: string, pieces: ClosetPiece[]): Promise
    - same category as a garment on the person
    - gender-right (men's tee ≠ women's bodysuit/corset/blouse/dress; women's top ≠ men's oxford)
    - similar colour and silhouette
-5. If nothing qualifies, ids must be [].
+5. If nothing qualifies, ids must be []. ids must be exact inventory ids like tee-m, never objects.
+
+A black graphic tee matches another dark graphic/print tee. The print text does not need to be the same band. A cream men's tee matches a cream men's tee, not a women's bodysuit.
 
 Examples:
 - Man in a cream tee and beige trousers. Women's white corset bodysuit → not a match.
@@ -194,7 +196,9 @@ ${inventory}`,
       ),
     ];
     const have = new Set(pieces.map((p) => p.id));
-    const rawIds = Array.isArray(parsed.ids) ? parsed.ids.map(String).filter((id) => have.has(id)) : [];
+    const rawIds = Array.isArray(parsed.ids)
+      ? parsed.ids.map((id) => (typeof id === "string" ? id : "")).filter(Boolean)
+      : [];
     const ids = rawIds.filter((id) => {
       const piece = pieces.find((p) => p.id === id);
       return piece ? pieceFitsLook(piece, { wearer, categories }) : false;

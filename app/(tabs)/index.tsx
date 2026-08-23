@@ -18,7 +18,7 @@ import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { unreadFor, useInbox } from "../../lib/chat";
 import { frameAtTime, prefetchLookVideo } from "../../lib/lookFrame";
 import { forYou, matchListings } from "../../lib/lookMatch";
-import { setLookScan } from "../../lib/lookSearch";
+import { beginLookScan, finishLookScan } from "../../lib/lookSearch";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
@@ -34,7 +34,7 @@ const DOT: Record<Exclude<Source, "All">, string> = {
 };
 
 type FrameGrab = {
-  freeze: () => void;
+  freeze: () => number;
   frame: () => Promise<string | null>;
 };
 
@@ -107,12 +107,12 @@ function MutedLoop({
         frozenAt.current = Number.isFinite(now) && now > 0 ? now : lastTime.current;
         held.current = true;
         player.pause();
+        return frozenAt.current;
       },
       frame: async () => {
         held.current = true;
         player.pause();
-        const time = frozenAt.current;
-        return frameAtTime(player, time, uri);
+        return frameAtTime(player, frozenAt.current, uri);
       },
     };
     return () => {
@@ -144,7 +144,7 @@ function LookMedia({
   useEffect(() => {
     if (look.videoUrl || !handleRef) return;
     handleRef.current = {
-      freeze: () => {},
+      freeze: () => 0,
       frame: async () => look.imageUrl || null,
     };
     return () => {
@@ -165,14 +165,20 @@ function where(url?: string): Exclude<Source, "All"> | null {
   return null;
 }
 
-async function scanLook(look: Look, grab: FrameGrab | null) {
-  grab?.freeze();
-  const frame = await grab?.frame();
-  if (frame) setLookScan(frame, look.title);
-  else setLookScan(look.imageUrl || "", look.title);
+function scanLook(look: Look, grab: FrameGrab | null) {
+  const time = grab?.freeze() ?? 0;
+  beginLookScan({
+    title: look.title,
+    videoUrl: look.videoUrl,
+    imageUrl: look.imageUrl,
+    time,
+  });
   router.push({
     pathname: "/(tabs)/shop",
     params: { look: look.id, scan: "1" },
+  });
+  void (grab?.frame() ?? Promise.resolve(null)).then((frame) => {
+    if (frame) finishLookScan(frame);
   });
 }
 
@@ -299,14 +305,11 @@ function Hero({
   const grab = useRef<FrameGrab | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function shopThis() {
+  function shopThis() {
     if (busy) return;
     setBusy(true);
-    try {
-      await scanLook(look, grab.current);
-    } finally {
-      setBusy(false);
-    }
+    scanLook(look, grab.current);
+    setTimeout(() => setBusy(false), 400);
   }
 
   return (
@@ -342,14 +345,11 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
   const grab = useRef<FrameGrab | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function shopThis() {
+  function shopThis() {
     if (busy) return;
     setBusy(true);
-    try {
-      await scanLook(look, grab.current);
-    } finally {
-      setBusy(false);
-    }
+    scanLook(look, grab.current);
+    setTimeout(() => setBusy(false), 400);
   }
 
   return (
