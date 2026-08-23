@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { unreadFor, useInbox, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
@@ -63,24 +63,32 @@ export default function Inbox() {
         </Pressable>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-        {FILTERS.map((f) => {
-          const on = filter === f;
-          return (
-            <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, on && styles.chipOn]}>
-              <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{f}</Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <View style={styles.chipWrap}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chips}
+          style={styles.chipScroll}
+        >
+          {FILTERS.map((f) => {
+            const on = filter === f;
+            return (
+              <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, on && styles.chipOn]}>
+                <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{f}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
-        {visible.length === 0 ? (
-          <Text style={styles.empty}>{empty}</Text>
-        ) : (
-          visible.map((t) => <Row key={t.id} thread={t} uid={me} colors={colors} />)
-        )}
-      </ScrollView>
+      <FlatList
+        data={visible}
+        keyExtractor={(t) => t.id}
+        renderItem={({ item }) => <Row thread={item} uid={me} colors={colors} />}
+        ListEmptyComponent={<Text style={styles.empty}>{empty}</Text>}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        style={styles.list}
+      />
     </View>
   );
 }
@@ -148,7 +156,9 @@ function make(colors: Colors) {
       marginRight: 8,
     },
     bellTxt: { fontSize: 16 },
-    chips: { paddingHorizontal: 16, paddingBottom: 12, gap: 8, flexDirection: "row" },
+    chipWrap: { flexGrow: 0, flexShrink: 0 },
+    chipScroll: { flexGrow: 0 },
+    chips: { paddingHorizontal: 16, paddingBottom: 8, gap: 8, alignItems: "center" },
     chip: {
       height: 36,
       paddingHorizontal: 16,
@@ -162,6 +172,7 @@ function make(colors: Colors) {
     chipTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
     chipTxtOn: { color: "#16140F" },
     empty: { color: colors.muted, padding: 24, lineHeight: 22, fontSize: 15 },
+    list: { flex: 1 },
     row: {
       flexDirection: "row",
       gap: 12,
