@@ -23,6 +23,7 @@ export type ClosetPiece = {
   createdAt: number;
   ownerId?: string;
   ownerName?: string;
+  ownerPhoto?: string;
   country?: string;
   currency?: string;
   shopLook?: string;

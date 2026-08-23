@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usd } from "../../lib/catalog";
@@ -9,7 +9,7 @@ import { getMarket } from "../../lib/markets";
 import { shopLookOf, type ShopLook } from "../../lib/shopLook";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
-import { getPiece, markSold, removePiece, unlistPiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { getPiece, markSold, removePiece, unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
 const HERO_H = Math.round(W * 1.28);
@@ -55,12 +55,22 @@ function isMine(piece: ClosetPiece, uid: string) {
 
 function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: number; bottom: number } }) {
   const colors = useColors();
+  const app = useUvel();
   const styles = useMemo(() => ownerStyles(colors), [colors]);
   const look = shopLookOf(piece.shopLook);
   const gallery = piece.photos?.length ? piece.photos : piece.photo ? [piece.photo] : [];
   const onFloor = piece.status === "listed";
   const sold = piece.status === "sold";
   const status = sold ? "Sold" : onFloor ? "In the shop" : "Not listed";
+
+  useEffect(() => {
+    const patch: Partial<ClosetPiece> = {};
+    if (app.uid && piece.ownerId !== app.uid) patch.ownerId = app.uid;
+    if (app.displayName && piece.ownerName !== app.displayName) patch.ownerName = app.displayName;
+    if (app.personUri && piece.ownerPhoto !== app.personUri) patch.ownerPhoto = app.personUri;
+    if (app.country && piece.country !== app.country) patch.country = app.country;
+    if (Object.keys(patch).length) updatePiece(piece.id, patch);
+  }, [app.uid, app.displayName, app.personUri, app.country, piece.id, piece.ownerId, piece.ownerName, piece.ownerPhoto, piece.country]);
 
   function takeDown() {
     Alert.alert("Take off the floor?", "Buyers won’t see this listing until you list it again.", [
@@ -154,7 +164,6 @@ export default function ClosetPiece() {
   const app = useUvel();
   const look = shopLookOf(piece?.shopLook);
   const styles = useMemo(() => make(look), [look]);
-  const market = getMarket(piece?.country || app.country);
   const liked = piece ? app.saved.includes(piece.id) : false;
 
   if (!piece) {
@@ -179,9 +188,11 @@ export default function ClosetPiece() {
   const imgH = framed ? heroH - 28 : heroH;
   const brand = piece.brand !== "Unlabeled" ? piece.brand : "Uvel closet";
   const chip = swatchOf(piece.color);
-  const seller = piece.ownerName || "Uvel member";
-  const plusLook = Boolean(piece.shopLook && piece.shopLook !== "uvel");
   const mine = isMine(piece, app.uid);
+  const seller = (mine && app.displayName) || piece.ownerName || "Uvel member";
+  const sellerPhoto = (mine && app.personUri) || piece.ownerPhoto || null;
+  const ship = getMarket((mine && app.country) || piece.country || app.country);
+  const plusLook = Boolean(piece.shopLook && piece.shopLook !== "uvel");
 
   function tryOnMe() {
     if (!app.isPlus && app.remainingTryOns <= 0) {
@@ -327,13 +338,17 @@ export default function ClosetPiece() {
           ) : null}
 
           <View style={styles.seller}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarTxt}>{(seller[0] || "U").toUpperCase()}</Text>
-            </View>
+            {sellerPhoto ? (
+              <Image source={{ uri: sellerPhoto }} style={styles.avatarImg} contentFit="cover" />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarTxt}>{(seller[0] || "U").toUpperCase()}</Text>
+              </View>
+            )}
             <View style={{ flex: 1 }}>
               <Text style={styles.sellerK}>Sold by</Text>
               <Text style={styles.sellerN}>{seller}</Text>
-              <Text style={styles.sellerP}>Ships from {market.name}</Text>
+              <Text style={styles.sellerP}>Ships from {ship.name}</Text>
             </View>
           </View>
 
@@ -549,13 +564,14 @@ function make(look: ShopLook) {
       gap: 12,
     },
     avatar: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 52,
+      height: 52,
+      borderRadius: 26,
       backgroundColor: look.accent,
       alignItems: "center",
       justifyContent: "center",
     },
+    avatarImg: { width: 52, height: 52, borderRadius: 26, backgroundColor: look.surface },
     avatarTxt: { color: look.accentInk, fontWeight: "700", fontSize: 16 },
     sellerK: { color: look.muted, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase" },
     sellerN: { color: look.bone, fontSize: 16, fontWeight: "600", marginTop: 2 },
