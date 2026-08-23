@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
+import { openWithLoad, showBrandLoad } from "../../lib/brandLoad";
 import { StatusBar } from "expo-status-bar";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
@@ -134,15 +135,17 @@ function MutedLoop({
 
   return (
     <View style={[style, { overflow: "hidden", backgroundColor: "#0B0A08" }]}>
-      {cover && !on ? (
-        <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" />
-      ) : null}
       <VideoView
         player={player}
-        style={StyleSheet.absoluteFill}
+        style={[StyleSheet.absoluteFill, !on ? { opacity: 0 } : null]}
         contentFit="cover"
         nativeControls={false}
       />
+      {cover && !on ? (
+        <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" />
+      ) : !on ? (
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: "#0B0A08" }]} />
+      ) : null}
     </View>
   );
 }
@@ -182,6 +185,7 @@ function where(url?: string): Exclude<Source, "All"> | null {
 
 function scanLook(look: Look, grab: FrameGrab | null) {
   const time = grab?.freeze() ?? 0;
+  showBrandLoad();
   beginLookScan({
     title: look.title,
     videoUrl: look.videoUrl,
@@ -259,7 +263,7 @@ export default function Today() {
             })}
           </ScrollView>
 
-          <Pressable onPress={() => router.push("/inbox")} style={styles.inbox}>
+          <Pressable onPress={() => openWithLoad("/inbox")} style={styles.inbox}>
             <View style={{ flex: 1 }}>
               <Text style={styles.inboxK}>Chats</Text>
               <Text style={styles.inboxP} numberOfLines={1}>
@@ -415,7 +419,7 @@ function ShopLookCard({
   const brand = local ? (piece.brand === "Unlabeled" ? "UVEL" : piece.brand) : from.name;
   return (
     <Pressable
-      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id, v: "buy" } })}
+      onPress={() => openWithLoad({ pathname: "/closet/[id]", params: { id: piece.id, v: "buy" } })}
       style={styles.shopCard}
     >
       <View>

@@ -81,7 +81,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#0B0A08",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 60,
+    zIndex: 200,
+    elevation: 200,
   },
   page: {
     flex: 1,

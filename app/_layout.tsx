@@ -1,11 +1,13 @@
-import { DarkTheme, Stack, ThemeProvider, router } from "expo-router";
+import { DarkTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Appearance } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { BrandLoader } from "../components/BrandLoader";
 import { LaunchSplash } from "../components/LaunchSplash";
+import { openWithLoad, useBrandLoadOn } from "../lib/brandLoad";
 import { useOtaReady } from "../lib/ota";
 import { armNotificationHandler, registerPushToken, watchLastSeen } from "../lib/push";
 import { useUvel } from "../lib/store";
@@ -39,7 +41,7 @@ function PushSync() {
         sub = N.addNotificationResponseReceivedListener((res) => {
           const pieceId = res.notification.request.content.data?.pieceId;
           if (typeof pieceId === "string" && pieceId) {
-            router.push({ pathname: "/ask/[id]", params: { id: pieceId } });
+            openWithLoad({ pathname: "/ask/[id]", params: { id: pieceId } });
           }
         });
       })
@@ -151,16 +153,16 @@ function AppStack() {
             name="ask/[id]"
             options={{
               headerShown: false,
-              animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#12110E" },
+              animation: "fade",
+              contentStyle: { backgroundColor: "#0B0A08" },
             }}
           />
           <Stack.Screen
             name="inbox"
             options={{
               headerShown: false,
-              animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#12110E" },
+              animation: "fade",
+              contentStyle: { backgroundColor: "#0B0A08" },
             }}
           />
           <Stack.Screen
@@ -203,6 +205,7 @@ function AppStack() {
 
 export default function Root() {
   const { onboarded, hydrated, uid, profileDone } = useUvel();
+  const brandLoad = useBrandLoadOn();
   useOtaReady();
   const [intro, setIntro] = useState(true);
   const dismiss = useCallback(() => setIntro(false), []);
@@ -228,6 +231,7 @@ export default function Root() {
           )
         ) : null}
         {intro ? <LaunchSplash ready={hydrated} onDone={dismiss} /> : null}
+        {brandLoad ? <BrandLoader /> : null}
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );

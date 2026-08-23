@@ -13,8 +13,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BrandLoader } from "../../components/BrandLoader";
 import { usd } from "../../lib/catalog";
+import { openWithLoad, withBrandLoad } from "../../lib/brandLoad";
 import { pickFromLibrary, takePhoto } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
@@ -124,12 +124,14 @@ export default function Mirror() {
     setErr("");
     setBusy(true);
     try {
-      const dressed = await dressPerson({
-        personUri: person,
-        garment: { uri: garmentUri },
-        garmentName,
-        category: garmentCat,
-      });
+      const dressed = await withBrandLoad(() =>
+        dressPerson({
+          personUri: person,
+          garment: { uri: garmentUri },
+          garmentName,
+          category: garmentCat,
+        }),
+      );
       app.consumeTryOn();
       setResult(dressed);
     } catch (e) {
@@ -153,7 +155,7 @@ export default function Mirror() {
           <Text style={styles.kicker}>ON YOU</Text>
           <Text style={styles.head}>The mirror</Text>
         </View>
-        <Pressable onPress={() => router.push("/scan")} hitSlop={8} style={styles.search} accessibilityLabel="Find the piece">
+        <Pressable onPress={() => openWithLoad("/scan")} hitSlop={8} style={styles.search} accessibilityLabel="Find the piece">
           <Text style={styles.searchTxt}>⌕</Text>
         </Pressable>
       </View>
@@ -272,7 +274,6 @@ export default function Mirror() {
         </Pressable>
         <Text style={styles.foot}>Point at any piece online or in real life.{"\n"}Uvel will show it on you.</Text>
       </ScrollView>
-      {busy ? <BrandLoader /> : null}
     </View>
   );
 }

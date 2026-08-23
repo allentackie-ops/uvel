@@ -12,8 +12,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BrandLoader } from "../components/BrandLoader";
 import { Glass, GlassContainer } from "../components/Glass";
+import { withBrandLoad } from "../lib/brandLoad";
 import { ListingCard, ListingEmpty } from "../components/ListingCard";
 import { matchLookImage } from "../lib/lookMatch";
 import { useUvel } from "../lib/store";
@@ -47,15 +47,20 @@ export default function ScanLook() {
       return;
     }
     setBusy(true);
-    const live = listedPieces();
-    const image = preview || url.trim();
-    const ai =
-      image.startsWith("http") || image.startsWith("file") || image.startsWith("ph://") || image.startsWith("content:")
-        ? await matchLookImage(image, live)
-        : null;
-    const picked = ai?.length ? live.filter((p) => ai.includes(p.id)) : [];
-    setHits(picked);
-    setBusy(false);
+    try {
+      await withBrandLoad(async () => {
+        const live = listedPieces();
+        const image = preview || url.trim();
+        const ai =
+          image.startsWith("http") || image.startsWith("file") || image.startsWith("ph://") || image.startsWith("content:")
+            ? await matchLookImage(image, live)
+            : null;
+        const picked = ai?.length ? live.filter((p) => ai.includes(p.id)) : [];
+        setHits(picked);
+      });
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -157,7 +162,6 @@ export default function ScanLook() {
           </View>
         ) : null}
       </ScrollView>
-      {busy ? <BrandLoader /> : null}
     </View>
   );
 }

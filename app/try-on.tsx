@@ -13,8 +13,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BrandLoader } from "../components/BrandLoader";
 import { GARMENTS, getGarment } from "../lib/catalog";
+import { withBrandLoad } from "../lib/brandLoad";
 import { pickFromLibrary, takePhoto } from "../lib/photo";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
@@ -102,12 +102,14 @@ export default function TryOn() {
     setErr("");
     setBusy(true);
     try {
-      const dressed = await dressPerson({
-        personUri: person,
-        garment: pieceImage,
-        garmentName: pieceName,
-        category: pieceCategory,
-      });
+      const dressed = await withBrandLoad(() =>
+        dressPerson({
+          personUri: person,
+          garment: pieceImage,
+          garmentName: pieceName,
+          category: pieceCategory,
+        }),
+      );
       app.consumeTryOn();
       setResult(dressed);
     } catch (e) {
@@ -177,7 +179,6 @@ export default function TryOn() {
           </Text>
         </Pressable>
       </ScrollView>
-      {busy ? <BrandLoader /> : null}
     </View>
   );
 }

@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
+import { openWithLoad } from "../../lib/brandLoad";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import {
@@ -59,7 +60,7 @@ export default function ClosetPiece() {
       router.push("/plus");
       return;
     }
-    router.push({ pathname: "/try-on", params: { piece: pieceId } });
+    openWithLoad({ pathname: "/try-on", params: { piece: pieceId } });
   }
 
   return (
@@ -168,13 +169,13 @@ export default function ClosetPiece() {
           </Pressable>
           <View style={styles.dockRow}>
             <Pressable
-              onPress={() => router.push({ pathname: "/ask/[id]", params: { id: piece.id } })}
+              onPress={() => openWithLoad({ pathname: "/ask/[id]", params: { id: piece.id } })}
               style={styles.ask}
             >
               <Text style={styles.askTxt}>Ask</Text>
             </Pressable>
             <Pressable
-              onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id } })}
+              onPress={() => openWithLoad({ pathname: "/checkout/[id]", params: { id: piece.id } })}
               style={styles.buy}
             >
               <Text style={styles.ctaTxt}>Buy · {usd(piece.listPriceCents, piece.currency || "USD")}</Text>

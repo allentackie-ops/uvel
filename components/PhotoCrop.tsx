@@ -1,7 +1,8 @@
 import { Image } from "expo-image";
 import { useEffect, useMemo, useState } from "react";
 import { Dimensions, Image as RNImage, Pressable, StyleSheet, Text, View } from "react-native";
-import { BrandLoader, BrandMark } from "./BrandLoader";
+import { BrandMark } from "./BrandLoader";
+import { withBrandLoad } from "../lib/brandLoad";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -87,13 +88,15 @@ export function PhotoCrop({ uri, onCancel, onDone }: Props) {
     const cropW = Math.min(natural.w - originX, Math.max(1, Math.round(frame.w / s)));
     const cropH = Math.min(natural.h - originY, Math.max(1, Math.round(frame.h / s)));
     try {
-      const ImageManipulator = await import("expo-image-manipulator");
-      const out = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ crop: { originX, originY, width: cropW, height: cropH } }],
-        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG },
-      );
-      onDone(out.uri);
+      await withBrandLoad(async () => {
+        const ImageManipulator = await import("expo-image-manipulator");
+        const out = await ImageManipulator.manipulateAsync(
+          uri,
+          [{ crop: { originX, originY, width: cropW, height: cropH } }],
+          { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG },
+        );
+        onDone(out.uri);
+      });
     } catch {
       onDone(uri);
     } finally {
@@ -126,7 +129,6 @@ export function PhotoCrop({ uri, onCancel, onDone }: Props) {
           )}
         </View>
       </View>
-      {busy ? <BrandLoader /> : null}
     </View>
   );
 }

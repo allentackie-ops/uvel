@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
-import { BrandLoader, BrandMark } from "../components/BrandLoader";
+import { BrandMark } from "../components/BrandLoader";
+import { withBrandLoad } from "../lib/brandLoad";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -499,7 +500,7 @@ export default function Onboard() {
       setError("That took too long. Try again.");
     }, 40000);
     try {
-      const session = await fn();
+      const session = await withBrandLoad(fn);
       clearTimeout(watchdog);
       if (emailOn) {
         afterSignIn(session);
@@ -811,8 +812,6 @@ export default function Onboard() {
         </KeyboardAvoidingView>
         </Animated.View>
       ) : null}
-
-      {busy ? <BrandLoader /> : null}
 
       {langsOpen ? (
         <View style={styles.langOverlay} pointerEvents="box-none">

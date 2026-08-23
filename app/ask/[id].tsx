@@ -28,7 +28,7 @@ import {
   setTyping,
   type ChatMsg,
 } from "../../lib/chat";
-import { BrandScreen, useBrandGate } from "../../components/BrandLoader";
+import { BrandScreen } from "../../components/BrandLoader";
 import { pickFromLibrary, takePhoto } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
@@ -36,7 +36,6 @@ import { getPiece, useWardrobe, wardrobeReady } from "../../lib/wardrobe";
 
 export default function Ask() {
   const colors = useColors();
-  const gate = useBrandGate();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -188,7 +187,7 @@ export default function Ask() {
     );
   }
 
-  if (gate || !thread) return <BrandScreen />;
+  if (!thread) return <BrandScreen />;
 
   const handle = sellerHandle.trim() || "Seller";
 

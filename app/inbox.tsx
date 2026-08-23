@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
+import { openWithLoad } from "../lib/brandLoad";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -108,7 +109,7 @@ function Row({
   const you = t.lastFrom === uid || t.lastFrom === "me";
   const unread = unreadFor(t, uid);
   return (
-    <Pressable onPress={() => router.push({ pathname: "/ask/[id]", params: { id: t.pieceId } })} style={styles.row}>
+    <Pressable onPress={() => openWithLoad({ pathname: "/ask/[id]", params: { id: t.pieceId } })} style={styles.row}>
       {t.piecePhoto ? (
         <Image source={{ uri: t.piecePhoto }} style={styles.thumb} contentFit="cover" />
       ) : (
