@@ -1,5 +1,3 @@
-import * as ImagePicker from "expo-image-picker";
-import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Glass, GlassContainer } from "../../components/Glass";
@@ -17,11 +15,6 @@ export default function You() {
   const colors = useColors();
   const styles = make(colors);
   const saved = GARMENTS.filter((g) => app.saved.includes(g.id));
-
-  async function photo() {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.8 });
-    if (!res.canceled) app.setPerson(res.assets[0].uri);
-  }
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
@@ -61,18 +54,6 @@ export default function You() {
       <ChipRow label="Style" items={ARCH} value={app.archetype} onPick={(v) => app.setStyle({ archetype: v })} colors={colors} />
       <ChipRow label="Palette" items={PALS} value={app.palette} onPick={(v) => app.setStyle({ palette: v })} colors={colors} />
       <ChipRow label="Silhouette" items={SILS} value={app.silhouette} onPick={(v) => app.setStyle({ silhouette: v })} colors={colors} />
-
-      <Pressable onPress={() => void photo()}>
-        <Glass style={styles.photoRow}>
-          {app.personUri ? (
-            <Image source={{ uri: app.personUri }} style={styles.avatar} contentFit="cover" />
-          ) : null}
-          <View>
-            <Text style={styles.h3}>Try-on photo</Text>
-            <Text style={styles.p}>Full length, natural light</Text>
-          </View>
-        </Glass>
-      </Pressable>
 
       {saved.length > 0 ? (
         <>
@@ -139,8 +120,6 @@ function make(colors: Colors) {
     rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     smallCta: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
     ctaText: { color: colors.bone, fontWeight: "600", fontSize: 13 },
-    photoRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 18, marginTop: 8 },
-    avatar: { width: 56, height: 72, borderRadius: 10 },
     row: { flexDirection: "row", gap: 8 },
     chip: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
     chipOn: { backgroundColor: colors.pulse },
