@@ -52,8 +52,10 @@ function parse(raw: unknown): Look[] {
 }
 
 const URL = "https://raw.githubusercontent.com/allentackie-ops/uvel/main/docs/trends.json";
-let cache: Look[] = parse(desk);
-let updatedAt = typeof (desk as { updatedAt?: string }).updatedAt === "string" ? (desk as { updatedAt: string }).updatedAt : "";
+const bundled = parse(desk);
+let cache: Look[] = [];
+let updatedAt = "";
+let pulling: Promise<Look[]> | null = null;
 const listeners = new Set<(looks: Look[]) => void>();
 
 function setCache(next: Look[]) {
@@ -68,26 +70,38 @@ export function bundledLooks() {
 }
 
 export async function pullLooks() {
-  try {
-    const live = await liveDesk();
-    if (live.length) {
-      setCache(live as Look[]);
-      return cache;
+  if (pulling) return pulling;
+  pulling = (async () => {
+    try {
+      const live = await liveDesk();
+      if (live.length) {
+        setCache(live as Look[]);
+        return cache;
+      }
+    } catch {
+      /* fall through */
     }
-  } catch {
-    /* fall through */
-  }
-  try {
-    const res = await fetch(`${URL}?t=${Date.now()}`);
-    if (res.ok) {
-      const json = (await res.json()) as { updatedAt?: string; looks?: unknown };
-      const looks = parse(json);
-      if (looks.length) setCache(looks);
+    try {
+      const res = await fetch(`${URL}?t=${Date.now()}`);
+      if (res.ok) {
+        const json = (await res.json()) as { updatedAt?: string; looks?: unknown };
+        const looks = parse(json);
+        if (looks.length) {
+          setCache(looks);
+          return cache;
+        }
+      }
+    } catch {
+      /* keep going */
     }
-  } catch {
-    /* keep seed */
+    if (!cache.length) setCache(bundled);
+    return cache;
+  })();
+  try {
+    return await pulling;
+  } finally {
+    pulling = null;
   }
-  return cache;
 }
 
 export function looksUpdated() {
@@ -97,11 +111,15 @@ export function looksUpdated() {
 export function useLooks() {
   const [looks, setLooks] = useState<Look[]>(cache);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(!cache.length);
 
   useEffect(() => {
-    const l = (next: Look[]) => setLooks(next);
+    const l = (next: Look[]) => {
+      setLooks(next);
+      setLoading(false);
+    };
     listeners.add(l);
-    void pullLooks();
+    void pullLooks().finally(() => setLoading(false));
     return () => {
       listeners.delete(l);
     };
@@ -114,7 +132,7 @@ export function useLooks() {
     setRefreshing(false);
   }
 
-  return { looks, refreshing, refresh, stamp: updatedAt };
+  return { looks, refreshing, refresh, loading, stamp: updatedAt };
 }
 
 export function lookImage(look: Look) {

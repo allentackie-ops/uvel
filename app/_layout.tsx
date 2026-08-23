@@ -10,6 +10,7 @@ import { useOtaReady } from "../lib/ota";
 import { armNotificationHandler, registerPushToken, watchLastSeen } from "../lib/push";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
+import { pullLooks } from "../lib/trends";
 import Onboard from "./onboard";
 import ProfileSetup from "./setup";
 
@@ -199,12 +200,17 @@ export default function Root() {
   const dismiss = useCallback(() => setIntro(false), []);
   const ready = hydrated && otaReady;
   const needProfile = Boolean(uid) && !profileDone;
+  const showApp = ready && !intro;
+
+  useEffect(() => {
+    if (hydrated) void pullLooks();
+  }, [hydrated]);
 
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#2A320E" }}>
         <StatusBar style="light" />
-        {ready ? (
+        {showApp ? (
           !onboarded ? (
             <Onboard />
           ) : needProfile ? (

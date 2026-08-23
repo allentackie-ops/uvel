@@ -211,7 +211,11 @@ export default function Today() {
       contentContainerStyle={{ paddingBottom: 88 + insets.bottom }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor="#F4F0E6" />}
     >
-      {featured ? <Hero look={featured} today={today} colors={colors} /> : null}
+      {featured ? (
+        <Hero look={featured} today={today} colors={colors} />
+      ) : (
+        <View style={styles.heroWrap} />
+      )}
 
       <View style={styles.body}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>

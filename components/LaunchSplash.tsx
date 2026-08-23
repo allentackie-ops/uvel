@@ -1,13 +1,11 @@
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useRef } from "react";
-import { Dimensions, Image, StyleSheet } from "react-native";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { Dimensions, Image, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-const HOLD_MS = 1000;
-const FADE_MS = 900;
+const HOLD_MS = 900;
 
 export function LaunchSplash({
   onDone,
@@ -17,13 +15,14 @@ export function LaunchSplash({
   ready: boolean;
 }) {
   const { width, height } = Dimensions.get("window");
-  const opacity = useSharedValue(1);
-  const scale = useSharedValue(1);
   const started = useRef(false);
   const mountedAt = useRef(Date.now());
 
   useEffect(() => {
-    void SplashScreen.hideAsync().catch(() => undefined);
+    const t = setTimeout(() => {
+      void SplashScreen.hideAsync().catch(() => undefined);
+    }, 40);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -31,36 +30,20 @@ export function LaunchSplash({
     const wait = Math.max(0, HOLD_MS - (Date.now() - mountedAt.current));
     const t = setTimeout(() => {
       started.current = true;
-      opacity.value = withTiming(0, {
-        duration: FADE_MS,
-        easing: Easing.bezier(0.22, 1, 0.36, 1),
-      });
-      scale.value = withTiming(1.04, {
-        duration: FADE_MS,
-        easing: Easing.out(Easing.cubic),
-      });
-      setTimeout(onDone, FADE_MS + 40);
+      onDone();
     }, wait);
     return () => clearTimeout(t);
-  }, [ready, onDone, opacity, scale]);
-
-  const style = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ scale: scale.value }],
-  }));
+  }, [ready, onDone]);
 
   return (
-    <Animated.View
-      pointerEvents="auto"
-      style={[styles.root, { width, height }, style]}
-    >
+    <View pointerEvents="auto" style={[styles.root, { width, height }]}>
       <StatusBar style="light" />
       <Image
         source={require("../assets/splash.png")}
         style={{ width, height }}
         resizeMode="contain"
       />
-    </Animated.View>
+    </View>
   );
 }
 
