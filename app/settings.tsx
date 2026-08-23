@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { LANGS } from "../lib/i18n";
+import { getMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 
@@ -16,6 +17,7 @@ export default function Settings() {
   const styles = make(colors);
   const [langs, setLangs] = useState(false);
   const localeLabel = LANGS.find((l) => l.id === app.locale)?.label ?? "English, US";
+  const market = getMarket(app.country);
 
   async function toggleNotes(on: boolean) {
     app.setStyle({ wantsUpdates: on });
@@ -85,6 +87,12 @@ export default function Settings() {
             thumbColor="#fff"
           />
         </View>
+        <Row
+          label="Store"
+          hint={`${market.name} · ${market.currency}`}
+          onPress={() => router.push("/store")}
+          colors={colors}
+        />
         <Row label="Language" hint={localeLabel} onPress={() => setLangs((v) => !v)} colors={colors} last={!langs} />
         {langs
           ? LANGS.map((l, i) => (

@@ -94,9 +94,9 @@ export default function ClosetPiece() {
           </View>
           <Text style={styles.title}>{piece.name}</Text>
           <View style={styles.priceRow}>
-            <Text style={styles.price}>{usd(piece.listPriceCents)}</Text>
+            <Text style={styles.price}>{usd(piece.listPriceCents, piece.currency || "USD")}</Text>
             {piece.originalPriceCents > 0 ? (
-              <Text style={styles.was}>{usd(piece.originalPriceCents)}</Text>
+              <Text style={styles.was}>{usd(piece.originalPriceCents, piece.currency || "USD")}</Text>
             ) : null}
           </View>
 
@@ -154,7 +154,7 @@ export default function ClosetPiece() {
               onPress={() => Alert.alert("Buy", "Checkout lands in a later drop.")}
               style={styles.buy}
             >
-              <Text style={styles.ctaTxt}>Buy · {usd(piece.listPriceCents)}</Text>
+              <Text style={styles.ctaTxt}>Buy · {usd(piece.listPriceCents, piece.currency || "USD")}</Text>
             </Pressable>
           </View>
         </View>

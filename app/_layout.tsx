@@ -154,6 +154,14 @@ function AppStack() {
               contentStyle: { backgroundColor: "#12110E" },
             }}
           />
+          <Stack.Screen
+            name="store"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#12110E" },
+            }}
+          />
         </Stack>
       </GestureHandlerRootView>
     </ThemeProvider>

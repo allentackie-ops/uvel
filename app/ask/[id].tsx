@@ -202,7 +202,7 @@ export default function Ask() {
             onPress={() =>
               Alert.alert(
                 piece.name,
-                `${usd(piece.listPriceCents)} · ${[piece.size, piece.condition, piece.brand].filter(Boolean).join(" · ")}\n\nStay on Uvel. Don’t share phone numbers, emails, or payment off the app.`,
+                `${usd(piece.listPriceCents, piece.currency || "USD")} · ${[piece.size, piece.condition, piece.brand].filter(Boolean).join(" · ")}\n\nStay on Uvel. Don’t share phone numbers, emails, or payment off the app.`,
               )
             }
             hitSlop={12}
@@ -218,7 +218,7 @@ export default function Ask() {
             <Text style={styles.listName} numberOfLines={1}>
               {piece.name}
             </Text>
-            <Text style={styles.listPrice}>{usd(piece.listPriceCents)}</Text>
+            <Text style={styles.listPrice}>{usd(piece.listPriceCents, piece.currency || "USD")}</Text>
             <Text style={styles.protect}>Protected checkout on Uvel</Text>
           </View>
         </View>
@@ -330,7 +330,7 @@ export default function Ask() {
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setOfferOn(false)} />
           <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
             <Text style={styles.sheetH}>Make an offer</Text>
-            <Text style={styles.sheetP}>Listed at {usd(piece.listPriceCents)}. Be fair — they’ll see it as a message.</Text>
+            <Text style={styles.sheetP}>Listed at {usd(piece.listPriceCents, piece.currency || "USD")}. Be fair — they’ll see it as a message.</Text>
             <View style={styles.offerRow}>
               <Text style={styles.dollar}>$</Text>
               <TextInput
@@ -347,7 +347,7 @@ export default function Ask() {
               onPress={() => {
                 const n = Number(offer);
                 if (!n) return;
-                void send(`Offered ${usd(n * 100)}`, "offer", n * 100);
+                void send(`Offered ${usd(n * 100, piece.currency || "USD")}`, "offer", n * 100);
               }}
               style={[styles.buyBtn, { marginTop: 16, opacity: Number(offer) > 0 ? 1 : 0.4 }]}
             >

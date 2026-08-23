@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Category } from "../lib/catalog";
 import { usd } from "../lib/catalog";
+import { getMarket } from "../lib/markets";
 import { pickListingPhoto, takeListingPhoto } from "../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
 import { useUvel } from "../lib/store";
@@ -66,7 +67,8 @@ export default function Sell() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   useWardrobe();
   const existing = id ? getPiece(id) : undefined;
-  const { wardrobeUris, appearance, uid, displayName } = useUvel();
+  const { wardrobeUris, appearance, uid, displayName, country } = useUvel();
+  const market = getMarket(country);
 
   const [photos, setPhotos] = useState<Slot[]>(
     existing?.photos?.length
@@ -141,7 +143,7 @@ export default function Sell() {
                   ? "Add a material"
                   : !hasCond
                     ? "Pick a condition"
-                    : `List for ${usd(Math.max(1, Number(price) || 0) * 100)}`;
+                    : `List for ${usd(Math.max(1, Number(price) || 0) * 100, market.currency)}`;
 
   useEffect(() => {
     if (!existing && photos.length === 1 && photos[0].status === "ok" && photos[0].review) {
@@ -272,9 +274,11 @@ export default function Sell() {
       notes: notes.trim(),
       listPriceCents: Math.max(1, Number(price) || 0) * 100,
       originalPriceCents: Math.max(0, Number(was) || 0) * 100,
+      country: market.code,
+      currency: market.currency,
     };
-    if (existing) listPiece(existing.id, { ...draft, ownerId: uid, ownerName: displayName });
-    else addPiece({ ...draft, status: "listed", ownerId: uid, ownerName: displayName });
+    if (existing) listPiece(existing.id, { ...draft, ownerId: uid, ownerName: displayName, country: market.code, currency: market.currency });
+    else addPiece({ ...draft, status: "listed", ownerId: uid, ownerName: displayName, country: market.code, currency: market.currency });
     setGate({ phase: "pass" });
     setTimeout(() => router.replace("/(tabs)/closet"), 1100);
   }
@@ -384,7 +388,7 @@ export default function Sell() {
           <View style={styles.sheet}>
             <Text style={styles.priceLabel}>Price *</Text>
             <View style={styles.priceRow}>
-              <Text style={[styles.dollar, !price && { color: ph }]}>$</Text>
+              <Text style={[styles.dollar, !price && { color: ph }]}>{market.symbol}</Text>
               <TextInput
                 style={styles.price}
                 value={price}

@@ -5,6 +5,8 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProductCard } from "../../components/ProductCard";
 import { CATEGORIES, GARMENTS, usd } from "../../lib/catalog";
+import { getMarket } from "../../lib/markets";
+import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { listedPieces, useWardrobe } from "../../lib/wardrobe";
 
@@ -12,20 +14,24 @@ export default function Shop() {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
+  const { country } = useUvel();
+  const market = getMarket(country);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("All");
   useWardrobe();
 
-  const live = listedPieces().filter((p) => {
-    if (cat !== "All" && p.category !== cat) return false;
-    const needle = q.trim().toLowerCase();
-    if (!needle) return true;
-    return (
-      p.name.toLowerCase().includes(needle) ||
-      p.brand.toLowerCase().includes(needle) ||
-      p.color.toLowerCase().includes(needle)
-    );
-  });
+  const live = listedPieces()
+    .filter((p) => {
+      if (cat !== "All" && p.category !== cat) return false;
+      const needle = q.trim().toLowerCase();
+      if (!needle) return true;
+      return (
+        p.name.toLowerCase().includes(needle) ||
+        p.brand.toLowerCase().includes(needle) ||
+        p.color.toLowerCase().includes(needle)
+      );
+    })
+    .sort((a, b) => rank(a.country || "US", country) - rank(b.country || "US", country));
 
   const catalog = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -38,8 +44,8 @@ export default function Shop() {
         g.color.toLowerCase().includes(needle) ||
         g.tags.some((t) => t.includes(needle))
       );
-    });
-  }, [q, cat]);
+    }).sort((a, b) => rank(a.country, country) - rank(b.country, country));
+  }, [q, cat, country]);
 
   const total = live.length + catalog.length;
 
@@ -50,7 +56,12 @@ export default function Shop() {
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.title}>Shop</Text>
-      <Text style={styles.sub}>Clothes, shoes, bags — try it on before you buy.</Text>
+      <Pressable onPress={() => router.push("/store")} style={styles.store}>
+        <Text style={styles.storeTxt}>
+          {market.name} · {market.currency}
+        </Text>
+        <Text style={styles.storeGo}>Change</Text>
+      </Pressable>
 
       <View style={styles.search}>
         <Text style={styles.searchIcon}>⌕</Text>
@@ -82,27 +93,29 @@ export default function Shop() {
       </ScrollView>
 
       <Text style={styles.count}>
-        {total} {total === 1 ? "item" : "items"}
-        {cat !== "All" ? ` · ${cat}` : ""}
+        {total} {total === 1 ? "item" : "items"} · prices in {market.currency}
       </Text>
 
       <View style={styles.grid}>
-        {live.map((p) => (
-          <Pressable
-            key={p.id}
-            style={styles.cell}
-            onPress={() => router.push({ pathname: "/closet/[id]", params: { id: p.id, v: "buy" } })}
-          >
-            <Image source={{ uri: p.photo }} style={styles.img} contentFit="cover" />
-            <Text style={styles.brand} numberOfLines={1}>
-              {p.brand === "Unlabeled" ? "Uvel" : p.brand}
-            </Text>
-            <Text style={styles.name} numberOfLines={2}>
-              {p.name}
-            </Text>
-            <Text style={styles.price}>{usd(p.listPriceCents)}</Text>
-          </Pressable>
-        ))}
+        {live.map((p) => {
+          const from = getMarket(p.country || country);
+          return (
+            <Pressable
+              key={p.id}
+              style={styles.cell}
+              onPress={() => router.push({ pathname: "/closet/[id]", params: { id: p.id, v: "buy" } })}
+            >
+              <Image source={{ uri: p.photo }} style={styles.img} contentFit="cover" />
+              <Text style={styles.brand} numberOfLines={1}>
+                {from.code === market.code ? (p.brand === "Unlabeled" ? "Uvel" : p.brand) : from.name}
+              </Text>
+              <Text style={styles.name} numberOfLines={2}>
+                {p.name}
+              </Text>
+              <Text style={styles.price}>{usd(p.listPriceCents, p.currency || "USD")}</Text>
+            </Pressable>
+          );
+        })}
         {catalog.map((g) => (
           <View key={g.id} style={styles.cell}>
             <ProductCard garment={g} />
@@ -115,12 +128,20 @@ export default function Shop() {
   );
 }
 
+function rank(itemCountry: string, shopCountry: string) {
+  if (itemCountry === shopCountry) return 0;
+  if (getMarket(itemCountry).region === getMarket(shopCountry).region) return 1;
+  return 2;
+}
+
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     content: { paddingHorizontal: 16, paddingBottom: 48 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 36 },
-    sub: { color: colors.muted, marginTop: 6, fontSize: 15, lineHeight: 21 },
+    store: { flexDirection: "row", alignItems: "center", marginTop: 8, gap: 8 },
+    storeTxt: { color: colors.muted, fontSize: 15 },
+    storeGo: { color: "#D6E27A", fontSize: 13, fontWeight: "700" },
     search: {
       marginTop: 18,
       height: 46,

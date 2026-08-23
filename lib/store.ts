@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import type { Session } from "./auth";
 import { guessLocale } from "./i18n";
+import { detectCountry, setActiveMarket } from "./markets";
 import { shouldAskSetup } from "./sessionPath";
 
 type State = {
@@ -22,6 +23,7 @@ type State = {
   email: string;
   displayName: string;
   locale: string;
+  country: string;
   profileDone: boolean;
   birthday: string;
   gender: string;
@@ -50,6 +52,7 @@ const defaults: State = {
   email: "",
   displayName: "",
   locale: "",
+  country: "",
   profileDone: false,
   birthday: "",
   gender: "",
@@ -66,6 +69,8 @@ async function load() {
   const raw = await AsyncStorage.getItem(KEY);
   if (raw) memory = { ...defaults, ...JSON.parse(raw) };
   if (!memory.locale) memory.locale = guessLocale();
+  if (!memory.country) memory.country = detectCountry();
+  setActiveMarket(memory.country);
   if ((memory.onboardVersion ?? 0) < 4) memory.onboarded = false;
   hydrated = true;
   listeners.forEach((l) => l());
@@ -119,6 +124,7 @@ async function restoreProfile(uid: string) {
 
 async function save(next: Partial<State>) {
   memory = { ...memory, ...next };
+  if (next.country) setActiveMarket(next.country);
   listeners.forEach((l) => l());
   await AsyncStorage.setItem(KEY, JSON.stringify(memory));
 }
@@ -161,6 +167,7 @@ export function useUvel() {
     setPerson: (uri: string | null) => save({ personUri: uri }),
     setAppearance: (appearance: "light" | "dark") => save({ appearance }),
     setLocale: (locale: string) => save({ locale }),
+    setCountry: (country: string) => save({ country }),
     completeOnboard: (provider?: string) =>
       save({
         onboarded: true,

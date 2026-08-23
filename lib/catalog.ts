@@ -25,6 +25,7 @@ export type Garment = {
   description: string;
   image: ImageSourcePropType;
   tags: string[];
+  country: string;
 };
 
 export type Trend = {
@@ -60,21 +61,21 @@ const img = {
 };
 
 export const GARMENTS: Garment[] = [
-  { id: "leather-trench", name: "Espresso leather trench", brand: "Archive 1982", category: "Outerwear", color: "Espresso", size: "M", priceCents: 24800, condition: "Excellent", era: "1980s Italy", material: "Lamb leather", description: "A belted trench in espresso lamb with a wide lapel and a quietly broken-in shoulder.", image: img.leatherTrench, tags: ["trench", "leather", "vintage"] },
-  { id: "silk-slip", name: "Ivory bias silk slip", brand: "Atelier No. 4", category: "Dresses", color: "Ivory", size: "S", priceCents: 16400, condition: "Excellent", era: "1990s", material: "Silk charmeuse", description: "A bias-cut slip that moves like water.", image: img.silkSlip, tags: ["slip", "silk"] },
-  { id: "wool-blazer", name: "Charcoal oversized blazer", brand: "Mill & Co.", category: "Outerwear", color: "Charcoal", size: "L", priceCents: 18900, condition: "Very good", era: "1990s", material: "Wool twill", description: "Strong shoulder, easy body.", image: img.woolBlazer, tags: ["blazer", "wool"] },
-  { id: "wide-trousers", name: "Stone wide-leg trousers", brand: "Private label", category: "Trousers", color: "Stone", size: "M", priceCents: 9800, condition: "Excellent", era: "2000s", material: "Wool blend", description: "Full-leg trousers in warm stone.", image: img.wideTrousers, tags: ["trousers", "wide-leg"] },
-  { id: "vintage-denim", name: "Indigo vintage denim", brand: "Unlabeled", category: "Trousers", color: "Indigo", size: "29", priceCents: 11200, condition: "Very good", era: "1980s", material: "Cotton denim", description: "High-rise vintage denim with a worn indigo.", image: img.vintageDenim, tags: ["denim"] },
-  { id: "cashmere-crew", name: "Camel cashmere crew", brand: "Maison Found", category: "Knitwear", color: "Camel", size: "M", priceCents: 14500, condition: "Excellent", era: "1990s", material: "Cashmere", description: "A fine camel crew that sits close without clinging.", image: img.cashmereCrew, tags: ["cashmere"] },
-  { id: "cowboy-boots", name: "Oxblood cowboy boots", brand: "Deadstock", category: "Shoes", color: "Oxblood", size: "8", priceCents: 22000, condition: "Excellent", era: "1970s", material: "Leather", description: "Stacked heel, pointed toe, oxblood leather.", image: img.cowboyBoots, tags: ["boots", "western"] },
-  { id: "poet-blouse", name: "Cream silk poet blouse", brand: "Atelier No. 4", category: "Tops", color: "Cream", size: "S", priceCents: 8600, condition: "Very good", era: "1980s", material: "Silk", description: "Gathered cuffs, an open neck, cream silk.", image: img.poetBlouse, tags: ["blouse", "silk"] },
-  { id: "suede-jacket", name: "Rust suede western jacket", brand: "Archive 1982", category: "Outerwear", color: "Rust", size: "M", priceCents: 19800, condition: "Good", era: "1970s", material: "Suede", description: "A western cut in rust suede.", image: img.suedeJacket, tags: ["suede", "western"] },
-  { id: "satin-skirt", name: "Champagne satin midi", brand: "Maison Found", category: "Skirts", color: "Champagne", size: "S", priceCents: 9200, condition: "Excellent", era: "1990s", material: "Acetate satin", description: "Bias midi in champagne satin.", image: img.satinSkirt, tags: ["skirt", "satin"] },
-  { id: "field-jacket", name: "Olive field jacket", brand: "Unlabeled", category: "Outerwear", color: "Olive", size: "L", priceCents: 13400, condition: "Very good", era: "1990s", material: "Cotton twill", description: "Utility, not costume.", image: img.fieldJacket, tags: ["utility"] },
-  { id: "loafer", name: "Chocolate leather loafers", brand: "Mill & Co.", category: "Shoes", color: "Chocolate", size: "8.5", priceCents: 15600, condition: "Excellent", era: "1990s", material: "Calf leather", description: "Unadorned chocolate loafers.", image: img.loafer, tags: ["loafers"] },
-  { id: "herringbone-coat", name: "Herringbone overcoat", brand: "Archive 1982", category: "Outerwear", color: "Grey", size: "M", priceCents: 27500, condition: "Excellent", era: "1980s", material: "Wool herringbone", description: "A heavy grey herringbone coat.", image: img.herringboneCoat, tags: ["coat"] },
-  { id: "black-trouser", name: "Black tailored trousers", brand: "Private label", category: "Trousers", color: "Black", size: "M", priceCents: 10800, condition: "Excellent", era: "2000s", material: "Wool", description: "A sharp crease, a clean rise.", image: img.blackTrouser, tags: ["trousers"] },
-  { id: "oxford-shirt", name: "Vintage cream oxford", brand: "Deadstock", category: "Tops", color: "Cream", size: "M", priceCents: 6400, condition: "Very good", era: "1990s", material: "Cotton oxford", description: "Slightly oversized cream oxford.", image: img.oxfordShirt, tags: ["oxford"] },
+  { id: "leather-trench", name: "Espresso leather trench", brand: "Archive 1982", category: "Outerwear", color: "Espresso", size: "M", priceCents: 24800, condition: "Excellent", era: "1980s Italy", material: "Lamb leather", description: "A belted trench in espresso lamb with a wide lapel and a quietly broken-in shoulder.", image: img.leatherTrench, tags: ["trench", "leather", "vintage"], country: "US" },
+  { id: "silk-slip", name: "Ivory bias silk slip", brand: "Atelier No. 4", category: "Dresses", color: "Ivory", size: "S", priceCents: 16400, condition: "Excellent", era: "1990s", material: "Silk charmeuse", description: "A bias-cut slip that moves like water.", image: img.silkSlip, tags: ["slip", "silk"], country: "FR" },
+  { id: "wool-blazer", name: "Charcoal oversized blazer", brand: "Mill & Co.", category: "Outerwear", color: "Charcoal", size: "L", priceCents: 18900, condition: "Very good", era: "1990s", material: "Wool twill", description: "Strong shoulder, easy body.", image: img.woolBlazer, tags: ["blazer", "wool"], country: "GB" },
+  { id: "wide-trousers", name: "Stone wide-leg trousers", brand: "Private label", category: "Trousers", color: "Stone", size: "M", priceCents: 9800, condition: "Excellent", era: "2000s", material: "Wool blend", description: "Full-leg trousers in warm stone.", image: img.wideTrousers, tags: ["trousers", "wide-leg"], country: "NL" },
+  { id: "vintage-denim", name: "Indigo vintage denim", brand: "Unlabeled", category: "Trousers", color: "Indigo", size: "29", priceCents: 11200, condition: "Very good", era: "1980s", material: "Cotton denim", description: "High-rise vintage denim with a worn indigo.", image: img.vintageDenim, tags: ["denim"], country: "US" },
+  { id: "cashmere-crew", name: "Camel cashmere crew", brand: "Maison Found", category: "Knitwear", color: "Camel", size: "M", priceCents: 14500, condition: "Excellent", era: "1990s", material: "Cashmere", description: "A fine camel crew that sits close without clinging.", image: img.cashmereCrew, tags: ["cashmere"], country: "GB" },
+  { id: "cowboy-boots", name: "Oxblood cowboy boots", brand: "Deadstock", category: "Shoes", color: "Oxblood", size: "8", priceCents: 22000, condition: "Excellent", era: "1970s", material: "Leather", description: "Stacked heel, pointed toe, oxblood leather.", image: img.cowboyBoots, tags: ["boots", "western"], country: "US" },
+  { id: "poet-blouse", name: "Cream silk poet blouse", brand: "Atelier No. 4", category: "Tops", color: "Cream", size: "S", priceCents: 8600, condition: "Very good", era: "1980s", material: "Silk", description: "Gathered cuffs, an open neck, cream silk.", image: img.poetBlouse, tags: ["blouse", "silk"], country: "FR" },
+  { id: "suede-jacket", name: "Rust suede western jacket", brand: "Archive 1982", category: "Outerwear", color: "Rust", size: "M", priceCents: 19800, condition: "Good", era: "1970s", material: "Suede", description: "A western cut in rust suede.", image: img.suedeJacket, tags: ["suede", "western"], country: "MX" },
+  { id: "satin-skirt", name: "Champagne satin midi", brand: "Maison Found", category: "Skirts", color: "Champagne", size: "S", priceCents: 9200, condition: "Excellent", era: "1990s", material: "Acetate satin", description: "Bias midi in champagne satin.", image: img.satinSkirt, tags: ["skirt", "satin"], country: "IT" },
+  { id: "field-jacket", name: "Olive field jacket", brand: "Unlabeled", category: "Outerwear", color: "Olive", size: "L", priceCents: 13400, condition: "Very good", era: "1990s", material: "Cotton twill", description: "Utility, not costume.", image: img.fieldJacket, tags: ["utility"], country: "DE" },
+  { id: "loafer", name: "Chocolate leather loafers", brand: "Mill & Co.", category: "Shoes", color: "Chocolate", size: "8.5", priceCents: 15600, condition: "Excellent", era: "1990s", material: "Calf leather", description: "Unadorned chocolate loafers.", image: img.loafer, tags: ["loafers"], country: "GB" },
+  { id: "herringbone-coat", name: "Herringbone overcoat", brand: "Archive 1982", category: "Outerwear", color: "Grey", size: "M", priceCents: 27500, condition: "Excellent", era: "1980s", material: "Wool herringbone", description: "A heavy grey herringbone coat.", image: img.herringboneCoat, tags: ["coat"], country: "GB" },
+  { id: "black-trouser", name: "Black tailored trousers", brand: "Private label", category: "Trousers", color: "Black", size: "M", priceCents: 10800, condition: "Excellent", era: "2000s", material: "Wool", description: "A sharp crease, a clean rise.", image: img.blackTrouser, tags: ["trousers"], country: "IT" },
+  { id: "oxford-shirt", name: "Vintage cream oxford", brand: "Deadstock", category: "Tops", color: "Cream", size: "M", priceCents: 6400, condition: "Very good", era: "1990s", material: "Cotton oxford", description: "Slightly oversized cream oxford.", image: img.oxfordShirt, tags: ["oxford"], country: "US" },
 ];
 
 export const TRENDS: Trend[] = [
@@ -97,8 +98,10 @@ export const CATEGORIES: Array<"All" | Category> = [
   "Accessories",
 ];
 
-export function usd(cents: number) {
-  return `$${(cents / 100).toFixed(0)}`;
+import { money } from "./markets";
+
+export function usd(cents: number, currency = "USD") {
+  return money(cents, currency);
 }
 
 export function getGarment(id: string) {

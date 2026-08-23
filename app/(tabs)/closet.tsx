@@ -124,7 +124,7 @@ function Grid({ pieces, colors }: { pieces: ClosetPiece[]; colors: Colors }) {
             {p.name}
           </Text>
           <Text style={styles.meta}>
-            {p.status === "listed" ? usd(p.listPriceCents) : p.status === "sold" ? "Sold" : p.color || p.size}
+            {p.status === "listed" ? usd(p.listPriceCents, p.currency || "USD") : p.status === "sold" ? "Sold" : p.color || p.size}
           </Text>
         </Pressable>
       ))}

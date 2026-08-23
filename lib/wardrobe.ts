@@ -23,6 +23,8 @@ export type ClosetPiece = {
   createdAt: number;
   ownerId?: string;
   ownerName?: string;
+  country?: string;
+  currency?: string;
 };
 
 const KEY = "uvel-wardrobe-v1";
