@@ -4,9 +4,11 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { payMethods, shippingCents, uvelFeeCents } from "../../lib/fees";
+import { Sheet } from "../../components/Sheet";
+import { payMethods, shippingCents, uvelFeeCents, type PayMethod } from "../../lib/fees";
 import { convertCents, getMarket, moneyExact } from "../../lib/markets";
 import { loadAddress, placeOrder, type Address } from "../../lib/orders";
+import { createCheckoutSession, openHostedPay, processorFor } from "../../lib/pay";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { getPiece, markSold, useWardrobe } from "../../lib/wardrobe";
@@ -24,6 +26,7 @@ export default function Checkout() {
   const [address, setAddress] = useState<Address | null>(null);
   const [ship, setShip] = useState<"standard" | "express">("standard");
   const [pay, setPay] = useState(methods[0]?.id ?? "apple");
+  const [payOpen, setPayOpen] = useState(false);
   const [paying, setPaying] = useState(false);
   const [feeInfo, setFeeInfo] = useState(false);
 
@@ -55,6 +58,18 @@ export default function Checkout() {
     if (!address || !piece) return;
     setPaying(true);
     try {
+      const session = await createCheckoutSession({
+        amountCents: total,
+        currency: market.currency,
+        email: app.email || "pay@uvel.app",
+        method: method.id,
+        country: market.code,
+        reference: `uvel-${piece.id}-${Date.now()}`,
+        name: piece.name,
+      });
+      if (!session.url) throw new Error("That payment method isn’t live yet.");
+      const ok = await openHostedPay(session.url);
+      if (!ok) return;
       const order = await placeOrder({
         pieceId: piece.id,
         pieceName: piece.name,
@@ -136,17 +151,11 @@ export default function Checkout() {
         )}
 
         <Text style={styles.h}>Payment</Text>
-        <View style={styles.col}>
-          {methods.map((m) => (
-            <Pressable key={m.id} onPress={() => setPay(m.id)} style={[styles.box, pay === m.id && styles.boxOn]}>
-              <View style={styles.payMark}>
-                <Text style={styles.payMarkTxt}>{m.kind === "apple" ? " " : m.label.slice(0, 1)}</Text>
-              </View>
-              <Text style={styles.boxT}>{m.label}</Text>
-              {pay === m.id ? <Text style={styles.tick}>✓</Text> : null}
-            </Pressable>
-          ))}
-        </View>
+        <Pressable onPress={() => setPayOpen(true)} style={styles.box}>
+          <PayMark method={method} />
+          <Text style={styles.boxT}>{method.label}</Text>
+          <Text style={styles.plus}>Edit</Text>
+        </Pressable>
 
         <Text style={styles.h}>Order summary</Text>
         <View style={styles.sum}>
@@ -197,23 +206,79 @@ export default function Checkout() {
       </View>
 
       {feeInfo ? (
-        <Pressable style={styles.veil} onPress={() => setFeeInfo(false)}>
-          <View style={styles.sheet}>
-            <Text style={styles.sheetH}>Uvel fee</Text>
-            <Text style={styles.sheetP}>
-              Buyer protection. Under $50 it’s $0.99, from $50 it’s $2.99, from $150 it’s $4.99, from $500 it’s $6.99,
-              and $1,000+ is $8.99 — shown here in {market.currency}. The seller gets the full listing price. You get
-              purchase protection on Uvel.
-            </Text>
-            <Pressable onPress={() => setFeeInfo(false)} style={styles.sheetBtn}>
-              <Text style={styles.sheetBtnT}>Got it</Text>
-            </Pressable>
-          </View>
-        </Pressable>
+        <Sheet open={feeInfo} onClose={() => setFeeInfo(false)}>
+          <Text style={styles.sheetH}>Uvel fee</Text>
+          <Text style={styles.sheetP}>
+            Buyer protection. Under $50 it’s $0.99, from $50 it’s $2.99, from $150 it’s $4.99, from $500 it’s $6.99,
+            and $1,000+ is $8.99 — shown here in {market.currency}. The seller gets the full listing price. You get
+            purchase protection on Uvel.
+          </Text>
+          <Pressable onPress={() => setFeeInfo(false)} style={styles.sheetBtn}>
+            <Text style={styles.sheetBtnT}>Got it</Text>
+          </Pressable>
+        </Sheet>
       ) : null}
+
+      <Sheet open={payOpen} onClose={() => setPayOpen(false)}>
+        <Text style={styles.sheetH}>Payment</Text>
+        <Text style={styles.sheetP}>
+          {processorFor(market.code, method.id) === "paystack" ? "Paystack" : "Stripe"}
+          {method.id === "apple" ? " · Apple Pay" : ""} · {market.name}
+        </Text>
+        {methods.map((m) => (
+          <Pressable
+            key={m.id}
+            onPress={() => {
+              setPay(m.id);
+              setPayOpen(false);
+            }}
+            style={styles.pick}
+          >
+            <PayMark method={m} />
+            <Text style={styles.boxT}>{m.label}</Text>
+            {pay === m.id ? <Text style={styles.tick}>✓</Text> : null}
+          </Pressable>
+        ))}
+      </Sheet>
     </View>
   );
 }
+
+function PayMark({ method }: { method: PayMethod }) {
+  if (method.kind === "apple") {
+    return (
+      <View style={mark.apple}>
+        <Image source={require("../../assets/auth/apple.png")} style={mark.logo} contentFit="contain" />
+      </View>
+    );
+  }
+  return (
+    <View style={mark.box}>
+      <Text style={mark.txt}>{method.label.slice(0, 1)}</Text>
+    </View>
+  );
+}
+
+const mark = StyleSheet.create({
+  apple: {
+    width: 36,
+    height: 24,
+    borderRadius: 4,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logo: { width: 14, height: 14 },
+  box: {
+    width: 36,
+    height: 24,
+    borderRadius: 4,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  txt: { color: "#111", fontWeight: "800", fontSize: 11 },
+});
 
 function make(colors: Colors) {
   return StyleSheet.create({
@@ -266,6 +331,14 @@ function make(colors: Colors) {
     },
     payMarkTxt: { color: "#111", fontWeight: "800", fontSize: 11 },
     tick: { color: "#D6E27A", fontWeight: "700" },
+    pick: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      paddingVertical: 14,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: "rgba(244,240,230,0.1)",
+    },
     sum: { paddingHorizontal: 20, paddingTop: 4 },
     item: { flexDirection: "row", gap: 12, alignItems: "flex-start", marginBottom: 12 },
     thumb: { width: 56, height: 56, borderRadius: 8, backgroundColor: colors.surface },

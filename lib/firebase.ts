@@ -9,6 +9,7 @@ import {
   type Persistence,
 } from "firebase/auth";
 import { Firestore, getFirestore } from "firebase/firestore";
+import { Functions, getFunctions } from "firebase/functions";
 
 type Extra = {
   firebase?: {
@@ -35,6 +36,7 @@ export function firebaseReady() {
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
+let functions: Functions | null = null;
 let ai: AI | null = null;
 
 function persistence(): Persistence | undefined {
@@ -80,6 +82,11 @@ export function firebaseAuth() {
 export function firebaseDb() {
   if (!db) db = getFirestore(firebaseApp());
   return db;
+}
+
+export function firebaseFunctions() {
+  if (!functions) functions = getFunctions(firebaseApp());
+  return functions;
 }
 
 export function firebaseAi() {
