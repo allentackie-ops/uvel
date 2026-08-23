@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect, useState } from "react";
 import { addDoc, collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { firebaseDb, firebaseReady } from "./firebase";
 import { sendPush } from "./push";
@@ -39,6 +40,36 @@ export type Order = {
 const ADDR = "uvel-address-v1";
 const ORDERS = "uvel-orders-v1";
 
+let cache: Order[] = [];
+const listeners = new Set<() => void>();
+
+async function hydrateOrders() {
+  try {
+    const raw = await AsyncStorage.getItem(ORDERS);
+    cache = raw ? (JSON.parse(raw) as Order[]) : [];
+  } catch {
+    cache = [];
+  }
+  listeners.forEach((l) => l());
+}
+void hydrateOrders();
+
+function emit() {
+  listeners.forEach((l) => l());
+}
+
+export function useOrders() {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const l = () => setTick((n) => n + 1);
+    listeners.add(l);
+    return () => {
+      listeners.delete(l);
+    };
+  }, []);
+  return cache;
+}
+
 export async function loadAddress(): Promise<Address | null> {
   try {
     const raw = await AsyncStorage.getItem(ADDR);
@@ -63,6 +94,8 @@ export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status
     const raw = await AsyncStorage.getItem(ORDERS);
     const list = raw ? (JSON.parse(raw) as Order[]) : [];
     await AsyncStorage.setItem(ORDERS, JSON.stringify([full, ...list]));
+    cache = [full, ...list];
+    emit();
   } catch {
     /* ignore */
   }
