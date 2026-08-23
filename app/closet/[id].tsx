@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import {
   ActionSheetIOS,
@@ -18,7 +19,8 @@ import { useColors, type Colors } from "../../lib/theme";
 import { getPiece, markSold, removePiece, unlistPiece, useWardrobe } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
-const HERO_H = Math.round(W * (5 / 4));
+const H = Dimensions.get("window").height;
+const HERO_H = Math.round(Math.min(H * 0.62, W * 1.28));
 
 export default function ClosetPiece() {
   const colors = useColors();
@@ -76,11 +78,12 @@ export default function ClosetPiece() {
 
   return (
     <View style={styles.page}>
+      <StatusBar style="light" />
       <ScrollView
         contentContainerStyle={{ paddingBottom: buying ? 120 : 48 }}
         showsVerticalScrollIndicator={false}
       >
-        <View>
+        <View style={{ height: HERO_H }}>
           <ScrollView
             horizontal
             pagingEnabled
@@ -91,6 +94,16 @@ export default function ClosetPiece() {
               <Image key={uri} source={{ uri }} style={styles.hero} contentFit="cover" />
             ))}
           </ScrollView>
+          <View pointerEvents="none" style={[styles.fadeTop, { height: insets.top + 36 }]}>
+            {Array.from({ length: 10 }).map((_, i) => (
+              <View key={i} style={{ flex: 1, backgroundColor: colors.ink, opacity: 0.62 * (1 - i / 9) }} />
+            ))}
+          </View>
+          <View pointerEvents="none" style={styles.fadeBot}>
+            {Array.from({ length: 16 }).map((_, i) => (
+              <View key={i} style={{ flex: 1, backgroundColor: colors.ink, opacity: i / 15 }} />
+            ))}
+          </View>
           {gallery.length > 1 ? (
             <View style={styles.dots}>
               {gallery.map((_, i) => (
@@ -98,11 +111,11 @@ export default function ClosetPiece() {
               ))}
             </View>
           ) : null}
-          <Pressable onPress={() => router.back()} style={[styles.back, { top: insets.top + 8 }]} hitSlop={8}>
+          <Pressable onPress={() => router.back()} style={[styles.back, { top: insets.top + 6 }]} hitSlop={8}>
             <Text style={styles.backTxt}>‹</Text>
           </Pressable>
           {!buying && piece.status === "listed" ? (
-            <Pressable onPress={manage} style={[styles.more, { top: insets.top + 8 }]} hitSlop={8}>
+            <Pressable onPress={manage} style={[styles.more, { top: insets.top + 6 }]} hitSlop={8}>
               <Text style={styles.moreTxt}>···</Text>
             </Pressable>
           ) : null}
@@ -183,9 +196,11 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     hero: { width: W, height: HERO_H, backgroundColor: colors.surface },
+    fadeTop: { position: "absolute", top: 0, left: 0, right: 0 },
+    fadeBot: { position: "absolute", bottom: 0, left: 0, right: 0, height: 140 },
     dots: {
       position: "absolute",
-      bottom: 16,
+      bottom: 52,
       left: 0,
       right: 0,
       flexDirection: "row",
@@ -216,7 +231,7 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     moreTxt: { color: "#F4F0E6", fontSize: 18, letterSpacing: 1, fontWeight: "700" },
-    body: { paddingHorizontal: 22, paddingTop: 22 },
+    body: { paddingHorizontal: 22, paddingTop: 4, marginTop: -48 },
     topline: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
     brand: { color: colors.subtle, letterSpacing: 1.4, fontSize: 11, textTransform: "uppercase" },
     sold: { color: "#D6E27A", fontSize: 12, fontWeight: "700", letterSpacing: 1 },
