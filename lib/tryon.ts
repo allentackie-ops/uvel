@@ -29,6 +29,23 @@ export function anthropicKey() {
   return process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || e.anthropicApiKey || e.firebase?.anthropicApiKey || wired;
 }
 
+function bytesToBase64(bytes: Uint8Array) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let out = "";
+  const len = bytes.length;
+  for (let i = 0; i < len; i += 3) {
+    const a = bytes[i];
+    const b = i + 1 < len ? bytes[i + 1] : 0;
+    const c = i + 2 < len ? bytes[i + 2] : 0;
+    const n = (a << 16) | (b << 8) | c;
+    out += chars[(n >> 18) & 63];
+    out += chars[(n >> 12) & 63];
+    out += i + 1 < len ? chars[(n >> 6) & 63] : "=";
+    out += i + 2 < len ? chars[n & 63] : "=";
+  }
+  return out;
+}
+
 function mimeOf(uri: string) {
   const u = uri.toLowerCase();
   if (u.includes(".png") || u.startsWith("data:image/png")) return "image/png";
@@ -42,8 +59,13 @@ export function resolveSource(src: ImageSourcePropType | { uri: string }) {
   return r.uri;
 }
 
-function filePart(uri: string, name: string) {
-  return { uri, name, type: mimeOf(uri) } as unknown as Blob;
+async function uriToDataUrl(uri: string) {
+  const res = await fetch(uri);
+  if (!res.ok) throw new Error("Couldn’t read that photo.");
+  const buf = await res.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  if (!bytes.length) throw new Error("That photo is empty.");
+  return `data:${mimeOf(uri)};base64,${bytesToBase64(bytes)}`;
 }
 
 function promptFor(name: string, category: string) {
@@ -79,6 +101,7 @@ function nice(text: string) {
   if (low.includes("blocked") || low.includes("safety") || low.includes("moderation") || low.includes("responsible")) {
     return "That photo was blocked. Try a full-length mirror pic with your face in frame.";
   }
+  if (low.includes("formdatapart")) return "Couldn’t send that photo. Try Library again.";
   if (low.includes("rate") || low.includes("429")) return "Try-on is busy. Wait a moment.";
   if (low.includes("network") || low.includes("failed to fetch")) return "No connection. Try again.";
   return text.slice(0, 220) || "Couldn’t dress you in that. Try again.";
@@ -92,19 +115,21 @@ function imageFrom(json: { error?: { message?: string }; data?: { b64_json?: str
   throw new Error("No image came back.");
 }
 
-async function openaiEdits(personUri: string, garmentUri: string, prompt: string) {
+async function openaiEdits(personUrl: string, garmentUrl: string, prompt: string) {
   const key = openaiKey();
-  const form = new FormData();
-  form.append("model", "gpt-image-2");
-  form.append("prompt", prompt);
-  form.append("size", "1024x1536");
-  form.append("quality", "low");
-  form.append("image[]", filePart(personUri, "person.jpg"));
-  form.append("image[]", filePart(garmentUri, "garment.jpg"));
   const res = await fetch("https://api.openai.com/v1/images/edits", {
     method: "POST",
-    headers: { Authorization: `Bearer ${key}` },
-    body: form,
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-image-2",
+      prompt,
+      images: [{ image_url: personUrl }, { image_url: garmentUrl }],
+      size: "1024x1536",
+      quality: "medium",
+    }),
   });
   const json = (await res.json()) as Parameters<typeof imageFrom>[0];
   if (!res.ok) throw new Error(json.error?.message || `Try-on failed (${res.status}).`);
@@ -120,7 +145,11 @@ export async function dressPerson(opts: {
   if (!openaiKey()) throw new Error("Add your OpenAI key and I’ll turn try-on on.");
   const prompt = promptFor(opts.garmentName ?? "this piece", opts.category ?? "clothes");
   try {
-    return await openaiEdits(opts.personUri, resolveSource(opts.garment), prompt);
+    const [personUrl, garmentUrl] = await Promise.all([
+      uriToDataUrl(opts.personUri),
+      uriToDataUrl(resolveSource(opts.garment)),
+    ]);
+    return await openaiEdits(personUrl, garmentUrl, prompt);
   } catch (err) {
     throw new Error(nice(err instanceof Error ? err.message : String(err)));
   }
