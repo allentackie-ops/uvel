@@ -7,8 +7,6 @@ import {
   AppState,
   Dimensions,
   Linking,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -17,21 +15,21 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Glass } from "../../components/Glass";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { unreadFor, useInbox } from "../../lib/chat";
+import { usd } from "../../lib/catalog";
 import { frameAtTime, prefetchLookVideo } from "../../lib/lookFrame";
 import { forYou, matchListings } from "../../lib/lookMatch";
 import { beginLookScan, finishLookScan } from "../../lib/lookSearch";
+import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
-import { listedPieces, useWardrobe } from "../../lib/wardrobe";
+import { listedPieces, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const { width: W, height: H } = Dimensions.get("screen");
 const CARD_W = Math.round((W - 32) / 2.28);
-const CARD_H = Math.round(CARD_W * 1.52);
-const SHOP_W = Math.round(W * 0.58);
+const CARD_H = Math.round(CARD_W * 1.42);
 
 const DOT: Record<Exclude<Source, "All">, string> = {
   TikTok: "#FE2C55",
@@ -189,71 +187,40 @@ function scanLook(look: Look, grab: FrameGrab | null) {
   });
 }
 
-function Filters({
-  source,
-  onSource,
-  colors,
-}: {
-  source: Source;
-  onSource: (s: Source) => void;
-  colors: Colors;
-}) {
-  const styles = make(colors);
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-      {SOURCES.map((s) => {
-        const on = source === s;
-        return (
-          <Pressable key={s} onPress={() => onSource(s)} style={[styles.filter, on && styles.filterOn]}>
-            {s !== "All" ? <View style={[styles.dot, { backgroundColor: DOT[s] }]} /> : null}
-            <Text style={[styles.filterTxt, on && styles.filterTxtOn]}>{s}</Text>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
-  );
+function hashOf(look: Look) {
+  const s = (look.summary || "").trim();
+  if (s.startsWith("#")) return s.split(/\s+/)[0];
+  return "";
 }
 
 export default function Today() {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
-  const { uid, styles: taste, country, appearance } = useUvel();
+  const { uid, styles: taste, country } = useUvel();
   const chats = useInbox(uid || "me");
   const unread = chats.reduce((n, t) => n + unreadFor(t, uid || "me"), 0);
   const { looks, refreshing, refresh } = useLooks();
   useWardrobe();
   const live = listedPieces();
   const [source, setSource] = useState<Source>("All");
-  const [pastHero, setPastHero] = useState(false);
-  const heroH = H;
+  const heroH = Math.round(H - insets.bottom - 196);
 
   const visible = useMemo(
     () => (source === "All" ? looks : looks.filter((t) => t.source === source)),
     [looks, source],
   );
   const featured = visible[0] ?? looks[0];
-  const today = new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-
-  function onScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    const y = e.nativeEvent.contentOffset.y;
-    setPastHero(y > heroH - insets.top - 88);
-  }
+  const hits = featured ? matchListings(featured, live, taste).slice(0, 6) : [];
 
   return (
     <View style={styles.page}>
-      <StatusBar style={pastHero && appearance === "light" ? "dark" : "light"} />
+      <StatusBar style="light" />
       <ScrollView
         style={styles.page}
         contentInsetAdjustmentBehavior="never"
         automaticallyAdjustContentInsets={false}
         contentContainerStyle={{ paddingBottom: 108 + insets.bottom }}
-        scrollEventThrottle={16}
-        onScroll={onScroll}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -264,12 +231,24 @@ export default function Today() {
         }
       >
         {featured ? (
-          <Hero look={featured} today={today} colors={colors} height={heroH} bottomPad={insets.bottom + 88} topPad={insets.top} />
+          <Hero look={featured} colors={colors} height={heroH} />
         ) : (
           <View style={[styles.heroWrap, { height: heroH }]} />
         )}
 
         <View style={styles.body}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+            {SOURCES.map((s) => {
+              const on = source === s;
+              return (
+                <Pressable key={s} onPress={() => setSource(s)} style={[styles.filter, on && styles.filterOn]}>
+                  {s !== "All" ? <View style={[styles.dot, { backgroundColor: DOT[s] }]} /> : null}
+                  <Text style={[styles.filterTxt, on && styles.filterTxtOn]}>{s}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
           <Pressable onPress={() => router.push("/inbox")} style={styles.inbox}>
             <View style={{ flex: 1 }}>
               <Text style={styles.inboxK}>Chats</Text>
@@ -281,40 +260,44 @@ export default function Today() {
                     : "Asks on your listings land here"}
               </Text>
             </View>
-            <Text style={styles.inboxGo}>{unread ? String(unread) : chats.length ? String(chats.length) : "›"}</Text>
+            {unread > 0 ? (
+              <View style={styles.redBadge}>
+                <Text style={styles.redBadgeTxt}>{unread > 9 ? "9+" : String(unread)}</Text>
+              </View>
+            ) : null}
           </Pressable>
 
-          <Text style={styles.h2}>{source === "All" ? "Moving now" : `Now on ${source}`}</Text>
+          <View style={styles.head}>
+            <Text style={styles.h2}>{source === "All" ? "Moving now" : `Now on ${source}`}</Text>
+            <Text style={styles.seeAll}>See all</Text>
+          </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
             {visible.map((look) => (
               <LookCard key={look.id} look={look} colors={colors} />
             ))}
           </ScrollView>
 
-          {featured ? (
-            <>
-              <Text style={styles.h2}>Shop the look</Text>
-              {(() => {
-                const hits = matchListings(featured, live, taste).slice(0, 8);
-                if (!hits.length) {
-                  return (
-                    <View style={{ paddingHorizontal: 16 }}>
-                      <ListingEmpty copy="No listings match this look yet. When someone sells the real piece, it lands here." />
-                    </View>
-                  );
-                }
-                return (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
-                    {hits.map((p) => (
-                      <ListingCard key={p.id} piece={p} wide={SHOP_W} badge="Shop" />
-                    ))}
-                  </ScrollView>
-                );
-              })()}
-            </>
-          ) : null}
+          <View style={styles.head}>
+            <Text style={styles.h2}>Shop the look</Text>
+          </View>
+          {hits.length ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shopStrip}>
+              {hits.map((p) => (
+                <ShopLookCard key={p.id} piece={p} country={country} colors={colors} />
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={{ paddingHorizontal: 16 }}>
+              <ListingEmpty copy="No listings match this look yet. When someone sells the real piece, it lands here." />
+            </View>
+          )}
 
-          <Text style={styles.h2}>For you</Text>
+          <View style={styles.head}>
+            <Text style={styles.h2}>For you</Text>
+            <Pressable onPress={() => router.push("/(tabs)/shop")}>
+              <Text style={styles.seeAll}>See all</Text>
+            </Pressable>
+          </View>
           {live.length ? (
             <View style={styles.grid}>
               {forYou(live, taste, country).slice(0, 8).map((p) => (
@@ -330,35 +313,16 @@ export default function Today() {
           )}
         </View>
       </ScrollView>
-
-      {pastHero ? (
-        <View style={[styles.sticky, { paddingTop: insets.top + 6, paddingBottom: 10 }]}>
-          <Filters source={source} onSource={setSource} colors={colors} />
-        </View>
-      ) : null}
     </View>
   );
 }
 
-function Hero({
-  look,
-  today,
-  colors,
-  height,
-  bottomPad,
-  topPad,
-}: {
-  look: Look;
-  today: string;
-  colors: Colors;
-  height: number;
-  bottomPad: number;
-  topPad: number;
-}) {
+function Hero({ look, colors, height }: { look: Look; colors: Colors; height: number }) {
   const styles = make(colors);
   const seen = where(look.postUrl) || look.source;
   const grab = useRef<FrameGrab | null>(null);
   const [busy, setBusy] = useState(false);
+  const tag = hashOf(look);
 
   function shopThis() {
     if (busy) return;
@@ -368,40 +332,38 @@ function Hero({
   }
 
   return (
-    <View>
-      <View style={[styles.heroWrap, { height }]}>
-        <LookMedia look={look} style={styles.hero} handleRef={grab} />
-        <View pointerEvents="none" style={styles.topFade}>
-          <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.55)" }]} />
-          <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.32)" }]} />
-          <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.14)" }]} />
-          <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0)" }]} />
-        </View>
-        <View style={[styles.heroTop, { top: topPad + 8 }]}>
-          <View style={styles.srcPill}>
-            <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
-            <Text style={styles.srcPillTxt} numberOfLines={1}>
-              {look.handle ? `${look.source} · ${look.handle}` : look.source}
-            </Text>
-          </View>
-        </View>
-        <View style={[styles.heroBar, { bottom: bottomPad + 28 }]}>
+    <View style={[styles.heroWrap, { height }]}>
+      <LookMedia look={look} style={styles.hero} handleRef={grab} />
+      <View pointerEvents="none" style={styles.topFade}>
+        <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.5)" }]} />
+        <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.28)" }]} />
+        <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.1)" }]} />
+        <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0)" }]} />
+      </View>
+      <View pointerEvents="none" style={styles.botFade}>
+        <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0)" }]} />
+        <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.18)" }]} />
+        <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.42)" }]} />
+      </View>
+      <View style={styles.heroCopy}>
+        <View style={styles.heroBar}>
           <Pressable onPress={() => void shopThis()} style={styles.cta}>
             <Text style={styles.ctaTxt}>{busy ? "Searching…" : "Shop the look"}</Text>
           </Pressable>
           {look.postUrl ? (
-            <Pressable onPress={() => void Linking.openURL(look.postUrl!)}>
-              <Glass effect="regular" style={styles.ghost}>
-                <Text style={styles.ghostTxt}>See on {seen}</Text>
-              </Glass>
+            <Pressable onPress={() => void Linking.openURL(look.postUrl!)} style={styles.ghost}>
+              <Text style={styles.ghostTxt}>See on {seen}</Text>
             </Pressable>
           ) : null}
         </View>
-      </View>
-      <View style={styles.heroCopy}>
-        <Text style={styles.date}>{today}</Text>
+        <View style={styles.srcRow}>
+          <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
+          <Text style={styles.src}>
+            {look.handle ? `${look.source}  ·  ${look.handle}` : look.source}
+          </Text>
+        </View>
         <Text style={styles.title}>{look.title}</Text>
-        {look.summary ? <Text style={styles.summary}>{look.summary}</Text> : null}
+        {tag ? <Text style={styles.hash}>{tag}</Text> : null}
       </View>
     </View>
   );
@@ -427,8 +389,8 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
           <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
           <Text style={styles.cardSrc}>{look.source}</Text>
         </View>
-        <Pressable onPress={() => void shopThis()} style={styles.searchFab} hitSlop={8}>
-          <Text style={styles.searchFabTxt}>{busy ? "…" : "⌕"}</Text>
+        <Pressable onPress={() => void shopThis()} style={styles.play} hitSlop={8}>
+          <Text style={styles.playTxt}>{busy ? "…" : "▶"}</Text>
         </Pressable>
       </View>
       <Text style={styles.cardTitle} numberOfLines={2}>
@@ -438,120 +400,124 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
   );
 }
 
+function ShopLookCard({
+  piece,
+  country,
+  colors,
+}: {
+  piece: ClosetPiece;
+  country: string;
+  colors: Colors;
+}) {
+  const styles = make(colors);
+  const here = getMarket(country);
+  const from = getMarket(piece.country || country);
+  const local = from.code === here.code;
+  const brand = local ? (piece.brand === "Unlabeled" ? "UVEL" : piece.brand) : from.name;
+  return (
+    <Pressable
+      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id, v: "buy" } })}
+      style={styles.shopCard}
+    >
+      <View>
+        <Image source={{ uri: piece.photo }} style={styles.shopImg} contentFit="cover" />
+        <View style={styles.shopNow}>
+          <Text style={styles.shopNowTxt}>Shop now</Text>
+        </View>
+      </View>
+      <View style={styles.shopMeta}>
+        <Text style={styles.shopBrand} numberOfLines={1}>
+          {brand.toUpperCase()}
+        </Text>
+        <Text style={styles.shopName} numberOfLines={2}>
+          {piece.name}
+        </Text>
+        <Text style={styles.shopPrice}>{usd(piece.listPriceCents, piece.currency || "USD")}</Text>
+      </View>
+    </Pressable>
+  );
+}
+
 function make(colors: Colors) {
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: colors.ink },
-    heroWrap: { width: W, height: H, backgroundColor: "#0B0A08", overflow: "hidden" },
+    page: { flex: 1, backgroundColor: "#0B0A08" },
+    heroWrap: { width: W, backgroundColor: "#0B0A08", overflow: "hidden" },
     hero: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-    topFade: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      height: 160,
-    },
+    topFade: { position: "absolute", top: 0, left: 0, right: 0, height: 120 },
+    botFade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 220 },
     fadeBand: { flex: 1 },
-    heroTop: {
-      position: "absolute",
-      left: 16,
-      right: 16,
-    },
-    srcPill: {
-      alignSelf: "flex-start",
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 7,
-      backgroundColor: "rgba(11,10,8,0.42)",
-      borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.22)",
-      paddingHorizontal: 12,
-      height: 30,
-      borderRadius: 15,
-      maxWidth: "80%",
-    },
-    srcPillTxt: { color: "#F4F0E6", fontSize: 12, fontWeight: "600" },
-    heroBar: {
-      position: "absolute",
-      left: 16,
-      right: 16,
-      flexDirection: "row",
-      gap: 10,
-    },
-    heroCopy: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 2 },
-    date: {
-      color: colors.subtle,
-      fontSize: 11,
-      letterSpacing: 1.8,
-      fontWeight: "600",
-      textTransform: "uppercase",
-      marginBottom: 8,
-    },
-    srcRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    src: { color: colors.muted, fontSize: 12, letterSpacing: 0.4 },
-    title: { color: colors.bone, fontFamily: "Georgia", fontSize: 32, lineHeight: 36 },
-    summary: { color: colors.muted, marginTop: 8, fontSize: 15, lineHeight: 22 },
+    heroCopy: { position: "absolute", left: 16, right: 16, bottom: 18 },
+    heroBar: { flexDirection: "row", gap: 10, marginBottom: 16 },
+    srcRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+    src: { color: "rgba(244,240,230,0.86)", fontSize: 13, fontWeight: "500" },
+    title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 30, lineHeight: 34 },
+    hash: { color: "rgba(244,240,230,0.72)", fontSize: 15, marginTop: 6 },
     cta: {
-      backgroundColor: "rgba(244,240,230,0.96)",
-      paddingHorizontal: 18,
-      height: 44,
-      borderRadius: 22,
+      flex: 1.08,
+      backgroundColor: "#F4F0E6",
+      height: 46,
+      borderRadius: 23,
       alignItems: "center",
       justifyContent: "center",
     },
-    ctaTxt: { color: "#16140F", fontWeight: "700", fontSize: 14 },
+    ctaTxt: { color: "#16140F", fontWeight: "700", fontSize: 15 },
     ghost: {
-      paddingHorizontal: 16,
-      height: 44,
-      borderRadius: 22,
-      overflow: "hidden",
+      flex: 1,
+      height: 46,
+      borderRadius: 23,
+      backgroundColor: "rgba(255,255,255,0.28)",
       alignItems: "center",
       justifyContent: "center",
     },
-    ghostTxt: { color: "#F4F0E6", fontWeight: "600", fontSize: 14 },
-    body: { paddingTop: 10 },
-    sticky: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      backgroundColor: "rgba(18,17,14,0.94)",
-    },
-    chips: { paddingHorizontal: 16, gap: 8 },
+    ghostTxt: { color: "#F4F0E6", fontWeight: "600", fontSize: 15 },
+    body: { paddingTop: 14, backgroundColor: "#0B0A08" },
+    chips: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },
     filter: {
       flexDirection: "row",
       alignItems: "center",
       gap: 7,
-      height: 34,
+      height: 36,
       paddingHorizontal: 14,
-      borderRadius: 17,
+      borderRadius: 18,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.18)",
+      borderColor: "rgba(244,240,230,0.16)",
     },
     filterOn: { backgroundColor: "#F4F0E6", borderColor: "#F4F0E6" },
-    filterTxt: { color: colors.bone, fontWeight: "600", fontSize: 13 },
+    filterTxt: { color: "#F4F0E6", fontWeight: "600", fontSize: 13 },
     filterTxtOn: { color: "#16140F" },
     dot: { width: 8, height: 8, borderRadius: 4 },
     inbox: {
       marginHorizontal: 16,
-      marginTop: 8,
+      marginTop: 12,
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: colors.surface,
-      borderRadius: 18,
+      backgroundColor: "#1A1915",
+      borderRadius: 16,
       paddingHorizontal: 16,
       paddingVertical: 12,
     },
-    inboxK: { color: colors.bone, fontWeight: "700", fontSize: 15 },
-    inboxP: { color: colors.muted, marginTop: 2, fontSize: 13 },
-    inboxGo: { color: "#D6E27A", fontWeight: "700", fontSize: 16 },
-    h2: {
-      color: colors.bone,
-      fontFamily: "Georgia",
-      fontSize: 24,
-      marginTop: 20,
-      marginBottom: 12,
-      paddingHorizontal: 16,
+    inboxK: { color: "#F4F0E6", fontWeight: "700", fontSize: 15 },
+    inboxP: { color: "rgba(244,240,230,0.55)", marginTop: 2, fontSize: 13 },
+    redBadge: {
+      minWidth: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: "#E5484D",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 6,
     },
+    redBadgeTxt: { color: "#fff", fontWeight: "800", fontSize: 12 },
+    head: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      justifyContent: "space-between",
+      paddingHorizontal: 16,
+      marginTop: 22,
+      marginBottom: 12,
+    },
+    h2: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 26 },
+    seeAll: { color: "rgba(244,240,230,0.45)", fontSize: 15 },
     strip: { paddingHorizontal: 16, gap: 10, paddingRight: 28 },
     card: { width: CARD_W },
     cardFrame: {
@@ -559,7 +525,7 @@ function make(colors: Colors) {
       height: CARD_H,
       borderRadius: 18,
       overflow: "hidden",
-      backgroundColor: colors.surface,
+      backgroundColor: "#1A1915",
     },
     cardFill: { width: CARD_W, height: CARD_H },
     cardSrcPill: {
@@ -569,25 +535,49 @@ function make(colors: Colors) {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      backgroundColor: "rgba(11,10,8,0.55)",
+      backgroundColor: "rgba(11,10,8,0.62)",
       paddingHorizontal: 10,
       height: 24,
       borderRadius: 12,
     },
-    searchFab: {
+    play: {
       position: "absolute",
       right: 10,
       bottom: 10,
-      width: 46,
-      height: 46,
-      borderRadius: 23,
-      backgroundColor: "rgba(244,240,230,0.96)",
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: "#F4F0E6",
       alignItems: "center",
       justifyContent: "center",
     },
-    searchFabTxt: { color: "#16140F", fontSize: 22, fontWeight: "700", marginTop: -1 },
+    playTxt: { color: "#16140F", fontSize: 13, marginLeft: 2 },
     cardSrc: { color: "#F4F0E6", fontSize: 11, fontWeight: "700" },
-    cardTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 16, marginTop: 8, lineHeight: 20 },
+    cardTitle: { color: "#F4F0E6", fontSize: 14, marginTop: 8, lineHeight: 18, fontWeight: "500" },
+    shopStrip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
+    shopCard: {
+      width: W - 32,
+      borderRadius: 20,
+      overflow: "hidden",
+      backgroundColor: "#1A1915",
+    },
+    shopImg: { width: W - 32, height: Math.round((W - 32) * 1.05), backgroundColor: "#111" },
+    shopNow: {
+      position: "absolute",
+      right: 14,
+      bottom: 14,
+      backgroundColor: "#F4F0E6",
+      paddingHorizontal: 16,
+      height: 34,
+      borderRadius: 17,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    shopNowTxt: { color: "#16140F", fontWeight: "700", fontSize: 13 },
+    shopMeta: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16 },
+    shopBrand: { color: "rgba(244,240,230,0.45)", fontSize: 11, letterSpacing: 1.4, fontWeight: "700" },
+    shopName: { color: "#F4F0E6", fontSize: 18, fontWeight: "700", marginTop: 6, lineHeight: 22 },
+    shopPrice: { color: "#F4F0E6", fontSize: 17, fontWeight: "700", marginTop: 6 },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 16 },
     cell: { width: "47%", flexGrow: 1 },
   });
