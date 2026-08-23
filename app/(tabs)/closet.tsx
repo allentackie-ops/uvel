@@ -51,7 +51,7 @@ export default function Closet() {
       )}
 
       <View style={styles.headRow}>
-        <Text style={styles.h2}>On the floor</Text>
+        <Text style={styles.h2}>In the shop</Text>
         <Pressable onPress={() => router.push("/(tabs)/shop")}>
           <Text style={styles.seeAll}>See all</Text>
         </Pressable>
@@ -100,12 +100,7 @@ function FloorCard({
       onLongPress={() => manageListing(p)}
       style={styles.floor}
     >
-      <View>
-        <Image source={{ uri: p.photo }} style={styles.floorImg} contentFit="cover" />
-        <View style={styles.live}>
-          <Text style={styles.liveTxt}>Live</Text>
-        </View>
-      </View>
+      <Image source={{ uri: p.photo }} style={styles.floorImg} contentFit="cover" />
       <View style={styles.floorMeta}>
         <View style={{ flex: 1, paddingRight: 12 }}>
           <Text style={styles.brand}>{(p.brand === "Unlabeled" ? "Unlabeled" : p.brand).toUpperCase()}</Text>
@@ -114,18 +109,9 @@ function FloorCard({
           </Text>
           <Text style={styles.floorPrice}>{usd(p.listPriceCents, p.currency || "USD")}</Text>
         </View>
-        <View style={styles.iconRow}>
-          <Pressable
-            onPress={() => router.push({ pathname: "/sell", params: { id: p.id } })}
-            hitSlop={8}
-            style={styles.iconBtn}
-          >
-            <Text style={styles.iconTxt}>✎</Text>
-          </Pressable>
-          <Pressable onPress={share} hitSlop={8} style={styles.iconBtn}>
-            <Text style={styles.iconTxt}>↗</Text>
-          </Pressable>
-        </View>
+        <Pressable onPress={share} hitSlop={8} style={styles.iconBtn}>
+          <Text style={styles.iconTxt}>↗</Text>
+        </Pressable>
       </View>
     </Pressable>
   );
@@ -220,18 +206,6 @@ function make(colors: Colors) {
       marginBottom: 14,
     },
     floorImg: { width: "100%", height: 420, backgroundColor: "#1A1915" },
-    live: {
-      position: "absolute",
-      top: 14,
-      left: 14,
-      backgroundColor: "rgba(18,17,14,0.78)",
-      paddingHorizontal: 12,
-      height: 26,
-      borderRadius: 13,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    liveTxt: { color: "#F4F0E6", fontSize: 12, fontWeight: "700" },
     floorMeta: {
       flexDirection: "row",
       alignItems: "flex-end",
@@ -242,7 +216,6 @@ function make(colors: Colors) {
     brand: { color: "rgba(244,240,230,0.42)", fontSize: 11, letterSpacing: 1.4, fontWeight: "700" },
     floorName: { color: "#F4F0E6", fontSize: 18, fontWeight: "700", marginTop: 6, lineHeight: 22 },
     floorPrice: { color: "#F4F0E6", fontSize: 17, fontWeight: "700", marginTop: 6 },
-    iconRow: { flexDirection: "row", gap: 8, marginBottom: 2 },
     iconBtn: {
       width: 36,
       height: 36,
@@ -251,6 +224,7 @@ function make(colors: Colors) {
       borderColor: "rgba(244,240,230,0.22)",
       alignItems: "center",
       justifyContent: "center",
+      marginBottom: 2,
     },
     iconTxt: { color: "#F4F0E6", fontSize: 14 },
     h3: { color: colors.bone, fontWeight: "600", marginTop: 6 },
