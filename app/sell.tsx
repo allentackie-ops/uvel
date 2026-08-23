@@ -77,10 +77,10 @@ export default function Sell() {
   );
   const [name, setName] = useState(existing?.name ?? "");
   const [brand, setBrand] = useState(existing?.brand && existing.brand !== "Unlabeled" ? existing.brand : "");
-  const [category, setCategory] = useState<Category>(existing?.category ?? "Tops");
+  const [category, setCategory] = useState<Category | null>(existing?.category ?? null);
   const [color, setColor] = useState(existing?.color ?? "");
   const [size, setSize] = useState(existing?.size ?? "");
-  const [condition, setCondition] = useState(existing?.condition ?? "Excellent");
+  const [condition, setCondition] = useState(existing?.condition ?? "");
   const [material, setMaterial] = useState(existing?.material ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [price, setPrice] = useState(
@@ -97,17 +97,35 @@ export default function Sell() {
   const cover = photos[0];
   const warn = photos.find((p) => p.status === "warn");
   const checking = photos.some((p) => p.status === "checking");
-  const canList = photos.length > 0 && name.trim() && Number(price) > 0 && !checking && gate.phase === "idle";
+  const hasPhoto = photos.length > 0;
+  const hasTitle = Boolean(name.trim());
+  const hasPrice = Number(price) > 0;
+  const hasCat = Boolean(category);
+  const hasCond = Boolean(condition);
+  const canList = hasPhoto && hasTitle && hasPrice && hasCat && hasCond && !checking && gate.phase === "idle";
+  const progress = [hasPhoto, hasPrice, hasTitle, hasCat, hasCond].filter(Boolean).length;
+  const ph = appearance === "dark" ? "rgba(244,240,230,0.28)" : "rgba(22,20,15,0.32)";
+  const ctaLabel = checking
+    ? "Checking photos…"
+    : !hasPhoto
+      ? "Add a photo"
+      : !hasTitle
+        ? "Add a title"
+        : !hasPrice
+          ? "Add a price"
+          : !hasCat
+            ? "Pick a category"
+            : !hasCond
+              ? "Pick a condition"
+              : `List for ${usd(Math.max(1, Number(price) || 0) * 100)}`;
 
   useEffect(() => {
     if (!existing && photos.length === 1 && photos[0].status === "ok" && photos[0].review) {
       const r = photos[0].review;
       if (!name && r.title) setName(r.title);
       if (!brand && r.brand) setBrand(r.brand);
-      if (r.category) setCategory(r.category);
       if (!color && r.color) setColor(r.color);
       if (!notes && r.description) setNotes(r.description);
-      if (r.conditionGuess) setCondition(r.conditionGuess);
       if (!material && r.material) setMaterial(r.material);
     }
     // first photo only fills empty fields
@@ -196,11 +214,11 @@ export default function Sell() {
         photos: photos.map((p) => p.uri),
         name: name.trim(),
         notes: notes.trim(),
-        category,
+        category: category ?? "Tops",
         brand: brand.trim() || "Unlabeled",
         color: color.trim(),
         size: size.trim(),
-        condition,
+        condition: condition || "Excellent",
         price,
       });
     } catch {
@@ -222,7 +240,7 @@ export default function Sell() {
       photos: uris,
       name: name.trim(),
       brand: brand.trim() || "Unlabeled",
-      category,
+      category: category as Category,
       color: color.trim(),
       size: size.trim(),
       condition,
@@ -247,6 +265,10 @@ export default function Sell() {
           <Text style={styles.topTitle}>New listing</Text>
           <View style={{ width: 40 }} />
         </View>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${(progress / 5) * 100}%` }]} />
+        </View>
+        <Text style={styles.progressLbl}>{progress} of 5 ready</Text>
 
         <ScrollView
           style={{ flex: 1 }}
@@ -337,36 +359,37 @@ export default function Sell() {
           <View style={styles.sheet}>
             <Text style={styles.priceLabel}>Price</Text>
             <View style={styles.priceRow}>
-              <Text style={styles.dollar}>$</Text>
+              <Text style={[styles.dollar, !price && { color: ph }]}>$</Text>
               <TextInput
                 style={styles.price}
                 value={price}
                 onChangeText={(v) => setPrice(v.replace(/[^0-9]/g, ""))}
                 keyboardType="number-pad"
-                placeholder="24"
-                placeholderTextColor={colors.subtle}
+                placeholder="0"
+                placeholderTextColor={ph}
                 autoFocus={false}
               />
             </View>
-            <Text style={styles.must}>Required — what a buyer pays</Text>
+            <Text style={styles.must}>Required</Text>
 
             <TextInput
               style={styles.titleIn}
               value={name}
               onChangeText={setName}
               placeholder="What’s the piece?"
-              placeholderTextColor={colors.subtle}
+              placeholderTextColor={ph}
             />
             <TextInput
               style={styles.bodyIn}
               value={notes}
               onChangeText={setNotes}
               placeholder="Fit, fabric, any marks — what you’d tell a friend."
-              placeholderTextColor={colors.subtle}
+              placeholderTextColor={ph}
               multiline
             />
 
             <Text style={styles.label}>Category</Text>
+            <Text style={styles.hint}>{category ? "Tap to change" : "Tap one — required"}</Text>
             <View style={styles.chips}>
               {CATS.map((c) => (
                 <Pressable key={c} onPress={() => setCategory(c)} style={[styles.chip, category === c && styles.chipOn]}>
@@ -382,8 +405,8 @@ export default function Sell() {
                   style={styles.field}
                   value={brand}
                   onChangeText={setBrand}
-                  placeholder="Unlabeled"
-                  placeholderTextColor={colors.subtle}
+                  placeholder="Optional"
+                  placeholderTextColor={ph}
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -392,8 +415,8 @@ export default function Sell() {
                   style={styles.field}
                   value={size}
                   onChangeText={setSize}
-                  placeholder="M"
-                  placeholderTextColor={colors.subtle}
+                  placeholder="Optional"
+                  placeholderTextColor={ph}
                 />
               </View>
             </View>
@@ -405,8 +428,8 @@ export default function Sell() {
                   style={styles.field}
                   value={color}
                   onChangeText={setColor}
-                  placeholder="Ivory"
-                  placeholderTextColor={colors.subtle}
+                  placeholder="Optional"
+                  placeholderTextColor={ph}
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -415,13 +438,14 @@ export default function Sell() {
                   style={styles.field}
                   value={material}
                   onChangeText={setMaterial}
-                  placeholder="Silk"
-                  placeholderTextColor={colors.subtle}
+                  placeholder="Optional"
+                  placeholderTextColor={ph}
                 />
               </View>
             </View>
 
             <Text style={styles.label}>Condition</Text>
+            <Text style={styles.hint}>{condition ? "Tap to change" : "Tap one — required"}</Text>
             <View style={styles.chips}>
               {CONDITIONS.map((c) => (
                 <Pressable key={c} onPress={() => setCondition(c)} style={[styles.chip, condition === c && styles.chipOn]}>
@@ -436,20 +460,18 @@ export default function Sell() {
               onChangeText={(v) => setWas(v.replace(/[^0-9]/g, ""))}
               keyboardType="number-pad"
               placeholder="Optional"
-              placeholderTextColor={colors.subtle}
+              placeholderTextColor={ph}
             />
           </View>
         </ScrollView>
 
         <View style={[styles.foot, { paddingBottom: insets.bottom + 12 }]}>
-          <Pressable onPress={() => void publish()} disabled={!canList} style={[styles.cta, !canList && styles.ctaOff]}>
-            <Text style={styles.ctaTxt}>
-              {checking
-                ? "Checking photos…"
-                : canList
-                  ? `List for ${usd(Math.max(1, Number(price) || 0) * 100)}`
-                  : "Add a photo, title, and price"}
-            </Text>
+          <Pressable
+            onPress={() => void publish()}
+            disabled={!canList}
+            style={[styles.cta, !canList && styles.ctaOff]}
+          >
+            <Text style={[styles.ctaTxt, !canList && styles.ctaTxtOff]}>{ctaLabel}</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -513,6 +535,15 @@ function make(colors: Colors) {
     back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
     backTxt: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
     topTitle: { color: colors.bone, fontSize: 16, fontWeight: "600" },
+    progressTrack: {
+      height: 3,
+      marginHorizontal: 20,
+      borderRadius: 2,
+      backgroundColor: colors.surface,
+      overflow: "hidden",
+    },
+    progressFill: { height: 3, backgroundColor: "#D6E27A", borderRadius: 2 },
+    progressLbl: { color: colors.subtle, fontSize: 11, marginTop: 6, marginBottom: 8, marginLeft: 20 },
     hero: {
       width: W,
       height: W / LISTING_RATIO,
@@ -622,7 +653,8 @@ function make(colors: Colors) {
       marginTop: 8,
     },
     bodyIn: { color: colors.muted, fontSize: 16, lineHeight: 22, minHeight: 72, marginTop: 10 },
-    label: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 20, marginBottom: 8 },
+    label: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 20, marginBottom: 4 },
+    hint: { color: colors.subtle, fontSize: 12, marginBottom: 8 },
     field: {
       height: 48,
       borderRadius: 14,
@@ -640,7 +672,7 @@ function make(colors: Colors) {
       paddingVertical: 8,
     },
     chipOn: { backgroundColor: "#D6E27A", borderColor: "#D6E27A" },
-    chipTxt: { color: colors.bone, fontSize: 13 },
+    chipTxt: { color: colors.muted, fontSize: 13 },
     chipTxtOn: { color: "#16140F", fontWeight: "600" },
     row: { flexDirection: "row", gap: 10 },
     foot: {
@@ -659,8 +691,9 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "center",
     },
-    ctaOff: { opacity: 0.4 },
+    ctaOff: { backgroundColor: colors.surface },
     ctaTxt: { color: "#16140F", fontSize: 16, fontWeight: "600" },
+    ctaTxtOff: { color: colors.muted },
     gate: {
       ...StyleSheet.absoluteFill,
       backgroundColor: "#12140A",
