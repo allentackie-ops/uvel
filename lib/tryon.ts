@@ -36,12 +36,12 @@ export function resolveSource(src: ImageSourcePropType | { uri: string }) {
   return r.uri;
 }
 
-async function uriToDataUrl(uri: string) {
+async function uriToDataUrl(uri: string, width = 1280) {
   if (uri.startsWith("data:")) return uri;
   const ctx = ImageManipulator.manipulate(uri);
-  ctx.resize({ width: 1024 });
+  ctx.resize({ width });
   const rendered = await ctx.renderAsync();
-  const saved = await rendered.saveAsync({ compress: 0.86, format: SaveFormat.JPEG, base64: true });
+  const saved = await rendered.saveAsync({ compress: 0.9, format: SaveFormat.JPEG, base64: true });
   if (!saved.base64) throw new Error("Couldn’t read that photo.");
   return `data:image/jpeg;base64,${saved.base64}`;
 }
@@ -50,7 +50,7 @@ const EXTRACT =
   "Product catalog photo of only the clothing item from this picture. Lay the garment on a plain white background. No person, no mannequin, no skin, no face. Photorealistic product shot. No text.";
 
 const IDENT =
-  "Edit photo 1 only. Keep this exact photograph: same person, same face, same pose, same room, same lighting, same camera angle. Replace only the clothing with the garment from photo 2. Do not redraw the person. Photorealistic. No text.";
+  "Edit photo 1 only. Keep this exact photograph: same person, same face, same pose, same room, same lighting, same camera angle, same proportions. Snapshot, not a retouch. Do not beautify. Replace only the clothing with the garment from photo 2. Do not redraw the person. Photorealistic. No text.";
 
 function nice(text: string) {
   const low = text.toLowerCase();
@@ -150,9 +150,15 @@ export async function dressPerson(opts: {
   if (!openaiKey()) throw new Error("Add your OpenAI key and I’ll turn try-on on.");
   try {
     const [personUrl, garmentUrl] = await Promise.all([
-      uriToDataUrl(opts.personUri),
-      uriToDataUrl(resolveSource(opts.garment)),
+      uriToDataUrl(opts.personUri, 1400),
+      uriToDataUrl(resolveSource(opts.garment), 1024),
     ]);
+
+    try {
+      return await openaiEdits([personUrl, garmentUrl], IDENT, "medium", "1024x1536");
+    } catch (first) {
+      if (!isBlocked(first)) throw first;
+    }
 
     let product = garmentUrl;
     try {
