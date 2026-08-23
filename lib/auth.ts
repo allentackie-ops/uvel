@@ -17,7 +17,7 @@ import {
   signOut as fbSignOut,
   updateProfile,
 } from "firebase/auth";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { firebaseAuth, firebaseDb, firebaseExtra, firebaseReady } from "./firebase";
 
 export type Session = {
@@ -70,8 +70,7 @@ export function isAlreadyAccount(err: unknown) {
 }
 
 async function afterAuth(cred: UserCredential, provider: string, mode: "signup" | "login") {
-  const extra = getAdditionalUserInfo(cred);
-  if (mode === "signup" && extra?.isNewUser === false) {
+  if (mode === "signup" && (await isReturningUser(cred))) {
     await fbSignOut(firebaseAuth());
     throw new Error(ALREADY_ACCOUNT);
   }
@@ -79,20 +78,54 @@ async function afterAuth(cred: UserCredential, provider: string, mode: "signup" 
   return session(cred.user);
 }
 
+async function isReturningUser(cred: UserCredential) {
+  const extra = getAdditionalUserInfo(cred);
+  if (extra?.isNewUser === false) return true;
+  const created = Date.parse(cred.user.metadata.creationTime ?? "");
+  const last = Date.parse(cred.user.metadata.lastSignInTime ?? "");
+  if (Number.isFinite(created) && Number.isFinite(last) && last - created > 8000) return true;
+  const remote = await readUserProfile(cred.user.uid);
+  return Boolean(remote?.profileDone || remote?.seen);
+}
+
 async function remember(user: User, provider: string) {
   try {
+    const prev = await readUserProfile(user.uid);
     await setDoc(
       doc(firebaseDb(), "users", user.uid),
       {
         email: user.email ?? "",
         name: user.displayName ?? "",
         provider,
+        seen: true,
         updatedAt: serverTimestamp(),
+        ...(prev ? {} : { createdAt: serverTimestamp() }),
       },
       { merge: true },
     );
   } catch {
     /* auth still counts if firestore isn’t on yet */
+  }
+}
+
+export async function readUserProfile(uid: string) {
+  try {
+    const snap = await getDoc(doc(firebaseDb(), "users", uid));
+    return snap.exists() ? (snap.data() as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function writeUserProfile(uid: string, data: Record<string, unknown>) {
+  try {
+    await setDoc(
+      doc(firebaseDb(), "users", uid),
+      { ...data, updatedAt: serverTimestamp() },
+      { merge: true },
+    );
+  } catch {
+    /* local profile still counts */
   }
 }
 

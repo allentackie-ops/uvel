@@ -77,16 +77,35 @@ void load().then(() => {
         ...memory,
         uid: user.uid,
         email: user.email,
-        displayName: user.name,
+        displayName: user.name || memory.displayName,
         signedInWith: user.provider,
-        onboarded: true,
-        onboardVersion: 4,
       };
       listeners.forEach((l) => l());
       void AsyncStorage.setItem(KEY, JSON.stringify(memory));
     });
   });
 });
+
+async function hydrateProfile(uid: string) {
+  try {
+    const { readUserProfile } = await import("./auth");
+    const d = await readUserProfile(uid);
+    if (!d?.profileDone) return false;
+    await save({
+      profileDone: true,
+      onboarded: true,
+      onboardVersion: 4,
+      displayName: typeof d.name === "string" && d.name ? d.name : memory.displayName,
+      birthday: typeof d.birthday === "string" ? d.birthday : memory.birthday,
+      gender: typeof d.gender === "string" ? d.gender : memory.gender,
+      styles: Array.isArray(d.styles) ? (d.styles as string[]) : memory.styles,
+      wantsUpdates: Boolean(d.wantsUpdates),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 async function save(next: Partial<State>) {
   memory = { ...memory, ...next };
@@ -138,16 +157,17 @@ export function useUvel() {
         onboardVersion: 4,
         signedInWith: provider ?? memory.signedInWith,
       }),
-    acceptSession: (s: Session) =>
-      save({
+    acceptSession: async (s: Session) => {
+      await save({
         onboarded: true,
         onboardVersion: 4,
         signedInWith: s.provider,
         uid: s.uid,
         email: s.email,
         displayName: s.name || memory.displayName,
-        profileDone: memory.profileDone,
-      }),
+      });
+      await hydrateProfile(s.uid);
+    },
     completeProfile: (patch: {
       displayName?: string;
       birthday: string;
@@ -156,13 +176,26 @@ export function useUvel() {
       styles: string[];
       wardrobeUris: string[];
       wantsUpdates: boolean;
-    }) =>
-      save({
+    }) => {
+      void import("./auth").then(({ writeUserProfile }) => {
+        if (!memory.uid) return;
+        void writeUserProfile(memory.uid, {
+          profileDone: true,
+          seen: true,
+          name: patch.displayName || memory.displayName,
+          birthday: patch.birthday,
+          gender: patch.gender,
+          styles: patch.styles,
+          wantsUpdates: patch.wantsUpdates,
+        });
+      });
+      return save({
         ...patch,
         profileDone: true,
         onboarded: true,
         onboardVersion: 4,
-      }),
+      });
+    },
     signOutAccount: async () => {
       const { signOut } = await import("./auth");
       await signOut();
