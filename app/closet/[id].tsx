@@ -3,10 +3,8 @@ import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import {
-  ActionSheetIOS,
   Alert,
   Dimensions,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -17,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usd } from "../../lib/catalog";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
-import { getPiece, markSold, removePiece, unlistPiece, useWardrobe } from "../../lib/wardrobe";
+import { getPiece, useWardrobe } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
 const HERO_H = Math.round(W * (5 / 4));
@@ -50,34 +48,6 @@ export default function ClosetPiece() {
     { k: "Condition", v: piece.condition },
   ].filter((f) => f.v);
   const pieceId = piece.id;
-  const pieceName = piece.name;
-
-  function manage() {
-    const options = ["Edit listing", "Take off the floor", "Mark sold", "Remove", "Cancel"];
-    const run = (i: number) => {
-      if (i === 0) router.push({ pathname: "/sell", params: { id: pieceId } });
-      if (i === 1) unlistPiece(pieceId);
-      if (i === 2) markSold(pieceId);
-      if (i === 3) {
-        removePiece(pieceId);
-        router.back();
-      }
-    };
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: 4, destructiveButtonIndex: 3 },
-        run,
-      );
-      return;
-    }
-    Alert.alert(pieceName, undefined, [
-      { text: "Edit listing", onPress: () => run(0) },
-      { text: "Take off the floor", onPress: () => run(1) },
-      { text: "Mark sold", onPress: () => run(2) },
-      { text: "Remove", style: "destructive", onPress: () => run(3) },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }
 
   function tryOnMe() {
     if (!app.isPlus && app.remainingTryOns <= 0) {
@@ -115,11 +85,6 @@ export default function ClosetPiece() {
           <Pressable onPress={() => router.back()} style={[styles.back, { top: insets.top + 6 }]} hitSlop={8}>
             <Text style={styles.backTxt}>‹</Text>
           </Pressable>
-          {onFloor && !buying ? (
-            <Pressable onPress={manage} style={[styles.more, { top: insets.top + 6 }]} hitSlop={8}>
-              <Text style={styles.moreTxt}>···</Text>
-            </Pressable>
-          ) : null}
         </View>
 
         <View style={styles.body}>

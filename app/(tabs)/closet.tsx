@@ -1,10 +1,10 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { usd } from "../../lib/catalog";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
-import { useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { markSold, removePiece, unlistPiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 export default function Closet() {
   const colors = useColors();
@@ -74,12 +74,50 @@ export default function Closet() {
   );
 }
 
+function manageListing(p: ClosetPiece) {
+  if (p.status !== "listed") {
+    router.push({ pathname: "/sell", params: { id: p.id } });
+    return;
+  }
+  const options = ["Edit listing", "Unlist", "Mark sold", "Remove", "Cancel"];
+  const run = (i: number) => {
+    if (i === 0) router.push({ pathname: "/sell", params: { id: p.id } });
+    if (i === 1) unlistPiece(p.id);
+    if (i === 2) markSold(p.id);
+    if (i === 3) removePiece(p.id);
+  };
+  if (Platform.OS === "ios") {
+    ActionSheetIOS.showActionSheetWithOptions(
+      { options, cancelButtonIndex: 4, destructiveButtonIndex: 3 },
+      run,
+    );
+    return;
+  }
+  Alert.alert(p.name, undefined, [
+    { text: "Edit listing", onPress: () => run(0) },
+    { text: "Unlist", onPress: () => run(1) },
+    { text: "Mark sold", onPress: () => run(2) },
+    { text: "Remove", style: "destructive", onPress: () => run(3) },
+    { text: "Cancel", style: "cancel" },
+  ]);
+}
+
 function Grid({ pieces, colors }: { pieces: ClosetPiece[]; colors: Colors }) {
   const styles = make(colors);
   return (
     <View style={styles.grid}>
       {pieces.map((p) => (
-        <Pressable key={p.id} style={styles.cell} onPress={() => router.push(`/closet/${p.id}`)}>
+        <Pressable
+          key={p.id}
+          style={styles.cell}
+          onPress={() =>
+            router.push({
+              pathname: "/closet/[id]",
+              params: { id: p.id, v: p.status === "listed" ? "buy" : "own" },
+            })
+          }
+          onLongPress={() => manageListing(p)}
+        >
           <Image source={{ uri: p.photo }} style={styles.thumb} contentFit="cover" />
           <Text style={styles.meta}>{p.brand}</Text>
           <Text style={styles.h3} numberOfLines={1}>

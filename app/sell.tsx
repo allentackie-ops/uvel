@@ -273,7 +273,7 @@ export default function Sell() {
       listPriceCents: Math.max(1, Number(price) || 0) * 100,
       originalPriceCents: Math.max(0, Number(was) || 0) * 100,
     };
-    if (existing) listPiece(existing.id, draft);
+    if (existing) listPiece(existing.id, { ...draft, ownerId: uid, ownerName: displayName });
     else addPiece({ ...draft, status: "listed", ownerId: uid, ownerName: displayName });
     setGate({ phase: "pass" });
     setTimeout(() => router.replace("/(tabs)/closet"), 1100);
