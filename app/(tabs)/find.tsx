@@ -138,7 +138,8 @@ export default function Mirror() {
         /timeout|timed out|unexpectedexception|fetch failed|expo modules/i.test(raw)
           ? "That look took too long. Try again."
           : raw || "Couldn’t dress you in that.",
-      ); finally {
+      );
+    } finally {
       setBusy(false);
     }
   }
