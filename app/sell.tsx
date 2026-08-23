@@ -101,9 +101,22 @@ export default function Sell() {
   const hasTitle = Boolean(name.trim());
   const hasPrice = Number(price) > 0;
   const hasCat = Boolean(category);
+  const hasSize = Boolean(size.trim());
+  const hasColor = Boolean(color.trim());
+  const hasMaterial = Boolean(material.trim());
   const hasCond = Boolean(condition);
-  const canList = hasPhoto && hasTitle && hasPrice && hasCat && hasCond && !checking && gate.phase === "idle";
-  const progress = [hasPhoto, hasPrice, hasTitle, hasCat, hasCond].filter(Boolean).length;
+  const canList =
+    hasPhoto &&
+    hasTitle &&
+    hasPrice &&
+    hasCat &&
+    hasSize &&
+    hasColor &&
+    hasMaterial &&
+    hasCond &&
+    !checking &&
+    gate.phase === "idle";
+  const progress = [hasPhoto, hasPrice, hasTitle, hasCat, hasSize, hasColor, hasMaterial, hasCond].filter(Boolean).length;
   const ph = appearance === "dark" ? "rgba(244,240,230,0.28)" : "rgba(22,20,15,0.32)";
   const ctaLabel = checking
     ? "Checking photos…"
@@ -115,9 +128,15 @@ export default function Sell() {
           ? "Add a price"
           : !hasCat
             ? "Pick a category"
-            : !hasCond
-              ? "Pick a condition"
-              : `List for ${usd(Math.max(1, Number(price) || 0) * 100)}`;
+            : !hasSize
+              ? "Add a size"
+              : !hasColor
+                ? "Add a colour"
+                : !hasMaterial
+                  ? "Add a material"
+                  : !hasCond
+                    ? "Pick a condition"
+                    : `List for ${usd(Math.max(1, Number(price) || 0) * 100)}`;
 
   useEffect(() => {
     if (!existing && photos.length === 1 && photos[0].status === "ok" && photos[0].review) {
@@ -266,9 +285,9 @@ export default function Sell() {
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${(progress / 5) * 100}%` }]} />
+          <View style={[styles.progressFill, { width: `${(progress / 8) * 100}%` }]} />
         </View>
-        <Text style={styles.progressLbl}>{progress} of 5 ready</Text>
+        <Text style={styles.progressLbl}>{progress} of 8 ready</Text>
 
         <ScrollView
           style={{ flex: 1 }}
@@ -410,12 +429,12 @@ export default function Sell() {
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Size</Text>
+                <Text style={styles.label}>Size *</Text>
                 <TextInput
                   style={styles.field}
                   value={size}
                   onChangeText={setSize}
-                  placeholder="Optional"
+                  placeholder=""
                   placeholderTextColor={ph}
                 />
               </View>
@@ -423,22 +442,22 @@ export default function Sell() {
 
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Colour</Text>
+                <Text style={styles.label}>Colour *</Text>
                 <TextInput
                   style={styles.field}
                   value={color}
                   onChangeText={setColor}
-                  placeholder="Optional"
+                  placeholder=""
                   placeholderTextColor={ph}
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Material</Text>
+                <Text style={styles.label}>Material *</Text>
                 <TextInput
                   style={styles.field}
                   value={material}
                   onChangeText={setMaterial}
-                  placeholder="Optional"
+                  placeholder=""
                   placeholderTextColor={ph}
                 />
               </View>
