@@ -23,9 +23,10 @@ import { uvelFeeCents } from "../lib/fees";
 import { getMarket, moneyExact } from "../lib/markets";
 import { pickListingPhoto, takeListingPhoto } from "../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
+import { SHOP_LOOKS } from "../lib/shopLook";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
-import { addPiece, getPiece, listPiece, useWardrobe } from "../lib/wardrobe";
+import { addPiece, getPiece, listPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
 
 const MAX = 5;
 const W = Dimensions.get("window").width;
@@ -68,7 +69,7 @@ export default function Sell() {
   const { id, fits } = useLocalSearchParams<{ id?: string; fits?: string }>();
   useWardrobe();
   const existing = id ? getPiece(id) : undefined;
-  const { wardrobeUris, appearance, uid, displayName, country } = useUvel();
+  const { wardrobeUris, appearance, uid, displayName, country, isPlus } = useUvel();
   const market = getMarket(country);
 
   const [photos, setPhotos] = useState<Slot[]>(
@@ -93,6 +94,7 @@ export default function Sell() {
     existing?.originalPriceCents ? String(Math.round(existing.originalPriceCents / 100)) : "",
   );
   const [fitsOpen, setFitsOpen] = useState(fits === "1");
+  const [shopLook, setShopLook] = useState(existing?.shopLook || "uvel");
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
 
@@ -277,6 +279,7 @@ export default function Sell() {
       originalPriceCents: Math.max(0, Number(was) || 0) * 100,
       country: market.code,
       currency: market.currency,
+      shopLook: isPlus ? shopLook : "uvel",
     };
     if (existing) listPiece(existing.id, { ...draft, ownerId: uid, ownerName: displayName, country: market.code, currency: market.currency });
     else addPiece({ ...draft, status: "listed", ownerId: uid, ownerName: displayName, country: market.code, currency: market.currency });
@@ -497,6 +500,61 @@ export default function Sell() {
               placeholder="Optional"
               placeholderTextColor={ph}
             />
+
+            <View style={styles.lookHead}>
+              <Text style={styles.label}>Shop look</Text>
+              {isPlus ? (
+                <Text style={styles.plusTag}>Uvel+</Text>
+              ) : (
+                <Pressable onPress={() => router.push("/plus")}>
+                  <Text style={styles.plusTag}>Uvel+</Text>
+                </Pressable>
+              )}
+            </View>
+            <Text style={styles.lookLede}>
+              How buyers see this listing. Plus members can dress the page.
+            </Text>
+            <View style={styles.lookGrid}>
+              {SHOP_LOOKS.map((look) => {
+                const on = shopLook === look.id;
+                const locked = look.plus && !isPlus;
+                return (
+                  <Pressable
+                    key={look.id}
+                    onPress={() => {
+                      if (locked) {
+                        router.push("/plus");
+                        return;
+                      }
+                      setShopLook(look.id);
+                      if (existing) updatePiece(existing.id, { shopLook: look.id });
+                    }}
+                    style={[styles.lookCard, on && styles.lookCardOn, locked && { opacity: 0.55 }]}
+                  >
+                    <View style={[styles.lookSwatch, { backgroundColor: look.page }]}>
+                      <View style={[styles.lookDot, { backgroundColor: look.accent }]} />
+                    </View>
+                    <Text style={styles.lookName}>{look.name}</Text>
+                    <Text style={styles.lookLine} numberOfLines={1}>
+                      {locked ? "Plus" : look.line}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {existing ? (
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: "/closet/[id]",
+                    params: { id: existing.id, v: "buy" },
+                  })
+                }
+                style={styles.preview}
+              >
+                <Text style={styles.previewTxt}>Preview as a buyer →</Text>
+              </Pressable>
+            ) : null}
           </View>
         </ScrollView>
 
@@ -699,6 +757,26 @@ function make(colors: Colors) {
     chipTxt: { color: colors.muted, fontSize: 13 },
     chipTxtOn: { color: "#16140F", fontWeight: "600" },
     row: { flexDirection: "row", gap: 10 },
+    lookHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginTop: 8 },
+    plusTag: { color: "#D6E27A", fontSize: 12, fontWeight: "700", letterSpacing: 0.6 },
+    lookLede: { color: colors.muted, fontSize: 13, lineHeight: 18, marginBottom: 12 },
+    lookGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    lookCard: {
+      width: "48%",
+      flexGrow: 1,
+      borderRadius: 16,
+      padding: 10,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: "transparent",
+    },
+    lookCardOn: { borderColor: "#D6E27A" },
+    lookSwatch: { height: 52, borderRadius: 12, justifyContent: "flex-end", alignItems: "flex-end", padding: 8 },
+    lookDot: { width: 14, height: 14, borderRadius: 7 },
+    lookName: { color: colors.bone, fontWeight: "700", fontSize: 14, marginTop: 8 },
+    lookLine: { color: colors.muted, fontSize: 12, marginTop: 2 },
+    preview: { marginTop: 14, marginBottom: 8 },
+    previewTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
     foot: {
       position: "absolute",
       left: 0,

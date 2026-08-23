@@ -15,7 +15,7 @@ export default function Plus() {
     <View style={styles.page}>
       <Text style={styles.kicker}>UVEL+</Text>
       <Text style={styles.title}>See it on you. Find it for less.</Text>
-      {["Unlimited look scans across Depop, Grailed, Vestiaire, and more", "Virtual try-on before you buy", "Daily trend scan from TikTok, Instagram, Snapchat, and X", "A style report written against your closet"].map((b) => (
+      {["Unlimited look scans across Depop, Grailed, Vestiaire, and more", "Virtual try-on before you buy", "Daily trend scan from TikTok, Instagram, Snapchat", "Custom shop looks on every listing you sell", "A style report written against your closet"].map((b) => (
         <Text key={b} style={styles.bullet}>
           {b}
         </Text>
