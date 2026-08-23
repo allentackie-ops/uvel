@@ -66,7 +66,7 @@ export default function Sell() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   useWardrobe();
   const existing = id ? getPiece(id) : undefined;
-  const { wardrobeUris, appearance } = useUvel();
+  const { wardrobeUris, appearance, uid, displayName } = useUvel();
 
   const [photos, setPhotos] = useState<Slot[]>(
     existing?.photos?.length
@@ -274,7 +274,7 @@ export default function Sell() {
       originalPriceCents: Math.max(0, Number(was) || 0) * 100,
     };
     if (existing) listPiece(existing.id, draft);
-    else addPiece({ ...draft, status: "listed" });
+    else addPiece({ ...draft, status: "listed", ownerId: uid, ownerName: displayName });
     setGate({ phase: "pass" });
     setTimeout(() => router.replace("/(tabs)/closet"), 1100);
   }

@@ -178,7 +178,7 @@ export default function ClosetPiece() {
           </Pressable>
           <View style={styles.dockRow}>
             <Pressable
-              onPress={() => Alert.alert("Ask", "Messages land in a later drop.")}
+              onPress={() => router.push({ pathname: "/ask/[id]", params: { id: piece.id } })}
               style={styles.ask}
             >
               <Text style={styles.askTxt}>Ask</Text>

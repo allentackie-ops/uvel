@@ -1,4 +1,4 @@
-import { DarkTheme, Stack, ThemeProvider } from "expo-router";
+import { DarkTheme, Stack, ThemeProvider, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { LaunchSplash } from "../components/LaunchSplash";
 import { useOtaReady } from "../lib/ota";
+import { armNotificationHandler, registerPushToken, watchLastSeen } from "../lib/push";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 import Onboard from "./onboard";
@@ -19,6 +20,34 @@ function ThemeSync() {
   useEffect(() => {
     Appearance.setColorScheme(appearance);
   }, [appearance]);
+  return null;
+}
+
+function PushSync() {
+  const { uid } = useUvel();
+  useEffect(() => {
+    armNotificationHandler();
+  }, []);
+  useEffect(() => {
+    if (!uid) return;
+    void registerPushToken(uid);
+    const stop = watchLastSeen(uid);
+    let sub: { remove: () => void } | undefined;
+    void import("expo-notifications")
+      .then((N) => {
+        sub = N.addNotificationResponseReceivedListener((res) => {
+          const pieceId = res.notification.request.content.data?.pieceId;
+          if (typeof pieceId === "string" && pieceId) {
+            router.push({ pathname: "/ask/[id]", params: { id: pieceId } });
+          }
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      stop();
+      sub?.remove();
+    };
+  }, [uid]);
   return null;
 }
 
@@ -45,6 +74,7 @@ function AppStack() {
     <ThemeProvider value={navTheme}>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
         <ThemeSync />
+        <PushSync />
         <StatusBar style={appearance === "dark" ? "light" : "dark"} />
         <Stack
           screenOptions={{
@@ -102,6 +132,14 @@ function AppStack() {
           />
           <Stack.Screen
             name="try-on"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#12110E" },
+            }}
+          />
+          <Stack.Screen
+            name="ask/[id]"
             options={{
               headerShown: false,
               animation: "slide_from_right",
