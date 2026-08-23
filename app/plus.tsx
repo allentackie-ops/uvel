@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 
-const PERKS = ["Virtual try-on before you buy", "Custom shop looks on every listing you sell"];
+const PERKS = ["Unlimited virtual try-on before you buy", "Custom shop looks on every listing you sell"];
 
 export default function Plus() {
   const colors = useColors();
@@ -17,6 +17,10 @@ export default function Plus() {
   function start() {
     void app.activatePlus(plan);
     router.back();
+  }
+
+  function openLegal(id: "privacy" | "terms") {
+    router.push({ pathname: "/legal/[id]", params: { id } });
   }
 
   return (
@@ -60,7 +64,19 @@ export default function Plus() {
         <Pressable onPress={start} style={styles.cta}>
           <Text style={styles.ctaTxt}>{app.isPlus ? "Update plan" : "Start Uvel+"}</Text>
         </Pressable>
-        <Text style={styles.legal}>Cancel anytime.</Text>
+
+        <Text style={styles.legal}>
+          Auto-renews unless you cancel at least 24 hours before the period ends. Cancel anytime in iOS Settings.
+        </Text>
+        <View style={styles.links}>
+          <Pressable onPress={() => openLegal("privacy")} hitSlop={8}>
+            <Text style={styles.link}>Privacy Policy</Text>
+          </Pressable>
+          <Text style={styles.sep}>·</Text>
+          <Pressable onPress={() => openLegal("terms")} hitSlop={8}>
+            <Text style={styles.link}>Terms and Conditions</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </View>
   );
@@ -128,6 +144,15 @@ function make(colors: Colors) {
       backgroundColor: colors.pulse,
     },
     ctaTxt: { color: colors.bone, fontSize: 16, fontWeight: "600" },
-    legal: { color: colors.subtle, fontSize: 12, marginTop: 14, textAlign: "center" },
+    legal: { color: colors.subtle, fontSize: 12, marginTop: 16, lineHeight: 17, textAlign: "center" },
+    links: {
+      flexDirection: "row",
+      justifyContent: "center",
+      alignItems: "center",
+      gap: 10,
+      marginTop: 12,
+    },
+    link: { color: colors.bone, fontSize: 13, fontWeight: "600", textDecorationLine: "underline" },
+    sep: { color: colors.subtle, fontSize: 13 },
   });
 }

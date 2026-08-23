@@ -7,7 +7,6 @@ import { getMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 
-const PRIVACY = "https://allentackie-ops.github.io/uvel/";
 const HELP = "mailto:himforson@gmail.com?subject=Uvel%20help";
 const VERSION = Constants.expoConfig?.version ?? "1.0.0";
 
@@ -36,7 +35,8 @@ export default function Settings() {
       <Text style={styles.section}>Support</Text>
       <View style={styles.group}>
         <Row label="Help and support" onPress={() => void Linking.openURL(HELP)} colors={colors} />
-        <Row label="Privacy policy" onPress={() => void Linking.openURL(PRIVACY)} colors={colors} last />
+        <Row label="Privacy policy" onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "privacy" } })} colors={colors} />
+        <Row label="Terms and conditions" onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "terms" } })} colors={colors} last />
       </View>
 
       <Text style={styles.section}>Account</Text>

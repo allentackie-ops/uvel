@@ -755,7 +755,7 @@ export default function Onboard() {
                   {C.agree}{" "}
                   <Text
                     style={styles.agreeLink}
-                    onPress={() => void Linking.openURL("https://allentackie-ops.github.io/")}
+                    onPress={() => void Linking.openURL("https://allentackie-ops.github.io/uvel/")}
                   >
                     {C.privacy}
                   </Text>

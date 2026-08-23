@@ -107,6 +107,13 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="legal/[id]"
+            options={{
+              headerTransparent: false,
+              headerShadowVisible: false,
+            }}
+          />
+          <Stack.Screen
             name="settings"
             options={{
               headerTitle: "Settings",
