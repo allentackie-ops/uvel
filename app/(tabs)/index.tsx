@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
-import { OrbitLoader } from "../../components/OrbitLoader";
+import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { unreadFor, useInbox } from "../../lib/chat";
 import { usd } from "../../lib/catalog";
 import { frameAtTime, playableLookVideo, prefetchLookVideo } from "../../lib/lookFrame";
@@ -30,11 +30,14 @@ import { listedPieces, useWardrobe, type ClosetPiece } from "../../lib/wardrobe"
 
 const { width: W, height: H } = Dimensions.get("screen");
 
-const orbitHold = {
-  ...StyleSheet.absoluteFillObject,
+const orbitTop = {
+  position: "absolute" as const,
+  top: 0,
+  left: 0,
+  right: 0,
   alignItems: "center" as const,
-  justifyContent: "center" as const,
-  zIndex: 8,
+  zIndex: 40,
+  elevation: 40,
 };
 const CARD_W = Math.round((W - 32) / 2.28);
 const CARD_H = Math.round(CARD_W * 1.42);
@@ -56,18 +59,19 @@ function MutedLoop({
   cover,
   style,
   handleRef,
+  onWait,
 }: {
   uri: string;
   cover?: string;
   style: object;
   handleRef?: MutableRefObject<FrameGrab | null>;
+  onWait?: (v: boolean) => void;
 }) {
   const held = useRef(false);
   const lastTime = useRef(0);
   const frozenAt = useRef(0);
   const src = playableLookVideo(uri);
   const [on, setOn] = useState(false);
-  const [wait, setWait] = useState(true);
   const player = useVideoPlayer({ uri: src }, (p) => {
     p.loop = true;
     p.muted = true;
@@ -83,17 +87,19 @@ function MutedLoop({
   }, [player]);
 
   useEffect(() => {
+    setOn(false);
+    onWait?.(true);
     player.timeUpdateEventInterval = 0.03;
     prefetchLookVideo(uri);
     const status = player.addListener("statusChange", ({ status }) => {
       if (status === "readyToPlay") {
         setOn(true);
-        setWait(false);
+        onWait?.(false);
         playIfFree();
       } else if (status === "loading") {
-        setWait(true);
+        onWait?.(true);
       } else if (status === "error") {
-        setWait(false);
+        onWait?.(false);
       }
     });
     const time = player.addListener("timeUpdate", ({ currentTime }) => {
@@ -115,7 +121,7 @@ function MutedLoop({
       clearInterval(tick);
       app.remove();
     };
-  }, [player, uri, playIfFree]);
+  }, [player, uri, playIfFree, onWait]);
 
   useFocusEffect(
     useCallback(() => {
@@ -157,11 +163,6 @@ function MutedLoop({
       {cover && !on ? (
         <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" />
       ) : null}
-      {wait ? (
-        <View style={orbitHold} pointerEvents="none">
-          <OrbitLoader />
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -170,12 +171,15 @@ function LookMedia({
   look,
   style,
   handleRef,
+  onWait,
 }: {
   look: Look;
   style: object;
   handleRef?: MutableRefObject<FrameGrab | null>;
+  onWait?: (v: boolean) => void;
 }) {
   useEffect(() => {
+    if (!look.videoUrl) onWait?.(false);
     if (look.videoUrl || !handleRef) return;
     handleRef.current = {
       freeze: () => 0,
@@ -184,8 +188,12 @@ function LookMedia({
     return () => {
       handleRef.current = null;
     };
-  }, [look.videoUrl, look.imageUrl, handleRef]);
-  if (look.videoUrl) return <MutedLoop uri={look.videoUrl} cover={look.imageUrl} style={style} handleRef={handleRef} />;
+  }, [look.videoUrl, look.imageUrl, handleRef, onWait]);
+  if (look.videoUrl) {
+    return (
+      <MutedLoop uri={look.videoUrl} cover={look.imageUrl} style={style} handleRef={handleRef} onWait={onWait} />
+    );
+  }
   return <Image source={lookImage(look)} style={style} contentFit="cover" />;
 }
 
@@ -233,7 +241,10 @@ export default function Today() {
   useWardrobe();
   const live = listedPieces();
   const [source, setSource] = useState<Source>("All");
+  const [videoWait, setVideoWait] = useState(false);
+  const [shopWait, setShopWait] = useState(false);
   const heroH = Math.round(H - insets.bottom - 196);
+  const orbitOn = useMinHold(refreshing || loading || videoWait || shopWait, 1200);
 
   const visible = useMemo(
     () => (source === "All" ? looks : looks.filter((t) => t.source === source)),
@@ -261,13 +272,16 @@ export default function Today() {
         }
       >
         {featured ? (
-          <Hero key={featured.id} look={featured} colors={colors} height={heroH} />
+          <Hero
+            key={featured.id}
+            look={featured}
+            colors={colors}
+            height={heroH}
+            onWait={setVideoWait}
+            onBusy={setShopWait}
+          />
         ) : (
-          <View style={[styles.heroWrap, styles.heroLoad, { height: heroH }]}>
-            {loading ? (
-              <OrbitLoader label="Loading your feed" caption="All your platforms, one orbit" />
-            ) : null}
-          </View>
+          <View style={[styles.heroWrap, { height: heroH }]} />
         )}
 
         <View style={styles.body}>
@@ -347,16 +361,28 @@ export default function Today() {
           )}
         </View>
       </ScrollView>
-      {refreshing ? (
-        <View style={orbitHold} pointerEvents="none">
-          <OrbitLoader label="Loading your feed" />
+      {orbitOn ? (
+        <View style={[orbitTop, { paddingTop: insets.top + 10 }]} pointerEvents="none">
+          <OrbitLoader />
         </View>
       ) : null}
     </View>
   );
 }
 
-function Hero({ look, colors, height }: { look: Look; colors: Colors; height: number }) {
+function Hero({
+  look,
+  colors,
+  height,
+  onWait,
+  onBusy,
+}: {
+  look: Look;
+  colors: Colors;
+  height: number;
+  onWait?: (v: boolean) => void;
+  onBusy?: (v: boolean) => void;
+}) {
   const styles = make(colors);
   const seen = where(look.postUrl) || look.source;
   const grab = useRef<FrameGrab | null>(null);
@@ -366,18 +392,17 @@ function Hero({ look, colors, height }: { look: Look; colors: Colors; height: nu
   function shopThis() {
     if (busy) return;
     setBusy(true);
+    onBusy?.(true);
     scanLook(look, grab.current);
-    setTimeout(() => setBusy(false), 400);
+    setTimeout(() => {
+      setBusy(false);
+      onBusy?.(false);
+    }, 400);
   }
 
   return (
     <View style={[styles.heroWrap, { height }]}>
-      <LookMedia look={look} style={styles.hero} handleRef={grab} />
-      {busy ? (
-        <View style={orbitHold} pointerEvents="none">
-          <OrbitLoader />
-        </View>
-      ) : null}
+      <LookMedia look={look} style={styles.hero} handleRef={grab} onWait={onWait} />
       <View style={styles.heroCopy}>
         <View style={styles.heroBar}>
           <Pressable onPress={() => void shopThis()} style={styles.cta}>

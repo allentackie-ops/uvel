@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
 const SIZE = 84;
@@ -74,6 +74,26 @@ function PulseDot({
   );
 }
 
+/** Keep a flag true for at least `ms` so the orbit can actually play. */
+export function useMinHold(on: boolean, ms = 1100) {
+  const [held, setHeld] = useState(on);
+  const started = useRef(on ? Date.now() : 0);
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    if (on) {
+      started.current = Date.now();
+      setHeld(true);
+    } else {
+      const left = ms - (Date.now() - started.current);
+      t = setTimeout(() => setHeld(false), Math.max(0, left));
+    }
+    return () => {
+      if (t) clearTimeout(t);
+    };
+  }, [on, ms]);
+  return held;
+}
+
 export function OrbitLoader({
   label,
   caption,
@@ -118,7 +138,7 @@ export function OrbitLoader({
   }, [core, spin]);
 
   return (
-    <View style={styles.wrap} accessibilityRole="progressbar">
+    <View style={[styles.wrap, !label && !caption ? styles.wrapTight : null]} accessibilityRole="progressbar">
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <Animated.View
         style={[
@@ -145,7 +165,8 @@ export function OrbitLoader({
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignItems: "center", gap: 36 },
+  wrap: { alignItems: "center", gap: 16 },
+  wrapTight: { gap: 0 },
   orbit: { width: SIZE, height: SIZE },
   core: {
     position: "absolute",
