@@ -24,11 +24,12 @@ export type PayMethod = {
   id: string;
   label: string;
   kind: "apple" | "card" | "wallet" | "bank";
+  icon?: "apple" | "momo" | "telecel" | "card";
 };
 
 export function payMethods(country: string): PayMethod[] {
-  const apple: PayMethod = { id: "apple", label: "Apple Pay", kind: "apple" };
-  const card: PayMethod = { id: "card", label: "Card", kind: "card" };
+  const apple: PayMethod = { id: "apple", label: "Apple Pay", kind: "apple", icon: "apple" };
+  const card: PayMethod = { id: "card", label: "Card", kind: "card", icon: "card" };
   const extra: Record<string, PayMethod[]> = {
     US: [apple, card],
     CA: [apple, card],
@@ -49,8 +50,8 @@ export function payMethods(country: string): PayMethod[] {
     CL: [card],
     PE: [card],
     GH: [
-      { id: "momo", label: "MTN MoMo", kind: "wallet" },
-      { id: "telecel", label: "Telecel Cash", kind: "wallet" },
+      { id: "momo", label: "MTN MoMo", kind: "wallet", icon: "momo" },
+      { id: "telecel", label: "Telecel Cash", kind: "wallet", icon: "telecel" },
       card,
       apple,
     ],

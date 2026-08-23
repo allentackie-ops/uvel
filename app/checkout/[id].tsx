@@ -245,30 +245,48 @@ export default function Checkout() {
 }
 
 function PayMark({ method }: { method: PayMethod }) {
-  if (method.kind === "apple") {
+  const src =
+    method.icon === "apple"
+      ? require("../../assets/pay/apple-pay.png")
+      : method.icon === "momo"
+        ? require("../../assets/pay/mtn-momo.png")
+        : method.icon === "telecel"
+          ? require("../../assets/pay/telecel.png")
+          : method.icon === "card"
+            ? require("../../assets/pay/card.png")
+            : null;
+  if (!src) {
     return (
-      <View style={mark.apple}>
-        <Image source={require("../../assets/auth/apple.png")} style={mark.logo} contentFit="contain" />
+      <View style={mark.box}>
+        <Text style={mark.txt}>{method.label.slice(0, 1)}</Text>
       </View>
     );
   }
+  const apple = method.icon === "apple";
+  const card = method.icon === "card";
   return (
-    <View style={mark.box}>
-      <Text style={mark.txt}>{method.label.slice(0, 1)}</Text>
+    <View style={[mark.wrap, apple && { backgroundColor: "transparent" }]}>
+      <Image
+        source={src}
+        style={apple ? mark.apple : card ? mark.card : mark.sq}
+        contentFit="contain"
+      />
     </View>
   );
 }
 
 const mark = StyleSheet.create({
-  apple: {
-    width: 36,
-    height: 24,
-    borderRadius: 4,
-    backgroundColor: "#fff",
+  wrap: {
+    height: 28,
+    minWidth: 28,
+    borderRadius: 6,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
-  logo: { width: 14, height: 14 },
+  apple: { width: 46, height: 28 },
+  card: { width: 52, height: 22 },
+  sq: { width: 28, height: 28 },
   box: {
     width: 36,
     height: 24,
