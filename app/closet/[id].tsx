@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usd } from "../../lib/catalog";
+import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { getPiece, markSold, removePiece, unlistPiece, useWardrobe } from "../../lib/wardrobe";
 
@@ -30,6 +31,7 @@ export default function ClosetPiece() {
   const piece = getPiece(id);
   const buying = v === "buy";
   const [page, setPage] = useState(0);
+  const app = useUvel();
 
   if (!piece) {
     return (
@@ -75,11 +77,19 @@ export default function ClosetPiece() {
     ]);
   }
 
+  function tryOnMe() {
+    if (!app.isPlus && app.remainingTryOns <= 0) {
+      router.push("/plus");
+      return;
+    }
+    router.push({ pathname: "/(tabs)/try-on", params: { piece: pieceId } });
+  }
+
   return (
     <View style={styles.page}>
       <StatusBar style="light" />
       <ScrollView
-        contentContainerStyle={{ paddingBottom: buying ? 120 : 48 }}
+        contentContainerStyle={{ paddingBottom: buying ? 168 : 48 }}
         showsVerticalScrollIndicator={false}
       >
         <View style={{ height: HERO_H }}>
@@ -162,19 +172,24 @@ export default function ClosetPiece() {
       </ScrollView>
 
       {buying && piece.status === "listed" ? (
-        <View style={[styles.dock, { paddingBottom: insets.bottom + 12 }]}>
-          <Pressable
-            onPress={() => Alert.alert("Ask", "Messages land in a later drop.")}
-            style={styles.ask}
-          >
-            <Text style={styles.askTxt}>Ask</Text>
+        <View style={[styles.dock, { paddingBottom: insets.bottom + 10 }]}>
+          <Pressable onPress={tryOnMe} style={styles.try}>
+            <Text style={styles.tryTxt}>Try on me</Text>
           </Pressable>
-          <Pressable
-            onPress={() => Alert.alert("Buy", "Checkout lands in a later drop.")}
-            style={styles.buy}
-          >
-            <Text style={styles.ctaTxt}>Buy · {usd(piece.listPriceCents)}</Text>
-          </Pressable>
+          <View style={styles.dockRow}>
+            <Pressable
+              onPress={() => Alert.alert("Ask", "Messages land in a later drop.")}
+              style={styles.ask}
+            >
+              <Text style={styles.askTxt}>Ask</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => Alert.alert("Buy", "Checkout lands in a later drop.")}
+              style={styles.buy}
+            >
+              <Text style={styles.ctaTxt}>Buy · {usd(piece.listPriceCents)}</Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
     </View>
@@ -253,12 +268,21 @@ function make(colors: Colors) {
       left: 0,
       right: 0,
       bottom: 0,
-      flexDirection: "row",
-      gap: 10,
+      gap: 8,
       paddingHorizontal: 16,
-      paddingTop: 12,
+      paddingTop: 10,
       backgroundColor: colors.ink,
     },
+    try: {
+      height: 48,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: "#D6E27A",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    tryTxt: { color: "#D6E27A", fontWeight: "700", fontSize: 15 },
+    dockRow: { flexDirection: "row", gap: 10 },
     ask: {
       height: 54,
       paddingHorizontal: 22,

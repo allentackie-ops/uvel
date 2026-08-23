@@ -8,17 +8,23 @@ import { GARMENTS, getGarment, usd } from "../../lib/catalog";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { dressPerson } from "../../lib/tryon";
+import { getPiece, useWardrobe } from "../../lib/wardrobe";
 
 export default function TryOn() {
   const colors = useColors();
   const styles = make(colors);
-  const { g } = useLocalSearchParams<{ g?: string }>();
+  const { g, piece: pieceId } = useLocalSearchParams<{ g?: string; piece?: string }>();
   const app = useUvel();
+  useWardrobe();
+  const closet = pieceId ? getPiece(pieceId) : undefined;
   const [picked, setPicked] = useState(g ?? GARMENTS[0].id);
   const [result, setResult] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const garment = getGarment(picked);
+  const garment = closet ? null : getGarment(picked);
+  const pieceName = closet?.name ?? garment?.name;
+  const pieceCategory = closet?.category ?? garment?.category;
+  const pieceImage = closet ? { uri: closet.photo } : garment?.image;
 
   useEffect(() => {
     if (g) setPicked(g);
@@ -34,8 +40,8 @@ export default function TryOn() {
   }
 
   async function run() {
-    if (!app.personUri || !garment) return;
-    if (app.remainingTryOns <= 0) {
+    if (!app.personUri || !pieceImage) return;
+    if (!app.isPlus && app.remainingTryOns <= 0) {
       router.push("/plus");
       return;
     }
@@ -44,9 +50,9 @@ export default function TryOn() {
     try {
       const dressed = await dressPerson({
         personUri: app.personUri,
-        garment: garment.image,
-        garmentName: garment.name,
-        category: garment.category,
+        garment: pieceImage,
+        garmentName: pieceName,
+        category: pieceCategory,
       });
       app.consumeTryOn();
       setResult(dressed);
@@ -70,8 +76,8 @@ export default function TryOn() {
           <Image source={{ uri: result }} style={styles.fill} contentFit="contain" />
         ) : app.personUri ? (
           <Image source={{ uri: app.personUri }} style={styles.fill} contentFit="contain" />
-        ) : garment ? (
-          <Image source={garment.image} style={styles.fill} contentFit="cover" />
+        ) : pieceImage ? (
+          <Image source={pieceImage} style={styles.fill} contentFit="cover" />
         ) : (
           <Text style={styles.placeholder}>Your photo</Text>
         )}
@@ -82,7 +88,7 @@ export default function TryOn() {
           </View>
         ) : null}
       </View>
-      {result ? <Text style={styles.caption}>You, in the {garment?.name.toLowerCase()}.</Text> : null}
+      {result ? <Text style={styles.caption}>You, in the {pieceName?.toLowerCase()}.</Text> : null}
 
       <View style={styles.row}>
         <Pressable onPress={() => void addPhoto()} style={{ flex: 1 }}>
@@ -92,31 +98,37 @@ export default function TryOn() {
         </Pressable>
       </View>
 
-      <Text style={styles.meta}>CHOOSE A PIECE</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {GARMENTS.map((item) => (
-          <Pressable
-            key={item.id}
-            onPress={() => {
-              setPicked(item.id);
-              setResult(null);
-              setErr("");
-            }}
-            style={styles.pick}
-          >
-            <Image source={item.image} style={[styles.pickImg, picked === item.id && styles.pickOn]} contentFit="cover" />
-            <Text style={styles.pickName} numberOfLines={1}>{item.name}</Text>
-            <Text style={styles.price}>{usd(item.priceCents)}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      {!closet ? (
+        <>
+          <Text style={styles.meta}>CHOOSE A PIECE</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {GARMENTS.map((item) => (
+              <Pressable
+                key={item.id}
+                onPress={() => {
+                  setPicked(item.id);
+                  setResult(null);
+                  setErr("");
+                }}
+                style={styles.pick}
+              >
+                <Image source={item.image} style={[styles.pickImg, picked === item.id && styles.pickOn]} contentFit="cover" />
+                <Text style={styles.pickName} numberOfLines={1}>{item.name}</Text>
+                <Text style={styles.price}>{usd(item.priceCents)}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </>
+      ) : (
+        <Text style={styles.caption}>{closet.name}</Text>
+      )}
 
       {err ? <Text style={styles.err}>{err}</Text> : null}
 
       <Pressable onPress={() => void run()} style={{ marginTop: 20 }} disabled={busy || !app.personUri}>
         <Glass interactive style={[styles.cta, (!app.personUri || busy) && { opacity: 0.5 }]}>
           <Text style={styles.ctaText}>
-            {busy ? "Dressing you…" : `See me in ${garment?.name ?? "this"}`}
+            {busy ? "Dressing you…" : `See me in ${pieceName ?? "this"}`}
           </Text>
         </Glass>
       </Pressable>

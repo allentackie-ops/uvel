@@ -73,7 +73,12 @@ export default function Product() {
             <Text>{saved ? "♥" : "♡"}</Text>
           </Glass>
         </Pressable>
-        <Pressable onPress={() => router.push(`/(tabs)/try-on?g=${garment.id}`)}>
+        <Pressable
+          onPress={() => {
+            if (!app.isPlus && app.remainingTryOns <= 0) router.push("/plus");
+            else router.push(`/(tabs)/try-on?g=${garment.id}`);
+          }}
+        >
           <Glass interactive style={styles.cta}>
             <Text style={styles.ctaText}>Try on me</Text>
           </Glass>
