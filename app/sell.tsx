@@ -17,7 +17,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LISTING_RATIO, PhotoCrop } from "../components/PhotoCrop";
 import type { Category } from "../lib/catalog";
 import { usd } from "../lib/catalog";
 import { pickListingPhoto, takeListingPhoto } from "../lib/photo";
@@ -28,6 +27,7 @@ import { addPiece, getPiece, listPiece, useWardrobe } from "../lib/wardrobe";
 
 const MAX = 5;
 const W = Dimensions.get("window").width;
+const LISTING_RATIO = 4 / 5;
 const CATS: Category[] = [
   "Outerwear",
   "Dresses",
@@ -90,7 +90,6 @@ export default function Sell() {
     existing?.originalPriceCents ? String(Math.round(existing.originalPriceCents / 100)) : "",
   );
   const [fitsOpen, setFitsOpen] = useState(false);
-  const [cropUri, setCropUri] = useState<string | null>(null);
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
 
@@ -175,7 +174,7 @@ export default function Sell() {
     Keyboard.dismiss();
     try {
       const uri = await takeListingPhoto();
-      if (uri) setCropUri(uri);
+      if (uri) await addUri(uri);
     } catch (err) {
       Alert.alert("Camera", err instanceof Error ? err.message : "Couldn’t open camera.");
     }
@@ -185,7 +184,7 @@ export default function Sell() {
     Keyboard.dismiss();
     try {
       const uri = await pickListingPhoto();
-      if (uri) setCropUri(uri);
+      if (uri) await addUri(uri);
     } catch (err) {
       Alert.alert("Photos", err instanceof Error ? err.message : "Couldn’t open photos.");
     }
@@ -351,7 +350,7 @@ export default function Sell() {
                     key={uri}
                     onPress={() => {
                       setFitsOpen(false);
-                      setCropUri(uri);
+                      void addUri(uri);
                     }}
                   >
                     <Image source={{ uri }} style={styles.fit} contentFit="cover" />
@@ -526,16 +525,6 @@ export default function Sell() {
             </>
           ) : null}
         </View>
-      ) : null}
-      {cropUri ? (
-        <PhotoCrop
-          uri={cropUri}
-          onCancel={() => setCropUri(null)}
-          onDone={(uri) => {
-            setCropUri(null);
-            void addUri(uri);
-          }}
-        />
       ) : null}
     </View>
   );

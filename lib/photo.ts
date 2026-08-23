@@ -43,7 +43,8 @@ export async function takeListingPhoto() {
   const res = await ImagePicker.launchCameraAsync({
     mediaTypes: ["images"],
     quality: 0.72,
-    allowsEditing: false,
+    allowsEditing: true,
+    aspect: [4, 5],
     cameraType: ImagePicker.CameraType.back,
   });
   if (res.canceled) return null;
@@ -55,7 +56,8 @@ export async function pickListingPhoto() {
   const res = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ["images"],
     quality: 0.72,
-    allowsEditing: false,
+    allowsEditing: true,
+    aspect: [4, 5],
   });
   if (res.canceled) return null;
   return res.assets[0]?.uri ?? null;
