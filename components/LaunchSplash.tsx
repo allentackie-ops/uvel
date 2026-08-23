@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-const HOLD_MS = 900;
+const HOLD_MS = 220;
 
 export function LaunchSplash({
   onDone,
@@ -21,7 +21,7 @@ export function LaunchSplash({
   useEffect(() => {
     const t = setTimeout(() => {
       void SplashScreen.hideAsync().catch(() => undefined);
-    }, 40);
+    }, 20);
     return () => clearTimeout(t);
   }, []);
 

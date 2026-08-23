@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import { TRENDS, type Trend } from "./catalog";
 import desk from "../docs/trends.json";
@@ -17,6 +18,8 @@ export type Look = Trend & {
   handle?: string;
   heat?: string;
 };
+
+const LOOKS_KEY = "uvel-looks-v1";
 
 function localImage(id: string) {
   return TRENDS.find((t) => t.slug === id)?.image ?? TRENDS[0].image;
@@ -56,7 +59,7 @@ function parse(raw: unknown): Look[] {
 
 const URL = "https://raw.githubusercontent.com/allentackie-ops/uvel/main/docs/trends.json";
 const bundled = parse(desk);
-let cache: Look[] = [];
+let cache: Look[] = bundled;
 let updatedAt = "";
 let pulling: Promise<Look[]> | null = null;
 let primed = false;
@@ -75,12 +78,38 @@ function pin(next: Look[]): Look[] {
   return hero ? [hero, ...rest] : next;
 }
 
+function serialize(looks: Look[]) {
+  return looks.map((l) => ({
+    id: l.id,
+    slug: l.slug,
+    title: l.title,
+    source: l.source,
+    summary: l.summary,
+    imageUrl: l.imageUrl,
+    videoUrl: l.videoUrl,
+    postUrl: l.postUrl,
+    handle: l.handle,
+    garmentIds: l.garmentIds,
+    shopQuery: l.shopQuery,
+    heat: l.heat,
+  }));
+}
+
 function setCache(next: Look[]) {
   if (!next.length) return;
   cache = pin(rankLooks(next, dnaFrom(snapshot())));
   updatedAt = new Date().toISOString();
   listeners.forEach((l) => l(cache));
+  void AsyncStorage.setItem(LOOKS_KEY, JSON.stringify({ looks: serialize(cache) })).catch(() => undefined);
 }
+
+void AsyncStorage.getItem(LOOKS_KEY)
+  .then((raw) => {
+    if (!raw || primed) return;
+    const looks = parse(JSON.parse(raw));
+    if (looks.length) setCache(looks);
+  })
+  .catch(() => undefined);
 
 export function bundledLooks() {
   return cache;
@@ -90,22 +119,13 @@ export function hasLooks() {
   return cache.length > 0;
 }
 
-async function warmHero(looks: Look[]) {
-  for (const look of looks.slice(0, 6)) {
-    if (!look.videoUrl) continue;
-    const local = await Promise.race([
-      prefetchLookVideo(look.videoUrl),
-      new Promise<null>((r) => setTimeout(() => r(null), 8000)),
-    ]);
-    if (local) {
-      heroId = look.id;
-      setCache(looks);
-      const extra = looks.filter((l) => l.id !== look.id && l.videoUrl).slice(0, 2);
-      extra.forEach((l) => prefetchLookVideo(l.videoUrl));
-      return true;
-    }
-  }
-  return false;
+function warmHero(looks: Look[]) {
+  looks
+    .filter((l) => l.videoUrl)
+    .slice(0, 3)
+    .forEach((l) => {
+      void prefetchLookVideo(l.videoUrl);
+    });
 }
 
 export async function pullLooks(opts?: { fresh?: boolean }) {
@@ -119,10 +139,14 @@ export async function pullLooks(opts?: { fresh?: boolean }) {
     try {
       const live = await liveDesk((partial) => {
         if (merging) setCache(partial as Look[]);
+        else if (partial.length) {
+          setCache(partial as Look[]);
+          warmHero(partial as Look[]);
+        }
       }, dnaFrom(snapshot()));
       if (live.length) {
-        await warmHero(live as Look[]);
-        if (!cache.length) setCache(live as Look[]);
+        setCache(live as Look[]);
+        warmHero(live as Look[]);
         merging = true;
         primed = true;
         return cache;
@@ -136,8 +160,8 @@ export async function pullLooks(opts?: { fresh?: boolean }) {
         const json = (await res.json()) as { updatedAt?: string; looks?: unknown };
         const looks = parse(json);
         if (looks.length) {
-          await warmHero(looks);
-          if (!cache.length) setCache(looks);
+          setCache(looks);
+          warmHero(looks);
           primed = true;
           merging = true;
           return cache;
@@ -147,7 +171,7 @@ export async function pullLooks(opts?: { fresh?: boolean }) {
       /* keep going */
     }
     if (!cache.length) setCache(bundled);
-    await warmHero(cache);
+    warmHero(cache);
     primed = true;
     merging = true;
     return cache;
