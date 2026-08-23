@@ -494,8 +494,13 @@ export default function Onboard() {
     setError("");
     setNote("");
     setBusy(kind);
+    const watchdog = setTimeout(() => {
+      setBusy(null);
+      setError("That took too long. Try again.");
+    }, 40000);
     try {
       const session = await fn();
+      clearTimeout(watchdog);
       if (emailOn) {
         afterSignIn(session);
         return;
@@ -509,6 +514,7 @@ export default function Onboard() {
         },
       );
     } catch (err) {
+      clearTimeout(watchdog);
       setBusy(null);
       if (auth === "signup" && isAlreadyAccount(err)) {
         setAuth("login");

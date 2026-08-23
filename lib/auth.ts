@@ -69,12 +69,25 @@ export function isAlreadyAccount(err: unknown) {
   return msg.includes(ALREADY_ACCOUNT) || /already have an account|email-already-in-use|already used with another/i.test(msg);
 }
 
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const t = setTimeout(() => resolve(fallback), ms);
+    p.then((v) => {
+      clearTimeout(t);
+      resolve(v);
+    }).catch(() => {
+      clearTimeout(t);
+      resolve(fallback);
+    });
+  });
+}
+
 async function afterAuth(cred: UserCredential, provider: string, mode: "signup" | "login") {
   if (mode === "signup" && (await isReturningUser(cred))) {
     await fbSignOut(firebaseAuth());
     throw new Error(ALREADY_ACCOUNT);
   }
-  await remember(cred.user, provider);
+  void remember(cred.user, provider);
   return session(cred.user);
 }
 
@@ -89,40 +102,39 @@ async function isReturningUser(cred: UserCredential) {
 }
 
 async function remember(user: User, provider: string) {
-  try {
-    const prev = await readUserProfile(user.uid);
-    await setDoc(
-      doc(firebaseDb(), "users", user.uid),
-      {
-        email: user.email ?? "",
-        name: user.displayName ?? "",
-        provider,
-        seen: true,
-        updatedAt: serverTimestamp(),
-        ...(prev ? {} : { createdAt: serverTimestamp() }),
-      },
-      { merge: true },
-    );
-  } catch {
-    /* auth still counts if firestore isn’t on yet */
-  }
+  await writeUserProfile(user.uid, {
+    email: user.email ?? "",
+    name: user.displayName ?? "",
+    provider,
+    seen: true,
+  });
 }
 
 export async function readUserProfile(uid: string) {
-  try {
-    const snap = await getDoc(doc(firebaseDb(), "users", uid));
-    return snap.exists() ? (snap.data() as Record<string, unknown>) : null;
-  } catch {
-    return null;
-  }
+  return withTimeout(
+    (async () => {
+      try {
+        const snap = await getDoc(doc(firebaseDb(), "users", uid));
+        return snap.exists() ? (snap.data() as Record<string, unknown>) : null;
+      } catch {
+        return null;
+      }
+    })(),
+    1800,
+    null,
+  );
 }
 
 export async function writeUserProfile(uid: string, data: Record<string, unknown>) {
   try {
-    await setDoc(
-      doc(firebaseDb(), "users", uid),
-      { ...data, updatedAt: serverTimestamp() },
-      { merge: true },
+    await withTimeout(
+      setDoc(
+        doc(firebaseDb(), "users", uid),
+        { ...data, updatedAt: serverTimestamp() },
+        { merge: true },
+      ).then(() => true),
+      1800,
+      false,
     );
   } catch {
     /* local profile still counts */
