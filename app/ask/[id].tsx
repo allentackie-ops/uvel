@@ -42,31 +42,36 @@ export default function Ask() {
   const [sending, setSending] = useState(false);
   const [offerOn, setOfferOn] = useState(false);
   const [offer, setOffer] = useState("");
-  const [seen, setSeen] = useState("On Uvel");
+  const [seen, setSeen] = useState("");
   const [place, setPlace] = useState("");
+  const [sellerHandle, setSellerHandle] = useState("Seller");
   const [safety, setSafety] = useState(true);
   const scroller = useRef<ScrollView>(null);
 
-  const sellerId = (piece as { ownerId?: string } | undefined)?.ownerId || app.uid;
-  const sellerName =
-    (piece as { ownerName?: string } | undefined)?.ownerName ||
-    (sellerId === app.uid ? app.displayName : "Seller") ||
-    "Seller";
+  const sellerId = piece?.ownerId && piece.ownerId !== app.uid ? piece.ownerId : piece?.ownerId || "";
   const mine = app.uid;
-  const otherId = sellerId === mine ? "" : sellerId;
+  const otherId = sellerId && sellerId !== mine ? sellerId : "";
 
   useEffect(() => {
     if (!piece || !mine) return;
     let unsub: () => void = () => undefined;
+    const listedByMe = Boolean(piece.ownerId && piece.ownerId === mine);
+    const handle =
+      (piece.ownerId && piece.ownerId !== mine && piece.ownerName) ||
+      (listedByMe && piece.ownerName) ||
+      (piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "") ||
+      "Seller";
+    setSellerHandle(handle);
     void (async () => {
+      const targetSeller = otherId || piece.ownerId || "";
       const tid = await openThread({
         pieceId: piece.id,
         buyerId: mine,
-        sellerId,
+        sellerId: targetSeller || "seller",
         pieceName: piece.name,
         piecePhoto: piece.photo,
         piecePriceCents: piece.listPriceCents,
-        sellerName,
+        sellerName: handle,
         buyerName: app.displayName || "You",
       });
       setThread(tid);
@@ -74,12 +79,18 @@ export default function Ask() {
         setMsgs(next);
         setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 50);
       });
-      const lite = await readUserLite(sellerId);
-      setSeen(lastSeenLabel(lite?.lastSeen));
-      if (typeof lite?.location === "string" && lite.location) setPlace(lite.location);
+      if (targetSeller && targetSeller !== mine) {
+        const lite = await readUserLite(targetSeller);
+        const n = typeof lite?.name === "string" ? lite.name.trim() : "";
+        if (n) setSellerHandle(n);
+        setSeen(lastSeenLabel(lite?.lastSeen));
+        if (typeof lite?.location === "string" && lite.location) setPlace(lite.location);
+      } else {
+        setSeen("Usually replies in a few hours");
+      }
     })();
     return () => unsub();
-  }, [piece?.id, mine, sellerId]);
+  }, [piece?.id, mine]);
 
   async function send(text: string, kind: ChatMsg["kind"] = "text", offerCents?: number, photoUrl?: string) {
     if (!thread || !mine || !text.trim()) return;
@@ -136,7 +147,7 @@ export default function Ask() {
     );
   }
 
-  const handle = sellerName.trim() || "seller";
+  const handle = sellerHandle.trim() || "Seller";
 
   return (
     <View style={styles.page}>
@@ -199,8 +210,8 @@ export default function Ask() {
             </View>
             <View style={styles.helloCard}>
               <Text style={styles.helloHi}>Hi, I’m {handle}</Text>
-              {place ? <Text style={styles.helloMeta}> {place}</Text> : <Text style={styles.helloMeta}>On Uvel</Text>}
-              <Text style={styles.helloMeta}>{seen}</Text>
+              {place ? <Text style={styles.helloMeta}>{place}</Text> : null}
+              <Text style={styles.helloMeta}>{seen || "Usually replies in a few hours"}</Text>
             </View>
           </View>
 
