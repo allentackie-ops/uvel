@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { openWithLoad } from "../lib/brandLoad";
+import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { usd } from "../lib/catalog";
 import { getMarket } from "../lib/markets";
@@ -28,7 +28,7 @@ export function ListingCard({
   const fresh = Date.now() - (piece.createdAt || 0) < 1000 * 60 * 60 * 48;
   return (
     <Pressable
-      onPress={() => openWithLoad({ pathname: "/closet/[id]", params: { id: piece.id, v: "buy" } })}
+      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id, v: "buy" } })}
       style={[styles.wrap, wide ? { width: wide, flex: undefined } : null, framed && styles.framed]}
     >
       <View>

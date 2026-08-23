@@ -11,7 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { withBrandLoad } from "../lib/brandLoad";
+import { BrandLoader } from "../components/BrandLoader";
 import { StatusBar } from "expo-status-bar";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -146,14 +146,12 @@ export default function ProfileSetup() {
     setErr("");
     setRendering(true);
     try {
-      const dressed = await withBrandLoad(() =>
-        dressPerson({
-          personUri: photo,
-          garment: garment.image,
-          garmentName: garment.name,
-          category: garment.category,
-        }),
-      );
+      const dressed = await dressPerson({
+        personUri: photo,
+        garment: garment.image,
+        garmentName: garment.name,
+        category: garment.category,
+      });
       setWorn(dressed);
       setRendered(true);
     } catch (e) {
@@ -533,6 +531,7 @@ export default function ProfileSetup() {
           ) : null}
         </Animated.View>
       </KeyboardAvoidingView>
+      {rendering ? <BrandLoader /> : null}
     </Animated.View>
   );
 }

@@ -4,9 +4,8 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BrandScreen } from "../../components/BrandLoader";
+import { BrandLoader, BrandScreen } from "../../components/BrandLoader";
 import { Sheet } from "../../components/Sheet";
-import { withBrandLoad } from "../../lib/brandLoad";
 import { payMethods, shippingCents, uvelFeeCents, type PayMethod } from "../../lib/fees";
 import { convertCents, getMarket, moneyExact } from "../../lib/markets";
 import { loadAddress, placeOrder, type Address } from "../../lib/orders";
@@ -61,7 +60,6 @@ export default function Checkout() {
     if (!address || !piece) return;
     setPaying(true);
     try {
-      await withBrandLoad(async () => {
       const session = await createCheckoutSession({
         amountCents: total,
         currency: market.currency,
@@ -93,7 +91,6 @@ export default function Checkout() {
       });
       markSold(piece.id);
       router.replace({ pathname: "/order/[id]", params: { id: order.id } });
-      });
     } catch (e) {
       Alert.alert("Payment", e instanceof Error ? e.message : "Couldn’t complete that.");
     } finally {
@@ -210,7 +207,8 @@ export default function Checkout() {
         <Text style={styles.lock}>Your payment details are encrypted and secure</Text>
       </View>
 
- 
+      {paying ? <BrandLoader /> : null}
+
       {feeInfo ? (
         <Sheet open={feeInfo} onClose={() => setFeeInfo(false)}>
           <Text style={styles.sheetH}>Uvel fee</Text>

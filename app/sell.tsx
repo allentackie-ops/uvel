@@ -17,7 +17,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandMark } from "../components/BrandLoader";
-import { hideBrandLoad, showBrandLoad } from "../lib/brandLoad";
 import type { Category } from "../lib/catalog";
 import { usd } from "../lib/catalog";
 import { uvelFeeCents } from "../lib/fees";
@@ -237,7 +236,6 @@ export default function Sell() {
   async function publish() {
     if (!canList) return;
     setGate({ phase: "review", line: STAGES[0] });
-    showBrandLoad();
     const started = Date.now();
     let result;
     try {
@@ -262,7 +260,6 @@ export default function Sell() {
     const wait = Math.max(0, 20000 - (Date.now() - started));
     if (wait) await new Promise((r) => setTimeout(r, wait));
     if (!result.ok) {
-      hideBrandLoad();
       setGate({ phase: "block", headline: result.headline, reasons: result.reasons });
       return;
     }
@@ -286,7 +283,6 @@ export default function Sell() {
     };
     if (existing) listPiece(existing.id, { ...draft, ownerId: uid, ownerName: displayName, country: market.code, currency: market.currency });
     else addPiece({ ...draft, status: "listed", ownerId: uid, ownerName: displayName, country: market.code, currency: market.currency });
-    hideBrandLoad();
     setGate({ phase: "pass" });
     setTimeout(() => router.replace("/(tabs)/closet"), 1100);
   }

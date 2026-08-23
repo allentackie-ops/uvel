@@ -5,8 +5,8 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BrandLoader } from "../../components/BrandLoader";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
-import { hideBrandLoad } from "../../lib/brandLoad";
 import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
 import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
@@ -109,20 +109,15 @@ export default function Shop() {
   const scanningLook = Boolean(scan === "1" || look || frame || videoUrl);
 
   useEffect(() => {
-    if (!scanningLook) {
-      hideBrandLoad();
-      return;
-    }
+    if (!scanningLook) return;
     if (!frame) {
       setScanning(true);
       setAiIds(null);
-      const t = setTimeout(() => hideBrandLoad(), 2400);
-      return () => clearTimeout(t);
+      return;
     }
     if (!live.length) {
       setAiIds([]);
       setScanning(false);
-      hideBrandLoad();
       return;
     }
     let gone = false;
@@ -132,7 +127,6 @@ export default function Shop() {
       if (gone) return;
       setAiIds(hit?.ids ?? []);
       setScanning(false);
-      hideBrandLoad();
     });
     return () => {
       gone = true;
@@ -236,6 +230,7 @@ export default function Shop() {
         <ListingEmpty copy="Nothing listed yet that looks like this. When someone puts the piece up, it shows here." />
       ) : null}
     </ScrollView>
+    {scanning ? <BrandLoader /> : null}
     </View>
   );
 }
