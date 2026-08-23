@@ -8,15 +8,23 @@ function cacheName(url: string) {
   return `${cacheDirectory}uvel-look-${Math.abs(h)}.mp4`;
 }
 
-const downloads = new Map<string, Promise<string>>();
+const downloads = new Map<string, Promise<string | null>>();
 
 async function localVideo(url: string) {
   const dest = cacheName(url);
   const existing = await getInfoAsync(dest);
-  if (existing.exists) return dest;
+  if (existing.exists && (existing.size ?? 0) > 80_000) return dest;
   let pending = downloads.get(url);
   if (!pending) {
-    pending = downloadAsync(url, dest).then(() => dest);
+    pending = downloadAsync(url, dest, {
+      headers: { "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)" },
+    })
+      .then(async () => {
+        const info = await getInfoAsync(dest);
+        if (!info.exists || (info.size ?? 0) < 80_000) return null;
+        return dest;
+      })
+      .catch(() => null);
     downloads.set(url, pending);
   }
   return pending;
@@ -24,21 +32,21 @@ async function localVideo(url: string) {
 
 async function saveThumb(thumb: VideoThumbnail) {
   const image = await ImageManipulator.manipulate(thumb).renderAsync();
-  const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.8, base64: true });
+  const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.82, base64: true });
   if (saved.base64) return `data:image/jpeg;base64,${saved.base64}`;
   return saved.uri;
 }
 
 function waitReady(player: VideoPlayer) {
   return new Promise<void>((resolve) => {
-    if (player.duration > 0) {
+    if (Number(player.duration) > 0) {
       resolve();
       return;
     }
     const t = setTimeout(() => {
       sub.remove();
       resolve();
-    }, 2500);
+    }, 4000);
     const sub = player.addListener("statusChange", ({ status }) => {
       if (status === "readyToPlay") {
         clearTimeout(t);
@@ -49,42 +57,27 @@ function waitReady(player: VideoPlayer) {
   });
 }
 
-async function thumbsAt(player: VideoPlayer, time: number) {
-  const thumbs = await player.generateThumbnailsAsync([Math.max(0, time)], { maxWidth: 720, maxHeight: 1280 });
-  const thumb = thumbs[0];
-  if (!thumb) return null;
-  const actual = Number(thumb.actualTime) || 0;
-  const uri = await saveThumb(thumb);
-  return { uri, actual };
-}
-
-export async function frameAtTime(player: VideoPlayer, time: number, sourceUrl: string) {
-  const t = Math.max(0, time);
+export async function frameAtTime(_player: VideoPlayer, time: number, sourceUrl: string) {
+  const t = Math.max(0, Number(time) || 0);
+  const local = await localVideo(sourceUrl);
+  if (!local) return null;
+  const probe = createVideoPlayer(local);
   try {
-    const live = await thumbsAt(player, t);
-    if (live?.uri && (t < 0.25 || Math.abs(live.actual - t) <= 0.45)) return live.uri;
-  } catch {
-    /* remote seek often snaps to 0 — fall through to a local file */
-  }
-  try {
-    const local = await localVideo(sourceUrl);
-    const probe = createVideoPlayer(local);
     await waitReady(probe);
-    const fromFile = await thumbsAt(probe, t);
-    (probe as { release?: () => void }).release?.();
-    if (fromFile?.uri) return fromFile.uri;
-  } catch {
-    /* keep going */
-  }
-  try {
-    const live = await thumbsAt(player, t);
-    return live?.uri ?? null;
+    const duration = Number(probe.duration) || 0;
+    const at = duration > 0 ? Math.min(t, Math.max(0, duration - 0.05)) : t;
+    const thumbs = await probe.generateThumbnailsAsync([at], { maxWidth: 720, maxHeight: 1280 });
+    const thumb = thumbs[0];
+    if (!thumb) return null;
+    return await saveThumb(thumb);
   } catch {
     return null;
+  } finally {
+    (probe as { release?: () => void }).release?.();
   }
 }
 
 export function prefetchLookVideo(url?: string) {
   if (!url || !/^https?:/i.test(url)) return;
-  void localVideo(url).catch(() => undefined);
+  void localVideo(url);
 }

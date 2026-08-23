@@ -54,7 +54,7 @@ function MutedLoop({
     p.loop = true;
     p.muted = true;
     p.audioMixingMode = "mixWithOthers";
-    p.timeUpdateEventInterval = 0.04;
+    p.timeUpdateEventInterval = 0.03;
   });
 
   const playIfFree = useCallback(() => {
@@ -65,15 +65,20 @@ function MutedLoop({
   }, [player]);
 
   useEffect(() => {
+    player.timeUpdateEventInterval = 0.03;
+    prefetchLookVideo(uri);
     const status = player.addListener("statusChange", ({ status }) => {
-      if (status === "readyToPlay") {
-        prefetchLookVideo(uri);
-        playIfFree();
-      }
+      if (status === "readyToPlay") playIfFree();
     });
     const time = player.addListener("timeUpdate", ({ currentTime }) => {
       if (!held.current) lastTime.current = currentTime;
     });
+    const tick = setInterval(() => {
+      if (!held.current) {
+        const now = Number(player.currentTime);
+        if (!Number.isNaN(now)) lastTime.current = now;
+      }
+    }, 32);
     playIfFree();
     const app = AppState.addEventListener("change", (s) => {
       if (s === "active") playIfFree();
@@ -81,6 +86,7 @@ function MutedLoop({
     return () => {
       status.remove();
       time.remove();
+      clearInterval(tick);
       app.remove();
     };
   }, [player, uri, playIfFree]);
@@ -97,14 +103,15 @@ function MutedLoop({
     if (!handleRef) return;
     handleRef.current = {
       freeze: () => {
+        const now = Number(player.currentTime);
+        frozenAt.current = Number.isFinite(now) && now > 0 ? now : lastTime.current;
         held.current = true;
-        frozenAt.current = lastTime.current || Number(player.currentTime) || 0;
         player.pause();
       },
       frame: async () => {
         held.current = true;
-        const time = frozenAt.current || lastTime.current || Number(player.currentTime) || 0;
         player.pause();
+        const time = frozenAt.current;
         return frameAtTime(player, time, uri);
       },
     };
@@ -161,7 +168,8 @@ function where(url?: string): Exclude<Source, "All"> | null {
 async function scanLook(look: Look, grab: FrameGrab | null) {
   grab?.freeze();
   const frame = await grab?.frame();
-  setLookScan(frame || look.imageUrl || "", look.title);
+  if (frame) setLookScan(frame, look.title);
+  else setLookScan(look.imageUrl || "", look.title);
   router.push({
     pathname: "/(tabs)/shop",
     params: { look: look.id, scan: "1" },
