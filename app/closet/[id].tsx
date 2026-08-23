@@ -117,14 +117,6 @@ export default function ClosetPiece() {
               />
             ))}
           </ScrollView>
-          {!framed && !runway ? (
-            <View style={styles.fade} pointerEvents="none">
-              <View style={[styles.fadeBand, { opacity: 0.12 }]} />
-              <View style={[styles.fadeBand, { opacity: 0.28 }]} />
-              <View style={[styles.fadeBand, { opacity: 0.55 }]} />
-              <View style={[styles.fadeBand, { opacity: 0.85 }]} />
-            </View>
-          ) : null}
           {gallery.length > 1 ? (
             <View style={[styles.count, { top: insets.top + 10 }]}>
               <Text style={styles.countTxt}>
@@ -273,8 +265,6 @@ function make(look: ShopLook) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: look.page },
     hero: { backgroundColor: look.surface },
-    fade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 88 },
-    fadeBand: { flex: 1, backgroundColor: look.page },
     count: {
       position: "absolute",
       alignSelf: "center",
@@ -304,7 +294,7 @@ function make(look: ShopLook) {
     },
     iconTxt: { fontSize: 28, lineHeight: 30, marginTop: -2 },
     heart: { fontSize: 18, marginTop: 1 },
-    body: { paddingHorizontal: 22, paddingTop: 10 },
+    body: { paddingHorizontal: 22, paddingTop: 20 },
     kicker: { flexDirection: "row", alignItems: "center", gap: 10 },
     brand: { color: look.muted, letterSpacing: 1.8, fontSize: 11, textTransform: "uppercase" },
     rule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: look.accent, opacity: 0.55 },
