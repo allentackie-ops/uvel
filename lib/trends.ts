@@ -4,7 +4,7 @@ import desk from "../docs/trends.json";
 import { liveDesk } from "./desk";
 
 export type Source = Trend["source"] | "All";
-export const SOURCES: Source[] = ["All", "TikTok", "Instagram", "Snapchat", "X"];
+export const SOURCES: Source[] = ["All", "TikTok", "Instagram", "Snapchat"];
 
 export type Look = Trend & {
   id: string;
