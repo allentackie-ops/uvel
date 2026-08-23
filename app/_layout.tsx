@@ -140,6 +140,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="scan"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#12110E" },
+            }}
+          />
+          <Stack.Screen
             name="ask/[id]"
             options={{
               headerShown: false,

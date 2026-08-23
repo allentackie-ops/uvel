@@ -12,7 +12,7 @@ export default function TabsLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="find">
         <NativeTabs.Trigger.Label>Find</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="viewfinder" />
+        <NativeTabs.Trigger.Icon sf="person.crop.rectangle" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="closet">
         <NativeTabs.Trigger.Label>Closet</NativeTabs.Trigger.Label>
