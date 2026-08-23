@@ -37,3 +37,26 @@ export async function pickFromLibrary() {
   if (res.canceled) return null;
   return res.assets[0]?.uri ?? null;
 }
+
+export async function takeListingPhoto() {
+  await need("camera");
+  const res = await ImagePicker.launchCameraAsync({
+    mediaTypes: ["images"],
+    quality: 0.72,
+    allowsEditing: false,
+    cameraType: ImagePicker.CameraType.back,
+  });
+  if (res.canceled) return null;
+  return res.assets[0]?.uri ?? null;
+}
+
+export async function pickListingPhoto() {
+  await need("library");
+  const res = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ["images"],
+    quality: 0.72,
+    allowsEditing: false,
+  });
+  if (res.canceled) return null;
+  return res.assets[0]?.uri ?? null;
+}

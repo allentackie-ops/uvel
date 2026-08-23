@@ -7,7 +7,9 @@ export type Category =
   | "Trousers"
   | "Knitwear"
   | "Shoes"
-  | "Skirts";
+  | "Skirts"
+  | "Bags"
+  | "Accessories";
 
 export type Garment = {
   id: string;
@@ -82,7 +84,18 @@ export const TRENDS: Trend[] = [
   { slug: "liquid-evening", title: "Liquid evening", source: "Snapchat", summary: "Ivory slip, champagne satin. After-dark dressing went fluid again.", image: img.romantic, garmentIds: ["silk-slip", "satin-skirt", "poet-blouse"], shopQuery: "silk slip" },
 ];
 
-export const CATEGORIES: Array<"All" | Category> = ["All", "Outerwear", "Dresses", "Tops", "Trousers", "Knitwear", "Skirts", "Shoes"];
+export const CATEGORIES: Array<"All" | Category> = [
+  "All",
+  "Outerwear",
+  "Dresses",
+  "Tops",
+  "Trousers",
+  "Knitwear",
+  "Skirts",
+  "Shoes",
+  "Bags",
+  "Accessories",
+];
 
 export function usd(cents: number) {
   return `$${(cents / 100).toFixed(0)}`;

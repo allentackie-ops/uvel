@@ -63,6 +63,13 @@ function AppStack() {
           }}
         />
         <Stack.Screen
+          name="sell"
+          options={{
+            headerTitle: "Sell",
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
           name="closet/[id]"
           options={{
             headerTitle: "",

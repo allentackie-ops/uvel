@@ -1,26 +1,40 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import type { Category } from "./catalog";
+import { reviewListingPhoto } from "./photoCheck";
 
 export type ClosetStatus = "owned" | "listed" | "sold";
 
 export type ClosetPiece = {
   id: string;
   photo: string;
+  photos: string[];
   name: string;
   brand: string;
   category: Category;
   color: string;
   size: string;
   condition: string;
+  material: string;
   notes: string;
   listPriceCents: number;
+  originalPriceCents: number;
   status: ClosetStatus;
   createdAt: number;
 };
 
 const KEY = "uvel-wardrobe-v1";
-const CATS: Category[] = ["Outerwear", "Dresses", "Tops", "Trousers", "Knitwear", "Skirts", "Shoes"];
+const CATS: Category[] = [
+  "Outerwear",
+  "Dresses",
+  "Tops",
+  "Trousers",
+  "Knitwear",
+  "Skirts",
+  "Shoes",
+  "Bags",
+  "Accessories",
+];
 const NAMES: Record<Category, string[]> = {
   Outerwear: ["Wool overcoat", "Leather jacket", "Field jacket", "Trench"],
   Dresses: ["Bias slip", "Shirt dress", "Knit dress", "Wrap dress"],
@@ -29,14 +43,27 @@ const NAMES: Record<Category, string[]> = {
   Knitwear: ["Cashmere crew", "Cardigan", "Turtleneck", "Polo knit"],
   Skirts: ["Satin skirt", "Pencil skirt", "Wrap skirt", "Pleated skirt"],
   Shoes: ["Leather loafer", "Boot", "Slingback", "Sneaker"],
+  Bags: ["Leather tote", "Shoulder bag", "Mini bag", "Weekend bag"],
+  Accessories: ["Silk scarf", "Belt", "Gold hoops", "Wool beanie"],
 };
 
 let pieces: ClosetPiece[] = [];
 const listeners = new Set<() => void>();
 
+function normalize(p: ClosetPiece): ClosetPiece {
+  const photos = p.photos?.length ? p.photos : p.photo ? [p.photo] : [];
+  return {
+    ...p,
+    photos,
+    photo: photos[0] ?? p.photo ?? "",
+    material: p.material ?? "",
+    originalPriceCents: p.originalPriceCents ?? 0,
+  };
+}
+
 async function hydrate() {
   const raw = await AsyncStorage.getItem(KEY);
-  if (raw) pieces = JSON.parse(raw) as ClosetPiece[];
+  if (raw) pieces = (JSON.parse(raw) as ClosetPiece[]).map(normalize);
   listeners.forEach((l) => l());
 }
 void hydrate();
@@ -67,28 +94,59 @@ export function listedPieces() {
 }
 
 export async function analyzePhoto(photo: string): Promise<Omit<ClosetPiece, "id" | "status" | "createdAt">> {
-  await new Promise((r) => setTimeout(r, 800));
-  const n = photo.length;
-  const category = CATS[n % CATS.length];
-  const name = NAMES[category][n % NAMES[category].length];
-  return {
-    photo,
-    name,
-    brand: "Your wardrobe",
-    category,
-    color: ["Ink", "Ivory", "Camel", "Olive", "Clay"][n % 5],
-    size: "M",
-    condition: "Excellent",
-    notes: "",
-    listPriceCents: 4800 + (n % 16) * 800,
-  };
+  try {
+    const review = await reviewListingPhoto(photo);
+    return {
+      photo,
+      photos: [photo],
+      name: review.title || "Your piece",
+      brand: review.brand || "Unlabeled",
+      category: review.category,
+      color: review.color || "",
+      size: "",
+      condition: review.conditionGuess || "Excellent",
+      material: review.material,
+      notes: review.description,
+      listPriceCents: 4800,
+      originalPriceCents: 0,
+    };
+  } catch {
+    const n = photo.length;
+    const category = CATS[n % CATS.length];
+    return {
+      photo,
+      photos: [photo],
+      name: NAMES[category][n % NAMES[category].length],
+      brand: "Unlabeled",
+      category,
+      color: ["Ink", "Ivory", "Camel", "Olive", "Clay"][n % 5],
+      size: "M",
+      condition: "Excellent",
+      material: "",
+      notes: "",
+      listPriceCents: 4800 + (n % 16) * 800,
+      originalPriceCents: 0,
+    };
+  }
 }
 
-export function addPiece(draft: Omit<ClosetPiece, "id" | "status" | "createdAt">) {
+export function addPiece(
+  draft: Omit<ClosetPiece, "id" | "status" | "createdAt" | "photos" | "material" | "originalPriceCents"> & {
+    photos?: string[];
+    material?: string;
+    originalPriceCents?: number;
+    status?: ClosetStatus;
+  },
+) {
+  const photos = draft.photos?.length ? draft.photos : draft.photo ? [draft.photo] : [];
   const piece: ClosetPiece = {
     ...draft,
+    photos,
+    photo: photos[0] ?? draft.photo,
+    material: draft.material ?? "",
+    originalPriceCents: draft.originalPriceCents ?? 0,
     id: `w-${Date.now().toString(36)}`,
-    status: "owned",
+    status: draft.status ?? "owned",
     createdAt: Date.now(),
   };
   pieces = [piece, ...pieces];
@@ -97,11 +155,18 @@ export function addPiece(draft: Omit<ClosetPiece, "id" | "status" | "createdAt">
 }
 
 export function updatePiece(id: string, patch: Partial<ClosetPiece>) {
-  pieces = pieces.map((p) => (p.id === id ? { ...p, ...patch } : p));
+  pieces = pieces.map((p) => {
+    if (p.id !== id) return p;
+    const next = { ...p, ...patch };
+    if (patch.photos) {
+      next.photo = patch.photos[0] ?? next.photo;
+    }
+    return next;
+  });
   void persist();
 }
 
-export function listPiece(id: string, patch: Partial<ClosetPiece>) {
+export function listPiece(id: string, patch: Partial<ClosetPiece> = {}) {
   updatePiece(id, { ...patch, status: "listed" });
 }
 
