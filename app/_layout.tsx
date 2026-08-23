@@ -216,7 +216,7 @@ export default function Root() {
     let stop = false;
     const max = setTimeout(() => {
       if (!stop) setFeedReady(true);
-    }, 10000);
+    }, 14000);
     void pullLooks().finally(() => {
       if (!stop) setFeedReady(true);
     });

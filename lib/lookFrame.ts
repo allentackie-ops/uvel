@@ -9,6 +9,7 @@ function cacheName(url: string) {
 }
 
 const downloads = new Map<string, Promise<string | null>>();
+const locals = new Map<string, string>();
 
 function wait(ms: number) {
   return new Promise<null>((resolve) => setTimeout(() => resolve(null), ms));
@@ -17,7 +18,10 @@ function wait(ms: number) {
 async function localVideo(url: string) {
   const dest = cacheName(url);
   const existing = await getInfoAsync(dest);
-  if (existing.exists && (existing.size ?? 0) > 80_000) return dest;
+  if (existing.exists && (existing.size ?? 0) > 80_000) {
+    locals.set(url, dest);
+    return dest;
+  }
   let pending = downloads.get(url);
   if (!pending) {
     pending = downloadAsync(url, dest, {
@@ -26,6 +30,7 @@ async function localVideo(url: string) {
       .then(async () => {
         const info = await getInfoAsync(dest);
         if (!info.exists || (info.size ?? 0) < 80_000) return null;
+        locals.set(url, dest);
         return dest;
       })
       .catch(() => null);
@@ -54,6 +59,10 @@ export async function frameAtTime(player: VideoPlayer, time: number, _sourceUrl:
     }
   })();
   return (await Promise.race([grab, wait(2500)])) ?? (await Promise.race([grab, wait(1500)]));
+}
+
+export function playableLookVideo(url: string) {
+  return locals.get(url) ?? url;
 }
 
 export function prefetchLookVideo(url?: string) {

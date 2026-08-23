@@ -57,11 +57,25 @@ const bundled = parse(desk);
 let cache: Look[] = [];
 let updatedAt = "";
 let pulling: Promise<Look[]> | null = null;
+let primed = false;
+let heroId: string | null = null;
+let merging = false;
 const listeners = new Set<(looks: Look[]) => void>();
+
+function pin(next: Look[]): Look[] {
+  const withVid = next.filter((l) => l.videoUrl);
+  const pool = withVid.length ? withVid : next;
+  if (!heroId || !next.some((l) => l.id === heroId)) {
+    heroId = pool[0]?.id ?? next[0]?.id ?? null;
+  }
+  const hero = next.find((l) => l.id === heroId);
+  const rest = next.filter((l) => l.id !== heroId);
+  return hero ? [hero, ...rest] : next;
+}
 
 function setCache(next: Look[]) {
   if (!next.length) return;
-  cache = next;
+  cache = pin(next);
   updatedAt = new Date().toISOString();
   listeners.forEach((l) => l(cache));
 }
@@ -75,22 +89,40 @@ export function hasLooks() {
 }
 
 async function warmHero(looks: Look[]) {
-  const vids = looks.map((l) => l.videoUrl).filter((u): u is string => Boolean(u)).slice(0, 3);
-  if (!vids.length) return;
-  await Promise.race([
-    Promise.all(vids.map((u) => prefetchLookVideo(u))),
-    new Promise((r) => setTimeout(r, 2800)),
-  ]);
+  for (const look of looks.slice(0, 6)) {
+    if (!look.videoUrl) continue;
+    const local = await Promise.race([
+      prefetchLookVideo(look.videoUrl),
+      new Promise<null>((r) => setTimeout(() => r(null), 8000)),
+    ]);
+    if (local) {
+      heroId = look.id;
+      setCache(looks);
+      const extra = looks.filter((l) => l.id !== look.id && l.videoUrl).slice(0, 2);
+      extra.forEach((l) => prefetchLookVideo(l.videoUrl));
+      return true;
+    }
+  }
+  return false;
 }
 
-export async function pullLooks() {
+export async function pullLooks(opts?: { fresh?: boolean }) {
+  if (opts?.fresh) {
+    heroId = null;
+    primed = false;
+  }
+  if (primed && cache.length && !opts?.fresh) return cache;
   if (pulling) return pulling;
   pulling = (async () => {
     try {
-      const live = await liveDesk((partial) => setCache(partial as Look[]));
+      const live = await liveDesk((partial) => {
+        if (merging) setCache(partial as Look[]);
+      });
       if (live.length) {
-        setCache(live as Look[]);
-        await warmHero(cache);
+        await warmHero(live as Look[]);
+        if (!cache.length) setCache(live as Look[]);
+        merging = true;
+        primed = true;
         return cache;
       }
     } catch {
@@ -102,8 +134,10 @@ export async function pullLooks() {
         const json = (await res.json()) as { updatedAt?: string; looks?: unknown };
         const looks = parse(json);
         if (looks.length) {
-          setCache(looks);
-          await warmHero(cache);
+          await warmHero(looks);
+          if (!cache.length) setCache(looks);
+          primed = true;
+          merging = true;
           return cache;
         }
       }
@@ -112,6 +146,8 @@ export async function pullLooks() {
     }
     if (!cache.length) setCache(bundled);
     await warmHero(cache);
+    primed = true;
+    merging = true;
     return cache;
   })();
   try {
@@ -148,7 +184,8 @@ export function useLooks() {
 
   async function refresh() {
     setRefreshing(true);
-    const next = await pullLooks();
+    merging = false;
+    const next = await pullLooks({ fresh: true });
     setLooks(next);
     setRefreshing(false);
   }

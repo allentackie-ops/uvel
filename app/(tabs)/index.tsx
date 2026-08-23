@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { unreadFor, useInbox } from "../../lib/chat";
 import { usd } from "../../lib/catalog";
-import { frameAtTime, prefetchLookVideo } from "../../lib/lookFrame";
+import { frameAtTime, playableLookVideo, prefetchLookVideo } from "../../lib/lookFrame";
 import { forYou, matchListings } from "../../lib/lookMatch";
 import { beginLookScan, finishLookScan } from "../../lib/lookSearch";
 import { getMarket } from "../../lib/markets";
@@ -45,17 +45,21 @@ type FrameGrab = {
 
 function MutedLoop({
   uri,
+  cover,
   style,
   handleRef,
 }: {
   uri: string;
+  cover?: string;
   style: object;
   handleRef?: MutableRefObject<FrameGrab | null>;
 }) {
   const held = useRef(false);
   const lastTime = useRef(0);
   const frozenAt = useRef(0);
-  const player = useVideoPlayer({ uri }, (p) => {
+  const src = playableLookVideo(uri);
+  const [on, setOn] = useState(false);
+  const player = useVideoPlayer({ uri: src }, (p) => {
     p.loop = true;
     p.muted = true;
     p.audioMixingMode = "mixWithOthers";
@@ -73,7 +77,10 @@ function MutedLoop({
     player.timeUpdateEventInterval = 0.03;
     prefetchLookVideo(uri);
     const status = player.addListener("statusChange", ({ status }) => {
-      if (status === "readyToPlay") playIfFree();
+      if (status === "readyToPlay") {
+        setOn(true);
+        playIfFree();
+      }
     });
     const time = player.addListener("timeUpdate", ({ currentTime }) => {
       if (!held.current) lastTime.current = currentTime;
@@ -127,6 +134,9 @@ function MutedLoop({
 
   return (
     <View style={[style, { overflow: "hidden", backgroundColor: "#0B0A08" }]}>
+      {cover && !on ? (
+        <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" />
+      ) : null}
       <VideoView
         player={player}
         style={StyleSheet.absoluteFill}
@@ -156,7 +166,7 @@ function LookMedia({
       handleRef.current = null;
     };
   }, [look.videoUrl, look.imageUrl, handleRef]);
-  if (look.videoUrl) return <MutedLoop uri={look.videoUrl} style={style} handleRef={handleRef} />;
+  if (look.videoUrl) return <MutedLoop uri={look.videoUrl} cover={look.imageUrl} style={style} handleRef={handleRef} />;
   return <Image source={lookImage(look)} style={style} contentFit="cover" />;
 }
 
@@ -231,7 +241,7 @@ export default function Today() {
         }
       >
         {featured ? (
-          <Hero look={featured} colors={colors} height={heroH} />
+          <Hero key={featured.id} look={featured} colors={colors} height={heroH} />
         ) : (
           <View style={[styles.heroWrap, { height: heroH }]} />
         )}
