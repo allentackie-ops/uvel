@@ -68,7 +68,7 @@ const EXTRA: Look[] = [
 ];
 
 const FALLBACK: Look[] = [...SEED, ...EXTRA];
-const URL = "https://allentackie-ops.github.io/uvel/trends.json";
+const URL = "https://raw.githubusercontent.com/allentackie-ops/uvel/main/docs/trends.json";
 
 function localImage(id: string) {
   return FALLBACK.find((l) => l.id === id || l.slug === id)?.image ?? TRENDS[0].image;
