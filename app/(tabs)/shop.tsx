@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
+import { OrbitLoader } from "../../components/OrbitLoader";
 import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
 import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
@@ -177,7 +178,11 @@ export default function Shop() {
       ) : frame ? (
         <Image source={{ uri: frame }} style={styles.frame} contentFit="contain" />
       ) : null}
-      {scanning ? <Text style={styles.scanning}>Visual search · finding these clothes on Uvel…</Text> : null}
+      {scanning ? (
+        <View style={styles.orbitBox}>
+          <OrbitLoader />
+        </View>
+      ) : null}
 
       <View style={styles.search}>
         <Text style={styles.searchIcon}>⌕</Text>
@@ -243,7 +248,7 @@ function make(colors: Colors) {
       borderRadius: 16,
       backgroundColor: "#0B0A08",
     },
-    scanning: { color: "#D6E27A", marginTop: 10, fontSize: 13, fontWeight: "600" },
+    orbitBox: { paddingVertical: 48, alignItems: "center" },
     store: { flexDirection: "row", alignItems: "center", marginTop: 8, gap: 6 },
     storeTxt: { color: "rgba(244,240,230,0.5)", fontSize: 15 },
     storeGo: { color: "rgba(244,240,230,0.72)", fontSize: 15, textDecorationLine: "underline" },

@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
+import { OrbitLoader } from "../../components/OrbitLoader";
 import { unreadFor, useInbox } from "../../lib/chat";
 import { usd } from "../../lib/catalog";
 import { frameAtTime, playableLookVideo, prefetchLookVideo } from "../../lib/lookFrame";
@@ -210,7 +211,7 @@ export default function Today() {
   const { uid, styles: taste, country } = useUvel();
   const chats = useInbox(uid || "me");
   const unread = chats.reduce((n, t) => n + unreadFor(t, uid || "me"), 0);
-  const { looks, refreshing, refresh } = useLooks();
+  const { looks, refreshing, refresh, loading } = useLooks();
   useWardrobe();
   const live = listedPieces();
   const [source, setSource] = useState<Source>("All");
@@ -243,7 +244,11 @@ export default function Today() {
         {featured ? (
           <Hero key={featured.id} look={featured} colors={colors} height={heroH} />
         ) : (
-          <View style={[styles.heroWrap, { height: heroH }]} />
+          <View style={[styles.heroWrap, styles.heroLoad, { height: heroH }]}>
+            {loading ? (
+              <OrbitLoader label="Loading your feed" caption="All your platforms, one orbit" />
+            ) : null}
+          </View>
         )}
 
         <View style={styles.body}>
@@ -441,6 +446,7 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: "#0B0A08" },
     heroWrap: { width: W, backgroundColor: "#0B0A08", overflow: "hidden" },
+    heroLoad: { alignItems: "center", justifyContent: "center" },
     hero: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
     heroCopy: { position: "absolute", left: 16, right: 16, bottom: 18 },
     heroBar: { flexDirection: "row", gap: 10, marginBottom: 16 },

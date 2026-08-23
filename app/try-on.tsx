@@ -4,7 +4,6 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionSheetIOS,
-  ActivityIndicator,
   Alert,
   Platform,
   Pressable,
@@ -14,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { OrbitLoader } from "../components/OrbitLoader";
 import { GARMENTS, getGarment } from "../lib/catalog";
 import { pickFromLibrary, takePhoto } from "../lib/photo";
 import { useUvel } from "../lib/store";
@@ -148,8 +148,7 @@ export default function TryOn() {
           )}
           {busy ? (
             <View style={styles.spin}>
-              <ActivityIndicator color="#D6E27A" />
-              <Text style={styles.spinTxt}>Dressing you</Text>
+              <OrbitLoader />
             </View>
           ) : null}
           {!person && !busy ? (
