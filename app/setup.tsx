@@ -16,6 +16,7 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GARMENTS } from "../lib/catalog";
 import { useUvel } from "../lib/store";
+import { dressPerson } from "../lib/tryon";
 import { addPiece } from "../lib/wardrobe";
 
 const BG = "#12140A";
@@ -81,6 +82,7 @@ export default function ProfileSetup() {
   const [err, setErr] = useState("");
   const [gender, setGender] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
+  const [worn, setWorn] = useState<string | null>(null);
   const [look, setLook] = useState(LOOKS[0]?.id ?? "");
   const [rendering, setRendering] = useState(false);
   const [rendered, setRendered] = useState(false);
@@ -120,16 +122,29 @@ export default function ProfileSetup() {
     const res = await fn({ mediaTypes: ["images"], quality: 0.9 });
     if (!res.canceled) {
       setPhoto(res.assets[0].uri);
+      setWorn(null);
       setRendered(false);
     }
   }
 
   async function renderLook() {
-    if (!photo) return;
+    if (!photo || !garment) return;
+    setErr("");
     setRendering(true);
-    await new Promise((r) => setTimeout(r, 520));
-    setRendered(true);
-    setRendering(false);
+    try {
+      const dressed = await dressPerson({
+        personUri: photo,
+        garment: garment.image,
+        garmentName: garment.name,
+        category: garment.category,
+      });
+      setWorn(dressed);
+      setRendered(true);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn’t dress you in that.");
+    } finally {
+      setRendering(false);
+    }
   }
 
   async function pickFit() {
@@ -316,11 +331,11 @@ export default function ProfileSetup() {
               <View style={styles.stage}>
                 {photo ? (
                   <View style={styles.stageFill}>
-                    <Image source={{ uri: photo }} style={styles.fullPic} contentFit="contain" />
+                    <Image source={{ uri: worn ?? photo }} style={styles.fullPic} contentFit="contain" />
                     {rendering ? (
                       <View style={styles.spin}>
                         <ActivityIndicator color={CREAM} />
-                        <Text style={styles.spinTxt}>Putting it on you</Text>
+                        <Text style={styles.spinTxt}>{rendering ? "Dressing you" : "Rendering"}</Text>
                       </View>
                     ) : null}
                   </View>
@@ -328,11 +343,10 @@ export default function ProfileSetup() {
                   <Text style={styles.stageHint}>Full-length mirror. Head to shoes. Nothing cropped.</Text>
                 )}
               </View>
-              {rendered && garment && photo ? (
-                <Text style={styles.savedLook}>
-                  {garment.name} — saved on you. Next we’ll dress you in it for real.
-                </Text>
+              {rendered && garment && worn ? (
+                <Text style={styles.savedLook}>You, in the {garment.name.toLowerCase()}.</Text>
               ) : null}
+              {err ? <Text style={styles.err}>{err}</Text> : null}
               <View style={styles.row}>
                 <Pressable onPress={() => void pickPhoto(true)} style={styles.ghost}>
                   <Text style={styles.ghostTxt}>Camera</Text>
@@ -352,6 +366,7 @@ export default function ProfileSetup() {
                         onPress={() => {
                           setLook(g.id);
                           setRendered(false);
+                          setWorn(null);
                         }}
                         style={styles.look}
                       >
@@ -367,8 +382,10 @@ export default function ProfileSetup() {
                     ))}
                     <View style={{ width: 16 }} />
                   </ScrollView>
-                  <Pressable onPress={() => void renderLook()} style={styles.ghost}>
-                    <Text style={styles.ghostTxt}>{rendered ? "Saved on you" : "See it on you"}</Text>
+                  <Pressable onPress={() => void renderLook()} style={styles.ghost} disabled={rendering}>
+                    <Text style={styles.ghostTxt}>
+                      {rendering ? "Dressing you…" : rendered ? "That’s you" : "See it on you"}
+                    </Text>
                   </Pressable>
                 </>
               ) : null}

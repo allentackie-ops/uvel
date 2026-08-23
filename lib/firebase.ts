@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
+import { getAI, GoogleAIBackend, type AI } from "firebase/ai";
 import { FirebaseApp, getApp, getApps, initializeApp } from "firebase/app";
 import {
   Auth,
@@ -34,6 +35,7 @@ export function firebaseReady() {
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
+let ai: AI | null = null;
 
 function persistence(): Persistence | undefined {
   const authMod = require("firebase/auth") as {
@@ -78,4 +80,9 @@ export function firebaseAuth() {
 export function firebaseDb() {
   if (!db) db = getFirestore(firebaseApp());
   return db;
+}
+
+export function firebaseAi() {
+  if (!ai) ai = getAI(firebaseApp(), { backend: new GoogleAIBackend() });
+  return ai;
 }
