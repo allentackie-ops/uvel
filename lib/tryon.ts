@@ -46,37 +46,29 @@ async function uriToDataUrl(uri: string) {
   return `data:image/jpeg;base64,${saved.base64}`;
 }
 
-function promptFor(name: string, category: string) {
-  const kind = category.toLowerCase();
-  let swap = `Show them wearing the ${name} from photo 2 as everyday street fashion.`;
-  if (kind.includes("top") || kind.includes("knit") || kind.includes("blouse") || kind.includes("shirt")) {
-    swap = `Swap only the top for the ${name}. Keep whatever they're wearing on the bottom.`;
-  } else if (kind.includes("trouser") || kind.includes("skirt") || kind.includes("pant") || kind.includes("denim")) {
-    swap = `Swap only the bottoms for the ${name}. Keep the top they're wearing.`;
-  } else if (kind.includes("outer") || kind.includes("coat") || kind.includes("jacket") || kind.includes("blazer")) {
-    swap = `Add the ${name} over their current clothes, like they just put it on.`;
-  } else if (kind.includes("dress")) {
-    swap = `Show them wearing the ${name} as a regular day dress.`;
-  } else if (kind.includes("shoe")) {
-    swap = `Put the ${name} on their feet. Keep the rest of the clothes.`;
-  }
+const HOT =
+  /\b(bodycon|bandeau|micro|mini|strapless|sexy|lingerie|sheer|cut-?outs?|low-?cut|plunging|revealing|nude|mesh|see-?through|thong|bikini|intimate|skintight|skin-tight|clubwear)\b/gi;
 
-  return `Retail virtual try-on for a clothing marketplace. Safe for a general audience.
-
-Photo 1: the shopper, fully clothed, in their room.
-Photo 2: the ${name} (${category}) they want to see on themselves.
-
-${swap}
-
-Keep the same person, face, hair, pose, skin, jewelry, room, and lighting. Photorealistic. They stay fully clothed. No collage, no extra people, no text, no logos.`;
+export function catalogName(name: string, category = "piece") {
+  const cleaned = name.replace(HOT, " ").replace(/[^a-zA-Z0-9 &\-]/g, " ").replace(/\s+/g, " ").trim();
+  if (cleaned.length >= 4) return cleaned;
+  return category || "piece";
 }
 
-function safeRetryPrompt(name: string, category: string) {
-  return `E-commerce product visualization. Combine these two photos:
-1) a clothed person in a bedroom
-2) a clothing item (${name}, ${category}) sold on a fashion app
+function lookbookPrompt(name: string, category: string) {
+  return `E-commerce catalog composite. Department store lookbook. PG fashion photography.
 
-Output: the same person, still fully dressed, now wearing that item. Modest, SFW, catalog style. Same face, hair, pose, room. Photorealistic. No text.`;
+Image 1 is the customer. Image 2 is a ${name} (${category}) sold on a clothing app.
+
+Put that same ${name} onto the customer in image 1. Keep their face, hair, pose and room. They stay fully dressed in ordinary day clothes. Photorealistic. No text, no collage, no extra people.`;
+}
+
+function modestPrompt(name: string, category: string) {
+  return `Department store catalog photo. Dress the person in image 1 in a regular ${category} that matches the colour and fabric of the item in image 2. Everyday daywear, fully clothed. Same face, hair, pose and room. Photorealistic. No text.`;
+}
+
+function textOnlyPrompt(name: string, category: string) {
+  return `Department store catalog photo of the person in this picture wearing a regular ${name} (${category}). Everyday daywear, fully clothed. Same face, hair, pose and room. Photorealistic. No text.`;
 }
 
 function nice(text: string) {
@@ -87,8 +79,8 @@ function nice(text: string) {
   if (low.includes("insufficient_quota") || low.includes("billing") || low.includes("exceeded your current quota")) {
     return "OpenAI needs billing on this key. Add a card at platform.openai.com/settings/organization/billing.";
   }
-  if (low.includes("moderation_blocked") || low.includes("safety system") || low.includes("rejected as a result")) {
-    return "Couldn’t generate that look. Try once more — this isn’t you, it’s the image filter.";
+  if (low.includes("moderation_blocked") || low.includes("safety system") || low.includes("rejected as a result") || low.includes("safety_violations")) {
+    return "Couldn’t dress you in that. Try another photo of the piece.";
   }
   if (low.includes("formdatapart")) return "Couldn’t send that photo. Try Library again.";
   if (low.includes("rate") || low.includes("429")) return "Try-on is busy. Wait a moment.";
@@ -137,12 +129,12 @@ function postJson(url: string, headers: Record<string, string>, body: string, ms
   });
 }
 
-async function openaiEdits(personUrl: string, garmentUrl: string, prompt: string) {
+async function openaiEdits(images: string[], prompt: string) {
   const key = openaiKey();
   const body = JSON.stringify({
     model: "gpt-image-2",
     prompt,
-    images: [{ image_url: personUrl }, { image_url: garmentUrl }],
+    images: images.map((image_url) => ({ image_url })),
     size: "1024x1536",
     quality: "low",
     moderation: "low",
@@ -159,7 +151,12 @@ async function openaiEdits(personUrl: string, garmentUrl: string, prompt: string
 
 function isBlocked(err: unknown) {
   const low = (err instanceof Error ? err.message : String(err)).toLowerCase();
-  return low.includes("moderation_blocked") || low.includes("safety system") || low.includes("rejected as a result");
+  return (
+    low.includes("moderation_blocked") ||
+    low.includes("safety system") ||
+    low.includes("rejected as a result") ||
+    low.includes("safety_violations")
+  );
 }
 
 export async function dressPerson(opts: {
@@ -169,19 +166,28 @@ export async function dressPerson(opts: {
   category?: string;
 }) {
   if (!openaiKey()) throw new Error("Add your OpenAI key and I’ll turn try-on on.");
-  const name = opts.garmentName ?? "this piece";
   const category = opts.category ?? "clothes";
+  const name = catalogName(opts.garmentName ?? "this piece", category);
   try {
     const [personUrl, garmentUrl] = await Promise.all([
       uriToDataUrl(opts.personUri),
       uriToDataUrl(resolveSource(opts.garment)),
     ]);
-    try {
-      return await openaiEdits(personUrl, garmentUrl, promptFor(name, category));
-    } catch (first) {
-      if (!isBlocked(first)) throw first;
-      return await openaiEdits(personUrl, garmentUrl, safeRetryPrompt(name, category));
+    const attempts: { images: string[]; prompt: string }[] = [
+      { images: [personUrl, garmentUrl], prompt: lookbookPrompt(name, category) },
+      { images: [personUrl, garmentUrl], prompt: modestPrompt(name, category) },
+      { images: [personUrl], prompt: textOnlyPrompt(name, category) },
+    ];
+    let last: unknown;
+    for (const step of attempts) {
+      try {
+        return await openaiEdits(step.images, step.prompt);
+      } catch (err) {
+        last = err;
+        if (!isBlocked(err)) throw err;
+      }
     }
+    throw last;
   } catch (err) {
     throw new Error(nice(err instanceof Error ? err.message : String(err)));
   }
