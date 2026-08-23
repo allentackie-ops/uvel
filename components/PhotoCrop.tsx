@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Dimensions, Image as RNImage, Pressable, StyleSheet, Text, View } from "react-native";
+import { Dimensions, Image as RNImage, Pressable, StyleSheet, Text, View } from "react-native";
+import { BrandLoader, BrandMark } from "./BrandLoader";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -121,15 +122,11 @@ export function PhotoCrop({ uri, onCancel, onDone }: Props) {
               </Animated.View>
             </GestureDetector>
           ) : (
-            <ActivityIndicator color="#D6E27A" />
+            <BrandMark size={64} />
           )}
         </View>
       </View>
-      {busy ? (
-        <View style={styles.busy}>
-          <ActivityIndicator color="#16140F" />
-        </View>
-      ) : null}
+      {busy ? <BrandLoader /> : null}
     </View>
   );
 }

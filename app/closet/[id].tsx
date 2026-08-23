@@ -11,10 +11,11 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BrandScreen } from "../../components/BrandLoader";
 import { usd } from "../../lib/catalog";
 import { shopLookOf, type ShopLook } from "../../lib/shopLook";
 import { useUvel } from "../../lib/store";
-import { getPiece, useWardrobe } from "../../lib/wardrobe";
+import { getPiece, useWardrobe, wardrobeReady } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
 const HERO_H = Math.round(W * (5 / 4));
@@ -31,6 +32,7 @@ export default function ClosetPiece() {
   const styles = useMemo(() => make(look), [look]);
 
   if (!piece) {
+    if (!wardrobeReady()) return <BrandScreen />;
     return (
       <View style={[styles.page, { paddingTop: insets.top + 24, paddingHorizontal: 20 }]}>
         <Text style={styles.p}>That piece isn’t on the floor.</Text>

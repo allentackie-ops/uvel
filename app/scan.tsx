@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BrandLoader } from "../components/BrandLoader";
 import { Glass, GlassContainer } from "../components/Glass";
 import { ListingCard, ListingEmpty } from "../components/ListingCard";
 import { matchLookImage } from "../lib/lookMatch";
@@ -156,6 +157,7 @@ export default function ScanLook() {
           </View>
         ) : null}
       </ScrollView>
+      {busy ? <BrandLoader /> : null}
     </View>
   );
 }

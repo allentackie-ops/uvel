@@ -3,7 +3,6 @@ import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   ActionSheetIOS,
-  ActivityIndicator,
   Alert,
   Platform,
   Pressable,
@@ -14,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BrandLoader } from "../../components/BrandLoader";
 import { usd } from "../../lib/catalog";
 import { pickFromLibrary, takePhoto } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
@@ -187,12 +187,6 @@ export default function Mirror() {
               </Pressable>
             </View>
           ) : null}
-          {busy ? (
-            <View style={styles.spin}>
-              <ActivityIndicator color="#D6E27A" />
-              <Text style={styles.spinTxt}>Dressing you</Text>
-            </View>
-          ) : null}
         </View>
 
         <View style={styles.headRow}>
@@ -278,6 +272,7 @@ export default function Mirror() {
         </Pressable>
         <Text style={styles.foot}>Point at any piece online or in real life.{"\n"}Uvel will show it on you.</Text>
       </ScrollView>
+      {busy ? <BrandLoader /> : null}
     </View>
   );
 }

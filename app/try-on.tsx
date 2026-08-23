@@ -4,7 +4,6 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionSheetIOS,
-  ActivityIndicator,
   Alert,
   Platform,
   Pressable,
@@ -14,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BrandLoader } from "../components/BrandLoader";
 import { GARMENTS, getGarment } from "../lib/catalog";
 import { pickFromLibrary, takePhoto } from "../lib/photo";
 import { useUvel } from "../lib/store";
@@ -146,12 +146,6 @@ export default function TryOn() {
           ) : (
             <Text style={styles.placeholder}>Your photo</Text>
           )}
-          {busy ? (
-            <View style={styles.spin}>
-              <ActivityIndicator color="#D6E27A" />
-              <Text style={styles.spinTxt}>Dressing you</Text>
-            </View>
-          ) : null}
           {!person && !busy ? (
             <View style={styles.need}>
               <Text style={styles.needH}>Add your photo</Text>
@@ -183,6 +177,7 @@ export default function TryOn() {
           </Text>
         </Pressable>
       </ScrollView>
+      {busy ? <BrandLoader /> : null}
     </View>
   );
 }

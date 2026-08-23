@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BrandLoader, BrandScreen } from "../../components/BrandLoader";
 import { Sheet } from "../../components/Sheet";
 import { payMethods, shippingCents, uvelFeeCents, type PayMethod } from "../../lib/fees";
 import { convertCents, getMarket, moneyExact } from "../../lib/markets";
@@ -11,7 +12,7 @@ import { loadAddress, placeOrder, type Address } from "../../lib/orders";
 import { createCheckoutSession, openHostedPay, processorFor } from "../../lib/pay";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
-import { getPiece, markSold, useWardrobe } from "../../lib/wardrobe";
+import { getPiece, markSold, useWardrobe, wardrobeReady } from "../../lib/wardrobe";
 
 export default function Checkout() {
   const colors = useColors();
@@ -37,6 +38,7 @@ export default function Checkout() {
   );
 
   if (!piece) {
+    if (!wardrobeReady()) return <BrandScreen />;
     return (
       <View style={[styles.page, { paddingTop: insets.top + 24, paddingHorizontal: 20 }]}>
         <Text style={{ color: colors.muted }}>That listing isn’t here.</Text>
@@ -204,6 +206,8 @@ export default function Checkout() {
         </Pressable>
         <Text style={styles.lock}>Your payment details are encrypted and secure</Text>
       </View>
+
+      {paying ? <BrandLoader /> : null}
 
       {feeInfo ? (
         <Sheet open={feeInfo} onClose={() => setFeeInfo(false)}>

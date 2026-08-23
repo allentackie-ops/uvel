@@ -2,7 +2,6 @@ import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
 import { useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,6 +11,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { BrandLoader } from "../components/BrandLoader";
 import { StatusBar } from "expo-status-bar";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -382,13 +382,7 @@ export default function ProfileSetup() {
                 {photo ? (
                   <View style={styles.stageFill}>
                     <Image source={{ uri: worn ?? photo }} style={styles.fullPic} contentFit="contain" />
-                    {rendering ? (
-                      <View style={styles.spin}>
-                        <ActivityIndicator color={INK} />
-                        <Text style={styles.spinTxt}>{rendering ? "Dressing you" : "Rendering"}</Text>
-                      </View>
-                    ) : null}
-                  </View>
+                   </View>
                 ) : (
                   <Text style={styles.stageHint}>Full-length mirror. Head to shoes. Nothing cropped.</Text>
                 )}
@@ -537,6 +531,7 @@ export default function ProfileSetup() {
           ) : null}
         </Animated.View>
       </KeyboardAvoidingView>
+      {rendering ? <BrandLoader /> : null}
     </Animated.View>
   );
 }
