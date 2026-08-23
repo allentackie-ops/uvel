@@ -12,7 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import Animated, { Easing, FadeIn, FadeInRight, FadeOutLeft } from "react-native-reanimated";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GARMENTS } from "../lib/catalog";
 import { useUvel } from "../lib/store";
@@ -117,7 +117,7 @@ export default function ProfileSetup() {
 
   async function pickPhoto(camera: boolean) {
     const fn = camera ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync;
-    const res = await fn({ mediaTypes: ["images"], quality: 0.85, allowsEditing: true, aspect: [3, 4] });
+    const res = await fn({ mediaTypes: ["images"], quality: 0.9 });
     if (!res.canceled) {
       setPhoto(res.assets[0].uri);
       setRendered(false);
@@ -195,11 +195,10 @@ export default function ProfileSetup() {
         <View style={styles.back} />
       </View>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1, overflow: "hidden" }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <Animated.View
           key={step}
-          entering={FadeInRight.duration(280).easing(Easing.out(Easing.cubic))}
-          exiting={FadeOutLeft.duration(180)}
+          entering={FadeIn.duration(240)}
           style={{ flex: 1 }}
         >
           {step === 0 ? (
@@ -311,27 +310,29 @@ export default function ProfileSetup() {
             <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 28 }]}>
               <Text style={styles.h}>A mirror pic of you.</Text>
               <Text style={styles.lede}>
-                Optional. Pick a look — we’ll put it on you in a second, so you know before you buy. Works for
-                women’s and men’s pieces.
+                The whole you, not a crop. We’ll put the clothes on your body so you can see the outfit before you
+                buy.
               </Text>
               <View style={styles.stage}>
                 {photo ? (
                   <View style={styles.stageFill}>
-                    <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" />
-                    {rendered && garment ? (
-                      <Image source={garment.image} style={styles.lookOver} contentFit="contain" />
-                    ) : null}
+                    <Image source={{ uri: photo }} style={styles.fullPic} contentFit="contain" />
                     {rendering ? (
                       <View style={styles.spin}>
                         <ActivityIndicator color={CREAM} />
-                        <Text style={styles.spinTxt}>Rendering</Text>
+                        <Text style={styles.spinTxt}>Putting it on you</Text>
                       </View>
                     ) : null}
                   </View>
                 ) : (
-                  <Text style={styles.stageHint}>Full length. Natural light. Face in frame.</Text>
+                  <Text style={styles.stageHint}>Full-length mirror. Head to shoes. Nothing cropped.</Text>
                 )}
               </View>
+              {rendered && garment && photo ? (
+                <Text style={styles.savedLook}>
+                  {garment.name} — saved on you. Next we’ll dress you in it for real.
+                </Text>
+              ) : null}
               <View style={styles.row}>
                 <Pressable onPress={() => void pickPhoto(true)} style={styles.ghost}>
                   <Text style={styles.ghostTxt}>Camera</Text>
@@ -367,7 +368,7 @@ export default function ProfileSetup() {
                     <View style={{ width: 16 }} />
                   </ScrollView>
                   <Pressable onPress={() => void renderLook()} style={styles.ghost}>
-                    <Text style={styles.ghostTxt}>{rendered ? "Looks like you" : "See it on you"}</Text>
+                    <Text style={styles.ghostTxt}>{rendered ? "Saved on you" : "See it on you"}</Text>
                   </Pressable>
                 </>
               ) : null}
@@ -537,22 +538,22 @@ const styles = StyleSheet.create({
   radioOn: { borderColor: CREAM },
   radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: CREAM },
   stage: {
-    height: 280,
+    height: 420,
     borderRadius: 18,
     overflow: "hidden",
-    backgroundColor: "#1A1C12",
+    backgroundColor: "#0E1008",
     alignItems: "center",
     justifyContent: "center",
   },
   stageFill: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0 },
+  fullPic: { width: "100%", height: "100%" },
   stageHint: { color: MUTED, textAlign: "center", paddingHorizontal: 28, lineHeight: 22 },
-  lookOver: {
-    position: "absolute",
-    left: "12%",
-    right: "12%",
-    top: "28%",
-    bottom: "8%",
-    opacity: 0.88,
+  savedLook: {
+    color: CREAM,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 10,
+    opacity: 0.8,
   },
   spin: {
     position: "absolute",
