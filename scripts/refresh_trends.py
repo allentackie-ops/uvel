@@ -1,104 +1,110 @@
 #!/usr/bin/env python3
-"""Pull today's fashion desk from public RSS + map onto Uvel pieces."""
+"""Refresh the fashion desk from live public posts (Reddit + existing desk)."""
 from __future__ import annotations
 
 import json
 import re
 import urllib.request
-import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 
-FEEDS = [
-    ("TikTok", "https://www.whowhatwear.com/rss.xml"),
-    ("Instagram", "https://www.vogue.com/feed/rss"),
-    ("X", "https://www.highsnobiety.com/rss"),
+ROOT = Path(__file__).resolve().parents[1]
+DEST = ROOT / "docs" / "trends.json"
+
+SUBS = [
+    ("streetwear", "TikTok"),
+    ("outfits", "TikTok"),
+    ("femalefashionadvice", "Instagram"),
+    ("malefashion", "Instagram"),
+    ("fashionporn", "Instagram"),
 ]
 
 MAP = [
-    ("cashmere|camel|quiet luxury|loafers|knit", "bourgeois-chic", ["cashmere-crew", "oxford-shirt", "wide-trousers", "loafer"], "camel cashmere"),
-    ("western|suede|cowboy|boot", "western-city", ["suede-jacket", "vintage-denim", "cowboy-boots"], "suede western"),
-    ("utility|cargo|field jacket|toggle", "utility-real", ["field-jacket", "cashmere-crew", "vintage-denim"], "field jacket"),
-    ("slip|satin|silk|evening", "liquid-evening", ["silk-slip", "satin-skirt", "poet-blouse"], "silk slip"),
-    ("layer|blouse|90s|grunge", "layered-max", ["oxford-shirt", "poet-blouse", "wide-trousers"], "layered blouse"),
-    ("boho|poet|volume", "boho-26", ["poet-blouse", "satin-skirt", "silk-slip"], "poet blouse"),
-    ("blazer|trench|shoulder|napoleon", "napoleon", ["leather-trench", "wool-blazer", "herringbone-coat"], "blazer trench"),
-    ("sunday|outfit|street", "sunday-fit", ["cashmere-crew", "oxford-shirt", "loafer"], "oxford loafers"),
+    ("denim|jean", ["vintage-denim", "oxford-shirt"], "denim"),
+    ("knit|sweater|camel", ["cashmere-crew", "wide-trousers", "loafer"], "camel knit"),
+    ("blazer|suit|tailor", ["wool-blazer", "oxford-shirt", "loafer"], "blazer"),
+    ("slip|satin|silk|dress", ["silk-slip", "satin-skirt", "poet-blouse"], "silk slip"),
+    ("boot|western|suede", ["suede-jacket", "cowboy-boots", "vintage-denim"], "suede western"),
+    ("jacket|leather|trench", ["leather-trench", "black-trouser"], "leather jacket"),
+    ("shirt|oxford", ["oxford-shirt", "black-trouser", "loafer"], "oxford shirt"),
 ]
 
-SOURCE_OF = {
-    "bourgeois-chic": "TikTok",
-    "layered-max": "TikTok",
-    "boho-26": "TikTok",
-    "western-city": "Instagram",
-    "napoleon": "Instagram",
-    "liquid-evening": "Snapchat",
-    "utility-real": "X",
-    "sunday-fit": "X",
-}
 
-
-def fetch(url: str) -> str:
-    req = urllib.request.Request(url, headers={"User-Agent": "UvelTrends/1.0"})
+def get_json(url: str):
+    req = urllib.request.Request(url, headers={"User-Agent": "UvelDesk/1.0 (fashion app)"})
     with urllib.request.urlopen(req, timeout=20) as r:
-        return r.read().decode("utf-8", "ignore")
+        return json.load(r)
 
 
-def items(xml: str):
-    root = ET.fromstring(xml)
+def reddit_looks():
     out = []
-    for node in root.iter():
-        if node.tag.lower().endswith("item") or node.tag.lower().endswith("entry"):
-            title = ""
-            link = ""
-            summary = ""
-            for c in node:
-                tag = c.tag.lower()
-                if tag.endswith("title") and c.text:
-                    title = c.text.strip()
-                elif tag.endswith("link"):
-                    link = (c.text or c.attrib.get("href") or "").strip()
-                elif tag.endswith("description") or tag.endswith("summary"):
-                    summary = re.sub("<[^>]+>", "", (c.text or "")).strip()
-            if title:
-                out.append((title, link, summary[:180]))
-    return out[:12]
+    for sub, source in SUBS:
+        try:
+            data = get_json(f"https://www.reddit.com/r/{sub}/hot.json?limit=12")
+        except Exception as e:
+            print("reddit fail", sub, e)
+            continue
+        for child in data.get("data", {}).get("children", []):
+            p = child.get("data", {})
+            if p.get("stickied") or p.get("over_18"):
+                continue
+            url = p.get("url") or ""
+            img = ""
+            if url.lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
+                img = url
+            else:
+                try:
+                    img = p["preview"]["images"][0]["source"]["url"].replace("&", "&")
+                except Exception:
+                    continue
+            title = re.sub(r"\s+", " ", p.get("title") or "Today’s look").strip()[:72]
+            blob = title.lower()
+            gids, q = ["cashmere-crew", "oxford-shirt"], "outfit"
+            for pat, ids, query in MAP:
+                if re.search(pat, blob):
+                    gids, q = ids, query
+                    break
+            tag = source
+            if "tiktok" in blob:
+                tag = "TikTok"
+            elif "instagram" in blob or "insta" in blob:
+                tag = "Instagram"
+            elif "snap" in blob:
+                tag = "Snapchat"
+            out.append(
+                {
+                    "id": p.get("id") or title,
+                    "slug": p.get("id") or title,
+                    "title": title,
+                    "source": tag,
+                    "summary": f"Live from r/{sub}. {p.get('score', 0)} upvotes today.",
+                    "imageUrl": img,
+                    "postUrl": "https://www.reddit.com" + p.get("permalink", ""),
+                    "garmentIds": gids,
+                    "shopQuery": q,
+                    "heat": f"{tag} · today",
+                }
+            )
+            if sum(1 for x in out if x["source"] == tag) >= 3 and len(out) >= 8:
+                break
+    return out
 
 
 def main():
-    blob: list[tuple[str, str, str, str]] = []
-    for source, url in FEEDS:
-        try:
-            blob.extend((source, *row) for row in items(fetch(url)))
-        except Exception as e:
-            print("feed fail", url, e)
-
-    hits: dict[str, dict] = {}
-    for source, title, link, summary in blob:
-        blob_l = f"{title} {summary}".lower()
-        for pat, slug, gids, q in MAP:
-            if re.search(pat, blob_l) and slug not in hits:
-                hits[slug] = {
-                    "id": slug,
-                    "slug": slug,
-                    "title": title.split("|")[0].strip()[:72],
-                    "source": SOURCE_OF.get(slug, source),
-                    "summary": summary or title,
-                    "garmentIds": gids,
-                    "shopQuery": q,
-                    "heat": f"{SOURCE_OF.get(slug, source)} · today",
-                    "postUrl": link or None,
-                }
-
-    # keep a stable desk even if RSS is quiet
-    seed = json.loads((Path(__file__).resolve().parents[1] / "docs" / "trends.json").read_text())
-    by_id = {row["id"]: row for row in seed.get("looks", [])}
-    by_id.update(hits)
-    looks = list(by_id.values())
-    out = {"updatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "looks": looks}
-    dest = Path(__file__).resolve().parents[1] / "docs" / "trends.json"
-    dest.write_text(json.dumps(out, indent=2) + "\n")
-    print("wrote", dest, "looks", len(looks))
+    seed = json.loads(DEST.read_text()) if DEST.exists() else {"looks": []}
+    live = reddit_looks()
+    looks = live or seed.get("looks", [])
+    # keep a couple of the last live X/IG stills if reddit was quiet
+    if live:
+        have = {x["imageUrl"] for x in live if x.get("imageUrl")}
+        for row in seed.get("looks", []):
+            if row.get("imageUrl") and row["imageUrl"] not in have:
+                looks.append(row)
+            if len(looks) >= 12:
+                break
+    out = {"updatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "looks": looks[:12]}
+    DEST.write_text(json.dumps(out, indent=2) + "\n")
+    print("wrote", DEST, "looks", len(out["looks"]))
 
 
 if __name__ == "__main__":

@@ -136,15 +136,15 @@ function Hero({
 }) {
   const styles = make(colors);
   return (
-    <View style={styles.heroWrap}>
-      <Image source={lookImage(look)} style={styles.hero} contentFit="cover" />
-      <View pointerEvents="none" style={styles.heroFadeTop} />
-      <View pointerEvents="none" style={styles.heroFade} />
-      <View style={[styles.heroTop, { paddingTop: top + 8 }]}>
-        <Text style={styles.liveK}>{today.toUpperCase()}</Text>
-        <View style={styles.live}>
-          <View style={styles.liveDot} />
-          <Text style={styles.liveT}>{stamp ? "LIVE" : "TODAY"}</Text>
+    <View>
+      <View style={styles.heroWrap}>
+        <Image source={lookImage(look)} style={styles.hero} contentFit="cover" />
+        <View style={[styles.heroTop, { top: top + 6 }]}>
+          <Text style={styles.liveK}>{today.toUpperCase()}</Text>
+          <View style={styles.live}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveT}>{stamp ? "LIVE" : "TODAY"}</Text>
+          </View>
         </View>
       </View>
       <View style={styles.heroCopy}>
@@ -182,7 +182,6 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
       style={styles.card}
     >
       <Image source={lookImage(look)} style={styles.cardImg} contentFit="cover" />
-      <View style={styles.cardFade} />
       <View style={styles.cardMeta}>
         <View style={styles.srcRow}>
           <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
@@ -199,41 +198,42 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    heroWrap: { height: Math.min(640, H * 0.72), backgroundColor: "#0B0A08" },
+    heroWrap: { height: Math.min(560, H * 0.62), backgroundColor: "#0B0A08", overflow: "hidden" },
     hero: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-    heroFadeTop: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      top: 0,
-      height: 120,
-      backgroundColor: "rgba(12,11,8,0.28)",
-    },
-    heroFade: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
-      height: "52%",
-      backgroundColor: "rgba(12,11,8,0.55)",
-    },
     heroTop: {
       position: "absolute",
       left: 20,
       right: 20,
+      top: 10,
       flexDirection: "row",
       justifyContent: "space-between",
       alignItems: "center",
     },
-    liveK: { color: "rgba(244,240,230,0.72)", fontSize: 11, letterSpacing: 1.8, fontWeight: "600" },
+    liveK: {
+      color: "#F4F0E6",
+      fontSize: 11,
+      letterSpacing: 1.8,
+      fontWeight: "600",
+      textShadowColor: "rgba(0,0,0,0.55)",
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 4,
+    },
     live: { flexDirection: "row", alignItems: "center", gap: 6 },
     liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#FE2C55" },
-    liveT: { color: "#F4F0E6", fontSize: 11, letterSpacing: 1.6, fontWeight: "700" },
-    heroCopy: { position: "absolute", left: 20, right: 20, bottom: 28 },
+    liveT: {
+      color: "#F4F0E6",
+      fontSize: 11,
+      letterSpacing: 1.6,
+      fontWeight: "700",
+      textShadowColor: "rgba(0,0,0,0.55)",
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 4,
+    },
+    heroCopy: { paddingHorizontal: 20, paddingTop: 22, paddingBottom: 4 },
     srcRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    src: { color: "rgba(244,240,230,0.82)", fontSize: 12, letterSpacing: 0.4 },
-    title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 34, lineHeight: 38, marginTop: 10 },
-    summary: { color: "rgba(244,240,230,0.82)", marginTop: 10, fontSize: 15, lineHeight: 22 },
+    src: { color: colors.muted, fontSize: 12, letterSpacing: 0.4 },
+    title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, marginTop: 10 },
+    summary: { color: colors.muted, marginTop: 10, fontSize: 15, lineHeight: 22 },
     actions: { flexDirection: "row", gap: 10, marginTop: 18 },
     cta: {
       backgroundColor: "#F4F0E6",
@@ -249,11 +249,11 @@ function make(colors: Colors) {
       height: 42,
       borderRadius: 21,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.35)",
+      borderColor: "rgba(244,240,230,0.28)",
       alignItems: "center",
       justifyContent: "center",
     },
-    ghostTxt: { color: "#F4F0E6", fontWeight: "600", fontSize: 14 },
+    ghostTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
     body: { paddingTop: 18 },
     chips: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },
     filter: {
@@ -292,19 +292,11 @@ function make(colors: Colors) {
       paddingHorizontal: 16,
     },
     strip: { paddingHorizontal: 16, gap: 12 },
-    card: { width: 168, height: 240, borderRadius: 18, overflow: "hidden", backgroundColor: colors.surface },
-    cardImg: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-    cardFade: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
-      height: "55%",
-      backgroundColor: "rgba(12,11,8,0.7)",
-    },
-    cardMeta: { position: "absolute", left: 12, right: 12, bottom: 12 },
-    cardSrc: { color: "rgba(244,240,230,0.8)", fontSize: 11, fontWeight: "600" },
-    cardTitle: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 16, marginTop: 4, lineHeight: 20 },
+    card: { width: 168 },
+    cardImg: { width: 168, height: 210, borderRadius: 16, backgroundColor: colors.surface },
+    cardMeta: { paddingTop: 10, paddingRight: 4 },
+    cardSrc: { color: colors.subtle, fontSize: 11, fontWeight: "600" },
+    cardTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 16, marginTop: 4, lineHeight: 20 },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 16 },
     cell: { width: "47%", flexGrow: 1 },
   });
