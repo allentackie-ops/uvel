@@ -5,8 +5,8 @@ export default function TabsLayout() {
   const colors = useColors();
 
   return (
-    <NativeTabs tintColor={colors.bone}>
-      <NativeTabs.Trigger name="index">
+    <NativeTabs tintColor={colors.bone} blurEffect="systemChromeMaterialDark" shadowColor="transparent">
+      <NativeTabs.Trigger name="index" disableAutomaticContentInsets contentStyle={{ backgroundColor: "#0B0A08" }}>
         <NativeTabs.Trigger.Label>Today</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf="safari" />
       </NativeTabs.Trigger>

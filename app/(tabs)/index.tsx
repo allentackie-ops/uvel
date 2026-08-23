@@ -1,11 +1,14 @@
 import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import {
   AppState,
   Dimensions,
   Linking,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -14,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Glass } from "../../components/Glass";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { unreadFor, useInbox } from "../../lib/chat";
 import { frameAtTime, prefetchLookVideo } from "../../lib/lookFrame";
@@ -24,7 +28,10 @@ import { useColors, type Colors } from "../../lib/theme";
 import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
 import { listedPieces, useWardrobe } from "../../lib/wardrobe";
 
-const { height: H } = Dimensions.get("window");
+const { width: W, height: H } = Dimensions.get("screen");
+const CARD_W = Math.round((W - 32) / 2.28);
+const CARD_H = Math.round(CARD_W * 1.52);
+const SHOP_W = Math.round(W * 0.58);
 
 const DOT: Record<Exclude<Source, "All">, string> = {
   TikTok: "#FE2C55",
@@ -182,17 +189,44 @@ function scanLook(look: Look, grab: FrameGrab | null) {
   });
 }
 
+function Filters({
+  source,
+  onSource,
+  colors,
+}: {
+  source: Source;
+  onSource: (s: Source) => void;
+  colors: Colors;
+}) {
+  const styles = make(colors);
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+      {SOURCES.map((s) => {
+        const on = source === s;
+        return (
+          <Pressable key={s} onPress={() => onSource(s)} style={[styles.filter, on && styles.filterOn]}>
+            {s !== "All" ? <View style={[styles.dot, { backgroundColor: DOT[s] }]} /> : null}
+            <Text style={[styles.filterTxt, on && styles.filterTxtOn]}>{s}</Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 export default function Today() {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
-  const { uid, styles: taste, country } = useUvel();
+  const { uid, styles: taste, country, appearance } = useUvel();
   const chats = useInbox(uid || "me");
   const unread = chats.reduce((n, t) => n + unreadFor(t, uid || "me"), 0);
   const { looks, refreshing, refresh } = useLooks();
   useWardrobe();
   const live = listedPieces();
   const [source, setSource] = useState<Source>("All");
+  const [pastHero, setPastHero] = useState(false);
+  const heroH = H;
 
   const visible = useMemo(
     () => (source === "All" ? looks : looks.filter((t) => t.source === source)),
@@ -205,93 +239,104 @@ export default function Today() {
     day: "numeric",
   });
 
+  function onScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
+    const y = e.nativeEvent.contentOffset.y;
+    setPastHero(y > heroH - insets.top - 88);
+  }
+
   return (
-    <ScrollView
-      style={styles.page}
-      contentContainerStyle={{ paddingBottom: 88 + insets.bottom }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor="#F4F0E6" />}
-    >
-      {featured ? (
-        <Hero look={featured} today={today} colors={colors} />
-      ) : (
-        <View style={styles.heroWrap} />
-      )}
-
-      <View style={styles.body}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          {SOURCES.map((s) => {
-            const on = source === s;
-            return (
-              <Pressable key={s} onPress={() => setSource(s)} style={[styles.filter, on && styles.filterOn]}>
-                {s !== "All" ? <View style={[styles.dot, { backgroundColor: DOT[s] }]} /> : null}
-                <Text style={[styles.filterTxt, on && styles.filterTxtOn]}>{s}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        <Pressable onPress={() => router.push("/inbox")} style={styles.inbox}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.inboxK}>Chats</Text>
-            <Text style={styles.inboxP} numberOfLines={1}>
-              {chats[0]?.lastText
-                ? chats[0].lastText
-                : chats.length
-                  ? `${chats.length} open`
-                  : "Asks on your listings land here"}
-            </Text>
-          </View>
-          <Text style={styles.inboxGo}>{unread ? String(unread) : chats.length ? String(chats.length) : "›"}</Text>
-        </Pressable>
-
-        <Text style={styles.h2}>{source === "All" ? "Moving now" : `Now on ${source}`}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
-          {visible.map((look) => (
-            <LookCard key={look.id} look={look} colors={colors} />
-          ))}
-        </ScrollView>
-
+    <View style={styles.page}>
+      <StatusBar style={pastHero && appearance === "light" ? "dark" : "light"} />
+      <ScrollView
+        style={styles.page}
+        contentInsetAdjustmentBehavior="never"
+        automaticallyAdjustContentInsets={false}
+        contentContainerStyle={{ paddingBottom: 108 + insets.bottom }}
+        scrollEventThrottle={16}
+        onScroll={onScroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void refresh()}
+            tintColor="#F4F0E6"
+            progressViewOffset={insets.top}
+          />
+        }
+      >
         {featured ? (
-          <>
-            <Text style={styles.h2}>Shop the look</Text>
-            {(() => {
-              const hits = matchListings(featured, live, taste).slice(0, 8);
-              if (!hits.length) {
-                return (
-                  <View style={{ paddingHorizontal: 16 }}>
-                    <ListingEmpty copy="No listings match this look yet. When someone sells the real piece, it lands here." />
-                  </View>
-                );
-              }
-              return (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
-                  {hits.map((p) => (
-                    <View key={p.id} style={{ width: 148 }}>
-                      <ListingCard piece={p} />
-                    </View>
-                  ))}
-                </ScrollView>
-              );
-            })()}
-          </>
-        ) : null}
-
-        <Text style={styles.h2}>For you</Text>
-        {live.length ? (
-          <View style={styles.grid}>
-            {forYou(live, taste, country).slice(0, 8).map((p) => (
-              <View key={p.id} style={styles.cell}>
-                <ListingCard piece={p} />
-              </View>
-            ))}
-          </View>
+          <Hero look={featured} today={today} colors={colors} height={heroH} bottomPad={insets.bottom + 88} topPad={insets.top} />
         ) : (
-          <View style={{ paddingHorizontal: 16 }}>
-            <ListingEmpty copy="Only real listings show here. Sell something from Closet and it appears on the floor." />
-          </View>
+          <View style={[styles.heroWrap, { height: heroH }]} />
         )}
-      </View>
-    </ScrollView>
+
+        <View style={styles.body}>
+          <Pressable onPress={() => router.push("/inbox")} style={styles.inbox}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.inboxK}>Chats</Text>
+              <Text style={styles.inboxP} numberOfLines={1}>
+                {chats[0]?.lastText
+                  ? chats[0].lastText
+                  : chats.length
+                    ? `${chats.length} open`
+                    : "Asks on your listings land here"}
+              </Text>
+            </View>
+            <Text style={styles.inboxGo}>{unread ? String(unread) : chats.length ? String(chats.length) : "›"}</Text>
+          </Pressable>
+
+          <Text style={styles.h2}>{source === "All" ? "Moving now" : `Now on ${source}`}</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
+            {visible.map((look) => (
+              <LookCard key={look.id} look={look} colors={colors} />
+            ))}
+          </ScrollView>
+
+          {featured ? (
+            <>
+              <Text style={styles.h2}>Shop the look</Text>
+              {(() => {
+                const hits = matchListings(featured, live, taste).slice(0, 8);
+                if (!hits.length) {
+                  return (
+                    <View style={{ paddingHorizontal: 16 }}>
+                      <ListingEmpty copy="No listings match this look yet. When someone sells the real piece, it lands here." />
+                    </View>
+                  );
+                }
+                return (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
+                    {hits.map((p) => (
+                      <ListingCard key={p.id} piece={p} wide={SHOP_W} badge="Shop" />
+                    ))}
+                  </ScrollView>
+                );
+              })()}
+            </>
+          ) : null}
+
+          <Text style={styles.h2}>For you</Text>
+          {live.length ? (
+            <View style={styles.grid}>
+              {forYou(live, taste, country).slice(0, 8).map((p) => (
+                <View key={p.id} style={styles.cell}>
+                  <ListingCard piece={p} />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={{ paddingHorizontal: 16 }}>
+              <ListingEmpty copy="Only real listings show here. Sell something from Closet and it appears on the floor." />
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {pastHero ? (
+        <View style={[styles.sticky, { paddingTop: insets.top + 6, paddingBottom: 10 }]}>
+          <Filters source={source} onSource={setSource} colors={colors} />
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -299,10 +344,16 @@ function Hero({
   look,
   today,
   colors,
+  height,
+  bottomPad,
+  topPad,
 }: {
   look: Look;
   today: string;
   colors: Colors;
+  height: number;
+  bottomPad: number;
+  topPad: number;
 }) {
   const styles = make(colors);
   const seen = where(look.postUrl) || look.source;
@@ -318,25 +369,37 @@ function Hero({
 
   return (
     <View>
-      <View style={styles.heroWrap}>
+      <View style={[styles.heroWrap, { height }]}>
         <LookMedia look={look} style={styles.hero} handleRef={grab} />
-        <View style={styles.heroBar}>
+        <View pointerEvents="none" style={styles.topFade}>
+          <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.55)" }]} />
+          <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.32)" }]} />
+          <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0.14)" }]} />
+          <View style={[styles.fadeBand, { backgroundColor: "rgba(0,0,0,0)" }]} />
+        </View>
+        <View style={[styles.heroTop, { top: topPad + 8 }]}>
+          <View style={styles.srcPill}>
+            <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
+            <Text style={styles.srcPillTxt} numberOfLines={1}>
+              {look.handle ? `${look.source} · ${look.handle}` : look.source}
+            </Text>
+          </View>
+        </View>
+        <View style={[styles.heroBar, { bottom: bottomPad + 28 }]}>
           <Pressable onPress={() => void shopThis()} style={styles.cta}>
             <Text style={styles.ctaTxt}>{busy ? "Searching…" : "Shop the look"}</Text>
           </Pressable>
           {look.postUrl ? (
-            <Pressable onPress={() => void Linking.openURL(look.postUrl!)} style={styles.ghost}>
-              <Text style={styles.ghostTxt}>See on {seen}</Text>
+            <Pressable onPress={() => void Linking.openURL(look.postUrl!)}>
+              <Glass effect="regular" style={styles.ghost}>
+                <Text style={styles.ghostTxt}>See on {seen}</Text>
+              </Glass>
             </Pressable>
           ) : null}
         </View>
       </View>
       <View style={styles.heroCopy}>
         <Text style={styles.date}>{today}</Text>
-        <View style={styles.srcRow}>
-          <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
-          <Text style={styles.src}>{look.handle ? `${look.source} · ${look.handle}` : look.heat || look.source}</Text>
-        </View>
         <Text style={styles.title}>{look.title}</Text>
         {look.summary ? <Text style={styles.summary}>{look.summary}</Text> : null}
       </View>
@@ -360,19 +423,17 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
     <View style={styles.card}>
       <View style={styles.cardFrame}>
         <LookMedia look={look} style={styles.cardFill} handleRef={grab} />
+        <View style={styles.cardSrcPill}>
+          <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
+          <Text style={styles.cardSrc}>{look.source}</Text>
+        </View>
         <Pressable onPress={() => void shopThis()} style={styles.searchFab} hitSlop={8}>
           <Text style={styles.searchFabTxt}>{busy ? "…" : "⌕"}</Text>
         </Pressable>
       </View>
-      <View style={styles.cardMeta}>
-        <View style={styles.srcRow}>
-          <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
-          <Text style={styles.cardSrc}>{look.source}</Text>
-        </View>
-        <Text style={styles.cardTitle} numberOfLines={2}>
-          {look.title}
-        </Text>
-      </View>
+      <Text style={styles.cardTitle} numberOfLines={2}>
+        {look.title}
+      </Text>
     </View>
   );
 }
@@ -380,58 +441,89 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    heroWrap: { height: Math.min(560, H * 0.62), backgroundColor: "#0B0A08", overflow: "hidden" },
+    heroWrap: { width: W, height: H, backgroundColor: "#0B0A08", overflow: "hidden" },
     hero: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
+    topFade: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 160,
+    },
+    fadeBand: { flex: 1 },
+    heroTop: {
+      position: "absolute",
+      left: 16,
+      right: 16,
+    },
+    srcPill: {
+      alignSelf: "flex-start",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 7,
+      backgroundColor: "rgba(11,10,8,0.42)",
+      borderWidth: 1,
+      borderColor: "rgba(244,240,230,0.22)",
+      paddingHorizontal: 12,
+      height: 30,
+      borderRadius: 15,
+      maxWidth: "80%",
+    },
+    srcPillTxt: { color: "#F4F0E6", fontSize: 12, fontWeight: "600" },
     heroBar: {
       position: "absolute",
       left: 16,
       right: 16,
-      bottom: 18,
       flexDirection: "row",
       gap: 10,
     },
-    heroCopy: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 4 },
+    heroCopy: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 2 },
     date: {
       color: colors.subtle,
       fontSize: 11,
       letterSpacing: 1.8,
       fontWeight: "600",
       textTransform: "uppercase",
-      marginBottom: 10,
+      marginBottom: 8,
     },
     srcRow: { flexDirection: "row", alignItems: "center", gap: 8 },
     src: { color: colors.muted, fontSize: 12, letterSpacing: 0.4 },
-    title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, marginTop: 10 },
-    summary: { color: colors.muted, marginTop: 10, fontSize: 15, lineHeight: 22 },
+    title: { color: colors.bone, fontFamily: "Georgia", fontSize: 32, lineHeight: 36 },
+    summary: { color: colors.muted, marginTop: 8, fontSize: 15, lineHeight: 22 },
     cta: {
-      backgroundColor: "rgba(244,240,230,0.94)",
+      backgroundColor: "rgba(244,240,230,0.96)",
       paddingHorizontal: 18,
-      height: 42,
-      borderRadius: 21,
+      height: 44,
+      borderRadius: 22,
       alignItems: "center",
       justifyContent: "center",
     },
     ctaTxt: { color: "#16140F", fontWeight: "700", fontSize: 14 },
     ghost: {
       paddingHorizontal: 16,
-      height: 42,
-      borderRadius: 21,
-      backgroundColor: "rgba(11,10,8,0.38)",
-      borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.55)",
+      height: 44,
+      borderRadius: 22,
+      overflow: "hidden",
       alignItems: "center",
       justifyContent: "center",
     },
     ghostTxt: { color: "#F4F0E6", fontWeight: "600", fontSize: 14 },
-    body: { paddingTop: 18 },
-    chips: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },
+    body: { paddingTop: 10 },
+    sticky: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      backgroundColor: "rgba(18,17,14,0.94)",
+    },
+    chips: { paddingHorizontal: 16, gap: 8 },
     filter: {
       flexDirection: "row",
       alignItems: "center",
       gap: 7,
-      height: 36,
+      height: 34,
       paddingHorizontal: 14,
-      borderRadius: 18,
+      borderRadius: 17,
       borderWidth: 1,
       borderColor: "rgba(244,240,230,0.18)",
     },
@@ -441,11 +533,11 @@ function make(colors: Colors) {
     dot: { width: 8, height: 8, borderRadius: 4 },
     inbox: {
       marginHorizontal: 16,
-      marginTop: 16,
+      marginTop: 8,
       flexDirection: "row",
       alignItems: "center",
       backgroundColor: colors.surface,
-      borderRadius: 16,
+      borderRadius: 18,
       paddingHorizontal: 16,
       paddingVertical: 12,
     },
@@ -455,21 +547,33 @@ function make(colors: Colors) {
     h2: {
       color: colors.bone,
       fontFamily: "Georgia",
-      fontSize: 26,
-      marginTop: 26,
-      marginBottom: 14,
+      fontSize: 24,
+      marginTop: 20,
+      marginBottom: 12,
       paddingHorizontal: 16,
     },
-    strip: { paddingHorizontal: 16, gap: 12 },
-    card: { width: 168 },
+    strip: { paddingHorizontal: 16, gap: 10, paddingRight: 28 },
+    card: { width: CARD_W },
     cardFrame: {
-      width: 168,
-      height: 240,
-      borderRadius: 16,
+      width: CARD_W,
+      height: CARD_H,
+      borderRadius: 18,
       overflow: "hidden",
       backgroundColor: colors.surface,
     },
-    cardFill: { width: 168, height: 240 },
+    cardFill: { width: CARD_W, height: CARD_H },
+    cardSrcPill: {
+      position: "absolute",
+      top: 10,
+      left: 10,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+      backgroundColor: "rgba(11,10,8,0.55)",
+      paddingHorizontal: 10,
+      height: 24,
+      borderRadius: 12,
+    },
     searchFab: {
       position: "absolute",
       right: 10,
@@ -482,11 +586,9 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     searchFabTxt: { color: "#16140F", fontSize: 22, fontWeight: "700", marginTop: -1 },
-    cardMeta: { paddingTop: 10, paddingRight: 4 },
-    cardSrc: { color: colors.subtle, fontSize: 11, fontWeight: "600" },
-    cardTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 16, marginTop: 4, lineHeight: 20 },
+    cardSrc: { color: "#F4F0E6", fontSize: 11, fontWeight: "700" },
+    cardTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 16, marginTop: 8, lineHeight: 20 },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 16 },
     cell: { width: "47%", flexGrow: 1 },
   });
 }
-

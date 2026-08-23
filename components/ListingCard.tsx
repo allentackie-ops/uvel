@@ -7,7 +7,15 @@ import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 import type { ClosetPiece } from "../lib/wardrobe";
 
-export function ListingCard({ piece, wide }: { piece: ClosetPiece; wide?: number }) {
+export function ListingCard({
+  piece,
+  wide,
+  badge,
+}: {
+  piece: ClosetPiece;
+  wide?: number;
+  badge?: string;
+}) {
   const colors = useColors();
   const styles = make(colors);
   const { country } = useUvel();
@@ -17,9 +25,20 @@ export function ListingCard({ piece, wide }: { piece: ClosetPiece; wide?: number
   return (
     <Pressable
       onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id, v: "buy" } })}
-      style={[styles.wrap, wide ? { width: wide } : null]}
+      style={[styles.wrap, wide ? { width: wide, flex: undefined } : null]}
     >
-      <Image source={{ uri: piece.photo }} style={styles.img} contentFit="cover" />
+      <View>
+        <Image
+          source={{ uri: piece.photo }}
+          style={[styles.img, wide ? { width: wide, borderRadius: 18 } : null]}
+          contentFit="cover"
+        />
+        {badge ? (
+          <View style={styles.badge}>
+            <Text style={styles.badgeTxt}>{badge}</Text>
+          </View>
+        ) : null}
+      </View>
       <Text style={styles.brand} numberOfLines={1}>
         {local ? (piece.brand === "Unlabeled" ? "Uvel" : piece.brand) : from.name}
       </Text>
@@ -37,9 +56,21 @@ function make(colors: ReturnType<typeof useColors>) {
     img: {
       width: "100%",
       aspectRatio: 3 / 4,
-      borderRadius: 14,
+      borderRadius: 18,
       backgroundColor: colors.surface,
     },
+    badge: {
+      position: "absolute",
+      left: 10,
+      bottom: 10,
+      backgroundColor: "rgba(244,240,230,0.94)",
+      paddingHorizontal: 12,
+      height: 28,
+      borderRadius: 14,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    badgeTxt: { color: "#16140F", fontWeight: "700", fontSize: 12 },
     brand: { color: colors.subtle, fontSize: 11, marginTop: 8, letterSpacing: 0.4 },
     name: { color: colors.bone, fontSize: 14, fontWeight: "600", marginTop: 3, lineHeight: 18 },
     price: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 4 },
