@@ -82,7 +82,7 @@ export default function ClosetPiece() {
       router.push("/plus");
       return;
     }
-    router.push({ pathname: "/(tabs)/try-on", params: { piece: pieceId } });
+    router.push({ pathname: "/try-on", params: { piece: pieceId } });
   }
 
   return (

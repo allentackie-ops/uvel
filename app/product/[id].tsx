@@ -76,7 +76,7 @@ export default function Product() {
         <Pressable
           onPress={() => {
             if (!app.isPlus && app.remainingTryOns <= 0) router.push("/plus");
-            else router.push(`/(tabs)/try-on?g=${garment.id}`);
+            else router.push({ pathname: "/try-on", params: { g: garment.id } });
           }}
         >
           <Glass interactive style={styles.cta}>
