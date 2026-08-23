@@ -9,7 +9,7 @@ import { getMarket } from "../../lib/markets";
 import { shopLookOf, type ShopLook } from "../../lib/shopLook";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
-import { getPiece, markSold, unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { getPiece, likeCount, markSold, unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
 const HERO_H = Math.round(W * 1.28);
@@ -149,6 +149,7 @@ export default function ClosetPiece() {
   const look = shopLookOf(piece?.shopLook);
   const styles = useMemo(() => make(look), [look]);
   const liked = piece ? app.saved.includes(piece.id) : false;
+  const hearts = piece ? likeCount(piece) : 0;
 
   if (!piece) {
     return (
@@ -229,17 +230,16 @@ export default function ClosetPiece() {
           <Pressable onPress={() => router.back()} style={[styles.iconBtn, { top: insets.top + 6, left: 16 }]} hitSlop={8}>
             <Text style={[styles.iconTxt, { color: look.status === "dark" ? "#16140F" : "#F4F0E6" }]}>‹</Text>
           </Pressable>
-          {!mine ? (
-            <Pressable
-              onPress={() => app.toggleSaved(piece.id)}
-              style={[styles.iconBtn, { top: insets.top + 6, right: 16 }]}
-              hitSlop={8}
-            >
-              <Text style={[styles.heart, { color: liked ? look.accent : look.status === "dark" ? "#16140F" : "#F4F0E6" }]}>
-                {liked ? "♥" : "♡"}
-              </Text>
-            </Pressable>
-          ) : null}
+          <Pressable
+            onPress={() => app.likePiece(piece.id)}
+            style={[styles.heartBtn, { bottom: 16, right: 16 }]}
+            hitSlop={8}
+          >
+            <Text style={[styles.heart, { color: liked ? look.accent : look.status === "dark" ? "#16140F" : "#F4F0E6" }]}>
+              {liked ? "♥" : "♡"}
+            </Text>
+            {hearts > 0 ? <Text style={[styles.heartN, { color: look.status === "dark" ? "#16140F" : "#F4F0E6" }]}>{hearts}</Text> : null}
+          </Pressable>
         </View>
 
         {preview && mine ? (
@@ -462,6 +462,19 @@ function make(look: ShopLook) {
     },
     iconTxt: { fontSize: 28, lineHeight: 30, marginTop: -2 },
     heart: { fontSize: 18, marginTop: 1 },
+    heartBtn: {
+      position: "absolute",
+      minWidth: 40,
+      height: 40,
+      paddingHorizontal: 12,
+      borderRadius: 20,
+      backgroundColor: lightBar ? "rgba(244,240,230,0.78)" : "rgba(18,17,14,0.5)",
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+    },
+    heartN: { fontSize: 13, fontWeight: "700" },
     previewBar: {
       marginHorizontal: 22,
       marginTop: 14,

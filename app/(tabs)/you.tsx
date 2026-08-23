@@ -11,7 +11,7 @@ import { seedFromStyles, ARCH, PALS, SILS, dnaHint } from "../../lib/styleDna";
 import { useUvel } from "../../lib/store";
 import { pullLooks } from "../../lib/trends";
 import { useColors, type Colors } from "../../lib/theme";
-import { getPiece, stampMine, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { getPiece, likesOnMine, stampMine, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
 const COL = (W - 52) / 2;
@@ -212,7 +212,12 @@ export default function You() {
       ) : hub === "purchases" ? (
         <BuyPane rows={buyRows} filter={buyFilter} setFilter={setBuyFilter} styles={styles} />
       ) : (
-        <LikesPane pieces={likedPieces} garments={likedGarments} styles={styles} />
+        <LikesPane
+          received={likesOnMine(app.uid)}
+          pieces={likedPieces}
+          garments={likedGarments}
+          styles={styles}
+        />
       )}
     </ScrollView>
   );
@@ -334,43 +339,92 @@ function BuyPane({
   );
 }
 
+function ago(ms: number) {
+  const s = Math.max(1, Math.round((Date.now() - ms) / 1000));
+  if (s < 45) return "just now";
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.round(h / 24)}d`;
+}
+
 function LikesPane({
+  received,
   pieces,
   garments,
   styles,
 }: {
+  received: ReturnType<typeof likesOnMine>;
   pieces: ClosetPiece[];
   garments: (typeof GARMENTS)[number][];
   styles: ReturnType<typeof make>;
 }) {
-  if (!pieces.length && !garments.length) {
+  if (!received.length && !pieces.length && !garments.length) {
     return (
       <View style={styles.empty}>
         <Text style={styles.emptyH}>No likes yet</Text>
-        <Text style={styles.emptyP}>Tap the heart on a piece and it’ll live here.</Text>
+        <Text style={styles.emptyP}>When someone likes your listing, they show up here.</Text>
       </View>
     );
   }
   return (
-    <View style={styles.grid}>
-      {pieces.map((p) => (
-        <View key={p.id} style={{ width: COL }}>
-          <ListingCard piece={p} framed wide={COL} />
+    <View>
+      {received.length ? (
+        <View style={{ marginBottom: 18 }}>
+          <Text style={styles.active}>On your listings</Text>
+          {received.map((row) => (
+            <Pressable
+              key={`${row.uid}-${row.piece.id}-${row.at}`}
+              onPress={() => router.push({ pathname: "/closet/[id]", params: { id: row.piece.id } })}
+              style={styles.liker}
+            >
+              {row.photo ? (
+                <Image source={{ uri: row.photo }} style={styles.likerFace} contentFit="cover" />
+              ) : (
+                <View style={styles.likerFace}>
+                  <Text style={styles.likerInit}>{(row.name[0] || "U").toUpperCase()}</Text>
+                </View>
+              )}
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={styles.likerName} numberOfLines={1}>
+                  {row.name}
+                </Text>
+                <Text style={styles.likerP} numberOfLines={1}>
+                  liked {row.piece.name}
+                </Text>
+                <Text style={styles.likerT}>{ago(row.at)}</Text>
+              </View>
+              <Image source={{ uri: row.piece.photo }} style={styles.likerThumb} contentFit="cover" />
+            </Pressable>
+          ))}
         </View>
-      ))}
-      {garments.map((g) => (
-        <Pressable
-          key={g.id}
-          onPress={() => router.push({ pathname: "/product/[id]", params: { id: g.id } })}
-          style={[styles.likeCard, { width: COL }]}
-        >
-          <Image source={g.image} style={styles.likeImg} contentFit="cover" />
-          <Text style={styles.likeName} numberOfLines={2}>
-            {g.name}
-          </Text>
-          <Text style={styles.likePrice}>{usd(g.priceCents)}</Text>
-        </Pressable>
-      ))}
+      ) : null}
+      {pieces.length || garments.length ? (
+        <View>
+          {received.length ? <Text style={styles.active}>You liked</Text> : null}
+          <View style={styles.grid}>
+            {pieces.map((p) => (
+              <View key={p.id} style={{ width: COL }}>
+                <ListingCard piece={p} framed wide={COL} />
+              </View>
+            ))}
+            {garments.map((g) => (
+              <Pressable
+                key={g.id}
+                onPress={() => router.push({ pathname: "/product/[id]", params: { id: g.id } })}
+                style={[styles.likeCard, { width: COL }]}
+              >
+                <Image source={g.image} style={styles.likeImg} contentFit="cover" />
+                <Text style={styles.likeName} numberOfLines={2}>
+                  {g.name}
+                </Text>
+                <Text style={styles.likePrice}>{usd(g.priceCents)}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -583,7 +637,26 @@ function make(_colors: Colors) {
     tabOn: { color: "#F4F0E6" },
     tabLine: { position: "absolute", bottom: 0, height: 2, left: 8, right: 8, backgroundColor: "#F4F0E6", borderRadius: 1 },
     activeRow: { marginTop: 18, marginBottom: 8 },
-    active: { color: "#F4F0E6", fontSize: 16, fontWeight: "700" },
+    active: { color: "#F4F0E6", fontSize: 16, fontWeight: "700", marginTop: 16, marginBottom: 8 },
+    liker: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 10,
+      gap: 12,
+    },
+    likerFace: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: "#2A2824",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    likerInit: { color: "#F4F0E6", fontWeight: "700", fontSize: 16 },
+    likerName: { color: "#F4F0E6", fontWeight: "700", fontSize: 15 },
+    likerP: { color: "rgba(244,240,230,0.55)", fontSize: 13, marginTop: 2 },
+    likerT: { color: "rgba(244,240,230,0.38)", fontSize: 12, marginTop: 2 },
+    likerThumb: { width: 48, height: 64, borderRadius: 8, backgroundColor: "#1A1915" },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 },
     empty: { alignItems: "center", paddingTop: 54, paddingBottom: 28, paddingHorizontal: 24 },
     emptyH: { color: "#F4F0E6", fontSize: 20, fontWeight: "800", textAlign: "center" },

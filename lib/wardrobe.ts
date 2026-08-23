@@ -27,6 +27,14 @@ export type ClosetPiece = {
   country?: string;
   currency?: string;
   shopLook?: string;
+  likedBy?: Liker[];
+};
+
+export type Liker = {
+  uid: string;
+  name: string;
+  photo?: string;
+  at: number;
 };
 
 const KEY = "uvel-wardrobe-v1";
@@ -166,6 +174,32 @@ export function stampMine(uid: string, patch: Partial<ClosetPiece>) {
     return { ...p, ...patch };
   });
   void persist();
+}
+
+export function likeCount(p: ClosetPiece) {
+  return p.likedBy?.length ?? 0;
+}
+
+export function toggleLiker(id: string, liker: Liker): { liked: boolean; piece?: ClosetPiece } {
+  const piece = pieces.find((p) => p.id === id);
+  if (!piece) return { liked: false };
+  const had = (piece.likedBy || []).some((l) => l.uid === liker.uid);
+  const likedBy = had
+    ? (piece.likedBy || []).filter((l) => l.uid !== liker.uid)
+    : [{ ...liker, at: Date.now() }, ...(piece.likedBy || [])];
+  updatePiece(id, { likedBy });
+  return { liked: !had, piece: getPiece(id) };
+}
+
+export function likesOnMine(uid: string) {
+  return pieces
+    .filter((p) => !p.ownerId || p.ownerId === uid)
+    .flatMap((p) =>
+      (p.likedBy || [])
+        .filter((l) => l.uid !== uid)
+        .map((l) => ({ ...l, piece: p })),
+    )
+    .sort((a, b) => b.at - a.at);
 }
 
 export function updatePiece(id: string, patch: Partial<ClosetPiece>) {

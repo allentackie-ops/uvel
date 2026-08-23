@@ -26,7 +26,7 @@ import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
-import { listedPieces, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { likeCount, listedPieces, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const { width: W, height: H } = Dimensions.get("screen");
 
@@ -482,6 +482,12 @@ function ShopLookCard({
         <View style={styles.shopNow}>
           <Text style={styles.shopNowTxt}>Shop now</Text>
         </View>
+        {likeCount(piece) > 0 ? (
+          <View style={styles.shopHearts}>
+            <Text style={styles.shopHeartsIco}>♥</Text>
+            <Text style={styles.shopHeartsN}>{likeCount(piece)}</Text>
+          </View>
+        ) : null}
       </View>
       <View style={styles.shopMeta}>
         <Text style={styles.shopBrand} numberOfLines={1}>
@@ -630,6 +636,20 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     shopNowTxt: { color: "#16140F", fontWeight: "700", fontSize: 13 },
+    shopHearts: {
+      position: "absolute",
+      left: 14,
+      bottom: 14,
+      backgroundColor: "rgba(18,17,14,0.72)",
+      borderRadius: 14,
+      height: 26,
+      paddingHorizontal: 8,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    shopHeartsIco: { color: "#D6E27A", fontSize: 11 },
+    shopHeartsN: { color: "#F4F0E6", fontSize: 12, fontWeight: "700" },
     shopMeta: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16 },
     shopBrand: { color: "rgba(244,240,230,0.45)", fontSize: 11, letterSpacing: 1.4, fontWeight: "700" },
     shopName: { color: "#F4F0E6", fontSize: 18, fontWeight: "700", marginTop: 6, lineHeight: 22 },

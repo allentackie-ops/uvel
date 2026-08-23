@@ -32,8 +32,8 @@ export async function registerPushToken(uid: string) {
   try {
     const N = await notifications();
     if (Platform.OS === "android") {
-      await N.setNotificationChannelAsync("messages", {
-        name: "Messages",
+      await N.setNotificationChannelAsync("activity", {
+        name: "Activity",
         importance: N.AndroidImportance.HIGH,
       });
     }
@@ -76,7 +76,7 @@ export async function sendPush(toToken: string, title: string, body: string, dat
     await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ to: toToken, title, body, sound: "default", data }),
+      body: JSON.stringify({ to: toToken, title, body, sound: "default", channelId: "activity", data }),
     });
   } catch {
     /* push is best-effort */

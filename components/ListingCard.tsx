@@ -5,7 +5,7 @@ import { usd } from "../lib/catalog";
 import { getMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
-import type { ClosetPiece } from "../lib/wardrobe";
+import { likeCount, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 
 export function ListingCard({
   piece,
@@ -20,12 +20,14 @@ export function ListingCard({
 }) {
   const colors = useColors();
   const styles = make(colors);
+  useWardrobe();
   const { country } = useUvel();
   const here = getMarket(country);
   const from = getMarket(piece.country || country);
   const local = from.code === here.code;
   const brand = local ? (piece.brand === "Unlabeled" ? "Uvel" : piece.brand) : from.name;
   const fresh = Date.now() - (piece.createdAt || 0) < 1000 * 60 * 60 * 48;
+  const hearts = likeCount(piece);
   return (
     <Pressable
       onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })}
@@ -45,6 +47,12 @@ export function ListingCard({
         {badge ? (
           <View style={styles.badge}>
             <Text style={styles.badgeTxt}>{badge}</Text>
+          </View>
+        ) : null}
+        {hearts > 0 ? (
+          <View style={styles.hearts}>
+            <Text style={styles.heartsIco}>♥</Text>
+            <Text style={styles.heartsN}>{hearts}</Text>
           </View>
         ) : null}
       </View>
@@ -88,6 +96,20 @@ function make(colors: ReturnType<typeof useColors>) {
       justifyContent: "center",
     },
     newBadgeTxt: { color: "#F4F0E6", fontSize: 11, fontWeight: "700" },
+    hearts: {
+      position: "absolute",
+      right: 10,
+      bottom: 10,
+      backgroundColor: "rgba(18,17,14,0.72)",
+      borderRadius: 14,
+      height: 26,
+      paddingHorizontal: 8,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 4,
+    },
+    heartsIco: { color: "#D6E27A", fontSize: 11 },
+    heartsN: { color: "#F4F0E6", fontSize: 12, fontWeight: "700" },
     badge: {
       position: "absolute",
       left: 10,

@@ -166,6 +166,30 @@ export function useUvel() {
           ? memory.saved.filter((x) => x !== id)
           : [...memory.saved, id],
       }),
+    likePiece: (id: string) => {
+      const uid = memory.uid || "me";
+      void import("./wardrobe").then(({ toggleLiker }) => {
+        const { liked, piece } = toggleLiker(id, {
+          uid,
+          name: memory.displayName || "Uvel member",
+          photo: memory.avatarUri || memory.personUri || undefined,
+        });
+        void save({
+          saved: liked ? Array.from(new Set([...memory.saved, id])) : memory.saved.filter((x) => x !== id),
+        });
+        if (!liked || !piece?.ownerId || piece.ownerId === uid) return;
+        void import("./chat").then(({ readUserLite }) =>
+          readUserLite(piece.ownerId as string).then((other) => {
+            const token = typeof other?.expoPushToken === "string" ? other.expoPushToken : "";
+            if (!token) return;
+            const who = memory.displayName || "Someone";
+            void import("./push").then(({ sendPush }) =>
+              sendPush(token, "New like", `${who} liked ${piece.name}`, { pieceId: id }),
+            );
+          }),
+        );
+      });
+    },
     consumeFind: () => {
       if (memory.isPlus) return true;
       if (memory.findsUsed >= 2) return false;
