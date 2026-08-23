@@ -164,7 +164,7 @@ async function scanLook(look: Look, grab: FrameGrab | null) {
   setLookScan(frame || look.imageUrl || "", look.title);
   router.push({
     pathname: "/(tabs)/shop",
-    params: { look: look.id, q: look.shopQuery || look.title, scan: "1" },
+    params: { look: look.id, scan: "1" },
   });
 }
 

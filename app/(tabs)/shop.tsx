@@ -20,7 +20,7 @@ export default function Shop() {
   const { country, styles: taste } = useUvel();
   const market = getMarket(country);
   const { q: qParam, look: lookParam, scan } = useLocalSearchParams<{ q?: string; look?: string; scan?: string }>();
-  const [q, setQ] = useState(qParam ?? "");
+  const [q, setQ] = useState("");
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("All");
   const [aiIds, setAiIds] = useState<string[] | null>(null);
   const [terms, setTerms] = useState<string[]>([]);
@@ -35,8 +35,12 @@ export default function Shop() {
   );
 
   useEffect(() => {
+    if (scan === "1") {
+      setQ("");
+      return;
+    }
     if (typeof qParam === "string") setQ(qParam);
-  }, [qParam]);
+  }, [qParam, scan]);
 
   useEffect(() => {
     const grabbed = takeLookScan();
