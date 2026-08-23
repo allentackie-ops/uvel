@@ -2,6 +2,8 @@ import { openaiKey } from "./tryon";
 import type { Category } from "./catalog";
 import type { ClosetPiece } from "./wardrobe";
 import type { Look } from "./trends";
+import { dnaFrom, dnaKeywords } from "./styleDna";
+import { snapshot } from "./store";
 
 const CATS: Category[] = [
   "Outerwear",
@@ -26,8 +28,10 @@ function bag(s: string) {
 export function scoreListing(piece: ClosetPiece, needles: string[], styles: string[]) {
   const hay = bag([piece.name, piece.brand, piece.category, piece.color, piece.material, piece.notes].join(" "));
   const set = new Set(hay);
+  const dna = dnaFrom({ ...snapshot(), styles });
   let n = 0;
   for (const w of needles) if (set.has(w)) n += 3;
+  for (const w of dnaKeywords(dna)) if (set.has(w)) n += 4;
   for (const s of styles) {
     const t = s.toLowerCase();
     if (hay.includes(t) || piece.notes.toLowerCase().includes(t) || piece.category.toLowerCase().includes(t)) n += 4;

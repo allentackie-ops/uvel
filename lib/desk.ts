@@ -1,4 +1,5 @@
 import { anthropicKey, openaiKey } from "./tryon";
+import { igQuery, rankLooks, type Dna } from "./styleDna";
 
 type Source = "TikTok" | "Instagram" | "X" | "Snapchat";
 
@@ -290,6 +291,8 @@ async function hydrateIg(code: string): Promise<DeskLook | null> {
   }
 }
 
+let deskDna: Dna | null = null;
+
 async function instagramLooks(): Promise<DeskLook[]> {
   const key = anthropicKey();
   if (!key) return [];
@@ -311,7 +314,7 @@ async function instagramLooks(): Promise<DeskLook[]> {
         messages: [
           {
             role: "user",
-            content: "web search: site:instagram.com/reel ootd fitcheck. List every instagram.com/reel URL you saw.",
+            content: deskDna ? igQuery(deskDna) : "web search: site:instagram.com/reel ootd fitcheck. List every instagram.com/reel URL you saw.",
           },
         ],
       }),
@@ -391,6 +394,7 @@ async function pickFashionSnaps(snaps: SnapRaw[]): Promise<{ id: string; caption
       {
         type: "text",
         text: `These Snapchat stills are numbered 0 to ${slice.length - 1}. For EACH index return whether it is a fashion/outfit/OOTD photo of a person in clothes. Caption 2-5 words naming the clothes. No dashes.
+${deskDna?.archetype ? `Prefer looks that fit: ${[deskDna.archetype, deskDna.palette, deskDna.silhouette].filter(Boolean).join(", ")}.` : ""}
 
 JSON: {"picks":[{"i":0,"fashion":true,"caption":"white tank denim shorts"}]}`,
       },
@@ -474,10 +478,12 @@ function weave(groups: DeskLook[][]) {
   return out;
 }
 
-export async function liveDesk(onPartial?: (looks: DeskLook[]) => void): Promise<DeskLook[]> {
+export async function liveDesk(onPartial?: (looks: DeskLook[]) => void, dna?: Dna | null): Promise<DeskLook[]> {
+  deskDna = dna || null;
+  const sort = (rows: DeskLook[]) => (dna ? rankLooks(rows, dna) : rows);
   const buckets: DeskLook[][] = [[], [], []];
   const publish = () => {
-    const mixed = weave(buckets);
+    const mixed = sort(weave(buckets));
     if (mixed.length) onPartial?.(mixed);
     return mixed;
   };
@@ -496,9 +502,10 @@ export async function liveDesk(onPartial?: (looks: DeskLook[]) => void): Promise
   });
 
   await Promise.race([tt, new Promise((r) => setTimeout(r, 4500))]);
-  const early = weave(buckets);
+  const early = publish();
   void Promise.all([ig, snap, tt]).then(() => publish());
   if (early.length) return early;
-  onPartial?.(FALLBACK);
-  return FALLBACK;
+  const fb = sort(FALLBACK);
+  onPartial?.(fb);
+  return fb;
 }

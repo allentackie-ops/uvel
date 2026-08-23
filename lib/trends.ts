@@ -3,6 +3,8 @@ import { TRENDS, type Trend } from "./catalog";
 import desk from "../docs/trends.json";
 import { liveDesk } from "./desk";
 import { prefetchLookVideo } from "./lookFrame";
+import { dnaFrom, rankLooks } from "./styleDna";
+import { snapshot } from "./store";
 
 export type Source = Trend["source"] | "All";
 export const SOURCES: Source[] = ["All", "TikTok", "Instagram", "Snapchat"];
@@ -75,7 +77,7 @@ function pin(next: Look[]): Look[] {
 
 function setCache(next: Look[]) {
   if (!next.length) return;
-  cache = pin(next);
+  cache = pin(rankLooks(next, dnaFrom(snapshot())));
   updatedAt = new Date().toISOString();
   listeners.forEach((l) => l(cache));
 }
@@ -117,7 +119,7 @@ export async function pullLooks(opts?: { fresh?: boolean }) {
     try {
       const live = await liveDesk((partial) => {
         if (merging) setCache(partial as Look[]);
-      });
+      }, dnaFrom(snapshot()));
       if (live.length) {
         await warmHero(live as Look[]);
         if (!cache.length) setCache(live as Look[]);

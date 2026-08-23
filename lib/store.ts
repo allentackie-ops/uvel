@@ -122,6 +122,10 @@ async function restoreProfile(uid: string) {
   }
 }
 
+export function snapshot() {
+  return { ...memory };
+}
+
 async function save(next: Partial<State>) {
   memory = { ...memory, ...next };
   if (next.country) setActiveMarket(next.country);
