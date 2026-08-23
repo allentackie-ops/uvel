@@ -2,13 +2,14 @@ import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usd } from "../../lib/catalog";
 import { getMarket } from "../../lib/markets";
 import { shopLookOf, type ShopLook } from "../../lib/shopLook";
 import { useUvel } from "../../lib/store";
-import { getPiece, useWardrobe } from "../../lib/wardrobe";
+import { useColors, type Colors } from "../../lib/theme";
+import { getPiece, markSold, removePiece, unlistPiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
 const HERO_H = Math.round(W * 1.28);
@@ -48,12 +49,107 @@ function swatchOf(color?: string) {
   return hit ? SWATCH[hit] : null;
 }
 
+function isMine(piece: ClosetPiece, uid: string) {
+  return !piece.ownerId || piece.ownerId === uid;
+}
+
+function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: number; bottom: number } }) {
+  const colors = useColors();
+  const styles = useMemo(() => ownerStyles(colors), [colors]);
+  const look = shopLookOf(piece.shopLook);
+  const gallery = piece.photos?.length ? piece.photos : piece.photo ? [piece.photo] : [];
+  const onFloor = piece.status === "listed";
+  const sold = piece.status === "sold";
+  const status = sold ? "Sold" : onFloor ? "In the shop" : "Not listed";
+
+  function takeDown() {
+    Alert.alert("Take off the floor?", "Buyers won’t see this listing until you list it again.", [
+      { text: "Keep it up", style: "cancel" },
+      { text: "Take down", onPress: () => unlistPiece(piece.id) },
+    ]);
+  }
+
+  function soldIt() {
+    Alert.alert("Mark as sold?", "It leaves the shop.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Mark sold", onPress: () => markSold(piece.id) },
+    ]);
+  }
+
+  function drop() {
+    Alert.alert("Remove listing?", "This deletes it from your closet.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: () => {
+          removePiece(piece.id);
+          router.back();
+        },
+      },
+    ]);
+  }
+
+  return (
+    <View style={styles.page}>
+      <StatusBar style={colors.bone === "#F4F0E6" ? "light" : "dark"} />
+      <ScrollView contentContainerStyle={{ paddingBottom: 220 }} showsVerticalScrollIndicator={false}>
+        <Image source={{ uri: gallery[0] }} style={styles.hero} contentFit="cover" />
+        <Pressable onPress={() => router.back()} style={[styles.iconBtn, { top: insets.top + 6 }]} hitSlop={8}>
+          <Text style={styles.iconTxt}>‹</Text>
+        </Pressable>
+        <View style={[styles.badge, { top: insets.top + 14 }]}>
+          <Text style={styles.badgeTxt}>{status}</Text>
+        </View>
+
+        <View style={styles.body}>
+          <Text style={styles.kicker}>Your listing</Text>
+          <Text style={styles.title}>{piece.name}</Text>
+          <Text style={styles.price}>{usd(piece.listPriceCents, piece.currency || "USD")}</Text>
+          <Text style={styles.meta}>{[piece.size, piece.color, piece.condition].filter(Boolean).join("  ·  ")}</Text>
+          {piece.shopLook && piece.shopLook !== "uvel" ? <Text style={styles.look}>Shop look · {look.name}</Text> : null}
+        </View>
+      </ScrollView>
+
+      <View style={[styles.dock, { paddingBottom: insets.bottom + 10 }]}>
+        <Pressable onPress={() => router.push({ pathname: "/sell", params: { id: piece.id } })} style={styles.edit}>
+          <Text style={styles.editTxt}>Edit listing</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id, v: "buy" } })}
+          style={styles.preview}
+        >
+          <Text style={styles.previewTxt}>Preview as buyer</Text>
+        </Pressable>
+        {onFloor ? (
+          <View style={styles.row}>
+            <Pressable onPress={takeDown} style={styles.ghost}>
+              <Text style={styles.ghostTxt}>Take down</Text>
+            </Pressable>
+            <Pressable onPress={soldIt} style={styles.ghost}>
+              <Text style={styles.ghostTxt}>Mark sold</Text>
+            </Pressable>
+          </View>
+        ) : null}
+        {!sold && piece.status === "owned" ? (
+          <Pressable onPress={() => router.push({ pathname: "/sell", params: { id: piece.id } })} style={styles.ghost}>
+            <Text style={styles.ghostTxt}>List this piece</Text>
+          </Pressable>
+        ) : null}
+        <Pressable onPress={drop} hitSlop={8}>
+          <Text style={styles.danger}>Remove</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export default function ClosetPiece() {
   const insets = useSafeAreaInsets();
   const { id, v } = useLocalSearchParams<{ id: string; v?: string }>();
   useWardrobe();
   const piece = getPiece(id);
-  const buying = v === "buy";
+  const preview = v === "buy";
   const [page, setPage] = useState(0);
   const app = useUvel();
   const look = shopLookOf(piece?.shopLook);
@@ -69,6 +165,10 @@ export default function ClosetPiece() {
     );
   }
 
+  if (isMine(piece, app.uid) && !preview) {
+    return <OwnerListing piece={piece} insets={insets} />;
+  }
+
   const onFloor = piece.status === "listed";
   const gallery = piece.photos?.length ? piece.photos : piece.photo ? [piece.photo] : [];
   const pieceId = piece.id;
@@ -81,6 +181,7 @@ export default function ClosetPiece() {
   const chip = swatchOf(piece.color);
   const seller = piece.ownerName || "Uvel member";
   const plusLook = Boolean(piece.shopLook && piece.shopLook !== "uvel");
+  const mine = isMine(piece, app.uid);
 
   function tryOnMe() {
     if (!app.isPlus && app.remainingTryOns <= 0) {
@@ -134,16 +235,25 @@ export default function ClosetPiece() {
           <Pressable onPress={() => router.back()} style={[styles.iconBtn, { top: insets.top + 6, left: 16 }]} hitSlop={8}>
             <Text style={[styles.iconTxt, { color: look.status === "dark" ? "#16140F" : "#F4F0E6" }]}>‹</Text>
           </Pressable>
-          <Pressable
-            onPress={() => app.toggleSaved(piece.id)}
-            style={[styles.iconBtn, { top: insets.top + 6, right: 16 }]}
-            hitSlop={8}
-          >
-            <Text style={[styles.heart, { color: liked ? look.accent : look.status === "dark" ? "#16140F" : "#F4F0E6" }]}>
-              {liked ? "♥" : "♡"}
-            </Text>
-          </Pressable>
+          {!mine ? (
+            <Pressable
+              onPress={() => app.toggleSaved(piece.id)}
+              style={[styles.iconBtn, { top: insets.top + 6, right: 16 }]}
+              hitSlop={8}
+            >
+              <Text style={[styles.heart, { color: liked ? look.accent : look.status === "dark" ? "#16140F" : "#F4F0E6" }]}>
+                {liked ? "♥" : "♡"}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
+
+        {preview && mine ? (
+          <Pressable onPress={() => router.back()} style={styles.previewBar}>
+            <Text style={styles.previewBarTxt}>Buyer preview</Text>
+            <Text style={styles.previewBarGo}>Done</Text>
+          </Pressable>
+        ) : null}
 
         <View style={styles.body}>
           {!runway ? (
@@ -228,12 +338,6 @@ export default function ClosetPiece() {
           </View>
 
           {plusLook ? <Text style={styles.lookMark}>{look.name}</Text> : null}
-
-          {!buying && piece.status === "owned" ? (
-            <Pressable onPress={() => router.push({ pathname: "/sell", params: { id: piece.id } })} style={styles.cta}>
-              <Text style={styles.ctaTxt}>List this piece</Text>
-            </Pressable>
-          ) : null}
         </View>
       </ScrollView>
 
@@ -257,6 +361,79 @@ export default function ClosetPiece() {
       ) : null}
     </View>
   );
+}
+
+function ownerStyles(colors: Colors) {
+  return StyleSheet.create({
+    page: { flex: 1, backgroundColor: colors.ink },
+    hero: { width: W, height: HERO_H, backgroundColor: colors.surface },
+    iconBtn: {
+      position: "absolute",
+      left: 16,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: "rgba(18,17,14,0.5)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    iconTxt: { color: "#F4F0E6", fontSize: 28, lineHeight: 30, marginTop: -2 },
+    badge: {
+      position: "absolute",
+      right: 16,
+      backgroundColor: "#D6E27A",
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    badgeTxt: { color: "#16140F", fontSize: 11, fontWeight: "700", letterSpacing: 0.4 },
+    body: { paddingHorizontal: 22, paddingTop: 22 },
+    kicker: { color: colors.subtle, fontSize: 11, letterSpacing: 1.8, textTransform: "uppercase" },
+    title: { color: colors.bone, fontFamily: "Georgia", fontSize: 28, lineHeight: 34, marginTop: 8 },
+    price: { color: colors.bone, fontWeight: "700", fontSize: 24, marginTop: 10 },
+    meta: { color: colors.muted, fontSize: 14, marginTop: 8 },
+    look: { color: colors.subtle, fontSize: 13, marginTop: 10 },
+    dock: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      gap: 8,
+      backgroundColor: colors.ink,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: "rgba(244,240,230,0.12)",
+    },
+    edit: {
+      height: 52,
+      borderRadius: 26,
+      backgroundColor: "#D6E27A",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    editTxt: { color: "#16140F", fontWeight: "700", fontSize: 16 },
+    preview: {
+      height: 48,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: "rgba(244,240,230,0.28)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    previewTxt: { color: colors.bone, fontWeight: "600", fontSize: 15 },
+    row: { flexDirection: "row", gap: 8 },
+    ghost: {
+      flex: 1,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    ghostTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
+    danger: { color: "#C45B5B", textAlign: "center", fontSize: 13, marginTop: 4, marginBottom: 2 },
+  });
 }
 
 function make(look: ShopLook) {
@@ -294,6 +471,20 @@ function make(look: ShopLook) {
     },
     iconTxt: { fontSize: 28, lineHeight: 30, marginTop: -2 },
     heart: { fontSize: 18, marginTop: 1 },
+    previewBar: {
+      marginHorizontal: 22,
+      marginTop: 14,
+      marginBottom: 4,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      backgroundColor: look.surface,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    previewBarTxt: { color: look.muted, fontSize: 13 },
+    previewBarGo: { color: look.bone, fontWeight: "700", fontSize: 13 },
     body: { paddingHorizontal: 22, paddingTop: 20 },
     kicker: { flexDirection: "row", alignItems: "center", gap: 10 },
     brand: { color: look.muted, letterSpacing: 1.8, fontSize: 11, textTransform: "uppercase" },
@@ -378,14 +569,6 @@ function make(look: ShopLook) {
       textAlign: "center",
     },
     p: { color: look.muted, lineHeight: 22 },
-    cta: {
-      marginTop: 28,
-      height: 54,
-      borderRadius: 27,
-      backgroundColor: look.accent,
-      alignItems: "center",
-      justifyContent: "center",
-    },
     ctaTxt: { color: look.accentInk, fontWeight: "700", fontSize: 16 },
     dock: {
       position: "absolute",

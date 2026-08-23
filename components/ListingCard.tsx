@@ -28,7 +28,7 @@ export function ListingCard({
   const fresh = Date.now() - (piece.createdAt || 0) < 1000 * 60 * 60 * 48;
   return (
     <Pressable
-      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id, v: "buy" } })}
+      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })}
       style={[styles.wrap, wide ? { width: wide, flex: undefined } : null, framed && styles.framed]}
     >
       <View>

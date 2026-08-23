@@ -474,7 +474,7 @@ function ShopLookCard({
   const brand = local ? (piece.brand === "Unlabeled" ? "UVEL" : piece.brand) : from.name;
   return (
     <Pressable
-      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id, v: "buy" } })}
+      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })}
       style={styles.shopCard}
     >
       <View>
