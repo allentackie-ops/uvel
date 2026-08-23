@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useInbox, type ChatThread } from "../lib/chat";
+import { useInbox, unreadFor, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 
@@ -53,15 +53,16 @@ function Row({
   colors: Colors;
 }) {
   const styles = make(colors);
-  const iAmSeller = t.sellerId === uid || t.sellerId === "seller";
+  const iAmSeller = t.sellerId === uid;
   const who = iAmSeller ? t.buyerName || "Buyer" : t.sellerName || "Seller";
   const you = t.lastFrom === uid || t.lastFrom === "me";
+  const unread = unreadFor(t, uid);
   return (
     <Pressable onPress={() => router.push({ pathname: "/ask/[id]", params: { id: t.pieceId } })} style={styles.row}>
       <Image source={{ uri: t.piecePhoto }} style={styles.thumb} contentFit="cover" />
       <View style={{ flex: 1 }}>
         <View style={styles.line}>
-          <Text style={styles.name} numberOfLines={1}>
+          <Text style={[styles.name, unread ? { fontWeight: "800" } : null]} numberOfLines={1}>
             {who}
           </Text>
           {t.lastAt ? <Text style={styles.time}>{when(t.lastAt)}</Text> : null}
@@ -69,10 +70,15 @@ function Row({
         <Text style={styles.piece} numberOfLines={1}>
           {t.pieceName}
         </Text>
-        <Text style={styles.prev} numberOfLines={1}>
+        <Text style={[styles.prev, unread ? { color: "#F4F0E6" } : null]} numberOfLines={1}>
           {t.lastText ? `${you ? "You: " : ""}${t.lastText}` : iAmSeller ? "Waiting on their first message" : "Say hi"}
         </Text>
       </View>
+      {unread ? (
+        <View style={styles.badge}>
+          <Text style={styles.badgeTxt}>{unread > 9 ? "9+" : String(unread)}</Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 }
@@ -106,5 +112,15 @@ function make(colors: Colors) {
     time: { color: colors.subtle, fontSize: 12 },
     piece: { color: colors.muted, marginTop: 2, fontSize: 13 },
     prev: { color: colors.subtle, marginTop: 3, fontSize: 13 },
+    badge: {
+      minWidth: 22,
+      height: 22,
+      borderRadius: 11,
+      backgroundColor: "#D6E27A",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 6,
+    },
+    badgeTxt: { color: "#16140F", fontWeight: "800", fontSize: 11 },
   });
 }

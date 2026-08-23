@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Glass, GlassContainer } from "../../components/Glass";
 import { ProductCard } from "../../components/ProductCard";
 import { GARMENTS, TRENDS, getGarment, type Trend } from "../../lib/catalog";
-import { useInbox } from "../../lib/chat";
+import { unreadFor, useInbox } from "../../lib/chat";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 
@@ -14,6 +14,7 @@ export default function Today() {
   const styles = make(colors);
   const { uid } = useUvel();
   const chats = useInbox(uid || "me");
+  const unread = chats.reduce((n, t) => n + unreadFor(t, uid || "me"), 0);
   const [source, setSource] = useState<"All" | Trend["source"]>("All");
   const visible = source === "All" ? TRENDS : TRENDS.filter((t) => t.source === source);
   const featured = visible[0] ?? TRENDS[0];
@@ -56,7 +57,7 @@ export default function Today() {
                   : "Asks on your listings land here"}
             </Text>
           </View>
-          <Text style={styles.inboxGo}>{chats.length ? String(chats.length) : "›"}</Text>
+          <Text style={styles.inboxGo}>{unread ? String(unread) : chats.length ? String(chats.length) : "›"}</Text>
         </Pressable>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>

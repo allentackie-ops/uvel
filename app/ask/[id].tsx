@@ -16,11 +16,16 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usd } from "../../lib/catalog";
 import {
+  clock,
+  dayLabel,
   lastSeenLabel,
   listenMessages,
+  listenThread,
+  markSeen,
   openThread,
   readUserLite,
   sendChat,
+  setTyping,
   type ChatMsg,
 } from "../../lib/chat";
 import { pickFromLibrary, takePhoto } from "../../lib/photo";
@@ -46,7 +51,10 @@ export default function Ask() {
   const [place, setPlace] = useState("");
   const [sellerHandle, setSellerHandle] = useState("Seller");
   const [safety, setSafety] = useState(true);
+  const [typing, setTypingOn] = useState(false);
+  const [boxKey, setBoxKey] = useState(0);
   const scroller = useRef<ScrollView>(null);
+  const typeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sellerId = piece?.ownerId && piece.ownerId !== app.uid ? piece.ownerId : piece?.ownerId || "";
   const mine = app.uid || "me";
@@ -77,6 +85,12 @@ export default function Ask() {
       setMsgs(next);
       setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 50);
     });
+    const unsubT = listenThread(tid, (t) => {
+      const live = t.typingBy && t.typingBy !== mine && Date.now() - (t.typingAt || 0) < 3500;
+      setTypingOn(Boolean(live));
+    });
+    markSeen(tid, mine);
+    const tick = setInterval(() => markSeen(tid, mine), 4000);
     if (targetSeller && targetSeller !== mine && targetSeller !== "seller") {
       void readUserLite(targetSeller).then((lite) => {
         if (!lite) return;
@@ -88,12 +102,22 @@ export default function Ask() {
     } else {
       setSeen("Usually replies in a few hours");
     }
-    return () => unsub();
+    return () => {
+      unsub();
+      unsubT();
+      clearInterval(tick);
+      setTyping(tid, mine, false);
+    };
   }, [piece?.id, mine]);
 
   async function send(text: string, kind: ChatMsg["kind"] = "text", offerCents?: number, photoUrl?: string) {
     const body = text.trim();
-    if (!body) return;
+    if (!body || sending) return;
+    setDraft("");
+    setBoxKey((n) => n + 1);
+    setOffer("");
+    setOfferOn(false);
+    if (typeTimer.current) clearTimeout(typeTimer.current);
     const tid =
       thread ||
       (piece
@@ -110,6 +134,7 @@ export default function Ask() {
         : "");
     if (!tid) return;
     if (!thread) setThread(tid);
+    setTyping(tid, mine, false);
     setSending(true);
     try {
       await sendChat({
@@ -123,12 +148,22 @@ export default function Ask() {
         fromName: app.displayName || "Someone on Uvel",
         pieceId: piece?.id ?? "",
       });
-      setDraft("");
-      setOffer("");
-      setOfferOn(false);
       setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 40);
     } finally {
       setSending(false);
+    }
+  }
+
+  function onDraft(v: string) {
+    setDraft(v);
+    const tid = thread;
+    if (!tid) return;
+    if (v.trim()) {
+      setTyping(tid, mine, true);
+      if (typeTimer.current) clearTimeout(typeTimer.current);
+      typeTimer.current = setTimeout(() => setTyping(tid, mine, false), 1600);
+    } else {
+      setTyping(tid, mine, false);
     }
   }
 
@@ -218,23 +253,40 @@ export default function Ask() {
             </View>
           </View>
 
-          {msgs.map((m) => {
+          {msgs.map((m, i) => {
             const mineMsg = m.from === mine;
-            if (m.kind === "offer") {
-              return (
-                <View key={m.id} style={[styles.bubble, mineMsg ? styles.bubbleMine : styles.bubbleThem]}>
-                  <Text style={styles.offerTag}>Offer</Text>
-                  <Text style={[styles.bubbleTxt, mineMsg && styles.bubbleTxtMine]}>{m.text}</Text>
-                </View>
-              );
-            }
+            const lastMine = mineMsg && !msgs.slice(i + 1).some((x) => x.from === mine);
+            const prev = msgs[i - 1];
+            const newDay = !prev || dayLabel(prev.createdAt) !== dayLabel(m.createdAt);
+            const status =
+              m.status === "seen" ? "Seen" : m.status === "delivered" ? "Delivered" : m.status === "sending" ? "Sending" : "Sent";
             return (
-              <View key={m.id} style={[styles.bubble, mineMsg ? styles.bubbleMine : styles.bubbleThem]}>
-                {m.photoUrl ? <Image source={{ uri: m.photoUrl }} style={styles.msgPhoto} contentFit="cover" /> : null}
-                <Text style={[styles.bubbleTxt, mineMsg && styles.bubbleTxtMine]}>{m.text}</Text>
+              <View key={m.id}>
+                {newDay ? <Text style={styles.day}>{dayLabel(m.createdAt)}</Text> : null}
+                {m.kind === "offer" ? (
+                  <View style={[styles.bubble, mineMsg ? styles.bubbleMine : styles.bubbleThem]}>
+                    <Text style={styles.offerTag}>Offer</Text>
+                    <Text style={[styles.bubbleTxt, mineMsg && styles.bubbleTxtMine]}>{m.text}</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.bubble, mineMsg ? styles.bubbleMine : styles.bubbleThem]}>
+                    {m.photoUrl ? <Image source={{ uri: m.photoUrl }} style={styles.msgPhoto} contentFit="cover" /> : null}
+                    <Text style={[styles.bubbleTxt, mineMsg && styles.bubbleTxtMine]}>{m.text}</Text>
+                  </View>
+                )}
+                {lastMine ? (
+                  <Text style={styles.meta}>{status} · {clock(m.createdAt)}</Text>
+                ) : !mineMsg ? (
+                  <Text style={styles.metaThem}>{clock(m.createdAt)}</Text>
+                ) : null}
               </View>
             );
           })}
+          {typing ? (
+            <View style={[styles.bubble, styles.bubbleThem, styles.typing]}>
+              <Text style={styles.typingTxt}>typing…</Text>
+            </View>
+          ) : null}
         </ScrollView>
 
         {safety ? (
@@ -256,15 +308,16 @@ export default function Ask() {
             <Text style={styles.cam}>◉</Text>
           </Pressable>
           <TextInput
+            key={boxKey}
             style={styles.input}
             value={draft}
-            onChangeText={setDraft}
+            onChangeText={onDraft}
             placeholder="Write a message here"
             placeholderTextColor={colors.subtle}
             returnKeyType="send"
             enablesReturnKeyAutomatically
             onSubmitEditing={() => void send(draft)}
-            blurOnSubmit={false}
+            blurOnSubmit
           />
           <Pressable onPress={() => void send(draft)} disabled={sending || !draft.trim()} style={styles.send}>
             <Text style={[styles.sendTxt, (!draft.trim() || sending) && { opacity: 0.35 }]}>Send</Text>
@@ -395,6 +448,11 @@ function make(colors: Colors) {
     bubbleTxtMine: { color: "#F4F0E6" },
     offerTag: { color: "#D6E27A", fontSize: 11, fontWeight: "700", letterSpacing: 1, marginBottom: 4 },
     msgPhoto: { width: 180, height: 180, borderRadius: 12, marginBottom: 8 },
+    day: { color: colors.subtle, textAlign: "center", fontSize: 12, marginVertical: 10 },
+    meta: { color: colors.subtle, fontSize: 11, alignSelf: "flex-end", marginBottom: 10, marginRight: 4 },
+    metaThem: { color: colors.subtle, fontSize: 11, alignSelf: "flex-start", marginBottom: 10, marginLeft: 4 },
+    typing: { paddingVertical: 8, paddingHorizontal: 14 },
+    typingTxt: { color: colors.muted, fontStyle: "italic", fontSize: 14 },
     safety: {
       flexDirection: "row",
       alignItems: "center",
