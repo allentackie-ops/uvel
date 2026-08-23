@@ -57,6 +57,6 @@ export async function frameAtTime(player: VideoPlayer, time: number, _sourceUrl:
 }
 
 export function prefetchLookVideo(url?: string) {
-  if (!url || !/^https?:/i.test(url)) return;
-  void localVideo(url);
+  if (!url || !/^https?:/i.test(url)) return Promise.resolve(null as string | null);
+  return localVideo(url);
 }

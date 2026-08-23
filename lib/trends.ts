@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { TRENDS, type Trend } from "./catalog";
 import desk from "../docs/trends.json";
 import { liveDesk } from "./desk";
+import { prefetchLookVideo } from "./lookFrame";
 
 export type Source = Trend["source"] | "All";
 export const SOURCES: Source[] = ["All", "TikTok", "Instagram", "Snapchat"];
@@ -69,13 +70,27 @@ export function bundledLooks() {
   return cache;
 }
 
+export function hasLooks() {
+  return cache.length > 0;
+}
+
+async function warmHero(looks: Look[]) {
+  const vids = looks.map((l) => l.videoUrl).filter((u): u is string => Boolean(u)).slice(0, 3);
+  if (!vids.length) return;
+  await Promise.race([
+    Promise.all(vids.map((u) => prefetchLookVideo(u))),
+    new Promise((r) => setTimeout(r, 2800)),
+  ]);
+}
+
 export async function pullLooks() {
   if (pulling) return pulling;
   pulling = (async () => {
     try {
-      const live = await liveDesk();
+      const live = await liveDesk((partial) => setCache(partial as Look[]));
       if (live.length) {
         setCache(live as Look[]);
+        await warmHero(cache);
         return cache;
       }
     } catch {
@@ -88,6 +103,7 @@ export async function pullLooks() {
         const looks = parse(json);
         if (looks.length) {
           setCache(looks);
+          await warmHero(cache);
           return cache;
         }
       }
@@ -95,6 +111,7 @@ export async function pullLooks() {
       /* keep going */
     }
     if (!cache.length) setCache(bundled);
+    await warmHero(cache);
     return cache;
   })();
   try {
@@ -119,6 +136,10 @@ export function useLooks() {
       setLoading(false);
     };
     listeners.add(l);
+    if (cache.length) {
+      setLooks(cache);
+      setLoading(false);
+    }
     void pullLooks().finally(() => setLoading(false));
     return () => {
       listeners.delete(l);

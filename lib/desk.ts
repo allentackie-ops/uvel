@@ -474,13 +474,31 @@ function weave(groups: DeskLook[][]) {
   return out;
 }
 
-export async function liveDesk(): Promise<DeskLook[]> {
-  const [tt, ig, snap] = await Promise.all([
-    timeout(tiktokLooks(), 12000).then((v) => v || []),
-    timeout(instagramLooks(), 16000).then((v) => v || []),
-    timeout(snapLooks(), 14000).then((v) => v || []),
-  ]);
-  const mixed = weave([tt, ig, snap]);
-  if (mixed.length) return mixed;
+export async function liveDesk(onPartial?: (looks: DeskLook[]) => void): Promise<DeskLook[]> {
+  const buckets: DeskLook[][] = [[], [], []];
+  const publish = () => {
+    const mixed = weave(buckets);
+    if (mixed.length) onPartial?.(mixed);
+    return mixed;
+  };
+
+  const tt = timeout(tiktokLooks(), 12000).then((v) => {
+    buckets[0] = v || [];
+    return publish();
+  });
+  const ig = timeout(instagramLooks(), 16000).then((v) => {
+    buckets[1] = v || [];
+    return publish();
+  });
+  const snap = timeout(snapLooks(), 14000).then((v) => {
+    buckets[2] = v || [];
+    return publish();
+  });
+
+  await Promise.race([tt, new Promise((r) => setTimeout(r, 4500))]);
+  const early = weave(buckets);
+  void Promise.all([ig, snap, tt]).then(() => publish());
+  if (early.length) return early;
+  onPartial?.(FALLBACK);
   return FALLBACK;
 }

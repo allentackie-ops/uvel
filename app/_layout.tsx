@@ -205,13 +205,25 @@ export default function Root() {
   const { onboarded, hydrated, uid, profileDone } = useUvel();
   const otaReady = useOtaReady();
   const [intro, setIntro] = useState(true);
+  const [feedReady, setFeedReady] = useState(false);
   const dismiss = useCallback(() => setIntro(false), []);
-  const ready = hydrated && otaReady;
+  const ready = hydrated && otaReady && feedReady;
   const needProfile = Boolean(uid) && !profileDone;
   const showApp = ready && !intro;
 
   useEffect(() => {
-    if (hydrated) void pullLooks();
+    if (!hydrated) return;
+    let stop = false;
+    const max = setTimeout(() => {
+      if (!stop) setFeedReady(true);
+    }, 10000);
+    void pullLooks().finally(() => {
+      if (!stop) setFeedReady(true);
+    });
+    return () => {
+      stop = true;
+      clearTimeout(max);
+    };
   }, [hydrated]);
 
   return (
