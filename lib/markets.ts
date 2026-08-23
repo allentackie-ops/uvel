@@ -154,18 +154,27 @@ export function convertCents(cents: number, fromCurrency: string, to: Market) {
 }
 
 export function money(cents: number, fromCurrency = "USD") {
+  return formatMoney(cents, fromCurrency, false);
+}
+
+export function moneyExact(cents: number, fromCurrency = "USD") {
+  return formatMoney(cents, fromCurrency, true);
+}
+
+function formatMoney(cents: number, fromCurrency: string, exact: boolean) {
   const market = getMarket();
   const local = convertCents(cents, fromCurrency, market);
   const major = local / 100;
+  const digits = market.zeroDecimal ? 0 : exact ? 2 : 0;
   try {
     return new Intl.NumberFormat(market.locale, {
       style: "currency",
       currency: market.currency,
-      maximumFractionDigits: 0,
-      minimumFractionDigits: 0,
+      maximumFractionDigits: digits,
+      minimumFractionDigits: digits,
     }).format(major);
   } catch {
-    return `${market.symbol}${Math.round(major)}`;
+    return `${market.symbol}${digits ? major.toFixed(digits) : Math.round(major)}`;
   }
 }
 

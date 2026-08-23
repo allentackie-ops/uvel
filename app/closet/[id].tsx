@@ -3,7 +3,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import {
-  Alert,
   Dimensions,
   Pressable,
   ScrollView,
@@ -151,7 +150,7 @@ export default function ClosetPiece() {
               <Text style={styles.askTxt}>Ask</Text>
             </Pressable>
             <Pressable
-              onPress={() => Alert.alert("Buy", "Checkout lands in a later drop.")}
+              onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id } })}
               style={styles.buy}
             >
               <Text style={styles.ctaTxt}>Buy · {usd(piece.listPriceCents, piece.currency || "USD")}</Text>

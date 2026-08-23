@@ -19,7 +19,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Category } from "../lib/catalog";
 import { usd } from "../lib/catalog";
-import { getMarket } from "../lib/markets";
+import { uvelFeeCents } from "../lib/fees";
+import { getMarket, moneyExact } from "../lib/markets";
 import { pickListingPhoto, takeListingPhoto } from "../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
 import { useUvel } from "../lib/store";
@@ -399,6 +400,12 @@ export default function Sell() {
                 autoFocus={false}
               />
             </View>
+            {Number(price) > 0 ? (
+              <Text style={styles.feeNote}>
+                Buyer pays a {moneyExact(uvelFeeCents(Number(price) * 100, market.currency, market), market.currency)}{" "}
+                Uvel fee at checkout. You receive the full {usd(Number(price) * 100, market.currency)}.
+              </Text>
+            ) : null}
 
             <Text style={styles.label}>Title *</Text>
             <TextInput
@@ -645,6 +652,7 @@ function make(colors: Colors) {
     sheet: { paddingHorizontal: 20, paddingTop: 8 },
     priceLabel: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 12, marginBottom: 6 },
     priceRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+    feeNote: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 10 },
     dollar: {
       color: colors.bone,
       fontWeight: "700",

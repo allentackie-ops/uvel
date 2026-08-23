@@ -228,7 +228,7 @@ export default function Ask() {
             <Text style={styles.offerTxt}>Make an offer</Text>
           </Pressable>
           <Pressable
-            onPress={() => Alert.alert("Buy", "Checkout lands in a later drop.")}
+            onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id } })}
             style={styles.buyBtn}
           >
             <Text style={styles.buyTxt}>Buy now</Text>
