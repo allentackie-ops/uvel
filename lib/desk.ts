@@ -226,27 +226,63 @@ async function tiktokLooks(): Promise<DeskLook[]> {
   return picked.map((c) => asTikTok(c, caps[c.id] || c.title));
 }
 
+function igVideoFromEmbed(html: string): string {
+  const i = html.indexOf("video_url");
+  if (i < 0) return "";
+  let chunk = html.slice(i, i + 8000);
+  chunk = chunk.replace(/\\u0026/gi, "&").replace(/\\u0025/gi, "%").replace(/\\u003d/gi, "=");
+  chunk = chunk.replace(/\\+/g, "");
+  const m = chunk.match(/https:\/\/scontent[^"\s<>]+?\.mp4[^"\s<>]*/);
+  return m?.[0] ?? "";
+}
+
+async function embedVideo(code: string): Promise<string> {
+  const headers = { "User-Agent": "Mozilla/5.0" };
+  for (const path of [`reel/${code}/embed/`, `reel/${code}/embed/captioned/`, `p/${code}/embed/`]) {
+    try {
+      const res = await fetch(`https://www.instagram.com/${path}`, { headers });
+      if (!res.ok) continue;
+      const video = igVideoFromEmbed(await res.text());
+      if (video) return video;
+    } catch {
+      /* next */
+    }
+  }
+  return "";
+}
+
 async function hydrateIg(code: string): Promise<DeskLook | null> {
   try {
     const postUrl = `https://www.instagram.com/reel/${code}/`;
-    const res = await fetch(`https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(postUrl)}`);
-    if (!res.ok) return null;
-    const d = (await res.json()) as { title?: string; author_name?: string; thumbnail_url?: string };
-    const handle = d.author_name ? `@${d.author_name}` : "@instagram";
-    const title = captionFrom(d.title || "fit check", "ootd");
-    const imageUrl = `https://www.instagram.com/p/${code}/media/?size=l`;
+    const headers = { "User-Agent": "Mozilla/5.0" };
+    const [oeRes, video] = await Promise.all([
+      fetch(`https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(postUrl)}`, { headers }).catch(() => null),
+      embedVideo(code),
+    ]);
+    if (!video) return null;
+    let title = "fit check";
+    let handle = "@instagram";
+    let thumb = `https://www.instagram.com/p/${code}/media/?size=l`;
+    if (oeRes && oeRes.ok) {
+      const d = (await oeRes.json()) as { title?: string; author_name?: string; thumbnail_url?: string };
+      if (d.title) title = d.title;
+      if (d.author_name) handle = `@${d.author_name}`;
+      if (d.thumbnail_url) thumb = d.thumbnail_url;
+    }
+    const caption = captionFrom(title, "ootd");
     return {
       id: `ig-${code}`,
       slug: code,
-      title,
+      title: caption,
       source: "Instagram",
       summary: "#ootd",
-      image: { uri: d.thumbnail_url || imageUrl },
-      imageUrl: d.thumbnail_url || imageUrl,
+      image: { uri: thumb },
+      imageUrl: thumb,
+      videoUrl: video,
       postUrl,
       handle,
       garmentIds: [],
-      shopQuery: title,
+      shopQuery: caption,
       heat: `Instagram · ${handle}`,
     };
   } catch {
@@ -284,8 +320,8 @@ async function instagramLooks(): Promise<DeskLook[]> {
     const json = await res.json();
     const blob = JSON.stringify(json);
     const codes = [...new Set([...blob.matchAll(/instagram\.com\/(?:reel|p)\/([A-Za-z0-9_-]{5,})/g)].map((m) => m[1]))];
-    const hydrated = await Promise.all(codes.slice(0, 10).map((c) => timeout(hydrateIg(c), 8000)));
-    return hydrated.filter((x): x is DeskLook => Boolean(x));
+    const hydrated = await Promise.all(codes.slice(0, 8).map((c) => timeout(hydrateIg(c), 12000)));
+    return hydrated.filter((x): x is DeskLook => Boolean(x && x.videoUrl));
   } catch {
     return [];
   } finally {
