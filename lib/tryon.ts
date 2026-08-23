@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { Image, type ImageSourcePropType } from "react-native";
 
 type Extra = {
@@ -29,30 +30,6 @@ export function anthropicKey() {
   return process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || e.anthropicApiKey || e.firebase?.anthropicApiKey || wired;
 }
 
-function bytesToBase64(bytes: Uint8Array) {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  let out = "";
-  const len = bytes.length;
-  for (let i = 0; i < len; i += 3) {
-    const a = bytes[i];
-    const b = i + 1 < len ? bytes[i + 1] : 0;
-    const c = i + 2 < len ? bytes[i + 2] : 0;
-    const n = (a << 16) | (b << 8) | c;
-    out += chars[(n >> 18) & 63];
-    out += chars[(n >> 12) & 63];
-    out += i + 1 < len ? chars[(n >> 6) & 63] : "=";
-    out += i + 2 < len ? chars[n & 63] : "=";
-  }
-  return out;
-}
-
-function mimeOf(uri: string) {
-  const u = uri.toLowerCase();
-  if (u.includes(".png") || u.startsWith("data:image/png")) return "image/png";
-  if (u.includes(".webp")) return "image/webp";
-  return "image/jpeg";
-}
-
 export function resolveSource(src: ImageSourcePropType | { uri: string }) {
   if (typeof src === "object" && src && "uri" in src && src.uri) return src.uri;
   const r = Image.resolveAssetSource(src as number);
@@ -60,12 +37,13 @@ export function resolveSource(src: ImageSourcePropType | { uri: string }) {
 }
 
 async function uriToDataUrl(uri: string) {
-  const res = await fetch(uri);
-  if (!res.ok) throw new Error("Couldn’t read that photo.");
-  const buf = await res.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-  if (!bytes.length) throw new Error("That photo is empty.");
-  return `data:${mimeOf(uri)};base64,${bytesToBase64(bytes)}`;
+  if (uri.startsWith("data:")) return uri;
+  const ctx = ImageManipulator.manipulate(uri);
+  ctx.resize({ width: 768 });
+  const rendered = await ctx.renderAsync();
+  const saved = await rendered.saveAsync({ compress: 0.7, format: SaveFormat.JPEG, base64: true });
+  if (!saved.base64) throw new Error("Couldn’t read that photo.");
+  return `data:image/jpeg;base64,${saved.base64}`;
 }
 
 function promptFor(name: string, category: string) {
@@ -114,7 +92,17 @@ function nice(text: string) {
   }
   if (low.includes("formdatapart")) return "Couldn’t send that photo. Try Library again.";
   if (low.includes("rate") || low.includes("429")) return "Try-on is busy. Wait a moment.";
-  if (low.includes("network") || low.includes("failed to fetch")) return "No connection. Try again.";
+  if (
+    low.includes("timed out") ||
+    low.includes("timeout") ||
+    low.includes("unexpectedexception") ||
+    low.includes("expo modules")
+  ) {
+    return "That look took too long. Try again.";
+  }
+  if (low.includes("network") || low.includes("failed to fetch") || low.includes("fetch failed")) {
+    return "No connection. Try again.";
+  }
   return text.slice(0, 220) || "Couldn’t dress you in that. Try again.";
 }
 
@@ -126,26 +114,47 @@ function imageFrom(json: { error?: { message?: string }; data?: { b64_json?: str
   throw new Error("No image came back.");
 }
 
+function postJson(url: string, headers: Record<string, string>, body: string, ms: number) {
+  return new Promise<{ ok: boolean; status: number; json: Parameters<typeof imageFrom>[0] }>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.timeout = ms;
+    Object.entries(headers).forEach(([k, v]) => xhr.setRequestHeader(k, v));
+    xhr.onload = () => {
+      try {
+        resolve({
+          ok: xhr.status >= 200 && xhr.status < 300,
+          status: xhr.status,
+          json: JSON.parse(xhr.responseText || "{}"),
+        });
+      } catch {
+        reject(new Error("Couldn’t read the try-on result."));
+      }
+    };
+    xhr.onerror = () => reject(new Error("No connection. Try again."));
+    xhr.ontimeout = () => reject(new Error("That look took too long. Try again."));
+    xhr.send(body);
+  });
+}
+
 async function openaiEdits(personUrl: string, garmentUrl: string, prompt: string) {
   const key = openaiKey();
-  const res = await fetch("https://api.openai.com/v1/images/edits", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-image-2",
-      prompt,
-      images: [{ image_url: personUrl }, { image_url: garmentUrl }],
-      size: "1024x1536",
-      quality: "low",
-      moderation: "low",
-    }),
+  const body = JSON.stringify({
+    model: "gpt-image-2",
+    prompt,
+    images: [{ image_url: personUrl }, { image_url: garmentUrl }],
+    size: "1024x1536",
+    quality: "low",
+    moderation: "low",
   });
-  const json = (await res.json()) as Parameters<typeof imageFrom>[0];
-  if (!res.ok) throw new Error(json.error?.message || `Try-on failed (${res.status}).`);
-  return imageFrom(json);
+  const res = await postJson(
+    "https://api.openai.com/v1/images/edits",
+    { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+    body,
+    90000,
+  );
+  if (!res.ok) throw new Error(res.json.error?.message || `Try-on failed (${res.status}).`);
+  return imageFrom(res.json);
 }
 
 function isBlocked(err: unknown) {

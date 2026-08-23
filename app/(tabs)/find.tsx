@@ -133,8 +133,12 @@ export default function Mirror() {
       app.consumeTryOn();
       setResult(dressed);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Couldn’t dress you in that.");
-    } finally {
+      const raw = e instanceof Error ? e.message : "";
+      setErr(
+        /timeout|timed out|unexpectedexception|fetch failed|expo modules/i.test(raw)
+          ? "That look took too long. Try again."
+          : raw || "Couldn’t dress you in that.",
+      ); finally {
       setBusy(false);
     }
   }
