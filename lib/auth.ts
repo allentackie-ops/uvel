@@ -85,13 +85,10 @@ function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
   });
 }
 
-async function afterAuth(cred: UserCredential, provider: string, mode: AuthVia) {
-  if (mode === "signup" && (await isReturningUser(cred))) {
-    await fbSignOut(firebaseAuth());
-    throw new Error(ALREADY_ACCOUNT);
-  }
+async function afterAuth(cred: UserCredential, provider: string, _mode: AuthVia) {
+  const returning = await isReturningUser(cred);
   void remember(cred.user, provider);
-  return session(cred.user, mode);
+  return session(cred.user, returning ? "login" : "signup");
 }
 
 async function isReturningUser(cred: UserCredential) {

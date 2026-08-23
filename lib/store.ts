@@ -80,15 +80,24 @@ void load().then(() => {
   void import("./auth").then(({ subscribeAuth }) => {
     subscribeAuth((user) => {
       if (!user) return;
-      memory = {
-        ...memory,
-        uid: user.uid,
-        email: user.email,
-        displayName: user.name || memory.displayName,
-        signedInWith: user.provider,
-      };
-      listeners.forEach((l) => l());
-      void AsyncStorage.setItem(KEY, JSON.stringify(memory));
+      void restoreProfile(user.uid).then((stashed) => {
+        memory = {
+          ...memory,
+          uid: user.uid,
+          email: user.email,
+          displayName: user.name || (stashed?.displayName as string) || memory.displayName,
+          signedInWith: user.provider,
+          onboarded: true,
+          onboardVersion: Math.max(memory.onboardVersion ?? 0, 4),
+          profileDone: memory.profileDone || Boolean(stashed?.profileDone),
+          birthday: (stashed?.birthday as string) || memory.birthday,
+          gender: (stashed?.gender as string) || memory.gender,
+          styles: (stashed?.styles as string[]) || memory.styles,
+          wantsUpdates: Boolean(stashed?.wantsUpdates) || memory.wantsUpdates,
+        };
+        listeners.forEach((l) => l());
+        void AsyncStorage.setItem(KEY, JSON.stringify(memory));
+      });
     });
   });
 });

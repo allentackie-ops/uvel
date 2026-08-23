@@ -207,6 +207,7 @@ export default function Root() {
   const [intro, setIntro] = useState(true);
   const dismiss = useCallback(() => setIntro(false), []);
   const needProfile = Boolean(uid) && !profileDone;
+  const signedIn = Boolean(uid);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -218,7 +219,7 @@ export default function Root() {
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: intro ? "#2A320E" : "#0B0A08" }}>
         <StatusBar style="light" />
         {hydrated ? (
-          !onboarded ? (
+          !onboarded && !signedIn ? (
             <Onboard />
           ) : needProfile ? (
             <ProfileSetup />
