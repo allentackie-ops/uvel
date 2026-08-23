@@ -25,7 +25,7 @@ export default function TryOn() {
   }, [g]);
 
   async function addPhoto() {
-    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.7 });
+    const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.55 });
     if (!res.canceled) {
       app.setPerson(res.assets[0].uri);
       setResult(null);

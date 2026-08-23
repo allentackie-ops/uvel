@@ -29,23 +29,6 @@ export function anthropicKey() {
   return process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || e.anthropicApiKey || e.firebase?.anthropicApiKey || wired;
 }
 
-function bytesToBase64(bytes: Uint8Array) {
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  let out = "";
-  const len = bytes.length;
-  for (let i = 0; i < len; i += 3) {
-    const a = bytes[i];
-    const b = i + 1 < len ? bytes[i + 1] : 0;
-    const c = i + 2 < len ? bytes[i + 2] : 0;
-    const n = (a << 16) | (b << 8) | c;
-    out += chars[(n >> 18) & 63];
-    out += chars[(n >> 12) & 63];
-    out += i + 1 < len ? chars[(n >> 6) & 63] : "=";
-    out += i + 2 < len ? chars[n & 63] : "=";
-  }
-  return out;
-}
-
 function mimeOf(uri: string) {
   const u = uri.toLowerCase();
   if (u.includes(".png") || u.startsWith("data:image/png")) return "image/png";
@@ -59,13 +42,8 @@ export function resolveSource(src: ImageSourcePropType | { uri: string }) {
   return r.uri;
 }
 
-async function uriToInline(uri: string) {
-  const res = await fetch(uri);
-  if (!res.ok) throw new Error("Couldn’t read that photo.");
-  const buf = await res.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-  if (!bytes.length) throw new Error("That photo is empty.");
-  return { mimeType: mimeOf(uri), data: bytesToBase64(bytes) };
+function filePart(uri: string, name: string) {
+  return { uri, name, type: mimeOf(uri) } as unknown as Blob;
 }
 
 function promptFor(name: string, category: string) {
@@ -106,85 +84,31 @@ function nice(text: string) {
   return text.slice(0, 220) || "Couldn’t dress you in that. Try again.";
 }
 
-type OutputItem = {
-  type?: string;
-  result?: string;
-  b64_json?: string;
-  image_url?: string;
-  content?: { type?: string; image_url?: string; b64_json?: string }[];
-};
-
-function imageFromResponses(json: {
-  error?: { message?: string };
-  output?: OutputItem[];
-  data?: { b64_json?: string; url?: string }[];
-}) {
+function imageFrom(json: { error?: { message?: string }; data?: { b64_json?: string; url?: string }[] }) {
   if (json.error?.message) throw new Error(json.error.message);
-  for (const item of json.output ?? []) {
-    if (item.result) return `data:image/png;base64,${item.result}`;
-    if (item.b64_json) return `data:image/png;base64,${item.b64_json}`;
-    if (item.image_url) return item.image_url;
-    for (const c of item.content ?? []) {
-      if (c.b64_json) return `data:image/png;base64,${c.b64_json}`;
-      if (c.image_url) return c.image_url;
-    }
-  }
   const d = json.data?.[0];
   if (d?.b64_json) return `data:image/png;base64,${d.b64_json}`;
   if (d?.url) return d.url;
   throw new Error("No image came back.");
 }
 
-async function openaiResponses(
-  person: { mimeType: string; data: string },
-  garment: { mimeType: string; data: string },
-  prompt: string,
-  model: string,
-) {
-  const key = openaiKey();
-  const res = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      input: [
-        {
-          role: "user",
-          content: [
-            { type: "input_text", text: prompt },
-            { type: "input_image", image_url: `data:${person.mimeType};base64,${person.data}`, detail: "high" },
-            { type: "input_image", image_url: `data:${garment.mimeType};base64,${garment.data}`, detail: "high" },
-          ],
-        },
-      ],
-      tools: [{ type: "image_generation", quality: "medium", size: "1024x1536" }],
-      tool_choice: { type: "image_generation" },
-    }),
-  });
-  const json = (await res.json()) as Parameters<typeof imageFromResponses>[0];
-  if (!res.ok) throw new Error(json.error?.message || `Try-on failed (${res.status}).`);
-  return imageFromResponses(json);
-}
-
-async function openaiEdits(personUri: string, prompt: string) {
+async function openaiEdits(personUri: string, garmentUri: string, prompt: string) {
   const key = openaiKey();
   const form = new FormData();
   form.append("model", "gpt-image-2");
   form.append("prompt", prompt);
   form.append("size", "1024x1536");
-  form.append("quality", "medium");
-  form.append("image", { uri: personUri, name: "person.jpg", type: "image/jpeg" } as unknown as Blob);
+  form.append("quality", "low");
+  form.append("image[]", filePart(personUri, "person.jpg"));
+  form.append("image[]", filePart(garmentUri, "garment.jpg"));
   const res = await fetch("https://api.openai.com/v1/images/edits", {
     method: "POST",
     headers: { Authorization: `Bearer ${key}` },
     body: form,
   });
-  const json = (await res.json()) as Parameters<typeof imageFromResponses>[0];
+  const json = (await res.json()) as Parameters<typeof imageFrom>[0];
   if (!res.ok) throw new Error(json.error?.message || `Try-on failed (${res.status}).`);
-  return imageFromResponses(json);
+  return imageFrom(json);
 }
 
 export async function dressPerson(opts: {
@@ -194,26 +118,11 @@ export async function dressPerson(opts: {
   category?: string;
 }) {
   if (!openaiKey()) throw new Error("Add your OpenAI key and I’ll turn try-on on.");
-  const [person, garment] = await Promise.all([
-    uriToInline(opts.personUri),
-    uriToInline(resolveSource(opts.garment)),
-  ]);
   const prompt = promptFor(opts.garmentName ?? "this piece", opts.category ?? "clothes");
-  let last = "Couldn’t dress you in that.";
-  for (const model of ["gpt-5.4", "gpt-5.5", "gpt-4.1"]) {
-    try {
-      return await openaiResponses(person, garment, prompt, model);
-    } catch (err) {
-      const raw = err instanceof Error ? err.message : String(err);
-      last = nice(raw);
-      if (/invalid_api_key|incorrect api key|insufficient_quota/i.test(raw)) throw new Error(last);
-      if (!/model|not found|invalid|does not exist|404/i.test(raw)) break;
-    }
-  }
   try {
-    return await openaiEdits(opts.personUri, prompt);
+    return await openaiEdits(opts.personUri, resolveSource(opts.garment), prompt);
   } catch (err) {
-    throw new Error(nice(err instanceof Error ? err.message : last));
+    throw new Error(nice(err instanceof Error ? err.message : String(err)));
   }
 }
 

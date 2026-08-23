@@ -119,7 +119,7 @@ export default function ProfileSetup() {
 
   async function pickPhoto(camera: boolean) {
     const fn = camera ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync;
-    const res = await fn({ mediaTypes: ["images"], quality: 0.9 });
+    const res = await fn({ mediaTypes: ["images"], quality: 0.55 });
     if (!res.canceled) {
       setPhoto(res.assets[0].uri);
       setWorn(null);
