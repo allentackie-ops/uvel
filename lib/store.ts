@@ -13,6 +13,7 @@ type State = {
   palette: string;
   silhouette: string;
   personUri: string | null;
+  avatarUri: string | null;
   findsUsed: number;
   tryOnsUsed: number;
   appearance: "light" | "dark";
@@ -42,6 +43,7 @@ const defaults: State = {
   palette: "",
   silhouette: "",
   personUri: null,
+  avatarUri: null,
   findsUsed: 0,
   tryOnsUsed: 0,
   appearance: "light",
@@ -110,6 +112,7 @@ async function stashProfile() {
     all[memory.uid] = {
       profileDone: true,
       displayName: memory.displayName,
+      avatarUri: memory.avatarUri,
       birthday: memory.birthday,
       gender: memory.gender,
       styles: memory.styles,
@@ -178,6 +181,7 @@ export function useUvel() {
     activatePlus: (plan: string) => save({ isPlus: true, plusPlan: plan }),
     setStyle: (patch: Partial<State>) => save(patch),
     setPerson: (uri: string | null) => save({ personUri: uri }),
+    setAvatar: (uri: string | null) => save({ avatarUri: uri }).then(() => stashProfile()),
     setAppearance: (appearance: "light" | "dark") => save({ appearance }),
     setLocale: (locale: string) => save({ locale }),
     setCountry: (country: string) => save({ country }),
@@ -197,6 +201,7 @@ export function useUvel() {
         uid: s.uid,
         email: s.email,
         displayName: (stashed?.displayName as string) || s.name || memory.displayName,
+        avatarUri: (stashed?.avatarUri as string) || memory.avatarUri,
         profileDone: skip,
         birthday: (stashed?.birthday as string) || memory.birthday,
         gender: (stashed?.gender as string) || memory.gender,
@@ -249,6 +254,7 @@ export function useUvel() {
         wardrobeUris: [],
         wantsUpdates: false,
         personUri: null,
+        avatarUri: null,
       });
     },
   };

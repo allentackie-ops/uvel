@@ -69,7 +69,7 @@ export default function Sell() {
   const { id, fits } = useLocalSearchParams<{ id?: string; fits?: string }>();
   useWardrobe();
   const existing = id ? getPiece(id) : undefined;
-  const { wardrobeUris, appearance, uid, displayName, country, isPlus, personUri } = useUvel();
+  const { wardrobeUris, appearance, uid, displayName, country, isPlus, personUri, avatarUri } = useUvel();
   const market = getMarket(country);
 
   const [photos, setPhotos] = useState<Slot[]>(
@@ -281,8 +281,9 @@ export default function Sell() {
       currency: market.currency,
       shopLook: isPlus ? shopLook : "uvel",
     };
-    if (existing) listPiece(existing.id, { ...draft, ownerId: uid, ownerName: displayName, ownerPhoto: personUri || existing.ownerPhoto, country: market.code, currency: market.currency });
-    else addPiece({ ...draft, status: "listed", ownerId: uid, ownerName: displayName, ownerPhoto: personUri || undefined, country: market.code, currency: market.currency });
+    const face = avatarUri || personUri || existing?.ownerPhoto;
+    if (existing) listPiece(existing.id, { ...draft, ownerId: uid, ownerName: displayName, ownerPhoto: face, country: market.code, currency: market.currency });
+    else addPiece({ ...draft, status: "listed", ownerId: uid, ownerName: displayName, ownerPhoto: face || undefined, country: market.code, currency: market.currency });
     setGate({ phase: "pass" });
     setTimeout(() => router.replace("/(tabs)/closet"), 1100);
   }

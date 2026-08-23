@@ -1,16 +1,17 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "../../components/ListingCard";
 import { GARMENTS, getGarment, usd } from "../../lib/catalog";
 import { useOrders } from "../../lib/orders";
+import { pickAvatar, takeAvatar } from "../../lib/photo";
 import { seedFromStyles, ARCH, PALS, SILS, dnaHint } from "../../lib/styleDna";
 import { useUvel } from "../../lib/store";
 import { pullLooks } from "../../lib/trends";
 import { useColors, type Colors } from "../../lib/theme";
-import { getPiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { getPiece, stampMine, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
 const COL = (W - 52) / 2;
@@ -53,6 +54,21 @@ export default function You() {
     .join("")
     .slice(0, 2)
     .toUpperCase();
+  const face = app.avatarUri || app.personUri;
+
+  async function setFace(uri: string | null) {
+    if (!uri) return;
+    app.setAvatar(uri);
+    stampMine(app.uid, { ownerPhoto: uri, ownerName: app.displayName || undefined, ownerId: app.uid || undefined });
+  }
+
+  function changeFace() {
+    Alert.alert("Profile picture", "Buyers see this on your listings.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Take photo", onPress: () => void takeAvatar().then(setFace).catch(() => undefined) },
+      { text: "Choose photo", onPress: () => void pickAvatar().then(setFace).catch(() => undefined) },
+    ]);
+  }
   const earned = soldPieces.reduce((n, p) => n + (p.listPriceCents || 0), 0) + soldOrders.reduce((n, o) => n + o.itemCents, 0);
 
   const soldRows = useMemo(() => {
@@ -106,13 +122,18 @@ export default function You() {
           <Text style={styles.kicker}>YOU</Text>
           <Text style={styles.title}>{app.displayName || "Your closet"}</Text>
         </View>
-        {app.personUri ? (
-          <Image source={{ uri: app.personUri }} style={styles.avatar} contentFit="cover" />
-        ) : (
-          <View style={styles.initials}>
-            <Text style={styles.initialsTxt}>{initials}</Text>
+        <Pressable onPress={changeFace} style={styles.faceBtn} accessibilityLabel="Change profile picture">
+          {face ? (
+            <Image source={{ uri: face }} style={styles.avatar} contentFit="cover" />
+          ) : (
+            <View style={styles.initials}>
+              <Text style={styles.initialsTxt}>{initials}</Text>
+            </View>
+          )}
+          <View style={styles.faceDot}>
+            <Text style={styles.faceDotTxt}>+</Text>
           </View>
-        )}
+        </Pressable>
         <Pressable onPress={() => router.push("/settings")} style={styles.menuBtn} accessibilityLabel="Settings">
           <View style={styles.dash} />
           <View style={styles.dash} />
@@ -501,18 +522,29 @@ function make(_colors: Colors) {
     kicker: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
     title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 32, marginTop: 6, lineHeight: 36 },
     top: { flexDirection: "row", alignItems: "flex-start", marginBottom: 8 },
-    avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "#1A1915", marginRight: 8, marginTop: 4 },
+    faceBtn: { marginRight: 8, marginTop: 4 },
+    avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#1A1915" },
     initials: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
       backgroundColor: "#F4F0E6",
       alignItems: "center",
       justifyContent: "center",
-      marginRight: 8,
-      marginTop: 4,
     },
-    initialsTxt: { color: "#16140F", fontWeight: "800", fontSize: 14 },
+    initialsTxt: { color: "#16140F", fontWeight: "800", fontSize: 15 },
+    faceDot: {
+      position: "absolute",
+      right: -2,
+      bottom: -2,
+      width: 18,
+      height: 18,
+      borderRadius: 9,
+      backgroundColor: "#D6E27A",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    faceDotTxt: { color: "#16140F", fontSize: 13, fontWeight: "800", marginTop: -1 },
     menuBtn: {
       width: 44,
       height: 44,

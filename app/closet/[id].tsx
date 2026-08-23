@@ -67,10 +67,11 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
     const patch: Partial<ClosetPiece> = {};
     if (app.uid && piece.ownerId !== app.uid) patch.ownerId = app.uid;
     if (app.displayName && piece.ownerName !== app.displayName) patch.ownerName = app.displayName;
-    if (app.personUri && piece.ownerPhoto !== app.personUri) patch.ownerPhoto = app.personUri;
+    const face = app.avatarUri || app.personUri;
+    if (face && piece.ownerPhoto !== face) patch.ownerPhoto = face;
     if (app.country && piece.country !== app.country) patch.country = app.country;
     if (Object.keys(patch).length) updatePiece(piece.id, patch);
-  }, [app.uid, app.displayName, app.personUri, app.country, piece.id, piece.ownerId, piece.ownerName, piece.ownerPhoto, piece.country]);
+  }, [app.uid, app.displayName, app.personUri, app.avatarUri, app.country, piece.id, piece.ownerId, piece.ownerName, piece.ownerPhoto, piece.country]);
 
   function takeDown() {
     Alert.alert("Take off the floor?", "Buyers won’t see this listing until you list it again.", [
@@ -190,7 +191,7 @@ export default function ClosetPiece() {
   const chip = swatchOf(piece.color);
   const mine = isMine(piece, app.uid);
   const seller = (mine && app.displayName) || piece.ownerName || "Uvel member";
-  const sellerPhoto = (mine && app.personUri) || piece.ownerPhoto || null;
+  const sellerPhoto = (mine && (app.avatarUri || app.personUri)) || piece.ownerPhoto || null;
   const ship = getMarket((mine && app.country) || piece.country || app.country);
 
   function tryOnMe() {

@@ -62,3 +62,28 @@ export async function pickListingPhoto() {
   if (res.canceled) return null;
   return res.assets[0]?.uri ?? null;
 }
+
+export async function takeAvatar() {
+  await need("camera");
+  const res = await ImagePicker.launchCameraAsync({
+    mediaTypes: ["images"],
+    quality: 0.72,
+    allowsEditing: true,
+    aspect: [1, 1],
+    cameraType: ImagePicker.CameraType.front,
+  });
+  if (res.canceled) return null;
+  return res.assets[0]?.uri ?? null;
+}
+
+export async function pickAvatar() {
+  await need("library");
+  const res = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ["images"],
+    quality: 0.72,
+    allowsEditing: true,
+    aspect: [1, 1],
+  });
+  if (res.canceled) return null;
+  return res.assets[0]?.uri ?? null;
+}

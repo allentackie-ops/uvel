@@ -160,6 +160,14 @@ export function addPiece(
   return piece;
 }
 
+export function stampMine(uid: string, patch: Partial<ClosetPiece>) {
+  pieces = pieces.map((p) => {
+    if (p.ownerId && p.ownerId !== uid) return p;
+    return { ...p, ...patch };
+  });
+  void persist();
+}
+
 export function updatePiece(id: string, patch: Partial<ClosetPiece>) {
   pieces = pieces.map((p) => {
     if (p.id !== id) return p;
