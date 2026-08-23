@@ -378,8 +378,8 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
           <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
           <Text style={styles.cardSrc}>{look.source}</Text>
         </View>
-        <Pressable onPress={() => void shopThis()} style={styles.play} hitSlop={8}>
-          <Text style={styles.playTxt}>{busy ? "…" : "▶"}</Text>
+        <Pressable onPress={() => void shopThis()} style={styles.searchFab} hitSlop={8}>
+          <Text style={styles.searchFabTxt}>{busy ? "…" : "⌕"}</Text>
         </Pressable>
       </View>
       <Text style={styles.cardTitle} numberOfLines={2}>
@@ -526,18 +526,18 @@ function make(colors: Colors) {
       height: 24,
       borderRadius: 12,
     },
-    play: {
+    searchFab: {
       position: "absolute",
       right: 10,
       bottom: 10,
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: "#F4F0E6",
+      width: 46,
+      height: 46,
+      borderRadius: 23,
+      backgroundColor: "rgba(244,240,230,0.96)",
       alignItems: "center",
       justifyContent: "center",
     },
-    playTxt: { color: "#16140F", fontSize: 13, marginLeft: 2 },
+    searchFabTxt: { color: "#16140F", fontSize: 22, fontWeight: "700", marginTop: -1 },
     cardSrc: { color: "#F4F0E6", fontSize: 11, fontWeight: "700" },
     cardTitle: { color: "#F4F0E6", fontSize: 14, marginTop: 8, lineHeight: 18, fontWeight: "500" },
     shopStrip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
