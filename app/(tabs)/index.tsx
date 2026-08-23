@@ -1,8 +1,8 @@
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import {
   AppState,
   Dimensions,
@@ -33,7 +33,10 @@ const DOT: Record<Exclude<Source, "All">, string> = {
   X: "#F4F0E6",
 };
 
-type FrameGrab = { pauseAndFrame: () => Promise<string | null> };
+type FrameGrab = {
+  freeze: () => void;
+  frame: () => Promise<string | null>;
+};
 
 function MutedLoop({
   uri,
@@ -44,43 +47,62 @@ function MutedLoop({
   style: object;
   handleRef?: MutableRefObject<FrameGrab | null>;
 }) {
+  const held = useRef(false);
   const player = useVideoPlayer({ uri }, (p) => {
     p.loop = true;
     p.muted = true;
     p.audioMixingMode = "mixWithOthers";
   });
-  useEffect(() => {
-    const sub = player.addListener("statusChange", ({ status }) => {
-      if (status === "readyToPlay") player.play();
-    });
+
+  const playIfFree = useCallback(() => {
+    if (held.current) return;
     player.loop = true;
     player.muted = true;
     player.play();
+  }, [player]);
+
+  useEffect(() => {
+    const sub = player.addListener("statusChange", ({ status }) => {
+      if (status === "readyToPlay") playIfFree();
+    });
+    playIfFree();
     const app = AppState.addEventListener("change", (s) => {
-      if (s === "active") {
-        player.loop = true;
-        player.muted = true;
-        player.play();
-      }
+      if (s === "active") playIfFree();
     });
     return () => {
       sub.remove();
       app.remove();
     };
-  }, [player, uri]);
+  }, [player, uri, playIfFree]);
+
+  useFocusEffect(
+    useCallback(() => {
+      held.current = false;
+      playIfFree();
+      return undefined;
+    }, [playIfFree]),
+  );
 
   useEffect(() => {
     if (!handleRef) return;
     handleRef.current = {
-      pauseAndFrame: async () => {
+      freeze: () => {
+        held.current = true;
+        const time = Math.max(0, Number(player.currentTime) || 0);
+        player.pause();
+        player.currentTime = time;
+      },
+      frame: async () => {
         try {
-          player.pause();
+          held.current = true;
           const time = Math.max(0, Number(player.currentTime) || 0);
-          const thumbs = await player.generateThumbnailsAsync(time, { maxWidth: 720, maxHeight: 1280 });
+          player.pause();
+          player.currentTime = time;
+          const thumbs = await player.generateThumbnailsAsync([time], { maxWidth: 720, maxHeight: 1280 });
           const thumb = thumbs[0];
           if (!thumb) return null;
           const image = await ImageManipulator.manipulate(thumb).renderAsync();
-          const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.72, base64: true });
+          const saved = await image.saveAsync({ format: SaveFormat.JPEG, compress: 0.78, base64: true });
           if (saved.base64) return `data:image/jpeg;base64,${saved.base64}`;
           return saved.uri;
         } catch {
@@ -117,7 +139,8 @@ function LookMedia({
   useEffect(() => {
     if (look.videoUrl || !handleRef) return;
     handleRef.current = {
-      pauseAndFrame: async () => look.imageUrl || null,
+      freeze: () => {},
+      frame: async () => look.imageUrl || null,
     };
     return () => {
       handleRef.current = null;
@@ -138,7 +161,8 @@ function where(url?: string): Exclude<Source, "All"> | null {
 }
 
 async function scanLook(look: Look, grab: FrameGrab | null) {
-  const frame = (await grab?.pauseAndFrame()) || look.imageUrl || "";
+  grab?.freeze();
+  const frame = (await grab?.frame()) || look.imageUrl || "";
   setLookScan(frame, look.title);
   router.push({
     pathname: "/(tabs)/shop",
@@ -439,15 +463,15 @@ function make(colors: Colors) {
     searchFab: {
       position: "absolute",
       right: 10,
-      top: 10,
-      width: 34,
-      height: 34,
-      borderRadius: 17,
-      backgroundColor: "rgba(244,240,230,0.94)",
+      bottom: 10,
+      width: 46,
+      height: 46,
+      borderRadius: 23,
+      backgroundColor: "rgba(244,240,230,0.96)",
       alignItems: "center",
       justifyContent: "center",
     },
-    searchFabTxt: { color: "#16140F", fontSize: 16, fontWeight: "700", marginTop: -1 },
+    searchFabTxt: { color: "#16140F", fontSize: 22, fontWeight: "700", marginTop: -1 },
     cardMeta: { paddingTop: 10, paddingRight: 4 },
     cardSrc: { color: colors.subtle, fontSize: 11, fontWeight: "600" },
     cardTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 16, marginTop: 4, lineHeight: 20 },

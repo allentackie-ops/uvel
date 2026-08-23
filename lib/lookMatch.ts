@@ -61,12 +61,14 @@ async function asRemoteImage(uri: string) {
   return `data:image/jpeg;base64,${out}`;
 }
 
-export async function matchLookImage(imageUrl: string, pieces: ClosetPiece[]): Promise<string[] | null> {
-  if (!pieces.length) return [];
+export type LensHit = { ids: string[]; terms: string[] };
+
+export async function lensScan(imageUrl: string, pieces: ClosetPiece[]): Promise<LensHit | null> {
+  if (!pieces.length) return { ids: [], terms: [] };
   const key = openaiKey();
   if (!key || !imageUrl) return null;
   const inventory = pieces
-    .slice(0, 40)
+    .slice(0, 50)
     .map((p) => `${p.id} | ${p.name} | ${p.category} | ${p.color} | ${p.material} | ${p.notes}`.slice(0, 160))
     .join("\n");
   try {
@@ -83,9 +85,17 @@ export async function matchLookImage(imageUrl: string, pieces: ClosetPiece[]): P
             content: [
               {
                 type: "text",
-                text: `This is a frozen frame from a fashion video or photo. Identify the clothes on the person (top, bottom, dress, shoes, bag). Match them to items people are actually selling on Uvel. Same kind of garment and similar colour/silhouette only. If nothing is close, return {"ids":[]}.\n\nInventory:\n${inventory}\n\nJSON: {"ids":["id"]}`,
+                text: `Google Lens for clothes. Look at the FULL person in this frozen video frame. Name every garment you can see (top, bottom, dress, outerwear, shoes, bag). Then find visually similar listings on Uvel.
+
+Return JSON:
+{"garments":[{"kind":"tops","color":"pink floral","terms":"pink floral cami crop top"},{"kind":"bottoms","color":"blue denim","terms":"denim shorts"}],"ids":["listingId"]}
+
+ids = inventory rows that look like those garments (same kind + similar colour/pattern/silhouette). If none are close, ids can be empty. terms must still describe what is on screen.
+
+Inventory:
+${inventory}`,
               },
-              { type: "image_url", image_url: { url: await asRemoteImage(imageUrl), detail: "low" } },
+              { type: "image_url", image_url: { url: await asRemoteImage(imageUrl), detail: "high" } },
             ],
           },
         ],
@@ -94,11 +104,22 @@ export async function matchLookImage(imageUrl: string, pieces: ClosetPiece[]): P
     if (!res.ok) return null;
     const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
     const raw = json.choices?.[0]?.message?.content || "{}";
-    const parsed = JSON.parse(raw) as { ids?: unknown };
-    const ids = Array.isArray(parsed.ids) ? parsed.ids.map(String) : [];
+    const parsed = JSON.parse(raw) as {
+      ids?: unknown;
+      garments?: { kind?: string; color?: string; terms?: string }[];
+    };
     const have = new Set(pieces.map((p) => p.id));
-    return ids.filter((id) => have.has(id));
+    const ids = Array.isArray(parsed.ids) ? parsed.ids.map(String).filter((id) => have.has(id)) : [];
+    const terms = (parsed.garments ?? [])
+      .flatMap((g) => [g.kind, g.color, g.terms])
+      .filter((x): x is string => Boolean(x && x.trim()));
+    return { ids, terms };
   } catch {
     return null;
   }
+}
+
+export async function matchLookImage(imageUrl: string, pieces: ClosetPiece[]): Promise<string[] | null> {
+  const hit = await lensScan(imageUrl, pieces);
+  return hit ? hit.ids : null;
 }

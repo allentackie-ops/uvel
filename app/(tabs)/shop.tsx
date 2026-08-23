@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { CATEGORIES } from "../../lib/catalog";
-import { forYou, matchListings, matchLookImage } from "../../lib/lookMatch";
+import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
 import { takeLookScan, clearLookScan } from "../../lib/lookSearch";
 import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
@@ -23,6 +23,7 @@ export default function Shop() {
   const [q, setQ] = useState(qParam ?? "");
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("All");
   const [aiIds, setAiIds] = useState<string[] | null>(null);
+  const [terms, setTerms] = useState<string[]>([]);
   const [scanning, setScanning] = useState(false);
   const [frame, setFrame] = useState<string | null>(null);
   const [scanTitle, setScanTitle] = useState("");
@@ -59,9 +60,11 @@ export default function Shop() {
     let gone = false;
     setScanning(true);
     setAiIds(null);
-    void matchLookImage(frame, live).then((ids) => {
+    setTerms([]);
+    void lensScan(frame, live).then((hit) => {
       if (gone) return;
-      setAiIds(ids);
+      setAiIds(hit?.ids ?? []);
+      setTerms(hit?.terms ?? []);
       setScanning(false);
     });
     return () => {
@@ -72,11 +75,13 @@ export default function Shop() {
   const scanningLook = Boolean(look || frame);
 
   const ranked = useMemo(() => {
-    let rows = look ? matchListings(look, live, taste) : forYou(live, taste, country);
-    if (scanningLook && aiIds) {
-      const hit = new Set(aiIds);
-      rows = rows.filter((p) => hit.has(p.id));
-    } else if (look && aiIds?.length) {
+    const query = terms.length ? terms.join(" ") : look?.shopQuery || look?.title || q;
+    let rows = scanningLook
+      ? matchListings({ title: query, summary: query, shopQuery: query }, live, taste)
+      : look
+        ? matchListings(look, live, taste)
+        : forYou(live, taste, country);
+    if (aiIds?.length) {
       const hit = new Set(aiIds);
       rows = [...rows.filter((p) => hit.has(p.id)), ...rows.filter((p) => !hit.has(p.id))];
     }
@@ -91,7 +96,7 @@ export default function Shop() {
         p.notes.toLowerCase().includes(needle)
       );
     });
-  }, [live, look, aiIds, q, cat, taste, country, scanningLook]);
+  }, [live, look, aiIds, terms, q, cat, taste, country, scanningLook]);
 
   return (
     <ScrollView
@@ -111,8 +116,8 @@ export default function Shop() {
         </Pressable>
       )}
 
-      {frame ? <Image source={{ uri: frame }} style={styles.frame} contentFit="cover" /> : null}
-      {scanning ? <Text style={styles.scanning}>Searching this frame on Uvel…</Text> : null}
+      {frame ? <Image source={{ uri: frame }} style={styles.frame} contentFit="contain" /> : null}
+      {scanning ? <Text style={styles.scanning}>Visual search · finding these clothes on Uvel…</Text> : null}
 
       <View style={styles.search}>
         <Text style={styles.searchIcon}>⌕</Text>
@@ -145,8 +150,8 @@ export default function Shop() {
 
       <Text style={styles.count}>
         {scanning
-          ? "Matching clothes in this frame"
-          : `${ranked.length} ${ranked.length === 1 ? "listing" : "listings"} · real people selling`}
+          ? "Looking at the clothes in this frame"
+          : `${ranked.length} ${ranked.length === 1 ? "similar listing" : "similar listings"}`}
       </Text>
 
       <View style={styles.grid}>
@@ -160,7 +165,7 @@ export default function Shop() {
       </View>
 
       {!scanning && ranked.length === 0 ? (
-        <ListingEmpty copy="Nothing listed yet that matches this frame. When someone puts the piece up, it shows here." />
+        <ListingEmpty copy="Nothing listed yet that looks like this. When someone puts the piece up, it shows here." />
       ) : null}
     </ScrollView>
   );
@@ -174,9 +179,9 @@ function make(colors: Colors) {
     look: { color: colors.muted, marginTop: 6, fontSize: 16 },
     frame: {
       marginTop: 16,
-      height: 220,
+      height: 420,
       borderRadius: 16,
-      backgroundColor: colors.surface,
+      backgroundColor: "#0B0A08",
     },
     scanning: { color: "#D6E27A", marginTop: 10, fontSize: 13, fontWeight: "600" },
     store: { flexDirection: "row", alignItems: "center", marginTop: 8, gap: 8 },
