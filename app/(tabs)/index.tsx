@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Dimensions,
   Linking,
@@ -18,7 +18,7 @@ import { unreadFor, useInbox } from "../../lib/chat";
 import { forYou, matchListings } from "../../lib/lookMatch";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
-import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
+import { SOURCES, lookImage, pullLooks, useLooks, type Look, type Source } from "../../lib/trends";
 import { listedPieces, useWardrobe } from "../../lib/wardrobe";
 
 const { height: H } = Dimensions.get("window");
@@ -42,8 +42,17 @@ function MutedLoop({ uri, style }: { uri: string; style: object }) {
     });
     player.play();
     return () => sub.remove();
-  }, [player]);
-  return <VideoView player={player} style={style} contentFit="cover" nativeControls={false} />;
+  }, [player, uri]);
+  return (
+    <View style={[style, { overflow: "hidden", backgroundColor: "#0B0A08" }]}>
+      <VideoView
+        player={player}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        nativeControls={false}
+      />
+    </View>
+  );
 }
 
 function LookMedia({ look, style }: { look: Look; style: object }) {
@@ -72,6 +81,11 @@ export default function Today() {
   useWardrobe();
   const live = listedPieces();
   const [source, setSource] = useState<Source>("All");
+  useFocusEffect(
+    useCallback(() => {
+      void pullLooks();
+    }, []),
+  );
 
   const visible = useMemo(
     () => (source === "All" ? looks : looks.filter((t) => t.source === source)),

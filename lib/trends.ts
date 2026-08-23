@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { AppState } from "react-native";
 import { TRENDS, type Trend } from "./catalog";
 import desk from "../docs/trends.json";
+import { liveDesk } from "./desk";
 
 export type Source = Trend["source"] | "All";
 export const SOURCES: Source[] = ["All", "TikTok", "Instagram", "Snapchat", "X"];
@@ -53,6 +55,14 @@ function parse(raw: unknown): Look[] {
 const URL = "https://raw.githubusercontent.com/allentackie-ops/uvel/main/docs/trends.json";
 let cache: Look[] = parse(desk);
 let updatedAt = typeof (desk as { updatedAt?: string }).updatedAt === "string" ? (desk as { updatedAt: string }).updatedAt : "";
+const listeners = new Set<(looks: Look[]) => void>();
+
+function setCache(next: Look[]) {
+  if (!next.length) return;
+  cache = next;
+  updatedAt = new Date().toISOString();
+  listeners.forEach((l) => l(cache));
+}
 
 export function bundledLooks() {
   return cache;
@@ -60,13 +70,20 @@ export function bundledLooks() {
 
 export async function pullLooks() {
   try {
+    const live = await liveDesk();
+    if (live.length) {
+      setCache(live as Look[]);
+      return cache;
+    }
+  } catch {
+    /* fall through */
+  }
+  try {
     const res = await fetch(`${URL}?t=${Date.now()}`);
-    if (!res.ok) return cache;
-    const json = (await res.json()) as { updatedAt?: string; looks?: unknown };
-    const looks = parse(json);
-    if (looks.length) {
-      cache = looks;
-      updatedAt = json.updatedAt || new Date().toISOString();
+    if (res.ok) {
+      const json = (await res.json()) as { updatedAt?: string; looks?: unknown };
+      const looks = parse(json);
+      if (looks.length) setCache(looks);
     }
   } catch {
     /* keep seed */
@@ -81,24 +98,28 @@ export function looksUpdated() {
 export function useLooks() {
   const [looks, setLooks] = useState<Look[]>(cache);
   const [refreshing, setRefreshing] = useState(false);
-  const [stamp, setStamp] = useState(updatedAt);
 
   useEffect(() => {
-    void pullLooks().then((next) => {
-      setLooks(next);
-      setStamp(looksUpdated());
+    const l = (next: Look[]) => setLooks(next);
+    listeners.add(l);
+    void pullLooks();
+    const sub = AppState.addEventListener("change", (s) => {
+      if (s === "active") void pullLooks();
     });
+    return () => {
+      listeners.delete(l);
+      sub.remove();
+    };
   }, []);
 
   async function refresh() {
     setRefreshing(true);
     const next = await pullLooks();
     setLooks(next);
-    setStamp(looksUpdated());
     setRefreshing(false);
   }
 
-  return { looks, refreshing, refresh, stamp };
+  return { looks, refreshing, refresh, stamp: updatedAt };
 }
 
 export function lookImage(look: Look) {
