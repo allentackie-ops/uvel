@@ -95,9 +95,9 @@ function AppStack() {
           <Stack.Screen
             name="closet/[id]"
             options={{
-              headerTitle: "",
-              headerTransparent: true,
-              headerBackButtonDisplayMode: "minimal",
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#12110E" },
             }}
           />
         </Stack>

@@ -1,112 +1,278 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useMemo, useState } from "react";
+import {
+  ActionSheetIOS,
+  Alert,
+  Dimensions,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usd } from "../../lib/catalog";
 import { useColors, type Colors } from "../../lib/theme";
 import { getPiece, markSold, removePiece, unlistPiece, useWardrobe } from "../../lib/wardrobe";
 
+const W = Dimensions.get("window").width;
+const HERO_H = Math.round(W * (5 / 4));
+
 export default function ClosetPiece() {
   const colors = useColors();
-  const styles = make(colors);
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const styles = useMemo(() => make(colors), [colors]);
+  const insets = useSafeAreaInsets();
+  const { id, v } = useLocalSearchParams<{ id: string; v?: string }>();
   useWardrobe();
   const piece = getPiece(id);
+  const buying = v === "buy";
+  const [page, setPage] = useState(0);
 
   if (!piece) {
     return (
-      <View style={styles.page}>
-        <Text style={styles.p}>That piece isn’t in the wardrobe.</Text>
+      <View style={[styles.page, { paddingTop: insets.top + 24, paddingHorizontal: 20 }]}>
+        <Text style={styles.p}>That piece isn’t on the floor.</Text>
       </View>
     );
   }
 
-  const gallery = piece.photos?.length ? piece.photos : [piece.photo];
+  const gallery = piece.photos?.length ? piece.photos : piece.photo ? [piece.photo] : [];
+  const facts = [
+    { k: "Size", v: piece.size },
+    { k: "Colour", v: piece.color },
+    { k: "Condition", v: piece.condition },
+  ].filter((f) => f.v);
+  const pieceId = piece.id;
+  const pieceName = piece.name;
+
+  function manage() {
+    const options = ["Edit listing", "Take off the floor", "Mark sold", "Remove", "Cancel"];
+    const run = (i: number) => {
+      if (i === 0) router.push({ pathname: "/sell", params: { id: pieceId } });
+      if (i === 1) unlistPiece(pieceId);
+      if (i === 2) markSold(pieceId);
+      if (i === 3) {
+        removePiece(pieceId);
+        router.back();
+      }
+    };
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex: 4, destructiveButtonIndex: 3 },
+        run,
+      );
+      return;
+    }
+    Alert.alert(pieceName, undefined, [
+      { text: "Edit listing", onPress: () => run(0) },
+      { text: "Take off the floor", onPress: () => run(1) },
+      { text: "Mark sold", onPress: () => run(2) },
+      { text: "Remove", style: "destructive", onPress: () => run(3) },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <Text style={styles.kicker}>{piece.status.toUpperCase()}</Text>
-      <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.pager}>
-        {gallery.map((uri) => (
-          <Image key={uri} source={{ uri }} style={styles.hero} contentFit="cover" />
-        ))}
-      </ScrollView>
-      <Text style={styles.meta}>
-        {piece.brand}
-        {piece.size ? ` · ${piece.size}` : ""}
-      </Text>
-      <Text style={styles.title}>{piece.name}</Text>
-      <Text style={styles.price}>{usd(piece.listPriceCents)}</Text>
-      {piece.originalPriceCents > 0 ? (
-        <Text style={styles.was}>Was {usd(piece.originalPriceCents)}</Text>
-      ) : null}
-      <Text style={styles.p}>
-        {[piece.color, piece.material, piece.category, piece.condition].filter(Boolean).join(" · ")}
-      </Text>
-      {piece.notes ? <Text style={styles.body}>{piece.notes}</Text> : null}
-
-      {piece.status === "owned" ? (
-        <Pressable onPress={() => router.push({ pathname: "/sell", params: { id: piece.id } })}>
-          <View style={styles.cta}>
-            <Text style={styles.ctaText}>List this piece</Text>
-          </View>
-        </Pressable>
-      ) : null}
-
-      {piece.status === "listed" ? (
-        <>
-          <Pressable onPress={() => router.push({ pathname: "/sell", params: { id: piece.id } })}>
-            <View style={styles.cta}>
-              <Text style={styles.ctaText}>Edit listing</Text>
-            </View>
-          </Pressable>
-          <Pressable onPress={() => unlistPiece(piece.id)}>
-            <View style={[styles.cta, styles.ghost]}>
-              <Text style={[styles.ctaText, { color: colors.bone }]}>Take off the floor</Text>
-            </View>
-          </Pressable>
-          <Pressable onPress={() => markSold(piece.id)}>
-            <View style={[styles.cta, styles.ghost]}>
-              <Text style={[styles.ctaText, { color: colors.bone }]}>Mark sold</Text>
-            </View>
-          </Pressable>
-        </>
-      ) : null}
-
-      {piece.status === "sold" ? <Text style={styles.p}>Sold. It’s off the floor.</Text> : null}
-
-      <Pressable
-        onPress={() => {
-          removePiece(piece.id);
-          router.back();
-        }}
+    <View style={styles.page}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: buying ? 120 : 48 }}
+        showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.meta, { marginTop: 28, textDecorationLine: "underline" }]}>Remove from wardrobe</Text>
-      </Pressable>
-    </ScrollView>
+        <View>
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / W))}
+          >
+            {gallery.map((uri) => (
+              <Image key={uri} source={{ uri }} style={styles.hero} contentFit="cover" />
+            ))}
+          </ScrollView>
+          {gallery.length > 1 ? (
+            <View style={styles.dots}>
+              {gallery.map((_, i) => (
+                <View key={i} style={[styles.dot, i === page && styles.dotOn]} />
+              ))}
+            </View>
+          ) : null}
+          <Pressable onPress={() => router.back()} style={[styles.back, { top: insets.top + 8 }]} hitSlop={8}>
+            <Text style={styles.backTxt}>‹</Text>
+          </Pressable>
+          {!buying && piece.status === "listed" ? (
+            <Pressable onPress={manage} style={[styles.more, { top: insets.top + 8 }]} hitSlop={8}>
+              <Text style={styles.moreTxt}>···</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        <View style={styles.body}>
+          <View style={styles.topline}>
+            <Text style={styles.brand}>{piece.brand !== "Unlabeled" ? piece.brand : "Uvel closet"}</Text>
+            {piece.status === "sold" ? <Text style={styles.sold}>Sold</Text> : null}
+          </View>
+          <Text style={styles.title}>{piece.name}</Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.price}>{usd(piece.listPriceCents)}</Text>
+            {piece.originalPriceCents > 0 ? (
+              <Text style={styles.was}>{usd(piece.originalPriceCents)}</Text>
+            ) : null}
+          </View>
+
+          {facts.length ? (
+            <View style={styles.facts}>
+              {facts.map((f) => (
+                <View key={f.k} style={styles.fact}>
+                  <Text style={styles.factK}>{f.k}</Text>
+                  <Text style={styles.factV}>{f.v}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {(piece.material || piece.category) ? (
+            <View style={styles.metaRow}>
+              {piece.material ? (
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.factK}>Material</Text>
+                  <Text style={styles.factV}>{piece.material}</Text>
+                </View>
+              ) : null}
+              {piece.category ? (
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.factK}>Category</Text>
+                  <Text style={styles.factV}>{piece.category}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          {piece.notes ? <Text style={styles.notes}>{piece.notes}</Text> : null}
+
+          {!buying && piece.status === "owned" ? (
+            <Pressable onPress={() => router.push({ pathname: "/sell", params: { id: piece.id } })} style={styles.cta}>
+              <Text style={styles.ctaTxt}>List this piece</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </ScrollView>
+
+      {buying && piece.status === "listed" ? (
+        <View style={[styles.dock, { paddingBottom: insets.bottom + 12 }]}>
+          <Pressable
+            onPress={() => Alert.alert("Ask", "Messages land in a later drop.")}
+            style={styles.ask}
+          >
+            <Text style={styles.askTxt}>Ask</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => Alert.alert("Buy", "Checkout lands in a later drop.")}
+            style={styles.buy}
+          >
+            <Text style={styles.ctaTxt}>Buy · {usd(piece.listPriceCents)}</Text>
+          </Pressable>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    content: { padding: 20, paddingBottom: 48 },
-    kicker: { color: colors.subtle, letterSpacing: 2, fontSize: 11 },
-    pager: { marginTop: 12, marginHorizontal: -20 },
-    hero: { width: 320, height: 420, borderRadius: 24, marginLeft: 20 },
-    title: { color: colors.bone, fontFamily: "Georgia", fontSize: 32, marginTop: 8 },
-    price: { color: colors.bone, fontSize: 20, fontWeight: "600", marginTop: 8 },
-    was: { color: colors.subtle, textDecorationLine: "line-through", marginTop: 4 },
-    p: { color: colors.muted, marginTop: 8, lineHeight: 20 },
-    body: { color: colors.bone, marginTop: 16, lineHeight: 22, fontSize: 16 },
-    meta: { color: colors.subtle, fontSize: 12, marginTop: 10 },
-    cta: {
-      marginTop: 14,
-      backgroundColor: "#D6E27A",
-      borderRadius: 999,
-      paddingVertical: 16,
-      alignItems: "center",
+    hero: { width: W, height: HERO_H, backgroundColor: colors.surface },
+    dots: {
+      position: "absolute",
+      bottom: 16,
+      left: 0,
+      right: 0,
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 6,
     },
-    ghost: { backgroundColor: colors.surface },
-    ctaText: { color: "#16140F", fontWeight: "600" },
+    dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(244,240,230,0.35)" },
+    dotOn: { backgroundColor: "#D6E27A", width: 16 },
+    back: {
+      position: "absolute",
+      left: 16,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: "rgba(18,17,14,0.55)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    backTxt: { color: "#F4F0E6", fontSize: 28, lineHeight: 30, marginTop: -2 },
+    more: {
+      position: "absolute",
+      right: 16,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: "rgba(18,17,14,0.55)",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    moreTxt: { color: "#F4F0E6", fontSize: 18, letterSpacing: 1, fontWeight: "700" },
+    body: { paddingHorizontal: 22, paddingTop: 22 },
+    topline: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    brand: { color: colors.subtle, letterSpacing: 1.4, fontSize: 11, textTransform: "uppercase" },
+    sold: { color: "#D6E27A", fontSize: 12, fontWeight: "700", letterSpacing: 1 },
+    title: { color: colors.bone, fontFamily: "Georgia", fontSize: 30, lineHeight: 36, marginTop: 8 },
+    priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 12 },
+    price: { color: colors.bone, fontWeight: "700", fontSize: 28 },
+    was: { color: colors.subtle, fontSize: 16, textDecorationLine: "line-through" },
+    facts: {
+      flexDirection: "row",
+      marginTop: 22,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: "rgba(244,240,230,0.12)",
+    },
+    fact: { flex: 1, paddingVertical: 14 },
+    factK: { color: colors.subtle, fontSize: 11, letterSpacing: 0.8, textTransform: "uppercase" },
+    factV: { color: colors.bone, fontSize: 15, fontWeight: "600", marginTop: 4 },
+    metaRow: { flexDirection: "row", gap: 16, marginTop: 18 },
+    notes: { color: colors.bone, fontSize: 16, lineHeight: 24, marginTop: 22 },
+    p: { color: colors.muted, lineHeight: 22 },
+    cta: {
+      marginTop: 28,
+      height: 54,
+      borderRadius: 27,
+      backgroundColor: "#D6E27A",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    ctaTxt: { color: "#16140F", fontWeight: "700", fontSize: 16 },
+    dock: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      flexDirection: "row",
+      gap: 10,
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      backgroundColor: colors.ink,
+    },
+    ask: {
+      height: 54,
+      paddingHorizontal: 22,
+      borderRadius: 27,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    askTxt: { color: colors.bone, fontWeight: "600", fontSize: 16 },
+    buy: {
+      flex: 1,
+      height: 54,
+      borderRadius: 27,
+      backgroundColor: "#D6E27A",
+      alignItems: "center",
+      justifyContent: "center",
+    },
   });
 }

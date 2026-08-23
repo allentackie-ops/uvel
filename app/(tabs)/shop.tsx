@@ -65,7 +65,11 @@ export default function Shop() {
       </ScrollView>
       <View style={styles.grid}>
         {fromClosets.map((p) => (
-          <Pressable key={p.id} style={styles.cell} onPress={() => router.push(`/closet/${p.id}`)}>
+          <Pressable
+            key={p.id}
+            style={styles.cell}
+            onPress={() => router.push({ pathname: "/closet/[id]", params: { id: p.id, v: "buy" } })}
+          >
             <Image source={{ uri: p.photo }} style={styles.live} contentFit="cover" />
             <Text style={styles.liveBrand}>{p.brand}</Text>
             <Text style={styles.liveName} numberOfLines={1}>
