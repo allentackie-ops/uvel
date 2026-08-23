@@ -33,14 +33,6 @@ export default function Settings() {
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <Pressable onPress={() => router.push("/sell")} style={styles.sell}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.sellTitle}>Start selling</Text>
-          <Text style={styles.sellHint}>List clothes from your closet. No listing fee on Uvel.</Text>
-        </View>
-        <Text style={styles.chev}>›</Text>
-      </Pressable>
-
       <Text style={styles.section}>Support</Text>
       <View style={styles.group}>
         <Row label="Help and support" onPress={() => void Linking.openURL(HELP)} colors={colors} />
@@ -57,7 +49,7 @@ export default function Settings() {
         </View>
       </View>
 
-      <Text style={styles.section}>Settings</Text>
+      <Text style={styles.section}>Preferences</Text>
       <View style={styles.group}>
         <View style={styles.row}>
           <View>
