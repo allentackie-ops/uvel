@@ -98,6 +98,7 @@ export default function Sell() {
   const checking = photos.some((p) => p.status === "checking");
   const hasPhoto = photos.length > 0;
   const hasTitle = Boolean(name.trim());
+  const hasNotes = Boolean(notes.trim());
   const hasPrice = Number(price) > 0;
   const hasCat = Boolean(category);
   const hasSize = Boolean(size.trim());
@@ -107,6 +108,7 @@ export default function Sell() {
   const canList =
     hasPhoto &&
     hasTitle &&
+    hasNotes &&
     hasPrice &&
     hasCat &&
     hasSize &&
@@ -115,7 +117,9 @@ export default function Sell() {
     hasCond &&
     !checking &&
     gate.phase === "idle";
-  const progress = [hasPhoto, hasPrice, hasTitle, hasCat, hasSize, hasColor, hasMaterial, hasCond].filter(Boolean).length;
+  const progress = [hasPhoto, hasPrice, hasTitle, hasNotes, hasCat, hasSize, hasColor, hasMaterial, hasCond].filter(
+    Boolean,
+  ).length;
   const ph = appearance === "dark" ? "rgba(244,240,230,0.28)" : "rgba(22,20,15,0.32)";
   const ctaLabel = checking
     ? "Checking photos…"
@@ -123,7 +127,9 @@ export default function Sell() {
       ? "Add a photo"
       : !hasTitle
         ? "Add a title"
-        : !hasPrice
+        : !hasNotes
+          ? "Add a description"
+          : !hasPrice
           ? "Add a price"
           : !hasCat
             ? "Pick a category"
@@ -284,9 +290,9 @@ export default function Sell() {
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${(progress / 8) * 100}%` }]} />
+          <View style={[styles.progressFill, { width: `${(progress / 9) * 100}%` }]} />
         </View>
-        <Text style={styles.progressLbl}>{progress} of 8 ready</Text>
+        <Text style={styles.progressLbl}>{progress} of 9 ready</Text>
 
         <ScrollView
           style={{ flex: 1 }}
@@ -398,11 +404,12 @@ export default function Sell() {
               placeholder="What’s the piece?"
               placeholderTextColor={ph}
             />
+            <Text style={styles.label}>Description *</Text>
             <TextInput
               style={styles.bodyIn}
               value={notes}
               onChangeText={setNotes}
-              placeholder="Fit, fabric, any marks — what you’d tell a friend."
+              placeholder="Fit, fabric, any marks"
               placeholderTextColor={ph}
               multiline
             />
@@ -658,7 +665,7 @@ function make(colors: Colors) {
       lineHeight: 34,
       marginTop: 8,
     },
-    bodyIn: { color: colors.muted, fontSize: 16, lineHeight: 22, minHeight: 72, marginTop: 10 },
+    bodyIn: { color: colors.bone, fontSize: 16, lineHeight: 22, minHeight: 88, marginTop: 0, textAlignVertical: "top" },
     label: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 20, marginBottom: 8 },
     field: {
       height: 48,
