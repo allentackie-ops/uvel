@@ -34,9 +34,11 @@ function AppStack() {
           headerTintColor: colors.bone,
           contentStyle: { backgroundColor: colors.ink },
           headerStyle: { backgroundColor: colors.ink },
+          headerBackButtonDisplayMode: "minimal",
+          headerBackTitle: "",
         }}
       >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Closet" }} />
         <Stack.Screen name="onboard" options={{ headerShown: false, animation: "none" }} />
         <Stack.Screen
           name="product/[id]"
@@ -65,8 +67,8 @@ function AppStack() {
         <Stack.Screen
           name="sell"
           options={{
-            headerTitle: "Sell",
-            headerShadowVisible: false,
+            headerShown: false,
+            animation: "slide_from_right",
           }}
         />
         <Stack.Screen

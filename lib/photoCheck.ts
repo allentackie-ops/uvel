@@ -15,6 +15,12 @@ export type PhotoReview = {
   description: string;
 };
 
+export type FeedReview = {
+  ok: boolean;
+  reasons: string[];
+  headline: string;
+};
+
 const CATS: Category[] = [
   "Outerwear",
   "Dresses",
@@ -173,5 +179,97 @@ brand: guess or "".`,
     conditionGuess: String(parsed.conditionGuess ?? "Excellent"),
     material: String(parsed.material ?? ""),
     description: String(parsed.description ?? ""),
+  };
+}
+
+export async function reviewListingForFeed(opts: {
+  photos: string[];
+  name: string;
+  notes: string;
+  category: string;
+  brand: string;
+  color: string;
+  size: string;
+  condition: string;
+  price: string;
+}): Promise<FeedReview> {
+  const key = anthropicKey();
+  if (!key) return { ok: false, reasons: ["Safety check isn’t on."], headline: "Couldn’t check this yet" };
+
+  const shots = opts.photos.slice(0, 3);
+  const images = await Promise.all(shots.map((uri) => uriToParts(uri)));
+  const res = await withTimeout(
+    fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": key,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 400,
+        messages: [
+          {
+            role: "user",
+            content: [
+              ...images.map((img) => ({
+                type: "image" as const,
+                source: { type: "base64" as const, media_type: img.mime, data: img.data },
+              })),
+              {
+                type: "text",
+                text: `You are the last check before a listing goes live on Uvel, a secondhand fashion app. Buyers see this on the public floor.
+
+Listing:
+Title: ${opts.name}
+Category: ${opts.category}
+Brand: ${opts.brand}
+Colour: ${opts.color}
+Size: ${opts.size}
+Condition: ${opts.condition}
+Price: $${opts.price}
+Description: ${opts.notes || "(none)"}
+
+Approve ONLY wearable fashion: clothes, shoes, bags, jewelry, scarves, belts, hats, hair accessories.
+
+ok must be false if ANY of these:
+- weapons, drugs, vapes, alcohol, tobacco, medicine
+- adult/sexual content, nudes, fetish
+- hate, violence, self-harm
+- live animals, food, plants as the product
+- trash, memes, screenshots, receipts, not a real item
+- the photos don’t show the item
+- title is nonsense / doesn’t match the photos
+- counterfeit sold as authentic when it’s obviously fake packaging/tags
+- something no clothing marketplace would allow
+
+Be strict on safety. Be fair on ordinary used clothes, even if messy or vintage.
+
+Return ONLY JSON:
+{ "ok": boolean, "headline": string, "reasons": string[] }
+
+headline: short, human. If ok: "Clear to list." If not: why in a few words.
+reasons: 0–3 short sentences the seller can act on. Empty if ok.`,
+              },
+            ],
+          },
+        ],
+      }),
+    }),
+    22000,
+  );
+
+  const json = (await res.json()) as { content?: { text?: string }[]; error?: { message?: string } };
+  if (!res.ok) throw new Error(json.error?.message || "Couldn’t finish the check.");
+  const parsed = parseJson(json.content?.[0]?.text ?? "{}");
+  const reasons = Array.isArray(parsed.reasons)
+    ? parsed.reasons.map((x) => String(x)).filter(Boolean).slice(0, 3)
+    : [];
+  const ok = parsed.ok === true;
+  return {
+    ok,
+    reasons,
+    headline: String(parsed.headline ?? (ok ? "Clear to list." : "This can’t go on the floor.")),
   };
 }
