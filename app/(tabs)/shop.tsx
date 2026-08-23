@@ -166,7 +166,7 @@ export default function Shop() {
       ) : (
         <Pressable onPress={() => router.push("/store")} style={styles.store}>
           <Text style={styles.storeTxt}>
-            {market.name} · {market.currency}
+            {market.name} · {market.currency}{" "}
           </Text>
           <Text style={styles.storeGo}>Change</Text>
         </Pressable>
@@ -211,7 +211,7 @@ export default function Shop() {
       <Text style={styles.count}>
         {scanning
           ? "Looking at the clothes in this frame"
-          : `${ranked.length} ${ranked.length === 1 ? "similar listing" : "similar listings"}`}
+          : `${ranked.length} ${ranked.length === 1 ? "listing" : "listings"}`}
       </Text>
 
       <View style={styles.grid}>
@@ -219,7 +219,7 @@ export default function Shop() {
           ? null
           : ranked.map((p) => (
               <View key={p.id} style={styles.cell}>
-                <ListingCard piece={p} />
+                <ListingCard piece={p} framed />
               </View>
             ))}
       </View>
@@ -233,10 +233,10 @@ export default function Shop() {
 
 function make(colors: Colors) {
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: colors.ink },
-    content: { paddingHorizontal: 16, paddingBottom: 48 },
-    title: { color: colors.bone, fontFamily: "Georgia", fontSize: 36 },
-    look: { color: colors.muted, marginTop: 6, fontSize: 16 },
+    page: { flex: 1, backgroundColor: "#0B0A08" },
+    content: { paddingHorizontal: 16, paddingBottom: 108 },
+    title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 34, lineHeight: 38 },
+    look: { color: "rgba(244,240,230,0.62)", marginTop: 6, fontSize: 16 },
     frame: {
       marginTop: 16,
       height: 420,
@@ -244,36 +244,38 @@ function make(colors: Colors) {
       backgroundColor: "#0B0A08",
     },
     scanning: { color: "#D6E27A", marginTop: 10, fontSize: 13, fontWeight: "600" },
-    store: { flexDirection: "row", alignItems: "center", marginTop: 8, gap: 8 },
-    storeTxt: { color: colors.muted, fontSize: 15 },
-    storeGo: { color: "#D6E27A", fontSize: 13, fontWeight: "700" },
+    store: { flexDirection: "row", alignItems: "center", marginTop: 8, gap: 6 },
+    storeTxt: { color: "rgba(244,240,230,0.5)", fontSize: 15 },
+    storeGo: { color: "rgba(244,240,230,0.72)", fontSize: 15, textDecorationLine: "underline" },
     search: {
       marginTop: 18,
       height: 46,
-      borderRadius: 12,
-      backgroundColor: colors.surface,
+      borderRadius: 23,
+      backgroundColor: "#141310",
+      borderWidth: 1,
+      borderColor: "rgba(244,240,230,0.12)",
       flexDirection: "row",
       alignItems: "center",
-      paddingHorizontal: 12,
+      paddingHorizontal: 14,
       gap: 8,
     },
-    searchIcon: { color: colors.subtle, fontSize: 18, marginTop: -1 },
-    input: { flex: 1, color: colors.bone, fontSize: 16, height: 46 },
-    clear: { color: colors.muted, fontSize: 22, paddingHorizontal: 4 },
+    searchIcon: { color: "rgba(244,240,230,0.4)", fontSize: 16, marginTop: -1 },
+    input: { flex: 1, color: "#F4F0E6", fontSize: 16, height: 46 },
+    clear: { color: "rgba(244,240,230,0.5)", fontSize: 22, paddingHorizontal: 4 },
     chips: { gap: 8, paddingVertical: 16 },
     chip: {
       height: 36,
       paddingHorizontal: 14,
       borderRadius: 18,
       borderWidth: 1,
-      borderColor: colors.subtle,
+      borderColor: "rgba(244,240,230,0.16)",
       alignItems: "center",
       justifyContent: "center",
     },
-    chipOn: { backgroundColor: colors.bone, borderColor: colors.bone },
-    chipTxt: { color: colors.muted, fontSize: 13, fontWeight: "600" },
-    chipTxtOn: { color: colors.ink },
-    count: { color: colors.subtle, fontSize: 13, marginBottom: 12 },
+    chipOn: { backgroundColor: "#F4F0E6", borderColor: "#F4F0E6" },
+    chipTxt: { color: "#F4F0E6", fontSize: 13, fontWeight: "600" },
+    chipTxtOn: { color: "#16140F" },
+    count: { color: "rgba(244,240,230,0.4)", fontSize: 13, marginBottom: 12 },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     cell: { width: "48%", flexGrow: 1, maxWidth: "48.5%" },
   });
