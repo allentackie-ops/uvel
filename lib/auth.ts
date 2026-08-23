@@ -19,17 +19,19 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { firebaseAuth, firebaseDb, firebaseExtra, firebaseReady } from "./firebase";
+import type { AuthVia } from "./sessionPath";
 
 export type Session = {
   uid: string;
   email: string;
   name: string;
   provider: string;
+  via: AuthVia;
 };
 
 WebBrowser.maybeCompleteAuthSession();
 
-function session(user: User): Session {
+function session(user: User, via: AuthVia): Session {
   const provider = user.providerData[0]?.providerId ?? "password";
   const map: Record<string, string> = {
     password: "email",
@@ -42,6 +44,7 @@ function session(user: User): Session {
     email: user.email ?? "",
     name: user.displayName ?? user.email?.split("@")[0] ?? "",
     provider: map[provider] ?? provider,
+    via,
   };
 }
 
@@ -82,13 +85,13 @@ function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
   });
 }
 
-async function afterAuth(cred: UserCredential, provider: string, mode: "signup" | "login") {
+async function afterAuth(cred: UserCredential, provider: string, mode: AuthVia) {
   if (mode === "signup" && (await isReturningUser(cred))) {
     await fbSignOut(firebaseAuth());
     throw new Error(ALREADY_ACCOUNT);
   }
   void remember(cred.user, provider);
-  return session(cred.user);
+  return session(cred.user, mode);
 }
 
 async function isReturningUser(cred: UserCredential) {
@@ -153,14 +156,14 @@ export function subscribeAuth(cb: (session: Session | null) => void) {
     return () => undefined;
   }
   return onAuthStateChanged(firebaseAuth(), (user) => {
-    cb(user ? session(user) : null);
+    cb(user ? session(user, "login") : null);
   });
 }
 
 export function currentSession(): Session | null {
   if (!firebaseReady()) return null;
   const user = firebaseAuth().currentUser;
-  return user ? session(user) : null;
+  return user ? session(user, "login") : null;
 }
 
 export async function signUpEmail(email: string, password: string, name?: string) {
@@ -176,7 +179,7 @@ export async function signUpEmail(email: string, password: string, name?: string
     const display = (name ?? "").trim() || email.trim().split("@")[0];
     await updateProfile(cred.user, { displayName: display }).catch(() => undefined);
     await remember(cred.user, "email");
-    return session(cred.user);
+    return session(cred.user, "signup");
   } catch (err) {
     throw new Error(nice(err));
   }
@@ -186,8 +189,8 @@ export async function signInEmail(email: string, password: string) {
   needFirebase();
   try {
     const cred = await signInWithEmailAndPassword(firebaseAuth(), email.trim(), password);
-    await remember(cred.user, "email");
-    return session(cred.user);
+    void remember(cred.user, "email");
+    return session(cred.user, "login");
   } catch (err) {
     throw new Error(nice(err));
   }
@@ -314,7 +317,7 @@ async function sha256Base64Url(value: string) {
   return bytesToB64Url(sha256Js(value));
 }
 
-export async function signInGoogle(mode: "signup" | "login" = "login") {
+export async function signInGoogle(mode: AuthVia = "login") {
   needFirebase();
   const clientId = firebaseExtra.googleWebClientId;
   const reversed = firebaseExtra.googleReversedClientId;
@@ -383,14 +386,14 @@ export async function signInFacebook() {
   if (!token) throw new Error("Facebook didn’t return a sign-in token.");
   try {
     const cred = await signInWithCredential(firebaseAuth(), FacebookAuthProvider.credential(token));
-    await remember(cred.user, "facebook");
-    return session(cred.user);
+    void remember(cred.user, "facebook");
+    return session(cred.user, "login");
   } catch (err) {
     throw new Error(nice(err));
   }
 }
 
-export async function signInApple(mode: "signup" | "login" = "login") {
+export async function signInApple(mode: AuthVia = "login") {
   needFirebase();
   let Apple: typeof import("expo-apple-authentication") | null = null;
   try {

@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import type { Session } from "./auth";
 import { guessLocale } from "./i18n";
+import { shouldAskSetup } from "./sessionPath";
 
 type State = {
   isPlus: boolean;
@@ -30,6 +31,7 @@ type State = {
 };
 
 const KEY = "uvel-state-v1";
+const PROFILES = "uvel-profiles-v1";
 const defaults: State = {
   isPlus: false,
   plusPlan: "",
@@ -86,24 +88,32 @@ void load().then(() => {
   });
 });
 
-async function hydrateProfile(uid: string) {
+async function stashProfile() {
+  if (!memory.uid || !memory.profileDone) return;
   try {
-    const { readUserProfile } = await import("./auth");
-    const d = await readUserProfile(uid);
-    if (!d?.profileDone) return false;
-    await save({
+    const raw = await AsyncStorage.getItem(PROFILES);
+    const all = raw ? (JSON.parse(raw) as Record<string, Partial<State>>) : {};
+    all[memory.uid] = {
       profileDone: true,
-      onboarded: true,
-      onboardVersion: 4,
-      displayName: typeof d.name === "string" && d.name ? d.name : memory.displayName,
-      birthday: typeof d.birthday === "string" ? d.birthday : memory.birthday,
-      gender: typeof d.gender === "string" ? d.gender : memory.gender,
-      styles: Array.isArray(d.styles) ? (d.styles as string[]) : memory.styles,
-      wantsUpdates: Boolean(d.wantsUpdates),
-    });
-    return true;
+      displayName: memory.displayName,
+      birthday: memory.birthday,
+      gender: memory.gender,
+      styles: memory.styles,
+      wantsUpdates: memory.wantsUpdates,
+    };
+    await AsyncStorage.setItem(PROFILES, JSON.stringify(all));
   } catch {
-    return false;
+    /* ignore */
+  }
+}
+
+async function restoreProfile(uid: string) {
+  try {
+    const raw = await AsyncStorage.getItem(PROFILES);
+    const all = raw ? (JSON.parse(raw) as Record<string, Partial<State>>) : {};
+    return all[uid] ?? null;
+  } catch {
+    return null;
   }
 }
 
@@ -158,15 +168,21 @@ export function useUvel() {
         signedInWith: provider ?? memory.signedInWith,
       }),
     acceptSession: async (s: Session) => {
+      const stashed = await restoreProfile(s.uid);
+      const skip = !shouldAskSetup(s.via) || Boolean(stashed?.profileDone);
       await save({
         onboarded: true,
         onboardVersion: 4,
         signedInWith: s.provider,
         uid: s.uid,
         email: s.email,
-        displayName: s.name || memory.displayName,
+        displayName: (stashed?.displayName as string) || s.name || memory.displayName,
+        profileDone: skip,
+        birthday: (stashed?.birthday as string) || memory.birthday,
+        gender: (stashed?.gender as string) || memory.gender,
+        styles: (stashed?.styles as string[]) || memory.styles,
+        wantsUpdates: Boolean(stashed?.wantsUpdates),
       });
-      await hydrateProfile(s.uid);
     },
     completeProfile: (patch: {
       displayName?: string;
@@ -194,10 +210,11 @@ export function useUvel() {
         profileDone: true,
         onboarded: true,
         onboardVersion: 4,
-      });
+      }).then(() => stashProfile());
     },
     signOutAccount: async () => {
       const { signOut } = await import("./auth");
+      await stashProfile();
       await signOut();
       await save({
         onboarded: false,
