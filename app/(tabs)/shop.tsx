@@ -219,13 +219,11 @@ export default function Shop() {
         })}
       </ScrollView>
 
-      <Text style={styles.count}>
-        {scanning
-          ? "Looking at the clothes in this frame"
-          : `${ranked.length} ${ranked.length === 1 ? "listing" : "listings"}`}
-      </Text>
+      {scanning ? (
+        <Text style={styles.count}>Looking at the clothes in this frame</Text>
+      ) : null}
 
-      <View style={styles.grid}>
+      <View style={[styles.grid, !scanning && { marginTop: 14 }]}>
         {scanning
           ? null
           : ranked.map((p) => (
