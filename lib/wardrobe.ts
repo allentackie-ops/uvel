@@ -217,17 +217,6 @@ export function likesOnMine(uid: string, saved: string[] = [], me?: Pick<Liker, 
   }
   return rows.sort((a, b) => b.at - a.at);
 }
-  const rows = pieces.flatMap((p) => (p.likedBy || []).map((l) => ({ ...l, piece: p })));
-  if (me) {
-    for (const id of saved) {
-      const p = pieces.find((x) => x.id === id);
-      if (!p) continue;
-      if (rows.some((r) => r.piece.id === id && r.uid === me.uid)) continue;
-      rows.push({ ...me, at: p.createdAt || Date.now(), piece: p });
-    }
-  }
-  return rows.sort((a, b) => b.at - a.at);
-}
 
 export function updatePiece(id: string, patch: Partial<ClosetPiece>) {
   pieces = pieces.map((p) => {
