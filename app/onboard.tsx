@@ -268,7 +268,7 @@ function AuthBtn({
 }
 
 export default function Onboard() {
-  const { completeOnboard, acceptSession, locale, setLocale } = useUvel();
+  const { completeOnboard, acceptSession, locale, setLocale, onboardVersion } = useUvel();
   const insets = useSafeAreaInsets();
   const C = t(locale || "en-US");
   const rtl = isRtl(locale || "en-US");
@@ -276,7 +276,8 @@ export default function Onboard() {
   const [langQuery, setLangQuery] = useState("");
   const langY = useSharedValue(SCREEN_H);
   const langDim = useSharedValue(0);
-  const [page, setPage] = useState(0);
+  const startPage = (onboardVersion ?? 0) >= 4 ? PAGES.length - 1 : 0;
+  const [page, setPage] = useState(startPage);
   const [auth, setAuth] = useState<null | "signup" | "login">(null);
   const [pane, setPane] = useState<"providers" | "email">("providers");
   const [busy, setBusy] = useState<string | null>(null);
@@ -292,6 +293,14 @@ export default function Onboard() {
   const dim = useSharedValue(0);
   const emailX = useSharedValue(SCREEN_W);
   const [emailOn, setEmailOn] = useState(false);
+
+  useEffect(() => {
+    if (startPage <= 0) return;
+    const t = setTimeout(() => {
+      scroller.current?.scrollTo({ x: startPage * SCREEN_W, animated: false });
+    }, 0);
+    return () => clearTimeout(t);
+  }, [startPage]);
 
   function closeAuth() {
     setAuth(null);
@@ -560,6 +569,7 @@ export default function Onboard() {
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onScroll}
         scrollEventThrottle={16}
+        contentOffset={{ x: startPage * SCREEN_W, y: 0 }}
         style={StyleSheet.absoluteFill}
       >
         {PAGES.map((p, i) => (
@@ -605,9 +615,11 @@ export default function Onboard() {
             </Text>
             <Text style={styles.langChev}>▾</Text>
           </Pressable>
-          <Pressable onPress={() => finish()} style={[styles.skip, { top: insets.top + 8 }]} hitSlop={16}>
-            <Text style={styles.skipText}>{C.skip}</Text>
-          </Pressable>
+          {PAGES[page].kind !== "market" ? (
+            <Pressable onPress={() => finish()} style={[styles.skip, { top: insets.top + 8 }]} hitSlop={16}>
+              <Text style={styles.skipText}>{C.skip}</Text>
+            </Pressable>
+          ) : null}
         </>
       ) : null}
 
