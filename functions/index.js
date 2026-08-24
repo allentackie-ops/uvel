@@ -10,31 +10,50 @@ if (!admin.apps.length) admin.initializeApp();
 const PAYSTACK = new Set(["GH", "NG", "KE", "ZA"]);
 
 exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, async (req) => {
+  if (!req.auth) {
+    throw new HttpsError("unauthenticated", "Sign in before checking out.");
+  }
+
   const { amountCents, currency, email, method, country, reference, name } = req.data || {};
-  if (!amountCents || !currency || !email) {
+  const normalizedCurrency = String(currency || "").toUpperCase();
+  const normalizedEmail = String(req.auth.token.email || email || "").trim().toLowerCase();
+  const normalizedMethod = String(method || "");
+  const normalizedCountry = String(country || "").toUpperCase();
+  const normalizedReference = String(reference || "").trim();
+
+  if (
+    !Number.isSafeInteger(amountCents) ||
+    amountCents <= 0 ||
+    amountCents > 100000000 ||
+    !/^[A-Z]{3}$/.test(normalizedCurrency) ||
+    !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizedEmail) ||
+    !["card", "momo", "telecel", "mpesa", "apple"].includes(normalizedMethod) ||
+    !/^[A-Z]{2}$/.test(normalizedCountry) ||
+    !/^[a-zA-Z0-9._:-]{1,120}$/.test(normalizedReference)
+  ) {
     throw new HttpsError("invalid-argument", "Missing amount.");
   }
 
-  if (method !== "apple" && PAYSTACK.has(country)) {
+  if (normalizedMethod !== "apple" && PAYSTACK.has(normalizedCountry)) {
     const key = paystackSecret.value();
     if (!key) throw new HttpsError("failed-precondition", "Paystack isn’t connected yet.");
     const channels =
-      method === "momo" || method === "telecel" || method === "mpesa"
+      normalizedMethod === "momo" || normalizedMethod === "telecel" || normalizedMethod === "mpesa"
         ? ["mobile_money"]
-        : method === "card"
+        : normalizedMethod === "card"
           ? ["card"]
           : undefined;
     const r = await fetch("https://api.paystack.co/transaction/initialize", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        email,
+        email: normalizedEmail,
         amount: Math.round(amountCents),
-        currency,
-        reference,
+        currency: normalizedCurrency,
+        reference: normalizedReference,
         callback_url: "https://allentackie-ops.github.io/uvel/pay.html",
         channels,
-        metadata: { name, country, method },
+        metadata: { name: String(name || "").slice(0, 160), country: normalizedCountry, method: normalizedMethod },
       }),
     });
     const json = await r.json();
@@ -47,21 +66,21 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
   const stripe = require("stripe")(key);
   const session = await stripe.checkout.sessions.create({
     mode: "payment",
-    customer_email: email,
+    customer_email: normalizedEmail,
     success_url: "https://allentackie-ops.github.io/uvel/pay.html",
     cancel_url: "https://allentackie-ops.github.io/uvel/pay.html",
     line_items: [
       {
         quantity: 1,
         price_data: {
-          currency: String(currency).toLowerCase(),
+          currency: normalizedCurrency.toLowerCase(),
           unit_amount: Math.round(amountCents),
           product_data: { name: name || "Uvel order" },
         },
       },
     ],
     payment_method_types: ["card"],
-    metadata: { reference, country, method },
+    metadata: { reference: normalizedReference, country: normalizedCountry, method: normalizedMethod },
   });
   return { processor: "stripe", url: session.url, reference: session.id };
 });

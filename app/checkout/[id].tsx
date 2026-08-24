@@ -12,7 +12,7 @@ import { loadAddress, placeOrder, type Address } from "../../lib/orders";
 import { createCheckoutSession, openHostedPay, processorFor } from "../../lib/pay";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
-import { getPiece, markSold, useWardrobe } from "../../lib/wardrobe";
+import { getPiece, useWardrobe } from "../../lib/wardrobe";
 
 export default function Checkout() {
   const colors = useColors();
@@ -100,7 +100,8 @@ export default function Checkout() {
         delivery: ship,
         address,
       });
-      markSold(piece.id);
+      // Hosted checkout returning only means the payment page completed.
+      // A trusted payment webhook must confirm payment before marking inventory sold.
       router.replace({ pathname: "/order/[id]", params: { id: order.id } });
     } catch (e) {
       Alert.alert("Payment", e instanceof Error ? e.message : "Couldn’t complete that.");

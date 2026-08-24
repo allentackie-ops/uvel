@@ -33,7 +33,7 @@ export type Order = {
   payMethod: string;
   delivery: string;
   address: Address;
-  status: "paid" | "failed";
+  status: "pending" | "paid" | "failed";
   createdAt: number;
 };
 
@@ -88,7 +88,9 @@ export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status
     ...order,
     id: `o-${Date.now().toString(36)}`,
     createdAt: Date.now(),
-    status: "paid",
+    // A hosted checkout returning does not prove payment. Trusted payment
+    // webhooks should be the only source that changes this to "paid".
+    status: "pending",
   };
   try {
     const raw = await AsyncStorage.getItem(ORDERS);
