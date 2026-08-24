@@ -95,59 +95,170 @@ function parseJson(text) {
   return JSON.parse(t.slice(start, end + 1));
 }
 
-exports.reviewBrand = onCall({ secrets: [anthropicSecret] }, async (req) => {
-  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
-  const f = req.data || {};
-  const key = anthropicSecret.value();
-  if (!key) throw new HttpsError("failed-precondition", "Brand check isn’t connected yet.");
+const HOUSES = [
+  "nike",
+  "adidas",
+  "gucci",
+  "chanel",
+  "dior",
+  "prada",
+  "hermes",
+  "louisvuitton",
+  "lv",
+  "rolex",
+  "zara",
+  "hm",
+  "shein",
+  "supreme",
+  "offwhite",
+  "balenciaga",
+  "fendi",
+  "versace",
+  "givenchy",
+  "burberry",
+  "moncler",
+  "puma",
+  "newbalance",
+  "yeezy",
+  "skims",
+];
 
-  let siteSnippet = "";
-  const website = String(f.website || "").trim();
-  if (/^https?:\/\//i.test(website)) {
-    try {
-      const r = await fetch(website, { signal: AbortSignal.timeout(4000), redirect: "follow" });
-      const html = await r.text();
-      siteSnippet = html
-        .replace(/<script[\s\S]*?<\/script>/gi, " ")
-        .replace(/<style[\s\S]*?<\/style>/gi, " ")
-        .replace(/<[^>]+>/g, " ")
-        .replace(/\s+/g, " ")
-        .slice(0, 1800);
-    } catch {
-      siteSnippet = "(site unreachable)";
-    }
+function coreToken(s) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "")
+    .replace(/(incorporated|corporation|company|limited|gmbh|sarl|sas|plc|llc|ltd|inc|corp|co)$/g, "");
+}
+
+function impersonates(name, handle) {
+  const core = coreToken(name);
+  const h = coreToken(handle);
+  const words = String(name || "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  return HOUSES.some((house) => core === house || h === house || words.includes(house));
+}
+
+function looksLikeEmail(s) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || "").trim());
+}
+
+function isSoftReason(reason) {
+  const r = String(reason || "").toLowerCase();
+  return (
+    /\binstagram\b|\binsta\b|\big handle\b|\bsocials?\b/.test(r) ||
+    /\bwebsite\b|\bweb site\b|\blanding page\b|\bsite unreachable\b/.test(r) ||
+    /\btax id\b|\bregistration (?:or tax )?id\b|\bregistration number\b/.test(r) ||
+    /\bprivate relay\b|\bhide my email\b|\bprivaterelay\b|\bapple id\b|\bapplicant email\b|\bsign-in email\b/.test(r) ||
+    /\bgrammatical\b|\bgrammar\b|\bspelling\b|\btypos?\b/.test(r) ||
+    /\bplaceholder\b|\bgeneric\b|\bnarrative\b|\baesthetic\b/.test(r) ||
+    /does not match your brand name or handle/.test(r) ||
+    /handle \([^)]+\) does not match/.test(r) ||
+    /\btoo short\b|\bmore detail\b|\bnot enough\b|\bweak brand story\b|\bclarify the discrepancy\b/.test(r)
+  );
+}
+
+function localHardFail(f) {
+  if (!String(f.name || "").trim()) {
+    return { ok: false, headline: "Need a brand name", reasons: ["Add the name buyers will see."], notes: "" };
   }
+  if (!coreToken(f.handle)) {
+    return { ok: false, headline: "Need a handle", reasons: ["Pick an @ made of letters or numbers."], notes: "" };
+  }
+  if (!String(f.legalName || "").trim()) {
+    return { ok: false, headline: "Need a legal name", reasons: ["Add the registered or legal name of the house."], notes: "" };
+  }
+  if (String(f.story || "").trim().length < 4) {
+    return { ok: false, headline: "Need a story", reasons: ["Write a line about who you are and what you make."], notes: "" };
+  }
+  if (!looksLikeEmail(f.contactEmail)) {
+    return {
+      ok: false,
+      headline: "Need a contact email",
+      reasons: ["Use a real email the brand can be reached at."],
+      notes: "",
+    };
+  }
+  if (impersonates(f.name, f.handle)) {
+    return {
+      ok: false,
+      headline: "That name is taken by a known house",
+      reasons: ["Pick a name and handle that are yours — not a famous label."],
+      notes: "",
+    };
+  }
+  return null;
+}
 
-  const prompt = `You are the brand-verification desk for Uvel, a fashion marketplace. A person is applying to open a BRAND page, which is different from a regular person listing secondhand clothes. Brands receive a blue verified check and may post new fashion items only after you approve.
+function sanitizeReview(f, review) {
+  const hard = localHardFail(f);
+  if (hard) return hard;
+  const kept = (review.reasons || []).filter((r) => !isSoftReason(r));
+  if (review.ok || kept.length === 0) {
+    return { ok: true, headline: "Verified.", reasons: [], notes: review.notes || "" };
+  }
+  return {
+    ok: false,
+    headline: review.headline || "This brand can’t be verified yet.",
+    reasons: kept.slice(0, 3),
+    notes: review.notes || "",
+  };
+}
 
-Be thorough. Read every field. Look for impersonation, empty shells, scams, and anything that is not a real fashion house or independent label.
+function promptOf(f) {
+  return `You are the brand-verification desk for Uvel, a fashion marketplace in early access. A person is applying to open a BRAND page. Brands get a blue check and may post new fashion.
 
-Filing:
+Be a light gate, not an editor. Uvel is early: independent labels, new houses, and small ateliers should pass. Default to APPROVE.
+
+REQUIRED fields — the only fields you may use to reject:
 Brand name: ${f.name}
 Handle: @${f.handle}
 Legal / registered name: ${f.legalName || "(none)"}
 Vertical: ${f.vertical}
-Country: ${f.country}
-Website: ${f.website || "(none)"}
-Instagram: ${f.instagram || "(none)"}
+Country: ${f.country || "(none)"}
 Contact email: ${f.contactEmail || "(none)"}
-Registration / tax id: ${f.registrationId || "(none)"}
 Story: ${f.story || "(none)"}
-Applicant: ${f.ownerName} <${f.ownerEmail}>
-Website text (fetched): ${siteSnippet || "(none)"}
 
-ok must be false if ANY of these:
-- The name impersonates a famous house or street brand (Nike, Adidas, Gucci, Chanel, Louis Vuitton, Dior, Prada, Hermes, Rolex, Zara, H&M, Shein, Supreme, Off-White, Balenciaga, Apple, and obvious lookalikes / misspellings).
-- The story is empty, nonsense, or clearly not fashion.
-- Contact email is missing or obviously fake.
-- Handle is offensive, impersonating, or empty.
-- Adult, weapons, drugs, hate, or not a fashion business.
-- They claim to already be a global conglomerate with no matching legal name / site.
+Do not ask about, compare, or reject on Instagram, website, tax/registration id, tagline, or the applicant's personal/sign-in email (often Apple Hide My Email). Those are optional and out of scope.
 
-ok may be true for independent labels, ateliers, archives, and new houses that look like a real fashion project — even if small.
+Handle vs name: they MATCH if they share the same core word after stripping spaces, punctuation, and legal suffixes (Inc, Ltd, LLC, GmbH, SARL, Co). "Apion Inc." and @apion MATCH. Do not invent mismatches. One-letter differences in optional socials are irrelevant because socials are out of scope.
+
+Story: one real sentence is enough. Grammar, typos, informal or generic phrasing are NOT grounds to reject.
+
+Contact email: only this brand contact field. A normal address with @ is enough. Do not mention Apple private relay.
+
+Reject ONLY if:
+- The name or handle is a famous house (Nike, Adidas, Gucci, Chanel, Louis Vuitton, Dior, Prada, Hermes, Rolex, Zara, H&M, Shein, Supreme, Off-White, Balenciaga) or an obvious fake of one. Close original names are fine.
+- A required field above is empty.
+- Contact email has no @.
+- Handle is a slur or empty.
+- Adult, weapons, drugs, hate, or clearly not a fashion business.
 
 Return ONLY JSON:
-{ "ok": boolean, "headline": string, "reasons": string[], "notes": string }`;
+{
+  "ok": boolean,
+  "headline": string,
+  "reasons": string[],
+  "notes": string
+}
+
+headline: "Verified." if ok, else a few words.
+reasons: 0–3 actionable sentences. Empty if ok. Never mention optional fields.
+notes: one sentence on what you checked.`;
+}
+
+exports.reviewBrand = onCall({ secrets: [anthropicSecret] }, async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const f = req.data || {};
+  const hard = localHardFail(f);
+  if (hard) return hard;
+
+  const key = anthropicSecret.value();
+  if (!key) throw new HttpsError("failed-precondition", "Brand check isn’t connected yet.");
+
+  const prompt = promptOf(f);
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -158,7 +269,7 @@ Return ONLY JSON:
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
-      max_tokens: 500,
+      max_tokens: 400,
       messages: [{ role: "user", content: prompt }],
     }),
   });
@@ -167,11 +278,10 @@ Return ONLY JSON:
   const parsed = parseJson(json.content?.[0]?.text || "{}");
   const ok = parsed.ok === true;
   const reasons = Array.isArray(parsed.reasons) ? parsed.reasons.map(String).filter(Boolean).slice(0, 3) : [];
-  return {
+  return sanitizeReview(f, {
     ok,
     reasons,
     headline: String(parsed.headline || (ok ? "Verified." : "This brand can’t be verified yet.")),
     notes: String(parsed.notes || ""),
-  };
+  });
 });
-

@@ -24,6 +24,34 @@ export type BrandReview = {
   notes: string;
 };
 
+const HOUSES = [
+  "nike",
+  "adidas",
+  "gucci",
+  "chanel",
+  "dior",
+  "prada",
+  "hermes",
+  "louisvuitton",
+  "lv",
+  "rolex",
+  "zara",
+  "hm",
+  "shein",
+  "supreme",
+  "offwhite",
+  "balenciaga",
+  "fendi",
+  "versace",
+  "givenchy",
+  "burberry",
+  "moncler",
+  "puma",
+  "newbalance",
+  "yeezy",
+  "skims",
+];
+
 function parseJson(text: string): Record<string, unknown> {
   const t = text.trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
   const start = t.indexOf("{");
@@ -45,33 +73,101 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   });
 }
 
+function coreToken(s: string) {
+  return s
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "")
+    .replace(/(incorporated|corporation|company|limited|gmbh|sarl|sas|plc|llc|ltd|inc|corp|co)$/g, "");
+}
+
+function impersonates(name: string, handle: string) {
+  const core = coreToken(name);
+  const h = coreToken(handle);
+  const words = name.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  return HOUSES.some((house) => core === house || h === house || words.includes(house));
+}
+
+function looksLikeEmail(s: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s.trim());
+}
+
+/** Optional fields and style nits must never block a brand. */
+function isSoftReason(reason: string) {
+  const r = reason.toLowerCase();
+  return (
+    /\binstagram\b|\binsta\b|\big handle\b|\bsocials?\b/.test(r) ||
+    /\bwebsite\b|\bweb site\b|\blanding page\b|\bsite unreachable\b/.test(r) ||
+    /\btax id\b|\bregistration (?:or tax )?id\b|\bregistration number\b/.test(r) ||
+    /\bprivate relay\b|\bhide my email\b|\bprivaterelay\b|\bapple id\b|\bapplicant email\b|\bsign-in email\b/.test(r) ||
+    /\bgrammatical\b|\bgrammar\b|\bspelling\b|\btypos?\b/.test(r) ||
+    /\bplaceholder\b|\bgeneric\b|\bnarrative\b|\baesthetic\b/.test(r) ||
+    /does not match your brand name or handle/.test(r) ||
+    /handle \([^)]+\) does not match/.test(r) ||
+    /\btoo short\b|\bmore detail\b|\bnot enough\b|\bweak brand story\b|\bclarify the discrepancy\b/.test(r)
+  );
+}
+
+function localHardFail(f: BrandFiling): BrandReview | null {
+  if (!f.name.trim()) {
+    return { ok: false, headline: "Need a brand name", reasons: ["Add the name buyers will see."], notes: "" };
+  }
+  if (!coreToken(f.handle)) {
+    return { ok: false, headline: "Need a handle", reasons: ["Pick an @ made of letters or numbers."], notes: "" };
+  }
+  if (!f.legalName.trim()) {
+    return { ok: false, headline: "Need a legal name", reasons: ["Add the registered or legal name of the house."], notes: "" };
+  }
+  if (f.story.trim().length < 4) {
+    return { ok: false, headline: "Need a story", reasons: ["Write a line about who you are and what you make."], notes: "" };
+  }
+  if (!looksLikeEmail(f.contactEmail)) {
+    return {
+      ok: false,
+      headline: "Need a contact email",
+      reasons: ["Use a real email the brand can be reached at."],
+      notes: "",
+    };
+  }
+  if (impersonates(f.name, f.handle)) {
+    return {
+      ok: false,
+      headline: "That name is taken by a known house",
+      reasons: ["Pick a name and handle that are yours — not a famous label."],
+      notes: "",
+    };
+  }
+  return null;
+}
+
 function promptOf(f: BrandFiling) {
-  return `You are the brand-verification desk for Uvel, a fashion marketplace. A person is applying to open a BRAND page, which is different from a regular person listing secondhand clothes. Brands receive a blue verified check and may post new fashion items only after you approve.
+  return `You are the brand-verification desk for Uvel, a fashion marketplace in early access. A person is applying to open a BRAND page. Brands get a blue check and may post new fashion.
 
-Be thorough. Read every field. Look for impersonation, empty shells, scams, and anything that is not a real fashion house or independent label.
+Be a light gate, not an editor. Uvel is early: independent labels, new houses, and small ateliers should pass. Default to APPROVE.
 
-Filing:
+REQUIRED fields — the only fields you may use to reject:
 Brand name: ${f.name}
 Handle: @${f.handle}
 Legal / registered name: ${f.legalName || "(none)"}
 Vertical: ${f.vertical}
-Country: ${f.country}
-Website: ${f.website || "(none)"}
-Instagram: ${f.instagram || "(none)"}
+Country: ${f.country || "(none)"}
 Contact email: ${f.contactEmail || "(none)"}
-Registration / tax id: ${f.registrationId || "(none)"}
 Story: ${f.story || "(none)"}
-Applicant: ${f.ownerName} <${f.ownerEmail}>
 
-ok must be false if ANY of these:
-- The name impersonates a famous house or street brand (Nike, Adidas, Gucci, Chanel, Louis Vuitton, Dior, Prada, Hermes, Rolex, Zara, H&M, Shein, Supreme, Off-White, Balenciaga, Apple, and obvious lookalikes / misspellings).
-- The story is empty, nonsense, or clearly not fashion.
-- Contact email is missing or obviously fake (no @, disposable joke domains used as the only identity).
-- Handle is offensive, impersonating, or empty.
-- Adult, weapons, drugs, hate, or not a fashion business.
-- They claim to already be a global conglomerate with no matching legal name / site.
+Do not ask about, compare, or reject on Instagram, website, tax/registration id, tagline, or the applicant's personal/sign-in email (often Apple Hide My Email). Those are optional and out of scope.
 
-ok may be true for independent labels, ateliers, archives, and new houses that look like a real fashion project — even if small, even if the site is a landing page, even if Instagram is new. Prefer approve when the filing is complete and not impersonating.
+Handle vs name: they MATCH if they share the same core word after stripping spaces, punctuation, and legal suffixes (Inc, Ltd, LLC, GmbH, SARL, Co). "Apion Inc." and @apion MATCH. Do not invent mismatches. One-letter differences in optional socials are irrelevant because socials are out of scope.
+
+Story: one real sentence is enough. Grammar, typos, informal or generic phrasing are NOT grounds to reject.
+
+Contact email: only this brand contact field. A normal address with @ is enough. Do not mention Apple private relay.
+
+Reject ONLY if:
+- The name or handle is a famous house (Nike, Adidas, Gucci, Chanel, Louis Vuitton, Dior, Prada, Hermes, Rolex, Zara, H&M, Shein, Supreme, Off-White, Balenciaga) or an obvious fake of one. Close original names are fine.
+- A required field above is empty.
+- Contact email has no @.
+- Handle is a slur or empty.
+- Adult, weapons, drugs, hate, or clearly not a fashion business.
 
 Return ONLY JSON:
 {
@@ -81,9 +177,48 @@ Return ONLY JSON:
   "notes": string
 }
 
-headline: short, human. If ok: "Verified." If not: why in a few words.
-reasons: 0–3 short sentences the applicant can act on. Empty if ok.
+headline: "Verified." if ok, else a few words.
+reasons: 0–3 actionable sentences. Empty if ok. Never mention optional fields.
 notes: one sentence on what you checked.`;
+}
+
+function asReview(parsed: Record<string, unknown>): BrandReview {
+  const reasons = Array.isArray(parsed.reasons)
+    ? parsed.reasons.map((x) => String(x)).filter(Boolean).slice(0, 3)
+    : [];
+  const ok = parsed.ok === true;
+  return {
+    ok,
+    reasons,
+    headline: String(parsed.headline ?? (ok ? "Verified." : "This brand can’t be verified yet.")),
+    notes: String(parsed.notes ?? ""),
+  };
+}
+
+export function sanitizeReview(filing: BrandFiling, review: BrandReview): BrandReview {
+  const hard = localHardFail(filing);
+  if (hard) return hard;
+  const kept = review.reasons.filter((r) => !isSoftReason(r));
+  if (review.ok || kept.length === 0) {
+    return { ok: true, headline: "Verified.", reasons: [], notes: review.notes };
+  }
+  return {
+    ok: false,
+    headline: review.headline || "This brand can’t be verified yet.",
+    reasons: kept,
+    notes: review.notes,
+  };
+}
+
+/** Never send optional fields to the model — they are stored on the brand, not scored. */
+export function filingForReview(f: BrandFiling): BrandFiling {
+  return {
+    ...f,
+    website: "",
+    instagram: "",
+    registrationId: "",
+    ownerEmail: f.contactEmail || "",
+  };
 }
 
 async function reviewBrandLocal(filing: BrandFiling): Promise<BrandReview> {
@@ -100,7 +235,7 @@ async function reviewBrandLocal(filing: BrandFiling): Promise<BrandReview> {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 500,
+        max_tokens: 400,
         messages: [{ role: "user", content: promptOf(filing) }],
       }),
     }),
@@ -109,36 +244,30 @@ async function reviewBrandLocal(filing: BrandFiling): Promise<BrandReview> {
 
   const json = (await res.json()) as { content?: { text?: string }[]; error?: { message?: string } };
   if (!res.ok) throw new Error(json.error?.message || "Couldn’t finish the check.");
-  const parsed = parseJson(json.content?.[0]?.text ?? "{}");
-  const reasons = Array.isArray(parsed.reasons)
-    ? parsed.reasons.map((x) => String(x)).filter(Boolean).slice(0, 3)
-    : [];
-  const ok = parsed.ok === true;
-  return {
-    ok,
-    reasons,
-    headline: String(parsed.headline ?? (ok ? "Verified." : "This brand can’t be verified yet.")),
-    notes: String(parsed.notes ?? ""),
-  };
+  return asReview(parseJson(json.content?.[0]?.text ?? "{}"));
 }
 
 export async function reviewBrand(filing: BrandFiling): Promise<BrandReview> {
+  const hard = localHardFail(filing);
+  if (hard) return hard;
+  const payload = filingForReview(filing);
+
   if (firebaseReady()) {
     try {
       const call = httpsCallable(firebaseFunctions(), "reviewBrand");
-      const res = await withTimeout(call(filing) as Promise<{ data: BrandReview }>, 25000);
-      if (res?.data && typeof res.data.ok === "boolean") return res.data;
+      const res = await withTimeout(call(payload) as Promise<{ data: BrandReview }>, 25000);
+      if (res?.data && typeof res.data.ok === "boolean") return sanitizeReview(filing, res.data);
     } catch {
       /* fall through to the same Anthropic desk the listings use */
     }
   }
-  return reviewBrandLocal(filing);
+  return sanitizeReview(filing, await reviewBrandLocal(payload));
 }
 
 export const VERIFY_STAGES = [
   "Reading the filing…",
   "Checking the name against known houses…",
-  "Looking at the site and socials…",
+  "Reading the story…",
   "Scanning for impersonation…",
   "Deciding verification…",
 ];

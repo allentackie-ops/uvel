@@ -125,13 +125,13 @@ export default function BrandApply() {
         legalName: legalName.trim(),
         vertical,
         story: story.trim(),
-        website: website.trim(),
-        instagram,
+        website: "",
+        instagram: "",
         contactEmail: contactEmail.trim(),
         country: app.country,
-        registrationId: registrationId.trim(),
+        registrationId: "",
         ownerName: app.displayName || "Owner",
-        ownerEmail: app.email || contactEmail.trim(),
+        ownerEmail: contactEmail.trim(),
       });
       const wait = Math.max(0, 18000 - (Date.now() - started));
       if (wait) await new Promise((r) => setTimeout(r, wait));
@@ -180,7 +180,7 @@ export default function BrandApply() {
         </View>
         <ScrollView contentContainerStyle={{ paddingBottom: 128, paddingHorizontal: 20 }} keyboardShouldPersistTaps="handled">
           <Text style={styles.lede}>
-            Brands are not personal closets. Fill this in properly. We confirm all fields in moments before verification.
+            Brands are not personal closets. We check the required fields for a real fashion house — Instagram, site, and tax id can wait.
           </Text>
 
           <Pressable onPress={chooseLogo} style={styles.logoBtn}>
@@ -246,7 +246,7 @@ export default function BrandApply() {
           <Text style={styles.label}>Registered / legal name *</Text>
           <TextInput style={styles.field} value={legalName} onChangeText={setLegalName} placeholder="Ltd, LLC, SARL…" placeholderTextColor={ph} />
           <Text style={styles.label}>Registration or tax id</Text>
-          <TextInput style={styles.field} value={registrationId} onChangeText={setRegistrationId} placeholder="Optional, helps verification" placeholderTextColor={ph} />
+          <TextInput style={styles.field} value={registrationId} onChangeText={setRegistrationId} placeholder="Optional" placeholderTextColor={ph} />
           <Text style={styles.label}>Contact email *</Text>
           <TextInput
             style={styles.field}
@@ -277,7 +277,7 @@ export default function BrandApply() {
             <>
               <ActivityIndicator color="#D6E27A" />
               <Text style={styles.gateH}>{VERIFY_STAGES[stage]}</Text>
-              <Text style={styles.gateP}>A thorough scan. Nothing is verified until this is clean.</Text>
+              <Text style={styles.gateP}>A light check for impersonation and a real fashion house.</Text>
             </>
           ) : null}
           {gate.phase === "block" ? (
