@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { Session } from "./auth";
 import { guessLocale } from "./i18n";
 import { detectCountry, setActiveMarket } from "./markets";
-import { shouldAskSetup } from "./sessionPath";
+import { skipSetup } from "./sessionPath";
 import { syncSavedLikes, toggleLiker } from "./wardrobe";
 
 type State = {
@@ -27,6 +27,7 @@ type State = {
   locale: string;
   country: string;
   profileDone: boolean;
+  profileChecked: boolean;
   birthday: string;
   gender: string;
   styles: string[];
@@ -57,6 +58,7 @@ const defaults: State = {
   locale: "",
   country: "",
   profileDone: false,
+  profileChecked: false,
   birthday: "",
   gender: "",
   styles: [],
@@ -75,6 +77,7 @@ async function load() {
   if (!memory.country) memory.country = detectCountry();
   setActiveMarket(memory.country);
   if ((memory.onboardVersion ?? 0) < 4) memory.onboarded = false;
+  if (memory.uid && memory.profileDone) memory.profileChecked = true;
   hydrated = true;
   listeners.forEach((l) => l());
 }
@@ -82,28 +85,111 @@ async function load() {
 void load().then(() => {
   void import("./auth").then(({ subscribeAuth }) => {
     subscribeAuth((user) => {
-      if (!user) return;
-      void restoreProfile(user.uid).then((stashed) => {
-        memory = {
-          ...memory,
-          uid: user.uid,
-          email: user.email,
-          displayName: user.name || (stashed?.displayName as string) || memory.displayName,
-          signedInWith: user.provider,
-          onboarded: true,
-          onboardVersion: Math.max(memory.onboardVersion ?? 0, 4),
-          profileDone: memory.profileDone || Boolean(stashed?.profileDone),
-          birthday: (stashed?.birthday as string) || memory.birthday,
-          gender: (stashed?.gender as string) || memory.gender,
-          styles: (stashed?.styles as string[]) || memory.styles,
-          wantsUpdates: Boolean(stashed?.wantsUpdates) || memory.wantsUpdates,
-        };
+      if (!user) {
+        memory = { ...memory, profileChecked: true };
         listeners.forEach((l) => l());
-        void AsyncStorage.setItem(KEY, JSON.stringify(memory));
-      });
+        return;
+      }
+      void applyAccount(user, { restored: true });
     });
   });
+  setTimeout(() => {
+    if (memory.profileChecked) return;
+    memory = { ...memory, profileChecked: true };
+    listeners.forEach((l) => l());
+  }, 10000);
 });
+
+async function applyAccount(
+  user: Session,
+  opts: { restored?: boolean } = {},
+) {
+  const stashed = await restoreProfile(user.uid);
+  const knownDone = skipSetup({
+    via: opts.restored ? null : user.via,
+    remote: null,
+    stashedDone: Boolean(stashed?.profileDone) || memory.profileDone,
+    createdAt: user.createdAt,
+    lastSignInAt: user.lastSignInAt,
+  });
+  if (knownDone) {
+    memory = {
+      ...memory,
+      uid: user.uid,
+      email: user.email,
+      displayName: (stashed?.displayName as string) || user.name || memory.displayName,
+      signedInWith: user.provider,
+      onboarded: true,
+      onboardVersion: Math.max(memory.onboardVersion ?? 0, 4),
+      profileDone: true,
+      profileChecked: true,
+      birthday: (stashed?.birthday as string) || memory.birthday,
+      gender: (stashed?.gender as string) || memory.gender,
+      styles: (stashed?.styles as string[]) || memory.styles,
+      wantsUpdates: Boolean(stashed?.wantsUpdates) || memory.wantsUpdates,
+      avatarUri: (stashed?.avatarUri as string) || memory.avatarUri,
+    };
+    listeners.forEach((l) => l());
+    void AsyncStorage.setItem(KEY, JSON.stringify(memory));
+  }
+
+  let remote: Record<string, unknown> | null = null;
+  try {
+    const { readUserProfile } = await import("./auth");
+    remote = await readUserProfile(user.uid);
+  } catch {
+    remote = null;
+  }
+  const done = skipSetup({
+    via: opts.restored ? null : user.via,
+    remote,
+    stashedDone: Boolean(stashed?.profileDone) || memory.profileDone || knownDone,
+    createdAt: user.createdAt,
+    lastSignInAt: user.lastSignInAt,
+  });
+  memory = {
+    ...memory,
+    uid: user.uid,
+    email: user.email,
+    displayName:
+      (typeof remote?.name === "string" && remote.name) ||
+      (stashed?.displayName as string) ||
+      user.name ||
+      memory.displayName,
+    signedInWith: user.provider,
+    onboarded: true,
+    onboardVersion: Math.max(memory.onboardVersion ?? 0, 4),
+    profileDone: done || memory.profileDone,
+    profileChecked: true,
+    birthday: (typeof remote?.birthday === "string" && remote.birthday) || (stashed?.birthday as string) || memory.birthday,
+    gender: (typeof remote?.gender === "string" && remote.gender) || (stashed?.gender as string) || memory.gender,
+    styles: (Array.isArray(remote?.styles) ? (remote.styles as string[]) : null) || (stashed?.styles as string[]) || memory.styles,
+    wantsUpdates: Boolean(remote?.wantsUpdates) || Boolean(stashed?.wantsUpdates) || memory.wantsUpdates,
+    avatarUri: (stashed?.avatarUri as string) || memory.avatarUri,
+  };
+  listeners.forEach((l) => l());
+  void AsyncStorage.setItem(KEY, JSON.stringify(memory));
+  if (done) {
+    void stashProfile();
+    if (!remoteProfileFlag(remote)) {
+      void import("./auth").then(({ writeUserProfile }) =>
+        writeUserProfile(user.uid, {
+          profileDone: true,
+          seen: true,
+          name: memory.displayName,
+          birthday: memory.birthday,
+          gender: memory.gender,
+          styles: memory.styles,
+          wantsUpdates: memory.wantsUpdates,
+        }),
+      );
+    }
+  }
+}
+
+function remoteProfileFlag(remote: Record<string, unknown> | null) {
+  return remote?.profileDone === true;
+}
 
 async function stashProfile() {
   if (!memory.uid || !memory.profileDone) return;
@@ -223,22 +309,7 @@ export function useUvel() {
         signedInWith: provider ?? memory.signedInWith,
       }),
     acceptSession: async (s: Session) => {
-      const stashed = await restoreProfile(s.uid);
-      const skip = !shouldAskSetup(s.via) || Boolean(stashed?.profileDone);
-      await save({
-        onboarded: true,
-        onboardVersion: 4,
-        signedInWith: s.provider,
-        uid: s.uid,
-        email: s.email,
-        displayName: (stashed?.displayName as string) || s.name || memory.displayName,
-        avatarUri: (stashed?.avatarUri as string) || memory.avatarUri,
-        profileDone: skip,
-        birthday: (stashed?.birthday as string) || memory.birthday,
-        gender: (stashed?.gender as string) || memory.gender,
-        styles: (stashed?.styles as string[]) || memory.styles,
-        wantsUpdates: Boolean(stashed?.wantsUpdates),
-      });
+      await applyAccount(s, { restored: false });
     },
     completeProfile: (patch: {
       displayName?: string;
@@ -264,6 +335,7 @@ export function useUvel() {
       return save({
         ...patch,
         profileDone: true,
+        profileChecked: true,
         onboarded: true,
         onboardVersion: 4,
       }).then(() => stashProfile());
@@ -279,6 +351,7 @@ export function useUvel() {
         email: "",
         displayName: "",
         profileDone: false,
+        profileChecked: true,
         birthday: "",
         gender: "",
         styles: [],

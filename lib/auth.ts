@@ -20,6 +20,7 @@ import {
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { firebaseAuth, firebaseDb, firebaseExtra, firebaseReady } from "./firebase";
 import type { AuthVia } from "./sessionPath";
+import { remoteProfileComplete } from "./sessionPath";
 
 export type Session = {
   uid: string;
@@ -27,6 +28,8 @@ export type Session = {
   name: string;
   provider: string;
   via: AuthVia;
+  createdAt: string;
+  lastSignInAt: string;
 };
 
 WebBrowser.maybeCompleteAuthSession();
@@ -45,6 +48,8 @@ function session(user: User, via: AuthVia): Session {
     name: user.displayName ?? user.email?.split("@")[0] ?? "",
     provider: map[provider] ?? provider,
     via,
+    createdAt: user.metadata.creationTime ?? "",
+    lastSignInAt: user.metadata.lastSignInTime ?? "",
   };
 }
 
@@ -96,9 +101,10 @@ async function isReturningUser(cred: UserCredential) {
   if (extra?.isNewUser === false) return true;
   const created = Date.parse(cred.user.metadata.creationTime ?? "");
   const last = Date.parse(cred.user.metadata.lastSignInTime ?? "");
-  if (Number.isFinite(created) && Number.isFinite(last) && last - created > 8000) return true;
+  if (Number.isFinite(created) && Number.isFinite(last) && last - created > 15_000) return true;
+  if (Number.isFinite(created) && Date.now() - created > 60_000) return true;
   const remote = await readUserProfile(cred.user.uid);
-  return Boolean(remote?.profileDone || remote?.seen);
+  return remoteProfileComplete(remote);
 }
 
 async function remember(user: User, provider: string) {
@@ -120,7 +126,7 @@ export async function readUserProfile(uid: string) {
         return null;
       }
     })(),
-    1800,
+    8000,
     null,
   );
 }
@@ -133,7 +139,7 @@ export async function writeUserProfile(uid: string, data: Record<string, unknown
         { ...data, updatedAt: serverTimestamp() },
         { merge: true },
       ).then(() => true),
-      1800,
+      8000,
       false,
     );
   } catch {

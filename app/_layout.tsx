@@ -221,11 +221,12 @@ function AppStack() {
 }
 
 export default function Root() {
-  const { onboarded, hydrated, uid, profileDone } = useUvel();
+  const { onboarded, hydrated, uid, profileDone, profileChecked } = useUvel();
   useOtaReady();
   const [intro, setIntro] = useState(true);
   const dismiss = useCallback(() => setIntro(false), []);
-  const needProfile = Boolean(uid) && !profileDone;
+  const gateReady = hydrated && profileChecked;
+  const needProfile = Boolean(uid) && profileChecked && !profileDone;
   const signedIn = Boolean(uid);
 
   useEffect(() => {
@@ -237,7 +238,7 @@ export default function Root() {
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: intro ? "#2A320E" : "#0B0A08" }}>
         <StatusBar style="light" />
-        {hydrated ? (
+        {gateReady ? (
           !onboarded && !signedIn ? (
             <Onboard />
           ) : needProfile ? (
@@ -246,7 +247,7 @@ export default function Root() {
             <AppStack />
           )
         ) : null}
-        {intro ? <LaunchSplash ready={hydrated} onDone={dismiss} /> : null}
+        {intro || !gateReady ? <LaunchSplash ready={gateReady} onDone={dismiss} /> : null}
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );
