@@ -11,6 +11,7 @@ import { armNotificationHandler, registerPushToken, watchLastSeen } from "../lib
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 import { pullLooks } from "../lib/trends";
+import { useWardrobe } from "../lib/wardrobe";
 import Onboard from "./onboard";
 import ProfileSetup from "./setup";
 
@@ -21,6 +22,16 @@ function ThemeSync() {
   useEffect(() => {
     Appearance.setColorScheme(appearance);
   }, [appearance]);
+  return null;
+}
+
+function LikesSync() {
+  const app = useUvel();
+  const pieces = useWardrobe();
+  useEffect(() => {
+    if (!app.hydrated || !pieces.length) return;
+    app.seedSavedLikes();
+  }, [app.hydrated, pieces.length, app.saved.join("|")]);
   return null;
 }
 
@@ -76,6 +87,7 @@ function AppStack() {
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
         <ThemeSync />
         <PushSync />
+        <LikesSync />
         <StatusBar style={appearance === "dark" ? "light" : "dark"} />
         <Stack
           screenOptions={{

@@ -473,7 +473,8 @@ function ShopLookCard({
   const local = from.code === here.code;
   const brand = local ? (piece.brand === "Unlabeled" ? "UVEL" : piece.brand) : from.name;
   const live = getPiece(piece.id) || piece;
-  const hearts = likeCount(live);
+  const { saved } = useUvel();
+  const hearts = likeCount(live, saved);
   return (
     <Pressable
       onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}

@@ -176,8 +176,10 @@ export function stampMine(uid: string, patch: Partial<ClosetPiece>) {
   void persist();
 }
 
-export function likeCount(p: ClosetPiece) {
-  return p.likedBy?.length ?? 0;
+export function likeCount(p: ClosetPiece, saved: string[] = []) {
+  const n = p.likedBy?.length ?? 0;
+  if (n > 0) return n;
+  return saved.includes(p.id) ? 1 : 0;
 }
 
 export function toggleLiker(id: string, liker: Liker): { liked: boolean; piece?: ClosetPiece } {
@@ -192,22 +194,39 @@ export function toggleLiker(id: string, liker: Liker): { liked: boolean; piece?:
 }
 
 export function syncSavedLikes(ids: string[], liker: Liker) {
-  if (!ids.length) return;
+  if (!ids.length || !pieces.length) return;
   let changed = false;
   pieces = pieces.map((p) => {
     if (!ids.includes(p.id)) return p;
     if ((p.likedBy || []).some((l) => l.uid === liker.uid)) return p;
     changed = true;
-    return { ...p, likedBy: [{ ...liker, at: Date.now() }, ...(p.likedBy || [])] };
+    return { ...p, likedBy: [{ ...liker, at: p.createdAt || Date.now() }, ...(p.likedBy || [])] };
   });
   if (changed) void persist();
 }
 
-export function likesOnMine(uid: string) {
-  return pieces
-    .filter((p) => p.status === "listed" || p.status === "sold" || (p.likedBy && p.likedBy.length))
-    .flatMap((p) => (p.likedBy || []).map((l) => ({ ...l, piece: p })))
-    .sort((a, b) => b.at - a.at);
+export function likesOnMine(uid: string, saved: string[] = [], me?: Pick<Liker, "uid" | "name" | "photo">) {
+  const rows = pieces.flatMap((p) => (p.likedBy || []).map((l) => ({ ...l, piece: p })));
+  if (me) {
+    for (const id of saved) {
+      const p = pieces.find((x) => x.id === id);
+      if (!p) continue;
+      if (rows.some((r) => r.piece.id === id && r.uid === me.uid)) continue;
+      rows.push({ ...me, at: p.createdAt || Date.now(), piece: p });
+    }
+  }
+  return rows.sort((a, b) => b.at - a.at);
+}
+  const rows = pieces.flatMap((p) => (p.likedBy || []).map((l) => ({ ...l, piece: p })));
+  if (me) {
+    for (const id of saved) {
+      const p = pieces.find((x) => x.id === id);
+      if (!p) continue;
+      if (rows.some((r) => r.piece.id === id && r.uid === me.uid)) continue;
+      rows.push({ ...me, at: p.createdAt || Date.now(), piece: p });
+    }
+  }
+  return rows.sort((a, b) => b.at - a.at);
 }
 
 export function updatePiece(id: string, patch: Partial<ClosetPiece>) {

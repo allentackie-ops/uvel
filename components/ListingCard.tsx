@@ -28,7 +28,7 @@ export function ListingCard({
   const local = from.code === here.code;
   const brand = local ? (live.brand === "Unlabeled" ? "Uvel" : live.brand) : from.name;
   const fresh = Date.now() - (live.createdAt || 0) < 1000 * 60 * 60 * 48;
-  const hearts = likeCount(live);
+  const hearts = likeCount(live, app.saved);
   const liked = (live.likedBy || []).some((l) => l.uid === (app.uid || "me")) || app.saved.includes(live.id);
   return (
     <Pressable
@@ -104,20 +104,20 @@ function make(colors: ReturnType<typeof useColors>) {
       position: "absolute",
       right: 8,
       bottom: 8,
-      backgroundColor: "rgba(11,10,8,0.82)",
+      backgroundColor: "rgba(11,10,8,0.88)",
       borderRadius: 16,
-      minHeight: 28,
-      minWidth: 44,
+      minHeight: 32,
+      minWidth: 52,
       paddingHorizontal: 10,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: 5,
-      zIndex: 2,
+      zIndex: 8,
     },
-    heartsIco: { color: "#F4F0E6", fontSize: 13 },
+    heartsIco: { color: "#F4F0E6", fontSize: 15 },
     heartsOn: { color: "#D6E27A" },
-    heartsN: { color: "#F4F0E6", fontSize: 13, fontWeight: "700" },
+    heartsN: { color: "#F4F0E6", fontSize: 14, fontWeight: "800" },
     badge: {
       position: "absolute",
       left: 10,

@@ -231,7 +231,11 @@ export default function You() {
         <BuyPane rows={buyRows} filter={buyFilter} setFilter={setBuyFilter} styles={styles} />
       ) : (
         <LikesPane
-          received={likesOnMine(app.uid)}
+          received={likesOnMine(app.uid, app.saved, {
+            uid: app.uid || "me",
+            name: app.displayName || "You",
+            photo: app.avatarUri || app.personUri || undefined,
+          })}
           pieces={likedPieces}
           garments={likedGarments}
           styles={styles}

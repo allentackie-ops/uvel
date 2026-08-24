@@ -151,7 +151,7 @@ export default function ClosetPiece() {
   const liked =
     !!piece &&
     (app.saved.includes(piece.id) || (piece.likedBy || []).some((l) => l.uid === (app.uid || "me")));
-  const hearts = piece ? likeCount(piece) : 0;
+  const hearts = piece ? likeCount(piece, app.saved) : 0;
 
   if (!piece) {
     return (
