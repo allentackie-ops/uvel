@@ -214,6 +214,54 @@ function AppStack() {
               contentStyle: { backgroundColor: "#12110E" },
             }}
           />
+          <Stack.Screen
+            name="brand/apply"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#0B0A08" },
+            }}
+          />
+          <Stack.Screen
+            name="brand/[id]"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#0B0A08" },
+            }}
+          />
+          <Stack.Screen
+            name="brand/studio"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#0B0A08" },
+            }}
+          />
+          <Stack.Screen
+            name="brand/list"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#0B0A08" },
+            }}
+          />
+          <Stack.Screen
+            name="brand/analytics"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#0B0A08" },
+            }}
+          />
+          <Stack.Screen
+            name="brand/invite"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#0B0A08" },
+            }}
+          />
         </Stack>
       </GestureHandlerRootView>
     </ThemeProvider>

@@ -31,6 +31,19 @@ const CATS: Category[] = [
   "Shoes",
   "Bags",
   "Accessories",
+  "Jewelry",
+  "Watches",
+  "Hats",
+  "Belts",
+  "Sunglasses",
+  "Scarves",
+  "Hair",
+  "Lingerie",
+  "Swim",
+  "Activewear",
+  "Socks",
+  "Ties",
+  "Gloves",
 ];
 
 function bytesToBase64(bytes: Uint8Array) {
@@ -137,7 +150,7 @@ Return ONLY JSON:
   "tip": string,
   "title": string,
   "brand": string,
-  "category": "Outerwear" | "Dresses" | "Tops" | "Trousers" | "Knitwear" | "Skirts" | "Shoes" | "Bags" | "Accessories",
+  "category": "Outerwear" | "Dresses" | "Tops" | "Trousers" | "Knitwear" | "Skirts" | "Shoes" | "Bags" | "Accessories" | "Jewelry" | "Watches" | "Hats" | "Belts" | "Sunglasses" | "Scarves" | "Hair" | "Lingerie" | "Swim" | "Activewear" | "Socks" | "Ties" | "Gloves",
   "color": string,
   "conditionGuess": "New with tags" | "Like new" | "Excellent" | "Good" | "Fair",
   "material": string,

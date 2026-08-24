@@ -7,6 +7,8 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { OrbitLoader } from "../../components/OrbitLoader";
+import { VerifiedMark } from "../../components/VerifiedMark";
+import { ownedBrand, verifiedBrands, useBrands } from "../../lib/brands";
 import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
 import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
@@ -81,6 +83,9 @@ export default function Shop() {
   const [scanning, setScanning] = useState(false);
   const [job, setJob] = useState<LookScan | null>(null);
   useWardrobe();
+  useBrands();
+  const mine = ownedBrand(app.uid);
+  const houses = verifiedBrands();
 
   useEffect(() => {
     if (!app.hydrated) return;
@@ -167,7 +172,21 @@ export default function Shop() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>{scanningLook ? "Shop the look" : "Shop"}</Text>
+      <View style={styles.titleRow}>
+        <Text style={styles.title}>{scanningLook ? "Shop the look" : "Shop"}</Text>
+        {!scanningLook ? (
+          <Pressable
+            onPress={() => {
+              if (mine?.verified) router.push({ pathname: "/brand/[id]", params: { id: mine.id } });
+              else router.push("/brand/apply");
+            }}
+            style={styles.brandBtn}
+          >
+            {mine?.verified ? <VerifiedMark size={14} /> : null}
+            <Text style={styles.brandBtnTxt}>{mine?.verified ? "Your brand" : mine ? "Brand filing" : "Start a brand"}</Text>
+          </Pressable>
+        ) : null}
+      </View>
       {scanningLook ? (
         <Text style={styles.look}>{job?.title || look?.title || "This frame"}</Text>
       ) : (
@@ -219,6 +238,41 @@ export default function Shop() {
         })}
       </ScrollView>
 
+      {!scanningLook && houses.length ? (
+        <View>
+          <View style={styles.brandHead}>
+            <Text style={styles.brandHeadTxt}>Brands</Text>
+            <Text style={styles.brandHeadGo}>›</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.brandRail}>
+            {houses.map((b) => (
+              <Pressable
+                key={b.id}
+                onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })}
+                style={styles.house}
+              >
+                {b.logoUri ? (
+                  <Image source={{ uri: b.logoUri }} style={styles.houseLogo} contentFit="cover" />
+                ) : (
+                  <View style={styles.houseLogo} />
+                )}
+                <View style={styles.houseMeta}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                    <Text style={styles.houseName} numberOfLines={1}>
+                      {b.name}
+                    </Text>
+                    <VerifiedMark size={12} />
+                  </View>
+                  <Text style={styles.houseLine} numberOfLines={1}>
+                    {b.tagline || b.vertical}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
       {scanning ? (
         <Text style={styles.count}>Looking at the clothes in this frame</Text>
       ) : null}
@@ -250,7 +304,38 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: "#0B0A08" },
     content: { paddingHorizontal: 16, paddingBottom: 108 },
-    title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 34, lineHeight: 38 },
+    title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
+    titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    brandBtn: {
+      height: 34,
+      paddingHorizontal: 12,
+      borderRadius: 17,
+      backgroundColor: "#161512",
+      borderWidth: 1,
+      borderColor: "rgba(244,240,230,0.16)",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    brandBtnTxt: { color: "#F4F0E6", fontWeight: "700", fontSize: 12 },
+    brandHead: { flexDirection: "row", alignItems: "center", marginTop: 6, marginBottom: 10, gap: 4 },
+    brandHeadTxt: { color: "#F4F0E6", fontWeight: "700", fontSize: 18 },
+    brandHeadGo: { color: "rgba(244,240,230,0.45)", fontSize: 22, marginTop: -2 },
+    brandRail: { gap: 10, paddingBottom: 4 },
+    house: {
+      width: 220,
+      backgroundColor: "#161512",
+      borderRadius: 16,
+      overflow: "hidden",
+      flexDirection: "row",
+      padding: 8,
+      gap: 10,
+      alignItems: "center",
+    },
+    houseLogo: { width: 56, height: 56, borderRadius: 12, backgroundColor: "#1A1915" },
+    houseMeta: { flex: 1, paddingRight: 4 },
+    houseName: { color: "#F4F0E6", fontWeight: "700", fontSize: 14, flexShrink: 1 },
+    houseLine: { color: "rgba(244,240,230,0.5)", fontSize: 12, marginTop: 3 },
     look: { color: "rgba(244,240,230,0.62)", marginTop: 6, fontSize: 16 },
     frame: {
       marginTop: 16,

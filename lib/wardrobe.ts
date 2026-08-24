@@ -15,6 +15,8 @@ export type ClosetPiece = {
   category: Category;
   color: string;
   size: string;
+  sizes?: string[];
+  sizeStock?: Record<string, number>;
   condition: string;
   material: string;
   notes: string;
@@ -30,6 +32,10 @@ export type ClosetPiece = {
   shipsTo?: ShipsTo;
   shopLook?: string;
   likedBy?: Liker[];
+  brandId?: string;
+  listedByUid?: string;
+  listedByName?: string;
+  views?: number;
 };
 
 export type Liker = {
@@ -50,6 +56,19 @@ const CATS: Category[] = [
   "Shoes",
   "Bags",
   "Accessories",
+  "Jewelry",
+  "Watches",
+  "Hats",
+  "Belts",
+  "Sunglasses",
+  "Scarves",
+  "Hair",
+  "Lingerie",
+  "Swim",
+  "Activewear",
+  "Socks",
+  "Ties",
+  "Gloves",
 ];
 const NAMES: Record<Category, string[]> = {
   Outerwear: ["Wool overcoat", "Leather jacket", "Field jacket", "Trench"],
@@ -61,6 +80,19 @@ const NAMES: Record<Category, string[]> = {
   Shoes: ["Leather loafer", "Boot", "Slingback", "Sneaker"],
   Bags: ["Leather tote", "Shoulder bag", "Mini bag", "Weekend bag"],
   Accessories: ["Silk scarf", "Belt", "Gold hoops", "Wool beanie"],
+  Jewelry: ["Gold cuff", "Pearl studs", "Chain", "Signet"],
+  Watches: ["Tank watch", "Field watch", "Dress watch", "Bracelet watch"],
+  Hats: ["Wool fedora", "Beret", "Cap", "Bucket"],
+  Belts: ["Leather belt", "Sculptural belt", "Webbing belt", "Cinch"],
+  Sunglasses: ["Acetate frames", "Wire rims", "Shield", "Clip"],
+  Scarves: ["Silk square", "Wool wrap", "Bandana", "Stole"],
+  Hair: ["Claw clip", "Silk scrunchie", "Barrette", "Comb"],
+  Lingerie: ["Silk set", "Soft bra", "Slip", "Robe"],
+  Swim: ["Maillot", "Wrap", "Trunk", "Sarong"],
+  Activewear: ["Track pant", "Studio set", "Hoodie", "Short"],
+  Socks: ["Merino crew", "Silk sock", "Rib ankle", "Over-the-calf"],
+  Ties: ["Knit tie", "Silk tie", "Bow", "Ascot"],
+  Gloves: ["Leather glove", "Cashmere glove", "Driving glove", "Mitt"],
 };
 
 let pieces: ClosetPiece[] = [];
@@ -81,6 +113,7 @@ async function hydrate() {
   const raw = await AsyncStorage.getItem(KEY);
   if (raw) pieces = (JSON.parse(raw) as ClosetPiece[]).map(normalize);
   listeners.forEach((l) => l());
+  void import("./brands").then((m) => m.seedBrandFloor());
 }
 void hydrate();
 

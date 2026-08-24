@@ -1,7 +1,11 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
+const admin = require("firebase-admin");
 const stripeSecret = defineSecret("STRIPE_SECRET");
 const paystackSecret = defineSecret("PAYSTACK_SECRET");
+const anthropicSecret = defineSecret("ANTHROPIC_API_KEY");
+
+if (!admin.apps.length) admin.initializeApp();
 
 const PAYSTACK = new Set(["GH", "NG", "KE", "ZA"]);
 
@@ -61,3 +65,94 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
   });
   return { processor: "stripe", url: session.url, reference: session.id };
 });
+
+function parseJson(text) {
+  const t = String(text || "")
+    .trim()
+    .replace(/^```(?:json)?\s*|\s*```$/g, "");
+  const start = t.indexOf("{");
+  const end = t.lastIndexOf("}");
+  if (start < 0 || end < 0) throw new Error("No JSON");
+  return JSON.parse(t.slice(start, end + 1));
+}
+
+exports.reviewBrand = onCall({ secrets: [anthropicSecret] }, async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const f = req.data || {};
+  const key = anthropicSecret.value();
+  if (!key) throw new HttpsError("failed-precondition", "Brand check isn’t connected yet.");
+
+  let siteSnippet = "";
+  const website = String(f.website || "").trim();
+  if (/^https?:\/\//i.test(website)) {
+    try {
+      const r = await fetch(website, { signal: AbortSignal.timeout(4000), redirect: "follow" });
+      const html = await r.text();
+      siteSnippet = html
+        .replace(/<script[\s\S]*?<\/script>/gi, " ")
+        .replace(/<style[\s\S]*?<\/style>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .slice(0, 1800);
+    } catch {
+      siteSnippet = "(site unreachable)";
+    }
+  }
+
+  const prompt = `You are the brand-verification desk for Uvel, a fashion marketplace. A person is applying to open a BRAND page, which is different from a regular person listing secondhand clothes. Brands receive a blue verified check and may post new fashion items only after you approve.
+
+Be thorough. Read every field. Look for impersonation, empty shells, scams, and anything that is not a real fashion house or independent label.
+
+Filing:
+Brand name: ${f.name}
+Handle: @${f.handle}
+Legal / registered name: ${f.legalName || "(none)"}
+Vertical: ${f.vertical}
+Country: ${f.country}
+Website: ${f.website || "(none)"}
+Instagram: ${f.instagram || "(none)"}
+Contact email: ${f.contactEmail || "(none)"}
+Registration / tax id: ${f.registrationId || "(none)"}
+Story: ${f.story || "(none)"}
+Applicant: ${f.ownerName} <${f.ownerEmail}>
+Website text (fetched): ${siteSnippet || "(none)"}
+
+ok must be false if ANY of these:
+- The name impersonates a famous house or street brand (Nike, Adidas, Gucci, Chanel, Louis Vuitton, Dior, Prada, Hermes, Rolex, Zara, H&M, Shein, Supreme, Off-White, Balenciaga, Apple, and obvious lookalikes / misspellings).
+- The story is empty, nonsense, or clearly not fashion.
+- Contact email is missing or obviously fake.
+- Handle is offensive, impersonating, or empty.
+- Adult, weapons, drugs, hate, or not a fashion business.
+- They claim to already be a global conglomerate with no matching legal name / site.
+
+ok may be true for independent labels, ateliers, archives, and new houses that look like a real fashion project — even if small.
+
+Return ONLY JSON:
+{ "ok": boolean, "headline": string, "reasons": string[], "notes": string }`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 500,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new HttpsError("internal", json.error?.message || "Couldn’t finish the check.");
+  const parsed = parseJson(json.content?.[0]?.text || "{}");
+  const ok = parsed.ok === true;
+  const reasons = Array.isArray(parsed.reasons) ? parsed.reasons.map(String).filter(Boolean).slice(0, 3) : [];
+  return {
+    ok,
+    reasons,
+    headline: String(parsed.headline || (ok ? "Verified." : "This brand can’t be verified yet.")),
+    notes: String(parsed.notes || ""),
+  };
+});
+

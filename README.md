@@ -40,10 +40,24 @@ npx eas-cli build --platform android --profile production --auto-submit
 | Today | iOS 26 liquid-glass tab bar over editorial looks |
 | Find | Camera + Photos (`expo-image-picker`), paste IG / TikTok / Pinterest / Snap links |
 | Try on | Your photo + a piece, on-device overlay |
-| Shop | Archive floor |
+| Shop | Archive floor, plus **Start a brand** |
+| You | Style DNA, Uvel+, brand owner desk |
 | You | Style DNA, Uvel+ |
 
 Glass surfaces use `GlassView` / `GlassContainer` from `expo-glass-effect` (iOS 26+). Older iOS and Android get a translucent fallback.
+
+## Brands
+
+Brands are not personal closets. **Start a brand** lives on Shop.
+
+1. File the house (name, legal, story, mark).
+2. Anthropic scans the filing. Impersonation, empty shells, and anything that isn’t fashion fail.
+3. The person who filed becomes **Owner** (You tab). Verified houses get the blue Meta-style check.
+4. Owner invites posters. Posters list on the brand page; they don’t own it.
+5. The brand page is its own room: logo, image or video banner, sixteen colourways plus custom hex.
+6. Listings take the whole rack — clothes, shoes, jewelry, hats, swim — with available sizes.
+7. Analysis (earnings, views, likes, conversion) stays on the owner desk unless they share it with the team.
+
 
 ## Local preview (optional)
 

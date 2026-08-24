@@ -4,7 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "../../components/ListingCard";
+import { VerifiedMark } from "../../components/VerifiedMark";
 import { GARMENTS, getGarment, usd } from "../../lib/catalog";
+import {
+  acceptInvite,
+  canSeeAnalytics,
+  declineInvite,
+  memberBrands,
+  ownedBrand,
+  pendingInvitesFor,
+  useBrands,
+  useInvites,
+} from "../../lib/brands";
 import { useOrders } from "../../lib/orders";
 import { pickAvatar, takeAvatar } from "../../lib/photo";
 import { seedFromStyles, ARCH, PALS, SILS, dnaHint } from "../../lib/styleDna";
@@ -25,6 +36,11 @@ export default function You() {
   const insets = useSafeAreaInsets();
   const pieces = useWardrobe();
   const orders = useOrders();
+  useBrands();
+  useInvites();
+  const mine = ownedBrand(app.uid);
+  const teams = memberBrands(app.uid).filter((b) => b.ownerId !== app.uid);
+  const invites = pendingInvitesFor(app.uid, app.email);
   const [hub, setHub] = useState<Hub>("shop");
   const [soldFilter, setSoldFilter] = useState("all");
   const [buyFilter, setBuyFilter] = useState("all");
@@ -125,7 +141,15 @@ export default function You() {
     >
       <View style={styles.top}>
         <View style={{ flex: 1, paddingRight: 12 }}>
-          <Text style={styles.title}>{app.displayName || "Your closet"}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Text style={styles.title}>{app.displayName || "Your closet"}</Text>
+            {mine?.verified ? <VerifiedMark size={18} /> : null}
+          </View>
+          {mine ? (
+            <Text style={styles.ownerLine}>{mine.verified ? `Owner of ${mine.name}` : `Filing for ${mine.name}`}</Text>
+          ) : teams[0] ? (
+            <Text style={styles.ownerLine}>Team at {teams[0].name}</Text>
+          ) : null}
         </View>
         <Pressable onPress={changeFace} style={styles.faceBtn} accessibilityLabel="Change profile picture">
           {face ? (
@@ -145,6 +169,68 @@ export default function You() {
           <View style={styles.dash} />
         </Pressable>
       </View>
+
+      {invites.map((inv) => (
+        <View key={inv.id} style={styles.invite}>
+          <Text style={styles.inviteH}>{inv.brandName}</Text>
+          <Text style={styles.inviteP}>{inv.fromName} invited you to post on this brand.</Text>
+          <View style={styles.inviteRow}>
+            <Pressable onPress={() => acceptInvite(inv.id, app.uid, app.displayName || "You", app.avatarUri || undefined)} style={styles.inviteYes}>
+              <Text style={styles.inviteYesTxt}>Join</Text>
+            </Pressable>
+            <Pressable onPress={() => declineInvite(inv.id)} style={styles.inviteNo}>
+              <Text style={styles.inviteNoTxt}>No</Text>
+            </Pressable>
+          </View>
+        </View>
+      ))}
+
+      {mine ? (
+        <Pressable
+          onPress={() => router.push({ pathname: "/brand/[id]", params: { id: mine.id } })}
+          style={styles.brandCard}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={styles.brandK}>{mine.verified ? "YOUR BRAND" : "IN REVIEW"}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+              <Text style={styles.brandName}>{mine.name}</Text>
+              {mine.verified ? <VerifiedMark size={14} /> : null}
+            </View>
+            <Text style={styles.brandP}>{mine.verified ? "Page, listings, team, analysis" : "Waiting on verification"}</Text>
+          </View>
+          <Text style={styles.brandGo}>Open</Text>
+        </Pressable>
+      ) : (
+        <Pressable onPress={() => router.push("/brand/apply")} style={styles.brandCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.brandK}>BRANDS</Text>
+            <Text style={styles.brandName}>Open a house</Text>
+            <Text style={styles.brandP}>Verified brands post new fashion, not a closet.</Text>
+          </View>
+          <Text style={styles.brandGo}>Start</Text>
+        </Pressable>
+      )}
+
+      {mine?.verified && canSeeAnalytics(mine, app.uid) ? (
+        <Pressable onPress={() => router.push({ pathname: "/brand/analytics", params: { id: mine.id } })} style={styles.plan}>
+          <View>
+            <Text style={styles.planH}>Brand analysis</Text>
+            <Text style={styles.planP}>Earnings, views, likes — owner desk</Text>
+          </View>
+          <Text style={styles.planGo}>See</Text>
+        </Pressable>
+      ) : null}
+
+      {teams.map((b) => (
+        <Pressable key={b.id} onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })} style={styles.brandCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.brandK}>TEAM</Text>
+            <Text style={styles.brandName}>{b.name}</Text>
+            <Text style={styles.brandP}>You post on this house</Text>
+          </View>
+          <Text style={styles.brandGo}>Open</Text>
+        </Pressable>
+      ))}
 
       <Pressable onPress={() => setDnaOpen((v) => !v)} style={styles.dnaHead}>
         <View style={{ flex: 1 }}>
@@ -595,7 +681,28 @@ function make(_colors: Colors) {
     page: { flex: 1, backgroundColor: "#0B0A08" },
     content: { paddingHorizontal: 20 },
     kicker: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
-    title: { color: "#F4F0E6", fontWeight: "700", fontSize: 28, marginTop: 8, lineHeight: 34 },
+    title: { color: "#F4F0E6", fontWeight: "700", fontSize: 28, marginTop: 8, lineHeight: 34, flexShrink: 1 },
+    ownerLine: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 4 },
+    invite: { marginTop: 16, backgroundColor: "#161512", borderRadius: 18, padding: 16 },
+    inviteH: { color: "#F4F0E6", fontWeight: "700", fontSize: 16 },
+    inviteP: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 4 },
+    inviteRow: { flexDirection: "row", gap: 8, marginTop: 12 },
+    inviteYes: { height: 34, paddingHorizontal: 16, borderRadius: 17, backgroundColor: "#F4F0E6", alignItems: "center", justifyContent: "center" },
+    inviteYesTxt: { color: "#16140F", fontWeight: "800", fontSize: 13 },
+    inviteNo: { height: 34, paddingHorizontal: 16, borderRadius: 17, borderWidth: 1, borderColor: "rgba(244,240,230,0.16)", alignItems: "center", justifyContent: "center" },
+    inviteNoTxt: { color: "#F4F0E6", fontWeight: "700", fontSize: 13 },
+    brandCard: {
+      marginTop: 16,
+      backgroundColor: "#161512",
+      borderRadius: 20,
+      padding: 16,
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    brandK: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.4, fontSize: 10, fontWeight: "700" },
+    brandName: { color: "#F4F0E6", fontWeight: "700", fontSize: 17 },
+    brandP: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 4 },
+    brandGo: { color: "#F4F0E6", fontWeight: "700", fontSize: 13 },
     top: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
     faceBtn: { marginRight: 8, marginTop: 4 },
     avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#1A1915" },

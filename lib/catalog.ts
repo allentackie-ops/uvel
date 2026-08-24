@@ -9,7 +9,20 @@ export type Category =
   | "Shoes"
   | "Skirts"
   | "Bags"
-  | "Accessories";
+  | "Accessories"
+  | "Jewelry"
+  | "Watches"
+  | "Hats"
+  | "Belts"
+  | "Sunglasses"
+  | "Scarves"
+  | "Hair"
+  | "Lingerie"
+  | "Swim"
+  | "Activewear"
+  | "Socks"
+  | "Ties"
+  | "Gloves";
 
 export type Garment = {
   id: string;
@@ -95,6 +108,56 @@ export const CATEGORIES: Array<"All" | Category> = [
   "Skirts",
   "Shoes",
   "Bags",
+  "Accessories",
+  "Jewelry",
+  "Watches",
+  "Hats",
+  "Belts",
+  "Sunglasses",
+  "Scarves",
+  "Hair",
+  "Lingerie",
+  "Swim",
+  "Activewear",
+  "Socks",
+  "Ties",
+  "Gloves",
+];
+
+export const PERSON_CATEGORIES: Category[] = [
+  "Outerwear",
+  "Dresses",
+  "Tops",
+  "Trousers",
+  "Knitwear",
+  "Skirts",
+  "Shoes",
+  "Bags",
+  "Accessories",
+];
+
+export const BRAND_CATEGORIES: Category[] = [
+  "Outerwear",
+  "Dresses",
+  "Tops",
+  "Trousers",
+  "Knitwear",
+  "Skirts",
+  "Shoes",
+  "Bags",
+  "Jewelry",
+  "Watches",
+  "Hats",
+  "Belts",
+  "Sunglasses",
+  "Scarves",
+  "Hair",
+  "Lingerie",
+  "Swim",
+  "Activewear",
+  "Socks",
+  "Ties",
+  "Gloves",
   "Accessories",
 ];
 

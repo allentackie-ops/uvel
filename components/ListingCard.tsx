@@ -2,10 +2,12 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { usd } from "../lib/catalog";
+import { getBrand } from "../lib/brands";
 import { getMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 import { getPiece, likeCount, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
+import { VerifiedMark } from "./VerifiedMark";
 
 export function ListingCard({
   piece,
@@ -30,6 +32,7 @@ export function ListingCard({
   const fresh = Date.now() - (live.createdAt || 0) < 1000 * 60 * 60 * 24 * 7;
   const hearts = likeCount(live, app.saved);
   const liked = (live.likedBy || []).some((l) => l.uid === (app.uid || "me")) || app.saved.includes(live.id);
+  const house = live.brandId ? getBrand(live.brandId) : undefined;
   return (
     <Pressable
       onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
@@ -61,13 +64,21 @@ export function ListingCard({
         </Pressable>
       </View>
       <View style={framed ? styles.framedMeta : undefined}>
-        <Text style={[styles.brand, framed && styles.brandFramed]} numberOfLines={1}>
-          {brand.toUpperCase()}
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+          <Text style={[styles.brand, framed && styles.brandFramed, { flexShrink: 1 }]} numberOfLines={1}>
+            {brand.toUpperCase()}
+          </Text>
+          {house?.verified ? <VerifiedMark size={11} /> : null}
+        </View>
         <Text style={[styles.name, framed && styles.nameFramed]} numberOfLines={2}>
           {piece.name}
         </Text>
         <Text style={[styles.price, framed && styles.priceFramed]}>{usd(piece.listPriceCents, piece.currency || "USD")}</Text>
+        {live.sizes?.length ? (
+          <Text style={[styles.sizeLine, framed && styles.brandFramed]} numberOfLines={1}>
+            {live.sizes.join("  ")}
+          </Text>
+        ) : null}
       </View>
     </Pressable>
   );
@@ -147,6 +158,7 @@ function make(colors: ReturnType<typeof useColors>) {
     nameFramed: { color: "#F4F0E6", marginTop: 4 },
     price: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 4 },
     priceFramed: { color: "#F4F0E6" },
+    sizeLine: { color: "rgba(244,240,230,0.42)", fontSize: 11, marginTop: 4, letterSpacing: 0.4 },
   });
 }
 
