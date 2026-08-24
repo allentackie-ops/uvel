@@ -192,7 +192,7 @@ export default function Shop() {
       ) : (
         <Pressable onPress={() => router.push("/store")} style={styles.store}>
           <Text style={styles.storeTxt}>
-            {market.name} floor · {market.currency}{" "}
+            {market.name} shop · {market.currency}{" "}
           </Text>
           <Text style={styles.storeGo}>Change</Text>
         </Pressable>
@@ -291,8 +291,8 @@ export default function Shop() {
         <ListingEmpty
           copy={
             scanningLook
-              ? "Nothing on this floor looks like that yet."
-              : `Nothing on the ${market.name} floor yet. Listings from other countries stay there unless the seller opens them to this store.`
+              ? "Nothing on this shop looks like that yet."
+              : `Nothing on the ${market.name} shop yet. Listings from other countries stay there unless the seller opens them to this store.`
           }
         />
       ) : null}
