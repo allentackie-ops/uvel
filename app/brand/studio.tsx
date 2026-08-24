@@ -54,7 +54,7 @@ export default function BrandStudio() {
           <View style={{ width: 40 }} />
         </View>
 
-        <BrandBanner uri={brand.bannerUri || brand.logoUri} kind={brand.bannerKind} style={styles.banner} />
+        <BrandBanner uri={brand.bannerUri} kind={brand.bannerKind} style={[styles.banner, { backgroundColor: theme.card }]} />
         <View style={styles.bannerRow}>
           <Pressable
             onPress={() =>
@@ -73,6 +73,23 @@ export default function BrandStudio() {
             <Text style={[styles.smallTxt, { color: theme.ink }]}>Video banner</Text>
           </Pressable>
         </View>
+        {brand.bannerUri ? (
+          <Pressable
+            onPress={() =>
+              Alert.alert("Remove banner?", "The page shows without one until you add another.", [
+                { text: "Keep", style: "cancel" },
+                {
+                  text: "Remove",
+                  style: "destructive",
+                  onPress: () => updateBrand(brand.id, { bannerUri: "", bannerKind: "image" }),
+                },
+              ])
+            }
+            style={styles.removeBanner}
+          >
+            <Text style={[styles.removeBannerTxt, { color: theme.muted }]}>Remove banner</Text>
+          </Pressable>
+        ) : null}
 
         <View style={{ paddingHorizontal: 20 }}>
           <Pressable
@@ -201,6 +218,8 @@ const styles = StyleSheet.create({
   bannerRow: { flexDirection: "row", gap: 8, paddingHorizontal: 20, marginBottom: 8 },
   small: { flex: 1, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   smallTxt: { fontWeight: "700", fontSize: 13 },
+  removeBanner: { alignSelf: "flex-start", paddingHorizontal: 20, paddingBottom: 4, paddingTop: 2 },
+  removeBannerTxt: { fontSize: 14, textDecorationLine: "underline" },
   logoRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 12 },
   logo: { width: 56, height: 56, borderRadius: 14, backgroundColor: "#161512" },
   logoH: { fontWeight: "700", fontSize: 16 },

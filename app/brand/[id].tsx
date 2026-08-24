@@ -94,7 +94,7 @@ export default function BrandPage() {
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false}>
         <View>
-          <BrandBanner uri={brand.bannerUri || brand.logoUri} kind={brand.bannerKind} style={styles.banner} />
+          <BrandBanner uri={brand.bannerUri} kind={brand.bannerKind} style={[styles.banner, { backgroundColor: theme.bg }]} />
           <View style={[styles.nav, { top: insets.top + 4 }]}>
             <Pressable onPress={() => router.back()} style={[styles.orb, { backgroundColor: "rgba(0,0,0,0.42)" }]}>
               <Text style={styles.orbTxt}>‹</Text>
