@@ -317,7 +317,6 @@ export default function Today() {
 
           <View style={styles.head}>
             <Text style={styles.h2}>{source === "All" ? "Moving now" : `Now on ${source}`}</Text>
-            <Text style={styles.seeAll}>See all</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
             {visible.map((look) => (

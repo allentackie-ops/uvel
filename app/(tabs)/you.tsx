@@ -125,7 +125,6 @@ export default function You() {
     >
       <View style={styles.top}>
         <View style={{ flex: 1, paddingRight: 12 }}>
-          <Text style={styles.kicker}>YOU</Text>
           <Text style={styles.title}>{app.displayName || "Your closet"}</Text>
         </View>
         <Pressable onPress={changeFace} style={styles.faceBtn} accessibilityLabel="Change profile picture">
@@ -596,8 +595,8 @@ function make(_colors: Colors) {
     page: { flex: 1, backgroundColor: "#0B0A08" },
     content: { paddingHorizontal: 20 },
     kicker: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
-    title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 32, marginTop: 6, lineHeight: 36 },
-    top: { flexDirection: "row", alignItems: "flex-start", marginBottom: 8 },
+    title: { color: "#F4F0E6", fontWeight: "700", fontSize: 28, marginTop: 8, lineHeight: 34 },
+    top: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
     faceBtn: { marginRight: 8, marginTop: 4 },
     avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#1A1915" },
     initials: {
@@ -644,7 +643,7 @@ function make(_colors: Colors) {
       alignItems: "center",
       gap: 12,
     },
-    dnaTitle: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 20 },
+    dnaTitle: { color: "#F4F0E6", fontWeight: "700", fontSize: 17 },
     dnaSum: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 4 },
     dnaChevron: { color: "rgba(244,240,230,0.55)", fontSize: 22, marginTop: -6 },
     dnaChevronOpen: { transform: [{ rotate: "180deg" }], marginTop: 4 },

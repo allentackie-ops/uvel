@@ -149,13 +149,10 @@ export default function Mirror() {
   return (
     <View style={styles.page}>
       <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
-        <View style={{ flex: 1, paddingRight: 12 }}>
+        <View style={{ flex: 1 }}>
           <Text style={styles.kicker}>ON YOU</Text>
           <Text style={styles.head}>The mirror</Text>
         </View>
-        <Pressable onPress={() => router.push("/scan")} hitSlop={8} style={styles.search} accessibilityLabel="Find the piece">
-          <Text style={styles.searchTxt}>⌕</Text>
-        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 108 }} showsVerticalScrollIndicator={false}>

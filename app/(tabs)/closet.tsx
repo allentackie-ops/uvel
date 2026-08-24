@@ -21,11 +21,7 @@ export default function Closet() {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
-  const pieces = useWardrobe();
   const { wardrobeUris } = useUvel();
-  const owned = pieces.filter((p) => p.status === "owned");
-  const listed = pieces.filter((p) => p.status === "listed");
-  const sold = pieces.filter((p) => p.status === "sold");
 
   return (
     <ScrollView
@@ -49,34 +45,6 @@ export default function Closet() {
       ) : (
         <View style={{ height: 18 }} />
       )}
-
-      <View style={styles.headRow}>
-        <Text style={styles.h2}>In the shop</Text>
-        <Pressable onPress={() => router.push("/(tabs)/shop")}>
-          <Text style={styles.seeAll}>See all</Text>
-        </Pressable>
-      </View>
-
-      {listed.length ? (
-        listed.map((p) => <FloorCard key={p.id} piece={p} styles={styles} />)
-      ) : (
-        <Text style={styles.empty}>Nothing live yet. List a piece and it sits here.</Text>
-      )}
-
-      {owned.length > 0 ? (
-        <>
-          <Text style={[styles.h2, { marginTop: 28 }]}>In closet</Text>
-          <Text style={styles.p}>Tap a piece to list it.</Text>
-          <Grid pieces={owned} colors={colors} />
-        </>
-      ) : null}
-
-      {sold.length > 0 ? (
-        <>
-          <Text style={[styles.h2, { marginTop: 28 }]}>Sold</Text>
-          <Grid pieces={sold} colors={colors} />
-        </>
-      ) : null}
     </ScrollView>
   );
 }
