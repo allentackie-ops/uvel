@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -52,8 +52,16 @@ export default function BrandList() {
   const [price, setPrice] = useState("");
   const [condition, setCondition] = useState<(typeof BRAND_CONDITIONS)[number]>("New");
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
+  const [stage, setStage] = useState(0);
   const ph = "rgba(244,240,230,0.32)";
   const cover = photos[0];
+
+  useEffect(() => {
+    if (gate.phase !== "review") return;
+    setStage(0);
+    const t = setInterval(() => setStage((n) => (n + 1) % STAGES.length), 4200);
+    return () => clearInterval(t);
+  }, [gate.phase]);
 
   const canList =
     Boolean(brand && canPost(brand, app.uid)) &&
@@ -181,31 +189,40 @@ export default function BrandList() {
       return;
     }
     const uris = photos.map((p) => p.uri);
-    addPiece({
-      photo: uris[0],
-      photos: uris,
-      name: name.trim(),
-      brand: brand.name,
-      category,
-      color: color.trim(),
-      size: picked[0],
-      sizes: picked,
-      condition,
-      material: material.trim(),
-      notes: notes.trim(),
-      listPriceCents: Math.max(1, Number(price) || 0) * 100,
-      originalPriceCents: 0,
-      country: brand.country || app.country,
-      currency: market.currency,
-      shipsTo: encodeShipsTo(brand.country || app.country, "worldwide"),
-      brandId: brand.id,
-      ownerId: brand.ownerId,
-      ownerName: brand.name,
-      ownerPhoto: brand.logoUri,
-      listedByUid: app.uid,
-      listedByName: app.displayName,
-      status: "listed",
-    });
+    try {
+      addPiece({
+        photo: uris[0],
+        photos: uris,
+        name: name.trim(),
+        brand: brand.name,
+        category,
+        color: color.trim(),
+        size: picked[0],
+        sizes: picked,
+        condition,
+        material: material.trim(),
+        notes: notes.trim(),
+        listPriceCents: Math.max(1, Number(price) || 0) * 100,
+        originalPriceCents: 0,
+        country: brand.country || app.country,
+        currency: market.currency,
+        shipsTo: encodeShipsTo(brand.country || app.country || "", "all"),
+        brandId: brand.id,
+        ownerId: brand.ownerId,
+        ownerName: brand.name,
+        ownerPhoto: brand.logoUri,
+        listedByUid: app.uid,
+        listedByName: app.displayName,
+        status: "listed",
+      });
+    } catch (err) {
+      setGate({
+        phase: "block",
+        headline: "Couldn’t list this",
+        reasons: [err instanceof Error ? err.message : "Try again in a moment."],
+      });
+      return;
+    }
     setGate({ phase: "pass" });
     setTimeout(() => router.replace({ pathname: "/brand/[id]", params: { id: brand.id } }), 1100);
   }

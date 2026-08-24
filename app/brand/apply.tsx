@@ -160,7 +160,7 @@ export default function BrandApply() {
           <VerifiedMark size={28} />
           <Text style={styles.doneH}>{mine.name} is verified</Text>
           <Text style={styles.doneP}>You own this house. Post, invite the team, and dress the page.</Text>
-          <Pressable onPress={() => router.replace({ pathname: "/brand/[id]", params: { id: mine.id } })} style={styles.cta}>
+          <Pressable onPress={() => router.replace({ pathname: "/brand/[id]", params: { id: mine.id } })} style={styles.doneCta}>
             <Text style={styles.ctaTxt}>Open brand page</Text>
           </Pressable>
         </View>
@@ -397,5 +397,15 @@ function make(colors: Colors) {
     done: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28, gap: 12 },
     doneH: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, textAlign: "center" },
     doneP: { color: "rgba(244,240,230,0.58)", textAlign: "center", lineHeight: 22, marginBottom: 12 },
+    doneCta: {
+      marginTop: 8,
+      minHeight: 52,
+      paddingHorizontal: 40,
+      paddingVertical: 14,
+      borderRadius: 999,
+      backgroundColor: "#F4F0E6",
+      alignItems: "center",
+      justifyContent: "center",
+    },
   });
 }
