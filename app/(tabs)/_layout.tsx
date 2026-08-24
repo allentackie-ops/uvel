@@ -11,8 +11,8 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Icon sf="safari" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="find">
-        <NativeTabs.Trigger.Label>Find</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon sf="person.crop.rectangle" />
+        <NativeTabs.Trigger.Label>Mirror</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="figure.stand" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="closet">
         <NativeTabs.Trigger.Label>Sell</NativeTabs.Trigger.Label>
