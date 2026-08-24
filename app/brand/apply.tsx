@@ -180,7 +180,7 @@ export default function BrandApply() {
         </View>
         <ScrollView contentContainerStyle={{ paddingBottom: 128, paddingHorizontal: 20 }} keyboardShouldPersistTaps="handled">
           <Text style={styles.lede}>
-            Brands are not personal closets. Fill this in properly. Anthropic reads every field before the blue check.
+            Brands are not personal closets. Fill this in properly. We confirm all fields in moments before verification.
           </Text>
 
           <Pressable onPress={chooseLogo} style={styles.logoBtn}>
