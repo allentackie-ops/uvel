@@ -19,7 +19,7 @@ import { pickFromLibrary, takePhoto } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { dressPerson } from "../../lib/tryon";
-import { listedPieces, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { shopFloor, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 type GarmentPick =
   | { kind: "uvel"; piece: ClosetPiece }
@@ -31,7 +31,7 @@ export default function Mirror() {
   const insets = useSafeAreaInsets();
   const app = useUvel();
   useWardrobe();
-  const live = listedPieces();
+  const live = shopFloor(app.country);
   const person = app.personUri;
   const [picked, setPicked] = useState<GarmentPick | null>(null);
   const [link, setLink] = useState("");

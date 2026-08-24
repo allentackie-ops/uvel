@@ -6,6 +6,7 @@ import { Alert, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usd } from "../../lib/catalog";
 import { getMarket } from "../../lib/markets";
+import { listingVisibleIn, shipsToLine } from "../../lib/ships";
 import { shopLookOf, type ShopLook } from "../../lib/shopLook";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
@@ -69,9 +70,8 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
     if (app.displayName && piece.ownerName !== app.displayName) patch.ownerName = app.displayName;
     const face = app.avatarUri || app.personUri;
     if (face && piece.ownerPhoto !== face) patch.ownerPhoto = face;
-    if (app.country && piece.country !== app.country) patch.country = app.country;
     if (Object.keys(patch).length) updatePiece(piece.id, patch);
-  }, [app.uid, app.displayName, app.personUri, app.avatarUri, app.country, piece.id, piece.ownerId, piece.ownerName, piece.ownerPhoto, piece.country]);
+  }, [app.uid, app.displayName, app.personUri, app.avatarUri, piece.id, piece.ownerId, piece.ownerName, piece.ownerPhoto]);
 
   function takeDown() {
     Alert.alert("Take off the floor?", "Buyers won’t see this listing until you list it again.", [
@@ -105,6 +105,7 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
         <Text style={styles.title}>{piece.name}</Text>
         <Text style={styles.price}>{usd(piece.listPriceCents, piece.currency || "USD")}</Text>
         <Text style={styles.meta}>{[piece.size, piece.color, piece.condition].filter(Boolean).join("  ·  ")}</Text>
+        <Text style={styles.meta}>{shipsToLine(piece.country || app.country, piece.shipsTo)}</Text>
         {piece.shopLook && piece.shopLook !== "uvel" ? <Text style={styles.look}>Shop look · {look.name}</Text> : null}
       </View>
 
@@ -178,7 +179,12 @@ export default function ClosetPiece() {
   const mine = isMine(piece, app.uid);
   const seller = (mine && app.displayName) || piece.ownerName || "Uvel member";
   const sellerPhoto = (mine && (app.avatarUri || app.personUri)) || piece.ownerPhoto || null;
-  const ship = getMarket((mine && app.country) || piece.country || app.country);
+  const ship = getMarket(piece.country || app.country);
+  const onThisFloor = listingVisibleIn({
+    origin: piece.country,
+    shipsTo: piece.shipsTo,
+    buyer: app.country,
+  });
 
   function tryOnMe() {
     if (!app.isPlus && app.remainingTryOns <= 0) {
@@ -334,12 +340,13 @@ export default function ClosetPiece() {
               <Text style={styles.sellerK}>Sold by</Text>
               <Text style={styles.sellerN}>{seller}</Text>
               <Text style={styles.sellerP}>Ships from {ship.name}</Text>
+              <Text style={styles.sellerP}>{shipsToLine(piece.country || app.country, piece.shipsTo)}</Text>
             </View>
           </View>
         </View>
       </ScrollView>
 
-      {onFloor ? (
+      {onFloor && onThisFloor ? (
         <View style={[styles.dock, { paddingBottom: insets.bottom + 10 }]}>
           <Pressable onPress={tryOnMe} style={styles.try}>
             <Text style={styles.tryTxt}>Try on me</Text>
@@ -355,6 +362,21 @@ export default function ClosetPiece() {
               <Text style={styles.ctaTxt}>Buy · {usd(piece.listPriceCents, piece.currency || "USD")}</Text>
             </Pressable>
           </View>
+        </View>
+      ) : null}
+      {onFloor && !onThisFloor && !mine ? (
+        <View style={[styles.dock, { paddingBottom: insets.bottom + 10 }]}>
+          <Text style={styles.p}>
+            This piece is on the {ship.name} floor. It isn’t for sale in {getMarket(app.country).name}.
+          </Text>
+          <Pressable
+            onPress={() => {
+              app.setCountry(ship.code);
+            }}
+            style={styles.buy}
+          >
+            <Text style={styles.ctaTxt}>Go to the {ship.name} store</Text>
+          </Pressable>
         </View>
       ) : null}
     </View>

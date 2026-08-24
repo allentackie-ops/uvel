@@ -25,7 +25,8 @@ export default function StorePicker() {
       </View>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
         <Text style={styles.lede}>
-          You’re in the {current.name} store. Prices show in {current.currency}. Listings from here come first.
+          Each country is its own Uvel. You’re on the {current.name} floor — {current.currency}. A piece listed in
+          another country never shows here unless that seller opens it to this store.
         </Text>
         {regions().map((region) => (
           <View key={region}>

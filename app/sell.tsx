@@ -18,11 +18,13 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { Category } from "../lib/catalog";
+import { ShipsPicker } from "../components/ShipsPicker";
 import { usd } from "../lib/catalog";
 import { uvelFeeCents } from "../lib/fees";
 import { getMarket, moneyExact } from "../lib/markets";
 import { pickListingPhoto, takeListingPhoto } from "../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
+import { encodeShipsTo, type ShipsTo } from "../lib/ships";
 import { SHOP_LOOKS } from "../lib/shopLook";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
@@ -71,6 +73,7 @@ export default function Sell() {
   const existing = id ? getPiece(id) : undefined;
   const { wardrobeUris, appearance, uid, displayName, country, isPlus, personUri, avatarUri } = useUvel();
   const market = getMarket(country);
+  const origin = existing?.country || market.code;
 
   const [photos, setPhotos] = useState<Slot[]>(
     existing?.photos?.length
@@ -95,6 +98,9 @@ export default function Sell() {
   );
   const [fitsOpen, setFitsOpen] = useState(fits === "1");
   const [shopLook, setShopLook] = useState(existing?.shopLook || "uvel");
+  const [shipsTo, setShipsTo] = useState<ShipsTo>(
+    existing?.shipsTo ?? encodeShipsTo(origin, "home"),
+  );
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
 
@@ -277,13 +283,23 @@ export default function Sell() {
       notes: notes.trim(),
       listPriceCents: Math.max(1, Number(price) || 0) * 100,
       originalPriceCents: Math.max(0, Number(was) || 0) * 100,
-      country: market.code,
-      currency: market.currency,
+      country: origin,
+      currency: existing?.currency || market.currency,
+      shipsTo,
       shopLook: isPlus ? shopLook : "uvel",
     };
     const face = avatarUri || personUri || existing?.ownerPhoto;
-    if (existing) listPiece(existing.id, { ...draft, ownerId: uid, ownerName: displayName, ownerPhoto: face, country: market.code, currency: market.currency });
-    else addPiece({ ...draft, status: "listed", ownerId: uid, ownerName: displayName, ownerPhoto: face || undefined, country: market.code, currency: market.currency });
+    const listed = {
+      ...draft,
+      ownerId: uid,
+      ownerName: displayName,
+      ownerPhoto: face || undefined,
+      country: origin,
+      currency: existing?.currency || market.currency,
+      shipsTo,
+    };
+    if (existing) listPiece(existing.id, listed);
+    else addPiece({ ...listed, status: "listed" });
     setGate({ phase: "pass" });
     setTimeout(() => router.replace("/(tabs)/closet"), 1100);
   }
@@ -502,6 +518,8 @@ export default function Sell() {
               placeholderTextColor={ph}
             />
 
+            <ShipsPicker origin={origin} value={shipsTo} onChange={setShipsTo} />
+
             <View style={styles.lookHead}>
               <Text style={styles.label}>Shop look</Text>
               {isPlus ? (
@@ -598,7 +616,7 @@ export default function Sell() {
           {gate.phase === "pass" ? (
             <>
               <View style={styles.green} />
-              <Text style={styles.gateH}>You’re on the floor.</Text>
+              <Text style={styles.gateH}>On the {getMarket(origin).name} floor.</Text>
             </>
           ) : null}
         </View>

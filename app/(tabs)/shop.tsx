@@ -14,7 +14,7 @@ import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
-import { listedPieces, useWardrobe } from "../../lib/wardrobe";
+import { shopFloor, useWardrobe } from "../../lib/wardrobe";
 
 function FrozenClip({
   uri,
@@ -111,7 +111,7 @@ export default function Shop() {
   const frame = job?.frame || "";
   const videoUrl = job?.videoUrl || "";
   const freezeAt = job?.time || 0;
-  const live = listedPieces();
+  const live = shopFloor(country);
   const scanningLook = Boolean(scan === "1" || look || frame || videoUrl);
 
   useEffect(() => {
@@ -173,7 +173,7 @@ export default function Shop() {
       ) : (
         <Pressable onPress={() => router.push("/store")} style={styles.store}>
           <Text style={styles.storeTxt}>
-            {market.name} · {market.currency}{" "}
+            {market.name} floor · {market.currency}{" "}
           </Text>
           <Text style={styles.storeGo}>Change</Text>
         </Pressable>
@@ -234,7 +234,13 @@ export default function Shop() {
       </View>
 
       {!scanning && ranked.length === 0 ? (
-        <ListingEmpty copy="Nothing listed yet that looks like this. When someone puts the piece up, it shows here." />
+        <ListingEmpty
+          copy={
+            scanningLook
+              ? "Nothing on this floor looks like that yet."
+              : `Nothing on the ${market.name} floor yet. Listings from other countries stay there unless the seller opens them to this store.`
+          }
+        />
       ) : null}
     </ScrollView>
   );

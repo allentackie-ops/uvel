@@ -26,7 +26,7 @@ import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
-import { getPiece, likeCount, listedPieces, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { getPiece, likeCount, shopFloor, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const { width: W, height: H } = Dimensions.get("screen");
 
@@ -239,7 +239,7 @@ export default function Today() {
   const unread = chats.reduce((n, t) => n + unreadFor(t, uid || "me"), 0);
   const { looks, refreshing, refresh, loading } = useLooks();
   useWardrobe();
-  const live = listedPieces();
+  const live = shopFloor(country);
   const [source, setSource] = useState<Source>("All");
   const [videoWait, setVideoWait] = useState(false);
   const [shopWait, setShopWait] = useState(false);
@@ -335,7 +335,7 @@ export default function Today() {
             </ScrollView>
           ) : (
             <View style={{ paddingHorizontal: 16 }}>
-              <ListingEmpty copy="No listings match this look yet. When someone sells the real piece, it lands here." />
+              <ListingEmpty copy="No listings on this floor match this look yet. When someone sells the real piece here, it lands here." />
             </View>
           )}
 
@@ -355,7 +355,7 @@ export default function Today() {
             </View>
           ) : (
             <View style={{ paddingHorizontal: 16 }}>
-              <ListingEmpty copy="Only real listings show here. Sell something from Closet and it appears on the floor." />
+              <ListingEmpty copy="This country’s floor is empty. Sell from Closet — it stays on this store unless you open it to others." />
             </View>
           )}
         </View>

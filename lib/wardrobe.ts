@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import type { Category } from "./catalog";
 import { reviewListingPhoto } from "./photoCheck";
+import { listingVisibleIn, type ShipsTo } from "./ships";
 
 export type ClosetStatus = "owned" | "listed" | "sold";
 
@@ -26,6 +27,7 @@ export type ClosetPiece = {
   ownerPhoto?: string;
   country?: string;
   currency?: string;
+  shipsTo?: ShipsTo;
   shopLook?: string;
   likedBy?: Liker[];
 };
@@ -105,6 +107,13 @@ export function getPiece(id: string) {
 
 export function listedPieces() {
   return pieces.filter((p) => p.status === "listed");
+}
+
+/** Live listings a buyer in this country is allowed to see. */
+export function shopFloor(buyerCountry: string) {
+  return listedPieces().filter((p) =>
+    listingVisibleIn({ origin: p.country, shipsTo: p.shipsTo, buyer: buyerCountry }),
+  );
 }
 
 export async function analyzePhoto(photo: string): Promise<Omit<ClosetPiece, "id" | "status" | "createdAt">> {

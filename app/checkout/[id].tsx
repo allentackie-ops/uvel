@@ -6,7 +6,8 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Sheet } from "../../components/Sheet";
 import { payMethods, shippingCents, uvelFeeCents, type PayMethod } from "../../lib/fees";
-import { convertCents, getMarket, moneyExact } from "../../lib/markets";
+import { getMarket, moneyExact, convertCents } from "../../lib/markets";
+import { listingVisibleIn, shipsToLine } from "../../lib/ships";
 import { loadAddress, placeOrder, type Address } from "../../lib/orders";
 import { createCheckoutSession, openHostedPay, processorFor } from "../../lib/pay";
 import { useUvel } from "../../lib/store";
@@ -48,14 +49,26 @@ export default function Checkout() {
   const item = piece.listPriceCents;
   const itemLocal = convertCents(item, currency, market);
   const fee = uvelFeeCents(item, currency, market);
+  const sellsHere = listingVisibleIn({
+    origin: piece.country,
+    shipsTo: piece.shipsTo,
+    buyer: market.code,
+  });
+  const addressOk = address
+    ? listingVisibleIn({ origin: piece.country, shipsTo: piece.shipsTo, buyer: address.country })
+    : false;
   const same = Boolean(address && address.country === (piece.country || market.code));
-  const shipCost = address ? shippingCents(same, ship === "express", market) : 0;
+  const shipCost = address && addressOk ? shippingCents(same, ship === "express", market) : 0;
   const total = itemLocal + fee + shipCost;
   const method = methods.find((m) => m.id === pay) ?? methods[0];
-  const ready = Boolean(address) && !paying && piece.status === "listed";
+  const ready = Boolean(address) && addressOk && sellsHere && !paying && piece.status === "listed";
 
   async function payNow() {
     if (!address || !piece) return;
+    if (!sellsHere || !addressOk) {
+      Alert.alert("Wrong store", "This seller doesn’t ship this piece to that country.");
+      return;
+    }
     setPaying(true);
     try {
       const session = await createCheckoutSession({
@@ -108,6 +121,19 @@ export default function Checkout() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: 200 }}>
+        <Text style={[styles.boxS, { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 }]}>
+          {shipsToLine(piece.country || market.code, piece.shipsTo)}
+        </Text>
+        {!sellsHere ? (
+          <Text style={[styles.boxS, { paddingHorizontal: 20, color: "#E8B4A0", paddingBottom: 8 }]}>
+            This piece isn’t on the {market.name} floor.
+          </Text>
+        ) : null}
+        {address && !addressOk ? (
+          <Text style={[styles.boxS, { paddingHorizontal: 20, color: "#E8B4A0", paddingBottom: 8 }]}>
+            This seller doesn’t ship to {getMarket(address.country).name}.
+          </Text>
+        ) : null}
         <Text style={styles.h}>Address</Text>
         <Pressable onPress={() => router.push("/address")} style={styles.box}>
           {address ? (

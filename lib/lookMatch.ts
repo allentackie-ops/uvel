@@ -4,6 +4,7 @@ import type { ClosetPiece } from "./wardrobe";
 import type { Look } from "./trends";
 import { dnaFrom, dnaKeywords } from "./styleDna";
 import { snapshot } from "./store";
+import { listingVisibleIn } from "./ships";
 
 const CATS: Category[] = [
   "Outerwear",
@@ -52,11 +53,13 @@ export function matchListings(
 }
 
 export function forYou(pieces: ClosetPiece[], styles: string[], country: string) {
-  return [...pieces].sort((a, b) => {
-    const as = scoreListing(a, [], styles) + (a.country === country ? 2 : 0);
-    const bs = scoreListing(b, [], styles) + (b.country === country ? 2 : 0);
-    return bs - as || b.createdAt - a.createdAt;
-  });
+  return [...pieces]
+    .filter((p) => listingVisibleIn({ origin: p.country, shipsTo: p.shipsTo, buyer: country }))
+    .sort((a, b) => {
+      const as = scoreListing(a, [], styles) + (a.country === country ? 2 : 0);
+      const bs = scoreListing(b, [], styles) + (b.country === country ? 2 : 0);
+      return bs - as || b.createdAt - a.createdAt;
+    });
 }
 
 async function asRemoteImage(uri: string) {

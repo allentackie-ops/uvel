@@ -70,7 +70,7 @@ export default function Address() {
           <Field label="City" value={city} onChange={setCity} ph={ph} colors={colors} />
           <Field label="State / region" value={region} onChange={setRegion} ph={ph} colors={colors} />
           <Field label="Postal code" value={postal} onChange={setPostal} ph={ph} colors={colors} />
-          <Text style={styles.note}>Ships to {market.name}.</Text>
+          <Text style={styles.note}>This address is for the {market.name} store.</Text>
           <Pressable onPress={() => void save()} disabled={!ok} style={[styles.save, !ok && { opacity: 0.4 }]}>
             <Text style={styles.saveTxt}>Save address</Text>
           </Pressable>

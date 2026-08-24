@@ -17,7 +17,7 @@ import { ListingCard, ListingEmpty } from "../components/ListingCard";
 import { matchLookImage } from "../lib/lookMatch";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
-import { listedPieces, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
+import { shopFloor, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 
 const SOURCES = ["Camera", "Photos", "Instagram", "Pinterest", "TikTok", "Snapchat", "Link"];
 
@@ -46,7 +46,7 @@ export default function ScanLook() {
       return;
     }
     setBusy(true);
-    const live = listedPieces();
+    const live = shopFloor(app.country);
     const image = preview || url.trim();
     const ai =
       image.startsWith("http") || image.startsWith("file") || image.startsWith("ph://") || image.startsWith("content:")
