@@ -191,14 +191,22 @@ export function toggleLiker(id: string, liker: Liker): { liked: boolean; piece?:
   return { liked: !had, piece: getPiece(id) };
 }
 
+export function syncSavedLikes(ids: string[], liker: Liker) {
+  if (!ids.length) return;
+  let changed = false;
+  pieces = pieces.map((p) => {
+    if (!ids.includes(p.id)) return p;
+    if ((p.likedBy || []).some((l) => l.uid === liker.uid)) return p;
+    changed = true;
+    return { ...p, likedBy: [{ ...liker, at: Date.now() }, ...(p.likedBy || [])] };
+  });
+  if (changed) void persist();
+}
+
 export function likesOnMine(uid: string) {
   return pieces
-    .filter((p) => !p.ownerId || p.ownerId === uid)
-    .flatMap((p) =>
-      (p.likedBy || [])
-        .filter((l) => l.uid !== uid)
-        .map((l) => ({ ...l, piece: p })),
-    )
+    .filter((p) => p.status === "listed" || p.status === "sold" || (p.likedBy && p.likedBy.length))
+    .flatMap((p) => (p.likedBy || []).map((l) => ({ ...l, piece: p })))
     .sort((a, b) => b.at - a.at);
 }
 

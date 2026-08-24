@@ -26,7 +26,7 @@ import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
-import { likeCount, listedPieces, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { getPiece, likeCount, listedPieces, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const { width: W, height: H } = Dimensions.get("screen");
 
@@ -472,31 +472,31 @@ function ShopLookCard({
   const from = getMarket(piece.country || country);
   const local = from.code === here.code;
   const brand = local ? (piece.brand === "Unlabeled" ? "UVEL" : piece.brand) : from.name;
+  const live = getPiece(piece.id) || piece;
+  const hearts = likeCount(live);
   return (
     <Pressable
-      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })}
+      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
       style={styles.shopCard}
     >
       <View>
-        <Image source={{ uri: piece.photo }} style={styles.shopImg} contentFit="cover" />
+        <Image source={{ uri: live.photo }} style={styles.shopImg} contentFit="cover" />
         <View style={styles.shopNow}>
           <Text style={styles.shopNowTxt}>Shop now</Text>
         </View>
-        {likeCount(piece) > 0 ? (
-          <View style={styles.shopHearts}>
-            <Text style={styles.shopHeartsIco}>♥</Text>
-            <Text style={styles.shopHeartsN}>{likeCount(piece)}</Text>
-          </View>
-        ) : null}
+        <View style={styles.shopHearts}>
+          <Text style={styles.shopHeartsIco}>♥</Text>
+          <Text style={styles.shopHeartsN}>{hearts}</Text>
+        </View>
       </View>
       <View style={styles.shopMeta}>
         <Text style={styles.shopBrand} numberOfLines={1}>
           {brand.toUpperCase()}
         </Text>
         <Text style={styles.shopName} numberOfLines={2}>
-          {piece.name}
+          {live.name}
         </Text>
-        <Text style={styles.shopPrice}>{usd(piece.listPriceCents, piece.currency || "USD")}</Text>
+        <Text style={styles.shopPrice}>{usd(live.listPriceCents, live.currency || "USD")}</Text>
       </View>
     </Pressable>
   );

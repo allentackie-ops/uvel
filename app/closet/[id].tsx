@@ -148,7 +148,9 @@ export default function ClosetPiece() {
   const app = useUvel();
   const look = shopLookOf(piece?.shopLook);
   const styles = useMemo(() => make(look), [look]);
-  const liked = piece ? app.saved.includes(piece.id) : false;
+  const liked =
+    !!piece &&
+    (app.saved.includes(piece.id) || (piece.likedBy || []).some((l) => l.uid === (app.uid || "me")));
   const hearts = piece ? likeCount(piece) : 0;
 
   if (!piece) {
@@ -238,7 +240,7 @@ export default function ClosetPiece() {
             <Text style={[styles.heart, { color: liked ? look.accent : look.status === "dark" ? "#16140F" : "#F4F0E6" }]}>
               {liked ? "♥" : "♡"}
             </Text>
-            {hearts > 0 ? <Text style={[styles.heartN, { color: look.status === "dark" ? "#16140F" : "#F4F0E6" }]}>{hearts}</Text> : null}
+            <Text style={[styles.heartN, { color: look.status === "dark" ? "#16140F" : "#F4F0E6" }]}>{hearts}</Text>
           </Pressable>
         </View>
 

@@ -43,6 +43,11 @@ export default function You() {
     if (seed.archetype || seed.palette || seed.silhouette) app.setStyle(seed);
   }, [app.archetype, app.styles]);
 
+  useEffect(() => {
+    if (!app.hydrated) return;
+    app.seedSavedLikes();
+  }, [app.hydrated, app.saved.join("|"), pieces.length]);
+
   function pick(patch: { archetype?: string; palette?: string; silhouette?: string }) {
     app.setStyle(patch);
     void pullLooks({ fresh: true });
@@ -383,10 +388,9 @@ function LikesPane({
   }
   return (
     <View>
+      <Text style={styles.active}>Likes on your listings</Text>
       {received.length ? (
-        <View style={{ marginBottom: 18 }}>
-          <Text style={styles.active}>On your listings</Text>
-          {received.map((row) => (
+        received.map((row) => (
             <Pressable
               key={`${row.uid}-${row.piece.id}-${row.at}`}
               onPress={() => router.push({ pathname: "/closet/[id]", params: { id: row.piece.id } })}
@@ -410,12 +414,13 @@ function LikesPane({
               </View>
               <Image source={{ uri: row.piece.photo }} style={styles.likerThumb} contentFit="cover" />
             </Pressable>
-          ))}
-        </View>
-      ) : null}
+        ))
+      ) : (
+        <Text style={styles.emptyP}>Nobody’s liked a listing yet.</Text>
+      )}
       {pieces.length || garments.length ? (
         <View>
-          {received.length ? <Text style={styles.active}>You liked</Text> : null}
+          <Text style={styles.active}>You liked</Text>
           <View style={styles.grid}>
             {pieces.map((p) => (
               <View key={p.id} style={{ width: COL }}>

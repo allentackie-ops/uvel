@@ -5,7 +5,7 @@ import { usd } from "../lib/catalog";
 import { getMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
-import { likeCount, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
+import { getPiece, likeCount, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 
 export function ListingCard({
   piece,
@@ -21,21 +21,23 @@ export function ListingCard({
   const colors = useColors();
   const styles = make(colors);
   useWardrobe();
-  const { country } = useUvel();
-  const here = getMarket(country);
-  const from = getMarket(piece.country || country);
+  const app = useUvel();
+  const live = getPiece(piece.id) || piece;
+  const here = getMarket(app.country);
+  const from = getMarket(live.country || app.country);
   const local = from.code === here.code;
-  const brand = local ? (piece.brand === "Unlabeled" ? "Uvel" : piece.brand) : from.name;
-  const fresh = Date.now() - (piece.createdAt || 0) < 1000 * 60 * 60 * 48;
-  const hearts = likeCount(piece);
+  const brand = local ? (live.brand === "Unlabeled" ? "Uvel" : live.brand) : from.name;
+  const fresh = Date.now() - (live.createdAt || 0) < 1000 * 60 * 60 * 48;
+  const hearts = likeCount(live);
+  const liked = (live.likedBy || []).some((l) => l.uid === (app.uid || "me")) || app.saved.includes(live.id);
   return (
     <Pressable
-      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })}
+      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
       style={[styles.wrap, wide ? { width: wide, flex: undefined } : null, framed && styles.framed]}
     >
       <View>
         <Image
-          source={{ uri: piece.photo }}
+          source={{ uri: live.photo }}
           style={[styles.img, wide ? { width: wide, borderRadius: framed ? 0 : 18 } : null, framed && styles.framedImg]}
           contentFit="cover"
         />
@@ -49,12 +51,14 @@ export function ListingCard({
             <Text style={styles.badgeTxt}>{badge}</Text>
           </View>
         ) : null}
-        {hearts > 0 ? (
-          <View style={styles.hearts}>
-            <Text style={styles.heartsIco}>♥</Text>
-            <Text style={styles.heartsN}>{hearts}</Text>
-          </View>
-        ) : null}
+        <Pressable
+          onPress={() => app.likePiece(live.id)}
+          hitSlop={8}
+          style={styles.hearts}
+        >
+          <Text style={[styles.heartsIco, liked && styles.heartsOn]}>{liked ? "♥" : "♡"}</Text>
+          <Text style={styles.heartsN}>{hearts}</Text>
+        </Pressable>
       </View>
       <View style={framed ? styles.framedMeta : undefined}>
         <Text style={[styles.brand, framed && styles.brandFramed]} numberOfLines={1}>
@@ -98,18 +102,22 @@ function make(colors: ReturnType<typeof useColors>) {
     newBadgeTxt: { color: "#F4F0E6", fontSize: 11, fontWeight: "700" },
     hearts: {
       position: "absolute",
-      right: 10,
-      bottom: 10,
-      backgroundColor: "rgba(18,17,14,0.72)",
-      borderRadius: 14,
-      height: 26,
-      paddingHorizontal: 8,
+      right: 8,
+      bottom: 8,
+      backgroundColor: "rgba(11,10,8,0.82)",
+      borderRadius: 16,
+      minHeight: 28,
+      minWidth: 44,
+      paddingHorizontal: 10,
       flexDirection: "row",
       alignItems: "center",
-      gap: 4,
+      justifyContent: "center",
+      gap: 5,
+      zIndex: 2,
     },
-    heartsIco: { color: "#D6E27A", fontSize: 11 },
-    heartsN: { color: "#F4F0E6", fontSize: 12, fontWeight: "700" },
+    heartsIco: { color: "#F4F0E6", fontSize: 13 },
+    heartsOn: { color: "#D6E27A" },
+    heartsN: { color: "#F4F0E6", fontSize: 13, fontWeight: "700" },
     badge: {
       position: "absolute",
       left: 10,

@@ -71,7 +71,8 @@ export default function Shop() {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
-  const { country, styles: taste } = useUvel();
+  const app = useUvel();
+  const { country, styles: taste } = app;
   const market = getMarket(country);
   const { q: qParam, look: lookParam, scan } = useLocalSearchParams<{ q?: string; look?: string; scan?: string }>();
   const [q, setQ] = useState("");
@@ -80,6 +81,11 @@ export default function Shop() {
   const [scanning, setScanning] = useState(false);
   const [job, setJob] = useState<LookScan | null>(null);
   useWardrobe();
+
+  useEffect(() => {
+    if (!app.hydrated) return;
+    app.seedSavedLikes();
+  }, [app.hydrated, app.saved.join("|")]);
 
   const look = useMemo(
     () => (typeof lookParam === "string" ? bundledLooks().find((l) => l.id === lookParam) : undefined),

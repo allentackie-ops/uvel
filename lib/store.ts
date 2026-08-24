@@ -4,6 +4,7 @@ import type { Session } from "./auth";
 import { guessLocale } from "./i18n";
 import { detectCountry, setActiveMarket } from "./markets";
 import { shouldAskSetup } from "./sessionPath";
+import { syncSavedLikes, toggleLiker } from "./wardrobe";
 
 type State = {
   isPlus: boolean;
@@ -168,26 +169,32 @@ export function useUvel() {
       }),
     likePiece: (id: string) => {
       const uid = memory.uid || "me";
-      void import("./wardrobe").then(({ toggleLiker }) => {
-        const { liked, piece } = toggleLiker(id, {
-          uid,
-          name: memory.displayName || "Uvel member",
-          photo: memory.avatarUri || memory.personUri || undefined,
-        });
-        void save({
-          saved: liked ? Array.from(new Set([...memory.saved, id])) : memory.saved.filter((x) => x !== id),
-        });
-        if (!liked || !piece?.ownerId || piece.ownerId === uid) return;
-        void import("./chat").then(({ readUserLite }) =>
-          readUserLite(piece.ownerId as string).then((other) => {
-            const token = typeof other?.expoPushToken === "string" ? other.expoPushToken : "";
-            if (!token) return;
-            const who = memory.displayName || "Someone";
-            void import("./push").then(({ sendPush }) =>
-              sendPush(token, "New like", `${who} liked ${piece.name}`, { pieceId: id }),
-            );
-          }),
-        );
+      const liker = {
+        uid,
+        name: memory.displayName || "Uvel member",
+        photo: memory.avatarUri || memory.personUri || undefined,
+      };
+      const { liked, piece } = toggleLiker(id, liker);
+      void save({
+        saved: liked ? Array.from(new Set([...memory.saved, id])) : memory.saved.filter((x) => x !== id),
+      });
+      if (!liked || !piece?.ownerId || piece.ownerId === uid) return;
+      void import("./chat").then(({ readUserLite }) =>
+        readUserLite(piece.ownerId as string).then((other) => {
+          const token = typeof other?.expoPushToken === "string" ? other.expoPushToken : "";
+          if (!token) return;
+          const who = memory.displayName || "Someone";
+          void import("./push").then(({ sendPush }) =>
+            sendPush(token, "New like", `${who} liked ${piece.name}`, { pieceId: id }),
+          );
+        }),
+      );
+    },
+    seedSavedLikes: () => {
+      syncSavedLikes(memory.saved, {
+        uid: memory.uid || "me",
+        name: memory.displayName || "Uvel member",
+        photo: memory.avatarUri || memory.personUri || undefined,
       });
     },
     consumeFind: () => {
