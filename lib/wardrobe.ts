@@ -38,6 +38,8 @@ export type ClosetPiece = {
   listedByUid?: string;
   listedByName?: string;
   views?: number;
+  /** Total available units for brand inventory; ordinary resale listings may omit it. */
+  stockQuantity?: number;
 };
 
 export type Liker = {

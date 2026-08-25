@@ -86,12 +86,17 @@ service cloud.firestore {
       allow create: if signedIn() &&
         request.resource.data.listedByUid == request.auth.uid &&
         request.resource.data.brandId is string &&
+        request.resource.data.stockQuantity is int &&
+        request.resource.data.stockQuantity > 0 &&
         request.resource.data.status in ["owned", "listed"];
       allow update: if signedIn() &&
         resource.data.listedByUid == request.auth.uid &&
         request.resource.data.listedByUid == resource.data.listedByUid &&
         request.resource.data.brandId == resource.data.brandId &&
-        request.resource.data.status in ["owned", "listed"];
+        request.resource.data.stockQuantity is int &&
+        ((request.resource.data.status in ["owned", "listed"] && request.resource.data.stockQuantity > 0) ||
+         (request.resource.data.status == "sold" && request.resource.data.stockQuantity == 0)) &&
+        request.resource.data.status in ["owned", "listed", "sold"];
       allow delete: if signedIn() && resource.data.listedByUid == request.auth.uid;
     }
 

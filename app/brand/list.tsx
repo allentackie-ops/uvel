@@ -53,6 +53,7 @@ export default function BrandList() {
   const [material, setMaterial] = useState("");
   const [notes, setNotes] = useState("");
   const [price, setPrice] = useState("");
+  const [stockQuantity, setStockQuantity] = useState("");
   const [shipsTo, setShipsTo] = useState<ShipsTo>(() => encodeShipsTo(origin, "home"));
   const [condition, setCondition] = useState<(typeof BRAND_CONDITIONS)[number]>("New");
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
@@ -75,6 +76,7 @@ export default function BrandList() {
     Boolean(name.trim()) &&
     Boolean(notes.trim()) &&
     Number(price) > 0 &&
+    Number(stockQuantity) > 0 &&
     Boolean(category) &&
     picked.length > 0 &&
     Boolean(color.trim()) &&
@@ -122,6 +124,8 @@ export default function BrandList() {
     );
   }
 
+  const activeBrand = brand;
+
   async function addUri(uri: string) {
     if (photos.length >= MAX) return;
     setPhotos((prev) => [...prev, { uri, status: "checking" }]);
@@ -148,15 +152,15 @@ export default function BrandList() {
       ActionSheetIOS.showActionSheetWithOptions(
         { options: ["Camera", "Library", "Cancel"], cancelButtonIndex: 2, userInterfaceStyle: "dark" },
         (i) => {
-          if (i === 0) void takeListingPhoto().then((u) => u && addUri(u));
-          if (i === 1) void pickListingPhoto().then((u) => u && addUri(u));
+          if (i === 0) void takeListingPhoto().then((u) => { if (u) void addUri(u); });
+          if (i === 1) void pickListingPhoto().then((u) => { if (u) void addUri(u); });
         },
       );
       return;
     }
     Alert.alert("Add a photo", undefined, [
-      { text: "Camera", onPress: () => void takeListingPhoto().then((u) => u && addUri(u)) },
-      { text: "Library", onPress: () => void pickListingPhoto().then((u) => u && addUri(u)) },
+      { text: "Camera", onPress: () => void takeListingPhoto().then((u) => { if (u) void addUri(u); }) },
+      { text: "Library", onPress: () => void pickListingPhoto().then((u) => { if (u) void addUri(u); }) },
       { text: "Cancel", style: "cancel" },
     ]);
   }
@@ -179,7 +183,7 @@ export default function BrandList() {
         name: name.trim(),
         notes: notes.trim(),
         category,
-        brand: brand.name,
+        brand: activeBrand.name,
         color: color.trim(),
         size: picked.join(", "),
         condition,
@@ -200,7 +204,7 @@ export default function BrandList() {
         photo: uris[0],
         photos: uris,
         name: name.trim(),
-        brand: brand.name,
+        brand: activeBrand.name,
         category,
         color: color.trim(),
         size: picked[0],
@@ -210,13 +214,14 @@ export default function BrandList() {
         notes: notes.trim(),
         listPriceCents: Math.max(1, Number(price) || 0) * 100,
         originalPriceCents: 0,
+        stockQuantity: Math.max(1, Number(stockQuantity) || 0),
         country: origin,
         currency: market.currency,
         shipsTo,
-        brandId: brand.id,
-        ownerId: brand.ownerId,
-        ownerName: brand.name,
-        ownerPhoto: brand.logoUri,
+        brandId: activeBrand.id,
+        ownerId: activeBrand.ownerId,
+        ownerName: activeBrand.name,
+        ownerPhoto: activeBrand.logoUri,
         listedByUid: app.uid,
         listedByName: app.displayName,
         status: "listed",
@@ -230,7 +235,7 @@ export default function BrandList() {
       return;
     }
     setGate({ phase: "pass" });
-    setTimeout(() => router.replace({ pathname: "/brand/[id]", params: { id: brand.id } }), 1100);
+    setTimeout(() => router.replace({ pathname: "/brand/[id]", params: { id: activeBrand.id } }), 1100);
   }
 
   return (
@@ -240,7 +245,7 @@ export default function BrandList() {
           <Pressable onPress={() => router.back()} style={styles.back}>
             <Text style={styles.backTxt}>‹</Text>
           </Pressable>
-          <Text style={styles.topTitle}>List on {brand.name}</Text>
+              <Text style={styles.topTitle}>List on {activeBrand.name}</Text>
           <View style={{ width: 40 }} />
         </View>
           <ScrollView contentContainerStyle={{ paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
@@ -248,7 +253,7 @@ export default function BrandList() {
             <View style={styles.contactGate}>
               <Text style={styles.contactGateTitle}>Add a brand contact first</Text>
               <Text style={styles.contactGateText}>Before publishing a listing, add at least one reachable phone, WhatsApp, Instagram, email, or website to this brand.</Text>
-              <Pressable onPress={() => router.push({ pathname: "/brand/apply", params: { id: brand.id } })} style={styles.contactGateBtn}>
+              <Pressable onPress={() => router.push({ pathname: "/brand/apply", params: { id: activeBrand.id } })} style={styles.contactGateBtn}>
                 <Text style={styles.contactGateBtnText}>Open brand details</Text>
               </Pressable>
             </View>
@@ -289,6 +294,17 @@ export default function BrandList() {
             </View>
             <Text style={styles.label}>Title *</Text>
             <TextInput style={styles.field} value={name} onChangeText={setName} placeholder="The piece" placeholderTextColor={ph} />
+
+            <Text style={styles.label}>Units in stock *</Text>
+            <Text style={styles.hint}>How many of this item can buyers order?</Text>
+            <TextInput
+              style={styles.field}
+              value={stockQuantity}
+              onChangeText={(v) => setStockQuantity(v.replace(/[^0-9]/g, ""))}
+              keyboardType="number-pad"
+              placeholder="e.g. 12"
+              placeholderTextColor={ph}
+            />
 
             <View style={styles.marketSection}>
               <ShipsPicker origin={origin} value={shipsTo} onChange={setShipsTo} />
@@ -387,7 +403,7 @@ export default function BrandList() {
               </Pressable>
             </>
           ) : null}
-          {gate.phase === "pass" ? <Text style={styles.gateH}>On {brand.name}.</Text> : null}
+          {gate.phase === "pass" ? <Text style={styles.gateH}>On {activeBrand.name}.</Text> : null}
         </View>
       ) : null}
     </View>
@@ -410,7 +426,7 @@ const styles = StyleSheet.create({
   heroEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
   heroPlus: { color: "#F4F0E6", fontSize: 44 },
   heroHint: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 22 },
-  heroMask: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(214,226,122,0.5)", alignItems: "center", justifyContent: "center" },
+  heroMask: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(214,226,122,0.5)", alignItems: "center", justifyContent: "center" },
   slotRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 12 },
   mini: { width: 56, height: 70, borderRadius: 8, backgroundColor: "#161512" },
   miniAdd: { width: 56, height: 70, borderRadius: 8, borderWidth: 1, borderColor: "rgba(244,240,230,0.16)", alignItems: "center", justifyContent: "center" },
@@ -465,7 +481,7 @@ const styles = StyleSheet.create({
   ctaOff: { backgroundColor: "#2A2824" },
   ctaTxt: { color: "#16140F", fontWeight: "800", fontSize: 16 },
   ctaTxtOff: { color: "rgba(244,240,230,0.35)" },
-  gate: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(11,10,8,0.96)", alignItems: "center", justifyContent: "center", paddingHorizontal: 28, gap: 12 },
+  gate: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(11,10,8,0.96)", alignItems: "center", justifyContent: "center", paddingHorizontal: 28, gap: 12 },
   gateH: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, textAlign: "center" },
   gateP: { color: "rgba(244,240,230,0.6)", textAlign: "center" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28 },

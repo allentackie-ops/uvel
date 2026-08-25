@@ -101,6 +101,11 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
         <View style={[styles.badge, { top: insets.top + 14 }]}>
           <Text style={styles.badgeTxt}>{status}</Text>
         </View>
+        {piece.brandId && typeof piece.stockQuantity === "number" && piece.stockQuantity > 0 && piece.stockQuantity <= 10 ? (
+          <View style={[styles.stockBadge, { top: insets.top + 58 }]}>
+            <Text style={styles.stockBadgeTxt}>{piece.stockQuantity} remaining</Text>
+          </View>
+        ) : null}
       </View>
 
       <View style={styles.body}>
@@ -244,6 +249,11 @@ export default function ClosetPiece() {
               />
             ))}
           </ScrollView>
+          {piece.brandId && typeof piece.stockQuantity === "number" && piece.stockQuantity > 0 && piece.stockQuantity <= 10 ? (
+            <View style={[styles.stockBadge, { top: insets.top + 58, left: 16 }]}>
+              <Text style={styles.stockBadgeTxt}>{piece.stockQuantity} remaining</Text>
+            </View>
+          ) : null}
           {gallery.length > 1 ? (
             <View style={[styles.count, { top: insets.top + 10 }]}>
               <Text style={styles.countTxt}>
@@ -451,6 +461,8 @@ function ownerStyles(colors: Colors) {
       paddingVertical: 5,
     },
     badgeTxt: { color: "#16140F", fontSize: 11, fontWeight: "700", letterSpacing: 0.4 },
+    stockBadge: { position: "absolute", left: 16, backgroundColor: "#D6E27A", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, zIndex: 4 },
+    stockBadgeTxt: { color: "#16140F", fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
     body: { paddingHorizontal: 22, paddingTop: 16, paddingBottom: 12 },
     kicker: { color: colors.subtle, fontSize: 11, letterSpacing: 1.8, textTransform: "uppercase" },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 28, lineHeight: 34, marginTop: 8 },
@@ -529,6 +541,8 @@ function make(look: ShopLook) {
       justifyContent: "center",
     },
     iconTxt: { fontSize: 28, lineHeight: 30, marginTop: -2 },
+    stockBadge: { position: "absolute", left: 16, backgroundColor: "#D6E27A", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, zIndex: 4 },
+    stockBadgeTxt: { color: "#16140F", fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
     heart: { fontSize: 18, marginTop: 1 },
     heartBtn: {
       position: "absolute",

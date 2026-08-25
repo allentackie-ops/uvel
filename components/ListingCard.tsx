@@ -51,6 +51,11 @@ export function ListingCard({
             <Text style={styles.newBadgeTxt}>New</Text>
           </View>
         ) : null}
+        {live.brandId && typeof live.stockQuantity === "number" && live.stockQuantity > 0 && live.stockQuantity <= 10 ? (
+          <View style={[styles.stockBadge, { top: framed && fresh ? 38 : 10 }]}>
+            <Text style={styles.stockBadgeTxt}>{live.stockQuantity} remaining</Text>
+          </View>
+        ) : null}
         {badge ? (
           <View style={styles.badge}>
             <Text style={styles.badgeTxt}>{badge}</Text>
@@ -154,6 +159,8 @@ function make(colors: ReturnType<typeof useColors>) {
       justifyContent: "center",
     },
     badgeTxt: { color: "#16140F", fontWeight: "700", fontSize: 12 },
+    stockBadge: { position: "absolute", left: 10, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center", zIndex: 9 },
+    stockBadgeTxt: { color: "#16140F", fontSize: 12, fontWeight: "800" },
     framedMeta: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12 },
     brand: { color: colors.subtle, fontSize: 11, marginTop: 8, letterSpacing: 0.4 },
     brandFramed: { marginTop: 0, letterSpacing: 1.3, fontWeight: "700", color: "rgba(244,240,230,0.42)" },

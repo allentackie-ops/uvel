@@ -251,12 +251,24 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
     if (order.status === "paid") return { ok: true, duplicate: true };
     if (order.status !== "pending") return { ok: false, reason: "order-not-pending" };
     if (Number(providerAmount) > 0 && Number(order.totalCents) !== Number(providerAmount)) return { ok: false, reason: "amount-mismatch" };
-    if (order.brandId && (!listingSnap || !listingSnap.exists || listingSnap.data().status !== "listed")) return { ok: false, reason: "listing-unavailable" };
+    const listingData = listingSnap && listingSnap.exists ? listingSnap.data() || {} : {};
+    const listingStock = Number(listingData.stockQuantity);
+    const hasTrackedStock = order.brandId && Number.isFinite(listingStock);
+    if (order.brandId && (!listingSnap || !listingSnap.exists || listingData.status !== "listed" || (hasTrackedStock && listingStock <= 0))) return { ok: false, reason: "listing-unavailable" };
     if (providerCurrency && String(order.currency || "").toUpperCase() !== String(providerCurrency).toUpperCase()) return { ok: false, reason: "currency-mismatch" };
     const paidAt = admin.firestore.FieldValue.serverTimestamp();
     tx.update(orderRef, { status: "paid", paymentProvider: provider, paymentReference: providerReference, paidAt });
     if (listingRef) {
-      tx.set(listingRef, { status: "sold", soldAt: paidAt }, { merge: true });
+      if (hasTrackedStock) {
+        const remaining = Math.max(0, Math.floor(listingStock) - 1);
+        tx.set(
+          listingRef,
+          remaining > 0 ? { stockQuantity: remaining } : { stockQuantity: 0, status: "sold", soldAt: paidAt },
+          { merge: true },
+        );
+      } else {
+        tx.set(listingRef, { status: "sold", soldAt: paidAt }, { merge: true });
+      }
     }
     if (order.brandId) {
       const refs = analyticsRefs(db, String(order.brandId));
