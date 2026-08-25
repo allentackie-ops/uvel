@@ -162,8 +162,8 @@ function make(colors: ReturnType<typeof useColors>) {
     price: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 4 },
     priceFramed: { color: "#F4F0E6" },
     sizeLine: { color: "rgba(244,240,230,0.42)", fontSize: 11, marginTop: 4, letterSpacing: 0.4 },
-    total: { color: "#58C2D4", fontSize: 12, marginTop: 5, fontWeight: "700" },
-    totalFramed: { color: "#58C2D4" },
+    total: { color: "#D6E27A", fontSize: 12, marginTop: 5, fontWeight: "700" },
+    totalFramed: { color: "#D6E27A" },
   });
 }
 
