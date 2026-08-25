@@ -5,7 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandBanner } from "../../components/BrandBanner";
 import { BRAND_THEMES } from "../../lib/brandThemes";
-import { canStudio, getBrand, inquiryRecipients, removeMember, themeFor, updateBrand, useBrands } from "../../lib/brands";
+import { canStudio, getBrand, inquiryRecipients, memberRoleLabel, removeMember, themeFor, updateBrand, useBrands } from "../../lib/brands";
 import { pickBannerImage, pickBannerVideo, pickLogo } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
 
@@ -199,7 +199,7 @@ export default function BrandStudio() {
                 <View key={`routing-${m.uid}`} style={styles.routingRow}>
                   <View style={styles.routingCopy}>
                     <Text style={[styles.memberN, { color: theme.ink }]}>{m.name}</Text>
-                    <Text style={[styles.memberR, { color: theme.muted }]}>{m.role === "owner" ? "Owner" : "Poster"}</Text>
+                    <Text style={[styles.memberR, { color: theme.muted }]}>{memberRoleLabel(m.role)}</Text>
                   </View>
                   <Switch
                     value={selected}
@@ -217,7 +217,7 @@ export default function BrandStudio() {
             <View key={m.uid} style={styles.member}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.memberN, { color: theme.ink }]}>{m.name}</Text>
-                <Text style={[styles.memberR, { color: theme.muted }]}>{m.role === "owner" ? "Owner" : "Poster"}</Text>
+                <Text style={[styles.memberR, { color: theme.muted }]}>{memberRoleLabel(m.role)}</Text>
               </View>
               {m.role !== "owner" ? (
                 <Pressable

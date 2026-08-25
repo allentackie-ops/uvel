@@ -19,7 +19,7 @@ import { addPiece, allPieces, listedPieces, type ClosetPiece } from "./wardrobe"
 import { allOrders } from "./orders";
 
 export type BrandStatus = "draft" | "pending" | "verified" | "rejected";
-export type MemberRole = "owner" | "poster";
+export type MemberRole = "owner" | "admin" | "merchandiser" | "marketing" | "support" | "finance" | "viewer" | "poster";
 
 export type BrandMember = {
   uid: string;
@@ -39,6 +39,7 @@ export type BrandInvite = {
   toUid?: string;
   toEmail?: string;
   toName?: string;
+  role?: Exclude<MemberRole, "owner">;
   status: "pending" | "accepted" | "declined";
   createdAt: number;
 };
@@ -369,8 +370,43 @@ export function roleOn(brand: Brand, uid: string): MemberRole | null {
   return brand.members.find((m) => m.uid === uid)?.role ?? null;
 }
 
+export function memberRoleLabel(role: MemberRole) {
+  if (role === "owner") return "Owner";
+  if (role === "admin") return "Admin";
+  if (role === "merchandiser") return "Merchandiser";
+  if (role === "marketing") return "Marketing";
+  if (role === "support") return "Customer support";
+  if (role === "finance") return "Finance";
+  if (role === "viewer") return "Viewer";
+  return "Poster";
+}
+
 export function canPost(brand: Brand, uid: string) {
   return brand.verified && Boolean(roleOn(brand, uid));
+}
+
+export function canAccessHQ(brand: Brand, uid: string) {
+  return Boolean(roleOn(brand, uid));
+}
+
+export function canManageTeam(brand: Brand, uid: string) {
+  const role = roleOn(brand, uid);
+  return role === "owner" || role === "admin";
+}
+
+export function canManageCatalog(brand: Brand, uid: string) {
+  const role = roleOn(brand, uid);
+  return role === "owner" || role === "admin" || role === "merchandiser" || role === "poster";
+}
+
+export function canEditBrand(brand: Brand, uid: string) {
+  const role = roleOn(brand, uid);
+  return role === "owner" || role === "admin" || role === "marketing";
+}
+
+export function canViewOrders(brand: Brand, uid: string) {
+  const role = roleOn(brand, uid);
+  return role === "owner" || role === "admin" || role === "support" || role === "finance";
 }
 
 export function canStudio(brand: Brand, uid: string) {
@@ -558,6 +594,7 @@ export async function sendInvite(input: {
   fromUid: string;
   fromName: string;
   person: BrandPerson;
+  role?: Exclude<MemberRole, "owner">;
 }) {
   const brand = getBrand(input.brandId);
   if (!brand) throw new Error("Brand missing.");
@@ -576,6 +613,7 @@ export async function sendInvite(input: {
     toUid: input.person.uid,
     toEmail: input.person.email,
     toName: input.person.name,
+    role: input.role || "poster",
     status: "pending",
     createdAt: Date.now(),
   };
@@ -610,7 +648,7 @@ export function acceptInvite(id: string, uid: string, name: string, photo?: stri
   const brand = getBrand(invite.brandId);
   if (brand && !brand.members.some((m) => m.uid === uid)) {
     updateBrand(brand.id, {
-      members: [...brand.members, { uid, name, photo, role: "poster", joinedAt: Date.now() }],
+        members: [...brand.members, { uid, name, photo, role: invite.role || "poster", joinedAt: Date.now() }],
     });
   }
   void persist();

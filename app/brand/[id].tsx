@@ -8,6 +8,8 @@ import { ListingCard } from "../../components/ListingCard";
 import { VerifiedMark } from "../../components/VerifiedMark";
 import {
   brandListings,
+  canAccessHQ,
+  canManageTeam,
   canPost,
   canSeeAnalytics,
   canStudio,
@@ -55,6 +57,8 @@ export default function BrandPage() {
   const following = brand ? isFollowing(brand.id, app.uid) : false;
   const poster = brand ? canPost(brand, app.uid) : false;
   const owner = brand ? canStudio(brand, app.uid) : false;
+  const workspace = brand ? canAccessHQ(brand, app.uid) : false;
+  const manager = brand ? canManageTeam(brand, app.uid) : false;
   const role = brand ? roleOn(brand, app.uid) : null;
 
   if (!brand || !theme) {
@@ -68,16 +72,18 @@ export default function BrandPage() {
     );
   }
 
+  const activeBrand = brand;
+
   function more() {
-    const options = ["Share", ...(owner ? ["Studio", "Invite team"] : []), ...(brand && canSeeAnalytics(brand, app.uid) ? ["Analytics"] : []), "Cancel"];
+    const options = ["Share", ...(workspace ? ["Brand HQ"] : []), ...(manager ? ["Invite team"] : []), ...(canSeeAnalytics(activeBrand, app.uid) ? ["Analytics"] : []), "Cancel"];
     const run = (label: string) => {
       if (label === "Share") {
-        void Share.share({ message: `${brand.name} on Uvel  uvel://brand/${brand.id}` });
+        void Share.share({ message: `${activeBrand.name} on Uvel  uvel://brand/${activeBrand.id}` });
         return;
       }
-      if (label === "Studio") router.push({ pathname: "/brand/studio", params: { id: brand.id } });
-      if (label === "Invite team") router.push({ pathname: "/brand/invite", params: { id: brand.id } });
-      if (label === "Analytics") router.push({ pathname: "/brand/analytics", params: { id: brand.id } });
+      if (label === "Brand HQ") router.push({ pathname: "/brand/hq", params: { id: activeBrand.id } });
+      if (label === "Invite team") router.push({ pathname: "/brand/invite", params: { id: activeBrand.id } });
+      if (label === "Analytics") router.push({ pathname: "/brand/analytics", params: { id: activeBrand.id } });
     };
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions({ options, cancelButtonIndex: options.length - 1, userInterfaceStyle: "dark" }, (i) => {
@@ -85,7 +91,7 @@ export default function BrandPage() {
       });
       return;
     }
-    Alert.alert(brand.name, undefined, [
+    Alert.alert(activeBrand.name, undefined, [
       ...options.filter((o) => o !== "Cancel").map((o) => ({ text: o, onPress: () => run(o) })),
       { text: "Cancel", style: "cancel" as const },
     ]);

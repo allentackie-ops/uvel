@@ -2,8 +2,18 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { canStudio, findPeople, getBrand, sendInvite, useBrands, type BrandPerson } from "../../lib/brands";
+import { canManageTeam, findPeople, getBrand, memberRoleLabel, sendInvite, useBrands, type BrandPerson, type MemberRole } from "../../lib/brands";
 import { useUvel } from "../../lib/store";
+
+const INVITE_ROLES: Array<{ id: Exclude<MemberRole, "owner">; detail: string }> = [
+  { id: "admin", detail: "Manage the workspace and team" },
+  { id: "merchandiser", detail: "Manage products and inventory" },
+  { id: "marketing", detail: "Manage brand content" },
+  { id: "support", detail: "Handle buyers and orders" },
+  { id: "finance", detail: "View orders and payouts" },
+  { id: "viewer", detail: "View HQ without editing" },
+  { id: "poster", detail: "List products for the brand" },
+];
 
 export default function BrandInvite() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -14,31 +24,35 @@ export default function BrandInvite() {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<BrandPerson[]>([]);
   const [sent, setSent] = useState<string[]>([]);
+  const [role, setRole] = useState<Exclude<MemberRole, "owner">>("poster");
 
-  if (!brand || !canStudio(brand, app.uid)) {
+  if (!brand || !canManageTeam(brand, app.uid)) {
     return (
       <View style={[styles.page, { paddingTop: insets.top + 20, paddingHorizontal: 20 }]}>
         <Pressable onPress={() => router.back()}>
           <Text style={styles.backTxt}>‹ Back</Text>
         </Pressable>
-        <Text style={styles.title}>Only the owner sends invites.</Text>
+        <Text style={styles.title}>Only brand managers send invites.</Text>
       </View>
     );
   }
 
+  const activeBrand = brand;
+
   async function search(v: string) {
     setQ(v);
     const people = await findPeople(v);
-    setHits(people.filter((p) => p.uid !== app.uid && !brand.members.some((m) => m.uid === p.uid)));
+    setHits(people.filter((p) => p.uid !== app.uid && !activeBrand.members.some((m) => m.uid === p.uid)));
   }
 
   async function invite(person: BrandPerson) {
     try {
       await sendInvite({
-        brandId: brand.id,
+        brandId: activeBrand.id,
         fromUid: app.uid,
         fromName: app.displayName || "Owner",
         person,
+        role,
       });
       setSent((s) => [...s, person.uid]);
     } catch (err) {
@@ -57,7 +71,16 @@ export default function BrandInvite() {
           <View style={{ width: 40 }} />
         </View>
         <Text style={styles.title}>Who posts on {brand.name}</Text>
-        <Text style={styles.p}>Search a name or email. They join as a poster — they list, they don’t own the house.</Text>
+        <Text style={styles.p}>Search a name or email, then choose the access they need for this brand workspace.</Text>
+        <Text style={styles.roleLabel}>Invite as</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roles}>
+          {INVITE_ROLES.map((option) => (
+            <Pressable key={option.id} onPress={() => setRole(option.id)} style={[styles.roleChip, role === option.id && styles.roleChipOn]}>
+              <Text style={[styles.roleChipTxt, role === option.id && styles.roleChipTxtOn]}>{memberRoleLabel(option.id)}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+        <Text style={styles.roleDetail}>{INVITE_ROLES.find((option) => option.id === role)?.detail}</Text>
         <TextInput
           style={styles.field}
           value={q}
@@ -98,6 +121,13 @@ const styles = StyleSheet.create({
   topTitle: { color: "#F4F0E6", fontSize: 16, fontWeight: "600" },
   title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, marginTop: 12, lineHeight: 34 },
   p: { color: "rgba(244,240,230,0.55)", fontSize: 15, lineHeight: 22, marginTop: 8 },
+  roleLabel: { color: "rgba(244,240,230,0.55)", fontSize: 12, fontWeight: "700", letterSpacing: 0.5, marginTop: 20 },
+  roles: { gap: 8, paddingVertical: 10 },
+  roleChip: { height: 34, paddingHorizontal: 13, borderRadius: 17, borderWidth: 1, borderColor: "rgba(244,240,230,0.18)", justifyContent: "center" },
+  roleChipOn: { backgroundColor: "#D6E27A", borderColor: "#D6E27A" },
+  roleChipTxt: { color: "rgba(244,240,230,0.7)", fontSize: 12, fontWeight: "700" },
+  roleChipTxtOn: { color: "#16140F" },
+  roleDetail: { color: "rgba(244,240,230,0.45)", fontSize: 12, marginBottom: 2 },
   field: {
     marginTop: 18,
     height: 48,
