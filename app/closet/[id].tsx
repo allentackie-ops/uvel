@@ -363,7 +363,13 @@ export default function ClosetPiece() {
             </View>
           ) : null}
 
-          <View style={styles.seller}>
+          <Pressable
+            onPress={owningBrand ? () => router.push({ pathname: "/brand/[id]", params: { id: owningBrand.id } }) : undefined}
+            disabled={!owningBrand}
+            accessibilityRole={owningBrand ? "button" : undefined}
+            accessibilityLabel={owningBrand ? `Open ${owningBrand.name} brand page` : undefined}
+            style={styles.seller}
+          >
             {sellerPhoto ? (
               <Image source={{ uri: sellerPhoto }} style={styles.avatarImg} contentFit="cover" />
             ) : (
@@ -380,7 +386,7 @@ export default function ClosetPiece() {
               <Text style={styles.sellerP}>Ships from {ship.name}</Text>
               <Text style={styles.sellerP}>{shipsToLine(piece.country || app.country, piece.shipsTo)}</Text>
             </View>
-          </View>
+          </Pressable>
         </View>
       </ScrollView>
 
