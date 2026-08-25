@@ -166,6 +166,22 @@ export function moneyExact(cents: number, fromCurrency = "USD") {
   return formatMoney(cents, fromCurrency, true);
 }
 
+export function moneyInMarket(cents: number, fromCurrency: string, view: Market = getMarket()) {
+  const local = convertCents(cents, fromCurrency, view);
+  const major = local / 100;
+  const digits = view.zeroDecimal ? 0 : 2;
+  try {
+    return new Intl.NumberFormat(view.locale, {
+      style: "currency",
+      currency: view.currency,
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(major);
+  } catch {
+    return `${view.symbol}${digits ? major.toFixed(digits) : Math.round(major)}`;
+  }
+}
+
 function formatMoney(cents: number, fromCurrency: string, exact: boolean) {
   const market = getMarket();
   const local = convertCents(cents, fromCurrency, market);

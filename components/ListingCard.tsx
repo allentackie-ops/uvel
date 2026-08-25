@@ -1,9 +1,9 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { usd } from "../lib/catalog";
 import { getBrand } from "../lib/brands";
-import { getMarket } from "../lib/markets";
+import { uvelFeeCents } from "../lib/fees";
+import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 import { getPiece, likeCount, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
@@ -26,13 +26,15 @@ export function ListingCard({
   const app = useUvel();
   const live = getPiece(piece.id) || piece;
   const here = getMarket(app.country);
-  const from = getMarket(live.country || app.country);
-  const local = from.code === here.code;
   const fresh = Date.now() - (live.createdAt || 0) < 1000 * 60 * 60 * 24 * 7;
   const hearts = likeCount(live, app.saved);
   const liked = (live.likedBy || []).some((l) => l.uid === (app.uid || "me")) || app.saved.includes(live.id);
   const house = live.brandId ? getBrand(live.brandId) : undefined;
-  const brand = house?.name || (local ? (live.brand === "Unlabeled" ? "Uvel" : live.brand) : from.name);
+  const brand = house?.name || (live.brand && live.brand !== "Unlabeled" ? live.brand : "Unbranded");
+  const itemCurrency = live.currency || getMarket(live.country || app.country).currency;
+  const localPriceCents = convertCents(live.listPriceCents, itemCurrency, here);
+  const buyerFee = uvelFeeCents(live.listPriceCents, itemCurrency, here);
+  const total = localPriceCents + buyerFee;
   return (
     <Pressable
       onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
@@ -73,12 +75,13 @@ export function ListingCard({
         <Text style={[styles.name, framed && styles.nameFramed]} numberOfLines={2}>
           {piece.name}
         </Text>
-        <Text style={[styles.price, framed && styles.priceFramed]}>{usd(piece.listPriceCents, piece.currency || "USD")}</Text>
-        {live.sizes?.length ? (
-          <Text style={[styles.sizeLine, framed && styles.brandFramed]} numberOfLines={1}>
-            {live.sizes.join("  ")}
-          </Text>
-        ) : null}
+        <Text style={[styles.price, framed && styles.priceFramed]}>{moneyInMarket(live.listPriceCents, itemCurrency, here)}</Text>
+        <Text style={[styles.sizeLine, framed && styles.brandFramed]} numberOfLines={1}>
+          {[live.size || live.sizes?.[0] || "One size", live.condition || "Condition not listed"].join(" · ")}
+        </Text>
+        <Text style={[styles.total, framed && styles.totalFramed]} numberOfLines={1}>
+          {moneyInMarket(total, here.currency, here)} incl. buyer protection
+        </Text>
       </View>
     </Pressable>
   );
@@ -159,6 +162,8 @@ function make(colors: ReturnType<typeof useColors>) {
     price: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 4 },
     priceFramed: { color: "#F4F0E6" },
     sizeLine: { color: "rgba(244,240,230,0.42)", fontSize: 11, marginTop: 4, letterSpacing: 0.4 },
+    total: { color: "#58C2D4", fontSize: 12, marginTop: 5, fontWeight: "700" },
+    totalFramed: { color: "#58C2D4" },
   });
 }
 
