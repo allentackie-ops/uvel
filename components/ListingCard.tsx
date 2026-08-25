@@ -28,11 +28,11 @@ export function ListingCard({
   const here = getMarket(app.country);
   const from = getMarket(live.country || app.country);
   const local = from.code === here.code;
-  const brand = local ? (live.brand === "Unlabeled" ? "Uvel" : live.brand) : from.name;
   const fresh = Date.now() - (live.createdAt || 0) < 1000 * 60 * 60 * 24 * 7;
   const hearts = likeCount(live, app.saved);
   const liked = (live.likedBy || []).some((l) => l.uid === (app.uid || "me")) || app.saved.includes(live.id);
   const house = live.brandId ? getBrand(live.brandId) : undefined;
+  const brand = house?.name || (local ? (live.brand === "Unlabeled" ? "Uvel" : live.brand) : from.name);
   return (
     <Pressable
       onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}

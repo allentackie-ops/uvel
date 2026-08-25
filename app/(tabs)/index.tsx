@@ -23,7 +23,7 @@ import { frameAtTime, playableLookVideo, prefetchLookVideo } from "../../lib/loo
 import { forYou, matchListings } from "../../lib/lookMatch";
 import { beginLookScan, finishLookScan } from "../../lib/lookSearch";
 import { getMarket } from "../../lib/markets";
-import { followedBrandIds, useBrands } from "../../lib/brands";
+import { followedBrandIds, getBrand, useBrands } from "../../lib/brands";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
@@ -506,7 +506,8 @@ function ShopLookCard({
   const here = getMarket(country);
   const from = getMarket(piece.country || country);
   const local = from.code === here.code;
-  const brand = local ? (piece.brand === "Unlabeled" ? "UVEL" : piece.brand) : from.name;
+  const house = piece.brandId ? getBrand(piece.brandId) : undefined;
+  const brand = house?.name || (local ? (piece.brand === "Unlabeled" ? "UVEL" : piece.brand) : from.name);
   const live = getPiece(piece.id) || piece;
   const { saved } = useUvel();
   const hearts = likeCount(live, saved);
