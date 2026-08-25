@@ -536,16 +536,9 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
 
             <View style={styles.lookHead}>
               <Text style={styles.label}>Shop look</Text>
-              {isPlus ? (
-                <Text style={styles.plusTag}>Uvel+</Text>
-              ) : (
-                <Pressable onPress={() => router.push("/plus")}>
-                  <Text style={styles.plusTag}>Uvel+</Text>
-                </Pressable>
-              )}
             </View>
             <Text style={styles.lookLede}>
-              How buyers see this listing. Plus members can dress the page.
+              How buyers see this listing. Looks marked “Requires Uvel+” are available with a Plus plan.
             </Text>
             <View style={styles.lookGrid}>
               {SHOP_LOOKS.map((look) => {
@@ -569,7 +562,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                     </View>
                     <Text style={styles.lookName}>{look.name}</Text>
                     <Text style={styles.lookLine} numberOfLines={1}>
-                      {locked ? "Plus" : look.line}
+                      {locked ? "Requires Uvel+" : look.line}
                     </Text>
                   </Pressable>
                 );
