@@ -91,6 +91,42 @@ export default function BrandPage() {
     ]);
   }
 
+  function openLatest() {
+    const item = listings[0] || featured;
+    if (item) router.push({ pathname: "/closet/[id]", params: { id: item.id } });
+  }
+
+  function openRack() {
+    const item = collections[0]?.items[0];
+    if (item) router.push({ pathname: "/closet/[id]", params: { id: item.id } });
+  }
+
+  function listingActions(item: (typeof listings)[number]) {
+    const options = ["Open listing", "Share listing", "Cancel"];
+    const run = (label: string) => {
+      if (label === "Open listing") {
+        router.push({ pathname: "/closet/[id]", params: { id: item.id } });
+        return;
+      }
+      if (label === "Share listing") {
+        void Share.share({ message: `${item.name} on Uvel  uvel://piece/${item.id}` });
+      }
+    };
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex: options.length - 1, userInterfaceStyle: "dark" },
+        (i) => {
+          if (i >= 0 && options[i] !== "Cancel") run(options[i]);
+        },
+      );
+      return;
+    }
+    Alert.alert(item.name, undefined, [
+      ...options.filter((o) => o !== "Cancel").map((o) => ({ text: o, onPress: () => run(o) })),
+      { text: "Cancel", style: "cancel" as const },
+    ]);
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false}>
@@ -175,10 +211,10 @@ export default function BrandPage() {
           </View>
         ) : null}
 
-        <View style={styles.sectionHead}>
-          <Text style={[styles.section, { color: theme.ink }]}>Latest</Text>
-          <Text style={[styles.chev, { color: theme.muted }]}>›</Text>
-        </View>
+          <Pressable onPress={openLatest} style={styles.sectionHead} disabled={!listings.length && !featured}>
+            <Text style={[styles.section, { color: theme.ink }]}>Latest</Text>
+            <Text style={[styles.chev, { color: theme.muted }]}>›</Text>
+          </Pressable>
         {listings.length ? (
           listings.slice(0, 8).map((p) => (
             <Pressable
@@ -195,7 +231,9 @@ export default function BrandPage() {
                   {(p.sizes?.length ? p.sizes.join("  ") : p.size) + "  ·  " + usd(p.listPriceCents, p.currency)}
                 </Text>
               </View>
-              <Text style={[styles.more, { color: theme.muted }]}>· · ·</Text>
+              <Pressable onPress={() => listingActions(p)} hitSlop={10} style={styles.moreBtn}>
+                <Text style={[styles.more, { color: theme.muted }]}>· · ·</Text>
+              </Pressable>
             </Pressable>
           ))
         ) : (
@@ -206,10 +244,10 @@ export default function BrandPage() {
 
         {collections.length ? (
           <View>
-            <View style={styles.sectionHead}>
+            <Pressable onPress={openRack} style={styles.sectionHead}>
               <Text style={[styles.section, { color: theme.ink }]}>The rack</Text>
               <Text style={[styles.chev, { color: theme.muted }]}>›</Text>
-            </View>
+            </Pressable>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.playlists}>
               {collections.map((c) => (
                 <View key={c.cat} style={[styles.play, { backgroundColor: theme.card }]}>
@@ -324,7 +362,8 @@ const styles = StyleSheet.create({
   thumb: { width: 48, height: 48, borderRadius: 6, backgroundColor: "#1A1915" },
   rowName: { fontSize: 16, fontWeight: "600" },
   rowSub: { fontSize: 13, marginTop: 3 },
-  more: { fontSize: 16, paddingHorizontal: 4 },
+  moreBtn: { paddingHorizontal: 4, paddingVertical: 8 },
+  more: { fontSize: 16 },
   empty: { paddingHorizontal: 20, fontSize: 15, lineHeight: 22 },
   playlists: { paddingHorizontal: 16, gap: 12, paddingBottom: 8 },
   play: { width: 148, borderRadius: 14, overflow: "hidden" },
