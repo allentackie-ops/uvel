@@ -257,7 +257,7 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
     if (order.brandId && (!listingSnap || !listingSnap.exists || listingData.status !== "listed" || (hasTrackedStock && listingStock <= 0))) return { ok: false, reason: "listing-unavailable" };
     if (providerCurrency && String(order.currency || "").toUpperCase() !== String(providerCurrency).toUpperCase()) return { ok: false, reason: "currency-mismatch" };
     const paidAt = admin.firestore.FieldValue.serverTimestamp();
-    tx.update(orderRef, { status: "paid", paymentProvider: provider, paymentReference: providerReference, paidAt });
+      tx.update(orderRef, { status: "paid", fulfillmentStatus: "unfulfilled", paymentProvider: provider, paymentReference: providerReference, paidAt });
     if (listingRef) {
       if (hasTrackedStock) {
         const remaining = Math.max(0, Math.floor(listingStock) - 1);
@@ -302,6 +302,68 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
     return { ok: true };
   });
 }
+
+const FULFILLMENT_TRANSITIONS = {
+  unfulfilled: new Set(["processing", "canceled"]),
+  processing: new Set(["packed", "canceled"]),
+  packed: new Set(["shipped"]),
+  shipped: new Set(["delivered"]),
+  delivered: new Set(["returned"]),
+  canceled: new Set(),
+  returned: new Set(),
+};
+
+exports.updateOrderFulfillment = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const input = req.data || {};
+  const orderId = String(input.orderId || "").trim();
+  const nextStatus = String(input.fulfillmentStatus || "").trim();
+  const carrier = String(input.carrier || "").trim().slice(0, 80);
+  const trackingNumber = String(input.trackingNumber || "").trim().slice(0, 120);
+  if (!/^[a-zA-Z0-9._:-]{1,120}$/.test(orderId) || !Object.prototype.hasOwnProperty.call(FULFILLMENT_TRANSITIONS, nextStatus)) {
+    throw new HttpsError("invalid-argument", "Invalid fulfillment update.");
+  }
+  if (nextStatus === "shipped" && !trackingNumber) {
+    throw new HttpsError("invalid-argument", "Add tracking information before marking the order shipped.");
+  }
+
+  const db = admin.firestore();
+  const orderRef = db.collection("orders").doc(orderId);
+  const orderSnap = await orderRef.get();
+  if (!orderSnap.exists) throw new HttpsError("not-found", "Order not found.");
+  const order = orderSnap.data() || {};
+  if (!order.brandId) throw new HttpsError("failed-precondition", "This is not a brand order.");
+  const brandSnap = await db.collection("brands").doc(String(order.brandId)).get();
+  const brand = brandSnap.data() || {};
+  const member = Array.isArray(brand.members) ? brand.members.find((candidate) => candidate && candidate.uid === req.auth.uid) : null;
+  const role = member && member.role;
+  if (!role || !["owner", "admin", "support"].includes(role)) {
+    throw new HttpsError("permission-denied", "You cannot update this brand order.");
+  }
+  const update = {
+    fulfillmentStatus: nextStatus,
+    fulfillmentUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  };
+  if (carrier) update.carrier = carrier;
+  if (trackingNumber) update.trackingNumber = trackingNumber;
+  if (nextStatus === "processing") update.processingAt = admin.firestore.FieldValue.serverTimestamp();
+  if (nextStatus === "packed") update.packedAt = admin.firestore.FieldValue.serverTimestamp();
+  if (nextStatus === "shipped") update.shippedAt = admin.firestore.FieldValue.serverTimestamp();
+  if (nextStatus === "delivered") update.deliveredAt = admin.firestore.FieldValue.serverTimestamp();
+  if (nextStatus === "canceled") update.canceledAt = admin.firestore.FieldValue.serverTimestamp();
+  if (nextStatus === "returned") update.returnedAt = admin.firestore.FieldValue.serverTimestamp();
+  await db.runTransaction(async (tx) => {
+    const latestSnap = await tx.get(orderRef);
+    if (!latestSnap.exists) throw new HttpsError("not-found", "Order not found.");
+    const latest = latestSnap.data() || {};
+    if (latest.status !== "paid") throw new HttpsError("failed-precondition", "Only paid orders can enter fulfillment.");
+    const currentStatus = String(latest.fulfillmentStatus || "unfulfilled");
+    const allowed = FULFILLMENT_TRANSITIONS[currentStatus];
+    if (!allowed || !allowed.has(nextStatus)) throw new HttpsError("failed-precondition", `Order cannot move from ${currentStatus} to ${nextStatus}.`);
+    tx.set(orderRef, update, { merge: true });
+  });
+  return { ok: true, orderId, fulfillmentStatus: nextStatus };
+});
 
 function stripeWebhook() {
   return onRequest({ secrets: [stripeSecret, stripeWebhookSecret] }, async (req, res) => {

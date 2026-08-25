@@ -18,6 +18,13 @@ service cloud.firestore {
       return signedIn() && data.ownerId == request.auth.uid;
     }
 
+    function isBrandMember(brandId) {
+      let brand = get(/databases/$(database)/documents/brands/$(brandId)).data;
+      return signedIn() &&
+        (brand.ownerId == request.auth.uid ||
+         (brand.memberIds is list && brand.memberIds.hasAny([request.auth.uid])));
+    }
+
     function isChatParticipant(data) {
       return signedIn() &&
         (data.buyerId == request.auth.uid ||
@@ -51,7 +58,7 @@ service cloud.firestore {
             "name", "handle", "tagline", "story", "vertical", "website",
             "instagram", "phone", "whatsapp", "legalName", "registrationId", "contactEmail",
             "country", "logoUri", "bannerKind", "bannerUri", "themeId",
-            "custom", "analyticsShared", "members", "inquiryMemberIds", "followers", "follows",
+            "custom", "analyticsShared", "members", "memberIds", "inquiryMemberIds", "followers", "follows",
             "views", "likes", "updatedAt"
           ])
         );
@@ -110,7 +117,9 @@ service cloud.firestore {
 
     match /orders/{orderId} {
       allow read: if signedIn() &&
-        (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
+        (resource.data.buyerId == request.auth.uid ||
+         resource.data.sellerId == request.auth.uid ||
+         (resource.data.brandId is string && isBrandMember(resource.data.brandId)));
 
       allow create: if signedIn() &&
         request.resource.data.buyerId == request.auth.uid &&

@@ -16,7 +16,7 @@ import {
   useBrands,
   useInvites,
 } from "../../lib/brands";
-import { useOrders } from "../../lib/orders";
+import { useOrders, type Order } from "../../lib/orders";
 import { pickAvatar, takeAvatar } from "../../lib/photo";
 import { seedFromStyles, ARCH, PALS, SILS, dnaHint } from "../../lib/styleDna";
 import { useUvel } from "../../lib/store";
@@ -29,6 +29,16 @@ const W = Dimensions.get("window").width;
 const COL = (W - 52) / 2;
 
 type Hub = "shop" | "sold" | "purchases" | "likes";
+
+function orderStatusLabel(order: Order) {
+  if (order.status === "failed" || order.fulfillmentStatus === "canceled") return { tag: "Canceled", kind: "canceled" };
+  if (order.fulfillmentStatus === "delivered") return { tag: "Delivered", kind: "completed" };
+  if (order.fulfillmentStatus === "returned") return { tag: "Returned", kind: "canceled" };
+  if (order.fulfillmentStatus === "shipped") return { tag: "Shipped", kind: "to_ship" };
+  if (order.fulfillmentStatus === "packed") return { tag: "Packed", kind: "to_ship" };
+  if (order.fulfillmentStatus === "processing") return { tag: "Processing", kind: "to_ship" };
+  return order.status === "pending" ? { tag: "Payment pending", kind: "to_ship" } : { tag: "To process", kind: "to_ship" };
+}
 
 export default function You() {
   const app = useUvel();
@@ -103,8 +113,7 @@ export default function You() {
       name: o.pieceName,
       cents: o.itemCents,
       currency: o.currency,
-      tag: o.status === "failed" ? "Canceled" : "To ship",
-      kind: o.status === "failed" ? "canceled" : "to_ship",
+      ...orderStatusLabel(o),
     }));
     const fromPieces = soldPieces.map((p) => ({
       id: p.id,
@@ -129,8 +138,7 @@ export default function You() {
       name: o.pieceName,
       cents: o.totalCents,
       currency: o.currency,
-      tag: o.status === "failed" ? "Canceled" : "In progress",
-      kind: o.status === "failed" ? "canceled" : "in_progress",
+      ...orderStatusLabel(o),
     }));
     if (buyFilter === "all") return all;
     return all.filter((r) => r.kind === buyFilter);

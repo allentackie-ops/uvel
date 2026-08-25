@@ -74,6 +74,8 @@ export type Brand = {
   ownerPhoto?: string;
   analyticsShared: boolean;
   members: BrandMember[];
+  /** Compact index used by Firestore read rules for team workspaces. */
+  memberIds?: string[];
   /** Team members selected by the owner to receive buyer inquiries. */
   inquiryMemberIds?: string[];
   views: number;
@@ -285,7 +287,7 @@ void hydrate();
 async function pushBrand(b: Brand) {
   if (!firebaseReady()) return;
   try {
-    await setDoc(doc(firebaseDb(), "brands", b.id), { ...b, updatedAt: serverTimestamp() }, { merge: true });
+    await setDoc(doc(firebaseDb(), "brands", b.id), { ...b, memberIds: b.members.map((member) => member.uid), updatedAt: serverTimestamp() }, { merge: true });
   } catch {
     /* local still counts */
   }
@@ -407,6 +409,11 @@ export function canEditBrand(brand: Brand, uid: string) {
 export function canViewOrders(brand: Brand, uid: string) {
   const role = roleOn(brand, uid);
   return role === "owner" || role === "admin" || role === "support" || role === "finance";
+}
+
+export function canManageOrders(brand: Brand, uid: string) {
+  const role = roleOn(brand, uid);
+  return role === "owner" || role === "admin" || role === "support";
 }
 
 export function canStudio(brand: Brand, uid: string) {

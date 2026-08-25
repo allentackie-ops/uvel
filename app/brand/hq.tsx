@@ -1,13 +1,15 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { VerifiedMark } from "../../components/VerifiedMark";
 import {
   canAccessHQ,
   canManageCatalog,
+  canManageOrders,
   canManageTeam,
+  canViewOrders,
   canSeeAnalytics,
   getBrand,
   inquiryRecipients,
@@ -24,7 +26,7 @@ import { usd } from "../../lib/catalog";
 import { useUvel } from "../../lib/store";
 import { useColors } from "../../lib/theme";
 import { MARKETS, getMarket } from "../../lib/markets";
-import { useOrders } from "../../lib/orders";
+import { updateOrderFulfillment, useOrders, watchBrandOrders, type FulfillmentStatus, type Order } from "../../lib/orders";
 import { unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { shipsToLabel } from "../../lib/ships";
 
@@ -64,6 +66,11 @@ export default function BrandHQ() {
   const styles = useMemo(() => make(theme), [theme]);
   const [section, setSection] = useState<Section>("overview");
 
+  useEffect(() => {
+    if (!id) return;
+    return watchBrandOrders(id);
+  }, [id]);
+
   if (!brand || !canAccessHQ(brand, app.uid)) {
     return (
       <View style={[styles.page, { paddingTop: insets.top + 20, paddingHorizontal: 20 }]}>
@@ -77,8 +84,10 @@ export default function BrandHQ() {
   const catalog = pieces.filter((piece) => piece.brandId === activeBrand.id);
   const activeCatalog = catalog.filter((piece) => piece.status === "listed");
   const lowStock = activeCatalog.filter((piece) => typeof piece.stockQuantity === "number" && piece.stockQuantity > 0 && piece.stockQuantity <= 10);
-  const brandOrders = orders.filter((order) => order.sellerId === activeBrand.ownerId || order.sellerId === app.uid);
+  const brandOrders = orders.filter((order) => order.brandId === activeBrand.id);
   const manager = canManageTeam(activeBrand, app.uid);
+  const orderViewer = canViewOrders(activeBrand, app.uid);
+  const orderManager = canManageOrders(activeBrand, app.uid);
   const catalogManager = canManageCatalog(activeBrand, app.uid);
 
   function openSection(next: Section) {
@@ -143,7 +152,7 @@ export default function BrandHQ() {
         ) : section === "catalog" ? (
           <CatalogSection brand={brand} items={catalog} canManage={catalogManager} theme={theme} styles={styles} />
         ) : section === "orders" ? (
-          <OrdersSection count={brandOrders.length} theme={theme} styles={styles} />
+          <OrdersSection orders={brandOrders} viewer={orderViewer} manager={orderManager} theme={theme} styles={styles} />
         ) : section === "team" ? (
           <TeamSection brand={brand} manager={manager} theme={theme} styles={styles} onRole={changeRole} />
         ) : section === "settings" ? (
@@ -308,16 +317,133 @@ function CatalogRow({ item, canManage, marketCode, theme, styles }: { item: Clos
   );
 }
 
-function OrdersSection({ count, theme, styles }: { count: number; theme: HQTheme; styles: ReturnType<typeof make> }) {
+type OrderFilter = "all" | "action" | "processing" | "packed" | "shipped" | "completed" | "canceled";
+
+const ORDER_FILTERS: Array<{ id: OrderFilter; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "action", label: "Needs action" },
+  { id: "processing", label: "Processing" },
+  { id: "packed", label: "Packed" },
+  { id: "shipped", label: "Shipped" },
+  { id: "completed", label: "Completed" },
+  { id: "canceled", label: "Canceled" },
+];
+
+function OrdersSection({ orders, viewer, manager, theme, styles }: { orders: Order[]; viewer: boolean; manager: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  const [filter, setFilter] = useState<OrderFilter>("all");
+  if (!viewer) {
+    return <View><Text style={[styles.sectionTitle, { color: theme.ink }]}>Orders</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Order operations are limited to the brand owner, admins, support, and finance team.</Text></View>;
+  }
+  const needsAction = orders.filter((order) => order.status === "paid" && ["unfulfilled", "processing", "packed"].includes(order.fulfillmentStatus || "unfulfilled"));
+  const filtered = orders.filter((order) => {
+    const status = order.fulfillmentStatus || (order.status === "paid" ? "unfulfilled" : undefined);
+    if (filter === "all") return true;
+    if (filter === "action") return needsAction.includes(order);
+    if (filter === "completed") return status === "delivered";
+    if (filter === "canceled") return status === "canceled" || status === "returned" || order.status === "failed";
+    return status === filter;
+  });
   return (
     <View>
       <Text style={[styles.sectionTitle, { color: theme.ink }]}>Orders</Text>
-      <Text style={[styles.sectionP, { color: theme.muted }]}>The operational layer for fulfillment, returns, and payouts.</Text>
-      <View style={[styles.featureCard, { backgroundColor: theme.card }]}>
-        <Text style={[styles.featureKicker, { color: theme.muted }]}>CURRENT SIGNAL</Text>
-        <Text style={[styles.featureTitle, { color: theme.ink }]}>{count} order{count === 1 ? "" : "s"} connected to this team</Text>
-        <Text style={[styles.featureP, { color: theme.muted }]}>Order workflow controls are being built on the same Brand HQ foundation.</Text>
+      <Text style={[styles.sectionP, { color: theme.muted }]}>Payment, fulfillment, tracking, and buyer context in one operating view.</Text>
+      <View style={styles.orderStats}>
+        <Stat label="All orders" value={String(orders.length)} theme={theme} styles={styles} />
+        <Stat label="Needs action" value={String(needsAction.length)} theme={theme} styles={styles} />
       </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.orderFilters}>
+        {ORDER_FILTERS.map((option) => <Pressable key={option.id} onPress={() => setFilter(option.id)} style={[styles.orderFilter, { borderColor: filter === option.id ? theme.accent : theme.lineColor, backgroundColor: filter === option.id ? theme.accent : theme.card }]}><Text style={[styles.orderFilterTxt, { color: filter === option.id ? theme.accentInk : theme.ink }]}>{option.label}</Text></Pressable>)}
+      </ScrollView>
+      {filtered.length ? filtered.map((order) => <OrderCard key={order.id} order={order} manager={manager} theme={theme} styles={styles} />) : <Empty text={orders.length ? "No orders match this filter." : "No brand orders yet."} theme={theme} styles={styles} />}
+    </View>
+  );
+}
+
+const FULFILLMENT_LABELS: Record<FulfillmentStatus, string> = {
+  unfulfilled: "To process",
+  processing: "Processing",
+  packed: "Packed",
+  shipped: "Shipped",
+  delivered: "Delivered",
+  canceled: "Canceled",
+  returned: "Returned",
+};
+
+function nextFulfillment(status: FulfillmentStatus): FulfillmentStatus | null {
+  if (status === "unfulfilled") return "processing";
+  if (status === "processing") return "packed";
+  if (status === "packed") return "shipped";
+  if (status === "shipped") return "delivered";
+  return null;
+}
+
+function OrderCard({ order, manager, theme, styles }: { order: Order; manager: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  const fulfillment = order.fulfillmentStatus || (order.status === "paid" ? "unfulfilled" : "canceled");
+  const [expanded, setExpanded] = useState(false);
+  const [carrier, setCarrier] = useState(order.carrier || "");
+  const [tracking, setTracking] = useState(order.trackingNumber || "");
+  const [busy, setBusy] = useState(false);
+  const next = nextFulfillment(fulfillment);
+  const buyer = order.address?.name || "Buyer";
+
+  async function advance() {
+    if (!manager || !next) return;
+    if (next === "shipped" && !tracking.trim()) {
+      Alert.alert("Tracking required", "Add a carrier and tracking number before marking this order shipped.");
+      setExpanded(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      await updateOrderFulfillment(order.id, { fulfillmentStatus: next, carrier: carrier.trim(), trackingNumber: tracking.trim() });
+    } catch (error) {
+      Alert.alert("Order update", error instanceof Error ? error.message : "Could not update this order.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancel() {
+    if (!manager || !["unfulfilled", "processing"].includes(fulfillment) || busy) return;
+    setBusy(true);
+    try {
+      await updateOrderFulfillment(order.id, { fulfillmentStatus: "canceled", carrier: carrier.trim(), trackingNumber: tracking.trim() });
+    } catch (error) {
+      Alert.alert("Order update", error instanceof Error ? error.message : "Could not cancel this order.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View style={[styles.orderCard, { backgroundColor: theme.card }]}>
+      <Pressable onPress={() => setExpanded((value) => !value)} style={styles.orderHead}>
+        {order.piecePhoto ? <Image source={{ uri: order.piecePhoto }} style={styles.orderImg} contentFit="cover" /> : <View style={[styles.orderImg, { backgroundColor: theme.bg }]} />}
+        <View style={styles.orderCopy}>
+          <Text style={[styles.orderName, { color: theme.ink }]} numberOfLines={2}>{order.pieceName}</Text>
+          <Text style={[styles.orderMeta, { color: theme.muted }]}>{buyer} · {order.country} · {order.delivery}</Text>
+          <Text style={[styles.orderTotal, { color: theme.ink }]}>{usd(order.totalCents, order.currency)} · {order.status === "paid" ? FULFILLMENT_LABELS[fulfillment] : "Payment pending"}</Text>
+        </View>
+        <Text style={[styles.rowArrow, { color: theme.ink }]}>{expanded ? "⌃" : "›"}</Text>
+      </Pressable>
+      {expanded ? (
+        <View style={[styles.orderDetail, { borderTopColor: theme.lineColor }]}>
+          <Text style={[styles.orderKicker, { color: theme.muted }]}>ORDER {order.id}</Text>
+          <Text style={[styles.detailValue, { color: theme.ink }]}>{order.address?.line1}{order.address?.line2 ? `, ${order.address.line2}` : ""}, {order.address?.city}, {order.address?.region} {order.address?.postal}</Text>
+          <Text style={[styles.orderMeta, { color: theme.muted }]}>Payment: {order.status} · Method: {order.payMethod} · {new Date(order.createdAt).toLocaleDateString()}</Text>
+          {order.trackingNumber ? <Text style={[styles.orderMeta, { color: theme.muted }]}>Tracking: {order.carrier || "Carrier"} · {order.trackingNumber}</Text> : null}
+          {manager && order.status === "paid" && next ? (
+            <>
+              <TextInput value={carrier} onChangeText={setCarrier} placeholder="Carrier" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} />
+              <TextInput value={tracking} onChangeText={setTracking} placeholder="Tracking number (required before shipping)" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} autoCapitalize="characters" />
+              <View style={styles.orderActions}>
+                <Pressable disabled={busy} onPress={() => void cancel()} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Cancel order</Text></Pressable>
+                <Pressable disabled={busy} onPress={() => void advance()} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>{busy ? "Saving…" : FULFILLMENT_LABELS[next]}</Text></Pressable>
+              </View>
+            </>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -457,6 +583,21 @@ function make(theme: HQTheme) {
     saveButton: { height: 34, paddingHorizontal: 13, borderRadius: 17, justifyContent: "center" },
     saveButtonTxt: { fontSize: 12, fontWeight: "800" },
     readOnly: { fontSize: 12, padding: 14, paddingTop: 0 },
+    orderStats: { flexDirection: "row", gap: 10, marginTop: 4 },
+    orderFilters: { gap: 8, paddingVertical: 12 },
+    orderFilter: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8 },
+    orderFilterTxt: { fontSize: 11, fontWeight: "800" },
+    orderCard: { borderRadius: 18, marginTop: 10, overflow: "hidden" },
+    orderHead: { padding: 10, flexDirection: "row", alignItems: "center", gap: 10 },
+    orderImg: { width: 64, height: 78, borderRadius: 11 },
+    orderCopy: { flex: 1, minWidth: 0 },
+    orderName: { fontSize: 14, fontWeight: "800" },
+    orderMeta: { fontSize: 11, lineHeight: 16, marginTop: 4 },
+    orderTotal: { fontSize: 12, fontWeight: "800", marginTop: 5 },
+    orderDetail: { borderTopWidth: StyleSheet.hairlineWidth, padding: 14 },
+    orderKicker: { fontSize: 10, letterSpacing: 1.2, fontWeight: "800" },
+    orderInput: { height: 40, borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, fontSize: 13, marginTop: 9 },
+    orderActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 12 },
     featureCard: { borderRadius: 18, padding: 18, marginTop: 10 },
     featureKicker: { fontSize: 10, letterSpacing: 1.3, fontWeight: "800" },
     featureTitle: { fontSize: 19, fontWeight: "800", marginTop: 8 },
