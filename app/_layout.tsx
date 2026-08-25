@@ -139,6 +139,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="price"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#12110E" },
+            }}
+          />
+          <Stack.Screen
             name="sell"
             options={{
               headerShown: false,
