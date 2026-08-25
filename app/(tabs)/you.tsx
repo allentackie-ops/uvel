@@ -23,6 +23,7 @@ import { useUvel } from "../../lib/store";
 import { pullLooks } from "../../lib/trends";
 import { useColors, type Colors } from "../../lib/theme";
 import { getPiece, likesOnMine, stampMine, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { draftProgress, useListingDraft, type ListingDraft } from "../../lib/listingDraft";
 
 const W = Dimensions.get("window").width;
 const COL = (W - 52) / 2;
@@ -35,6 +36,7 @@ export default function You() {
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const pieces = useWardrobe();
+  const { draft } = useListingDraft();
   const orders = useOrders();
   useBrands();
   useInvites();
@@ -303,7 +305,7 @@ export default function You() {
       </View>
 
       {hub === "shop" ? (
-        <ShopPane listed={listed} styles={styles} />
+        <ShopPane listed={listed} draft={draft} styles={styles} />
       ) : hub === "sold" ? (
         <SoldPane
           rows={soldRows}
@@ -330,9 +332,18 @@ export default function You() {
   );
 }
 
-function ShopPane({ listed, styles }: { listed: ClosetPiece[]; styles: ReturnType<typeof make> }) {
+function ShopPane({ listed, draft, styles }: { listed: ClosetPiece[]; draft: ListingDraft | null; styles: ReturnType<typeof make> }) {
   return (
     <View>
+      {draft ? (
+        <View style={styles.draftSection}>
+          <View style={styles.draftHead}>
+            <Text style={styles.active}>Drafts (1)</Text>
+            <Text style={styles.draftHint}>Tap to continue</Text>
+          </View>
+          <DraftCard draft={draft} styles={styles} />
+        </View>
+      ) : null}
       <View style={styles.activeRow}>
         <Text style={styles.active}>Active ({listed.length} listing{listed.length === 1 ? "" : "s"})</Text>
       </View>
@@ -355,6 +366,32 @@ function ShopPane({ listed, styles }: { listed: ClosetPiece[]; styles: ReturnTyp
         </View>
       )}
     </View>
+  );
+}
+
+function DraftCard({ draft, styles }: { draft: ListingDraft; styles: ReturnType<typeof make> }) {
+  const photo = draft.photos[0]?.uri;
+  const title = draft.name.trim() || "Untitled listing";
+  const details = [draft.category, draft.size, draft.condition].filter(Boolean).join(" · ");
+  return (
+    <Pressable onPress={() => router.push({ pathname: "/sell", params: { draft: "1" } })} style={styles.draftCard}>
+      {photo ? (
+        <Image source={{ uri: photo }} style={styles.draftImg} contentFit="cover" />
+      ) : (
+        <View style={styles.draftImgEmpty}>
+          <Text style={styles.draftImgPlus}>＋</Text>
+        </View>
+      )}
+      <View style={styles.draftMeta}>
+        <View style={styles.draftTag}>
+          <Text style={styles.draftTagTxt}>Draft</Text>
+        </View>
+        <Text style={styles.draftName} numberOfLines={2}>{title}</Text>
+        <Text style={styles.draftDetails} numberOfLines={1}>{details || "Listing details not finished"}</Text>
+        <Text style={styles.draftProgress}>{draftProgress(draft)}</Text>
+      </View>
+      <Text style={styles.draftArrow}>›</Text>
+    </Pressable>
   );
 }
 
@@ -781,6 +818,20 @@ function make(_colors: Colors) {
     tabLine: { position: "absolute", bottom: 0, height: 2, left: 8, right: 8, backgroundColor: "#F4F0E6", borderRadius: 1 },
     activeRow: { marginTop: 18, marginBottom: 8 },
     active: { color: "#F4F0E6", fontSize: 16, fontWeight: "700", marginTop: 16, marginBottom: 8 },
+    draftSection: { marginTop: 14 },
+    draftHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
+    draftHint: { color: "#D6E27A", fontSize: 12, fontWeight: "600" },
+    draftCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 10, borderRadius: 18, backgroundColor: "#161512", marginTop: 2 },
+    draftImg: { width: 82, height: 104, borderRadius: 12, backgroundColor: "#1A1915" },
+    draftImgEmpty: { width: 82, height: 104, borderRadius: 12, backgroundColor: "#1A1915", borderWidth: 1, borderStyle: "dashed", borderColor: "rgba(244,240,230,0.24)", alignItems: "center", justifyContent: "center" },
+    draftImgPlus: { color: "#F4F0E6", fontSize: 28 },
+    draftMeta: { flex: 1, minWidth: 0 },
+    draftTag: { alignSelf: "flex-start", paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: "#D6E27A", justifyContent: "center" },
+    draftTagTxt: { color: "#16140F", fontSize: 10, fontWeight: "800", letterSpacing: 0.4 },
+    draftName: { color: "#F4F0E6", fontSize: 15, fontWeight: "700", marginTop: 7 },
+    draftDetails: { color: "rgba(244,240,230,0.55)", fontSize: 12, marginTop: 4 },
+    draftProgress: { color: "#D6E27A", fontSize: 12, fontWeight: "700", marginTop: 8 },
+    draftArrow: { color: "#F4F0E6", fontSize: 30, marginRight: 4 },
     liker: {
       flexDirection: "row",
       alignItems: "center",

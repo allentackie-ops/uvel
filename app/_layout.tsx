@@ -2,7 +2,7 @@ import { DarkTheme, Stack, ThemeProvider, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Appearance } from "react-native";
+import { Appearance, Pressable, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { LaunchSplash } from "../components/LaunchSplash";
@@ -12,6 +12,7 @@ import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 import { pullLooks } from "../lib/trends";
 import { useWardrobe } from "../lib/wardrobe";
+import { consumeListingDraftNotice } from "../lib/listingDraft";
 import Onboard from "./onboard";
 import ProfileSetup from "./setup";
 
@@ -281,6 +282,42 @@ function AppStack() {
   );
 }
 
+function DraftResumeNotice() {
+  const [draft, setDraft] = useState<Awaited<ReturnType<typeof consumeListingDraftNotice>>>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void consumeListingDraftNotice().then((saved) => {
+      if (!active || !saved) return;
+      setDraft(saved);
+      setVisible(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!visible || !draft) return null;
+  return (
+    <View pointerEvents="box-none" style={{ position: "absolute", top: 58, left: 16, right: 16, zIndex: 100 }}>
+      <View style={{ backgroundColor: "#1A1915", borderColor: "#D6E27A", borderWidth: 1, borderRadius: 18, padding: 16, shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 10 }}>
+        <Text style={{ color: "#D6E27A", fontSize: 11, fontWeight: "800", letterSpacing: 1.2 }}>DRAFT SAVED</Text>
+        <Text style={{ color: "#F4F0E6", fontSize: 17, fontWeight: "700", marginTop: 6 }}>Your listing draft was saved.</Text>
+        <Text style={{ color: "rgba(244,240,230,0.62)", fontSize: 13, lineHeight: 19, marginTop: 4 }}>Continue where you left off in your listing.</Text>
+        <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+          <Pressable onPress={() => setVisible(false)} style={{ flex: 1, height: 42, borderRadius: 21, borderWidth: 1, borderColor: "rgba(244,240,230,0.2)", alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ color: "#F4F0E6", fontWeight: "700", fontSize: 13 }}>Later</Text>
+          </Pressable>
+          <Pressable onPress={() => { setVisible(false); router.push({ pathname: "/sell", params: { draft: "1" } }); }} style={{ flex: 1.2, height: 42, borderRadius: 21, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ color: "#16140F", fontWeight: "800", fontSize: 13 }}>Continue draft</Text>
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export default function Root() {
   const { onboarded, hydrated, uid, profileDone, profileChecked } = useUvel();
   useOtaReady();
@@ -308,6 +345,7 @@ export default function Root() {
             <AppStack />
           )
         ) : null}
+        {signedIn && gateReady && !intro ? <DraftResumeNotice /> : null}
         {intro || !gateReady ? <LaunchSplash ready={gateReady} onDone={dismiss} /> : null}
       </GestureHandlerRootView>
     </SafeAreaProvider>

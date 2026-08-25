@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
+  AppState,
   Alert,
   Dimensions,
   Keyboard,
@@ -23,6 +24,7 @@ import { usd } from "../lib/catalog";
 import { uvelFeeCents } from "../lib/fees";
 import { getMarket, getMarketByCurrency, moneyExact } from "../lib/markets";
 import { takePendingListingPrice } from "../lib/listingPriceDraft";
+import { clearListingDraft, loadListingDraft, saveListingDraft } from "../lib/listingDraft";
 import { pickListingPhoto, takeListingPhoto } from "../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
 import { encodeShipsTo, type ShipsTo } from "../lib/ships";
@@ -69,14 +71,16 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { id, fits } = useLocalSearchParams<{ id?: string; fits?: string }>();
+  const { id, fits, draft: draftParam } = useLocalSearchParams<{ id?: string; fits?: string; draft?: string }>();
   useWardrobe();
   const existing = id ? getPiece(id) : undefined;
   const { wardrobeUris, appearance, uid, displayName, country, isPlus, personUri, avatarUri } = useUvel();
   const market = getMarket(country);
-  const listingCurrency = existing?.currency || market.currency;
+  const [draftOrigin, setDraftOrigin] = useState<string | undefined>();
+  const [draftCurrency, setDraftCurrency] = useState<string | undefined>();
+  const listingCurrency = existing?.currency || draftCurrency || market.currency;
   const listingMarket = getMarketByCurrency(listingCurrency);
-  const origin = existing?.country || market.code;
+  const origin = existing?.country || draftOrigin || market.code;
 
   const [photos, setPhotos] = useState<Slot[]>(
     existing?.photos?.length
@@ -106,11 +110,43 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   );
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
+  const [draftReady, setDraftReady] = useState(draftParam !== "1");
+  const [draftDisabled, setDraftDisabled] = useState(false);
   const priceKey = existing?.id || "new";
   const leaveSell = useCallback(() => {
     if (embedded) router.replace("/(tabs)/index");
     else router.back();
   }, [embedded]);
+
+  useEffect(() => {
+    if (existing || draftParam !== "1") return;
+    let active = true;
+    setDraftReady(false);
+    void loadListingDraft().then((saved) => {
+      if (!active) return;
+      if (saved) {
+        setDraftOrigin(saved.origin);
+        setDraftCurrency(saved.currency);
+        setPhotos(saved.photos.map((photo) => ({ uri: photo.uri, status: "ok" as const })));
+        setName(saved.name || "");
+        setBrand(saved.brand || "");
+        setCategory(saved.category || null);
+        setColor(saved.color || "");
+        setSize(saved.size || "");
+        setCondition(saved.condition || "");
+        setMaterial(saved.material || "");
+        setNotes(saved.notes || "");
+        setPrice(saved.price || "");
+        setWas(saved.was || "");
+        setShopLook(saved.shopLook || "uvel");
+        setShipsTo(saved.shipsTo || encodeShipsTo(saved.origin || market.code, "home"));
+      }
+      setDraftReady(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, [draftParam, existing?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -119,6 +155,41 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       return undefined;
     }, [priceKey]),
   );
+
+  const persistDraft = useCallback(() => {
+    if (existing || !draftReady || draftDisabled) return;
+    void saveListingDraft({
+      photos: photos.map((photo) => ({ uri: photo.uri })),
+      name,
+      brand,
+      category,
+      color,
+      size,
+      condition,
+      material,
+      notes,
+      price,
+      was,
+      shopLook,
+      shipsTo,
+      origin,
+      currency: listingCurrency,
+      updatedAt: Date.now(),
+    });
+  }, [existing?.id, draftReady, draftDisabled, photos, name, brand, category, color, size, condition, material, notes, price, was, shopLook, shipsTo, origin, listingCurrency]);
+
+  useEffect(() => {
+    if (existing || !draftReady || draftDisabled) return;
+    const timer = setTimeout(persistDraft, 250);
+    return () => clearTimeout(timer);
+  }, [existing?.id, draftReady, draftDisabled, persistDraft]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state !== "active") persistDraft();
+    });
+    return () => subscription.remove();
+  }, [persistDraft]);
 
   const cover = photos[0];
   const warn = photos.find((p) => p.status === "warn");
@@ -335,7 +406,11 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       shipsTo,
     };
     if (existing) listPiece(existing.id, listed);
-    else addPiece({ ...listed, status: "listed" });
+    else {
+      setDraftDisabled(true);
+      void clearListingDraft();
+      addPiece({ ...listed, status: "listed" });
+    }
     setGate({ phase: "pass" });
     setTimeout(() => router.replace(embedded ? "/(tabs)/index" : "/(tabs)/closet"), 1100);
   }
