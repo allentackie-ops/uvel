@@ -8,6 +8,7 @@ import {
   User,
   UserCredential,
   createUserWithEmailAndPassword,
+  deleteUser,
   fetchSignInMethodsForEmail,
   getAdditionalUserInfo,
   onAuthStateChanged,
@@ -17,8 +18,9 @@ import {
   signOut as fbSignOut,
   updateProfile,
 } from "firebase/auth";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { firebaseAuth, firebaseDb, firebaseExtra, firebaseReady } from "./firebase";
+import { deleteDoc, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
+import { firebaseAuth, firebaseDb, firebaseExtra, firebaseFunctions, firebaseReady } from "./firebase";
 import type { AuthVia } from "./sessionPath";
 import { remoteProfileComplete } from "./sessionPath";
 
@@ -65,6 +67,7 @@ function nice(err: unknown) {
   }
   if (code.includes("too-many-requests")) return "Too many tries. Wait a moment.";
   if (code.includes("network-request-failed")) return "No connection. Try again.";
+  if (code.includes("requires-recent-login")) return "Sign in again, then delete the account.";
   if (code.includes("account-exists-with-different-credential")) {
     return ALREADY_ACCOUNT;
   }
@@ -211,6 +214,38 @@ export async function resetPassword(email: string) {
 export async function signOut() {
   if (!firebaseReady()) return;
   await fbSignOut(firebaseAuth());
+}
+
+export async function deleteAccount() {
+  needFirebase();
+  const user = firebaseAuth().currentUser;
+  if (!user) throw new Error("Sign in first.");
+  try {
+    const call = httpsCallable(firebaseFunctions(), "deleteAccount");
+    await call();
+    return;
+  } catch (err) {
+    const code = typeof err === "object" && err && "code" in err ? String((err as { code: string }).code) : "";
+    const missing =
+      code.includes("not-found") ||
+      code.includes("unimplemented") ||
+      code.includes("functions/not-found") ||
+      /not found|does not exist|not been deployed/i.test(err instanceof Error ? err.message : String(err));
+    if (!missing) {
+      // Function ran or rejected for a real reason — still try client cleanup.
+      if (code.includes("unauthenticated")) throw new Error("Sign in first.");
+    }
+  }
+  try {
+    await deleteDoc(doc(firebaseDb(), "users", user.uid));
+  } catch {
+    /* rules or already gone */
+  }
+  try {
+    await deleteUser(user);
+  } catch (err) {
+    throw new Error(nice(err));
+  }
 }
 
 function randomNonce(n = 32) {

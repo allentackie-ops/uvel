@@ -71,6 +71,10 @@ export function useOrders() {
   return cache;
 }
 
+export function allOrders() {
+  return cache;
+}
+
 export async function loadAddress(): Promise<Address | null> {
   try {
     const raw = await AsyncStorage.getItem(ADDR);

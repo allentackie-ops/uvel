@@ -25,7 +25,7 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read, create, update: if isSelf(uid);
-      allow delete: if false;
+      allow delete: if isSelf(uid);
     }
 
     match /brands/{brandId} {

@@ -33,6 +33,15 @@ Android / Play Store (same project):
 npx eas-cli build --platform android --profile production --auto-submit
 ```
 
+## OTA (JS updates, no new binary)
+
+JS-only changes go out with a token — no local Expo login. Store an Expo access token as the GitHub secret `EXPO_TOKEN`, then:
+
+- GitHub → Actions → **OTA** → Run workflow → channel `production`, or
+- `EXPO_TOKEN=… npx eas-cli update --channel production --message "what changed" --platform ios --non-interactive`
+
+Phones on the current App Store binary pull the bundle on next launch. Full steps: [docs/ota.md](docs/ota.md).
+
 ## What’s in the binary
 
 | Tab | Native behavior |

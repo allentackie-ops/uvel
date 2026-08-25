@@ -101,7 +101,8 @@ export default function BrandAnalytics() {
         <Text style={styles.kicker}>{brand.name.toUpperCase()}</Text>
         <Text style={styles.title}>How the house is doing</Text>
         <Text style={styles.p}>
-          {brand.analyticsShared ? "Shared with the team." : "Only you see this. Turn sharing on in Studio."}
+          {brand.analyticsShared ? "Shared with the team." : "Only you see this. Turn sharing on in Studio."}{" "}
+          Counts are live from the house — views, likes, sold pieces, and orders. Nothing is sampled.
         </Text>
 
         <View style={styles.grid}>

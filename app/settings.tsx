@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { LANGS } from "../lib/i18n";
 import { getMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
@@ -15,6 +15,7 @@ export default function Settings() {
   const colors = useColors();
   const styles = make(colors);
   const [langs, setLangs] = useState(false);
+  const [busy, setBusy] = useState(false);
   const localeLabel = LANGS.find((l) => l.id === app.locale)?.label ?? "English, US";
   const market = getMarket(app.country);
 
@@ -27,6 +28,36 @@ export default function Settings() {
       if (cur.status !== "granted") await Notifications.requestPermissionsAsync();
     } catch {
       await Linking.openSettings();
+    }
+  }
+
+  function confirmDelete() {
+    Alert.alert(
+      "Delete your account?",
+      "This permanently deletes your Uvel account, profile, and saved style. Listings you posted come down. This cannot be undone.",
+      [
+        { text: "Keep account", style: "cancel" },
+        {
+          text: "Delete account",
+          style: "destructive",
+          onPress: () =>
+            Alert.alert("Delete forever?", "Tap Delete to confirm. You can create a new account later.", [
+              { text: "Cancel", style: "cancel" },
+              { text: "Delete", style: "destructive", onPress: () => void runDelete() },
+            ]),
+        },
+      ],
+    );
+  }
+
+  async function runDelete() {
+    setBusy(true);
+    try {
+      await app.deleteAccount();
+    } catch (err) {
+      Alert.alert("Couldn’t delete", err instanceof Error ? err.message : "Sign in again, then try.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -151,6 +182,12 @@ export default function Settings() {
         </Pressable>
       ) : null}
 
+      {app.uid ? (
+        <Pressable onPress={confirmDelete} disabled={busy} style={styles.out}>
+          {busy ? <ActivityIndicator color="#C45C4A" /> : <Text style={styles.deleteText}>Delete account</Text>}
+        </Pressable>
+      ) : null}
+
       <Text style={styles.ver}>Uvel {VERSION}</Text>
     </ScrollView>
   );
@@ -252,6 +289,7 @@ function make(colors: ReturnType<typeof useColors>) {
     deleteText: { color: "#E08C8C", fontSize: 15, fontWeight: "700" },
     out: { marginTop: 28, alignItems: "flex-start", paddingHorizontal: 4 },
     outText: { color: colors.muted, fontSize: 16 },
+    deleteText: { color: "#C45C4A", fontSize: 16 },
     ver: { color: colors.subtle, fontSize: 12, marginTop: 20 },
   });
 }

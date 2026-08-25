@@ -11,7 +11,7 @@ import { listingVisibleIn, shipsToLine } from "../../lib/ships";
 import { shopLookOf, type ShopLook } from "../../lib/shopLook";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
-import { getPiece, likeCount, markSold, unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { getPiece, likeCount, markSold, recordPieceView, unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
 const HERO_H = Math.round(W * 1.28);
@@ -165,6 +165,12 @@ export default function ClosetPiece() {
     !!piece &&
     (app.saved.includes(piece.id) || (piece.likedBy || []).some((l) => l.uid === (app.uid || "me")));
   const hearts = piece ? likeCount(piece, app.saved) : 0;
+
+  useEffect(() => {
+    if (!piece) return;
+    if (isMine(piece, app.uid) && v !== "buy") return;
+    recordPieceView(piece.id);
+  }, [piece?.id, app.uid, v]);
 
   if (!piece) {
     return (

@@ -15,7 +15,8 @@ import { useEffect, useState } from "react";
 import { themeOf, type BrandTheme } from "./brandThemes";
 import { reviewBrand, type BrandFiling } from "./brandVerify";
 import { firebaseDb, firebaseReady } from "./firebase";
-import { addPiece, listedPieces, type ClosetPiece } from "./wardrobe";
+import { addPiece, allPieces, listedPieces, type ClosetPiece } from "./wardrobe";
+import { allOrders } from "./orders";
 
 export type BrandStatus = "draft" | "pending" | "verified" | "rejected";
 export type MemberRole = "owner" | "poster";

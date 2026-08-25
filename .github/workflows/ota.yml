@@ -1,5 +1,9 @@
 name: OTA
 
+# Token-based publish. Set repo secret EXPO_TOKEN (expo.dev → Access tokens).
+# Dispatch with channel=production to ship JS to App Store binaries.
+# See docs/ota.md.
+
 on:
   workflow_dispatch:
     inputs:

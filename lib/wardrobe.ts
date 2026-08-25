@@ -152,6 +152,10 @@ export function getPiece(id: string) {
   return pieces.find((p) => p.id === id);
 }
 
+export function allPieces() {
+  return pieces;
+}
+
 export function listedPieces() {
   return pieces.filter((p) => p.status === "listed");
 }
@@ -302,6 +306,12 @@ export function markSold(id: string) {
   updatePiece(id, { status: "sold" });
 }
 
+export function recordPieceView(id: string) {
+  const piece = pieces.find((p) => p.id === id);
+  if (!piece) return;
+  updatePiece(id, { views: (piece.views || 0) + 1 });
+}
+
 export function removePiece(id: string) {
   const removed = pieces.find((p) => p.id === id);
   pieces = pieces.filter((p) => p.id !== id);
@@ -309,4 +319,12 @@ export function removePiece(id: string) {
   if (removed?.brandId && firebaseReady() && firebaseAuth().currentUser) {
     void deleteDoc(doc(firebaseDb(), "listings", id)).catch(() => undefined);
   }
+}
+
+export function removeOwnedBy(uid: string) {
+  if (!uid) return;
+  const next = pieces.filter((p) => p.ownerId !== uid);
+  if (next.length === pieces.length) return;
+  pieces = next;
+  void persist();
 }
