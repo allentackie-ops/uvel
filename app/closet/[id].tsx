@@ -12,6 +12,7 @@ import { listingVisibleIn, shipsToLine } from "../../lib/ships";
 import { shopLookOf, type ShopLook } from "../../lib/shopLook";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
+import { VerifiedMark } from "../../components/VerifiedMark";
 import { getPiece, likeCount, markSold, recordPieceView, unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
@@ -372,7 +373,10 @@ export default function ClosetPiece() {
             )}
             <View style={{ flex: 1 }}>
               <Text style={styles.sellerK}>{sellerLabel}</Text>
-              <Text style={styles.sellerN}>{seller}</Text>
+              <View style={styles.sellerNameRow}>
+                <Text style={styles.sellerN}>{seller}</Text>
+                {owningBrand?.verified && owningBrand.status === "verified" ? <VerifiedMark size={17} /> : null}
+              </View>
               <Text style={styles.sellerP}>Ships from {ship.name}</Text>
               <Text style={styles.sellerP}>{shipsToLine(piece.country || app.country, piece.shipsTo)}</Text>
             </View>
@@ -621,7 +625,8 @@ function make(look: ShopLook) {
     avatarImg: { width: 52, height: 52, borderRadius: 26, backgroundColor: look.surface },
     avatarTxt: { color: look.accentInk, fontWeight: "700", fontSize: 16 },
     sellerK: { color: look.muted, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase" },
-    sellerN: { color: look.bone, fontSize: 16, fontWeight: "600", marginTop: 2 },
+    sellerNameRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+    sellerN: { color: look.bone, fontSize: 16, fontWeight: "600" },
     sellerP: { color: look.muted, fontSize: 13, marginTop: 2 },
     p: { color: look.muted, lineHeight: 22 },
     ctaTxt: { color: look.accentInk, fontWeight: "700", fontSize: 16 },
