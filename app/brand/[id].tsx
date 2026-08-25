@@ -13,13 +13,13 @@ import {
   canStudio,
   getBrand,
   isFollowing,
-  recordBrandView,
   roleOn,
   themeFor,
   toggleFollow,
   useBrands,
 } from "../../lib/brands";
 import { usd } from "../../lib/catalog";
+import { recordAnalyticsEvent } from "../../lib/analytics";
 import { useUvel } from "../../lib/store";
 import { useWardrobe } from "../../lib/wardrobe";
 
@@ -36,8 +36,9 @@ export default function BrandPage() {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    if (id) recordBrandView(id);
-  }, [id]);
+    if (!id || !app.uid) return;
+    void recordAnalyticsEvent({ type: "brand_view", brandId: id }).catch(() => undefined);
+  }, [id, app.uid]);
 
   const theme = brand ? themeFor(brand) : null;
   const listings = useMemo(() => (id ? brandListings(id) : []), [id, tick, brand?.id]);
@@ -128,8 +129,14 @@ export default function BrandPage() {
           <View style={styles.actions}>
             <Pressable
               onPress={() => {
-                toggleFollow(brand.id, app.uid || "me");
+                const nowFollowing = toggleFollow(brand.id, app.uid || "me");
                 setTick((n) => n + 1);
+                if (app.uid) {
+                  void recordAnalyticsEvent({
+                    type: nowFollowing ? "brand_follow" : "brand_unfollow",
+                    brandId: brand.id,
+                  }).catch(() => undefined);
+                }
               }}
               style={[styles.follow, { backgroundColor: following ? theme.card : theme.accent }]}
             >

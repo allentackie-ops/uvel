@@ -71,23 +71,13 @@ export default function Checkout() {
     }
     setPaying(true);
     try {
-      const session = await createCheckoutSession({
-        amountCents: total,
-        currency: market.currency,
-        email: app.email || "pay@uvel.app",
-        method: method.id,
-        country: market.code,
-        reference: `uvel-${piece.id}-${Date.now()}`,
-        name: piece.name,
-      });
-      if (!session.url) throw new Error("That payment method isn’t live yet.");
-      const ok = await openHostedPay(session.url);
-      if (!ok) return;
+      if (!app.uid) throw new Error("Sign in before checking out.");
       const order = await placeOrder({
         pieceId: piece.id,
         pieceName: piece.name,
         piecePhoto: piece.photo,
-        buyerId: app.uid || "me",
+        brandId: piece.brandId,
+        buyerId: app.uid,
         sellerId: piece.ownerId || "seller",
         itemCents: itemLocal,
         feeCents: fee,
@@ -100,6 +90,21 @@ export default function Checkout() {
         delivery: ship,
         address,
       });
+      const session = await createCheckoutSession({
+        amountCents: total,
+        currency: market.currency,
+        email: app.email || "pay@uvel.app",
+        method: method.id,
+        country: market.code,
+        reference: `uvel-${piece.id}-${Date.now()}`,
+        name: piece.name,
+        orderId: order.id,
+        listingId: piece.id,
+        brandId: piece.brandId || "",
+      });
+      if (!session.url) throw new Error("That payment method isn’t live yet.");
+      const ok = await openHostedPay(session.url);
+      if (!ok) return;
       // Hosted checkout returning only means the payment page completed.
       // A trusted payment webhook must confirm payment before marking inventory sold.
       router.replace({ pathname: "/order/[id]", params: { id: order.id } });

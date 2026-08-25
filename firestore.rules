@@ -78,6 +78,29 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    match /listings/{listingId} {
+      allow read: if resource.data.status == "listed" ||
+        (signedIn() && (resource.data.ownerId == request.auth.uid || resource.data.listedByUid == request.auth.uid));
+      allow create: if signedIn() &&
+        request.resource.data.listedByUid == request.auth.uid &&
+        request.resource.data.brandId is string &&
+        request.resource.data.status in ["owned", "listed"];
+      allow update: if signedIn() &&
+        resource.data.listedByUid == request.auth.uid &&
+        request.resource.data.listedByUid == resource.data.listedByUid &&
+        request.resource.data.brandId == resource.data.brandId &&
+        request.resource.data.status in ["owned", "listed"];
+      allow delete: if signedIn() && resource.data.listedByUid == request.auth.uid;
+    }
+
+    match /brandAnalytics/{brandId} {
+      allow read, write: if false;
+    }
+
+    match /brandAnalytics/{brandId}/{document=**} {
+      allow read, write: if false;
+    }
+
     match /orders/{orderId} {
       allow read: if signedIn() &&
         (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);

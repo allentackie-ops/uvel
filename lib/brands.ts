@@ -84,21 +84,6 @@ export type BrandPerson = {
   photo?: string;
 };
 
-export type DayPoint = { day: string; views: number; likes: number; sales: number; earnings: number };
-
-export type BrandAnalytics = {
-  views: number;
-  unique: number;
-  likes: number;
-  follows: number;
-  listings: number;
-  sold: number;
-  earningsCents: number;
-  conversion: number;
-  daily: DayPoint[];
-  top: { id: string; name: string; photo: string; views: number; likes: number; sold: number }[];
-};
-
 const KEY = "uvel-brands-v1";
 const INV = "uvel-brand-invites-v1";
 
@@ -133,24 +118,6 @@ export const DIRECTORY: BrandPerson[] = [
   { uid: "demo-jules", name: "Jules Moreau", email: "jules@uvel.app" },
 ];
 
-function spark(seed: number, days = 14): DayPoint[] {
-  const out: DayPoint[] = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const n = Math.abs(Math.sin(seed + i * 1.7));
-    const sales = Math.round(n * 5);
-    out.push({
-      day: d.toISOString().slice(5, 10),
-      views: Math.round(48 + n * 260),
-      likes: Math.round(6 + n * 34),
-      sales,
-      earnings: sales * Math.round(80 + n * 140) * 100,
-    });
-  }
-  return out;
-}
-
 function house(partial: Brand): Brand {
   return partial;
 }
@@ -180,9 +147,9 @@ const SEED: Brand[] = [
     ownerName: "House desk",
     analyticsShared: true,
     members: [{ uid: "house-maison", name: "House desk", role: "owner", joinedAt: Date.now() - 86400000 * 40 }],
-    views: 12840,
-    likes: 940,
-    follows: 2104,
+    views: 0,
+    likes: 0,
+    follows: 0,
     followers: [],
     createdAt: Date.now() - 86400000 * 40,
   }),
@@ -210,9 +177,9 @@ const SEED: Brand[] = [
     ownerName: "Archive desk",
     analyticsShared: false,
     members: [{ uid: "house-archive", name: "Archive desk", role: "owner", joinedAt: Date.now() - 86400000 * 70 }],
-    views: 20112,
-    likes: 1640,
-    follows: 3880,
+    views: 0,
+    likes: 0,
+    follows: 0,
     followers: [],
     createdAt: Date.now() - 86400000 * 70,
   }),
@@ -240,9 +207,9 @@ const SEED: Brand[] = [
     ownerName: "Atelier desk",
     analyticsShared: true,
     members: [{ uid: "house-atelier", name: "Atelier desk", role: "owner", joinedAt: Date.now() - 86400000 * 22 }],
-    views: 7640,
-    likes: 610,
-    follows: 980,
+    views: 0,
+    likes: 0,
+    follows: 0,
     followers: [],
     createdAt: Date.now() - 86400000 * 22,
   }),
@@ -252,12 +219,6 @@ let brands: Brand[] = [];
 let invites: BrandInvite[] = [];
 let seededListings = false;
 const listeners = new Set<() => void>();
-const SPARK: Record<string, DayPoint[]> = {
-  "maison-found": spark(2.1),
-  "archive-1982": spark(5.4),
-  "atelier-no4": spark(8.8),
-};
-
 function emit() {
   listeners.forEach((l) => l());
 }
@@ -522,12 +483,6 @@ export async function submitForVerification(id: string, filing: BrandFiling) {
   return result;
 }
 
-export function recordBrandView(id: string) {
-  const b = getBrand(id);
-  if (!b) return;
-  updateBrand(id, { views: (b.views || 0) + 1 });
-}
-
 export function toggleFollow(id: string, uid: string) {
   const b = getBrand(id);
   if (!b || !uid) return false;
@@ -643,35 +598,6 @@ export function removeMember(brandId: string, uid: string) {
   const brand = getBrand(brandId);
   if (!brand || brand.ownerId === uid) return;
   updateBrand(brandId, { members: brand.members.filter((m) => m.uid !== uid) });
-}
-
-export function brandAnalytics(id: string): BrandAnalytics {
-  const brand = getBrand(id);
-  const listings = brandListings(id);
-  const likes = listings.reduce((n, p) => n + (p.likedBy?.length || 0), 0) + (brand?.likes || 0);
-  const views = brand?.views || 0;
-  const daily = SPARK[id] || spark(id.length);
-  const earningsCents = daily.reduce((n, d) => n + d.earnings, 0);
-  const sold = daily.reduce((n, d) => n + d.sales, 0);
-  return {
-    views,
-    unique: Math.round(views * 0.62),
-    likes,
-    follows: brand?.follows || 0,
-    listings: listings.length,
-    sold,
-    earningsCents,
-    conversion: views ? Math.round((sold / views) * 1000) / 10 : 0,
-    daily,
-    top: listings.slice(0, 5).map((p, i) => ({
-      id: p.id,
-      name: p.name,
-      photo: p.photo,
-      views: Math.max(12, Math.round((views / Math.max(1, listings.length)) * (1.4 - i * 0.18))),
-      likes: p.likedBy?.length || Math.max(2, 18 - i * 3),
-      sold: Math.max(0, 6 - i),
-    })),
-  };
 }
 
 export function watchBrand(id: string, cb: (b: Brand | undefined) => void) {

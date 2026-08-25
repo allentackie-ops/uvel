@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usd } from "../../lib/catalog";
+import { recordAnalyticsEvent } from "../../lib/analytics";
 import { getMarket } from "../../lib/markets";
 import { listingVisibleIn, shipsToLine } from "../../lib/ships";
 import { shopLookOf, type ShopLook } from "../../lib/shopLook";
@@ -148,6 +149,17 @@ export default function ClosetPiece() {
   const [page, setPage] = useState(0);
   const app = useUvel();
   const look = shopLookOf(piece?.shopLook);
+
+  useEffect(() => {
+    if (!piece || !piece.brandId || !app.uid || (isMine(piece, app.uid) && !preview)) return;
+    void recordAnalyticsEvent({
+      type: "listing_view",
+      brandId: piece.brandId,
+      listingId: piece.id,
+      listingName: piece.name,
+      listingPhoto: piece.photo,
+    }).catch(() => undefined);
+  }, [piece?.id, piece?.brandId, piece?.name, piece?.photo, app.uid, preview]);
   const styles = useMemo(() => make(look), [look]);
   const liked =
     !!piece &&
@@ -239,7 +251,19 @@ export default function ClosetPiece() {
             <Text style={[styles.iconTxt, { color: look.status === "dark" ? "#16140F" : "#F4F0E6" }]}>‹</Text>
           </Pressable>
           <Pressable
-            onPress={() => app.likePiece(piece.id)}
+            onPress={() => {
+              const nowLiked = !liked;
+              app.likePiece(piece.id);
+              if (piece.brandId && app.uid) {
+                void recordAnalyticsEvent({
+                  type: nowLiked ? "listing_like" : "listing_unlike",
+                  brandId: piece.brandId,
+                  listingId: piece.id,
+                  listingName: piece.name,
+                  listingPhoto: piece.photo,
+                }).catch(() => undefined);
+              }
+            }}
             style={[styles.heartBtn, { bottom: 16, right: 16 }]}
             hitSlop={8}
           >

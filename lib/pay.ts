@@ -28,6 +28,9 @@ export type CheckoutPay = {
   country: string;
   reference: string;
   name: string;
+  orderId: string;
+  listingId: string;
+  brandId: string;
 };
 
 export type CheckoutSession = {

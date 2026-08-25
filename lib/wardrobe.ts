@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
+import { deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import type { Category } from "./catalog";
+import { firebaseAuth, firebaseDb, firebaseReady } from "./firebase";
 import { reviewListingPhoto } from "./photoCheck";
 import { listingVisibleIn, type ShipsTo } from "./ships";
 
@@ -122,6 +124,18 @@ async function persist() {
   await AsyncStorage.setItem(KEY, JSON.stringify(pieces));
 }
 
+async function persistRemote(piece: ClosetPiece) {
+  if (!firebaseReady() || !piece.brandId || !piece.listedByUid) return;
+  try {
+    await setDoc(doc(firebaseDb(), "listings", piece.id), {
+      ...piece,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+  } catch {
+    /* Local listing remains visible; server analytics will ignore unsynced inventory. */
+  }
+}
+
 export function useWardrobe() {
   const [, setTick] = useState(0);
   useEffect(() => {
@@ -207,6 +221,7 @@ export function addPiece(
   };
   pieces = [piece, ...pieces];
   void persist();
+  void persistRemote(piece);
   return piece;
 }
 
@@ -261,15 +276,18 @@ export function likesOnMine(uid: string, saved: string[] = [], me?: Pick<Liker, 
 }
 
 export function updatePiece(id: string, patch: Partial<ClosetPiece>) {
+  let changed: ClosetPiece | undefined;
   pieces = pieces.map((p) => {
     if (p.id !== id) return p;
     const next = { ...p, ...patch };
     if (patch.photos) {
       next.photo = patch.photos[0] ?? next.photo;
     }
+    changed = next;
     return next;
   });
   void persist();
+  if (changed) void persistRemote(changed);
 }
 
 export function listPiece(id: string, patch: Partial<ClosetPiece> = {}) {
@@ -285,6 +303,10 @@ export function markSold(id: string) {
 }
 
 export function removePiece(id: string) {
+  const removed = pieces.find((p) => p.id === id);
   pieces = pieces.filter((p) => p.id !== id);
   void persist();
+  if (removed?.brandId && firebaseReady() && firebaseAuth().currentUser) {
+    void deleteDoc(doc(firebaseDb(), "listings", id)).catch(() => undefined);
+  }
 }

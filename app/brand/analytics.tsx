@@ -1,9 +1,12 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { brandAnalytics, canSeeAnalytics, getBrand, useBrands } from "../../lib/brands";
+import { canSeeAnalytics, getBrand, useBrands } from "../../lib/brands";
 import { usd } from "../../lib/catalog";
+import { readBrandAnalytics } from "../../lib/analytics";
+import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
 import { useWardrobe } from "../../lib/wardrobe";
 
@@ -14,15 +17,71 @@ export default function BrandAnalytics() {
   const app = useUvel();
   const insets = useSafeAreaInsets();
   const brand = getBrand(id);
-  const data = id ? brandAnalytics(id) : null;
+  const [data, setData] = useState<Awaited<ReturnType<typeof readBrandAnalytics>>>(null);
+  const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
+  const market = getMarket(brand?.country || app.country);
 
-  if (!brand || !data || !canSeeAnalytics(brand, app.uid)) {
+  useEffect(() => {
+    let alive = true;
+    if (!id || !app.uid) {
+      setLoading(false);
+      return () => {
+        alive = false;
+      };
+    }
+    setLoading(true);
+    setUnavailable(false);
+    void readBrandAnalytics(id, market.currency)
+      .then((next) => {
+        if (alive) {
+          setData(next);
+          setUnavailable(!next);
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setData(null);
+          setUnavailable(true);
+        }
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [id, app.uid, market.currency]);
+
+  if (loading) {
+    return (
+      <View style={[styles.page, { paddingTop: insets.top + 20, paddingHorizontal: 20 }]}>
+        <Pressable onPress={() => router.back()}>
+          <Text style={styles.backTxt}>‹ Back</Text>
+        </Pressable>
+        <Text style={styles.title}>Loading the house’s numbers.</Text>
+      </View>
+    );
+  }
+
+  if (!brand || !canSeeAnalytics(brand, app.uid)) {
     return (
       <View style={[styles.page, { paddingTop: insets.top + 20, paddingHorizontal: 20 }]}>
         <Pressable onPress={() => router.back()}>
           <Text style={styles.backTxt}>‹ Back</Text>
         </Pressable>
         <Text style={styles.title}>Analytics stay with the owner unless they share them.</Text>
+      </View>
+    );
+  }
+
+  if (unavailable || !data) {
+    return (
+      <View style={[styles.page, { paddingTop: insets.top + 20, paddingHorizontal: 20 }]}>
+        <Pressable onPress={() => router.back()}>
+          <Text style={styles.backTxt}>‹ Back</Text>
+        </Pressable>
+        <Text style={styles.title}>Real analytics are not connected yet.</Text>
       </View>
     );
   }
@@ -46,7 +105,7 @@ export default function BrandAnalytics() {
         </Text>
 
         <View style={styles.grid}>
-          <Stat label="Earnings" value={usd(data.earningsCents, "USD")} />
+          <Stat label="Earnings" value={usd(data.earningsCents, data.currency || market.currency)} />
           <Stat label="Page views" value={fmt(data.views)} />
           <Stat label="Unique" value={fmt(data.unique)} />
           <Stat label="Likes" value={fmt(data.likes)} />

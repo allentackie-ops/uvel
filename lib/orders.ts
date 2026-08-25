@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
-import { addDoc, collection, doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { firebaseDb, firebaseReady } from "./firebase";
+import { doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { firebaseAuth, firebaseDb, firebaseReady } from "./firebase";
 import { sendPush } from "./push";
 import { readUserLite } from "./chat";
 
@@ -21,6 +21,7 @@ export type Order = {
   pieceId: string;
   pieceName: string;
   piecePhoto: string;
+  brandId?: string;
   buyerId: string;
   sellerId: string;
   itemCents: number;
@@ -83,6 +84,19 @@ export async function saveAddress(a: Address) {
   await AsyncStorage.setItem(ADDR, JSON.stringify(a));
 }
 
+export function watchOrder(id: string, onStatus: (status: Order["status"] | null) => void) {
+  if (!firebaseReady()) return () => undefined;
+  try {
+    const user = firebaseAuth().currentUser;
+    if (!user) return () => undefined;
+    return onSnapshot(doc(firebaseDb(), "orders", id), (snap) => {
+      onStatus(snap.exists() ? ((snap.data().status as Order["status"]) || null) : null);
+    }, () => onStatus(null));
+  } catch {
+    return () => undefined;
+  }
+}
+
 export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status">): Promise<Order> {
   const full: Order = {
     ...order,
@@ -103,14 +117,12 @@ export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status
   }
   if (firebaseReady()) {
     try {
-      const ref = await addDoc(collection(firebaseDb(), "orders"), {
+      await setDoc(doc(firebaseDb(), "orders", full.id), {
         ...full,
         createdAt: serverTimestamp(),
       });
-      full.id = ref.id;
-      await setDoc(doc(firebaseDb(), "orders", ref.id), { id: ref.id }, { merge: true });
     } catch {
-      /* local copy is enough */
+      /* The checkout callable will reject an order that never reached Firestore. */
     }
   }
   if (order.sellerId && order.sellerId !== order.buyerId) {
