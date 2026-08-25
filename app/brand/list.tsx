@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BRAND_CATEGORIES, usd, type Category } from "../../lib/catalog";
+import { hasBrandContact } from "../../lib/brandContact";
 import { BRAND_CONDITIONS, SIZE_SYSTEMS, sizesOf, systemFor, type SizeSystem } from "../../lib/brandSizes";
 import { canPost, getBrand, useBrands } from "../../lib/brands";
 import { getMarket } from "../../lib/markets";
@@ -55,6 +56,7 @@ export default function BrandList() {
   const [stage, setStage] = useState(0);
   const ph = "rgba(244,240,230,0.32)";
   const cover = photos[0];
+  const contactReady = hasBrandContact(brand || {});
 
   useEffect(() => {
     if (gate.phase !== "review") return;
@@ -65,6 +67,7 @@ export default function BrandList() {
 
   const canList =
     Boolean(brand && canPost(brand, app.uid)) &&
+    contactReady &&
     photos.length > 0 &&
     Boolean(name.trim()) &&
     Boolean(notes.trim()) &&
@@ -237,7 +240,16 @@ export default function BrandList() {
           <Text style={styles.topTitle}>List on {brand.name}</Text>
           <View style={{ width: 40 }} />
         </View>
-        <ScrollView contentContainerStyle={{ paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
+          <ScrollView contentContainerStyle={{ paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
+          {!contactReady ? (
+            <View style={styles.contactGate}>
+              <Text style={styles.contactGateTitle}>Add a brand contact first</Text>
+              <Text style={styles.contactGateText}>Before publishing a listing, add at least one reachable phone, WhatsApp, Instagram, email, or website to this brand.</Text>
+              <Pressable onPress={() => router.push({ pathname: "/brand/apply", params: { id: brand.id } })} style={styles.contactGateBtn}>
+                <Text style={styles.contactGateBtnText}>Open brand details</Text>
+              </Pressable>
+            </View>
+          ) : null}
           <Pressable onPress={cover ? undefined : choosePhoto} style={styles.hero}>
             {cover ? (
               <Image source={{ uri: cover.uri }} style={styles.heroImg} contentFit="cover" />
@@ -381,6 +393,11 @@ const styles = StyleSheet.create({
   back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   backTxt: { color: "#F4F0E6", fontSize: 34, lineHeight: 36, marginTop: -4 },
   topTitle: { color: "#F4F0E6", fontSize: 16, fontWeight: "600" },
+  contactGate: { marginHorizontal: 20, marginTop: 12, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: "#D6E27A66", backgroundColor: "#1A1C12" },
+  contactGateTitle: { color: "#F4F0E6", fontWeight: "700", fontSize: 16 },
+  contactGateText: { color: "rgba(244,240,230,0.6)", fontSize: 13, lineHeight: 18, marginTop: 6 },
+  contactGateBtn: { marginTop: 12, alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 12, borderRadius: 16, backgroundColor: "#D6E27A" },
+  contactGateBtnText: { color: "#16140F", fontSize: 13, fontWeight: "700" },
   hero: { width: W, height: W * 1.15, backgroundColor: "#161512" },
   heroImg: { width: "100%", height: "100%" },
   heroEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },

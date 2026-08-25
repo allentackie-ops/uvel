@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { VerifiedMark } from "../../components/VerifiedMark";
 import { VERTICALS } from "../../lib/brandSizes";
+import { brandContactHint, hasBrandContact } from "../../lib/brandContact";
 import { createBrand, handleFree, ownedBrand, submitForVerification, updateBrand, useBrands } from "../../lib/brands";
 import { VERIFY_STAGES } from "../../lib/brandVerify";
 import { pickLogo, takeLogo } from "../../lib/photo";
@@ -40,7 +41,9 @@ export default function BrandApply() {
   const [registrationId, setRegistrationId] = useState(mine?.registrationId ?? "");
   const [website, setWebsite] = useState(mine?.website ?? "");
   const [instagram, setInstagram] = useState(mine?.instagram ?? "");
-  const [contactEmail, setContactEmail] = useState(mine?.contactEmail || app.email || "");
+  const [phone, setPhone] = useState(mine?.phone ?? "");
+  const [whatsapp, setWhatsapp] = useState(mine?.whatsapp ?? "");
+  const [contactEmail, setContactEmail] = useState(mine?.contactEmail ?? "");
   const [story, setStory] = useState(mine?.story ?? "");
   const [tagline, setTagline] = useState(mine?.tagline ?? "");
   const [logoUri, setLogoUri] = useState(mine?.logoUri ?? "");
@@ -58,7 +61,7 @@ export default function BrandApply() {
     Boolean(name.trim()) &&
     Boolean(handle.trim()) &&
     Boolean(story.trim()) &&
-    Boolean(contactEmail.includes("@")) &&
+    hasBrandContact({ phone, whatsapp, instagram, contactEmail, website }) &&
     Boolean(legalName.trim()) &&
     Boolean(logoUri) &&
     gate.phase === "idle";
@@ -95,6 +98,8 @@ export default function BrandApply() {
           vertical,
           website: website.trim(),
           instagram,
+          phone: phone.trim(),
+          whatsapp: whatsapp.trim(),
           legalName: legalName.trim(),
           registrationId: registrationId.trim(),
           contactEmail: contactEmail.trim(),
@@ -113,6 +118,8 @@ export default function BrandApply() {
           vertical,
           website: website.trim(),
           instagram: instagram.replace(/^@/, "").trim(),
+          phone: phone.trim(),
+          whatsapp: whatsapp.trim(),
           legalName: legalName.trim(),
           registrationId: registrationId.trim(),
           contactEmail: contactEmail.trim(),
@@ -125,8 +132,10 @@ export default function BrandApply() {
         legalName: legalName.trim(),
         vertical,
         story: story.trim(),
-        website: "",
-        instagram: "",
+        website: website.trim(),
+        instagram: instagram.replace(/^@/, "").trim(),
+        phone: phone.trim(),
+        whatsapp: whatsapp.trim(),
         contactEmail: contactEmail.trim(),
         country: app.country,
         registrationId: "",
@@ -247,20 +256,24 @@ export default function BrandApply() {
           <TextInput style={styles.field} value={legalName} onChangeText={setLegalName} placeholder="Ltd, LLC, SARL…" placeholderTextColor={ph} />
           <Text style={styles.label}>Registration or tax id</Text>
           <TextInput style={styles.field} value={registrationId} onChangeText={setRegistrationId} placeholder="Optional" placeholderTextColor={ph} />
-          <Text style={styles.label}>Contact email *</Text>
+          <Text style={styles.label}>Brand contact *</Text>
+          <Text style={styles.contactHint}>Add at least one: email, phone, WhatsApp, Instagram, or website.</Text>
           <TextInput
             style={styles.field}
             value={contactEmail}
             onChangeText={setContactEmail}
             autoCapitalize="none"
             keyboardType="email-address"
-            placeholder="desk@…"
+            placeholder="Email · desk@…"
             placeholderTextColor={ph}
           />
-          <Text style={styles.label}>Website</Text>
-          <TextInput style={styles.field} value={website} onChangeText={setWebsite} autoCapitalize="none" placeholder="https://" placeholderTextColor={ph} />
-          <Text style={styles.label}>Instagram</Text>
-          <TextInput style={styles.field} value={instagram} onChangeText={setInstagram} autoCapitalize="none" placeholder="@handle" placeholderTextColor={ph} />
+          <TextInput style={styles.field} value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="Phone number" placeholderTextColor={ph} />
+          <TextInput style={styles.field} value={whatsapp} onChangeText={setWhatsapp} keyboardType="phone-pad" placeholder="WhatsApp number" placeholderTextColor={ph} />
+          <TextInput style={styles.field} value={website} onChangeText={setWebsite} autoCapitalize="none" placeholder="Website · https://" placeholderTextColor={ph} />
+          <TextInput style={styles.field} value={instagram} onChangeText={setInstagram} autoCapitalize="none" placeholder="Instagram · @handle" placeholderTextColor={ph} />
+          <Text style={styles.contactState}>
+            {hasBrandContact({ phone, whatsapp, instagram, contactEmail, website }) ? `Contact added: ${brandContactHint({ phone, whatsapp, instagram, contactEmail, website })}` : "One reachable contact is required to continue."}
+          </Text>
         </ScrollView>
         <View style={[styles.foot, { paddingBottom: insets.bottom + 12 }]}>
           <Pressable onPress={() => void submit()} disabled={!canSubmit} style={[styles.cta, !canSubmit && styles.ctaOff]}>
@@ -330,6 +343,8 @@ function make(colors: Colors) {
     logoH: { color: "#F4F0E6", fontWeight: "700", fontSize: 16 },
     logoP: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 4 },
     label: { color: "rgba(244,240,230,0.45)", fontSize: 12, marginTop: 16, letterSpacing: 0.3 },
+    contactHint: { color: "rgba(244,240,230,0.55)", fontSize: 13, lineHeight: 18, marginTop: 6 },
+    contactState: { color: "rgba(244,240,230,0.45)", fontSize: 12, marginTop: 8, lineHeight: 17 },
     field: {
       marginTop: 8,
       height: 48,

@@ -51,6 +51,8 @@ export type Brand = {
   vertical: string;
   website: string;
   instagram: string;
+  phone: string;
+  whatsapp: string;
   legalName: string;
   registrationId: string;
   contactEmail: string;
@@ -132,6 +134,8 @@ const SEED: Brand[] = [
     vertical: "Unisex",
     website: "https://maisonfound.example",
     instagram: "maisonfound",
+    phone: "",
+    whatsapp: "",
     legalName: "Maison Found Atelier Ltd",
     registrationId: "MF-1984",
     contactEmail: "desk@maisonfound.example",
@@ -162,6 +166,8 @@ const SEED: Brand[] = [
     vertical: "Archive",
     website: "https://archive1982.example",
     instagram: "archive1982",
+    phone: "",
+    whatsapp: "",
     legalName: "Archive 1982 LLC",
     registrationId: "AR-1982",
     contactEmail: "desk@archive1982.example",
@@ -192,6 +198,8 @@ const SEED: Brand[] = [
     vertical: "Atelier",
     website: "https://atelier4.example",
     instagram: "atelierno4",
+    phone: "",
+    whatsapp: "",
     legalName: "Atelier No. 4 SARL",
     registrationId: "AT-0004",
     contactEmail: "desk@atelier4.example",
@@ -399,6 +407,8 @@ export async function createBrand(input: {
   vertical: string;
   website: string;
   instagram: string;
+  phone: string;
+  whatsapp: string;
   legalName: string;
   registrationId: string;
   contactEmail: string;
@@ -418,6 +428,8 @@ export async function createBrand(input: {
     vertical: input.vertical,
     website: input.website.trim(),
     instagram: input.instagram.replace(/^@/, "").trim(),
+    phone: input.phone.trim(),
+    whatsapp: input.whatsapp.trim(),
     legalName: input.legalName.trim(),
     registrationId: input.registrationId.trim(),
     contactEmail: input.contactEmail.trim(),

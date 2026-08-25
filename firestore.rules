@@ -47,7 +47,7 @@ service cloud.firestore {
           request.resource.data.verified == resource.data.verified &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             "name", "handle", "tagline", "story", "vertical", "website",
-            "instagram", "legalName", "registrationId", "contactEmail",
+            "instagram", "phone", "whatsapp", "legalName", "registrationId", "contactEmail",
             "country", "logoUri", "bannerKind", "bannerUri", "themeId",
             "custom", "analyticsShared", "members", "followers", "follows",
             "views", "likes", "updatedAt"

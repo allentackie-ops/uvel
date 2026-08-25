@@ -512,6 +512,22 @@ function looksLikeEmail(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || "").trim());
 }
 
+function validContactNumber(s) {
+  return String(s || "").replace(/[^0-9]/g, "").length >= 7;
+}
+
+function validInstagram(s) {
+  return /^@?[a-z0-9._]{2,30}$/i.test(String(s || "").trim());
+}
+
+function validWebsite(s) {
+  return /^https?:\/\/[^\s]+$/i.test(String(s || "").trim());
+}
+
+function hasBrandContact(f) {
+  return validContactNumber(f.phone) || validContactNumber(f.whatsapp) || validInstagram(f.instagram) || looksLikeEmail(f.contactEmail) || validWebsite(f.website);
+}
+
 function isSoftReason(reason) {
   const r = String(reason || "").toLowerCase();
   return (
@@ -540,11 +556,11 @@ function localHardFail(f) {
   if (String(f.story || "").trim().length < 4) {
     return { ok: false, headline: "Need a story", reasons: ["Write a line about who you are and what you make."], notes: "" };
   }
-  if (!looksLikeEmail(f.contactEmail)) {
+  if (!hasBrandContact(f)) {
     return {
       ok: false,
-      headline: "Need a contact email",
-      reasons: ["Use a real email the brand can be reached at."],
+      headline: "Add a contact channel",
+      reasons: ["Add at least one reachable brand contact: phone, WhatsApp, Instagram, email, or website."],
       notes: "",
     };
   }
@@ -585,21 +601,27 @@ Handle: @${f.handle}
 Legal / registered name: ${f.legalName || "(none)"}
 Vertical: ${f.vertical}
 Country: ${f.country || "(none)"}
-Contact email: ${f.contactEmail || "(none)"}
+Contact channels:
+- Phone: ${f.phone || "(none)"}
+- WhatsApp: ${f.whatsapp || "(none)"}
+- Instagram: ${f.instagram || "(none)"}
+- Email: ${f.contactEmail || "(none)"}
+- Website: ${f.website || "(none)"}
 Story: ${f.story || "(none)"}
 
-Do not ask about, compare, or reject on Instagram, website, tax/registration id, tagline, or the applicant's personal/sign-in email (often Apple Hide My Email). Those are optional and out of scope.
+At least one brand contact channel must be present and usable. Do not reject the brand because optional channels are blank. Do not confuse a brand contact with the applicant's personal/sign-in email (often Apple Hide My Email).
 
 Handle vs name: they MATCH if they share the same core word after stripping spaces, punctuation, and legal suffixes (Inc, Ltd, LLC, GmbH, SARL, Co). "Apion Inc." and @apion MATCH. Do not invent mismatches. One-letter differences in optional socials are irrelevant because socials are out of scope.
 
 Story: one real sentence is enough. Grammar, typos, informal or generic phrasing are NOT grounds to reject.
 
-Contact email: only this brand contact field. A normal address with @ is enough. Do not mention Apple private relay.
+Contact channels: one usable phone number, WhatsApp number, Instagram handle, email address, or website is enough. Do not require all channels. Do not mention Apple private relay.
 
 Reject ONLY if:
 - The name or handle is a famous house (Nike, Adidas, Gucci, Chanel, Louis Vuitton, Dior, Prada, Hermes, Rolex, Zara, H&M, Shein, Supreme, Off-White, Balenciaga) or an obvious fake of one. Close original names are fine.
 - A required field above is empty.
-- Contact email has no @.
+- No brand contact channel is usable.
+- A supplied email is malformed and no other usable channel is supplied.
 - Handle is a slur or empty.
 - Adult, weapons, drugs, hate, or clearly not a fashion business.
 
