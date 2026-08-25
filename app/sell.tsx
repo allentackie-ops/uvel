@@ -344,9 +344,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
-          <Pressable onPress={leaveSell} hitSlop={16} style={styles.back}>
-            <Text style={styles.backTxt}>‹</Text>
-          </Pressable>
+          <View style={styles.backPlaceholder} />
           <Text style={styles.topTitle}>New listing</Text>
           <View style={{ width: 40 }} />
         </View>
@@ -663,6 +661,7 @@ function make(colors: Colors) {
       paddingBottom: 8,
     },
     back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+    backPlaceholder: { width: 40, height: 40 },
     backTxt: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
     topTitle: { color: colors.bone, fontSize: 16, fontWeight: "600" },
     progressTrack: {
