@@ -81,13 +81,21 @@ export default function Price() {
     [pieceId, params.name, params.brand, params.category, params.color, params.material, params.size, params.condition, existing?.id],
   );
   const guide = useMemo(() => buildPriceGuide(target, pieces, currency), [target, pieces, currency]);
+  const initialCents = centsFromMajor(param(params.price));
   const [priceText, setPriceText] = useState(() => param(params.price));
+  const [selectedTier, setSelectedTier] = useState<"bargain" | "optimal" | "premium" | "custom">(() => {
+    if (initialCents === guide.bargainCents) return "bargain";
+    if (initialCents === guide.premiumCents) return "premium";
+    if (initialCents === guide.optimalCents || !initialCents) return "optimal";
+    return "custom";
+  });
   const currentCents = centsFromMajor(priceText);
   const selectedLabel = currentCents ? formatPriceCents(currentCents, currency) : "No price selected";
   const title = target.name || "Your piece";
   const details = [target.brand, target.category, target.condition].filter(Boolean).join(" · ");
 
-  function choose(cents: number) {
+  function choose(tier: "bargain" | "optimal" | "premium", cents: number) {
+    setSelectedTier(tier);
     setPriceText(majorFromCents(cents));
   }
 
@@ -121,7 +129,10 @@ export default function Price() {
               <TextInput
                 style={styles.priceInput}
                 value={priceText}
-                onChangeText={(value) => setPriceText(value.replace(/[^0-9]/g, ""))}
+                onChangeText={(value) => {
+                  setSelectedTier("custom");
+                  setPriceText(value.replace(/[^0-9]/g, ""));
+                }}
                 placeholder="0"
                 placeholderTextColor={colors.muted}
                 keyboardType="number-pad"
@@ -150,9 +161,9 @@ export default function Price() {
             </View>
 
             <View style={styles.recommendations}>
-              <Recommendation label="Bargain" cents={guide.bargainCents} currency={currency} onPress={() => choose(guide.bargainCents)} />
-              <Recommendation label="Optimal" cents={guide.optimalCents} currency={currency} featured onPress={() => choose(guide.optimalCents)} />
-              <Recommendation label="Premium" cents={guide.premiumCents} currency={currency} onPress={() => choose(guide.premiumCents)} />
+              <Recommendation label="Bargain" cents={guide.bargainCents} currency={currency} selected={selectedTier === "bargain"} onPress={() => choose("bargain", guide.bargainCents)} />
+              <Recommendation label="Optimal" cents={guide.optimalCents} currency={currency} selected={selectedTier === "optimal"} onPress={() => choose("optimal", guide.optimalCents)} />
+              <Recommendation label="Premium" cents={guide.premiumCents} currency={currency} selected={selectedTier === "premium"} onPress={() => choose("premium", guide.premiumCents)} />
             </View>
 
             <View style={styles.similarHead}>
@@ -181,19 +192,20 @@ function Recommendation({
   label,
   cents,
   currency,
-  featured,
+  selected,
   onPress,
 }: {
   label: string;
   cents: number;
   currency: string;
-  featured?: boolean;
+  selected?: boolean;
   onPress: () => void;
 }) {
   const colors = useColors();
   const styles = make(colors);
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.recommendation, featured && styles.recommendationFeatured, pressed && { opacity: 0.78 }]}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.recommendation, selected && styles.recommendationSelected, pressed && { opacity: 0.78 }]}>
+      {selected ? <View style={styles.selectionDot}><Text style={styles.selectionDotTxt}>✓</Text></View> : null}
       <Text style={styles.recPrice}>{formatPriceCents(cents, currency)}</Text>
       <Text style={styles.recLabel}>{label}</Text>
     </Pressable>
@@ -220,15 +232,17 @@ function make(colors: ReturnType<typeof useColors>) {
     sectionHead: { marginHorizontal: 20, marginTop: 28, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
     sectionTitle: { color: colors.bone, fontSize: 23, fontWeight: "700" },
     sectionSub: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 5, maxWidth: 230 },
-    more: { color: "#58C2D4", fontSize: 15, paddingTop: 3 },
+    more: { color: "#D6E27A", fontSize: 15, paddingTop: 3 },
     recommendations: { flexDirection: "row", gap: 10, marginHorizontal: 20, marginTop: 16 },
     recommendation: { flex: 1, minHeight: 86, borderWidth: 1, borderColor: colors.subtle + "55", borderRadius: 12, padding: 12, justifyContent: "space-between" },
-    recommendationFeatured: { borderColor: "#58C2D4", backgroundColor: "rgba(88,194,212,0.08)" },
+    recommendationSelected: { borderColor: "#D6E27A", backgroundColor: "rgba(214,226,122,0.08)" },
+    selectionDot: { position: "absolute", top: 8, right: 8, width: 20, height: 20, borderRadius: 10, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center" },
+    selectionDotTxt: { color: "#16140F", fontSize: 12, fontWeight: "900" },
     recPrice: { color: colors.bone, fontSize: 18, fontWeight: "700" },
     recLabel: { color: colors.muted, fontSize: 14, marginTop: 8 },
     similarHead: { marginHorizontal: 20, marginTop: 30, marginBottom: 12, flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
     similarTitle: { color: colors.bone, fontSize: 20, fontWeight: "600" },
-    selected: { color: "#58C2D4", fontSize: 13, fontWeight: "700" },
+    selected: { color: "#D6E27A", fontSize: 13, fontWeight: "700" },
     emptyCopy: { color: colors.muted, fontSize: 14, lineHeight: 20, marginHorizontal: 20, marginBottom: 4 },
     columns: { gap: 12, paddingHorizontal: 20 },
     comparable: { width: "50%", backgroundColor: colors.surface, borderRadius: 12, overflow: "hidden", marginBottom: 12 },
@@ -238,7 +252,7 @@ function make(colors: ReturnType<typeof useColors>) {
     comparableMeta: { color: colors.muted, fontSize: 12, marginHorizontal: 10, marginTop: 4 },
     comparablePrice: { color: colors.bone, fontSize: 16, fontWeight: "700", marginHorizontal: 10, marginTop: 6, marginBottom: 12 },
     footer: { paddingHorizontal: 20, paddingTop: 8 },
-    done: { height: 54, borderRadius: 27, backgroundColor: "#58C2D4", alignItems: "center", justifyContent: "center" },
-    doneTxt: { color: "#0E1719", fontSize: 16, fontWeight: "700" },
+    done: { height: 54, borderRadius: 27, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center" },
+    doneTxt: { color: "#16140F", fontSize: 16, fontWeight: "700" },
   });
 }
