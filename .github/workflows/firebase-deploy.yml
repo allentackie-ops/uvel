@@ -37,8 +37,11 @@ jobs:
         working-directory: functions
         run: npm install
 
-      - name: Deploy Firestore rules, Storage rules, and Functions
+      - name: Deploy Firestore rules and Functions
         run: |
+          # Storage is intentionally excluded here because this deploy identity
+          # cannot inspect the Storage API. Analytics and account deletion do not
+          # depend on Storage rules being deployed in the same run.
           npx firebase-tools deploy \
             --project uvel-32d32 \
-            --only firestore:rules,storage,functions
+            --only firestore:rules,functions

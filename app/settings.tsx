@@ -54,6 +54,7 @@ export default function Settings() {
     setBusy(true);
     try {
       await app.deleteAccount();
+      router.replace("/setup");
     } catch (err) {
       Alert.alert("Couldn’t delete", err instanceof Error ? err.message : "Sign in again, then try.");
     } finally {
@@ -87,30 +88,11 @@ export default function Settings() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Delete account permanently"
-            onPress={() =>
-              Alert.alert(
-                "Delete your account?",
-                "This permanently deletes your Uvel account and personal data. Orders needed for legal or payment records may be retained in anonymized form. This cannot be undone.",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Delete account",
-                    style: "destructive",
-                    onPress: async () => {
-                      try {
-                        await app.deleteAccount();
-                        router.replace("/setup");
-                      } catch {
-                        Alert.alert("Couldn’t delete account", "Please check your connection and try again.");
-                      }
-                    },
-                  },
-                ],
-              )
-            }
+            onPress={confirmDelete}
+            disabled={busy}
             style={styles.deleteBtn}
           >
-            <Text style={styles.deleteText}>Delete account</Text>
+            {busy ? <ActivityIndicator color="#C45C4A" /> : <Text style={styles.deleteText}>Delete account</Text>}
           </Pressable>
         </View>
       ) : null}
@@ -182,11 +164,6 @@ export default function Settings() {
         </Pressable>
       ) : null}
 
-      {app.uid ? (
-        <Pressable onPress={confirmDelete} disabled={busy} style={styles.out}>
-          {busy ? <ActivityIndicator color="#C45C4A" /> : <Text style={styles.deleteText}>Delete account</Text>}
-        </Pressable>
-      ) : null}
 
       <Text style={styles.ver}>Uvel {VERSION}</Text>
     </ScrollView>
@@ -289,7 +266,6 @@ function make(colors: ReturnType<typeof useColors>) {
     deleteText: { color: "#E08C8C", fontSize: 15, fontWeight: "700" },
     out: { marginTop: 28, alignItems: "flex-start", paddingHorizontal: 4 },
     outText: { color: colors.muted, fontSize: 16 },
-    deleteText: { color: "#C45C4A", fontSize: 16 },
     ver: { color: colors.subtle, fontSize: 12, marginTop: 20 },
   });
 }
