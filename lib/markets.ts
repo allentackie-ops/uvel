@@ -110,6 +110,11 @@ export function getMarket(code?: string | null): Market {
   return BY_CODE[active] ?? BY_CODE.US;
 }
 
+export function getMarketByCurrency(currency?: string | null): Market {
+  if (currency && BY_CURRENCY[currency.toUpperCase()]) return BY_CURRENCY[currency.toUpperCase()];
+  return getMarket();
+}
+
 export function detectCountry(): string {
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;

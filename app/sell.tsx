@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
-import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -21,7 +21,8 @@ import type { Category } from "../lib/catalog";
 import { ShipsPicker } from "../components/ShipsPicker";
 import { usd } from "../lib/catalog";
 import { uvelFeeCents } from "../lib/fees";
-import { getMarket, moneyExact } from "../lib/markets";
+import { getMarket, getMarketByCurrency, moneyExact } from "../lib/markets";
+import { takePendingListingPrice } from "../lib/listingPriceDraft";
 import { pickListingPhoto, takeListingPhoto } from "../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
 import { encodeShipsTo, type ShipsTo } from "../lib/ships";
@@ -73,6 +74,8 @@ export default function Sell() {
   const existing = id ? getPiece(id) : undefined;
   const { wardrobeUris, appearance, uid, displayName, country, isPlus, personUri, avatarUri } = useUvel();
   const market = getMarket(country);
+  const listingCurrency = existing?.currency || market.currency;
+  const listingMarket = getMarketByCurrency(listingCurrency);
   const origin = existing?.country || market.code;
 
   const [photos, setPhotos] = useState<Slot[]>(
@@ -103,6 +106,15 @@ export default function Sell() {
   );
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
+  const priceKey = existing?.id || "new";
+
+  useFocusEffect(
+    useCallback(() => {
+      const selected = takePendingListingPrice(priceKey);
+      if (selected !== undefined) setPrice(selected);
+      return undefined;
+    }, [priceKey]),
+  );
 
   const cover = photos[0];
   const warn = photos.find((p) => p.status === "warn");
@@ -152,7 +164,7 @@ export default function Sell() {
                   ? "Add a material"
                   : !hasCond
                     ? "Pick a condition"
-                    : `List for ${usd(Math.max(1, Number(price) || 0) * 100, market.currency)}`;
+                    : `List for ${usd(Math.max(1, Number(price) || 0) * 100, listingCurrency)}`;
 
   useEffect(() => {
     if (!existing && photos.length === 1 && photos[0].status === "ok" && photos[0].review) {
@@ -239,6 +251,26 @@ export default function Sell() {
     setPhotos((prev) => prev.filter((p) => p.uri !== uri));
   }
 
+  function openPrice() {
+    router.push({
+      pathname: "/price",
+      params: {
+        key: priceKey,
+        ...(existing?.id ? { pieceId: existing.id } : {}),
+        name,
+        brand,
+        category: category || "",
+        color,
+        material,
+        size,
+        condition,
+        currency: listingCurrency,
+        market: origin,
+        price,
+      },
+    });
+  }
+
   async function publish() {
     if (!canList) return;
     setGate({ phase: "review", line: STAGES[0] });
@@ -284,7 +316,7 @@ export default function Sell() {
       listPriceCents: Math.max(1, Number(price) || 0) * 100,
       originalPriceCents: Math.max(0, Number(was) || 0) * 100,
       country: origin,
-      currency: existing?.currency || market.currency,
+      currency: listingCurrency,
       shipsTo,
       shopLook: isPlus ? shopLook : "uvel",
     };
@@ -295,7 +327,7 @@ export default function Sell() {
       ownerName: displayName,
       ownerPhoto: face || undefined,
       country: origin,
-      currency: existing?.currency || market.currency,
+      currency: listingCurrency,
       shipsTo,
     };
     if (existing) listPiece(existing.id, listed);
@@ -408,22 +440,14 @@ export default function Sell() {
 
           <View style={styles.sheet}>
             <Text style={styles.priceLabel}>Price *</Text>
-            <View style={styles.priceRow}>
-              <Text style={[styles.dollar, !price && { color: ph }]}>{market.symbol}</Text>
-              <TextInput
-                style={styles.price}
-                value={price}
-                onChangeText={(v) => setPrice(v.replace(/[^0-9]/g, ""))}
-                keyboardType="number-pad"
-                placeholder="0"
-                placeholderTextColor={ph}
-                autoFocus={false}
-              />
-            </View>
+            <Pressable onPress={openPrice} style={styles.priceRow}>
+              <Text style={[styles.dollar, !price && { color: ph }]}>{listingMarket.symbol}</Text>
+              <Text style={[styles.price, !price && { color: ph }]}>{price || "0"}</Text>
+            </Pressable>
             {Number(price) > 0 ? (
               <Text style={styles.feeNote}>
-                Buyer pays a {moneyExact(uvelFeeCents(Number(price) * 100, market.currency, market), market.currency)}{" "}
-                Uvel fee at checkout. You receive the full {usd(Number(price) * 100, market.currency)}.
+                Buyer pays a {moneyExact(uvelFeeCents(Number(price) * 100, listingCurrency, listingMarket), listingCurrency)}{" "}
+                Uvel fee at checkout. You receive the full {usd(Number(price) * 100, listingCurrency)}.
               </Text>
             ) : null}
 
