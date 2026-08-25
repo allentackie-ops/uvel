@@ -65,7 +65,7 @@ type Gate =
   | { phase: "block"; headline: string; reasons: string[] }
   | { phase: "pass" };
 
-export default function Sell() {
+export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
@@ -107,6 +107,10 @@ export default function Sell() {
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
   const priceKey = existing?.id || "new";
+  const leaveSell = useCallback(() => {
+    if (embedded) router.replace("/(tabs)/index");
+    else router.back();
+  }, [embedded]);
 
   useFocusEffect(
     useCallback(() => {
@@ -333,14 +337,14 @@ export default function Sell() {
     if (existing) listPiece(existing.id, listed);
     else addPiece({ ...listed, status: "listed" });
     setGate({ phase: "pass" });
-    setTimeout(() => router.replace("/(tabs)/closet"), 1100);
+    setTimeout(() => router.replace(embedded ? "/(tabs)/index" : "/(tabs)/closet"), 1100);
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
-          <Pressable onPress={() => router.back()} hitSlop={16} style={styles.back}>
+          <Pressable onPress={leaveSell} hitSlop={16} style={styles.back}>
             <Text style={styles.backTxt}>‹</Text>
           </Pressable>
           <Text style={styles.topTitle}>New listing</Text>

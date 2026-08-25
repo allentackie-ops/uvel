@@ -1,5 +1,5 @@
-import { Redirect } from "expo-router";
+import Sell from "../sell";
 
 export default function Closet() {
-  return <Redirect href="/sell" />;
+  return <Sell embedded />;
 }
