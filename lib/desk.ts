@@ -1,5 +1,6 @@
 import { anthropicKey, openaiKey } from "./tryon";
 import { igQuery, rankLooks, type Dna } from "./styleDna";
+import { aiGeneratedFromUnknown } from "./contentLabels";
 
 type Source = "TikTok" | "Instagram" | "X" | "Snapchat";
 
@@ -17,6 +18,7 @@ export type DeskLook = {
   garmentIds: string[];
   shopQuery: string;
   heat: string;
+  aiGenerated?: boolean;
 };
 
 const TAGS = [
@@ -99,6 +101,7 @@ type Clip = {
   cover: string;
   handle: string;
   postUrl: string;
+  aiGenerated?: boolean;
 };
 
 async function tagClips(tag: { id: string; tag: string }): Promise<Clip[]> {
@@ -115,6 +118,10 @@ async function tagClips(tag: { id: string; tag: string }): Promise<Clip[]> {
         ai_dynamic_cover?: string;
         duration?: number;
         is_ad?: boolean;
+        ai_generated?: boolean;
+        is_ai_generated?: boolean;
+        content_label?: string;
+        labels?: string[];
         author?: { unique_id?: string };
       }[];
     };
@@ -132,10 +139,11 @@ async function tagClips(tag: { id: string; tag: string }): Promise<Clip[]> {
       play: v.play,
       cover: v.origin_cover || v.cover || v.ai_dynamic_cover || "",
       handle,
-      postUrl: v.author?.unique_id
-        ? `https://www.tiktok.com/@${v.author.unique_id}/video/${v.video_id}`
-        : `https://www.tiktok.com/tag/${tag.tag}`,
-    });
+        postUrl: v.author?.unique_id
+          ? `https://www.tiktok.com/@${v.author.unique_id}/video/${v.video_id}`
+          : `https://www.tiktok.com/tag/${tag.tag}`,
+        aiGenerated: aiGeneratedFromUnknown(v) || undefined,
+      });
   }
   return out;
 }
@@ -204,6 +212,7 @@ function asTikTok(c: Clip, title: string): DeskLook {
     garmentIds: [],
     shopQuery: title,
     heat: `TikTok · #${c.tag}`,
+    aiGenerated: c.aiGenerated,
   };
 }
 
@@ -264,11 +273,13 @@ async function hydrateIg(code: string): Promise<DeskLook | null> {
     let title = "fit check";
     let handle = "@instagram";
     let thumb = `https://www.instagram.com/p/${code}/media/?size=l`;
+    let aiGenerated = false;
     if (oeRes && oeRes.ok) {
-      const d = (await oeRes.json()) as { title?: string; author_name?: string; thumbnail_url?: string };
+      const d = (await oeRes.json()) as { title?: string; author_name?: string; thumbnail_url?: string; aiGenerated?: boolean; isAiGenerated?: boolean; contentLabel?: string; labels?: string[] };
       if (d.title) title = d.title;
       if (d.author_name) handle = `@${d.author_name}`;
       if (d.thumbnail_url) thumb = d.thumbnail_url;
+      aiGenerated = aiGeneratedFromUnknown(d);
     }
     const caption = captionFrom(title, "ootd");
     return {
@@ -285,6 +296,7 @@ async function hydrateIg(code: string): Promise<DeskLook | null> {
       garmentIds: [],
       shopQuery: caption,
       heat: `Instagram · ${handle}`,
+      aiGenerated: aiGenerated || undefined,
     };
   } catch {
     return null;
@@ -337,6 +349,7 @@ type SnapRaw = {
   media: string;
   cover: string;
   views: number;
+  aiGenerated?: boolean;
 };
 
 async function snapRaw(): Promise<SnapRaw[]> {
@@ -380,6 +393,7 @@ async function snapRaw(): Promise<SnapRaw[]> {
       media,
       cover,
       views: Number(s.metadata?.videoMetadata?.viewCount || 0),
+      aiGenerated: aiGeneratedFromUnknown(s) || undefined,
     });
   }
   return out.sort((a, b) => b.views - a.views);
@@ -453,6 +467,7 @@ async function snapLooks(): Promise<DeskLook[]> {
         garmentIds: [],
         shopQuery: p.caption,
         heat: "Snapchat · Spotlight",
+        aiGenerated: s.aiGenerated,
       } as DeskLook;
     })
     .filter((x): x is DeskLook => Boolean(x));

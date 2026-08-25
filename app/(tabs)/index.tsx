@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import {
+  Alert,
   AppState,
   Dimensions,
   Linking,
@@ -24,6 +25,7 @@ import { forYou, matchListings } from "../../lib/lookMatch";
 import { beginLookScan, finishLookScan } from "../../lib/lookSearch";
 import { getMarket } from "../../lib/markets";
 import { followedBrandIds, getBrand, useBrands } from "../../lib/brands";
+import { AI_CONTENT_EXPLANATION, AI_CONTENT_LABEL } from "../../lib/contentLabels";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
@@ -206,6 +208,20 @@ function where(url?: string): Exclude<Source, "All"> | null {
   if (u.includes("snapchat.com")) return "Snapchat";
   if (u.includes("x.com") || u.includes("twitter.com")) return "X";
   return null;
+}
+
+function showAiExplanation() {
+  Alert.alert("AI-generated content", AI_CONTENT_EXPLANATION, [{ text: "Got it" }]);
+}
+
+function AiGeneratedPill({ colors, compact = false }: { colors: Colors; compact?: boolean }) {
+  const styles = make(colors);
+  return (
+    <Pressable onPress={showAiExplanation} style={[styles.aiPill, compact && styles.aiPillCompact]} hitSlop={6}>
+      <View style={styles.aiDot} />
+      <Text style={styles.aiPillTxt}>{AI_CONTENT_LABEL}</Text>
+    </Pressable>
+  );
 }
 
 function scanLook(look: Look, grab: FrameGrab | null) {
@@ -455,6 +471,7 @@ function Hero({
             {look.handle ? `${look.source}  ·  ${look.handle}` : look.source}
           </Text>
         </View>
+        {look.aiGenerated ? <AiGeneratedPill colors={colors} /> : null}
         <Text style={styles.title}>{look.title}</Text>
         {tag ? <Text style={styles.hash}>{tag}</Text> : null}
       </View>
@@ -482,6 +499,11 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
           <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
           <Text style={styles.cardSrc}>{look.source}</Text>
         </View>
+        {look.aiGenerated ? (
+          <View style={styles.cardAiWrap}>
+            <AiGeneratedPill colors={colors} compact />
+          </View>
+        ) : null}
         <Pressable onPress={() => void shopThis()} style={styles.searchFab} hitSlop={8}>
           <Text style={styles.searchFabTxt}>{busy ? "…" : "⌕"}</Text>
         </Pressable>
@@ -549,6 +571,10 @@ function make(colors: Colors) {
     heroBar: { flexDirection: "row", gap: 10, marginBottom: 16 },
     srcRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
     src: { color: "rgba(244,240,230,0.86)", fontSize: 13, fontWeight: "500" },
+    aiPill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7, minHeight: 26, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, borderColor: "#D6E27A", backgroundColor: "rgba(11,10,8,0.74)", marginBottom: 9 },
+    aiPillCompact: { marginBottom: 0, minHeight: 25, backgroundColor: "rgba(11,10,8,0.78)" },
+    aiDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#D6E27A" },
+    aiPillTxt: { color: "#F4F0E6", fontSize: 11, fontWeight: "700" },
     title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 30, lineHeight: 34 },
     hash: { color: "rgba(244,240,230,0.72)", fontSize: 15, marginTop: 6 },
     cta: {
@@ -639,6 +665,7 @@ function make(colors: Colors) {
       height: 24,
       borderRadius: 12,
     },
+    cardAiWrap: { position: "absolute", left: 10, bottom: 10, zIndex: 8 },
     searchFab: {
       position: "absolute",
       right: 10,

@@ -6,6 +6,7 @@ import { liveDesk } from "./desk";
 import { prefetchLookVideo } from "./lookFrame";
 import { dnaFrom, rankLooks } from "./styleDna";
 import { snapshot } from "./store";
+import { aiGeneratedFromUnknown } from "./contentLabels";
 
 export type Source = Trend["source"] | "All";
 export const SOURCES: Source[] = ["All", "TikTok", "Instagram", "Snapchat"];
@@ -17,6 +18,7 @@ export type Look = Trend & {
   postUrl?: string;
   handle?: string;
   heat?: string;
+  aiGenerated?: boolean;
 };
 
 const LOOKS_KEY = "uvel-looks-v1";
@@ -52,6 +54,7 @@ function parse(raw: unknown): Look[] {
         garmentIds,
         shopQuery: String(r.shopQuery || ""),
         heat: typeof r.heat === "string" ? r.heat : `Latest on ${source}`,
+        aiGenerated: aiGeneratedFromUnknown(r) || undefined,
       } as Look;
     })
     .filter((x): x is Look => Boolean(x));
@@ -92,6 +95,7 @@ function serialize(looks: Look[]) {
     garmentIds: l.garmentIds,
     shopQuery: l.shopQuery,
     heat: l.heat,
+    aiGenerated: l.aiGenerated,
   }));
 }
 
