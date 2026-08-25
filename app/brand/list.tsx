@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ShipsPicker } from "../../components/ShipsPicker";
 import { BRAND_CATEGORIES, usd, type Category } from "../../lib/catalog";
 import { hasBrandContact } from "../../lib/brandContact";
 import { BRAND_CONDITIONS, SIZE_SYSTEMS, sizesOf, systemFor, type SizeSystem } from "../../lib/brandSizes";
@@ -24,7 +25,7 @@ import { canPost, getBrand, useBrands } from "../../lib/brands";
 import { getMarket } from "../../lib/markets";
 import { pickListingPhoto, takeListingPhoto } from "../../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../../lib/photoCheck";
-import { encodeShipsTo } from "../../lib/ships";
+import { encodeShipsTo, type ShipsTo } from "../../lib/ships";
 import { useUvel } from "../../lib/store";
 import { addPiece } from "../../lib/wardrobe";
 
@@ -41,7 +42,8 @@ export default function BrandList() {
   const brand = getBrand(id);
   const app = useUvel();
   const insets = useSafeAreaInsets();
-  const market = getMarket(brand?.country || app.country);
+  const origin = brand?.country || app.country || "US";
+  const market = getMarket(origin);
   const [photos, setPhotos] = useState<Slot[]>([]);
   const [name, setName] = useState("");
   const [category, setCategory] = useState<Category | null>(null);
@@ -51,6 +53,7 @@ export default function BrandList() {
   const [material, setMaterial] = useState("");
   const [notes, setNotes] = useState("");
   const [price, setPrice] = useState("");
+  const [shipsTo, setShipsTo] = useState<ShipsTo>(() => encodeShipsTo(origin, "home"));
   const [condition, setCondition] = useState<(typeof BRAND_CONDITIONS)[number]>("New");
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
@@ -207,9 +210,9 @@ export default function BrandList() {
         notes: notes.trim(),
         listPriceCents: Math.max(1, Number(price) || 0) * 100,
         originalPriceCents: 0,
-        country: brand.country || app.country,
+        country: origin,
         currency: market.currency,
-        shipsTo: encodeShipsTo(brand.country || app.country || "", "all"),
+        shipsTo,
         brandId: brand.id,
         ownerId: brand.ownerId,
         ownerName: brand.name,
@@ -286,6 +289,10 @@ export default function BrandList() {
             </View>
             <Text style={styles.label}>Title *</Text>
             <TextInput style={styles.field} value={name} onChangeText={setName} placeholder="The piece" placeholderTextColor={ph} />
+
+            <View style={styles.marketSection}>
+              <ShipsPicker origin={origin} value={shipsTo} onChange={setShipsTo} />
+            </View>
             <Text style={styles.label}>Description *</Text>
             <TextInput style={styles.body} value={notes} onChangeText={setNotes} placeholder="Cloth, make, how it sits" placeholderTextColor={ph} multiline />
 
@@ -409,6 +416,7 @@ const styles = StyleSheet.create({
   miniAdd: { width: 56, height: 70, borderRadius: 8, borderWidth: 1, borderColor: "rgba(244,240,230,0.16)", alignItems: "center", justifyContent: "center" },
   miniPlus: { color: "#F4F0E6", fontSize: 22 },
   sheet: { paddingHorizontal: 20, paddingTop: 8 },
+  marketSection: { marginTop: 8 },
   label: { color: "rgba(244,240,230,0.45)", fontSize: 12, marginTop: 16, letterSpacing: 0.3 },
   hint: { color: "rgba(244,240,230,0.4)", fontSize: 13, marginTop: 4 },
   field: {
