@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usd } from "../../lib/catalog";
 import { recordAnalyticsEvent } from "../../lib/analytics";
 import { getMarket } from "../../lib/markets";
+import { getBrand, useBrands } from "../../lib/brands";
 import { listingVisibleIn, shipsToLine } from "../../lib/ships";
 import { shopLookOf, type ShopLook } from "../../lib/shopLook";
 import { useUvel } from "../../lib/store";
@@ -144,6 +145,7 @@ export default function ClosetPiece() {
   const insets = useSafeAreaInsets();
   const { id, v } = useLocalSearchParams<{ id: string; v?: string }>();
   useWardrobe();
+  useBrands();
   const piece = getPiece(id);
   const preview = v === "buy";
   const [page, setPage] = useState(0);
@@ -195,8 +197,10 @@ export default function ClosetPiece() {
   const brand = piece.brand !== "Unlabeled" ? piece.brand : "Uvel closet";
   const chip = swatchOf(piece.color);
   const mine = isMine(piece, app.uid);
-  const seller = (mine && app.displayName) || piece.ownerName || "Uvel member";
-  const sellerPhoto = (mine && (app.avatarUri || app.personUri)) || piece.ownerPhoto || null;
+  const owningBrand = piece.brandId ? getBrand(piece.brandId) : undefined;
+  const seller = owningBrand?.name || (mine && app.displayName) || piece.ownerName || "Uvel member";
+  const sellerPhoto = owningBrand?.logoUri || ((mine && (app.avatarUri || app.personUri)) || piece.ownerPhoto || null);
+  const sellerLabel = owningBrand ? "Sold by brand" : "Sold by";
   const ship = getMarket(piece.country || app.country);
   const onThisFloor = listingVisibleIn({
     origin: piece.country,
@@ -367,7 +371,7 @@ export default function ClosetPiece() {
               </View>
             )}
             <View style={{ flex: 1 }}>
-              <Text style={styles.sellerK}>Sold by</Text>
+              <Text style={styles.sellerK}>{sellerLabel}</Text>
               <Text style={styles.sellerN}>{seller}</Text>
               <Text style={styles.sellerP}>Ships from {ship.name}</Text>
               <Text style={styles.sellerP}>{shipsToLine(piece.country || app.country, piece.shipsTo)}</Text>
