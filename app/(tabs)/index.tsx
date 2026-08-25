@@ -23,6 +23,7 @@ import { frameAtTime, playableLookVideo, prefetchLookVideo } from "../../lib/loo
 import { forYou, matchListings } from "../../lib/lookMatch";
 import { beginLookScan, finishLookScan } from "../../lib/lookSearch";
 import { getMarket } from "../../lib/markets";
+import { followedBrandIds, useBrands } from "../../lib/brands";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
@@ -230,16 +231,27 @@ function hashOf(look: Look) {
   return "";
 }
 
+function followedBadge(piece: ClosetPiece) {
+  return Date.now() - (piece.createdAt || 0) <= 14 * 24 * 60 * 60 * 1000 ? "New drop" : "Following";
+}
+
 export default function Today() {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { uid, styles: taste, country } = useUvel();
+  const brandState = useBrands();
   const chats = useInbox(uid || "me");
   const unread = chats.reduce((n, t) => n + unreadFor(t, uid || "me"), 0);
   const { looks, refreshing, refresh, loading } = useLooks();
   useWardrobe();
   const live = shopFloor(country);
+  const followedIds = useMemo(() => followedBrandIds(uid || ""), [brandState, uid]);
+  const followedKey = followedIds.join("|");
+  const followedListings = useMemo(
+    () => live.filter((p) => Boolean(p.brandId && followedIds.includes(p.brandId))).sort((a, b) => b.createdAt - a.createdAt).slice(0, 8),
+    [live, followedKey],
+  );
   const [source, setSource] = useState<Source>("All");
   const [videoWait, setVideoWait] = useState(false);
   const [shopWait, setShopWait] = useState(false);
@@ -251,7 +263,7 @@ export default function Today() {
     [looks, source],
   );
   const featured = visible[0] ?? looks[0];
-  const hits = featured ? matchListings(featured, live, taste).slice(0, 6) : [];
+  const hits = featured ? matchListings(featured, live, taste, followedIds).slice(0, 6) : [];
 
   return (
     <View style={styles.page}>
@@ -339,6 +351,30 @@ export default function Today() {
             </View>
           )}
 
+          {followedIds.length ? (
+            <>
+              <View style={styles.head}>
+                <View>
+                  <Text style={styles.h2}>From brands you follow</Text>
+                  <Text style={styles.sectionSub}>New drops and recent pieces from your followed shops.</Text>
+                </View>
+              </View>
+              {followedListings.length ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.followedStrip}>
+                  {followedListings.map((p) => (
+                    <View key={`followed-${p.id}`} style={styles.followedCell}>
+                      <ListingCard piece={p} wide={Math.round(W * 0.62)} framed badge={followedBadge(p)} />
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : (
+                <View style={{ paddingHorizontal: 16 }}>
+                  <ListingEmpty copy="You’re following brands, but they have no available pieces for your market yet. New drops will appear here." />
+                </View>
+              )}
+            </>
+          ) : null}
+
           <View style={styles.head}>
             <Text style={styles.h2}>For you</Text>
             <Pressable onPress={() => router.push("/(tabs)/shop")}>
@@ -347,7 +383,7 @@ export default function Today() {
           </View>
           {live.length ? (
             <View style={styles.grid}>
-              {forYou(live, taste, country).slice(0, 8).map((p) => (
+              {forYou(live, taste, country, followedIds).slice(0, 8).map((p) => (
                 <View key={p.id} style={styles.cell}>
                   <ListingCard piece={p} />
                 </View>
@@ -617,6 +653,9 @@ function make(colors: Colors) {
     cardSrc: { color: "#F4F0E6", fontSize: 11, fontWeight: "700" },
     cardTitle: { color: "#F4F0E6", fontSize: 14, marginTop: 8, lineHeight: 18, fontWeight: "500" },
     shopStrip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
+    followedStrip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
+    followedCell: { width: Math.round(W * 0.62) },
+    sectionSub: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 5 },
     shopCard: {
       width: W - 32,
       borderRadius: 20,

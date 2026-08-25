@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { OrbitLoader } from "../../components/OrbitLoader";
 import { VerifiedMark } from "../../components/VerifiedMark";
-import { ownedBrand, verifiedBrands, useBrands } from "../../lib/brands";
+import { followedBrandIds, ownedBrand, verifiedBrands, useBrands } from "../../lib/brands";
 import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
 import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
@@ -83,7 +83,9 @@ export default function Shop() {
   const [scanning, setScanning] = useState(false);
   const [job, setJob] = useState<LookScan | null>(null);
   useWardrobe();
-  useBrands();
+  const brandState = useBrands();
+  const followedIds = useMemo(() => followedBrandIds(app.uid), [brandState, app.uid]);
+  const followedKey = followedIds.join("|");
   const mine = ownedBrand(app.uid);
   const houses = verifiedBrands();
 
@@ -162,9 +164,9 @@ export default function Shop() {
       return live.filter((p) => hit.has(p.id)).filter(passQ);
     }
 
-    const rows = look ? matchListings(look, live, taste) : forYou(live, taste, country);
+    const rows = look ? matchListings(look, live, taste, followedIds) : forYou(live, taste, country, followedIds);
     return rows.filter(passQ);
-  }, [live, look, aiIds, q, cat, taste, country, scanningLook]);
+  }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey]);
 
   return (
     <ScrollView

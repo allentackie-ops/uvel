@@ -26,6 +26,15 @@ function bag(s: string) {
     .filter((w) => w.length > 2);
 }
 
+const DAY = 24 * 60 * 60 * 1000;
+
+export function followedBrandBoost(piece: ClosetPiece, followedBrandIds: string[]) {
+  if (!piece.brandId || !followedBrandIds.includes(piece.brandId)) return 0;
+  const age = Math.max(0, Date.now() - (piece.createdAt || 0));
+  const freshness = age <= 14 * DAY ? 8 : age <= 45 * DAY ? 4 : 1;
+  return 14 + freshness;
+}
+
 export function scoreListing(piece: ClosetPiece, needles: string[], styles: string[]) {
   const hay = bag([piece.name, piece.brand, piece.category, piece.color, piece.material, piece.notes].join(" "));
   const set = new Set(hay);
@@ -44,20 +53,21 @@ export function matchListings(
   look: Pick<Look, "title" | "summary" | "shopQuery">,
   pieces: ClosetPiece[],
   styles: string[] = [],
+  followedBrandIds: string[] = [],
 ) {
   const needles = bag([look.shopQuery, look.title, look.summary].join(" "));
   return [...pieces]
-    .map((p) => ({ p, s: scoreListing(p, needles, styles) }))
+    .map((p) => ({ p, s: scoreListing(p, needles, styles) + followedBrandBoost(p, followedBrandIds) }))
     .sort((a, b) => b.s - a.s || b.p.createdAt - a.p.createdAt)
     .map((x) => x.p);
 }
 
-export function forYou(pieces: ClosetPiece[], styles: string[], country: string) {
+export function forYou(pieces: ClosetPiece[], styles: string[], country: string, followedBrandIds: string[] = []) {
   return [...pieces]
     .filter((p) => listingVisibleIn({ origin: p.country, shipsTo: p.shipsTo, buyer: country }))
     .sort((a, b) => {
-      const as = scoreListing(a, [], styles) + (a.country === country ? 2 : 0);
-      const bs = scoreListing(b, [], styles) + (b.country === country ? 2 : 0);
+      const as = scoreListing(a, [], styles) + (a.country === country ? 2 : 0) + followedBrandBoost(a, followedBrandIds);
+      const bs = scoreListing(b, [], styles) + (b.country === country ? 2 : 0) + followedBrandBoost(b, followedBrandIds);
       return bs - as || b.createdAt - a.createdAt;
     });
 }

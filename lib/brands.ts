@@ -522,6 +522,11 @@ export function isFollowing(id: string, uid: string) {
   return Boolean(uid && b?.followers?.includes(uid));
 }
 
+export function followedBrandIds(uid: string): string[] {
+  if (!uid) return [];
+  return brands.filter((b) => (b.followers || []).includes(uid)).map((b) => b.id);
+}
+
 export async function findPeople(q: string): Promise<BrandPerson[]> {
   const needle = q.trim().toLowerCase();
   if (!needle) return [];
