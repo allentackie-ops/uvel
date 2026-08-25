@@ -122,7 +122,7 @@ export default function BrandPage() {
           <Text style={[styles.handle, { color: theme.muted }]}>@{brand.handle}</Text>
           {brand.tagline ? <Text style={[styles.tagline, { color: theme.ink }]}>{brand.tagline}</Text> : null}
           <Text style={[styles.owner, { color: theme.muted }]}>
-            Owner · {brand.ownerName}
+            Owner · {brand.legalName || brand.ownerName}
             {role === "poster" ? "  ·  You post here" : role === "owner" ? "  ·  You" : ""}
           </Text>
 
