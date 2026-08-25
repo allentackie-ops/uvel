@@ -380,6 +380,78 @@ exports.getBrandAnalytics = onCall(async (req) => {
   };
 });
 
+exports.deleteMyAccount = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const uid = req.auth.uid;
+  const db = admin.firestore();
+  const deletedUser = "deleted-user";
+
+  const [brandsSnap, listingsByOwner, listingsByLister, buyerOrders, sellerOrders, chatsByBuyer, chatsBySeller, invitesFrom, invitesTo] = await Promise.all([
+    db.collection("brands").get(),
+    db.collection("listings").where("ownerId", "==", uid).get(),
+    db.collection("listings").where("listedByUid", "==", uid).get(),
+    db.collection("orders").where("buyerId", "==", uid).get(),
+    db.collection("orders").where("sellerId", "==", uid).get(),
+    db.collection("chats").where("buyerId", "==", uid).get(),
+    db.collection("chats").where("sellerId", "==", uid).get(),
+    db.collection("brandInvites").where("fromUid", "==", uid).get(),
+    db.collection("brandInvites").where("toUid", "==", uid).get(),
+  ]);
+
+  const ownedBrandIds = brandsSnap.docs.filter((d) => d.data().ownerId === uid).map((d) => d.id);
+  const brandBatch = db.batch();
+  const memberBrands = [];
+  for (const brandDoc of brandsSnap.docs) {
+    const brand = brandDoc.data() || {};
+    if (brand.ownerId === uid) continue;
+    const members = Array.isArray(brand.members) ? brand.members.filter((member) => member?.uid !== uid) : brand.members;
+    const followers = Array.isArray(brand.followers) ? brand.followers.filter((follower) => follower !== uid) : brand.followers;
+    if (members !== brand.members || followers !== brand.followers) {
+      memberBrands.push(brandDoc.ref);
+      brandBatch.update(brandDoc.ref, { members, followers, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+    }
+  }
+  if (memberBrands.length) await brandBatch.commit();
+
+  const allListings = new Map([...listingsByOwner.docs, ...listingsByLister.docs].map((d) => [d.id, d]));
+  for (const listing of allListings.values()) await db.recursiveDelete(listing.ref);
+  for (const brandId of ownedBrandIds) {
+    await db.recursiveDelete(db.collection("brands").doc(brandId));
+    await db.recursiveDelete(db.collection("brandAnalytics").doc(brandId));
+  }
+  for (const invite of [...invitesFrom.docs, ...invitesTo.docs]) await db.recursiveDelete(invite.ref);
+
+  const orderBatch = db.batch();
+  for (const order of new Map([...buyerOrders.docs, ...sellerOrders.docs].map((d) => [d.id, d])).values()) {
+    const data = order.data() || {};
+    orderBatch.update(order.ref, {
+      buyerId: data.buyerId === uid ? deletedUser : data.buyerId,
+      sellerId: data.sellerId === uid ? deletedUser : data.sellerId,
+      buyerEmail: admin.firestore.FieldValue.delete(),
+      buyerName: admin.firestore.FieldValue.delete(),
+      address: admin.firestore.FieldValue.delete(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+  if ([...buyerOrders.docs, ...sellerOrders.docs].length) await orderBatch.commit();
+  for (const chat of new Map([...chatsByBuyer.docs, ...chatsBySeller.docs].map((d) => [d.id, d])).values()) {
+    await db.recursiveDelete(chat.ref);
+  }
+
+  const analyticsDocs = await Promise.all(brandsSnap.docs.map((brandDoc) => brandDoc.ref.collection("states").get()));
+  for (const stateSnap of analyticsDocs) {
+    for (const state of stateSnap.docs) {
+      if (state.data()?.uid === uid) await db.recursiveDelete(state.ref);
+    }
+  }
+  for (const brandDoc of brandsSnap.docs) {
+    await db.recursiveDelete(brandDoc.ref.collection("audience").doc(uid));
+  }
+  await db.recursiveDelete(db.collection("users").doc(uid));
+  await admin.auth().deleteUser(uid);
+  return { ok: true };
+});
+
 function parseJson(text) {
   const t = String(text || "")
     .trim()

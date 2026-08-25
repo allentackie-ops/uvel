@@ -259,6 +259,7 @@ export function useUvel() {
         uid,
         name: memory.displayName || "Uvel member",
         photo: memory.avatarUri || memory.personUri || undefined,
+        at: Date.now(),
       };
       const { liked, piece } = toggleLiker(id, liker);
       void save({
@@ -281,6 +282,7 @@ export function useUvel() {
         uid: memory.uid || "me",
         name: memory.displayName || "Uvel member",
         photo: memory.avatarUri || memory.personUri || undefined,
+        at: Date.now(),
       });
     },
     consumeFind: () => {
@@ -339,6 +341,14 @@ export function useUvel() {
         onboarded: true,
         onboardVersion: 4,
       }).then(() => stashProfile());
+    },
+    deleteAccount: async () => {
+      const { deleteAccount: deleteRemoteAccount } = await import("./account");
+      await deleteRemoteAccount();
+      memory = { ...defaults, locale: guessLocale(), country: detectCountry(), profileChecked: true };
+      setActiveMarket(memory.country);
+      listeners.forEach((l) => l());
+      await AsyncStorage.setItem(KEY, JSON.stringify(memory));
     },
     signOutAccount: async () => {
       const { signOut } = await import("./auth");

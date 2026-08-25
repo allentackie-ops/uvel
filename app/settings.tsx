@@ -49,6 +49,41 @@ export default function Settings() {
         </View>
       </View>
 
+      {app.uid ? (
+        <View style={styles.dangerBox}>
+          <Text style={styles.dangerTitle}>Delete account</Text>
+          <Text style={styles.dangerHint}>Permanently removes your account, profile, listings, and personal data.</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Delete account permanently"
+            onPress={() =>
+              Alert.alert(
+                "Delete your account?",
+                "This permanently deletes your Uvel account and personal data. Orders needed for legal or payment records may be retained in anonymized form. This cannot be undone.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Delete account",
+                    style: "destructive",
+                    onPress: async () => {
+                      try {
+                        await app.deleteAccount();
+                        router.replace("/setup");
+                      } catch {
+                        Alert.alert("Couldn’t delete account", "Please check your connection and try again.");
+                      }
+                    },
+                  },
+                ],
+              )
+            }
+            style={styles.deleteBtn}
+          >
+            <Text style={styles.deleteText}>Delete account</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       <Text style={styles.section}>Preferences</Text>
       <View style={styles.group}>
         <View style={styles.row}>
@@ -210,6 +245,11 @@ function make(colors: ReturnType<typeof useColors>) {
     last: { borderBottomWidth: 0 },
     langTxt: { color: colors.muted, fontSize: 15 },
     langOn: { color: colors.bone, fontWeight: "700" },
+    dangerBox: { marginTop: 20, borderWidth: 1, borderColor: "#B85C5C66", borderRadius: 16, padding: 16 },
+    dangerTitle: { color: "#E08C8C", fontWeight: "700", fontSize: 16 },
+    dangerHint: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 5 },
+    deleteBtn: { marginTop: 14, alignSelf: "flex-start", paddingVertical: 8 },
+    deleteText: { color: "#E08C8C", fontSize: 15, fontWeight: "700" },
     out: { marginTop: 28, alignItems: "flex-start", paddingHorizontal: 4 },
     outText: { color: colors.muted, fontSize: 16 },
     ver: { color: colors.subtle, fontSize: 12, marginTop: 20 },
