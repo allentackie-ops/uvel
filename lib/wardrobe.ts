@@ -19,6 +19,12 @@ export type ClosetPiece = {
   size: string;
   sizes?: string[];
   sizeStock?: Record<string, number>;
+  /** Brand catalog identifier used by teams and connected systems. */
+  sku?: string;
+  /** Optional price overrides keyed by ISO market country code, in cents. */
+  marketPrices?: Record<string, number>;
+  /** Optional market-level availability overrides keyed by ISO country code. */
+  marketAvailability?: Record<string, boolean>;
   condition: string;
   material: string;
   notes: string;
@@ -110,6 +116,10 @@ function normalize(p: ClosetPiece): ClosetPiece {
     photo: photos[0] ?? p.photo ?? "",
     material: p.material ?? "",
     originalPriceCents: p.originalPriceCents ?? 0,
+    sku: p.sku || undefined,
+    sizeStock: p.sizeStock || undefined,
+    marketPrices: p.marketPrices || undefined,
+    marketAvailability: p.marketAvailability || undefined,
   };
 }
 

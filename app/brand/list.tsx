@@ -46,6 +46,7 @@ export default function BrandList() {
   const market = getMarket(origin);
   const [photos, setPhotos] = useState<Slot[]>([]);
   const [name, setName] = useState("");
+  const [sku, setSku] = useState("");
   const [category, setCategory] = useState<Category | null>(null);
   const [system, setSystem] = useState<SizeSystem>("clothing");
   const [picked, setPicked] = useState<string[]>([]);
@@ -74,6 +75,7 @@ export default function BrandList() {
     contactReady &&
     photos.length > 0 &&
     Boolean(name.trim()) &&
+    Boolean(sku.trim()) &&
     Boolean(notes.trim()) &&
     Number(price) > 0 &&
     Number(stockQuantity) > 0 &&
@@ -205,6 +207,7 @@ export default function BrandList() {
         photos: uris,
         name: name.trim(),
         brand: activeBrand.name,
+        sku: sku.trim().toUpperCase(),
         category,
         color: color.trim(),
         size: picked[0],
@@ -294,6 +297,9 @@ export default function BrandList() {
             </View>
             <Text style={styles.label}>Title *</Text>
             <TextInput style={styles.field} value={name} onChangeText={setName} placeholder="The piece" placeholderTextColor={ph} />
+            <Text style={styles.label}>SKU *</Text>
+            <Text style={styles.hint}>A unique product code for your team and inventory system.</Text>
+            <TextInput style={styles.field} value={sku} onChangeText={(v) => setSku(v.replace(/[^a-z0-9-]/gi, "").toUpperCase())} placeholder="e.g. AT4-SLIP-001" placeholderTextColor={ph} autoCapitalize="characters" />
 
             <Text style={styles.label}>Units in stock *</Text>
             <Text style={styles.hint}>How many of this item can buyers order?</Text>

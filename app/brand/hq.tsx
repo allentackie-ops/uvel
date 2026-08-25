@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { VerifiedMark } from "../../components/VerifiedMark";
 import {
@@ -23,6 +23,7 @@ import {
 import { usd } from "../../lib/catalog";
 import { useUvel } from "../../lib/store";
 import { useColors } from "../../lib/theme";
+import { getMarket } from "../../lib/markets";
 import { useOrders } from "../../lib/orders";
 import { unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
@@ -181,13 +182,66 @@ function CatalogSection({ brand, items, canManage, theme, styles }: { brand: Bra
         </View>
         {canManage ? <Pressable onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })} style={[styles.smallCta, { backgroundColor: theme.accent }]}><Text style={[styles.smallCtaTxt, { color: theme.accentInk }]}>Add product</Text></Pressable> : null}
       </View>
-      {items.length ? items.map((item) => <CatalogRow key={item.id} item={item} canManage={canManage} theme={theme} styles={styles} />) : <Empty text="No products in this catalog yet." theme={theme} styles={styles} />}
+      {items.length ? (
+        <>
+          {canManage ? <BulkUpdate items={items} marketCode={brand.country} theme={theme} styles={styles} /> : null}
+          {items.map((item) => <CatalogRow key={item.id} item={item} canManage={canManage} marketCode={brand.country} theme={theme} styles={styles} />)}
+        </>
+      ) : <Empty text="No products in this catalog yet." theme={theme} styles={styles} />}
     </View>
   );
 }
 
-function CatalogRow({ item, canManage, theme, styles }: { item: ClosetPiece; canManage: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
+function BulkUpdate({ items, marketCode, theme, styles }: { items: ClosetPiece[]; marketCode: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  const market = getMarket(marketCode);
+  const [price, setPrice] = useState("");
+  const [stock, setStock] = useState("");
+
+  function apply() {
+    const priceCents = Math.round(Number(price) * 100);
+    const stockUnits = Math.round(Number(stock));
+    if (!Number.isFinite(priceCents) || priceCents <= 0 || !Number.isFinite(stockUnits) || stockUnits < 0) {
+      Alert.alert("Catalog update", `Enter a valid ${market.currency} price and stock quantity.`);
+      return;
+    }
+    items.forEach((item) => updatePiece(item.id, {
+      listPriceCents: priceCents,
+      stockQuantity: stockUnits,
+      marketPrices: { ...(item.marketPrices || {}), [market.code]: priceCents },
+    }));
+    setPrice("");
+    setStock("");
+    Alert.alert("Catalog updated", `${items.length} product${items.length === 1 ? "" : "s"} updated for ${market.name}.`);
+  }
+
+  return (
+    <View style={[styles.bulkCard, { backgroundColor: theme.card }]}>
+      <View style={styles.bulkHead}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.bulkTitle, { color: theme.ink }]}>Bulk update · {market.code}</Text>
+          <Text style={[styles.bulkP, { color: theme.muted }]}>Apply one market price and stock quantity to the full catalog.</Text>
+        </View>
+        <Text style={[styles.bulkCurrency, { color: theme.accent }]}>{market.currency}</Text>
+      </View>
+      <View style={styles.bulkFields}>
+        <TextInput value={price} onChangeText={(value) => setPrice(value.replace(/[^0-9.]/g, ""))} placeholder="Price" placeholderTextColor={theme.muted} keyboardType="decimal-pad" style={[styles.bulkInput, { color: theme.ink, borderColor: theme.lineColor }]} />
+        <TextInput value={stock} onChangeText={(value) => setStock(value.replace(/[^0-9]/g, ""))} placeholder="Stock" placeholderTextColor={theme.muted} keyboardType="number-pad" style={[styles.bulkInput, { color: theme.ink, borderColor: theme.lineColor }]} />
+        <Pressable onPress={apply} style={[styles.bulkButton, { backgroundColor: theme.accent }]}><Text style={[styles.bulkButtonTxt, { color: theme.accentInk }]}>Apply</Text></Pressable>
+      </View>
+    </View>
+  );
+}
+
+function CatalogRow({ item, canManage, marketCode, theme, styles }: { item: ClosetPiece; canManage: boolean; marketCode: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  const market = getMarket(marketCode);
   const stock = typeof item.stockQuantity === "number" ? item.stockQuantity : null;
+  const sizes = item.sizes?.length ? item.sizes : item.size ? [item.size] : [];
+  const initialSizeStock = Object.fromEntries(sizes.map((size) => [size, String(item.sizeStock?.[size] ?? item.stockQuantity ?? 0)]));
+  const [expanded, setExpanded] = useState(false);
+  const [price, setPrice] = useState(String((item.marketPrices?.[market.code] ?? item.listPriceCents) / 100));
+  const [sizeStock, setSizeStock] = useState<Record<string, string>>(initialSizeStock);
+  const [available, setAvailable] = useState(item.marketAvailability?.[market.code] ?? true);
+
   function actions() {
     const options = ["Open listing", ...(canManage && item.status === "listed" ? ["Unlist product"] : []), ...(canManage && item.status !== "listed" ? ["Publish product"] : []), "Cancel"];
     const buttons: Array<{ text: string; onPress?: () => void; style?: "cancel" | "default" | "destructive" }> = options
@@ -200,17 +254,44 @@ function CatalogRow({ item, canManage, theme, styles }: { item: ClosetPiece; can
     buttons.push({ text: "Cancel", style: "cancel" });
     Alert.alert(item.name, undefined, buttons);
   }
+
+  function saveCatalogFields() {
+    const nextSizeStock = Object.fromEntries(Object.entries(sizeStock).map(([size, value]) => [size, Math.max(0, Math.round(Number(value) || 0))]));
+    const total = sizes.length ? Object.values(nextSizeStock).reduce((sum, value) => sum + value, 0) : Math.max(0, Math.round(Number(sizeStock.total || stock || 0)));
+    const priceCents = Math.max(1, Math.round(Number(price) * 100));
+    updatePiece(item.id, {
+      listPriceCents: priceCents,
+      stockQuantity: total,
+      sizeStock: sizes.length ? nextSizeStock : item.sizeStock,
+      marketPrices: { ...(item.marketPrices || {}), [market.code]: priceCents },
+      marketAvailability: { ...(item.marketAvailability || {}), [market.code]: available },
+    });
+    setExpanded(false);
+  }
+
   return (
-    <Pressable onPress={actions} style={[styles.catalogRow, { backgroundColor: theme.card }]}>
-      {item.photo ? <Image source={{ uri: item.photo }} style={styles.catalogImg} contentFit="cover" /> : <View style={[styles.catalogImg, { backgroundColor: theme.bg }]} />}
-      <View style={styles.catalogCopy}>
-        <Text style={[styles.catalogName, { color: theme.ink }]} numberOfLines={2}>{item.name}</Text>
-        <Text style={[styles.catalogMeta, { color: theme.muted }]}>{item.status === "listed" ? "Active" : item.status === "sold" ? "Sold" : "Unlisted"} · {item.size || "Size pending"}</Text>
-        <Text style={[styles.catalogPrice, { color: theme.ink }]}>{usd(item.listPriceCents, item.currency || "USD")}{stock !== null ? ` · ${stock} in stock` : ""}</Text>
-      </View>
-      {stock !== null && stock > 0 && stock <= 10 ? <View style={[styles.stockPill, { backgroundColor: theme.accent }]}><Text style={[styles.stockTxt, { color: theme.accentInk }]}>{stock} left</Text></View> : null}
-      <Text style={[styles.rowArrow, { color: theme.ink }]}>›</Text>
-    </Pressable>
+    <View style={[styles.catalogWrap, { backgroundColor: theme.card }]}>
+      <Pressable onPress={() => setExpanded((value) => !value)} style={styles.catalogRow}>
+        {item.photo ? <Image source={{ uri: item.photo }} style={styles.catalogImg} contentFit="cover" /> : <View style={[styles.catalogImg, { backgroundColor: theme.bg }]} />}
+        <View style={styles.catalogCopy}>
+          <Text style={[styles.catalogName, { color: theme.ink }]} numberOfLines={2}>{item.name}</Text>
+          <Text style={[styles.catalogMeta, { color: theme.muted }]}>{item.status === "listed" ? "Active" : item.status === "sold" ? "Sold" : "Unlisted"} · {item.sku || "SKU pending"}</Text>
+          <Text style={[styles.catalogPrice, { color: theme.ink }]}>{usd(item.marketPrices?.[market.code] ?? item.listPriceCents, market.currency)}{stock !== null ? ` · ${stock} in stock` : ""}</Text>
+        </View>
+        {stock !== null && stock > 0 && stock <= 10 ? <View style={[styles.stockPill, { backgroundColor: theme.accent }]}><Text style={[styles.stockTxt, { color: theme.accentInk }]}>{stock} left</Text></View> : null}
+        <Text style={[styles.rowArrow, { color: theme.ink }]}>{expanded ? "⌃" : "›"}</Text>
+      </Pressable>
+      {expanded && canManage ? (
+        <View style={[styles.editor, { borderTopColor: theme.lineColor }]}>
+          <View style={styles.editorTop}><Text style={[styles.editorKicker, { color: theme.muted }]}>CATALOG CONTROLS · {market.code}</Text><Switch value={available} onValueChange={setAvailable} trackColor={{ false: theme.lineColor, true: theme.accent }} thumbColor={available ? theme.accentInk : theme.muted} /></View>
+          <Text style={[styles.editorLabel, { color: theme.muted }]}>Market availability · {available ? "Available" : "Hidden"}</Text>
+          <TextInput value={price} onChangeText={(value) => setPrice(value.replace(/[^0-9.]/g, ""))} placeholder={`${market.currency} price`} placeholderTextColor={theme.muted} keyboardType="decimal-pad" style={[styles.editorInput, { color: theme.ink, borderColor: theme.lineColor }]} />
+          <Text style={[styles.editorLabel, { color: theme.muted }]}>Stock by size</Text>
+          {sizes.length ? sizes.map((size) => <View key={size} style={styles.variantRow}><Text style={[styles.variantName, { color: theme.ink }]}>{size}</Text><TextInput value={sizeStock[size] || "0"} onChangeText={(value) => setSizeStock((current) => ({ ...current, [size]: value.replace(/[^0-9]/g, "") }))} keyboardType="number-pad" style={[styles.variantInput, { color: theme.ink, borderColor: theme.lineColor }]} /></View>) : <TextInput value={sizeStock.total || String(stock || 0)} onChangeText={(value) => setSizeStock((current) => ({ ...current, total: value.replace(/[^0-9]/g, "") }))} keyboardType="number-pad" style={[styles.editorInput, { color: theme.ink, borderColor: theme.lineColor }]} />}
+          <View style={styles.editorActions}><Pressable onPress={actions} style={[styles.actionButton, { borderColor: theme.lineColor }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>More actions</Text></Pressable><Pressable onPress={saveCatalogFields} style={[styles.saveButton, { backgroundColor: theme.accent }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Save changes</Text></Pressable></View>
+        </View>
+      ) : expanded ? <Text style={[styles.readOnly, { color: theme.muted }]}>Your role can view this catalog, but cannot edit inventory.</Text> : null}
+    </View>
   );
 }
 
@@ -324,7 +405,17 @@ function make(theme: HQTheme) {
     actionButton: { alignSelf: "flex-start", height: 34, paddingHorizontal: 12, borderRadius: 17, borderWidth: 1, justifyContent: "center", marginTop: 12 },
     actionButtonTxt: { fontSize: 12, fontWeight: "800" },
     note: { fontSize: 12, lineHeight: 18, marginTop: 18 },
-    catalogRow: { borderRadius: 18, padding: 10, flexDirection: "row", alignItems: "center", gap: 10, marginTop: 10 },
+    bulkCard: { borderRadius: 18, padding: 14, marginTop: 14 },
+    bulkHead: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+    bulkTitle: { fontSize: 14, fontWeight: "800" },
+    bulkP: { fontSize: 12, lineHeight: 17, marginTop: 4 },
+    bulkCurrency: { fontSize: 11, fontWeight: "800", letterSpacing: 1 },
+    bulkFields: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 12 },
+    bulkInput: { flex: 1, height: 38, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, fontSize: 13 },
+    bulkButton: { height: 38, paddingHorizontal: 13, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+    bulkButtonTxt: { fontSize: 12, fontWeight: "800" },
+    catalogWrap: { borderRadius: 18, overflow: "hidden", marginTop: 10 },
+    catalogRow: { padding: 10, flexDirection: "row", alignItems: "center", gap: 10, marginTop: 0 },
     catalogImg: { width: 68, height: 86, borderRadius: 12 },
     catalogCopy: { flex: 1, minWidth: 0 },
     catalogName: { fontSize: 15, fontWeight: "800" },
@@ -333,6 +424,18 @@ function make(theme: HQTheme) {
     stockPill: { height: 24, paddingHorizontal: 8, borderRadius: 12, justifyContent: "center" },
     stockTxt: { fontSize: 10, fontWeight: "800" },
     rowArrow: { fontSize: 26, marginRight: 2 },
+    editor: { borderTopWidth: StyleSheet.hairlineWidth, padding: 14 },
+    editorTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    editorKicker: { fontSize: 10, letterSpacing: 1.1, fontWeight: "800" },
+    editorLabel: { fontSize: 12, marginTop: 10 },
+    editorInput: { height: 40, borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, fontSize: 14, marginTop: 7 },
+    variantRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 7 },
+    variantName: { fontSize: 13, fontWeight: "700" },
+    variantInput: { width: 88, height: 36, borderWidth: 1, borderRadius: 11, paddingHorizontal: 10, textAlign: "right", fontSize: 13 },
+    editorActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 14 },
+    saveButton: { height: 34, paddingHorizontal: 13, borderRadius: 17, justifyContent: "center" },
+    saveButtonTxt: { fontSize: 12, fontWeight: "800" },
+    readOnly: { fontSize: 12, padding: 14, paddingTop: 0 },
     featureCard: { borderRadius: 18, padding: 18, marginTop: 10 },
     featureKicker: { fontSize: 10, letterSpacing: 1.3, fontWeight: "800" },
     featureTitle: { fontSize: 19, fontWeight: "800", marginTop: 8 },
