@@ -138,6 +138,10 @@ export function getPiece(id: string) {
   return pieces.find((p) => p.id === id);
 }
 
+export function allPieces() {
+  return pieces;
+}
+
 export function listedPieces() {
   return pieces.filter((p) => p.status === "listed");
 }
@@ -282,6 +286,12 @@ export function unlistPiece(id: string) {
 
 export function markSold(id: string) {
   updatePiece(id, { status: "sold" });
+}
+
+export function recordPieceView(id: string) {
+  const piece = pieces.find((p) => p.id === id);
+  if (!piece) return;
+  updatePiece(id, { views: (piece.views || 0) + 1 });
 }
 
 export function removePiece(id: string) {

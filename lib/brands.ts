@@ -15,7 +15,8 @@ import { useEffect, useState } from "react";
 import { themeOf, type BrandTheme } from "./brandThemes";
 import { reviewBrand, type BrandFiling } from "./brandVerify";
 import { firebaseDb, firebaseReady } from "./firebase";
-import { addPiece, listedPieces, type ClosetPiece } from "./wardrobe";
+import { addPiece, allPieces, listedPieces, type ClosetPiece } from "./wardrobe";
+import { allOrders } from "./orders";
 
 export type BrandStatus = "draft" | "pending" | "verified" | "rejected";
 export type MemberRole = "owner" | "poster";
@@ -133,24 +134,6 @@ export const DIRECTORY: BrandPerson[] = [
   { uid: "demo-jules", name: "Jules Moreau", email: "jules@uvel.app" },
 ];
 
-function spark(seed: number, days = 14): DayPoint[] {
-  const out: DayPoint[] = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const n = Math.abs(Math.sin(seed + i * 1.7));
-    const sales = Math.round(n * 5);
-    out.push({
-      day: d.toISOString().slice(5, 10),
-      views: Math.round(48 + n * 260),
-      likes: Math.round(6 + n * 34),
-      sales,
-      earnings: sales * Math.round(80 + n * 140) * 100,
-    });
-  }
-  return out;
-}
-
 function house(partial: Brand): Brand {
   return partial;
 }
@@ -252,11 +235,16 @@ let brands: Brand[] = [];
 let invites: BrandInvite[] = [];
 let seededListings = false;
 const listeners = new Set<() => void>();
-const SPARK: Record<string, DayPoint[]> = {
-  "maison-found": spark(2.1),
-  "archive-1982": spark(5.4),
-  "atelier-no4": spark(8.8),
-};
+const VIEW_HITS = "uvel-brand-view-hits-v1";
+let viewHits: Record<string, number[]> = {};
+
+void AsyncStorage.getItem(VIEW_HITS)
+  .then((raw) => {
+    viewHits = raw ? (JSON.parse(raw) as Record<string, number[]>) : {};
+  })
+  .catch(() => {
+    viewHits = {};
+  });
 
 function emit() {
   listeners.forEach((l) => l());
@@ -526,6 +514,11 @@ export function recordBrandView(id: string) {
   const b = getBrand(id);
   if (!b) return;
   updateBrand(id, { views: (b.views || 0) + 1 });
+  const now = Date.now();
+  const windowMs = 14 * 86400000;
+  const hits = [...(viewHits[id] || []), now].filter((t) => now - t < windowMs).slice(-400);
+  viewHits[id] = hits;
+  void AsyncStorage.setItem(VIEW_HITS, JSON.stringify(viewHits));
 }
 
 export function toggleFollow(id: string, uid: string) {
@@ -647,31 +640,81 @@ export function removeMember(brandId: string, uid: string) {
 
 export function brandAnalytics(id: string): BrandAnalytics {
   const brand = getBrand(id);
-  const listings = brandListings(id);
-  const likes = listings.reduce((n, p) => n + (p.likedBy?.length || 0), 0) + (brand?.likes || 0);
-  const views = brand?.views || 0;
-  const daily = SPARK[id] || spark(id.length);
-  const earningsCents = daily.reduce((n, d) => n + d.earnings, 0);
-  const sold = daily.reduce((n, d) => n + d.sales, 0);
+  const listings = allPieces().filter((p) => p.brandId === id);
+  const live = listings.filter((p) => p.status === "listed");
+  const soldPieces = listings.filter((p) => p.status === "sold");
+  const orders = allOrders().filter((o) => listings.some((p) => p.id === o.pieceId));
+  const likes =
+    listings.reduce((n, p) => n + (p.likedBy?.length || 0), 0) + (brand?.likes || 0);
+  const views = (brand?.views || 0) + listings.reduce((n, p) => n + (p.views || 0), 0);
+  const unique = new Set([
+    ...(brand?.followers || []),
+    ...listings.flatMap((p) => (p.likedBy || []).map((l) => l.uid)),
+  ]).size;
+  const soldIds = new Set(soldPieces.map((p) => p.id));
+  const sold = soldPieces.length + orders.filter((o) => !soldIds.has(o.pieceId)).length;
+  const earningsCents = orders.reduce((n, o) => n + (o.itemCents || 0), 0);
+  const daily = lastFourteen(id, listings, orders);
   return {
     views,
-    unique: Math.round(views * 0.62),
+    unique,
     likes,
-    follows: brand?.follows || 0,
-    listings: listings.length,
+    follows: brand?.followers?.length || brand?.follows || 0,
+    listings: live.length,
     sold,
     earningsCents,
     conversion: views ? Math.round((sold / views) * 1000) / 10 : 0,
     daily,
-    top: listings.slice(0, 5).map((p, i) => ({
-      id: p.id,
-      name: p.name,
-      photo: p.photo,
-      views: Math.max(12, Math.round((views / Math.max(1, listings.length)) * (1.4 - i * 0.18))),
-      likes: p.likedBy?.length || Math.max(2, 18 - i * 3),
-      sold: Math.max(0, 6 - i),
-    })),
+    top: [...listings]
+      .sort((a, b) => (b.views || 0) + (b.likedBy?.length || 0) * 3 - ((a.views || 0) + (a.likedBy?.length || 0) * 3))
+      .slice(0, 5)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        photo: p.photo,
+        views: p.views || 0,
+        likes: p.likedBy?.length || 0,
+        sold: p.status === "sold" || orders.some((o) => o.pieceId === p.id) ? 1 : 0,
+      })),
   };
+}
+
+function dayKey(ts: number) {
+  return new Date(ts).toISOString().slice(5, 10);
+}
+
+function lastFourteen(id: string, listings: ClosetPiece[], orders: ReturnType<typeof allOrders>): DayPoint[] {
+  const days: DayPoint[] = [];
+  const index = new Map<string, DayPoint>();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const day = d.toISOString().slice(5, 10);
+    const row: DayPoint = { day, views: 0, likes: 0, sales: 0, earnings: 0 };
+    days.push(row);
+    index.set(day, row);
+  }
+  const since = Date.now() - 14 * 86400000;
+  for (const ts of viewHits[id] || []) {
+    if (ts < since) continue;
+    const row = index.get(dayKey(ts));
+    if (row) row.views += 1;
+  }
+  for (const p of listings) {
+    for (const like of p.likedBy || []) {
+      if (like.at < since) continue;
+      const row = index.get(dayKey(like.at));
+      if (row) row.likes += 1;
+    }
+  }
+  for (const o of orders) {
+    if (o.createdAt < since) continue;
+    const row = index.get(dayKey(o.createdAt));
+    if (!row) continue;
+    row.sales += 1;
+    row.earnings += o.itemCents || 0;
+  }
+  return days;
 }
 
 export function watchBrand(id: string, cb: (b: Brand | undefined) => void) {

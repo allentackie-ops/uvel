@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { brandAnalytics, canSeeAnalytics, getBrand, useBrands } from "../../lib/brands";
 import { usd } from "../../lib/catalog";
+import { useOrders } from "../../lib/orders";
 import { useUvel } from "../../lib/store";
 import { useWardrobe } from "../../lib/wardrobe";
 
@@ -11,6 +12,7 @@ export default function BrandAnalytics() {
   const { id } = useLocalSearchParams<{ id: string }>();
   useBrands();
   useWardrobe();
+  useOrders();
   const app = useUvel();
   const insets = useSafeAreaInsets();
   const brand = getBrand(id);
@@ -42,7 +44,8 @@ export default function BrandAnalytics() {
         <Text style={styles.kicker}>{brand.name.toUpperCase()}</Text>
         <Text style={styles.title}>How the house is doing</Text>
         <Text style={styles.p}>
-          {brand.analyticsShared ? "Shared with the team." : "Only you see this. Turn sharing on in Studio."}
+          {brand.analyticsShared ? "Shared with the team." : "Only you see this. Turn sharing on in Studio."}{" "}
+          Counts are live from the house — views, likes, sold pieces, and orders. Nothing is sampled.
         </Text>
 
         <View style={styles.grid}>
