@@ -298,3 +298,11 @@ export function removePiece(id: string) {
   pieces = pieces.filter((p) => p.id !== id);
   void persist();
 }
+
+export function removeOwnedBy(uid: string) {
+  if (!uid) return;
+  const next = pieces.filter((p) => p.ownerId !== uid);
+  if (next.length === pieces.length) return;
+  pieces = next;
+  void persist();
+}

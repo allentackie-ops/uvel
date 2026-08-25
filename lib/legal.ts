@@ -51,7 +51,7 @@ export const privacy: LegalDoc = {
     {
       heading: "Your rights",
       body: [
-        "You can access, correct, or delete your data from You → Settings, or email himforson@gmail.com. We keep data while your account is open and delete it, usually within 30 days, after you ask.",
+        "You can access, correct, or delete your data from You → Settings → Delete account, or email himforson@gmail.com. We keep data while your account is open and delete it, usually within 30 days, after you ask.",
       ],
     },
     {

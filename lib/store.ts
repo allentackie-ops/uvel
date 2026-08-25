@@ -361,5 +361,29 @@ export function useUvel() {
         avatarUri: null,
       });
     },
+    deleteAccount: async () => {
+      const uid = memory.uid;
+      const { deleteAccount } = await import("./auth");
+      const { removeOwnedBy } = await import("./wardrobe");
+      await deleteAccount();
+      if (uid) removeOwnedBy(uid);
+      try {
+        const raw = await AsyncStorage.getItem(PROFILES);
+        if (raw && uid) {
+          const all = JSON.parse(raw) as Record<string, unknown>;
+          delete all[uid];
+          await AsyncStorage.setItem(PROFILES, JSON.stringify(all));
+        }
+      } catch {
+        /* local profile already gone */
+      }
+      await save({
+        ...defaults,
+        profileChecked: true,
+        locale: memory.locale,
+        country: memory.country,
+        appearance: memory.appearance,
+      });
+    },
   };
 }

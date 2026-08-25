@@ -285,3 +285,12 @@ exports.reviewBrand = onCall({ secrets: [anthropicSecret] }, async (req) => {
     notes: String(parsed.notes || ""),
   });
 });
+
+exports.deleteAccount = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const uid = req.auth.uid;
+  const db = admin.firestore();
+  await db.collection("users").doc(uid).delete().catch(() => undefined);
+  await admin.auth().deleteUser(uid);
+  return { ok: true };
+});
