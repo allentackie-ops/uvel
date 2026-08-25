@@ -23,9 +23,10 @@ import {
 import { usd } from "../../lib/catalog";
 import { useUvel } from "../../lib/store";
 import { useColors } from "../../lib/theme";
-import { getMarket } from "../../lib/markets";
+import { MARKETS, getMarket } from "../../lib/markets";
 import { useOrders } from "../../lib/orders";
 import { unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { shipsToLabel } from "../../lib/ships";
 
 type Section = "overview" | "catalog" | "orders" | "inbox" | "analytics" | "team" | "settings";
 type HQTheme = { bg: string; ink: string; muted: string; card: string; accent: string; accentInk: string; lineColor: string };
@@ -173,6 +174,8 @@ function Overview({ brand, catalogCount, lowStockCount, teamCount, inquiryCount,
 }
 
 function CatalogSection({ brand, items, canManage, theme, styles }: { brand: Brand; items: ClosetPiece[]; canManage: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  const [marketCode, setMarketCode] = useState(getMarket(brand.country).code);
+  const market = getMarket(marketCode);
   return (
     <View>
       <View style={styles.sectionHead}>
@@ -182,10 +185,19 @@ function CatalogSection({ brand, items, canManage, theme, styles }: { brand: Bra
         </View>
         {canManage ? <Pressable onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })} style={[styles.smallCta, { backgroundColor: theme.accent }]}><Text style={[styles.smallCtaTxt, { color: theme.accentInk }]}>Add product</Text></Pressable> : null}
       </View>
+      <Text style={[styles.marketKicker, { color: theme.muted }]}>MANAGE A MARKET</Text>
+      <Text style={[styles.marketSummary, { color: theme.ink }]}>{market.name} · {market.currency}</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.marketPicker}>
+        {MARKETS.map((option) => {
+          const selected = option.code === market.code;
+          return <Pressable key={option.code} onPress={() => setMarketCode(option.code)} style={[styles.marketChip, { borderColor: selected ? theme.accent : theme.lineColor, backgroundColor: selected ? theme.accent : theme.card }]}><Text style={[styles.marketChipCode, { color: selected ? theme.accentInk : theme.ink }]}>{option.code}</Text><Text style={[styles.marketChipName, { color: selected ? theme.accentInk : theme.muted }]}>{option.name}</Text></Pressable>;
+        })}
+      </ScrollView>
+      <Text style={[styles.marketHint, { color: theme.muted }]}>Prices and availability below are for {market.name}. Shipping coverage stays tied to each product’s approved destinations.</Text>
       {items.length ? (
         <>
-          {canManage ? <BulkUpdate items={items} marketCode={brand.country} theme={theme} styles={styles} /> : null}
-          {items.map((item) => <CatalogRow key={item.id} item={item} canManage={canManage} marketCode={brand.country} theme={theme} styles={styles} />)}
+          {canManage ? <BulkUpdate key={`bulk-${market.code}`} items={items} marketCode={market.code} theme={theme} styles={styles} /> : null}
+          {items.map((item) => <CatalogRow key={`${item.id}-${market.code}`} item={item} canManage={canManage} marketCode={market.code} theme={theme} styles={styles} />)}
         </>
       ) : <Empty text="No products in this catalog yet." theme={theme} styles={styles} />}
     </View>
@@ -285,6 +297,7 @@ function CatalogRow({ item, canManage, marketCode, theme, styles }: { item: Clos
         <View style={[styles.editor, { borderTopColor: theme.lineColor }]}>
           <View style={styles.editorTop}><Text style={[styles.editorKicker, { color: theme.muted }]}>CATALOG CONTROLS · {market.code}</Text><Switch value={available} onValueChange={setAvailable} trackColor={{ false: theme.lineColor, true: theme.accent }} thumbColor={available ? theme.accentInk : theme.muted} /></View>
           <Text style={[styles.editorLabel, { color: theme.muted }]}>Market availability · {available ? "Available" : "Hidden"}</Text>
+          <Text style={[styles.shippingContext, { color: theme.muted }]}>Shipping coverage · {shipsToLabel(item.country || market.code, item.shipsTo)}</Text>
           <TextInput value={price} onChangeText={(value) => setPrice(value.replace(/[^0-9.]/g, ""))} placeholder={`${market.currency} price`} placeholderTextColor={theme.muted} keyboardType="decimal-pad" style={[styles.editorInput, { color: theme.ink, borderColor: theme.lineColor }]} />
           <Text style={[styles.editorLabel, { color: theme.muted }]}>Stock by size</Text>
           {sizes.length ? sizes.map((size) => <View key={size} style={styles.variantRow}><Text style={[styles.variantName, { color: theme.ink }]}>{size}</Text><TextInput value={sizeStock[size] || "0"} onChangeText={(value) => setSizeStock((current) => ({ ...current, [size]: value.replace(/[^0-9]/g, "") }))} keyboardType="number-pad" style={[styles.variantInput, { color: theme.ink, borderColor: theme.lineColor }]} /></View>) : <TextInput value={sizeStock.total || String(stock || 0)} onChangeText={(value) => setSizeStock((current) => ({ ...current, total: value.replace(/[^0-9]/g, "") }))} keyboardType="number-pad" style={[styles.editorInput, { color: theme.ink, borderColor: theme.lineColor }]} />}
@@ -405,6 +418,13 @@ function make(theme: HQTheme) {
     actionButton: { alignSelf: "flex-start", height: 34, paddingHorizontal: 12, borderRadius: 17, borderWidth: 1, justifyContent: "center", marginTop: 12 },
     actionButtonTxt: { fontSize: 12, fontWeight: "800" },
     note: { fontSize: 12, lineHeight: 18, marginTop: 18 },
+    marketKicker: { fontSize: 10, letterSpacing: 1.4, fontWeight: "800", marginTop: 2 },
+    marketSummary: { fontSize: 17, fontWeight: "800", marginTop: 5 },
+    marketPicker: { gap: 8, paddingVertical: 10 },
+    marketChip: { minWidth: 72, height: 48, borderWidth: 1, borderRadius: 14, paddingHorizontal: 9, justifyContent: "center" },
+    marketChipCode: { fontSize: 12, fontWeight: "900" },
+    marketChipName: { fontSize: 9, marginTop: 2 },
+    marketHint: { fontSize: 12, lineHeight: 17, marginBottom: 4 },
     bulkCard: { borderRadius: 18, padding: 14, marginTop: 14 },
     bulkHead: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
     bulkTitle: { fontSize: 14, fontWeight: "800" },
@@ -428,6 +448,7 @@ function make(theme: HQTheme) {
     editorTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     editorKicker: { fontSize: 10, letterSpacing: 1.1, fontWeight: "800" },
     editorLabel: { fontSize: 12, marginTop: 10 },
+    shippingContext: { fontSize: 11, lineHeight: 16, marginTop: 4 },
     editorInput: { height: 40, borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, fontSize: 14, marginTop: 7 },
     variantRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 7 },
     variantName: { fontSize: 13, fontWeight: "700" },
