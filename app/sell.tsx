@@ -359,44 +359,32 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Pressable onPress={cover ? undefined : choosePhoto} style={styles.hero}>
-            {cover ? (
-              <>
-                <Image source={{ uri: cover.uri }} style={styles.heroImg} contentFit="cover" />
-                <Pressable onPress={() => removePhoto(cover.uri)} hitSlop={8} style={styles.heroX}>
-                  <Text style={styles.heroXTxt}>×</Text>
-                </Pressable>
-              </>
-            ) : (
-              <View style={styles.heroEmpty}>
-                <Text style={styles.heroPlus}>＋</Text>
-                <Text style={styles.heroHint}>Tap to add a photo</Text>
-                <Text style={styles.heroSub}>Hang it, lay it flat, or a clear mirror shot</Text>
-              </View>
-            )}
-            {cover?.status === "checking" ? (
-              <View style={styles.heroMask}>
-                <ActivityIndicator color="#16140F" />
-                <Text style={styles.heroCheck}>Checking this shot</Text>
-              </View>
-            ) : null}
-          </Pressable>
-
-          <Text style={[styles.label, { marginTop: 16, marginLeft: 20 }]}>Photos *</Text>
-          <View style={styles.slotRow}>
+          <Text style={[styles.label, styles.photosLabel]}>Photos *</Text>
+          <View style={styles.photoGrid}>
             {photos.map((p, i) => (
-              <View key={p.uri} style={{ position: "relative" }}>
-                <Image source={{ uri: p.uri }} style={[styles.mini, i === 0 && styles.miniOn]} contentFit="cover" />
+              <View key={p.uri} style={styles.photoTile}>
+                <Image source={{ uri: p.uri }} style={styles.photoImage} contentFit="cover" />
+                {i === 0 ? (
+                  <View style={styles.mainPhotoPill}>
+                    <Text style={styles.mainPhotoTxt}>Main</Text>
+                  </View>
+                ) : null}
                 {p.status === "warn" ? <View style={styles.warnDot} /> : null}
-                <Pressable onPress={() => removePhoto(p.uri)} hitSlop={8} style={styles.miniX}>
-                  <Text style={styles.miniXTxt}>×</Text>
+                {p.status === "checking" ? (
+                  <View style={styles.photoCheck}>
+                    <ActivityIndicator color="#16140F" />
+                  </View>
+                ) : null}
+                <Pressable onPress={() => removePhoto(p.uri)} hitSlop={8} style={styles.photoX}>
+                  <Text style={styles.photoXTxt}>×</Text>
                 </Pressable>
               </View>
             ))}
             {photos.length < MAX ? (
-              <Pressable onPress={choosePhoto} style={styles.miniAdd}>
-                <Text style={styles.miniPlus}>+</Text>
-                <Text style={styles.miniCount}>{photos.length}/5</Text>
+              <Pressable onPress={choosePhoto} style={[styles.photoTile, styles.photoAdd]}>
+                <Text style={styles.photoAddIcon}>＋</Text>
+                <Text style={styles.photoAddTxt}>Add photo</Text>
+                <Text style={styles.photoCount}>{photos.length}/{MAX}</Text>
               </Pressable>
             ) : null}
           </View>
@@ -673,62 +661,19 @@ function make(colors: Colors) {
     },
     progressFill: { height: 3, backgroundColor: "#D6E27A", borderRadius: 2 },
     progressLbl: { color: colors.subtle, fontSize: 11, marginTop: 6, marginBottom: 8, marginLeft: 20 },
-    hero: {
-      width: W,
-      height: W / LISTING_RATIO,
-      backgroundColor: colors.surface,
-    },
-    heroImg: { width: "100%", height: "100%" },
-    heroX: {
-      position: "absolute",
-      top: 12,
-      right: 12,
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      backgroundColor: "rgba(14,13,11,0.72)",
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    heroXTxt: { color: "#F4F0E6", fontSize: 22, lineHeight: 24, marginTop: -1 },
-    heroEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8, padding: 28 },
-    heroPlus: { color: colors.bone, fontSize: 44 },
-    heroHint: { color: colors.bone, fontFamily: "Georgia", fontSize: 22 },
-    heroSub: { color: colors.muted, textAlign: "center", lineHeight: 20 },
-    heroMask: {
-      ...StyleSheet.absoluteFill,
-      backgroundColor: "rgba(214,226,122,0.5)",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-    },
-    heroCheck: { color: "#16140F", fontWeight: "600" },
-    slotRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 12 },
-    mini: { width: 52, height: 65, borderRadius: 10, backgroundColor: colors.surface },
-    miniOn: { borderWidth: 2, borderColor: "#D6E27A" },
-    miniAdd: {
-      width: 52,
-      height: 65,
-      borderRadius: 10,
-      borderWidth: 1,
-      borderColor: colors.subtle + "55",
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    miniPlus: { color: colors.bone, fontSize: 20, marginTop: -2 },
-    miniCount: { color: colors.subtle, fontSize: 10 },
-    miniX: {
-      position: "absolute",
-      top: -6,
-      right: -6,
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      backgroundColor: "#16140F",
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    miniXTxt: { color: "#F4F0E6", fontSize: 14, lineHeight: 16, fontWeight: "700" },
+    photosLabel: { marginTop: 16, marginLeft: 20 },
+    photoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 20, paddingTop: 10 },
+    photoTile: { width: Math.round((W - 50) / 2), height: Math.round(((W - 50) / 2) * 1.25), borderRadius: 14, overflow: "hidden", backgroundColor: colors.surface, position: "relative" },
+    photoImage: { width: "100%", height: "100%" },
+    photoAdd: { borderWidth: 1, borderStyle: "dashed", borderColor: colors.subtle + "88", alignItems: "center", justifyContent: "center" },
+    photoAddIcon: { color: colors.bone, fontSize: 34, lineHeight: 38 },
+    photoAddTxt: { color: colors.bone, fontSize: 12, fontWeight: "600", marginTop: 4 },
+    photoCount: { color: colors.subtle, fontSize: 11, marginTop: 4 },
+    mainPhotoPill: { position: "absolute", left: 10, bottom: 10, paddingHorizontal: 10, height: 28, borderRadius: 14, backgroundColor: "rgba(11,10,8,0.76)", alignItems: "center", justifyContent: "center" },
+    mainPhotoTxt: { color: colors.bone, fontSize: 12, fontWeight: "600" },
+    photoCheck: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(214,226,122,0.52)", alignItems: "center", justifyContent: "center" },
+    photoX: { position: "absolute", top: 10, right: 10, width: 28, height: 28, borderRadius: 14, backgroundColor: colors.bone, alignItems: "center", justifyContent: "center" },
+    photoXTxt: { color: colors.ink, fontSize: 19, lineHeight: 21, fontWeight: "700", marginTop: -1 },
     warnDot: {
       position: "absolute",
       right: 4,
