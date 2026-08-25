@@ -256,7 +256,8 @@ function seedListings() {
     { photo: uriOf(assets.poetBlouse), photos: [uriOf(assets.poetBlouse)], name: "Cream silk poet blouse", brand: "Atelier No. 4", category: "Tops", color: "Cream", size: "S", sizes: ["XS", "S", "M", "L"], condition: "New", material: "Silk", notes: "Gathered cuffs, an open neck.", listPriceCents: 14000, originalPriceCents: 0, brandId: "atelier-no4", ownerId: "house-atelier", ownerName: "Atelier No. 4", country: "FR", currency: "EUR", shipsTo: "all" },
     { photo: uriOf(assets.satinSkirt), photos: [uriOf(assets.satinSkirt)], name: "Champagne satin midi", brand: "Atelier No. 4", category: "Skirts", color: "Champagne", size: "S", sizes: ["XS", "S", "M"], condition: "New", material: "Acetate satin", notes: "Bias midi in champagne satin.", listPriceCents: 16000, originalPriceCents: 0, brandId: "atelier-no4", ownerId: "house-atelier", ownerName: "Atelier No. 4", country: "FR", currency: "EUR", shipsTo: "all" },
   ];
-  for (const row of rows) addPiece({ ...row, status: "listed" });
+  const demoStock = [8, 16, 6, 24, 9, 18, 7, 13, 5, 21];
+  rows.forEach((row, index) => addPiece({ ...row, stockQuantity: demoStock[index] ?? 12, status: "listed" }));
 }
 
 export function seedBrandFloor() {
