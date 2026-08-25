@@ -8,6 +8,7 @@ import {
   orderBy,
   query,
   setDoc,
+  where,
 } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { firebaseDb, firebaseReady } from "./firebase";
@@ -36,6 +37,11 @@ export type ChatThread = {
   piecePriceCents: number;
   sellerName: string;
   buyerName: string;
+  brandId?: string;
+  brandName?: string;
+  brandLogo?: string;
+  brandVerified?: boolean;
+  recipientIds?: string[];
   lastText: string;
   lastAt: number;
   lastFrom: string;
@@ -98,10 +104,14 @@ function patchThread(id: string, patch: Partial<ChatThread>) {
   emitInbox();
 }
 
-export function threadId(buyerId: string, sellerId: string, pieceId: string) {
+export function threadId(buyerId: string, sellerId: string, pieceId: string, brandId?: string) {
   const a = buyerId || "me";
-  const b = sellerId || "seller";
+  const b = brandId ? `brand:${brandId}` : sellerId || "seller";
   return `${[a, b].sort().join("_")}__${pieceId}`;
+}
+
+export function getThread(id: string) {
+  return memory.threads[id];
 }
 
 export async function readUserLite(uid: string) {
@@ -155,10 +165,16 @@ export function openThread(input: {
   piecePriceCents: number;
   sellerName: string;
   buyerName: string;
+  brandId?: string;
+  brandName?: string;
+  brandLogo?: string;
+  brandVerified?: boolean;
+  recipientIds?: string[];
 }): string {
-  const id = threadId(input.buyerId, input.sellerId, input.pieceId);
+  const id = threadId(input.buyerId, input.sellerId, input.pieceId, input.brandId);
   const prev = memory.threads[id];
   memory.threads[id] = {
+    ...(prev || {}),
     ...input,
     id,
     lastText: prev?.lastText ?? "",
@@ -247,12 +263,35 @@ export function listenThread(id: string, onThread: (t: ChatThread) => void) {
       (snap) => {
         const v = snap.data() as Partial<ChatThread> | undefined;
         if (!v) return;
-        const t = memory.threads[id];
-        if (!t) return;
-        if (typeof v.typingBy === "string") t.typingBy = v.typingBy;
-        if (typeof v.typingAt === "number") t.typingAt = v.typingAt;
-        if (typeof v.unreadBuyer === "number") t.unreadBuyer = v.unreadBuyer;
-        if (typeof v.unreadSeller === "number") t.unreadSeller = v.unreadSeller;
+        const existing = memory.threads[id];
+        const t: ChatThread = existing || {
+          id,
+          pieceId: String(v.pieceId || ""),
+          buyerId: String(v.buyerId || ""),
+          sellerId: String(v.sellerId || ""),
+          pieceName: String(v.pieceName || "Listing"),
+          piecePhoto: String(v.piecePhoto || ""),
+          piecePriceCents: typeof v.piecePriceCents === "number" ? v.piecePriceCents : 0,
+          sellerName: String(v.sellerName || "Seller"),
+          buyerName: String(v.buyerName || "Buyer"),
+          lastText: String(v.lastText || ""),
+          lastAt: typeof v.lastAt === "number" ? v.lastAt : Date.now(),
+          lastFrom: String(v.lastFrom || ""),
+          unreadBuyer: typeof v.unreadBuyer === "number" ? v.unreadBuyer : 0,
+          unreadSeller: typeof v.unreadSeller === "number" ? v.unreadSeller : 0,
+          typingBy: String(v.typingBy || ""),
+          typingAt: typeof v.typingAt === "number" ? v.typingAt : 0,
+        };
+        memory.threads[id] = {
+          ...t,
+          ...v,
+          id,
+          brandId: v.brandId || t.brandId,
+          brandName: v.brandName || t.brandName,
+          brandLogo: v.brandLogo || t.brandLogo,
+          brandVerified: typeof v.brandVerified === "boolean" ? v.brandVerified : t.brandVerified,
+          recipientIds: v.recipientIds || t.recipientIds,
+        };
         emitThread(id);
         emitInbox();
       },
@@ -267,7 +306,7 @@ export function listenThread(id: string, onThread: (t: ChatThread) => void) {
 
 export function inboxFor(uid: string): ChatThread[] {
   return Object.values(memory.threads)
-    .filter((t) => t.buyerId === uid || t.sellerId === uid || t.buyerId === "me" || t.sellerId === "seller")
+    .filter((t) => t.buyerId === uid || t.sellerId === uid || (t.recipientIds || []).includes(uid) || t.buyerId === "me" || t.sellerId === "seller")
     .sort((a, b) => b.lastAt - a.lastAt);
 }
 
@@ -277,15 +316,51 @@ export function useInbox(uid: string) {
     const fn = () => tick((n) => n + 1);
     inboxSubs.add(fn);
     void hydrate().then(fn);
+    const stops: Array<() => void> = [];
+    if (firebaseReady() && uid && uid !== "me") {
+      const upsert = (docSnap: { id: string; data: () => unknown }) => {
+        const v = (docSnap.data() || {}) as Partial<ChatThread>;
+        const current = memory.threads[docSnap.id];
+        const next: ChatThread = current || {
+          id: docSnap.id,
+          pieceId: String(v.pieceId || ""),
+          buyerId: String(v.buyerId || ""),
+          sellerId: String(v.sellerId || ""),
+          pieceName: String(v.pieceName || "Listing"),
+          piecePhoto: String(v.piecePhoto || ""),
+          piecePriceCents: typeof v.piecePriceCents === "number" ? v.piecePriceCents : 0,
+          sellerName: String(v.sellerName || "Seller"),
+          buyerName: String(v.buyerName || "Buyer"),
+          lastText: String(v.lastText || ""),
+          lastAt: typeof v.lastAt === "number" ? v.lastAt : Date.now(),
+          lastFrom: String(v.lastFrom || ""),
+          unreadBuyer: typeof v.unreadBuyer === "number" ? v.unreadBuyer : 0,
+          unreadSeller: typeof v.unreadSeller === "number" ? v.unreadSeller : 0,
+          typingBy: String(v.typingBy || ""),
+          typingAt: typeof v.typingAt === "number" ? v.typingAt : 0,
+        };
+        memory.threads[docSnap.id] = { ...next, ...v, id: docSnap.id } as ChatThread;
+      };
+      const watch = (q: ReturnType<typeof query>) => {
+        stops.push(onSnapshot(q, (snap) => {
+          snap.docs.forEach(upsert);
+          emitInbox();
+        }, () => undefined));
+      };
+      watch(query(collection(firebaseDb(), "chats"), where("buyerId", "==", uid)));
+      watch(query(collection(firebaseDb(), "chats"), where("sellerId", "==", uid)));
+      watch(query(collection(firebaseDb(), "chats"), where("recipientIds", "array-contains", uid)));
+    }
     return () => {
       inboxSubs.delete(fn);
+      stops.forEach((stop) => stop());
     };
   }, [uid]);
   return inboxFor(uid);
 }
 
 export function unreadFor(t: ChatThread, uid: string) {
-  const seller = t.sellerId === uid || t.sellerId === "seller";
+  const seller = t.sellerId === uid || t.sellerId === "seller" || (t.recipientIds || []).includes(uid);
   return seller ? t.unreadSeller || 0 : t.unreadBuyer || 0;
 }
 
@@ -314,7 +389,7 @@ export function markSeen(id: string, uid: string) {
   const t = memory.threads[id];
   if (t) {
     if (t.buyerId === uid) t.unreadBuyer = 0;
-    else if (t.sellerId === uid) t.unreadSeller = 0;
+    else if (t.sellerId === uid || (t.recipientIds || []).includes(uid)) t.unreadSeller = 0;
   }
   if (changed) emitMsgs(id);
   emitThread(id);
@@ -339,6 +414,7 @@ export async function sendChat(opts: {
   photoUrl?: string;
   fromName: string;
   pieceId: string;
+  toIds?: string[];
 }): Promise<ChatMsg> {
   const msg: ChatMsg = {
     id: `m-${Date.now().toString(36)}`,
@@ -358,7 +434,7 @@ export async function sendChat(opts: {
     thread.lastFrom = msg.from;
     thread.typingBy = "";
     thread.typingAt = 0;
-    const toSeller = opts.to === thread.sellerId || opts.to === "seller";
+    const toSeller = opts.to === thread.sellerId || opts.to === "seller" || Boolean(thread.recipientIds?.length && !(thread.recipientIds || []).includes(opts.from));
     if (toSeller) thread.unreadSeller = (thread.unreadSeller || 0) + 1;
     else thread.unreadBuyer = (thread.unreadBuyer || 0) + 1;
   }
@@ -404,15 +480,19 @@ export async function sendChat(opts: {
     ).catch(() => undefined);
   }
 
-  if (opts.to && opts.to !== opts.from) {
-    const other = await readUserLite(opts.to);
-    const token = typeof other?.expoPushToken === "string" ? other.expoPushToken : "";
-    if (token) {
-      void sendPush(token, opts.fromName || "Uvel", msg.text, {
-        pieceId: opts.pieceId,
-        threadId: opts.threadId,
-      });
-    }
-  }
+  const recipients = Array.from(new Set((opts.toIds?.length ? opts.toIds : [opts.to]).filter((uid) => uid && uid !== opts.from)));
+  await Promise.all(
+    recipients.map(async (uid) => {
+      const other = await readUserLite(uid);
+      const token = typeof other?.expoPushToken === "string" ? other.expoPushToken : "";
+      if (token) {
+        void sendPush(token, opts.fromName || "Uvel", msg.text, {
+          pieceId: opts.pieceId,
+          threadId: opts.threadId,
+          brandId: thread?.brandId || "",
+        });
+      }
+    }),
+  );
   return delivered;
 }

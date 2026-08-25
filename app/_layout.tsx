@@ -48,9 +48,14 @@ function PushSync() {
     void import("expo-notifications")
       .then((N) => {
         sub = N.addNotificationResponseReceivedListener((res) => {
-          const pieceId = res.notification.request.content.data?.pieceId;
+          const data = res.notification.request.content.data || {};
+          const pieceId = data.pieceId;
+          const threadId = data.threadId;
           if (typeof pieceId === "string" && pieceId) {
-            router.push({ pathname: "/ask/[id]", params: { id: pieceId } });
+            router.push({
+              pathname: "/ask/[id]",
+              params: { id: pieceId, ...(typeof threadId === "string" && threadId ? { threadId } : {}) },
+            });
           }
         });
       })

@@ -20,7 +20,9 @@ service cloud.firestore {
 
     function isChatParticipant(data) {
       return signedIn() &&
-        (data.buyerId == request.auth.uid || data.sellerId == request.auth.uid);
+        (data.buyerId == request.auth.uid ||
+         data.sellerId == request.auth.uid ||
+         (data.recipientIds is list && data.recipientIds.hasAny([request.auth.uid])));
     }
 
     match /users/{uid} {
@@ -49,7 +51,7 @@ service cloud.firestore {
             "name", "handle", "tagline", "story", "vertical", "website",
             "instagram", "phone", "whatsapp", "legalName", "registrationId", "contactEmail",
             "country", "logoUri", "bannerKind", "bannerUri", "themeId",
-            "custom", "analyticsShared", "members", "followers", "follows",
+            "custom", "analyticsShared", "members", "inquiryMemberIds", "followers", "follows",
             "views", "likes", "updatedAt"
           ])
         );

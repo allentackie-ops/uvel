@@ -4,6 +4,8 @@ import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { VerifiedMark } from "../components/VerifiedMark";
+import { getBrand, useBrands } from "../lib/brands";
 import { unreadFor, useInbox, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
@@ -24,13 +26,14 @@ export default function Inbox() {
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { uid } = useUvel();
+  useBrands();
   const me = uid || "me";
   const threads = useInbox(me);
   const [filter, setFilter] = useState<Filter>("All");
 
   const visible = useMemo(() => {
     return threads.filter((t) => {
-      const selling = t.sellerId === me;
+      const selling = t.sellerId === me || (t.recipientIds || []).includes(me);
       const buying = t.buyerId === me;
       if (filter === "Selling") return selling;
       if (filter === "Buying") return buying;
@@ -103,13 +106,16 @@ function Row({
   colors: Colors;
 }) {
   const styles = make(colors);
-  const iAmSeller = t.sellerId === uid;
-  const who = iAmSeller ? t.buyerName || "Buyer" : t.sellerName || "Seller";
+  const brand = t.brandId ? getBrand(t.brandId) : undefined;
+  const iAmSeller = t.sellerId === uid || (t.recipientIds || []).includes(uid);
+  const who = !iAmSeller && (brand?.name || t.brandName) ? brand?.name || t.brandName || "Brand" : iAmSeller ? t.buyerName || "Buyer" : t.sellerName || "Seller";
   const you = t.lastFrom === uid || t.lastFrom === "me";
   const unread = unreadFor(t, uid);
   return (
-    <Pressable onPress={() => router.push({ pathname: "/ask/[id]", params: { id: t.pieceId } })} style={styles.row}>
-      {t.piecePhoto ? (
+    <Pressable onPress={() => router.push({ pathname: "/ask/[id]", params: { id: t.pieceId, threadId: t.id } })} style={styles.row}>
+      {brand?.logoUri ? (
+        <Image source={{ uri: brand.logoUri }} style={styles.thumb} contentFit="cover" />
+      ) : t.piecePhoto ? (
         <Image source={{ uri: t.piecePhoto }} style={styles.thumb} contentFit="cover" />
       ) : (
         <View style={[styles.thumb, styles.avatar]}>
@@ -121,6 +127,7 @@ function Row({
           <Text style={[styles.name, unread ? { fontWeight: "800" } : null]} numberOfLines={1}>
             {who}
           </Text>
+          {!iAmSeller && (brand?.verified || t.brandVerified) ? <VerifiedMark size={16} /> : null}
           {t.lastAt ? <Text style={styles.time}>{when(t.lastAt)}</Text> : null}
         </View>
         <Text style={[styles.prev, unread ? { color: "#F4F0E6" } : null]} numberOfLines={1}>

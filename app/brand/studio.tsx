@@ -5,7 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandBanner } from "../../components/BrandBanner";
 import { BRAND_THEMES } from "../../lib/brandThemes";
-import { canStudio, getBrand, removeMember, themeFor, updateBrand, useBrands } from "../../lib/brands";
+import { canStudio, getBrand, inquiryRecipients, removeMember, themeFor, updateBrand, useBrands } from "../../lib/brands";
 import { pickBannerImage, pickBannerVideo, pickLogo } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
 
@@ -30,12 +30,23 @@ export default function BrandStudio() {
     );
   }
 
-  const theme = themeFor(brand);
+  const currentBrand = brand;
+  const theme = themeFor(currentBrand);
+
+  function toggleInquiryRecipient(uid: string) {
+    const current = currentBrand.inquiryMemberIds?.length ? currentBrand.inquiryMemberIds : [currentBrand.ownerId];
+    const next = current.includes(uid) ? current.filter((id) => id !== uid) : [...current, uid];
+    if (!next.length) {
+      Alert.alert("Keep one recipient", "At least one team member must receive buyer inquiries.");
+      return;
+    }
+    updateBrand(currentBrand.id, { inquiryMemberIds: next });
+  }
 
   function applyCustom() {
-    updateBrand(brand.id, {
+    updateBrand(currentBrand.id, {
       custom: {
-        ...(brand.custom || {}),
+        ...(currentBrand.custom || {}),
         ...(bg ? { bg } : {}),
         ...(ink ? { ink } : {}),
         ...(accent ? { accent } : {}),
@@ -170,11 +181,35 @@ export default function BrandStudio() {
               <Text style={[styles.shareP, { color: theme.muted }]}>Posters see earnings, views, and likes. Off, only you.</Text>
             </View>
             <Switch
-              value={brand.analyticsShared}
-              onValueChange={(v) => updateBrand(brand.id, { analyticsShared: v })}
+              value={currentBrand.analyticsShared}
+              onValueChange={(v) => {
+                updateBrand(currentBrand.id, { analyticsShared: v });
+              }}
               trackColor={{ false: "#2A2824", true: "#D6E27A" }}
               thumbColor="#F4F0E6"
             />
+          </View>
+
+          <Text style={[styles.h2, { color: theme.ink }]}>Inquiry messages</Text>
+          <Text style={[styles.p, { color: theme.muted }]}>Choose who on the team receives buyer questions about this brand. The owner receives them by default.</Text>
+          <View style={[styles.routingCard, { backgroundColor: theme.card }]}>
+            {currentBrand.members.map((m) => {
+              const selected = inquiryRecipients(currentBrand).includes(m.uid);
+              return (
+                <View key={`routing-${m.uid}`} style={styles.routingRow}>
+                  <View style={styles.routingCopy}>
+                    <Text style={[styles.memberN, { color: theme.ink }]}>{m.name}</Text>
+                    <Text style={[styles.memberR, { color: theme.muted }]}>{m.role === "owner" ? "Owner" : "Poster"}</Text>
+                  </View>
+                  <Switch
+                    value={selected}
+                    onValueChange={() => toggleInquiryRecipient(m.uid)}
+                    trackColor={{ false: "#2A2824", true: theme.accent }}
+                    thumbColor="#F4F0E6"
+                  />
+                </View>
+              );
+            })}
           </View>
 
           <Text style={[styles.h2, { color: theme.ink }]}>Team</Text>
@@ -239,6 +274,9 @@ const styles = StyleSheet.create({
   dot: { width: 14, height: 14, borderRadius: 7 },
   swatchName: { fontSize: 13, fontWeight: "700" },
   share: { marginTop: 22, borderRadius: 18, padding: 16, flexDirection: "row", alignItems: "center" },
+  routingCard: { marginTop: 8, borderRadius: 18, paddingHorizontal: 16 },
+  routingRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },
+  routingCopy: { flex: 1 },
   shareH: { fontWeight: "700", fontSize: 16 },
   shareP: { fontSize: 13, marginTop: 4, lineHeight: 18 },
   member: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },

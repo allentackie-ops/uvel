@@ -73,6 +73,8 @@ export type Brand = {
   ownerPhoto?: string;
   analyticsShared: boolean;
   members: BrandMember[];
+  /** Team members selected by the owner to receive buyer inquiries. */
+  inquiryMemberIds?: string[];
   views: number;
   likes: number;
   follows: number;
@@ -378,6 +380,16 @@ export function canSeeAnalytics(brand: Brand, uid: string) {
   const role = roleOn(brand, uid);
   if (role === "owner") return true;
   return Boolean(role) && brand.analyticsShared;
+}
+
+export function inquiryRecipients(brand: Brand): string[] {
+  const memberIds = new Set(brand.members.map((m) => m.uid));
+  const selected = (brand.inquiryMemberIds || []).filter((uid) => memberIds.has(uid));
+  return selected.length ? selected : [brand.ownerId];
+}
+
+export function canManageInquiryRecipients(brand: Brand, uid: string) {
+  return brand.ownerId === uid;
 }
 
 export function brandListings(id: string) {

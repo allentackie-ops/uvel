@@ -14,11 +14,14 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { VerifiedMark } from "../../components/VerifiedMark";
+import { getBrand, inquiryRecipients, useBrands } from "../../lib/brands";
 import { usd } from "../../lib/catalog";
 import {
   clock,
   dayLabel,
   lastSeenLabel,
+  getThread,
   listenMessages,
   listenThread,
   markSeen,
@@ -27,6 +30,7 @@ import {
   sendChat,
   setTyping,
   type ChatMsg,
+  type ChatThread,
 } from "../../lib/chat";
 import { pickFromLibrary, takePhoto } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
@@ -37,11 +41,15 @@ export default function Ask() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, threadId: routeThreadId } = useLocalSearchParams<{ id: string; threadId?: string }>();
   const app = useUvel();
   useWardrobe();
+  useBrands();
   const piece = getPiece(id);
+  const storedThread = routeThreadId ? getThread(routeThreadId) : undefined;
+  const brand = piece?.brandId ? getBrand(piece.brandId) : undefined;
   const [thread, setThread] = useState("");
+  const [threadData, setThreadData] = useState<ChatThread | undefined>(undefined);
   const [msgs, setMsgs] = useState<ChatMsg[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -56,29 +64,39 @@ export default function Ask() {
   const scroller = useRef<ScrollView>(null);
   const typeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const sellerId = piece?.ownerId && piece.ownerId !== app.uid ? piece.ownerId : piece?.ownerId || "";
   const mine = app.uid || "me";
-  const otherId = sellerId && sellerId !== mine ? sellerId : "";
+  const activeThread = storedThread || threadData || (thread ? getThread(thread) : undefined);
+  const brandRecipients = brand ? (activeThread?.recipientIds?.length ? activeThread.recipientIds : inquiryRecipients(brand)) : [];
+  const isTeamRecipient = Boolean(brand && brandRecipients.includes(mine));
+  const isSellerSide = Boolean(activeThread && (activeThread.sellerId === mine || (activeThread.recipientIds || []).includes(mine))) || isTeamRecipient;
+  const sellerId = activeThread?.sellerId || (brand ? brandRecipients[0] || brand.ownerId : piece?.ownerId && piece.ownerId !== app.uid ? piece.ownerId : piece?.ownerId || "");
+  const otherId = isSellerSide ? activeThread?.buyerId || "" : sellerId && sellerId !== mine ? sellerId : "";
 
   useEffect(() => {
     if (!piece) return;
     const listedByMe = Boolean(piece.ownerId && piece.ownerId === app.uid);
     const handle =
+      brand?.name ||
       (piece.ownerId && piece.ownerId !== app.uid && piece.ownerName) ||
       (listedByMe && piece.ownerName) ||
       (piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "") ||
       "Seller";
     setSellerHandle(handle);
-    const targetSeller = otherId || piece.ownerId || "seller";
-    const tid = openThread({
+    const targetSeller = isSellerSide ? activeThread?.buyerId || "" : sellerId || piece.ownerId || "seller";
+    const tid = routeThreadId || openThread({
       pieceId: piece.id,
-      buyerId: mine,
-      sellerId: targetSeller,
+      buyerId: activeThread?.buyerId || mine,
+      sellerId: brand ? brandRecipients[0] || brand.ownerId : targetSeller,
       pieceName: piece.name,
       piecePhoto: piece.photo,
       piecePriceCents: piece.listPriceCents,
       sellerName: handle,
-      buyerName: app.displayName || "You",
+      buyerName: activeThread?.buyerName || app.displayName || "You",
+      brandId: brand?.id,
+      brandName: brand?.name,
+      brandLogo: brand?.logoUri,
+      brandVerified: Boolean(brand?.verified && brand.status === "verified"),
+      recipientIds: brand ? brandRecipients : undefined,
     });
     setThread(tid);
     const unsub = listenMessages(tid, (next) => {
@@ -86,12 +104,13 @@ export default function Ask() {
       setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 50);
     });
     const unsubT = listenThread(tid, (t) => {
+      setThreadData(t);
       const live = t.typingBy && t.typingBy !== mine && Date.now() - (t.typingAt || 0) < 3500;
       setTypingOn(Boolean(live));
     });
     markSeen(tid, mine);
     const tick = setInterval(() => markSeen(tid, mine), 4000);
-    if (targetSeller && targetSeller !== mine && targetSeller !== "seller") {
+    if (!brand && targetSeller && targetSeller !== mine && targetSeller !== "seller") {
       void readUserLite(targetSeller).then((lite) => {
         if (!lite) return;
         const n = typeof lite.name === "string" ? lite.name.trim() : "";
@@ -108,9 +127,10 @@ export default function Ask() {
       clearInterval(tick);
       setTyping(tid, mine, false);
     };
-  }, [piece?.id, mine]);
+  }, [piece?.id, mine, routeThreadId, activeThread?.id, activeThread?.buyerId, activeThread?.buyerName, activeThread?.recipientIds?.join(","), brand?.id, brand?.name, brand?.logoUri, brand?.verified, brand?.status, isSellerSide, sellerId, brandRecipients.join(",")]);
 
   async function send(text: string, kind: ChatMsg["kind"] = "text", offerCents?: number, photoUrl?: string) {
+    if (!piece) return;
     const body = text.trim();
     if (!body || sending) return;
     setDraft("");
@@ -118,18 +138,27 @@ export default function Ask() {
     setOffer("");
     setOfferOn(false);
     if (typeTimer.current) clearTimeout(typeTimer.current);
+    if (routeThreadId && !activeThread) return;
+    const recipientIds = brand ? brandRecipients : [];
+    const target = isSellerSide ? activeThread?.buyerId || otherId || "buyer" : recipientIds[0] || otherId || piece.ownerId || "seller";
     const tid =
       thread ||
+      routeThreadId ||
       (piece
         ? openThread({
             pieceId: piece.id,
-            buyerId: mine,
-            sellerId: otherId || piece.ownerId || "seller",
+            buyerId: activeThread?.buyerId || mine,
+            sellerId: brand ? recipientIds[0] || brand.ownerId : target,
             pieceName: piece.name,
             piecePhoto: piece.photo,
             piecePriceCents: piece.listPriceCents,
-            sellerName: sellerHandle,
-            buyerName: app.displayName || "You",
+            sellerName: brand?.name || sellerHandle,
+            buyerName: activeThread?.buyerName || app.displayName || "You",
+            brandId: brand?.id,
+            brandName: brand?.name,
+            brandLogo: brand?.logoUri,
+            brandVerified: Boolean(brand?.verified && brand.status === "verified"),
+            recipientIds: brand ? recipientIds : undefined,
           })
         : "");
     if (!tid) return;
@@ -140,12 +169,13 @@ export default function Ask() {
       await sendChat({
         threadId: tid,
         from: mine,
-        to: otherId || "seller",
+        to: target,
+        toIds: !isSellerSide && brand ? recipientIds : undefined,
         text: body,
         kind,
         offerCents,
         photoUrl,
-        fromName: app.displayName || "Someone on Uvel",
+        fromName: brand?.name || (isSellerSide ? app.displayName || "Uvel team" : "Uvel"),
         pieceId: piece?.id ?? "",
       });
       setTimeout(() => scroller.current?.scrollToEnd({ animated: true }), 40);
@@ -185,7 +215,9 @@ export default function Ask() {
     );
   }
 
-  const handle = sellerHandle.trim() || "Seller";
+  const conversationBrand = brand || (activeThread?.brandId ? getBrand(activeThread.brandId) : undefined);
+  const handle = conversationBrand?.name || sellerHandle.trim() || "Seller";
+  const brandIsVerified = Boolean(conversationBrand?.verified && conversationBrand.status === "verified");
 
   return (
     <View style={styles.page}>
@@ -195,9 +227,12 @@ export default function Ask() {
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>
             <Text style={styles.navBack}>‹</Text>
           </Pressable>
-          <Text style={styles.navTitle} numberOfLines={1}>
-            {handle}
-          </Text>
+          <View style={styles.navTitleRow}>
+            <Text style={styles.navTitle} numberOfLines={1}>
+              {handle}
+            </Text>
+            {brandIsVerified ? <VerifiedMark size={16} /> : null}
+          </View>
           <Pressable
             onPress={() =>
               Alert.alert(
@@ -243,11 +278,18 @@ export default function Ask() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.hello}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarTxt}>{handle.slice(0, 1).toUpperCase()}</Text>
-            </View>
+            {conversationBrand?.logoUri ? (
+              <Image source={{ uri: conversationBrand.logoUri }} style={styles.avatarImg} contentFit="cover" />
+            ) : (
+              <View style={styles.avatar}>
+                <Text style={styles.avatarTxt}>{handle.slice(0, 1).toUpperCase()}</Text>
+              </View>
+            )}
             <View style={styles.helloCard}>
-              <Text style={styles.helloHi}>Hi, I’m {handle}</Text>
+              <View style={styles.helloNameRow}>
+                <Text style={styles.helloHi}>Hi, I’m {handle}</Text>
+                {brandIsVerified ? <VerifiedMark size={18} /> : null}
+              </View>
               {place ? <Text style={styles.helloMeta}>{place}</Text> : null}
               <Text style={styles.helloMeta}>{seen || "Usually replies in a few hours"}</Text>
             </View>
@@ -372,7 +414,8 @@ function make(colors: Colors) {
     },
     navBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
     navBack: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
-    navTitle: { flex: 1, textAlign: "center", color: colors.bone, fontSize: 16, fontWeight: "600" },
+    navTitleRow: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+    navTitle: { color: colors.bone, fontSize: 16, fontWeight: "600", maxWidth: "88%" },
     info: {
       width: 22,
       height: 22,
@@ -427,6 +470,8 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     avatarTxt: { color: colors.bone, fontWeight: "700" },
+    avatarImg: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface },
+    helloNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     helloCard: {
       flex: 1,
       backgroundColor: colors.surface,
