@@ -1,5 +1,4 @@
 import { Image } from "expo-image";
-import { router } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -33,6 +32,7 @@ import Animated, {
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { pullOta } from "../lib/ota";
+import { DOCS } from "../lib/legal";
 import { useUvel } from "../lib/store";
 import {
   isAlreadyAccount,
@@ -307,6 +307,7 @@ export default function Onboard() {
   const dim = useSharedValue(0);
   const emailX = useSharedValue(SCREEN_W);
   const [emailOn, setEmailOn] = useState(false);
+  const [legalId, setLegalId] = useState<"terms" | "privacy" | null>(null);
 
   useEffect(() => {
     if (startPage <= 0) return;
@@ -600,7 +601,7 @@ export default function Onboard() {
                   setPane("providers");
                   setError("");
                 }}
-                onLegal={(id) => router.push({ pathname: "/legal/[id]", params: { id } })}
+                onLegal={setLegalId}
                 insets={insets}
                 copy={{ marketTitle: C.marketTitle, signUp: C.signUp, logIn: C.logIn }}
                 rtl={rtl}
@@ -883,6 +884,48 @@ export default function Onboard() {
           </Animated.View>
         </View>
       ) : null}
+      {legalId ? <LegalPopup id={legalId} insets={insets} onClose={() => setLegalId(null)} /> : null}
+    </View>
+  );
+}
+
+function LegalPopup({
+  id,
+  insets,
+  onClose,
+}: {
+  id: "terms" | "privacy";
+  insets: { top: number; bottom: number };
+  onClose: () => void;
+}) {
+  const doc = DOCS[id];
+  return (
+    <View style={styles.legalOverlay} accessibilityViewIsModal>
+      <Pressable
+        style={StyleSheet.absoluteFill}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close legal document"
+      />
+      <View style={[styles.legalSheet, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
+        <View style={styles.legalHeader}>
+          <Text style={styles.legalTitle}>{doc.title}</Text>
+          <Pressable onPress={onClose} style={styles.legalClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close legal document">
+            <Text style={styles.legalCloseText}>✕</Text>
+          </Pressable>
+        </View>
+        <ScrollView contentContainerStyle={styles.legalContent} showsVerticalScrollIndicator={false}>
+          <Text style={styles.legalMeta}>Last updated {doc.updated}</Text>
+          {doc.sections.map((section) => (
+            <View key={section.heading} style={styles.legalBlock}>
+              <Text style={styles.legalHeading}>{section.heading}</Text>
+              {section.body.map((paragraph) => (
+                <Text key={paragraph} style={styles.legalParagraph}>{paragraph}</Text>
+              ))}
+            </View>
+          ))}
+        </ScrollView>
+      </View>
     </View>
   );
 }
@@ -948,6 +991,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     maxHeight: SCREEN_H * 0.78,
   },
+  legalOverlay: {
+    ...StyleSheet.absoluteFill,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(18, 20, 10, 0.72)",
+    zIndex: 60,
+  },
+  legalSheet: {
+    backgroundColor: "#16180F",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 8,
+    maxHeight: SCREEN_H * 0.82,
+  },
+  legalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 12 },
+  legalTitle: { color: "#fff", fontSize: 20, fontWeight: "700", flex: 1, paddingRight: 12 },
+  legalClose: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
+  legalCloseText: { color: "rgba(255,255,255,0.9)", fontSize: 18 },
+  legalContent: { paddingHorizontal: 20, paddingBottom: 8 },
+  legalMeta: { color: "rgba(255,255,255,0.56)", fontSize: 12, marginBottom: 20 },
+  legalBlock: { marginBottom: 20 },
+  legalHeading: { color: "#fff", fontSize: 17, fontWeight: "600", marginBottom: 8 },
+  legalParagraph: { color: "rgba(255,255,255,0.76)", fontSize: 15, lineHeight: 22, marginBottom: 8 },
   langHandle: {
     alignSelf: "center",
     width: 40,
