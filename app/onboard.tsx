@@ -6,7 +6,6 @@ import {
   AppState,
   Dimensions,
   FlatList,
-  Image as MosaicImg,
   Keyboard,
   KeyboardAvoidingView,
   Linking,
@@ -61,68 +60,10 @@ const PAGES = [
   },
 ];
 
-const STRIP_A = require("../assets/onboarding/strips/a-k7.jpg");
-const STRIP_B = require("../assets/onboarding/strips/b-k7.jpg");
-const STRIP_ASPECT = 7008 / 800;
-
 function gridMetrics(topInset: number) {
   const gridH = Math.min(SCREEN_H * 0.5, 430);
   const gridTop = topInset + 36;
   return { gridH, gridTop, sheetMin: SCREEN_H - gridTop - gridH };
-}
-
-function DriftRow({
-  source,
-  height,
-  duration,
-  reverse,
-}: {
-  source: number;
-  height: number;
-  duration: number;
-  reverse?: boolean;
-}) {
-  const x = useSharedValue(0);
-  const span = useSharedValue(0);
-  const dir = reverse ? 1 : -1;
-  const stripW = Math.round(height * STRIP_ASPECT);
-
-  useFrameCallback((frame) => {
-    "worklet";
-    const w = span.value;
-    if (w <= 1) return;
-    const dt = Math.min(frame.timeSincePreviousFrame ?? 16, 24);
-    let next = x.value + dir * (w / duration) * dt;
-    if (next <= -w) next += w;
-    if (next > 0) next -= w;
-    x.value = next;
-  });
-
-  const style = useAnimatedStyle(() => ({
-    transform: [{ translateX: x.value }],
-  }));
-
-  return (
-    <Animated.View style={[{ flexDirection: "row" }, style]}>
-      <View
-        onLayout={() => {
-          span.value = stripW;
-          if (reverse && x.value === 0) x.value = -stripW;
-        }}
-      >
-        <MosaicImg
-          source={source}
-          style={{ width: stripW, height }}
-          resizeMode="stretch"
-        />
-      </View>
-      <MosaicImg
-        source={source}
-        style={{ width: stripW, height }}
-        resizeMode="stretch"
-      />
-    </Animated.View>
-  );
 }
 
 function Catalog({
@@ -138,31 +79,18 @@ function Catalog({
   copy: { marketTitle: string; signUp: string; logIn: string };
   rtl?: boolean;
 }) {
-  const { gridH, gridTop } = gridMetrics(insets.top);
-  const tileH = (gridH - 10) / 2;
-
   useEffect(() => {
     void pullOta();
   }, []);
 
   return (
     <View style={styles.market}>
-      <View style={[styles.grid, { marginTop: gridTop, height: gridH }]}>
-        <DriftRow source={STRIP_A} height={tileH} duration={40000} />
-        <View style={{ height: 10 }} />
-        <DriftRow source={STRIP_B} height={tileH} duration={46000} reverse />
-      </View>
       <View
         style={[
           styles.marketCopy,
           { paddingBottom: Math.max(insets.bottom, 12) + 14 },
         ]}
       >
-        <View style={styles.dots}>
-          {PAGES.map((_, i) => (
-            <View key={i} style={[styles.dot, i === 2 && styles.dotOn]} />
-          ))}
-        </View>
         <View style={{ flex: 1 }} />
         <Text style={[styles.title, rtl && styles.rtl]}>{copy.marketTitle}</Text>
         <Pressable onPress={onSignUp} style={[styles.cta, { marginTop: 22 }]}>
@@ -875,8 +803,7 @@ export default function Onboard() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#12140A" },
   market: { flex: 1, backgroundColor: "#12140A" },
-  grid: { overflow: "hidden" },
-  marketCopy: { flex: 1, paddingHorizontal: 22, paddingTop: 22 },
+  marketCopy: { flex: 1, paddingHorizontal: 22, paddingTop: SCREEN_H * 0.34 },
   skip: { position: "absolute", right: 18, zIndex: 8 },
   skipText: { color: "rgba(255,255,255,0.82)", fontSize: 13, letterSpacing: 0.6 },
   langBtn: {
