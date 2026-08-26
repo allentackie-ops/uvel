@@ -1,8 +1,9 @@
 import { useEffect, type ReactNode } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import {  StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AccessiblePressable } from "./AccessiblePressable";
 
 export function Sheet({
   open,
@@ -48,11 +49,19 @@ export function Sheet({
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      <Pressable style={StyleSheet.absoluteFill} onPress={onClose}>
+      <AccessiblePressable        style={StyleSheet.absoluteFill}
+        onPress={onClose}
+        accessibilityRole="button"
+        accessibilityLabel="Close dialog"
+        accessibilityHint="Double tap to dismiss this dialog."
+      >
         <Animated.View style={[styles.veil, veil]} />
-      </Pressable>
+      </AccessiblePressable>
       <GestureDetector gesture={pan}>
-        <Animated.View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }, sheet]}>
+        <Animated.View
+          style={[styles.sheet, { paddingBottom: insets.bottom + 16 }, sheet]}
+          accessibilityViewIsModal
+        >
           <View style={styles.grip} />
           {children}
         </Animated.View>

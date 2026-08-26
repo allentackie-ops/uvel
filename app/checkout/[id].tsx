@@ -2,8 +2,9 @@ import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert,  ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { Sheet } from "../../components/Sheet";
 import { payMethods, shippingCents, uvelFeeCents, type PayMethod } from "../../lib/fees";
 import { getMarket, moneyExact, convertCents } from "../../lib/markets";
@@ -184,9 +185,14 @@ export default function Checkout() {
     <View style={styles.page}>
       <StatusBar style="light" />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>
+        <AccessiblePressable          onPress={() => router.back()}
+          hitSlop={12}
+          style={({ pressed }) => [styles.navBtn, pressed && styles.focused]}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
           <Text style={styles.navBack}>‹</Text>
-        </Pressable>
+        </AccessiblePressable>
         <Text style={styles.navTitle}>Checkout</Text>
         <View style={{ width: 44 }} />
       </View>
@@ -196,17 +202,22 @@ export default function Checkout() {
           {shipsToLine(piece.country || market.code, piece.shipsTo)}
         </Text>
         {!sellsHere ? (
-          <Text style={[styles.boxS, { paddingHorizontal: 20, color: colors.danger, paddingBottom: 8 }]}>
+          <Text accessibilityRole="text" accessibilityLiveRegion="assertive" style={[styles.boxS, { paddingHorizontal: 20, color: colors.danger, paddingBottom: 8 }]}>
             This piece isn’t on the {market.name} floor.
           </Text>
         ) : null}
         {address && !addressOk ? (
-          <Text style={[styles.boxS, { paddingHorizontal: 20, color: colors.danger, paddingBottom: 8 }]}>
+          <Text accessibilityRole="text" accessibilityLiveRegion="assertive" style={[styles.boxS, { paddingHorizontal: 20, color: colors.danger, paddingBottom: 8 }]}>
             This seller doesn’t ship to {getMarket(address.country).name}.
           </Text>
         ) : null}
         <Text style={styles.h}>Address</Text>
-        <Pressable onPress={() => router.push("/address")} style={styles.box}>
+        <AccessiblePressable          onPress={() => router.push("/address")}
+          style={({ pressed }) => [styles.box, pressed && styles.focused]}
+          accessibilityRole="button"
+          accessibilityLabel={address ? `Shipping address: ${address.name}, ${address.city}` : "Add shipping address"}
+          accessibilityHint="Double tap to add or edit your shipping address."
+        >
           {address ? (
             <View style={{ flex: 1 }}>
               <Text style={styles.boxT}>{address.name}</Text>
@@ -218,28 +229,35 @@ export default function Checkout() {
             <Text style={styles.boxT}>Add your shipping address</Text>
           )}
           <Text style={styles.plus}>{address ? "Edit" : "+"}</Text>
-        </Pressable>
+        </AccessiblePressable>
 
         <Text style={styles.h}>Delivery option</Text>
         {address ? (
           <View style={styles.col}>
-            <Pressable
-              onPress={() => setShip("standard")}
-              style={[styles.ship, ship === "standard" && styles.shipOn]}
+            <AccessiblePressable              onPress={() => setShip("standard")}
+              style={({ pressed }) => [styles.ship, ship === "standard" && styles.shipOn, pressed && styles.focused]}
+              accessibilityRole="radio"
+              accessibilityLabel={`Standard delivery, ${moneyExact(shippingCents(same, false, market), market.currency)}`}
+              accessibilityState={{ selected: ship === "standard" }}
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.boxT}>Standard</Text>
                 <Text style={styles.boxS}>{same ? "3–5 business days" : "7–12 business days"}</Text>
               </View>
               <Text style={styles.boxT}>{moneyExact(shippingCents(same, false, market), market.currency)}</Text>
-            </Pressable>
-            <Pressable onPress={() => setShip("express")} style={[styles.ship, ship === "express" && styles.shipOn]}>
+            </AccessiblePressable>
+            <AccessiblePressable              onPress={() => setShip("express")}
+              style={({ pressed }) => [styles.ship, ship === "express" && styles.shipOn, pressed && styles.focused]}
+              accessibilityRole="radio"
+              accessibilityLabel={`Express delivery, ${moneyExact(shippingCents(same, true, market), market.currency)}`}
+              accessibilityState={{ selected: ship === "express" }}
+            >
               <View style={{ flex: 1 }}>
                 <Text style={styles.boxT}>Express</Text>
                 <Text style={styles.boxS}>{same ? "1–2 business days" : "3–6 business days"}</Text>
               </View>
               <Text style={styles.boxT}>{moneyExact(shippingCents(same, true, market), market.currency)}</Text>
-            </Pressable>
+            </AccessiblePressable>
           </View>
         ) : (
           <View style={styles.box}>
@@ -248,11 +266,16 @@ export default function Checkout() {
         )}
 
         <Text style={styles.h}>Payment</Text>
-        <Pressable onPress={() => setPayOpen(true)} style={styles.box}>
+        <AccessiblePressable          onPress={() => setPayOpen(true)}
+          style={({ pressed }) => [styles.box, pressed && styles.focused]}
+          accessibilityRole="button"
+          accessibilityLabel={`Payment method: ${method.label}`}
+          accessibilityHint="Double tap to choose a payment method."
+        >
           <PayMark method={method} />
           <Text style={styles.boxT}>{method.label}</Text>
           <Text style={styles.plus}>Edit</Text>
-        </Pressable>
+        </AccessiblePressable>
 
         <Text style={styles.h}>Promotion</Text>
         <View style={styles.promotionBox}>
@@ -266,12 +289,20 @@ export default function Checkout() {
             returnKeyType="done"
             style={styles.promotionInput}
             editable={!promotionBusy}
+            accessibilityLabel="Promotion code"
+            accessibilityHint="Enter a promotion code, then activate Apply."
           />
-          <Pressable onPress={() => void applyPromotion()} disabled={promotionBusy} style={[styles.promotionButton, promotionBusy && { opacity: 0.5 }]}>
+          <AccessiblePressable            onPress={() => void applyPromotion()}
+            disabled={promotionBusy}
+            style={({ pressed }) => [styles.promotionButton, promotionBusy && { opacity: 0.5 }, pressed && styles.focused]}
+            accessibilityRole="button"
+            accessibilityLabel={promotionBusy ? "Checking promotion" : promotionQuote ? "Promotion applied" : "Apply promotion code"}
+            accessibilityState={{ disabled: promotionBusy, selected: Boolean(promotionQuote) }}
+          >
             <Text style={styles.promotionButtonTxt}>{promotionBusy ? "Checking…" : promotionQuote ? "Applied" : "Apply"}</Text>
-          </Pressable>
+          </AccessiblePressable>
         </View>
-        {promotionMessage ? <Text style={[styles.promotionMessage, promotionQuote ? styles.promotionGood : styles.promotionBad]}>{promotionMessage}</Text> : null}
+        {promotionMessage ? <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={[styles.promotionMessage, promotionQuote ? styles.promotionGood : styles.promotionBad]}>{promotionQuote ? `Success: ${promotionMessage}` : `Error: ${promotionMessage}`}</Text> : null}
 
         <Text style={styles.h}>Order summary</Text>
         <View style={styles.sum}>
@@ -290,10 +321,15 @@ export default function Checkout() {
 
           {discountCents > 0 ? <View style={styles.line}><Text style={styles.lineL}>Promotion · {promotionQuote?.code}</Text><Text style={styles.discountValue}>−{moneyExact(discountCents, market.currency)}</Text></View> : null}
           <View style={styles.line}>
-            <Pressable onPress={() => setFeeInfo(true)} style={styles.feeL}>
+            <AccessiblePressable              onPress={() => setFeeInfo(true)}
+              style={({ pressed }) => [styles.feeL, pressed && styles.focused]}
+              accessibilityRole="button"
+              accessibilityLabel="Uvel fee information"
+              accessibilityHint="Double tap to learn how the buyer protection fee is calculated."
+            >
               <Text style={styles.lineL}>Uvel fee</Text>
               <Text style={styles.info}>i</Text>
-            </Pressable>
+            </AccessiblePressable>
             <Text style={styles.lineV}>{moneyExact(fee, market.currency)}</Text>
           </View>
           <View style={styles.line}>
@@ -304,9 +340,13 @@ export default function Checkout() {
             <Text style={styles.lineL}>Sales tax</Text>
             <Text style={styles.muted}>To be confirmed</Text>
           </View>
-          <Pressable onPress={() => setFeeInfo(true)}>
+          <AccessiblePressable            onPress={() => setFeeInfo(true)}
+            style={({ pressed }) => [pressed && styles.focused]}
+            accessibilityRole="button"
+            accessibilityLabel="Learn about Uvel purchase protection"
+          >
             <Text style={styles.protect}>Uvel protects every purchase.</Text>
-          </Pressable>
+          </AccessiblePressable>
         </View>
       </ScrollView>
 
@@ -315,11 +355,17 @@ export default function Checkout() {
           <Text style={styles.totalL}>Total to pay</Text>
           <Text style={styles.totalV}>{moneyExact(total, market.currency)}</Text>
         </View>
-        <Pressable onPress={() => void payNow()} disabled={!ready} style={[styles.payBtn, !ready && { opacity: 0.4 }]}>
+        <AccessiblePressable          onPress={() => void payNow()}
+          disabled={!ready}
+          style={({ pressed }) => [styles.payBtn, !ready && { opacity: 0.4 }, pressed && styles.focused]}
+          accessibilityRole="button"
+          accessibilityLabel={paying ? "Processing payment" : `Pay with ${method?.label || "selected method"}, ${moneyExact(total, market.currency)}`}
+          accessibilityState={{ disabled: !ready, busy: paying }}
+        >
           <Text style={styles.payTxt}>
             {paying ? "Paying…" : method?.kind === "apple" ? "Apple Pay" : `Pay with ${method?.label}`}
           </Text>
-        </Pressable>
+        </AccessiblePressable>
         <Text style={styles.lock}>Your payment details are encrypted and secure</Text>
       </View>
 
@@ -331,9 +377,13 @@ export default function Checkout() {
             and $1,000+ is $8.99 — shown here in {market.currency}. The seller gets the full listing price. You get
             purchase protection on Uvel.
           </Text>
-          <Pressable onPress={() => setFeeInfo(false)} style={styles.sheetBtn}>
+          <AccessiblePressable            onPress={() => setFeeInfo(false)}
+            style={({ pressed }) => [styles.sheetBtn, pressed && styles.focused]}
+            accessibilityRole="button"
+            accessibilityLabel="Close fee information"
+          >
             <Text style={styles.sheetBtnT}>Got it</Text>
-          </Pressable>
+          </AccessiblePressable>
         </Sheet>
       ) : null}
 
@@ -344,18 +394,20 @@ export default function Checkout() {
           {method.id === "apple" ? " · Apple Pay" : ""} · {market.name}
         </Text>
         {methods.map((m) => (
-          <Pressable
-            key={m.id}
+          <AccessiblePressable            key={m.id}
             onPress={() => {
               setPay(m.id);
               setPayOpen(false);
             }}
-            style={styles.pick}
+            style={({ pressed }) => [styles.pick, pressed && styles.focused]}
+            accessibilityRole="radio"
+            accessibilityLabel={m.label}
+            accessibilityState={{ selected: pay === m.id }}
           >
             <PayMark method={m} />
             <Text style={styles.boxT}>{m.label}</Text>
             {pay === m.id ? <Text style={styles.tick}>✓</Text> : null}
-          </Pressable>
+          </AccessiblePressable>
         ))}
       </Sheet>
     </View>
@@ -441,6 +493,7 @@ function make(colors: Colors) {
       alignItems: "center",
       gap: 12,
     },
+    focused: { borderWidth: 2, borderColor: colors.success },
     boxOn: { borderColor: colors.success },
     promotionBox: { marginHorizontal: 20, minHeight: 52, borderRadius: 14, borderWidth: 1, borderColor: colors.subtle, backgroundColor: colors.neutral, flexDirection: "row", alignItems: "center", paddingLeft: 14, overflow: "hidden" },
     promotionInput: { flex: 1, height: 50, color: colors.bone, fontSize: 15, fontWeight: "600" },
@@ -476,6 +529,7 @@ function make(colors: Colors) {
     payMarkTxt: { color: "#111", fontWeight: "800", fontSize: 11 },
     tick: { color: "#D6E27A", fontWeight: "700" },
     pick: {
+      minHeight: 48,
       flexDirection: "row",
       alignItems: "center",
       gap: 12,
@@ -506,7 +560,7 @@ function make(colors: Colors) {
       overflow: "hidden",
     },
     muted: { color: colors.muted, fontSize: 15 },
-    protect: { color: "#8EB4FF", fontSize: 14, textDecorationLine: "underline", marginTop: 8 },
+    protect: { color: colors.success, fontSize: 14, textDecorationLine: "underline", marginTop: 8 },
     dock: {
       position: "absolute",
       left: 0,

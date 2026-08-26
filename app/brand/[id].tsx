@@ -1,8 +1,9 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActionSheetIOS, Alert, Dimensions, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { ActionSheetIOS, Alert, Dimensions, Platform,  ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { BrandBanner } from "../../components/BrandBanner";
 import { BrandPageSkeleton } from "../../components/ScreenSkeletons";
 import { ListingCard } from "../../components/ListingCard";
@@ -80,9 +81,9 @@ export default function BrandPage() {
   if (!brand || !theme) {
     return (
       <View style={[styles.missing, { paddingTop: insets.top + 20 }]}>
-        <Pressable onPress={() => router.back()}>
+        <AccessiblePressable onPress={() => router.back()}>
           <Text style={{ color: "#F4F0E6", fontSize: 16 }}>‹ Back</Text>
-        </Pressable>
+        </AccessiblePressable>
         <Text style={styles.missingH}>This house isn’t here</Text>
       </View>
     );
@@ -155,12 +156,20 @@ export default function BrandPage() {
         <View>
           <BrandBanner uri={brand.bannerUri} kind={brand.bannerKind} style={[styles.banner, { backgroundColor: theme.bg }]} />
           <View style={[styles.nav, { top: insets.top + 4 }]}>
-            <Pressable onPress={() => router.back()} style={[styles.orb, { backgroundColor: "rgba(0,0,0,0.42)" }]}>
+            <AccessiblePressable              onPress={() => router.back()}
+              style={({ pressed }) => [styles.orb, { backgroundColor: "rgba(0,0,0,0.42)" }, pressed && styles.focused]}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
               <Text style={styles.orbTxt}>‹</Text>
-            </Pressable>
-            <Pressable onPress={more} style={[styles.orb, { backgroundColor: "rgba(0,0,0,0.42)" }]}>
+            </AccessiblePressable>
+            <AccessiblePressable              onPress={more}
+              style={({ pressed }) => [styles.orb, { backgroundColor: "rgba(0,0,0,0.42)" }, pressed && styles.focused]}
+              accessibilityRole="button"
+              accessibilityLabel="More brand actions"
+            >
               <Text style={[styles.orbTxt, { fontSize: 18, marginTop: -6 }]}>· · ·</Text>
-            </Pressable>
+            </AccessiblePressable>
           </View>
           {brand.logoUri ? (
             <Image source={{ uri: brand.logoUri }} style={[styles.logo, { borderColor: theme.bg }]} contentFit="cover" />
@@ -184,9 +193,8 @@ export default function BrandPage() {
             {role === "poster" ? "  ·  You post here" : role === "owner" ? "  ·  You" : ""}
           </Text>
 
-          <View style={styles.actions}>
-            <Pressable
-              onPress={() => {
+          <View style={styles.actions} accessibilityLabel={`${brand.name} actions`}>
+            <AccessiblePressable              onPress={() => {
                 const nowFollowing = toggleFollow(brand.id, app.uid || "me");
                 setTick((n) => n + 1);
                 if (app.uid) {
@@ -196,17 +204,21 @@ export default function BrandPage() {
                   }).catch(() => undefined);
                 }
               }}
-              style={[styles.follow, { backgroundColor: following ? theme.card : theme.accent }]}
+              style={({ pressed }) => [styles.follow, { backgroundColor: following ? theme.card : theme.accent }, pressed && styles.focused]}
+              accessibilityRole="button"
+              accessibilityLabel={following ? `Unfollow ${brand.name}` : `Follow ${brand.name}`}
+              accessibilityState={{ selected: following }}
             >
               <Text style={[styles.followTxt, { color: following ? theme.ink : theme.accentInk }]}>{following ? "Following" : "Follow"}</Text>
-            </Pressable>
+            </AccessiblePressable>
             {poster ? (
-              <Pressable
-                onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })}
-                style={[styles.ghost, { borderColor: theme.lineColor }]}
+              <AccessiblePressable                onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })}
+                style={({ pressed }) => [styles.ghost, { borderColor: theme.lineColor }, pressed && styles.focused]}
+                accessibilityRole="button"
+                accessibilityLabel={`List an item for ${brand.name}`}
               >
                 <Text style={[styles.ghostTxt, { color: theme.ink }]}>List an item</Text>
-              </Pressable>
+              </AccessiblePressable>
             ) : null}
           </View>
         </View>
@@ -216,7 +228,7 @@ export default function BrandPage() {
             <Text style={[styles.meta, { color: theme.muted, paddingHorizontal: 20 }]}>LIVE CAMPAIGN</Text>
             {visibleCampaigns.slice(0, 3).map((campaign) => {
               const lead = campaign.productIds.map((productId) => getPiece(productId)).find(Boolean);
-              return <Pressable key={campaign.id} onPress={() => { void recordCampaignAttribution({ brandId: brand.id, campaignId: campaign.id, channel: "brand_page", type: "engagement", collectionId: campaign.collectionId, promotionId: campaign.promotionId, listingId: lead?.id }).catch(() => undefined); if (lead) router.push({ pathname: "/closet/[id]", params: { id: lead.id, campaignId: campaign.id, collectionId: campaign.collectionId || "", promotionId: campaign.promotionId || "", campaignChannel: "brand_page" } }); }} style={[styles.campaignCard, { backgroundColor: theme.card }]}>{lead?.photo ? <Image source={{ uri: lead.photo }} style={styles.campaignImg} contentFit="cover" /> : null}<View style={{ flex: 1 }}><Text style={[styles.dropTitle, { color: theme.ink }]} numberOfLines={2}>{campaign.headline}</Text><Text style={[styles.dropSub, { color: theme.muted }]} numberOfLines={2}>{campaign.body || campaign.name}</Text></View><Text style={[styles.chev, { color: theme.muted }]}>›</Text></Pressable>;
+              return <AccessiblePressable key={campaign.id} onPress={() => { void recordCampaignAttribution({ brandId: brand.id, campaignId: campaign.id, channel: "brand_page", type: "engagement", collectionId: campaign.collectionId, promotionId: campaign.promotionId, listingId: lead?.id }).catch(() => undefined); if (lead) router.push({ pathname: "/closet/[id]", params: { id: lead.id, campaignId: campaign.id, collectionId: campaign.collectionId || "", promotionId: campaign.promotionId || "", campaignChannel: "brand_page" } }); }} style={({ pressed }) => [styles.campaignCard, { backgroundColor: theme.card }, pressed && styles.focused]} accessibilityRole="button" accessibilityLabel={`Explore ${brand.name} campaign ${campaign.headline || campaign.name}`} accessibilityHint="Double tap to explore this drop.">{lead?.photo ? <Image source={{ uri: lead.photo }} style={styles.campaignImg} contentFit="cover" accessible={false} /> : null}<View style={{ flex: 1 }}><Text style={[styles.dropTitle, { color: theme.ink }]} numberOfLines={2}>{campaign.headline}</Text><Text style={[styles.dropSub, { color: theme.muted }]} numberOfLines={2}>{campaign.body || campaign.name}</Text></View><Text style={[styles.chev, { color: theme.muted }]}>›</Text></AccessiblePressable>;
             })}
           </View>
         ) : null}
@@ -226,9 +238,11 @@ export default function BrandPage() {
             <Text style={[styles.meta, { color: theme.muted, paddingHorizontal: 20 }]}>UPDATED DROP</Text>
             <Text style={[styles.dropTitle, { color: theme.ink, paddingHorizontal: 20 }]}>{collections[0].cat}</Text>
             <Text style={[styles.dropSub, { color: theme.muted, paddingHorizontal: 20 }]}>{brand.name}</Text>
-            <Pressable
-              onPress={() => router.push({ pathname: "/closet/[id]", params: { id: featured.id } })}
-              style={[styles.heroCard, { backgroundColor: theme.card }]}
+            <AccessiblePressable              onPress={() => router.push({ pathname: "/closet/[id]", params: { id: featured.id } })}
+              style={({ pressed }) => [styles.heroCard, { backgroundColor: theme.card }, pressed && styles.focused]}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${featured.name} from ${brand.name}`}
+              accessibilityHint="Double tap to view this listing."
             >
               <View style={styles.heroCopy}>
                 <Text style={[styles.heroName, { color: theme.ink }]} numberOfLines={2}>
@@ -238,23 +252,31 @@ export default function BrandPage() {
                   {featured.notes || brand.tagline}
                 </Text>
               </View>
-              <Image source={{ uri: featured.photo }} style={styles.heroImg} contentFit="cover" />
-            </Pressable>
+              <Image source={{ uri: featured.photo }} style={styles.heroImg} contentFit="cover" accessible={false} />
+            </AccessiblePressable>
           </View>
         ) : null}
 
-          <Pressable onPress={openLatest} style={styles.sectionHead} disabled={!listings.length && !featured}>
+          <AccessiblePressable            onPress={openLatest}
+            style={({ pressed }) => [styles.sectionHead, pressed && styles.focused]}
+            disabled={!listings.length && !featured}
+            accessibilityRole="button"
+            accessibilityLabel="Open latest listings"
+            accessibilityState={{ disabled: !listings.length && !featured }}
+          >
             <Text style={[styles.section, { color: theme.ink }]}>Latest</Text>
             <Text style={[styles.chev, { color: theme.muted }]}>›</Text>
-          </Pressable>
+          </AccessiblePressable>
         {listings.length ? (
           listings.slice(0, 8).map((p) => (
-            <Pressable
-              key={p.id}
+            <AccessiblePressable              key={p.id}
               onPress={() => router.push({ pathname: "/closet/[id]", params: { id: p.id } })}
-              style={[styles.row, { borderBottomColor: theme.lineColor }]}
+              style={({ pressed }) => [styles.row, { borderBottomColor: theme.lineColor }, pressed && styles.focused]}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${p.name}, ${usd(p.listPriceCents, p.currency)}`}
+              accessibilityHint="Double tap to view this listing."
             >
-              <Image source={{ uri: p.photo }} style={styles.thumb} contentFit="cover" />
+              <Image source={{ uri: p.photo }} style={styles.thumb} contentFit="cover" accessible={false} />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.rowName, { color: theme.ink }]} numberOfLines={1}>
                   {p.name}
@@ -263,10 +285,15 @@ export default function BrandPage() {
                   {(p.sizes?.length ? p.sizes.join("  ") : p.size) + "  ·  " + usd(p.listPriceCents, p.currency)}
                 </Text>
               </View>
-              <Pressable onPress={() => listingActions(p)} hitSlop={10} style={styles.moreBtn}>
+              <AccessiblePressable                onPress={() => listingActions(p)}
+                hitSlop={10}
+                style={({ pressed }) => [styles.moreBtn, pressed && styles.focused]}
+                accessibilityRole="button"
+                accessibilityLabel={`More actions for ${p.name}`}
+              >
                 <Text style={[styles.more, { color: theme.muted }]}>· · ·</Text>
-              </Pressable>
-            </Pressable>
+              </AccessiblePressable>
+            </AccessiblePressable>
           ))
         ) : (
           <Text style={[styles.empty, { color: theme.muted }]}>
@@ -276,10 +303,10 @@ export default function BrandPage() {
 
         {collections.length ? (
           <View>
-            <Pressable onPress={openRack} style={styles.sectionHead}>
+            <AccessiblePressable onPress={openRack} style={styles.sectionHead}>
               <Text style={[styles.section, { color: theme.ink }]}>The rack</Text>
               <Text style={[styles.chev, { color: theme.muted }]}>›</Text>
-            </Pressable>
+            </AccessiblePressable>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.playlists}>
               {collections.map((c) => (
                 <View key={c.cat} style={[styles.play, { backgroundColor: theme.card }]}>
@@ -330,9 +357,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
+  focused: { borderWidth: 2, borderColor: "#D6E27A" },
   orb: {
-    width: 40,
-    height: 40,
+    minWidth: 44,
+    minHeight: 44,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
@@ -355,10 +383,10 @@ const styles = StyleSheet.create({
   tagline: { fontSize: 17, lineHeight: 24, marginTop: 12 },
   owner: { fontSize: 14, marginTop: 10 },
   actions: { flexDirection: "row", gap: 10, marginTop: 18 },
-  follow: { height: 42, paddingHorizontal: 22, borderRadius: 21, alignItems: "center", justifyContent: "center" },
+  follow: { minHeight: 44, paddingHorizontal: 22, borderRadius: 21, alignItems: "center", justifyContent: "center" },
   followTxt: { fontWeight: "800", fontSize: 14 },
   ghost: {
-    height: 42,
+    minHeight: 44,
     paddingHorizontal: 18,
     borderRadius: 21,
     borderWidth: 1,
@@ -396,7 +424,7 @@ const styles = StyleSheet.create({
   thumb: { width: 48, height: 48, borderRadius: 6, backgroundColor: "#1A1915" },
   rowName: { fontSize: 16, fontWeight: "600" },
   rowSub: { fontSize: 13, marginTop: 3 },
-  moreBtn: { paddingHorizontal: 4, paddingVertical: 8 },
+  moreBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
   more: { fontSize: 16 },
   empty: { paddingHorizontal: 20, fontSize: 15, lineHeight: 22 },
   playlists: { paddingHorizontal: 16, gap: 12, paddingBottom: 8 },

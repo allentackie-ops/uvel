@@ -3,8 +3,9 @@ import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {  ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { OrbitLoader } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
@@ -197,27 +198,33 @@ export default function Shop() {
       <View style={styles.titleRow}>
         <Text style={styles.title}>{scanningLook ? "Shop the look" : "Shop"}</Text>
         {!scanningLook ? (
-          <Pressable
-            onPress={() => {
+          <AccessiblePressable            onPress={() => {
               if (mine?.verified) router.push({ pathname: "/brand/[id]", params: { id: mine.id } });
               else router.push("/brand/apply");
             }}
-            style={styles.brandBtn}
+            style={({ pressed }) => [styles.brandBtn, pressed && styles.focused]}
+            accessibilityRole="button"
+            accessibilityLabel={mine?.verified ? "Open your brand page" : mine ? "Continue brand filing" : "Start a brand"}
           >
             {mine?.verified ? <VerifiedMark size={14} /> : null}
             <Text style={styles.brandBtnTxt}>{mine?.verified ? "Your brand" : mine ? "Brand filing" : "Start a brand"}</Text>
-          </Pressable>
+          </AccessiblePressable>
         ) : null}
       </View>
       {scanningLook ? (
         <Text style={styles.look}>{job?.title || look?.title || "This frame"}</Text>
       ) : (
-        <Pressable onPress={() => router.push("/store")} style={styles.store}>
+        <AccessiblePressable          onPress={() => router.push("/store")}
+          style={({ pressed }) => [styles.store, pressed && styles.focused]}
+          accessibilityRole="button"
+          accessibilityLabel={`Current shop: ${market.name}, ${market.currency}`}
+          accessibilityHint="Double tap to change shop."
+        >
           <Text style={styles.storeTxt}>
             {market.name} shop · {market.currency}{" "}
           </Text>
           <Text style={styles.storeGo}>Change</Text>
-        </Pressable>
+        </AccessiblePressable>
       )}
 
       {videoUrl ? (
@@ -232,8 +239,9 @@ export default function Shop() {
       ) : null}
 
       <View style={styles.search}>
-        <Text style={styles.searchIcon}>⌕</Text>
+        <Text style={styles.searchIcon} accessible={false}>⌕</Text>
         <TextInput
+          accessibilityLabel={scanningLook ? "Narrow this look" : "Search listings"}
           placeholder={scanningLook ? "Narrow this look" : "Search what’s listed"}
           placeholderTextColor={colors.subtle}
           value={q}
@@ -243,9 +251,14 @@ export default function Shop() {
           autoCorrect={false}
         />
         {q ? (
-          <Pressable onPress={() => setQ("")} hitSlop={8}>
+          <AccessiblePressable            onPress={() => setQ("")}
+            hitSlop={8}
+            style={({ pressed }) => [styles.clearBtn, pressed && styles.focused]}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
+          >
             <Text style={styles.clear}>×</Text>
-          </Pressable>
+          </AccessiblePressable>
         ) : null}
       </View>
 
@@ -253,9 +266,15 @@ export default function Shop() {
         {CATEGORIES.map((c) => {
           const on = cat === c;
           return (
-            <Pressable key={c} onPress={() => setCat(c)} style={[styles.chip, on && styles.chipOn]}>
+            <AccessiblePressable              key={c}
+              onPress={() => setCat(c)}
+              style={({ pressed }) => [styles.chip, on && styles.chipOn, pressed && styles.focused]}
+              accessibilityRole="tab"
+              accessibilityLabel={`${c} category`}
+              accessibilityState={{ selected: on }}
+            >
               <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{c}</Text>
-            </Pressable>
+            </AccessiblePressable>
           );
         })}
       </ScrollView>
@@ -268,10 +287,12 @@ export default function Shop() {
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.brandRail}>
             {houses.map((b) => (
-              <Pressable
-                key={b.id}
+              <AccessiblePressable                key={b.id}
                 onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })}
-                style={styles.house}
+                style={({ pressed }) => [styles.house, pressed && styles.focused]}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${b.name}${b.verified ? ", verified brand" : ""}`}
+                accessibilityHint="Double tap to open this brand."
               >
                 {b.logoUri ? (
                   <Image source={{ uri: b.logoUri }} style={styles.houseLogo} contentFit="cover" />
@@ -289,7 +310,7 @@ export default function Shop() {
                     {b.tagline || b.vertical}
                   </Text>
                 </View>
-              </Pressable>
+              </AccessiblePressable>
             ))}
           </ScrollView>
         </View>
@@ -308,15 +329,17 @@ export default function Shop() {
             {shopCampaignRows.map(({ campaign, lead }) => {
               const brand = getBrand(campaign.brandId);
               return (
-                <Pressable
-                  key={campaign.id}
+                <AccessiblePressable                  key={campaign.id}
                   onPress={() => {
                     void recordCampaignAttribution({ brandId: campaign.brandId, campaignId: campaign.id, channel: "shop", type: "engagement", listingId: lead.id, eventId: `shop_engagement_${campaign.id}_${app.uid || "guest"}_${Date.now()}` }).catch(() => undefined);
                     router.push({ pathname: "/closet/[id]", params: { id: lead.id, campaignId: campaign.id, collectionId: campaign.collectionId || "", promotionId: campaign.promotionId || "", campaignChannel: "shop" } });
                   }}
-                  style={({ pressed }) => [styles.campaignCard, pressed && { opacity: 0.82 }]}
+                  style={({ pressed }) => [styles.campaignCard, pressed && styles.focused]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Shop ${brand?.name || "brand"} campaign ${campaign.headline || campaign.name}`}
+                  accessibilityHint="Double tap to explore this drop."
                 >
-                  <Image source={{ uri: lead.photo }} style={styles.campaignImg} contentFit="cover" />
+                  <Image source={{ uri: lead.photo }} style={styles.campaignImg} contentFit="cover" accessible={false} />
                   <View style={styles.campaignCopy}>
                     <View style={styles.campaignBrandRow}>
                       {brand?.logoUri ? <Image source={{ uri: brand.logoUri }} style={styles.campaignLogo} contentFit="cover" /> : null}
@@ -327,7 +350,7 @@ export default function Shop() {
                     <Text style={styles.campaignBody} numberOfLines={2}>{campaign.body || "Explore the latest drop."}</Text>
                     <Text style={styles.campaignGo}>Shop the drop →</Text>
                   </View>
-                </Pressable>
+                </AccessiblePressable>
               );
             })}
           </ScrollView>
@@ -368,7 +391,7 @@ function make(colors: Colors) {
     title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
     titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     brandBtn: {
-      height: 34,
+      minHeight: 44,
       paddingHorizontal: 12,
       borderRadius: 17,
       backgroundColor: "#161512",
@@ -394,6 +417,7 @@ function make(colors: Colors) {
     campaignTitle: { color: "#F4F0E6", fontSize: 17, lineHeight: 20, fontWeight: "700", marginTop: 6 },
     campaignBody: { color: "rgba(244,240,230,0.58)", fontSize: 12, lineHeight: 16, marginTop: 4 },
     campaignGo: { color: "#D6E27A", fontSize: 12, fontWeight: "800", marginTop: 8 },
+    focused: { borderWidth: 2, borderColor: "#D6E27A" },
     brandHead: { flexDirection: "row", alignItems: "center", marginTop: 6, marginBottom: 10, gap: 4 },
     brandHeadTxt: { color: "#F4F0E6", fontWeight: "700", fontSize: 18 },
     brandHeadGo: { color: "rgba(244,240,230,0.45)", fontSize: 22, marginTop: -2 },
@@ -437,10 +461,11 @@ function make(colors: Colors) {
     },
     searchIcon: { color: "rgba(244,240,230,0.4)", fontSize: 16, marginTop: -1 },
     input: { flex: 1, color: "#F4F0E6", fontSize: 16, height: 46 },
-    clear: { color: "rgba(244,240,230,0.5)", fontSize: 22, paddingHorizontal: 4 },
+    clearBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+    clear: { color: "rgba(244,240,230,0.82)", fontSize: 22, paddingHorizontal: 4 },
     chips: { gap: 8, paddingVertical: 16 },
     chip: {
-      height: 36,
+      minHeight: 44,
       paddingHorizontal: 14,
       borderRadius: 18,
       borderWidth: 1,

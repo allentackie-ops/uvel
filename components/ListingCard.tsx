@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {  StyleSheet, Text, View } from "react-native";
+import { AccessiblePressable } from "./AccessiblePressable";
 import { getBrand } from "../lib/brands";
 import { uvelFeeCents } from "../lib/fees";
 import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
@@ -36,15 +37,18 @@ export function ListingCard({
   const buyerFee = uvelFeeCents(live.listPriceCents, itemCurrency, here);
   const total = localPriceCents + buyerFee;
   return (
-    <Pressable
-      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
-      style={[styles.wrap, wide ? { width: wide, flex: undefined } : null, framed && styles.framed]}
+    <AccessiblePressable      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
+      style={({ pressed }) => [styles.wrap, wide ? { width: wide, flex: undefined } : null, framed && styles.framed, pressed && styles.focused]}
+      accessibilityRole="button"
+      accessibilityLabel={`${brand} ${live.name}, ${moneyInMarket(live.listPriceCents, itemCurrency, here)}${typeof live.stockQuantity === "number" ? live.stockQuantity === 0 ? ", sold out" : live.stockQuantity <= 10 ? `, ${live.stockQuantity} remaining` : "" : ""}`}
+      accessibilityHint="Double tap to view this listing."
     >
       <View>
         <Image
           source={{ uri: live.photo }}
           style={[styles.img, wide ? { width: wide, borderRadius: framed ? 0 : 18 } : null, framed && styles.framedImg]}
           contentFit="cover"
+          accessible={false}
         />
         {framed && fresh ? (
           <View style={styles.newBadge}>
@@ -61,14 +65,17 @@ export function ListingCard({
             <Text style={styles.badgeTxt}>{badge}</Text>
           </View>
         ) : null}
-        <Pressable
-          onPress={() => app.likePiece(live.id)}
+        <AccessiblePressable          onPress={() => app.likePiece(live.id)}
           hitSlop={8}
           style={styles.hearts}
+          accessibilityRole="button"
+          accessibilityLabel={`${liked ? "Unlike" : "Like"} ${brand} ${live.name}`}
+          accessibilityHint={liked ? "Double tap to remove this listing from your saved items." : "Double tap to save this listing."}
+          accessibilityState={{ selected: liked }}
         >
           <Text style={[styles.heartsIco, liked && styles.heartsOn]}>{liked ? "♥" : "♡"}</Text>
           <Text style={styles.heartsN}>{hearts}</Text>
-        </Pressable>
+        </AccessiblePressable>
       </View>
       <View style={framed ? styles.framedMeta : undefined}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
@@ -88,13 +95,14 @@ export function ListingCard({
           {moneyInMarket(total, here.currency, here)} incl. buyer protection
         </Text>
       </View>
-    </Pressable>
+    </AccessiblePressable>
   );
 }
 
 function make(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
-    wrap: { flex: 1 },
+    wrap: { flex: 1, borderRadius: 18 },
+    focused: { borderWidth: 2, borderColor: colors.success },
     framed: {
       backgroundColor: "#161512",
       borderRadius: 18,
@@ -123,6 +131,8 @@ function make(colors: ReturnType<typeof useColors>) {
     },
     hearts: {
       position: "absolute",
+      minWidth: 44,
+      minHeight: 44,
       right: 10,
       bottom: 10,
       flexDirection: "row",

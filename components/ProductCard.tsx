@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { Pressable, StyleSheet, Text } from "react-native";
+import {  StyleSheet, Text } from "react-native";
+import { AccessiblePressable } from "./AccessiblePressable";
 import { usd, type Garment } from "../lib/catalog";
 import { getMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
@@ -14,8 +15,13 @@ export function ProductCard({ garment }: { garment: Garment }) {
   const from = getMarket(garment.country);
   const local = from.code === here.code;
   return (
-    <Pressable onPress={() => router.push(`/product/${garment.id}`)} style={styles.wrap}>
-      <Image source={garment.image} style={styles.img} contentFit="cover" />
+    <AccessiblePressable      onPress={() => router.push(`/product/${garment.id}`)}
+      style={({ pressed }) => [styles.wrap, pressed && styles.focused]}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${garment.name} by ${local ? garment.brand : from.name}, ${usd(garment.priceCents)}`}
+      accessibilityHint="Double tap to view this listing."
+    >
+      <Image source={garment.image} style={styles.img} contentFit="cover" accessible={false} />
       <Text style={styles.brand} numberOfLines={1}>
         {local ? garment.brand : from.name}
       </Text>
@@ -23,13 +29,14 @@ export function ProductCard({ garment }: { garment: Garment }) {
         {garment.name}
       </Text>
       <Text style={styles.price}>{usd(garment.priceCents)}</Text>
-    </Pressable>
+    </AccessiblePressable>
   );
 }
 
 function make(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
-    wrap: { flex: 1 },
+    wrap: { flex: 1, borderRadius: 14 },
+    focused: { borderWidth: 2, borderColor: colors.success },
     img: {
       width: "100%",
       aspectRatio: 3 / 4,

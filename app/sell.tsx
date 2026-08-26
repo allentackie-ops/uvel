@@ -10,7 +10,6 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -18,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AccessiblePressable } from "../components/AccessiblePressable";
 import type { Category } from "../lib/catalog";
 import { ShipsPicker } from "../components/ShipsPicker";
 import { usd } from "../lib/catalog";
@@ -438,7 +438,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           <View style={styles.photoGrid}>
             {photos.map((p, i) => (
               <View key={p.uri} style={styles.photoTile}>
-                <Image source={{ uri: p.uri }} style={styles.photoImage} contentFit="cover" />
+                <Image source={{ uri: p.uri }} style={styles.photoImage} contentFit="cover" accessibilityRole="image" accessibilityLabel={`Photo ${i + 1}${i === 0 ? ", main photo" : ""}`} />
                 {i === 0 ? (
                   <View style={styles.mainPhotoPill}>
                     <Text style={styles.mainPhotoTxt}>Main</Text>
@@ -450,17 +450,28 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                     <ActivityIndicator color="#16140F" />
                   </View>
                 ) : null}
-                <Pressable onPress={() => removePhoto(p.uri)} hitSlop={8} style={styles.photoX}>
+                <AccessiblePressable                  onPress={() => removePhoto(p.uri)}
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.photoX, pressed && styles.focused]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove photo ${i + 1}`}
+                  accessibilityHint="Double tap to remove this photo from the listing."
+                >
                   <Text style={styles.photoXTxt}>×</Text>
-                </Pressable>
+                </AccessiblePressable>
               </View>
             ))}
             {photos.length < MAX ? (
-              <Pressable onPress={choosePhoto} style={[styles.photoTile, styles.photoAdd]}>
+              <AccessiblePressable                onPress={choosePhoto}
+                style={({ pressed }) => [styles.photoTile, styles.photoAdd, pressed && styles.focused]}
+                accessibilityRole="button"
+                accessibilityLabel={`Add photo, ${photos.length} of ${MAX} added`}
+                accessibilityHint="Double tap to choose a listing photo."
+              >
                 <Text style={styles.photoAddIcon}>＋</Text>
                 <Text style={styles.photoAddTxt}>Add photo</Text>
                 <Text style={styles.photoCount}>{photos.length}/{MAX}</Text>
-              </Pressable>
+              </AccessiblePressable>
             ) : null}
           </View>
 
@@ -468,47 +479,55 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             <View style={styles.picker}>
               <View style={styles.fitHead}>
                 <Text style={styles.fitLbl}>From your fits</Text>
-                <Pressable onPress={() => setFitsOpen(false)}>
+                <AccessiblePressable onPress={() => setFitsOpen(false)}>
                   <Text style={styles.fitLbl}>Done</Text>
-                </Pressable>
+                </AccessiblePressable>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {wardrobeUris.map((uri) => (
-                  <Pressable
-                    key={uri}
+                  <AccessiblePressable                    key={uri}
                     onPress={() => {
                       setFitsOpen(false);
                       void addUri(uri);
                     }}
                   >
                     <Image source={{ uri }} style={styles.fit} contentFit="cover" />
-                  </Pressable>
+                  </AccessiblePressable>
                 ))}
               </ScrollView>
             </View>
           ) : null}
 
           {warn?.review ? (
-            <View style={styles.warnBox}>
-              <Text style={styles.warnTitle}>This photo won’t sell it</Text>
+            <View style={styles.warnBox} accessibilityLiveRegion="polite">
+              <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={styles.warnTitle}>Warning: this photo won’t sell it</Text>
               {warn.review.issues.map((line) => (
                 <Text key={line} style={styles.warnP}>
                   {line}
                 </Text>
               ))}
               {warn.review.tip ? <Text style={styles.warnTip}>{warn.review.tip}</Text> : null}
-              <Pressable onPress={() => removePhoto(warn.uri)}>
+              <AccessiblePressable                onPress={() => removePhoto(warn.uri)}
+                style={({ pressed }) => [pressed && styles.focused]}
+                accessibilityRole="button"
+                accessibilityLabel="Take another photo"
+              >
                 <Text style={styles.warnCta}>Take another</Text>
-              </Pressable>
+              </AccessiblePressable>
             </View>
           ) : null}
 
           <View style={styles.sheet}>
             <Text style={styles.priceLabel}>Price *</Text>
-            <Pressable onPress={openPrice} style={styles.priceRow}>
+            <AccessiblePressable              onPress={openPrice}
+              style={({ pressed }) => [styles.priceRow, pressed && styles.focused]}
+              accessibilityRole="button"
+              accessibilityLabel={`Listing price: ${price ? `${listingMarket.symbol}${price}` : "not set"}`}
+              accessibilityHint="Double tap to set the listing price."
+            >
               <Text style={[styles.dollar, !price && { color: ph }]}>{listingMarket.symbol}</Text>
               <Text style={[styles.price, !price && { color: ph }]}>{price || "0"}</Text>
-            </Pressable>
+            </AccessiblePressable>
             {Number(price) > 0 ? (
               <Text style={styles.feeNote}>
                 Buyer pays a {moneyExact(uvelFeeCents(Number(price) * 100, listingCurrency, listingMarket), listingCurrency)}{" "}
@@ -523,6 +542,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               onChangeText={setName}
               placeholder="What’s the piece?"
               placeholderTextColor={ph}
+              accessibilityLabel="Listing title"
+              accessibilityHint="Required. Enter the name buyers will see."
             />
             <Text style={styles.label}>Description *</Text>
             <TextInput
@@ -531,15 +552,23 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               onChangeText={setNotes}
               placeholder="Fit, fabric, any marks"
               placeholderTextColor={ph}
+              accessibilityLabel="Listing description"
+              accessibilityHint="Required. Describe the fit, fabric, and any marks."
               multiline
             />
 
             <Text style={styles.label}>Category *</Text>
             <View style={styles.chips}>
               {CATS.map((c) => (
-                <Pressable key={c} onPress={() => setCategory(c)} style={[styles.chip, category === c && styles.chipOn]}>
+                <AccessiblePressable                  key={c}
+                  onPress={() => setCategory(c)}
+                  style={({ pressed }) => [styles.chip, category === c && styles.chipOn, pressed && styles.focused]}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`Category: ${c}`}
+                  accessibilityState={{ selected: category === c }}
+                >
                   <Text style={[styles.chipTxt, category === c && styles.chipTxtOn]}>{c}</Text>
-                </Pressable>
+                </AccessiblePressable>
               ))}
             </View>
 
@@ -552,6 +581,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                   onChangeText={setBrand}
                   placeholder="Optional"
                   placeholderTextColor={ph}
+                  accessibilityLabel="Brand, optional"
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -562,6 +592,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                   onChangeText={setSize}
                   placeholder=""
                   placeholderTextColor={ph}
+                  accessibilityLabel="Size, required"
                 />
               </View>
             </View>
@@ -575,6 +606,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                   onChangeText={setColor}
                   placeholder=""
                   placeholderTextColor={ph}
+                  accessibilityLabel="Colour, required"
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -585,6 +617,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                   onChangeText={setMaterial}
                   placeholder=""
                   placeholderTextColor={ph}
+                  accessibilityLabel="Material, required"
                 />
               </View>
             </View>
@@ -592,9 +625,15 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             <Text style={styles.label}>Condition *</Text>
             <View style={styles.chips}>
               {CONDITIONS.map((c) => (
-                <Pressable key={c} onPress={() => setCondition(c)} style={[styles.chip, condition === c && styles.chipOn]}>
+                <AccessiblePressable                  key={c}
+                  onPress={() => setCondition(c)}
+                  style={({ pressed }) => [styles.chip, condition === c && styles.chipOn, pressed && styles.focused]}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`Condition: ${c}`}
+                  accessibilityState={{ selected: condition === c }}
+                >
                   <Text style={[styles.chipTxt, condition === c && styles.chipTxtOn]}>{c}</Text>
-                </Pressable>
+                </AccessiblePressable>
               ))}
             </View>
             <Text style={styles.label}>Original price</Text>
@@ -605,6 +644,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               keyboardType="number-pad"
               placeholder="Optional"
               placeholderTextColor={ph}
+              accessibilityLabel="Original price, optional"
             />
 
             <ShipsPicker origin={origin} value={shipsTo} onChange={setShipsTo} />
@@ -620,8 +660,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 const on = shopLook === look.id;
                 const locked = look.plus && !isPlus;
                 return (
-                  <Pressable
-                    key={look.id}
+                  <AccessiblePressable                    key={look.id}
                     onPress={() => {
                       if (locked) {
                         router.push("/plus");
@@ -630,7 +669,11 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                       setShopLook(look.id);
                       if (existing) updatePiece(existing.id, { shopLook: look.id });
                     }}
-                    style={[styles.lookCard, on && styles.lookCardOn, locked && { opacity: 0.55 }]}
+                    style={({ pressed }) => [styles.lookCard, on && styles.lookCardOn, locked && { opacity: 0.55 }, pressed && styles.focused]}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`${look.name}${locked ? ", requires Uvel Plus" : ""}`}
+                    accessibilityHint={locked ? "Double tap to view Uvel Plus." : "Double tap to choose this Shop the look style."}
+                    accessibilityState={{ selected: on, disabled: locked }}
                   >
                     <View style={[styles.lookSwatch, { backgroundColor: look.page }]}>
                       <View style={[styles.lookDot, { backgroundColor: look.accent }]} />
@@ -639,13 +682,12 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                     <Text style={styles.lookLine} numberOfLines={1}>
                       {locked ? "Requires Uvel+" : look.line}
                     </Text>
-                  </Pressable>
+                  </AccessiblePressable>
                 );
               })}
             </View>
             {existing ? (
-              <Pressable
-                onPress={() =>
+              <AccessiblePressable                onPress={() =>
                   router.push({
                     pathname: "/closet/[id]",
                     params: { id: existing.id, v: "buy" },
@@ -654,19 +696,21 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 style={styles.preview}
               >
                 <Text style={styles.previewTxt}>Preview as a buyer →</Text>
-              </Pressable>
+              </AccessiblePressable>
             ) : null}
           </View>
         </ScrollView>
 
         <View style={[styles.foot, { paddingBottom: insets.bottom + 12 }]}>
-          <Pressable
-            onPress={() => void publish()}
+          <AccessiblePressable            onPress={() => void publish()}
             disabled={!canList}
-            style={[styles.cta, !canList && styles.ctaOff]}
+            style={({ pressed }) => [styles.cta, !canList && styles.ctaOff, pressed && styles.focused]}
+            accessibilityRole="button"
+            accessibilityLabel={ctaLabel}
+            accessibilityState={{ disabled: !canList, busy: gate.phase === "review" }}
           >
             <Text style={[styles.ctaTxt, !canList && styles.ctaTxtOff]}>{ctaLabel}</Text>
-          </Pressable>
+          </AccessiblePressable>
         </View>
       </KeyboardAvoidingView>
 
@@ -690,9 +734,13 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                   {r}
                 </Text>
               ))}
-              <Pressable onPress={() => setGate({ phase: "idle" })} style={styles.gateCta}>
+              <AccessiblePressable                onPress={() => setGate({ phase: "idle" })}
+                style={({ pressed }) => [styles.gateCta, pressed && styles.focused]}
+                accessibilityRole="button"
+                accessibilityLabel="Fix listing"
+              >
                 <Text style={styles.ctaTxt}>Fix listing</Text>
-              </Pressable>
+              </AccessiblePressable>
             </>
           ) : null}
           {gate.phase === "pass" ? (
@@ -740,7 +788,8 @@ function make(colors: Colors) {
     mainPhotoPill: { position: "absolute", left: 10, bottom: 10, paddingHorizontal: 10, height: 28, borderRadius: 14, backgroundColor: "rgba(11,10,8,0.76)", alignItems: "center", justifyContent: "center" },
     mainPhotoTxt: { color: colors.bone, fontSize: 12, fontWeight: "600" },
     photoCheck: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(214,226,122,0.52)", alignItems: "center", justifyContent: "center" },
-    photoX: { position: "absolute", top: 10, right: 10, width: 28, height: 28, borderRadius: 14, backgroundColor: colors.bone, alignItems: "center", justifyContent: "center" },
+    focused: { borderWidth: 2, borderColor: colors.success },
+    photoX: { position: "absolute", top: 4, right: 4, minWidth: 44, minHeight: 44, borderRadius: 22, backgroundColor: colors.bone, alignItems: "center", justifyContent: "center" },
     photoXTxt: { color: colors.ink, fontSize: 19, lineHeight: 21, fontWeight: "700", marginTop: -1 },
     warnDot: {
       position: "absolute",
@@ -768,7 +817,7 @@ function make(colors: Colors) {
     warnCta: { color: colors.bone, fontWeight: "700", textDecorationLine: "underline", marginTop: 6 },
     sheet: { paddingHorizontal: 20, paddingTop: 8 },
     priceLabel: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 12, marginBottom: 6 },
-    priceRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+    priceRow: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 10 },
     feeNote: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 10 },
     dollar: {
       color: colors.bone,
@@ -806,6 +855,7 @@ function make(colors: Colors) {
     },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     chip: {
+      minHeight: 44,
       borderWidth: 1,
       borderColor: colors.subtle + "40",
       borderRadius: 20,

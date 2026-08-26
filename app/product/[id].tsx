@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { Glass } from "../../components/Glass";
 import { ProductCard } from "../../components/ProductCard";
 import { GARMENTS, getGarment, usd } from "../../lib/catalog";
@@ -68,21 +69,29 @@ export default function Product() {
           <Text style={styles.val} numberOfLines={1}>{garment.name}</Text>
           <Text style={styles.meta}>{usd(garment.priceCents)}</Text>
         </View>
-        <Pressable onPress={() => app.toggleSaved(garment.id)}>
+        <AccessiblePressable
+          onPress={() => app.toggleSaved(garment.id)}
+          accessibilityRole="button"
+          accessibilityLabel={saved ? `Remove ${garment.name} from saved items` : `Save ${garment.name}`}
+          accessibilityState={{ selected: saved }}
+        >
           <Glass interactive style={styles.iconBtn}>
-            <Text>{saved ? "♥" : "♡"}</Text>
+            <Text accessible={false}>{saved ? "♥" : "♡"}</Text>
           </Glass>
-        </Pressable>
-        <Pressable
+        </AccessiblePressable>
+        <AccessiblePressable
           onPress={() => {
             if (!app.isPlus && app.remainingTryOns <= 0) router.push("/plus");
             else router.push({ pathname: "/try-on", params: { g: garment.id } });
           }}
+          accessibilityRole="button"
+          accessibilityLabel="Try this item on"
+          accessibilityHint={!app.isPlus && app.remainingTryOns <= 0 ? "Double tap to view Uvel Plus." : "Double tap to open the try-on experience."}
         >
           <Glass interactive style={styles.cta}>
             <Text style={styles.ctaText}>Try on me</Text>
           </Glass>
-        </Pressable>
+        </AccessiblePressable>
       </Glass>
     </View>
   );

@@ -8,7 +8,6 @@ import {
   AppState,
   Dimensions,
   Linking,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -16,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { TodaySkeleton } from "../../components/ScreenSkeletons";
@@ -221,10 +221,16 @@ function showAiExplanation() {
 function AiGeneratedPill({ colors, compact = false }: { colors: Colors; compact?: boolean }) {
   const styles = make(colors);
   return (
-    <Pressable onPress={showAiExplanation} style={[styles.aiPill, compact && styles.aiPillCompact]} hitSlop={6}>
+    <AccessiblePressable      onPress={showAiExplanation}
+      style={({ pressed }) => [styles.aiPill, compact && styles.aiPillCompact, pressed && styles.focused]}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel="AI-generated content"
+      accessibilityHint="Double tap to learn what this label means."
+    >
       <View style={styles.aiDot} />
       <Text style={styles.aiPillTxt}>{AI_CONTENT_LABEL}</Text>
-    </Pressable>
+    </AccessiblePressable>
   );
 }
 
@@ -338,15 +344,26 @@ export default function Today() {
             {SOURCES.map((s) => {
               const on = source === s;
               return (
-                <Pressable key={s} onPress={() => setSource(s)} style={[styles.filter, on && styles.filterOn]}>
+                <AccessiblePressable                  key={s}
+                  onPress={() => setSource(s)}
+                  style={({ pressed }) => [styles.filter, on && styles.filterOn, pressed && styles.focused]}
+                  accessibilityRole="tab"
+                  accessibilityLabel={`${s} feed`}
+                  accessibilityState={{ selected: on }}
+                >
                   {s !== "All" ? <View style={[styles.dot, { backgroundColor: DOT[s] }]} /> : null}
                   <Text style={[styles.filterTxt, on && styles.filterTxtOn]}>{s}</Text>
-                </Pressable>
+                </AccessiblePressable>
               );
             })}
           </ScrollView>
 
-          <Pressable onPress={() => router.push("/inbox")} style={styles.inbox}>
+          <AccessiblePressable            onPress={() => router.push("/inbox")}
+            style={({ pressed }) => [styles.inbox, pressed && styles.focused]}
+            accessibilityRole="button"
+            accessibilityLabel={`Chats${unread > 0 ? `, ${unread} unread` : ""}`}
+            accessibilityHint="Double tap to open your messages."
+          >
             <View style={{ flex: 1 }}>
               <Text style={styles.inboxK}>Chats</Text>
               <Text style={styles.inboxP} numberOfLines={1}>
@@ -362,7 +379,7 @@ export default function Today() {
                 <Text style={styles.redBadgeTxt}>{unread > 9 ? "9+" : String(unread)}</Text>
               </View>
             ) : null}
-          </Pressable>
+          </AccessiblePressable>
 
           <View style={styles.head}>
             <Text style={styles.h2}>{source === "All" ? "Moving now" : `Now on ${source}`}</Text>
@@ -431,9 +448,13 @@ export default function Today() {
 
           <View style={styles.head}>
             <Text style={styles.h2}>For you</Text>
-            <Pressable onPress={() => router.push("/(tabs)/shop")}>
+            <AccessiblePressable              onPress={() => router.push("/(tabs)/shop")}
+              style={({ pressed }) => [pressed && styles.focused]}
+              accessibilityRole="button"
+              accessibilityLabel="See all shop listings"
+            >
               <Text style={styles.seeAll}>See all</Text>
-            </Pressable>
+            </AccessiblePressable>
           </View>
           {live.length ? (
             <View style={styles.grid}>
@@ -494,13 +515,22 @@ function Hero({
       <LookMedia look={look} style={styles.hero} handleRef={grab} onWait={onWait} />
       <View style={styles.heroCopy}>
         <View style={styles.heroBar}>
-          <Pressable onPress={() => void shopThis()} style={styles.cta}>
+          <AccessiblePressable            onPress={() => void shopThis()}
+            style={({ pressed }) => [styles.cta, pressed && styles.focused]}
+            accessibilityRole="button"
+            accessibilityLabel={busy ? "Searching this look" : "Shop the look"}
+            accessibilityHint="Double tap to find matching listings."
+          >
             <Text style={styles.ctaTxt}>{busy ? "Searching…" : "Shop the look"}</Text>
-          </Pressable>
+          </AccessiblePressable>
           {look.postUrl ? (
-            <Pressable onPress={() => void Linking.openURL(look.postUrl!)} style={styles.ghost}>
+            <AccessiblePressable              onPress={() => void Linking.openURL(look.postUrl!)}
+              style={({ pressed }) => [styles.ghost, pressed && styles.focused]}
+              accessibilityRole="link"
+              accessibilityLabel={`See this look on ${seen}`}
+            >
               <Text style={styles.ghostTxt}>See on {seen}</Text>
-            </Pressable>
+            </AccessiblePressable>
           ) : null}
         </View>
         <View style={styles.srcRow}>
@@ -542,9 +572,15 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
             <AiGeneratedPill colors={colors} compact />
           </View>
         ) : null}
-        <Pressable onPress={() => void shopThis()} style={styles.searchFab} hitSlop={8}>
+        <AccessiblePressable          onPress={() => void shopThis()}
+          style={({ pressed }) => [styles.searchFab, pressed && styles.focused]}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={busy ? `Searching listings for ${look.title}` : `Shop listings for ${look.title}`}
+          accessibilityHint="Double tap to find matching listings."
+        >
           <Text style={styles.searchFabTxt}>{busy ? "…" : "⌕"}</Text>
-        </Pressable>
+        </AccessiblePressable>
       </View>
       <Text style={styles.cardTitle} numberOfLines={2}>
         {look.title}
@@ -557,14 +593,16 @@ function TodayCampaignCard({ campaign, lead, uid, colors }: { campaign: BrandCam
   const styles = make(colors);
   const brand = getBrand(campaign.brandId);
   return (
-    <Pressable
-      onPress={() => {
+    <AccessiblePressable      onPress={() => {
         if (uid) void recordCampaignAttribution({ brandId: campaign.brandId, campaignId: campaign.id, channel: "today", type: "engagement", listingId: lead.id, eventId: `today_engagement_${campaign.id}_${uid}_${Date.now()}` }).catch(() => undefined);
         router.push({ pathname: "/closet/[id]", params: { id: lead.id, campaignId: campaign.id, collectionId: campaign.collectionId || "", promotionId: campaign.promotionId || "", campaignChannel: "today" } });
       }}
-      style={({ pressed }) => [styles.todayCampaignCard, pressed && { opacity: 0.82 }]}
+      style={({ pressed }) => [styles.todayCampaignCard, pressed && styles.focused]}
+      accessibilityRole="button"
+      accessibilityLabel={`Explore ${brand?.name || "Brand"} campaign ${campaign.headline || campaign.name}`}
+      accessibilityHint="Double tap to explore this drop."
     >
-      <Image source={{ uri: lead.photo }} style={styles.todayCampaignImg} contentFit="cover" />
+      <Image source={{ uri: lead.photo }} style={styles.todayCampaignImg} contentFit="cover" accessible={false} />
       <View style={styles.todayCampaignCopy}>
         <View style={styles.todayCampaignBrandRow}>
           {brand?.logoUri ? <Image source={{ uri: brand.logoUri }} style={styles.todayCampaignLogo} contentFit="cover" /> : null}
@@ -575,7 +613,7 @@ function TodayCampaignCard({ campaign, lead, uid, colors }: { campaign: BrandCam
         <Text style={styles.todayCampaignBody} numberOfLines={2}>{campaign.body || "Explore the latest drop."}</Text>
         <Text style={styles.todayCampaignGo}>Explore the drop →</Text>
       </View>
-    </Pressable>
+    </AccessiblePressable>
   );
 }
 
@@ -598,12 +636,14 @@ function ShopLookCard({
   const { saved } = useUvel();
   const hearts = likeCount(live, saved);
   return (
-    <Pressable
-      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
-      style={styles.shopCard}
+    <AccessiblePressable      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
+      style={({ pressed }) => [styles.shopCard, pressed && styles.focused]}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${brand} ${live.name}, ${usd(live.listPriceCents, live.currency || "USD")}`}
+      accessibilityHint="Double tap to view this listing."
     >
       <View>
-        <Image source={{ uri: live.photo }} style={styles.shopImg} contentFit="cover" />
+        <Image source={{ uri: live.photo }} style={styles.shopImg} contentFit="cover" accessible={false} />
         <View style={styles.shopNow}>
           <Text style={styles.shopNowTxt}>Shop now</Text>
         </View>
@@ -621,7 +661,7 @@ function ShopLookCard({
         </Text>
         <Text style={styles.shopPrice}>{usd(live.listPriceCents, live.currency || "USD")}</Text>
       </View>
-    </Pressable>
+    </AccessiblePressable>
   );
 }
 
@@ -635,8 +675,9 @@ function make(colors: Colors) {
     heroBar: { flexDirection: "row", gap: 10, marginBottom: 16 },
     srcRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
     src: { color: "rgba(244,240,230,0.86)", fontSize: 13, fontWeight: "500" },
-    aiPill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7, minHeight: 26, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, borderColor: "#D6E27A", backgroundColor: "rgba(11,10,8,0.74)", marginBottom: 9 },
-    aiPillCompact: { marginBottom: 0, minHeight: 25, backgroundColor: "rgba(11,10,8,0.78)" },
+    aiPill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7, minHeight: 44, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, borderColor: "#D6E27A", backgroundColor: "rgba(11,10,8,0.74)", marginBottom: 9 },
+    aiPillCompact: { marginBottom: 0, minHeight: 44, backgroundColor: "rgba(11,10,8,0.78)" },
+    focused: { borderWidth: 2, borderColor: "#D6E27A" },
     aiDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#D6E27A" },
     aiPillTxt: { color: "#F4F0E6", fontSize: 11, fontWeight: "700" },
     title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 30, lineHeight: 34 },
@@ -665,7 +706,7 @@ function make(colors: Colors) {
       flexDirection: "row",
       alignItems: "center",
       gap: 7,
-      height: 36,
+      minHeight: 44,
       paddingHorizontal: 14,
       borderRadius: 18,
       borderWidth: 1,
@@ -732,6 +773,8 @@ function make(colors: Colors) {
     cardAiWrap: { position: "absolute", left: 10, bottom: 10, zIndex: 8 },
     searchFab: {
       position: "absolute",
+      minWidth: 46,
+      minHeight: 46,
       right: 10,
       bottom: 10,
       width: 46,
