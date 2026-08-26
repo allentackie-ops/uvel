@@ -13,12 +13,13 @@ import { createCheckoutSession, openHostedPay, processorFor } from "../../lib/pa
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { getPiece, useWardrobe } from "../../lib/wardrobe";
+import { recordCampaignAttribution } from "../../lib/attribution";
 
 export default function Checkout() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { id, variantKey: variantParam, variantLabel: variantLabelParam } = useLocalSearchParams<{ id: string; variantKey?: string; variantLabel?: string }>();
+  const { id, variantKey: variantParam, variantLabel: variantLabelParam, campaignId, collectionId, promotionId } = useLocalSearchParams<{ id: string; variantKey?: string; variantLabel?: string; campaignId?: string; collectionId?: string; promotionId?: string }>();
   useWardrobe();
   const piece = getPiece(id);
   const selectedVariant = typeof variantParam === "string" ? variantParam : "";
@@ -106,6 +107,7 @@ export default function Checkout() {
         delivery: ship,
         address,
       });
+      if (piece.brandId && typeof campaignId === "string" && campaignId) void recordCampaignAttribution({ brandId: piece.brandId, campaignId, collectionId: typeof collectionId === "string" ? collectionId : undefined, promotionId: typeof promotionId === "string" ? promotionId : undefined, type: "checkout_started", listingId: piece.id, orderId: order.id, currency: market.currency }).catch(() => undefined);
       const session = await createCheckoutSession({
         amountCents: total,
         currency: market.currency,
@@ -118,6 +120,9 @@ export default function Checkout() {
         listingId: piece.id,
         brandId: piece.brandId || "",
         variantKey: selectedVariant,
+        campaignId: typeof campaignId === "string" ? campaignId : undefined,
+        collectionId: typeof collectionId === "string" ? collectionId : undefined,
+        promotionId: typeof promotionId === "string" ? promotionId : undefined,
       });
       if (!session.url) throw new Error("That payment method isn’t live yet.");
       const ok = await openHostedPay(session.url);

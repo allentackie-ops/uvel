@@ -23,7 +23,9 @@ import {
 import { usd } from "../../lib/catalog";
 import { recordAnalyticsEvent } from "../../lib/analytics";
 import { useUvel } from "../../lib/store";
-import { useWardrobe } from "../../lib/wardrobe";
+import { getPiece, useWardrobe } from "../../lib/wardrobe";
+import { recordCampaignAttribution } from "../../lib/attribution";
+import { useLiveCampaigns } from "../../lib/marketing";
 
 const W = Dimensions.get("window").width;
 const COL = (W - 48) / 2;
@@ -35,6 +37,7 @@ export default function BrandPage() {
   const app = useUvel();
   const insets = useSafeAreaInsets();
   const brand = getBrand(id);
+  const liveCampaigns = useLiveCampaigns(id || "");
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
@@ -54,12 +57,18 @@ export default function BrandPage() {
     return Array.from(map.entries()).map(([cat, items]) => ({ cat, items }));
   }, [listings]);
   const featured = collections[0]?.items[0];
+  const visibleCampaigns = liveCampaigns.filter((campaign) => campaign.channel === "brand_page" && (!campaign.startAt || campaign.startAt <= Date.now()) && (!campaign.endAt || campaign.endAt >= Date.now()));
   const following = brand ? isFollowing(brand.id, app.uid) : false;
   const poster = brand ? canPost(brand, app.uid) : false;
   const owner = brand ? canStudio(brand, app.uid) : false;
   const workspace = brand ? canAccessHQ(brand, app.uid) : false;
   const manager = brand ? canManageTeam(brand, app.uid) : false;
   const role = brand ? roleOn(brand, app.uid) : null;
+
+  useEffect(() => {
+    if (!app.uid || !brand) return;
+    visibleCampaigns.forEach((campaign) => { void recordCampaignAttribution({ brandId: brand.id, campaignId: campaign.id, type: "impression", collectionId: campaign.collectionId }).catch(() => undefined); });
+  }, [app.uid, brand?.id, visibleCampaigns.map((campaign) => campaign.id).join("|")]);
 
   if (!brand || !theme) {
     return (
@@ -194,6 +203,16 @@ export default function BrandPage() {
             ) : null}
           </View>
         </View>
+
+        {visibleCampaigns.length ? (
+          <View style={{ marginTop: 28 }}>
+            <Text style={[styles.meta, { color: theme.muted, paddingHorizontal: 20 }]}>LIVE CAMPAIGN</Text>
+            {visibleCampaigns.slice(0, 3).map((campaign) => {
+              const lead = campaign.productIds.map((productId) => getPiece(productId)).find(Boolean);
+              return <Pressable key={campaign.id} onPress={() => { void recordCampaignAttribution({ brandId: brand.id, campaignId: campaign.id, type: "engagement", collectionId: campaign.collectionId, listingId: lead?.id }).catch(() => undefined); if (lead) router.push({ pathname: "/closet/[id]", params: { id: lead.id, campaignId: campaign.id, collectionId: campaign.collectionId || "" } }); }} style={[styles.campaignCard, { backgroundColor: theme.card }]}>{lead?.photo ? <Image source={{ uri: lead.photo }} style={styles.campaignImg} contentFit="cover" /> : null}<View style={{ flex: 1 }}><Text style={[styles.dropTitle, { color: theme.ink }]} numberOfLines={2}>{campaign.headline}</Text><Text style={[styles.dropSub, { color: theme.muted }]} numberOfLines={2}>{campaign.body || campaign.name}</Text></View><Text style={[styles.chev, { color: theme.muted }]}>›</Text></Pressable>;
+            })}
+          </View>
+        ) : null}
 
         {featured ? (
           <View style={{ marginTop: 28 }}>
@@ -354,6 +373,8 @@ const styles = StyleSheet.create({
   heroName: { fontFamily: "Georgia", fontSize: 22, lineHeight: 26 },
   heroP: { fontSize: 13, lineHeight: 18, marginTop: 8 },
   heroImg: { width: W * 0.42, minHeight: 180 },
+  campaignCard: { marginHorizontal: 20, borderRadius: 16, padding: 10, flexDirection: "row", alignItems: "center", gap: 10, minHeight: 92 },
+  campaignImg: { width: 72, height: 72, borderRadius: 10, backgroundColor: "#1A1915" },
   sectionHead: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, marginTop: 32, marginBottom: 8, gap: 6 },
   section: { fontSize: 22, fontWeight: "700" },
   chev: { fontSize: 26, marginTop: -2 },

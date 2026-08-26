@@ -111,7 +111,7 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
     throw new HttpsError("unauthenticated", "Sign in before checking out.");
   }
 
-  const { amountCents, currency, email, method, country, reference, name, orderId, listingId, brandId, variantKey } = req.data || {};
+  const { amountCents, currency, email, method, country, reference, name, orderId, listingId, brandId, variantKey, campaignId, collectionId, promotionId } = req.data || {};
   const normalizedCurrency = String(currency || "").toUpperCase();
   const normalizedEmail = String(req.auth.token.email || email || "").trim().toLowerCase();
   const normalizedMethod = String(method || "");
@@ -121,6 +121,9 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
   const normalizedListingId = String(listingId || "").trim();
   const normalizedBrandId = String(brandId || "").trim();
   const normalizedVariantKey = String(variantKey || "").trim().slice(0, 80);
+  const normalizedCampaignId = uidSafe(campaignId).slice(0, 120);
+  const normalizedCollectionId = uidSafe(collectionId).slice(0, 120);
+  const normalizedPromotionId = uidSafe(promotionId).slice(0, 120);
 
   if (
     !Number.isSafeInteger(amountCents) ||
@@ -153,6 +156,14 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
     throw new HttpsError("invalid-argument", "Order brand changed.");
   }
   let reserved = false;
+  let checkoutAttribution = null;
+  if (order.brandId && normalizedCampaignId) {
+    checkoutAttribution = await resolveCampaignAttribution(admin.firestore(), { brandId: order.brandId, campaignId: normalizedCampaignId, listingId: String(order.pieceId || normalizedListingId) });
+    if (checkoutAttribution) {
+      await orderRef.set({ campaignAttribution: { ...checkoutAttribution, source: "brand_page", capturedAt: admin.firestore.FieldValue.serverTimestamp() } }, { merge: true });
+    }
+  }
+
   if (order.brandId && order.pieceId) {
     const listingSnap = await admin.firestore().collection("listings").doc(String(order.pieceId)).get();
     const listing = listingSnap.data() || {};
@@ -199,6 +210,9 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
             listingId: normalizedListingId,
             brandId: normalizedBrandId,
             variantKey: normalizedVariantKey,
+            campaignId: checkoutAttribution?.campaignId || "",
+            collectionId: checkoutAttribution?.collectionId || "",
+            promotionId: checkoutAttribution?.promotionId || "",
           },
         }),
       });
@@ -240,6 +254,9 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
         country: normalizedCountry,
         method: normalizedMethod,
         variantKey: normalizedVariantKey,
+        campaignId: checkoutAttribution?.campaignId || "",
+        collectionId: checkoutAttribution?.collectionId || "",
+        promotionId: checkoutAttribution?.promotionId || "",
       },
     });
     await orderRef.set({ paymentProvider: "stripe", paymentReference: session.id, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
@@ -356,16 +373,84 @@ async function recordEvent(req) {
 
 exports.recordAnalyticsEvent = onCall(recordEvent);
 
-async function markOrderPaid(orderId, provider, providerReference, providerAmount, providerCurrency, providerPaymentId, providerTransactionId) {
+function attributionField(type) {
+  return type === "impression" ? "impressions" : type === "engagement" ? "engagements" : type === "checkout_started" ? "checkoutStarted" : "purchases";
+}
+
+async function resolveCampaignAttribution(db, input, requireLive = true) {
+  const brandId = String(input.brandId || "").trim();
+  const campaignId = String(input.campaignId || "").trim();
+  const listingId = String(input.listingId || "").trim();
+  if (!brandId || !campaignId) return null;
+  const campaignSnap = await db.collection("brandCampaigns").doc(campaignId).get();
+  if (!campaignSnap.exists) return null;
+  const campaign = campaignSnap.data() || {};
+  const now = Date.now();
+  const live = campaign.status === "live" && (!campaign.startAt || timestampMillis(campaign.startAt) <= now) && (!campaign.endAt || timestampMillis(campaign.endAt) >= now);
+  if (campaign.brandId !== brandId || campaign.channel !== "brand_page" || (requireLive && !live)) return null;
+  if (listingId && (!Array.isArray(campaign.productIds) || !campaign.productIds.includes(listingId))) return null;
+  return {
+    brandId,
+    campaignId,
+    ...(campaign.collectionId ? { collectionId: String(campaign.collectionId).slice(0, 120) } : {}),
+    ...(campaign.promotionId ? { promotionId: String(campaign.promotionId).slice(0, 120) } : {}),
+    ...(listingId ? { listingId } : {}),
+  };
+}
+
+async function saveCampaignAttribution(input) {
+  const db = admin.firestore();
+  const brandId = String(input.brandId || "").trim();
+  const campaignId = String(input.campaignId || "").trim();
+  const type = String(input.type || "").trim();
+  if (!brandId || !campaignId || !["impression", "engagement", "checkout_started", "purchase"].includes(type)) return { ok: false, reason: "invalid-attribution" };
+  const eventId = uidSafe(input.eventId || `${type}_${brandId}_${campaignId}_${input.listingId || ""}_${input.orderId || ""}_${dayKey()}`);
+  const eventRef = db.collection("brandCampaignAttributionEvents").doc(eventId.slice(0, 120));
+  const summaryRef = db.collection("brandCampaignAttribution").doc(`${uidSafe(brandId)}__${uidSafe(campaignId)}`.slice(0, 150));
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  await db.runTransaction(async (tx) => {
+    const existing = await tx.get(eventRef);
+    if (existing.exists) return;
+    tx.create(eventRef, { brandId, campaignId, collectionId: String(input.collectionId || "").slice(0, 120) || null, promotionId: String(input.promotionId || "").slice(0, 120) || null, type, listingId: String(input.listingId || "").slice(0, 120) || null, orderId: type === "purchase" ? String(input.orderId || "").slice(0, 120) || null : null, valueCents: type === "purchase" ? Math.max(0, Number(input.valueCents) || 0) : 0, currency: String(input.currency || "USD").toUpperCase().slice(0, 3), createdAt: now });
+    const summary = { brandId, campaignId, updatedAt: now, currency: String(input.currency || "USD").toUpperCase().slice(0, 3), [attributionField(type)]: increment(1) };
+    if (type === "purchase") summary.revenueCents = increment(Math.max(0, Number(input.valueCents) || 0));
+    tx.set(summaryRef, summary, { merge: true });
+  });
+  return { ok: true };
+}
+
+exports.recordCampaignAttribution = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const input = req.data || {};
+  const brandId = String(input.brandId || "").trim();
+  const campaignId = String(input.campaignId || "").trim();
+  const type = String(input.type || "").trim();
+  if (!brandId || !campaignId || !["impression", "engagement", "checkout_started"].includes(type)) throw new HttpsError("invalid-argument", "Invalid campaign attribution event.");
+  const resolved = await resolveCampaignAttribution(admin.firestore(), { brandId, campaignId, listingId: input.listingId });
+  if (!resolved) throw new HttpsError("failed-precondition", "Campaign is not live or the listing is not part of it.");
+  await saveCampaignAttribution({ ...input, ...resolved, brandId, campaignId, type, eventId: String(input.eventId || `${type}_${req.auth.uid}_${campaignId}_${input.listingId || ""}_${dayKey()}`) });
+  return { ok: true };
+});
+
+async function markOrderPaid(orderId, provider, providerReference, providerAmount, providerCurrency, providerPaymentId, providerTransactionId, attribution = {}) {
   if (!orderId) return { ok: false, reason: "missing-order" };
   const db = admin.firestore();
   const orderRef = db.collection("orders").doc(orderId);
   const reservationRef = db.collection("inventoryReservations").doc(orderId);
-  return db.runTransaction(async (tx) => {
+  const result = await db.runTransaction(async (tx) => {
     const snap = await tx.get(orderRef);
     if (!snap.exists) return { ok: false, reason: "order-not-found" };
     const order = snap.data() || {};
     if (order.status === "paid") return { ok: true, duplicate: true };
+    let verifiedAttribution = null;
+    const storedAttribution = order.campaignAttribution && typeof order.campaignAttribution === "object" ? order.campaignAttribution : null;
+    if (order.brandId && order.pieceId && storedAttribution?.source === "brand_page" && storedAttribution.brandId === order.brandId && storedAttribution.campaignId) {
+      const campaignSnap = await tx.get(db.collection("brandCampaigns").doc(String(storedAttribution.campaignId)));
+      const campaign = campaignSnap.data() || {};
+      if (campaignSnap.exists && campaign.brandId === order.brandId && Array.isArray(campaign.productIds) && campaign.productIds.includes(String(order.pieceId))) {
+        verifiedAttribution = { brandId: String(order.brandId), campaignId: String(storedAttribution.campaignId), collectionId: campaign.collectionId ? String(campaign.collectionId) : undefined, promotionId: campaign.promotionId ? String(campaign.promotionId) : undefined, listingId: String(order.pieceId) };
+      }
+    }
     if (order.status !== "pending") return { ok: false, reason: "order-not-pending" };
     if (Number(providerAmount) > 0 && Number(order.totalCents) !== Number(providerAmount)) return { ok: false, reason: "amount-mismatch" };
     if (providerCurrency && String(order.currency || "").toUpperCase() !== String(providerCurrency).toUpperCase()) return { ok: false, reason: "currency-mismatch" };
@@ -444,8 +529,12 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
         }, { merge: true });
       }
     }
-    return { ok: true };
+    return { ok: true, attribution: verifiedAttribution };
   });
+  if (result.ok && !result.duplicate && result.attribution?.campaignId) {
+    await saveCampaignAttribution({ ...result.attribution, type: "purchase", orderId, valueCents: Math.max(0, Number(providerAmount) || 0), currency: String(providerCurrency || "USD"), eventId: `purchase_${orderId}` }).catch(() => undefined);
+  }
+  return result;
 }
 
 const FULFILLMENT_TRANSITIONS = {
@@ -528,7 +617,7 @@ function stripeWebhook() {
       const session = event.data.object;
       const metadata = session.metadata || {};
       const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : "";
-      const result = await markOrderPaid(metadata.orderId, "stripe", session.id, session.amount_total, session.currency, paymentIntentId, "");
+      const result = await markOrderPaid(metadata.orderId, "stripe", session.id, session.amount_total, session.currency, paymentIntentId, "", { brandId: metadata.brandId, campaignId: metadata.campaignId, collectionId: metadata.collectionId, promotionId: metadata.promotionId, listingId: metadata.listingId, valueCents: session.amount_total });
       if (!result.ok && !result.duplicate) return res.status(400).json(result);
     }
     if (event.type === "refund.created" || event.type === "refund.updated") {
@@ -550,7 +639,7 @@ exports.paystackWebhook = onRequest({ secrets: [paystackWebhookSecret] }, async 
   if (event.event === "charge.success") {
     const data = event.data || {};
     const metadata = data.metadata || {};
-    const result = await markOrderPaid(metadata.orderId, "paystack", String(data.reference || ""), data.amount, data.currency, "", String(data.id || ""));
+      const result = await markOrderPaid(metadata.orderId, "paystack", String(data.reference || ""), data.amount, data.currency, "", String(data.id || ""), { brandId: metadata.brandId, campaignId: metadata.campaignId, collectionId: metadata.collectionId, promotionId: metadata.promotionId, listingId: metadata.listingId, valueCents: data.amount });
     if (!result.ok && !result.duplicate) return res.status(400).json(result);
   }
   if (String(event.event || "").startsWith("refund.")) {

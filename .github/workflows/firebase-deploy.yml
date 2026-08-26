@@ -8,6 +8,7 @@ on:
     paths:
       - firebase.json
       - firestore.rules
+      - firestore.indexes.json
       - storage.rules
       - functions/**
 
@@ -53,4 +54,4 @@ jobs:
           # depend on Storage rules being deployed in the same run.
           npx firebase-tools deploy \
             --project uvel-32d32 \
-            --only firestore:rules,functions
+            --only firestore:rules,firestore:indexes,functions

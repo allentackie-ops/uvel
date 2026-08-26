@@ -66,6 +66,8 @@ let cache: MarketingState = { collections: [], campaigns: [], promotions: [] };
 let hydrated = false;
 const listeners = new Set<() => void>();
 const watches = new Map<string, () => void>();
+const liveCampaignCache = new Map<string, BrandCampaign[]>();
+const liveWatches = new Map<string, () => void>();
 
 function millis(value: unknown) {
   if (typeof value === "number") return value;
@@ -123,6 +125,24 @@ export function watchBrandMarketing(brandId: string) {
   const stop = () => stops.forEach((unsubscribe) => unsubscribe());
   watches.set(brandId, stop);
   return () => { watches.delete(brandId); stop(); };
+}
+
+export function watchLiveBrandCampaigns(brandId: string) {
+  if (!brandId || liveWatches.has(brandId) || !firebaseReady()) return () => undefined;
+  const unsubscribe = onSnapshot(query(collection(firebaseDb(), "brandCampaigns"), where("brandId", "==", brandId), where("status", "==", "live")), (snap) => {
+    liveCampaignCache.set(brandId, snap.docs.map((item) => normalizeCampaign({ ...(item.data() as unknown as BrandCampaign), id: item.id })));
+    emit();
+  }, () => undefined);
+  const stop = () => { unsubscribe(); liveCampaignCache.delete(brandId); };
+  liveWatches.set(brandId, stop);
+  return () => { liveWatches.delete(brandId); stop(); };
+}
+
+export function useLiveCampaigns(brandId: string) {
+  const [, setTick] = useState(0);
+  useEffect(() => { const listener = () => setTick((value) => value + 1); listeners.add(listener); const stop = watchLiveBrandCampaigns(brandId); return () => { listeners.delete(listener); stop(); }; }, [brandId]);
+  const local = cache.campaigns.filter((item) => item.brandId === brandId && item.status === "live");
+  return liveCampaignCache.get(brandId) || local;
 }
 
 export function useMarketing(brandId: string): MarketingState {

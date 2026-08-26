@@ -155,6 +155,16 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /brandCampaignAttribution/{attributionId} {
+      allow read: if signedIn() && resource.data.brandId is string && isBrandMember(resource.data.brandId);
+      allow create, update, delete: if false;
+    }
+
+    match /brandCampaignAttributionEvents/{eventId} {
+      allow read: if signedIn() && resource.data.brandId is string && isBrandMember(resource.data.brandId);
+      allow create, update, delete: if false;
+    }
+
     match /orders/{orderId} {
       allow read: if signedIn() &&
         (resource.data.buyerId == request.auth.uid ||
