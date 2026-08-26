@@ -1,10 +1,15 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMarket, marketsIn, regions } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
+
+const STORE_WELCOME_KEY = "uvel-store-welcome-seen-v1";
+let storeWelcomeSeenThisSession = false;
 
 export default function StorePicker() {
   const colors = useColors();
@@ -12,6 +17,23 @@ export default function StorePicker() {
   const insets = useSafeAreaInsets();
   const { country, setCountry } = useUvel();
   const current = getMarket(country);
+  const [showWelcome, setShowWelcome] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    if (storeWelcomeSeenThisSession) return () => { active = false; };
+    void AsyncStorage.getItem(STORE_WELCOME_KEY)
+      .then((seen) => {
+        storeWelcomeSeenThisSession = true;
+        if (seen !== "1" && active) setShowWelcome(true);
+        if (seen !== "1") void AsyncStorage.setItem(STORE_WELCOME_KEY, "1");
+      })
+      .catch(() => {
+        storeWelcomeSeenThisSession = true;
+        if (active) setShowWelcome(true);
+      });
+    return () => { active = false; };
+  }, []);
 
   return (
     <View style={styles.page}>
@@ -24,10 +46,12 @@ export default function StorePicker() {
         <View style={{ width: 44 }} />
       </View>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}>
-        <Text style={styles.lede}>
-          Each country is its own Uvel. You’re on the {current.name} floor — {current.currency}. A piece listed in
-          another country never shows here unless that seller opens it to this store.
-        </Text>
+        {showWelcome ? (
+          <Text accessibilityRole="text" style={styles.lede}>
+            Each country is its own Uvel. You’re on the {current.name} Shop — {current.currency}. A piece listed in
+            another country never shows here unless that seller opens it to this Shop.
+          </Text>
+        ) : null}
         {regions().map((region) => (
           <View key={region}>
             <Text style={styles.region}>{region}</Text>
