@@ -2,11 +2,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import { collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import type { Category } from "./catalog";
-import { firebaseAuth, firebaseDb, firebaseReady } from "./firebase";
+import { firebaseAuth, firebaseDb, firebaseFunctions, firebaseReady } from "./firebase";
+import { httpsCallable } from "firebase/functions";
 import { reviewListingPhoto } from "./photoCheck";
 import { listingVisibleIn, type ShipsTo } from "./ships";
 
-export type ClosetStatus = "owned" | "listed" | "sold";
+export type ClosetStatus = "owned" | "draft" | "listed" | "sold" | "archived";
 
 export type ClosetPiece = {
   id: string;
@@ -388,4 +389,48 @@ export function removeOwnedBy(uid: string) {
   if (next.length === pieces.length) return;
   pieces = next;
   void persist();
+}
+
+export function archivePiece(id: string) {
+  updatePiece(id, { status: "archived" });
+}
+
+export function restorePiece(id: string) {
+  updatePiece(id, { status: "draft" });
+}
+
+export function duplicatePiece(id: string) {
+  const source = pieces.find((piece) => piece.id === id);
+  if (!source) return undefined;
+  const copy: ClosetPiece = {
+    ...source,
+    id: `w-${Date.now().toString(36)}`,
+    name: `${source.name} · Copy`,
+    sku: source.sku ? `${source.sku}-COPY` : undefined,
+    status: "draft",
+    createdAt: Date.now(),
+  };
+  pieces = [copy, ...pieces];
+  void persist();
+  void persistRemote(copy);
+  emit();
+  return copy;
+}
+
+function serializable<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
+}
+
+export async function updateBrandCatalogRemote(id: string, patch: Partial<ClosetPiece>) {
+  if (!firebaseReady() || !firebaseAuth().currentUser) return false;
+  const call = httpsCallable(firebaseFunctions(), "updateBrandCatalog");
+  await call({ listingId: id, patch: serializable(patch) });
+  return true;
+}
+
+export async function createBrandCatalogRemote(piece: ClosetPiece) {
+  if (!firebaseReady() || !firebaseAuth().currentUser) return false;
+  const call = httpsCallable(firebaseFunctions(), "createBrandCatalog");
+  await call({ listingId: piece.id, piece: serializable(piece) });
+  return true;
 }

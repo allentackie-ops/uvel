@@ -510,6 +510,7 @@ exports.updateOrderFulfillment = onCall(async (req) => {
     if (!allowed || !allowed.has(nextStatus)) throw new HttpsError("failed-precondition", `Order cannot move from ${currentStatus} to ${nextStatus}.`);
     tx.set(orderRef, update, { merge: true });
   });
+  await writeAudit(db, { brandId: String(order.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: "order_fulfillment_updated", entity: "order", entityId: orderId, entityName: String(order.pieceName || "Order"), summary: `Fulfillment moved to ${nextStatus}.`, metadata: { from: String(order.fulfillmentStatus || "unfulfilled"), to: nextStatus } });
   return { ok: true, orderId, fulfillmentStatus: nextStatus };
 });
 
@@ -1040,6 +1041,7 @@ exports.requestOrderResolution = onCall(async (req) => {
   if (resolutionData(order) && !["rejected", "closed"].includes(String(resolutionData(order).status || ""))) throw new HttpsError("failed-precondition", "This order already has an open resolution.");
   const now = admin.firestore.FieldValue.serverTimestamp();
   await orderRef.set({ resolution: { type, status: "requested", reason, note, requestedAt: now, restockDecision: "pending" }, refundStatus: "none", resolutionUpdatedAt: now }, { merge: true });
+  await writeAudit(db, { brandId: String(order.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Buyer"), action: "resolution_requested", entity: "resolution", entityId: orderId, entityName: String(order.pieceName || "Order"), summary: `${type === "return" ? "Return" : "Cancellation"} requested.`, metadata: { reason } });
   return { ok: true, orderId, type, status: "requested" };
 });
 
@@ -1054,6 +1056,7 @@ exports.confirmOrderReturnSent = onCall(async (req) => {
   const resolution = resolutionData(order);
   if (order.buyerId !== req.auth.uid || !resolution || resolution.type !== "return" || resolution.status !== "approved") throw new HttpsError("failed-precondition", "This return is not ready for shipment.");
   await orderRef.set({ resolution: { ...resolution, status: "item_sent", itemSentAt: admin.firestore.FieldValue.serverTimestamp() }, resolutionUpdatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  await writeAudit(db, { brandId: String(order.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Buyer"), action: "resolution_approved", entity: "resolution", entityId: orderId, entityName: String(order.pieceName || "Order"), summary: "Buyer marked the return as sent.", metadata: { status: "item_sent" } });
   return { ok: true, orderId, status: "item_sent" };
 });
 
@@ -1075,6 +1078,7 @@ exports.reviewOrderResolution = onCall(async (req) => {
   if (decision === "reject") {
     if (!["requested", "approved", "item_sent"].includes(resolution.status)) throw new HttpsError("failed-precondition", "This resolution cannot be rejected now.");
     await orderRef.set({ resolution: { ...resolution, status: "rejected", reviewedAt: now }, refundStatus: "none", resolutionUpdatedAt: now }, { merge: true });
+    await writeAudit(db, { brandId: String(order.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: "resolution_rejected", entity: "resolution", entityId: orderId, entityName: String(order.pieceName || "Order"), summary: `${resolution.type === "return" ? "Return" : "Cancellation"} rejected.` });
     return { ok: true, orderId, status: "rejected" };
   }
   if (decision === "approve") {
@@ -1090,22 +1094,28 @@ exports.reviewOrderResolution = onCall(async (req) => {
       });
       if (approved) {
         await restockOrderInventory(orderId);
-        return { ...(await executeRefund(orderId)), orderId };
+        const refund = await executeRefund(orderId);
+        await writeAudit(db, { brandId: String(order.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: "resolution_approved", entity: "resolution", entityId: orderId, entityName: String(order.pieceName || "Order"), summary: "Cancellation approved and refund initiated.", metadata: { refundStatus: refund.status } });
+        return { ...refund, orderId };
       }
     }
     await orderRef.set({ resolution: { ...resolution, status: "approved", reviewedAt: now }, resolutionUpdatedAt: now }, { merge: true });
+    await writeAudit(db, { brandId: String(order.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: "resolution_approved", entity: "resolution", entityId: orderId, entityName: String(order.pieceName || "Order"), summary: "Return approved." });
     return { ok: true, orderId, status: "approved" };
   }
   if (resolution.type !== "return") throw new HttpsError("failed-precondition", "Only returns can use this review action.");
   if (decision === "mark_received") {
     if (resolution.status !== "item_sent") throw new HttpsError("failed-precondition", "The buyer has not marked the return as sent.");
     await orderRef.set({ fulfillmentStatus: "returned", resolution: { ...resolution, status: "received", receivedAt: now }, refundStatus: "processing", refundAmountCents: Number(order.totalCents || 0), resolutionUpdatedAt: now }, { merge: true });
-    return { ...(await executeRefund(orderId)), orderId };
+    const refund = await executeRefund(orderId);
+    await writeAudit(db, { brandId: String(order.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: "return_received", entity: "resolution", entityId: orderId, entityName: String(order.pieceName || "Order"), summary: "Return received and refund initiated.", metadata: { refundStatus: refund.status } });
+    return { ...refund, orderId };
   }
   if (resolution.status !== "received") throw new HttpsError("failed-precondition", "Receive the returned item before deciding restock.");
   const shouldRestock = decision === "confirm_restock";
   await orderRef.set({ resolution: { ...resolution, restockDecision: shouldRestock ? "restock" : "no_restock" }, resolutionUpdatedAt: now }, { merge: true });
   if (shouldRestock) await restockOrderInventory(orderId);
+  await writeAudit(db, { brandId: String(order.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: "restock_decided", entity: "resolution", entityId: orderId, entityName: String(order.pieceName || "Order"), summary: shouldRestock ? "Returned item marked for restock." : "Returned item marked not for restock.", metadata: { restock: shouldRestock } });
   return { ok: true, orderId, restockDecision: shouldRestock ? "restock" : "no_restock" };
 });
 
@@ -1130,3 +1140,123 @@ async function recordProviderRefund(orderId, providerId, providerStatus) {
   }
   await db.collection("orders").doc(orderId).set(patch, { merge: true });
 }
+
+const AUDIT_ACTIONS = new Set([
+  "product_created", "product_updated", "product_published", "product_drafted", "product_archived", "product_restored", "product_duplicated",
+  "price_updated", "inventory_updated", "market_updated", "order_fulfillment_updated", "resolution_requested", "resolution_approved", "resolution_rejected", "resolution_reviewed",
+  "return_received", "refund_requested", "refund_succeeded", "restock_confirmed", "restock_decided", "team_role_updated", "brand_settings_updated",
+]);
+const AUDIT_ENTITIES = new Set(["product", "order", "team", "brand", "resolution"]);
+
+async function writeAudit(db, input) {
+  if (!input || !input.brandId || !AUDIT_ACTIONS.has(String(input.action)) || !AUDIT_ENTITIES.has(String(input.entity))) return;
+  const requestedId = String(input.id || "").trim();
+  const safeId = /^[a-zA-Z0-9_-]{8,160}$/.test(requestedId) ? requestedId : undefined;
+  const ref = safeId ? db.collection("brandAudit").doc(safeId) : db.collection("brandAudit").doc();
+  const metadata = input.metadata && typeof input.metadata === "object" ? Object.fromEntries(Object.entries(input.metadata).slice(0, 12).map(([key, value]) => [String(key).slice(0, 40), typeof value === "boolean" || typeof value === "number" ? value : String(value).slice(0, 120)])) : {};
+  await ref.set({
+    brandId: String(input.brandId).slice(0, 120),
+    actorUid: String(input.actorUid || "system").slice(0, 120),
+    actorName: String(input.actorName || "Brand team member").slice(0, 120),
+    action: String(input.action),
+    entity: String(input.entity),
+    entityId: String(input.entityId || "").slice(0, 120),
+    entityName: String(input.entityName || "").slice(0, 160),
+    summary: String(input.summary || "Brand workspace change").slice(0, 240),
+    metadata,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+}
+
+exports.recordAuditEvent = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const input = req.data || {};
+  const brandId = String(input.brandId || "").trim();
+  const action = String(input.action || "").trim();
+  const entity = String(input.entity || "").trim();
+  const entityId = String(input.entityId || "").trim();
+  if (!brandId || !AUDIT_ACTIONS.has(action) || !AUDIT_ENTITIES.has(entity) || !entityId) throw new HttpsError("invalid-argument", "Invalid audit event.");
+  const db = admin.firestore();
+  const role = await brandMemberRole(db, brandId, req.auth.uid);
+  if (!role) throw new HttpsError("permission-denied", "You are not a member of this brand.");
+  const productRoles = new Set(["owner", "admin", "merchandiser", "poster"]);
+  const orderRoles = new Set(["owner", "admin", "support", "finance"]);
+  const teamRoles = new Set(["owner", "admin"]);
+  const allowed = entity === "product" ? productRoles.has(role) : entity === "order" || entity === "resolution" ? orderRoles.has(role) : entity === "team" ? teamRoles.has(role) : ["owner", "admin", "marketing"].includes(role);
+  if (!allowed) throw new HttpsError("permission-denied", "Your role cannot write this audit event.");
+  await writeAudit(db, {
+    brandId,
+    actorUid: req.auth.uid,
+    actorName: String(input.actorName || req.auth.token.name || req.auth.token.email || "Brand team member"),
+    action,
+    entity,
+    entityId,
+    entityName: input.entityName,
+    summary: input.summary,
+    metadata: input.metadata,
+  });
+  return { ok: true };
+});
+
+const CATALOG_EDIT_ROLES = new Set(["owner", "admin", "merchandiser", "poster"]);
+const CATALOG_STATUS_VALUES = new Set(["owned", "draft", "listed", "archived", "sold"]);
+const CATALOG_FIELDS = new Set(["photo", "photos", "name", "brand", "category", "color", "size", "sizes", "sizeStock", "sku", "condition", "material", "notes", "listPriceCents", "originalPriceCents", "status", "stockQuantity", "marketPrices", "marketAvailability", "shipsTo", "shopLook"]);
+
+function safeCatalogPatch(input) {
+  if (!input || typeof input !== "object") throw new HttpsError("invalid-argument", "Catalog update is invalid.");
+  const patch = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (CATALOG_FIELDS.has(key)) patch[key] = value;
+  }
+  if (!Object.keys(patch).length) throw new HttpsError("invalid-argument", "No editable catalog fields were supplied.");
+  if (patch.status !== undefined && !CATALOG_STATUS_VALUES.has(String(patch.status))) throw new HttpsError("invalid-argument", "Invalid catalog status.");
+  if (patch.stockQuantity !== undefined && (!Number.isInteger(patch.stockQuantity) || patch.stockQuantity < 0)) throw new HttpsError("invalid-argument", "Stock must be a non-negative whole number.");
+  if (patch.listPriceCents !== undefined && (!Number.isInteger(patch.listPriceCents) || patch.listPriceCents <= 0)) throw new HttpsError("invalid-argument", "Price must be a positive whole number of cents.");
+  if (patch.status === "listed" && Number(patch.stockQuantity) <= 0) throw new HttpsError("failed-precondition", "A listed product must have inventory.");
+  if (patch.sizeStock !== undefined && (!patch.sizeStock || typeof patch.sizeStock !== "object" || Object.values(patch.sizeStock).some((value) => !Number.isInteger(value) || value < 0))) throw new HttpsError("invalid-argument", "Size stock must contain non-negative whole numbers.");
+  if (patch.marketPrices !== undefined && (!patch.marketPrices || typeof patch.marketPrices !== "object" || Object.values(patch.marketPrices).some((value) => !Number.isInteger(value) || value <= 0))) throw new HttpsError("invalid-argument", "Market prices are invalid.");
+  if (patch.marketAvailability !== undefined && (!patch.marketAvailability || typeof patch.marketAvailability !== "object" || Object.values(patch.marketAvailability).some((value) => typeof value !== "boolean"))) throw new HttpsError("invalid-argument", "Market availability is invalid.");
+  return patch;
+}
+
+exports.updateBrandCatalog = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const listingId = String(req.data?.listingId || "").trim();
+  if (!/^[a-zA-Z0-9._:-]{1,120}$/.test(listingId)) throw new HttpsError("invalid-argument", "Invalid listing ID.");
+  const db = admin.firestore();
+  const listingRef = db.collection("listings").doc(listingId);
+  const snap = await listingRef.get();
+  if (!snap.exists) throw new HttpsError("not-found", "Product not found.");
+  const current = snap.data() || {};
+  if (!current.brandId) throw new HttpsError("failed-precondition", "Only brand products can be managed in Brand HQ.");
+  const role = await brandMemberRole(db, current.brandId, req.auth.uid);
+  if (!role || !CATALOG_EDIT_ROLES.has(role)) throw new HttpsError("permission-denied", "Your role cannot edit this catalog.");
+  const patch = safeCatalogPatch(req.data?.patch);
+  const next = { ...current, ...patch };
+  if (["listed", "draft", "owned"].includes(String(next.status || "")) && Number(next.stockQuantity) <= 0) throw new HttpsError("failed-precondition", "A catalog product must retain at least one unit before publishing or drafting.");
+  if (next.status === "sold" && Number(next.stockQuantity) !== 0) throw new HttpsError("failed-precondition", "Sold products must have zero available stock.");
+  await listingRef.set({ ...patch, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  const action = patch.status === "listed" ? "product_published" : patch.status === "draft" ? "product_drafted" : patch.status === "archived" ? "product_archived" : "product_updated";
+  await writeAudit(db, { brandId: current.brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action, entity: "product", entityId: listingId, entityName: String(current.name || "Product"), summary: `Catalog product ${action.replace("product_", "").replace("_", " ")}.`, metadata: { status: String(next.status || current.status || "") } });
+  return { ok: true, listingId, status: next.status || current.status };
+});
+
+exports.createBrandCatalog = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const listingId = String(req.data?.listingId || "").trim();
+  const piece = req.data?.piece || {};
+  if (!/^[a-zA-Z0-9._:-]{1,120}$/.test(listingId) || String(piece.id || "") !== listingId) throw new HttpsError("invalid-argument", "Invalid product identity.");
+  const db = admin.firestore();
+  const brandId = String(piece.brandId || "").trim();
+  if (!brandId) throw new HttpsError("invalid-argument", "Brand is required.");
+  const role = await brandMemberRole(db, brandId, req.auth.uid);
+  if (!role || !CATALOG_EDIT_ROLES.has(role)) throw new HttpsError("permission-denied", "Your role cannot create catalog products.");
+  const patch = safeCatalogPatch(piece);
+  if (patch.status !== "draft") throw new HttpsError("failed-precondition", "New team catalog products must start as drafts.");
+  const brandSnap = await db.collection("brands").doc(brandId).get();
+  const brand = brandSnap.data() || {};
+  const product = { ...patch, brandId, ownerId: String(brand.ownerId || req.auth.uid), listedByUid: req.auth.uid, listedByName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+  await db.collection("listings").doc(listingId).set(product, { merge: false });
+  await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: "product_duplicated", entity: "product", entityId: listingId, entityName: String(product.name || "Product"), summary: "Product created as a catalog draft." });
+  return { ok: true, listingId, status: "draft" };
+});

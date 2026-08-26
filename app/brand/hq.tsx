@@ -8,6 +8,7 @@ import {
   canAccessHQ,
   canManageCatalog,
   canManageOrders,
+  canViewAudit,
   canManageTeam,
   canViewOrders,
   canSeeAnalytics,
@@ -26,11 +27,20 @@ import { usd } from "../../lib/catalog";
 import { useUvel } from "../../lib/store";
 import { useColors } from "../../lib/theme";
 import { MARKETS, getMarket } from "../../lib/markets";
+import { recordAuditEvent, useAudit, type AuditEvent } from "../../lib/audit";
 import { reviewOrderResolution, updateOrderFulfillment, useOrders, watchBrandOrders, type FulfillmentStatus, type Order } from "../../lib/orders";
-import { unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { archivePiece, createBrandCatalogRemote, duplicatePiece, restorePiece, updateBrandCatalogRemote, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { shipsToLabel } from "../../lib/ships";
 
-type Section = "overview" | "catalog" | "orders" | "inbox" | "analytics" | "team" | "settings";
+type Section = "overview" | "catalog" | "orders" | "inbox" | "analytics" | "audit" | "team" | "settings";
+
+type CatalogAuditInput = Parameters<typeof recordAuditEvent>[0];
+
+function syncCatalogEdit(id: string, patch: Partial<ClosetPiece>, audit?: CatalogAuditInput) {
+  void updateBrandCatalogRemote(id, patch)
+    .then((remote) => { if (!remote && audit) void recordAuditEvent(audit); })
+    .catch(() => { if (audit) void recordAuditEvent(audit); });
+}
 type HQTheme = { bg: string; ink: string; muted: string; card: string; accent: string; accentInk: string; lineColor: string };
 
 const SECTIONS: Array<{ id: Section; label: string }> = [
@@ -39,6 +49,7 @@ const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: "orders", label: "Orders" },
   { id: "inbox", label: "Inbox" },
   { id: "analytics", label: "Analytics" },
+  { id: "audit", label: "Audit log" },
   { id: "team", label: "Team" },
   { id: "settings", label: "Settings" },
 ];
@@ -61,6 +72,7 @@ export default function BrandHQ() {
   const insets = useSafeAreaInsets();
   const pieces = useWardrobe();
   const orders = useOrders();
+  const auditEvents = useAudit(id || "");
   const brand = getBrand(id);
   const theme: HQTheme = brand ? themeFor(brand) : { bg: colors.ink, ink: colors.bone, muted: colors.muted, card: colors.surface, accent: colors.pulse, accentInk: colors.ink, lineColor: colors.subtle };
   const styles = useMemo(() => make(theme), [theme]);
@@ -106,7 +118,7 @@ export default function BrandHQ() {
   function changeRole(member: BrandMember) {
     if (!manager || member.role === "owner") return;
     Alert.alert(`Role for ${member.name}`, "Choose the access this person should have in Brand HQ.", [
-      ...ROLE_OPTIONS.map((role) => ({ text: memberRoleLabel(role), onPress: () => updateBrand(activeBrand.id, { members: activeBrand.members.map((m) => (m.uid === member.uid ? { ...m, role } : m)) }) })),
+      ...ROLE_OPTIONS.map((role) => ({ text: memberRoleLabel(role), onPress: () => { updateBrand(activeBrand.id, { members: activeBrand.members.map((m) => (m.uid === member.uid ? { ...m, role } : m)) }); void recordAuditEvent({ brandId: activeBrand.id, action: "team_role_updated", entity: "team", entityId: member.uid, entityName: member.name, summary: `${member.name} changed to ${memberRoleLabel(role)}.` }); } })),
       { text: "Cancel", style: "cancel" as const },
     ]);
   }
@@ -139,7 +151,7 @@ export default function BrandHQ() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.nav}>
           {SECTIONS.map((item) => {
             const active = section === item.id;
-            const unavailable = (item.id === "analytics" && !canSeeAnalytics(brand, app.uid));
+            const unavailable = (item.id === "analytics" && !canSeeAnalytics(brand, app.uid)) || (item.id === "audit" && !canViewAudit(brand, app.uid));
             return (
               <Pressable key={item.id} onPress={() => openSection(item.id)} style={[styles.navChip, active && { backgroundColor: theme.accent, borderColor: theme.accent }, unavailable && { opacity: 0.45 }]}>
                 <Text style={[styles.navTxt, { color: active ? theme.accentInk : theme.ink }]}>{item.label}</Text>
@@ -154,6 +166,8 @@ export default function BrandHQ() {
           <CatalogSection brand={brand} items={catalog} canManage={catalogManager} theme={theme} styles={styles} />
         ) : section === "orders" ? (
           <OrdersSection orders={brandOrders} viewer={orderViewer} manager={orderManager} reviewer={orderReviewer} theme={theme} styles={styles} />
+        ) : section === "audit" ? (
+          <AuditSection events={auditEvents} viewer={canViewAudit(activeBrand, app.uid)} theme={theme} styles={styles} />
         ) : section === "team" ? (
           <TeamSection brand={brand} manager={manager} theme={theme} styles={styles} onRole={changeRole} />
         ) : section === "settings" ? (
@@ -183,9 +197,20 @@ function Overview({ brand, catalogCount, lowStockCount, teamCount, inquiryCount,
   );
 }
 
+type CatalogFilter = "all" | "active" | "draft" | "archived" | "sold";
+const CATALOG_FILTERS: Array<{ id: CatalogFilter; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "active", label: "Active" },
+  { id: "draft", label: "Drafts" },
+  { id: "archived", label: "Archived" },
+  { id: "sold", label: "Sold" },
+];
+
 function CatalogSection({ brand, items, canManage, theme, styles }: { brand: Brand; items: ClosetPiece[]; canManage: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const [marketCode, setMarketCode] = useState(getMarket(brand.country).code);
+  const [filter, setFilter] = useState<CatalogFilter>("all");
   const market = getMarket(marketCode);
+  const filteredItems = items.filter((item) => filter === "all" || (filter === "active" ? item.status === "listed" : item.status === filter));
   return (
     <View>
       <View style={styles.sectionHead}>
@@ -204,17 +229,20 @@ function CatalogSection({ brand, items, canManage, theme, styles }: { brand: Bra
         })}
       </ScrollView>
       <Text style={[styles.marketHint, { color: theme.muted }]}>Prices and availability below are for {market.name}. Shipping coverage stays tied to each product’s approved destinations.</Text>
-      {items.length ? (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catalogFilters}>
+        {CATALOG_FILTERS.map((option) => <Pressable key={option.id} onPress={() => setFilter(option.id)} style={[styles.orderFilter, { borderColor: filter === option.id ? theme.accent : theme.lineColor, backgroundColor: filter === option.id ? theme.accent : theme.card }]}><Text style={[styles.orderFilterTxt, { color: filter === option.id ? theme.accentInk : theme.ink }]}>{option.label}</Text></Pressable>)}
+      </ScrollView>
+      {filteredItems.length ? (
         <>
-          {canManage ? <BulkUpdate key={`bulk-${market.code}`} items={items} marketCode={market.code} theme={theme} styles={styles} /> : null}
-          {items.map((item) => <CatalogRow key={`${item.id}-${market.code}`} item={item} canManage={canManage} marketCode={market.code} theme={theme} styles={styles} />)}
+          {canManage && filter !== "sold" ? <BulkUpdate key={`bulk-${market.code}-${filter}`} items={filteredItems} brandId={brand.id} marketCode={market.code} theme={theme} styles={styles} /> : null}
+          {filteredItems.map((item) => <CatalogRow key={`${item.id}-${market.code}`} item={item} brandId={brand.id} canManage={canManage} marketCode={market.code} theme={theme} styles={styles} />)}
         </>
-      ) : <Empty text="No products in this catalog yet." theme={theme} styles={styles} />}
+      ) : <Empty text={items.length ? "No products match this view." : "No products in this catalog yet."} theme={theme} styles={styles} />}
     </View>
   );
 }
 
-function BulkUpdate({ items, marketCode, theme, styles }: { items: ClosetPiece[]; marketCode: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
+function BulkUpdate({ items, brandId, marketCode, theme, styles }: { items: ClosetPiece[]; brandId: string; marketCode: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const market = getMarket(marketCode);
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
@@ -226,11 +254,11 @@ function BulkUpdate({ items, marketCode, theme, styles }: { items: ClosetPiece[]
       Alert.alert("Catalog update", `Enter a valid ${market.currency} price and stock quantity.`);
       return;
     }
-    items.forEach((item) => updatePiece(item.id, {
-      listPriceCents: priceCents,
-      stockQuantity: stockUnits,
-      marketPrices: { ...(item.marketPrices || {}), [market.code]: priceCents },
-    }));
+    items.forEach((item) => {
+      const patch = { listPriceCents: priceCents, stockQuantity: stockUnits, marketPrices: { ...(item.marketPrices || {}), [market.code]: priceCents } };
+      updatePiece(item.id, patch);
+      syncCatalogEdit(item.id, patch, { brandId, action: "product_updated", entity: "product", entityId: item.id, entityName: item.name, summary: `Bulk catalog update for ${market.code}.`, metadata: { market: market.code, priceCents, stockUnits } });
+    });
     setPrice("");
     setStock("");
     Alert.alert("Catalog updated", `${items.length} product${items.length === 1 ? "" : "s"} updated for ${market.name}.`);
@@ -254,7 +282,7 @@ function BulkUpdate({ items, marketCode, theme, styles }: { items: ClosetPiece[]
   );
 }
 
-function CatalogRow({ item, canManage, marketCode, theme, styles }: { item: ClosetPiece; canManage: boolean; marketCode: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
+function CatalogRow({ item, brandId, canManage, marketCode, theme, styles }: { item: ClosetPiece; brandId: string; canManage: boolean; marketCode: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const market = getMarket(marketCode);
   const stock = typeof item.stockQuantity === "number" ? item.stockQuantity : null;
   const sizes = item.sizes?.length ? item.sizes : item.size ? [item.size] : [];
@@ -264,14 +292,28 @@ function CatalogRow({ item, canManage, marketCode, theme, styles }: { item: Clos
   const [sizeStock, setSizeStock] = useState<Record<string, string>>(initialSizeStock);
   const [available, setAvailable] = useState(item.marketAvailability?.[market.code] ?? true);
 
+  function audit(action: string, summary: string, metadata?: Record<string, string | number | boolean>) {
+    void recordAuditEvent({ brandId, action, entity: "product", entityId: item.id, entityName: item.name, summary, metadata });
+  }
+
   function actions() {
-    const options = ["Open listing", ...(canManage && item.status === "listed" ? ["Unlist product"] : []), ...(canManage && item.status !== "listed" ? ["Publish product"] : []), "Cancel"];
+    const options = [
+      "Open listing",
+      ...(canManage && item.status === "listed" ? ["Move to draft", "Archive product"] : []),
+      ...(canManage && (item.status === "draft" || item.status === "owned") ? ["Publish product", "Archive product"] : []),
+      ...(canManage && item.status === "archived" ? ["Restore to draft"] : []),
+      ...(canManage && item.status !== "sold" ? ["Duplicate product"] : []),
+      "Cancel",
+    ];
     const buttons: Array<{ text: string; onPress?: () => void; style?: "cancel" | "default" | "destructive" }> = options
       .filter((option) => option !== "Cancel")
       .map((option) => ({ text: option, onPress: () => {
         if (option === "Open listing") router.push({ pathname: "/closet/[id]", params: { id: item.id } });
-        if (option === "Unlist product") unlistPiece(item.id);
-        if (option === "Publish product") updatePiece(item.id, { status: "listed" });
+        if (option === "Move to draft") { const patch = { status: "draft" as const }; updatePiece(item.id, patch); syncCatalogEdit(item.id, patch, { brandId, action: "product_drafted", entity: "product", entityId: item.id, entityName: item.name, summary: "Product moved to draft." }); }
+        if (option === "Archive product") { const patch = { status: "archived" as const }; archivePiece(item.id); syncCatalogEdit(item.id, patch, { brandId, action: "product_archived", entity: "product", entityId: item.id, entityName: item.name, summary: "Product archived." }); }
+        if (option === "Publish product") { if ((item.stockQuantity || 0) <= 0) { Alert.alert("Inventory required", "Add at least one unit before publishing this product."); return; } const patch = { status: "listed" as const }; updatePiece(item.id, patch); syncCatalogEdit(item.id, patch, { brandId, action: "product_published", entity: "product", entityId: item.id, entityName: item.name, summary: "Product published." }); }
+        if (option === "Restore to draft") { const patch = { status: "draft" as const }; restorePiece(item.id); syncCatalogEdit(item.id, patch, { brandId, action: "product_restored", entity: "product", entityId: item.id, entityName: item.name, summary: "Product restored to draft." }); }
+        if (option === "Duplicate product") { const copy = duplicatePiece(item.id); if (copy) { void createBrandCatalogRemote(copy).then((remote) => { if (!remote) void recordAuditEvent({ brandId, action: "product_duplicated", entity: "product", entityId: copy.id, entityName: copy.name, summary: `Duplicated from ${item.name}.`, metadata: { sourceId: item.id } }); }).catch(() => void recordAuditEvent({ brandId, action: "product_duplicated", entity: "product", entityId: copy.id, entityName: copy.name, summary: `Duplicated from ${item.name}.`, metadata: { sourceId: item.id } })); } }
       } }));
     buttons.push({ text: "Cancel", style: "cancel" });
     Alert.alert(item.name, undefined, buttons);
@@ -285,13 +327,15 @@ function CatalogRow({ item, canManage, marketCode, theme, styles }: { item: Clos
       return;
     }
     const priceCents = Math.max(1, Math.round(Number(price) * 100));
-    updatePiece(item.id, {
+    const patch: Partial<ClosetPiece> = {
       listPriceCents: priceCents,
       stockQuantity: total,
-      sizeStock: sizes.length ? nextSizeStock : item.sizeStock,
       marketPrices: { ...(item.marketPrices || {}), [market.code]: priceCents },
       marketAvailability: { ...(item.marketAvailability || {}), [market.code]: available },
-    });
+    };
+    if (sizes.length) patch.sizeStock = nextSizeStock;
+    updatePiece(item.id, patch);
+    syncCatalogEdit(item.id, patch, { brandId, action: "product_updated", entity: "product", entityId: item.id, entityName: item.name, summary: "Product catalog fields updated.", metadata: { market: market.code, priceCents, stockUnits: total, available } });
     setExpanded(false);
   }
 
@@ -301,7 +345,7 @@ function CatalogRow({ item, canManage, marketCode, theme, styles }: { item: Clos
         {item.photo ? <Image source={{ uri: item.photo }} style={styles.catalogImg} contentFit="cover" /> : <View style={[styles.catalogImg, { backgroundColor: theme.bg }]} />}
         <View style={styles.catalogCopy}>
           <Text style={[styles.catalogName, { color: theme.ink }]} numberOfLines={2}>{item.name}</Text>
-          <Text style={[styles.catalogMeta, { color: theme.muted }]}>{item.status === "listed" ? "Active" : item.status === "sold" ? "Sold" : "Unlisted"} · {item.sku || "SKU pending"}</Text>
+          <Text style={[styles.catalogMeta, { color: theme.muted }]}>{item.status === "listed" ? "Active" : item.status === "sold" ? "Sold" : item.status === "archived" ? "Archived" : "Draft"} · {item.sku || "SKU pending"}</Text>
           <Text style={[styles.catalogPrice, { color: theme.ink }]}>{usd(item.marketPrices?.[market.code] ?? item.listPriceCents, market.currency)}{stock !== null ? ` · ${stock} in stock` : ""}</Text>
         </View>
         {stock !== null && stock > 0 && stock <= 10 ? <View style={[styles.stockPill, { backgroundColor: theme.accent }]}><Text style={[styles.stockTxt, { color: theme.accentInk }]}>{stock} left</Text></View> : null}
@@ -481,6 +525,29 @@ function TeamSection({ brand, manager, theme, styles, onRole }: { brand: Brand; 
   );
 }
 
+function AuditSection({ events, viewer, theme, styles }: { events: AuditEvent[]; viewer: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  const [filter, setFilter] = useState("all");
+  if (!viewer) return <View><Text style={[styles.sectionTitle, { color: theme.ink }]}>Audit log</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Audit history is limited to approved Brand HQ roles.</Text></View>;
+  const options = [
+    ["all", "All activity"],
+    ["product", "Catalog"],
+    ["order", "Orders"],
+    ["resolution", "Resolutions"],
+    ["team", "Team"],
+  ];
+  const filtered = filter === "all" ? events : events.filter((event) => event.entity === filter);
+  return (
+    <View>
+      <Text style={[styles.sectionTitle, { color: theme.ink }]}>Audit log</Text>
+      <Text style={[styles.sectionP, { color: theme.muted }]}>A read-only history of sensitive Brand HQ actions and who performed them.</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.auditFilters}>
+        {options.map(([id, label]) => <Pressable key={id} onPress={() => setFilter(id)} style={[styles.orderFilter, { borderColor: filter === id ? theme.accent : theme.lineColor, backgroundColor: filter === id ? theme.accent : theme.card }]}><Text style={[styles.orderFilterTxt, { color: filter === id ? theme.accentInk : theme.ink }]}>{label}</Text></Pressable>)}
+      </ScrollView>
+      {filtered.length ? filtered.slice(0, 100).map((event) => <View key={event.id} style={[styles.auditCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={styles.auditHead}><View style={[styles.auditDot, { backgroundColor: theme.accent }]} /><View style={{ flex: 1 }}><Text style={[styles.auditAction, { color: theme.ink }]}>{event.summary}</Text><Text style={[styles.auditMeta, { color: theme.muted }]}>{event.actorName} · {new Date(event.createdAt).toLocaleString()}</Text></View></View><Text style={[styles.auditEntity, { color: theme.muted }]}>{event.entity} · {event.entityName} · {event.action.replaceAll("_", " ")}</Text></View>) : <Empty text="No audit activity yet." theme={theme} styles={styles} />}
+    </View>
+  );
+}
+
 function SettingsSection({ brand, theme, styles }: { brand: Brand; theme: HQTheme; styles: ReturnType<typeof make> }) {
   return (
     <View>
@@ -591,6 +658,14 @@ function make(theme: HQTheme) {
     saveButtonTxt: { fontSize: 12, fontWeight: "800" },
     readOnly: { fontSize: 12, padding: 14, paddingTop: 0 },
     orderStats: { flexDirection: "row", gap: 10, marginTop: 4 },
+    catalogFilters: { gap: 8, paddingVertical: 12 },
+    auditFilters: { gap: 8, paddingVertical: 12 },
+    auditCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 9 },
+    auditHead: { flexDirection: "row", alignItems: "flex-start", gap: 9 },
+    auditDot: { width: 8, height: 8, borderRadius: 4, marginTop: 5 },
+    auditAction: { fontSize: 14, fontWeight: "800", lineHeight: 19 },
+    auditMeta: { fontSize: 11, lineHeight: 16, marginTop: 3 },
+    auditEntity: { fontSize: 11, lineHeight: 16, marginTop: 9, textTransform: "capitalize" },
     orderFilters: { gap: 8, paddingVertical: 12 },
     orderFilter: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8 },
     orderFilterTxt: { fontSize: 11, fontWeight: "800" },

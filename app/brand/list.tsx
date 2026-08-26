@@ -27,6 +27,7 @@ import { pickListingPhoto, takeListingPhoto } from "../../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../../lib/photoCheck";
 import { encodeShipsTo, type ShipsTo } from "../../lib/ships";
 import { useUvel } from "../../lib/store";
+import { recordAuditEvent } from "../../lib/audit";
 import { addPiece } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
@@ -213,7 +214,7 @@ export default function BrandList() {
       return;
     }
     try {
-      addPiece({
+      const created = addPiece({
         photo: uris[0],
         photos: uris,
         name: name.trim(),
@@ -241,6 +242,7 @@ export default function BrandList() {
         listedByName: app.displayName,
         status: "listed",
       });
+      void recordAuditEvent({ brandId: activeBrand.id, action: "product_created", entity: "product", entityId: created.id, entityName: created.name, summary: "Product published from the brand listing form.", metadata: { sku: created.sku || "", stockUnits: created.stockQuantity || 0 } });
     } catch (err) {
       setGate({
         phase: "block",

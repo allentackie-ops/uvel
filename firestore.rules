@@ -95,20 +95,26 @@ service cloud.firestore {
         request.resource.data.brandId is string &&
         request.resource.data.stockQuantity is int &&
         request.resource.data.stockQuantity > 0 &&
-        request.resource.data.status in ["owned", "listed"];
+        request.resource.data.status in ["owned", "draft", "listed"];
       allow update: if signedIn() &&
         resource.data.listedByUid == request.auth.uid &&
         request.resource.data.listedByUid == resource.data.listedByUid &&
         request.resource.data.brandId == resource.data.brandId &&
         request.resource.data.stockQuantity is int &&
-        ((request.resource.data.status in ["owned", "listed"] && request.resource.data.stockQuantity > 0) ||
+        ((request.resource.data.status in ["owned", "draft", "listed"] && request.resource.data.stockQuantity > 0) ||
+         (request.resource.data.status == "archived" && request.resource.data.stockQuantity >= 0) ||
          (request.resource.data.status == "sold" && request.resource.data.stockQuantity == 0)) &&
-        request.resource.data.status in ["owned", "listed", "sold"];
+        request.resource.data.status in ["owned", "draft", "listed", "archived", "sold"];
       allow delete: if signedIn() && resource.data.listedByUid == request.auth.uid;
     }
 
     match /brandAnalytics/{brandId} {
       allow read, write: if false;
+    }
+
+    match /brandAudit/{eventId} {
+      allow read: if signedIn() && resource.data.brandId is string && isBrandMember(resource.data.brandId);
+      allow create, update, delete: if false;
     }
 
     match /brandAnalytics/{brandId}/{document=**} {
