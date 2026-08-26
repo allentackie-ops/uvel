@@ -126,7 +126,9 @@ export default function Checkout() {
       // A trusted payment webhook must confirm payment before marking inventory sold.
       router.replace({ pathname: "/order/[id]", params: { id: order.id } });
     } catch (e) {
-      Alert.alert("Payment", e instanceof Error ? e.message : "Couldn’t complete that.");
+      const raw = e instanceof Error ? e.message : String(e || "");
+      const unavailable = /not-found|404|function.*not.*found/i.test(raw);
+      Alert.alert("Payment", unavailable ? "Stripe checkout is not connected yet. The Firebase payment function has not been deployed. Upgrade Firebase to Blaze, deploy the Functions, then try again." : raw || "Couldn’t complete that.");
     } finally {
       setPaying(false);
     }
