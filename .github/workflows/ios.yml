@@ -25,6 +25,9 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      - name: Scan for credential-shaped values
+        run: npm run security:secrets
+
       - name: Install JS dependencies
         run: npm ci
 
@@ -40,6 +43,4 @@ jobs:
         run: npx eas-cli init --account allentackie --non-interactive
 
       - name: Build on EAS
-        env:
-          EXPO_PUBLIC_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: npx eas-cli build --platform ios --profile ci --non-interactive --no-wait

@@ -1,42 +1,20 @@
-import Constants from "expo-constants";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { Image, type ImageSourcePropType } from "react-native";
 
 const GEMINI_MODELS = ["gemini-3.1-flash-image", "gemini-2.5-flash-image"];
 
-type Extra = {
-  geminiApiKey?: string;
-  openaiApiKey?: string;
-  anthropicApiKey?: string;
-  firebase?: { geminiApiKey?: string; openaiApiKey?: string; anthropicApiKey?: string };
-};
-
-function extra() {
-  return (Constants.expoConfig?.extra ?? {}) as Extra;
-}
-
+// Provider credentials must never ship in the mobile bundle. AI features should use a
+// server-side function once the Firebase backend is deployed.
 export function geminiKey() {
-  const e = extra();
-  const wired = ["AQ.Ab8RN6Jo8D385Ew6H15b1h7", "0d8cr2WPQTIqGqmz2CU9e0fgsg"].join("-");
-  return process.env.EXPO_PUBLIC_GEMINI_API_KEY || e.geminiApiKey || e.firebase?.geminiApiKey || wired;
+  return "";
 }
 
 export function openaiKey() {
-  const e = extra();
-  const wired = [
-    "sk-proj-Uax33gzdDaZG6xNKAGolAVLE5TWwQhLMQTwDuRGXKKENeNNUM_0uLygTa-hvF1lMUsJaXJ4BuVT3",
-    "BlbkFJazXfZaqvL_EmRiMwiINStULHpRmouXf4qq_ee4szRO0Ee76_0-r52g29XulKSwoL9NPnQpdW4A",
-  ].join("");
-  return process.env.EXPO_PUBLIC_OPENAI_API_KEY || e.openaiApiKey || e.firebase?.openaiApiKey || wired;
+  return "";
 }
 
 export function anthropicKey() {
-  const e = extra();
-  const wired = [
-    "sk-ant-api03-cflVcxLhIwTdUrXSYpYJSEpdDjhA3hAjTlNp_dyFKzXnEAMVkoKDYnS1goARpCJaQDs",
-    "_rXU-0YRlROFNjV-RRQ-_neKhgAA",
-  ].join("");
-  return process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY || e.anthropicApiKey || e.firebase?.anthropicApiKey || wired;
+  return "";
 }
 
 export function resolveSource(src: ImageSourcePropType | { uri: string }) {
@@ -258,7 +236,7 @@ export async function dressPerson(opts: {
   garmentName?: string;
   category?: string;
 }) {
-  if (!geminiKey() && !openaiKey()) throw new Error("Add a Gemini or OpenAI key and I’ll turn try-on on.");
+  if (!geminiKey() && !openaiKey()) throw new Error("Secure try-on is not connected yet. Please try again after the backend is deployed.");
   try {
     const [person, garment] = await Promise.all([
       uriToInline(opts.personUri, 1024),

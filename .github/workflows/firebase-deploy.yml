@@ -43,6 +43,9 @@ jobs:
         with:
           node-version: 20
 
+      - name: Scan for credential-shaped values
+        run: npm run security:secrets
+
       - name: Install function dependencies
         working-directory: functions
         run: npm install

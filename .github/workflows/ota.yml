@@ -33,12 +33,11 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
+      - name: Scan for credential-shaped values
+        run: npm run security:secrets
+
       - name: Install JS dependencies
         run: npm ci
 
       - name: Publish OTA
-        env:
-          EXPO_PUBLIC_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          EXPO_PUBLIC_OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          EXPO_PUBLIC_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: npx eas-cli update --channel ${{ github.event.inputs.channel }} --message "${{ github.event.inputs.message }}" --platform ios --non-interactive
