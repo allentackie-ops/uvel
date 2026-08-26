@@ -18,9 +18,8 @@ import {
 } from "../../lib/brands";
 import { useOrders, type Order } from "../../lib/orders";
 import { pickAvatar, takeAvatar } from "../../lib/photo";
-import { seedFromStyles, ARCH, PALS, SILS, dnaHint } from "../../lib/styleDna";
+import { seedFromStyles } from "../../lib/styleDna";
 import { useUvel } from "../../lib/store";
-import { pullLooks } from "../../lib/trends";
 import { useColors, type Colors } from "../../lib/theme";
 import { semanticStatus, statusToneFor } from "../../lib/status";
 import { getPiece, likesOnMine, stampMine, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
@@ -64,7 +63,6 @@ export default function You() {
   const [hub, setHub] = useState<Hub>("shop");
   const [soldFilter, setSoldFilter] = useState("all");
   const [buyFilter, setBuyFilter] = useState("all");
-  const [dnaOpen, setDnaOpen] = useState(false);
 
   const listed = pieces.filter((p) => p.status === "listed" && (!p.ownerId || p.ownerId === app.uid));
   const soldPieces = pieces.filter((p) => p.status === "sold" && (!p.ownerId || p.ownerId === app.uid));
@@ -83,11 +81,6 @@ export default function You() {
     if (!app.hydrated) return;
     app.seedSavedLikes();
   }, [app.hydrated, app.saved.join("|"), pieces.length]);
-
-  function pick(patch: { archetype?: string; palette?: string; silhouette?: string }) {
-    app.setStyle(patch);
-    void pullLooks({ fresh: true });
-  }
 
   const dnaReady = Boolean(app.archetype || app.palette || app.silhouette);
   const initials = (app.displayName || "U")
@@ -250,7 +243,13 @@ export default function You() {
         </Pressable>
       ))}
 
-      <Pressable onPress={() => setDnaOpen((v) => !v)} style={styles.dnaHead}>
+      <Pressable
+        onPress={() => router.push("/style-dna")}
+        style={({ pressed }) => [styles.dnaHead, pressed && styles.focused]}
+        accessibilityRole="button"
+        accessibilityLabel={`Style DNA${dnaReady ? `: ${[app.archetype, app.palette, app.silhouette].filter(Boolean).join(", ")}` : ": not set"}`}
+        accessibilityHint="Double tap to choose your style, palette, and silhouette."
+      >
         <View style={{ flex: 1 }}>
           <Text style={styles.dnaTitle}>Style DNA</Text>
           <Text style={styles.dnaSum} numberOfLines={1}>
@@ -259,41 +258,8 @@ export default function You() {
               : "Set how Today picks looks"}
           </Text>
         </View>
-        <Text style={[styles.dnaChevron, dnaOpen && styles.dnaChevronOpen]}>⌄</Text>
+        <Text style={styles.dnaChevron}>›</Text>
       </Pressable>
-      {dnaOpen ? (
-        <View style={styles.dnaBody}>
-          <Text style={styles.lede}>
-            This is how Uvel decides what you see on Today, and which pieces we put in front of you to buy.
-          </Text>
-          <ChipBlock
-            label="Style"
-            items={[...ARCH]}
-            value={app.archetype}
-            hint={app.archetype ? dnaHint("arch", app.archetype) : ""}
-            onPick={(v) => pick({ archetype: v })}
-          />
-          <ChipBlock
-            label="Palette"
-            items={[...PALS]}
-            value={app.palette}
-            hint={app.palette ? dnaHint("pal", app.palette) : ""}
-            onPick={(v) => pick({ palette: v })}
-          />
-          <ChipBlock
-            label="Silhouette"
-            items={[...SILS]}
-            value={app.silhouette}
-            hint={app.silhouette ? dnaHint("sil", app.silhouette) : ""}
-            onPick={(v) => pick({ silhouette: v })}
-          />
-          <Text style={styles.foot}>
-            {dnaReady
-              ? "Today and Shop now pull looks that match this mix. Change it anytime."
-              : "Pick a style to start. We’ll reshape Today around it."}
-          </Text>
-        </View>
-      ) : null}
 
       <Pressable onPress={() => router.push("/plus")} style={styles.plan}>
         <View>
@@ -664,56 +630,6 @@ function Receipt() {
   );
 }
 
-function ChipBlock({
-  label,
-  items,
-  value,
-  hint,
-  onPick,
-}: {
-  label: string;
-  items: string[];
-  value: string;
-  hint: string;
-  onPick: (v: string) => void;
-}) {
-  return (
-    <View style={{ marginTop: 18 }}>
-      <Text style={chip.meta}>{label}</Text>
-      <View style={chip.wrap}>
-        {items.map((item) => {
-          const on = value === item;
-          return (
-            <Pressable key={item} onPress={() => onPick(item)} style={[chip.chip, on && chip.chipOn]}>
-              <Text style={[chip.txt, on && chip.txtOn]}>{item}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-      {hint ? <Text style={chip.hint}>{hint}</Text> : null}
-    </View>
-  );
-}
-
-const chip = StyleSheet.create({
-  meta: { color: "rgba(244,240,230,0.42)", fontSize: 12, marginBottom: 8, letterSpacing: 0.4 },
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    height: 36,
-    paddingHorizontal: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(244,240,230,0.14)",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#141310",
-  },
-  chipOn: { backgroundColor: "#F4F0E6", borderColor: "#F4F0E6" },
-  txt: { color: "#F4F0E6", fontSize: 13, fontWeight: "600" },
-  txtOn: { color: "#16140F" },
-  hint: { color: "rgba(244,240,230,0.38)", fontSize: 12, marginTop: 8 },
-});
-
 const art = StyleSheet.create({
   rackWrap: { width: 120, height: 110, marginBottom: 18 },
   bar: { position: "absolute", top: 8, left: 8, right: 8, height: 6, borderRadius: 3, backgroundColor: "rgba(244,240,230,0.55)" },
@@ -811,11 +727,10 @@ function make(colors: Colors) {
       alignItems: "center",
       gap: 12,
     },
+    focused: { borderWidth: 2, borderColor: colors.success },
     dnaTitle: { color: "#F4F0E6", fontWeight: "700", fontSize: 17 },
     dnaSum: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 4 },
     dnaChevron: { color: "rgba(244,240,230,0.55)", fontSize: 22, marginTop: -6 },
-    dnaChevronOpen: { transform: [{ rotate: "180deg" }], marginTop: 4 },
-    dnaBody: { paddingHorizontal: 2, paddingBottom: 4 },
     lede: { color: "rgba(244,240,230,0.58)", fontSize: 15, lineHeight: 22, marginTop: 12 },
     foot: { color: "rgba(244,240,230,0.4)", fontSize: 13, lineHeight: 19, marginTop: 16 },
     plan: {
