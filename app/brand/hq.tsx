@@ -41,7 +41,7 @@ import { archivePiece, createBrandCatalogRemote, duplicatePiece, restorePiece, u
 import { shipsToLabel } from "../../lib/ships";
 import { readBrandAnalytics } from "../../lib/analytics";
 import { buildGrowthSnapshot } from "../../lib/growth";
-import { useCampaignAttribution } from "../../lib/attribution";
+import { summarizeCampaignAttributionByChannel, useCampaignAttributionReport } from "../../lib/attribution";
 import { analyticsCurrencyValue, analyticsDisplayState, analyticsDisclosure, analyticsValue, type AnalyticsDisplayState } from "../../lib/analyticsDisplay";
 import { semanticStatus, semanticLabel, statusToneFor } from "../../lib/status";
 import { saveBrandCampaign, saveBrandCollection, saveBrandPromotion, useMarketing, type BrandCampaign, type BrandCollection, type BrandPromotion, type MarketingState, type MarketingStatus } from "../../lib/marketing";
@@ -595,7 +595,10 @@ function AdvancedAnalyticsSection({ brand, orders, pieces, marketing, viewer, th
   const currency = getMarket(brand.country).currency;
   const [remote, setRemote] = useState<Awaited<ReturnType<typeof readBrandAnalytics>>>(null);
   const [source, setSource] = useState<AnalyticsDisplayState>("loading");
-  const attribution = useCampaignAttribution(brand.id);
+  const attributionReport = useCampaignAttributionReport(brand.id);
+  const attribution = attributionReport.rows;
+  const attributionState = attributionReport.state as AnalyticsDisplayState;
+  const channelReports = useMemo(() => summarizeCampaignAttributionByChannel(attribution, (row) => marketing.campaigns.find((item) => item.id === row.campaignId)?.channel), [attribution, marketing.campaigns]);
   const local = useMemo(() => buildGrowthSnapshot(brand.id, orders, pieces, currency, marketing.collections, marketing.campaigns, marketing.promotions), [brand.id, orders, pieces, currency, marketing]);
 
   useEffect(() => {
@@ -661,13 +664,26 @@ function AdvancedAnalyticsSection({ brand, orders, pieces, marketing, viewer, th
         </Pressable>
       )) : <Empty text={source === "loading" ? "Checking confirmed product activity…" : source === "unavailable" ? "Product analytics are unavailable until backend analytics is connected." : "No confirmed product activity yet."} theme={theme} styles={styles} />}
 
+      <Text style={[styles.financeHeading, { color: theme.ink }]}>Campaign reporting by channel</Text>
+      <Text style={[styles.sectionP, { color: theme.muted }]}>Remote campaign touchpoints grouped by placement. Purchases and revenue appear only after a trusted payment webhook confirms them.</Text>
+      <View style={[styles.analyticsPanel, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+        {channelReports.map((report) => {
+          const hasActivity = report.impressions + report.engagements + report.checkoutStarted + report.purchases + Object.values(report.revenueByCurrency).reduce((sum, value) => sum + value, 0) > 0;
+          const conversion = report.impressions > 0 && report.purchases > 0 ? `${Math.round((report.purchases / report.impressions) * 1000) / 10}%` : report.purchases > 0 ? "Unavailable" : "No confirmed purchases";
+          const revenue = Object.entries(report.revenueByCurrency).filter(([, value]) => value > 0).map(([code, value]) => usd(value, code)).join(" · ") || "No confirmed revenue";
+          return <View key={report.channel} style={[styles.channelReportRow, { borderBottomColor: theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.channelReportName, { color: theme.ink }]}>{channelLabel(report.channel)}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{hasActivity ? `${report.impressions} impressions · ${report.engagements} engagements · ${report.checkoutStarted} checkouts` : attributionState === "loading" ? "Loading confirmed activity…" : attributionState === "unavailable" ? "Unavailable" : "No confirmed activity yet"}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{hasActivity ? `${report.purchases} confirmed purchases · ${conversion}` : "No confirmed purchases"}</Text></View><Text style={[styles.financeRowAmount, { color: theme.ink }]}>{attributionState === "loading" ? "Loading…" : attributionState === "unavailable" ? "Unavailable" : revenue}</Text></View>;
+        })}
+      </View>
+
       <Text style={[styles.financeHeading, { color: theme.ink }]}>Campaign attribution</Text>
-      <Text style={[styles.sectionP, { color: theme.muted }]}>Recorded touchpoints by channel. Revenue appears only after a trusted Stripe or Paystack webhook confirms payment.</Text>
+      <Text style={[styles.sectionP, { color: theme.muted }]}>Recorded touchpoints by campaign. Revenue appears only after a trusted Stripe or Paystack webhook confirms payment.</Text>
       {attribution.length ? attribution.slice(0, 8).map((row) => {
         const campaign = marketing.campaigns.find((item) => item.id === row.campaignId);
-        const rate = row.impressions ? Math.round((row.purchases / row.impressions) * 1000) / 10 : 0;
-        return <View key={row.id} style={[styles.analyticsCampaign, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.marketingCardTitle, { color: theme.ink }]} numberOfLines={1}>{campaign?.name || row.campaignId}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{campaign?.channel || "Campaign source unavailable"}{campaign?.startAt ? ` · ${new Date(campaign.startAt).toLocaleDateString()}` : ""}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{row.impressions} impressions · {row.engagements} engagements · {row.checkoutStarted} checkouts</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{row.purchases ? `${row.purchases} confirmed purchases · ${rate}% impression-to-purchase` : "No confirmed purchases yet"}</Text></View><Text style={[styles.financeRowAmount, { color: theme.ink }]}>{row.purchases ? usd(row.revenueCents, row.currency || currency) : "No confirmed revenue"}</Text></View>;
-      }) : <Empty text={source === "loading" ? "Checking campaign activity…" : source === "unavailable" ? "Campaign aggregation is unavailable until the backend is connected." : "No campaign-attributed activity yet."} theme={theme} styles={styles} />}
+        const channel = row.channel || campaign?.channel;
+        const rate = row.impressions > 0 && row.purchases > 0 ? `${Math.round((row.purchases / row.impressions) * 1000) / 10}% impression-to-purchase` : row.purchases > 0 ? "Conversion unavailable" : "No confirmed purchases yet";
+        const rowHasActivity = row.impressions + row.engagements + row.checkoutStarted + row.purchases + row.revenueCents > 0;
+        return <View key={row.id} style={[styles.analyticsCampaign, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.marketingCardTitle, { color: theme.ink }]} numberOfLines={1}>{campaign?.name || row.campaignId}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{channel ? channelLabel(channel) : "Campaign channel unavailable"}{campaign?.startAt ? ` · ${new Date(campaign.startAt).toLocaleDateString()}` : ""}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{rowHasActivity ? `${row.impressions} impressions · ${row.engagements} engagements · ${row.checkoutStarted} checkouts` : "No confirmed campaign activity yet"}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{row.purchases ? `${row.purchases} confirmed purchases · ${rate}` : "No confirmed purchases yet"}</Text></View><Text style={[styles.financeRowAmount, { color: theme.ink }]}>{row.purchases ? usd(row.revenueCents, row.currency || currency) : "No confirmed revenue"}</Text></View>;
+      }) : <Empty text={attributionState === "loading" ? "Checking campaign activity…" : attributionState === "unavailable" ? "Campaign aggregation is unavailable until the backend is connected." : "No campaign-attributed activity yet."} theme={theme} styles={styles} />}
 
       <Text style={[styles.financeHeading, { color: theme.ink }]}>Market performance</Text>
       <Empty text={confirmedPurchases ? "Market breakdown is not available in the current analytics feed." : source === "loading" ? "Checking confirmed orders…" : source === "unavailable" ? "Market performance is unavailable until backend analytics is connected." : "No confirmed orders by market yet."} theme={theme} styles={styles} />
@@ -683,6 +699,7 @@ function AdvancedAnalyticsSection({ brand, orders, pieces, marketing, viewer, th
 }
 
 function formatAnalyticsCount(value: number) { return value >= 1000 ? `${(value / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(value); }
+function channelLabel(channel: "brand_page" | "shop" | "today") { return channel === "brand_page" ? "Brand Page" : channel === "shop" ? "Shop" : "Today"; }
 
 function MarketingSection({ brand, pieces, state, viewer, manager, theme, colors, styles, onFocus }: { brand: Brand; pieces: ClosetPiece[]; state: MarketingState; viewer: boolean; manager: boolean; theme: HQTheme; colors: Colors; styles: ReturnType<typeof make>; onFocus: () => void }) {
   const [tab, setTab] = useState<"collections" | "campaigns" | "promotions">("collections");
@@ -1127,6 +1144,8 @@ function make(theme: HQTheme) {
     analyticsProductImg: { width: 48, height: 60, borderRadius: 8 },
     analyticsMarket: { borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 8, flexDirection: "row", alignItems: "center", gap: 10 },
     analyticsCampaign: { borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 8, flexDirection: "row", alignItems: "center", gap: 10 },
+    channelReportRow: { paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", gap: 10 },
+    channelReportName: { fontSize: 13, fontWeight: "900" },
     payoutSetup: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 10 },
     payoutSetupHead: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 9 },
     payoutLabel: { fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.7, marginTop: 12, marginBottom: 5 },
