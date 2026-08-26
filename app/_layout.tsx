@@ -157,6 +157,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="style-dna"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#12110E" },
+            }}
+          />
+          <Stack.Screen
             name="sell-category"
             options={{
               headerShown: false,

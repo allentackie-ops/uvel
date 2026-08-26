@@ -226,7 +226,7 @@ export default function You() {
         <Pressable onPress={() => router.push({ pathname: "/brand/analytics", params: { id: mine.id } })} style={styles.plan}>
           <View>
             <Text style={styles.planH}>Brand analysis</Text>
-            <Text style={styles.planP}>Earnings, views, likes — owner desk</Text>
+            <Text style={styles.planP}>Earnings, views, likes</Text>
           </View>
           <Text style={styles.planGo}>See</Text>
         </Pressable>
