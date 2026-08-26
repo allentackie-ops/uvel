@@ -84,7 +84,7 @@ const en: Copy = {
   tryOnTitle: "See it on you\nbefore you buy.",
   tryOnLede: "A look you love. On your body. Then you decide.",
   styleKicker: "YOUR STYLE",
-  styleTitle: "Clothes that\nactually suit you.",
+  styleTitle: "Get clothes that\nactually suit you.",
   styleLede: "Not the feed. What looks like you.",
   marketTitle: "Buy and sell\non Uvel.",
   signUp: "Sign up",
