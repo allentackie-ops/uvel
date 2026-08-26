@@ -18,6 +18,24 @@ export type Address = {
 };
 
 export type FulfillmentStatus = "unfulfilled" | "processing" | "packed" | "shipped" | "delivered" | "canceled" | "returned";
+export type ResolutionType = "cancellation" | "return";
+export type ResolutionStatus = "requested" | "approved" | "rejected" | "item_sent" | "received" | "refund_pending" | "refunded" | "closed";
+export type RefundStatus = "none" | "requested" | "processing" | "succeeded" | "failed";
+export type RestockDecision = "pending" | "restock" | "no_restock" | "restocked";
+
+export type OrderResolution = {
+  type: ResolutionType;
+  status: ResolutionStatus;
+  reason: string;
+  note?: string;
+  requestedAt?: number;
+  reviewedAt?: number;
+  itemSentAt?: number;
+  receivedAt?: number;
+  refundRequestedAt?: number;
+  refundedAt?: number;
+  restockDecision: RestockDecision;
+};
 
 export type Order = {
   id: string;
@@ -47,7 +65,14 @@ export type Order = {
   fulfillmentStatus?: FulfillmentStatus;
   carrier?: string;
   trackingNumber?: string;
+  paymentIntentId?: string;
+  paymentTransactionId?: string;
+  refundStatus?: RefundStatus;
+  refundProviderId?: string;
+  refundAmountCents?: number;
+  inventoryRestockedAt?: number;
   fulfillmentUpdatedAt?: number;
+  resolution?: OrderResolution;
   paidAt?: number;
   createdAt: number;
 };
@@ -234,4 +259,22 @@ export async function updateOrderFulfillment(orderId: string, patch: Fulfillment
     /* The server update succeeded; keep the in-memory order visible if local persistence is unavailable. */
   }
   return next;
+}
+
+export async function requestOrderResolution(orderId: string, type: ResolutionType, reason: string, note?: string) {
+  if (!firebaseReady() || !firebaseAuth().currentUser) throw new Error("Resolution requests require a signed-in connection to Uvel.");
+  const call = httpsCallable(firebaseFunctions(), "requestOrderResolution");
+  await call({ orderId, type, reason, note: note || "" });
+}
+
+export async function reviewOrderResolution(orderId: string, decision: "approve" | "reject" | "mark_received" | "confirm_restock" | "skip_restock") {
+  if (!firebaseReady() || !firebaseAuth().currentUser) throw new Error("Resolution reviews require a signed-in connection to Uvel.");
+  const call = httpsCallable(firebaseFunctions(), "reviewOrderResolution");
+  await call({ orderId, decision });
+}
+
+export async function confirmOrderReturnSent(orderId: string) {
+  if (!firebaseReady() || !firebaseAuth().currentUser) throw new Error("Return updates require a signed-in connection to Uvel.");
+  const call = httpsCallable(firebaseFunctions(), "confirmOrderReturnSent");
+  await call({ orderId });
 }

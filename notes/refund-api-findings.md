@@ -1,0 +1,5 @@
+# Refund API findings
+
+- Stripe refund creation uses POST /v1/refunds and requires a Charge or PaymentIntent identifier. Amount is optional for a full refund and otherwise uses the smallest currency unit. Refund status can be pending, requires_action, succeeded, failed, or canceled. Refunds are idempotency-sensitive and cannot exceed the remaining unrefunded amount.
+- Paystack refund initiation uses POST https://api.paystack.co/refund with transaction reference or ID. Amount is optional and is in the currency subunit; customer_note and merchant_note are supported. The API queues refunds for processing and returns a pending status. Paystack also exposes refund retrieval/listing and webhook updates for refund status.
+- Uvel should therefore model refund requests separately from fulfillment state, persist provider reference/status, use idempotency keys, and avoid marking an order fully refunded until the provider confirms success/processed. Actual refund calls must remain trusted backend-only.

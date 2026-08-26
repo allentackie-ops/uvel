@@ -356,7 +356,7 @@ async function recordEvent(req) {
 
 exports.recordAnalyticsEvent = onCall(recordEvent);
 
-async function markOrderPaid(orderId, provider, providerReference, providerAmount, providerCurrency) {
+async function markOrderPaid(orderId, provider, providerReference, providerAmount, providerCurrency, providerPaymentId, providerTransactionId) {
   if (!orderId) return { ok: false, reason: "missing-order" };
   const db = admin.firestore();
   const orderRef = db.collection("orders").doc(orderId);
@@ -383,6 +383,8 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
     if (order.brandId && !reservationActive && (!hasTrackedStock || listingStock <= 0)) return { ok: false, reason: "listing-unavailable" };
     const paidAt = admin.firestore.FieldValue.serverTimestamp();
     const paidUpdate = { status: "paid", fulfillmentStatus: "unfulfilled", paymentProvider: provider, paymentReference: providerReference, paidAt };
+    if (providerPaymentId) paidUpdate.paymentIntentId = providerPaymentId;
+    if (providerTransactionId) paidUpdate.paymentTransactionId = providerTransactionId;
     if (reservationActive) {
       tx.set(reservationRef, { status: "consumed", consumedAt: paidAt }, { merge: true });
       paidUpdate.inventoryReservationStatus = "consumed";
@@ -501,6 +503,9 @@ exports.updateOrderFulfillment = onCall(async (req) => {
     const latest = latestSnap.data() || {};
     if (latest.status !== "paid") throw new HttpsError("failed-precondition", "Only paid orders can enter fulfillment.");
     const currentStatus = String(latest.fulfillmentStatus || "unfulfilled");
+    if (nextStatus === "canceled" && !(latest.resolution?.type === "cancellation" && latest.resolution?.status === "approved")) {
+      throw new HttpsError("failed-precondition", "Cancellations must be approved from the resolution workflow.");
+    }
     const allowed = FULFILLMENT_TRANSITIONS[currentStatus];
     if (!allowed || !allowed.has(nextStatus)) throw new HttpsError("failed-precondition", `Order cannot move from ${currentStatus} to ${nextStatus}.`);
     tx.set(orderRef, update, { merge: true });
@@ -521,8 +526,13 @@ function stripeWebhook() {
     if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
       const session = event.data.object;
       const metadata = session.metadata || {};
-      const result = await markOrderPaid(metadata.orderId, "stripe", session.id, session.amount_total, session.currency);
+      const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : "";
+      const result = await markOrderPaid(metadata.orderId, "stripe", session.id, session.amount_total, session.currency, paymentIntentId, "");
       if (!result.ok && !result.duplicate) return res.status(400).json(result);
+    }
+    if (event.type === "refund.created" || event.type === "refund.updated") {
+      const refund = event.data.object || {};
+      await recordProviderRefund(String(refund.metadata?.orderId || ""), String(refund.id || ""), String(refund.status || "processing"));
     }
     return res.status(200).send("ok");
   });
@@ -539,8 +549,15 @@ exports.paystackWebhook = onRequest({ secrets: [paystackWebhookSecret] }, async 
   if (event.event === "charge.success") {
     const data = event.data || {};
     const metadata = data.metadata || {};
-    const result = await markOrderPaid(metadata.orderId, "paystack", String(data.reference || ""), data.amount, data.currency);
+    const result = await markOrderPaid(metadata.orderId, "paystack", String(data.reference || ""), data.amount, data.currency, "", String(data.id || ""));
     if (!result.ok && !result.duplicate) return res.status(400).json(result);
+  }
+  if (String(event.event || "").startsWith("refund.")) {
+    const data = event.data || {};
+    const transaction = data.transaction;
+    const transactionReference = typeof transaction === "object" ? String(transaction.reference || "") : String(transaction || "");
+    const orderSnap = await admin.firestore().collection("orders").where("paymentReference", "==", transactionReference).limit(1).get();
+    if (!orderSnap.empty) await recordProviderRefund(orderSnap.docs[0].id, String(data.id || ""), String(data.status || event.event.replace("refund.", "")));
   }
   return res.status(200).send("ok");
 });
@@ -911,3 +928,205 @@ exports.expireInventoryReservations = onSchedule("every 15 minutes", async () =>
       .map((item) => releaseOrderReservation(item.id, "expired").catch(() => undefined)),
   );
 });
+
+const RESOLUTION_REASONS = new Set(["changed_mind", "wrong_size", "not_as_described", "damaged", "defective", "late", "other"]);
+const RESOLUTION_MANAGER_ROLES = new Set(["owner", "admin", "support", "finance"]);
+
+function resolutionData(order) {
+  return order.resolution && typeof order.resolution === "object" ? order.resolution : null;
+}
+
+async function brandMemberRole(db, brandId, uid) {
+  const snap = await db.collection("brands").doc(String(brandId)).get();
+  if (!snap.exists) return null;
+  const brand = snap.data() || {};
+  const member = Array.isArray(brand.members) ? brand.members.find((candidate) => candidate && candidate.uid === uid) : null;
+  return member && member.role ? String(member.role) : null;
+}
+
+async function restockOrderInventory(orderId) {
+  const db = admin.firestore();
+  const orderRef = db.collection("orders").doc(orderId);
+  await db.runTransaction(async (tx) => {
+    const orderSnap = await tx.get(orderRef);
+    if (!orderSnap.exists) throw new HttpsError("not-found", "Order not found.");
+    const order = orderSnap.data() || {};
+    if (order.inventoryRestockedAt || !order.brandId || !order.pieceId) return;
+    const listingRef = db.collection("listings").doc(String(order.pieceId));
+    const listingSnap = await tx.get(listingRef);
+    if (!listingSnap.exists) {
+      tx.set(orderRef, { inventoryRestockedAt: admin.firestore.FieldValue.serverTimestamp(), restockWarning: "listing-not-found" }, { merge: true });
+      return;
+    }
+    const listing = listingSnap.data() || {};
+    const patch = { stockQuantity: Math.max(0, Math.floor(Number(listing.stockQuantity) || 0) + 1) };
+    const variantKey = String(order.variantKey || "").trim();
+    if (variantKey && listing.sizeStock && typeof listing.sizeStock === "object") {
+      patch.sizeStock = { ...listing.sizeStock, [variantKey]: Math.max(0, Math.floor(Number(listing.sizeStock[variantKey]) || 0) + 1) };
+    }
+    if (listing.status === "sold") patch.status = "listed";
+    tx.set(listingRef, patch, { merge: true });
+    tx.set(orderRef, { inventoryRestockedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  });
+}
+
+async function providerRefund(order) {
+  const amount = Math.max(1, Math.floor(Number(order.refundAmountCents || order.totalCents) || 0));
+  if (String(order.paymentProvider || "") === "stripe") {
+    const key = stripeSecret.value();
+    if (!key || !order.paymentIntentId) throw new HttpsError("failed-precondition", "Stripe refund details are not available for this order.");
+    const stripe = require("stripe")(key);
+    const refund = await stripe.refunds.create(
+      { payment_intent: String(order.paymentIntentId), amount, metadata: { orderId: String(order.id), reason: String(order.resolution?.reason || "resolution") } },
+      { idempotencyKey: `uvel-refund-${String(order.id)}` },
+    );
+    return { id: refund.id, status: String(refund.status || "pending") };
+  }
+  if (String(order.paymentProvider || "") === "paystack") {
+    const key = paystackSecret.value();
+    const transaction = String(order.paymentTransactionId || order.paymentReference || "");
+    if (!key || !transaction) throw new HttpsError("failed-precondition", "Paystack refund details are not available for this order.");
+    const response = await fetch("https://api.paystack.co/refund", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ transaction, amount, customer_note: `Uvel order ${order.id} refund`, merchant_note: String(order.resolution?.reason || "Order resolution") }),
+    });
+    const json = await response.json();
+    if (!response.ok || !json.status) throw new HttpsError("internal", json.message || "Paystack refund failed.");
+    return { id: String(json.data?.id || transaction), status: String(json.data?.status || "pending") };
+  }
+  throw new HttpsError("failed-precondition", "This order has no supported payment provider refund path.");
+}
+
+async function executeRefund(orderId) {
+  const db = admin.firestore();
+  const orderRef = db.collection("orders").doc(orderId);
+  const beforeSnap = await orderRef.get();
+  if (!beforeSnap.exists) throw new HttpsError("not-found", "Order not found.");
+  const before = beforeSnap.data() || {};
+  if (before.refundStatus === "succeeded") return { ok: true, status: "succeeded", duplicate: true };
+  if (before.refundStatus !== "processing") return { ok: false, status: "not-ready" };
+  try {
+    const refund = await providerRefund({ ...before, id: orderId });
+    const succeeded = ["succeeded", "processed", "completed"].includes(refund.status);
+    const resolution = resolutionData(before);
+    const refundPatch = { refundStatus: succeeded ? "succeeded" : "processing", refundProviderId: refund.id, refundUpdatedAt: admin.firestore.FieldValue.serverTimestamp(), ...(succeeded ? { refundedAt: admin.firestore.FieldValue.serverTimestamp() } : {}) };
+    if (succeeded && resolution) refundPatch.resolution = { ...resolution, status: "refunded", refundedAt: admin.firestore.FieldValue.serverTimestamp() };
+    await orderRef.set(refundPatch, { merge: true });
+    return { ok: true, status: succeeded ? "succeeded" : "processing", providerId: refund.id };
+  } catch (error) {
+    await orderRef.set({ refundStatus: "failed", refundError: error instanceof Error ? error.message.slice(0, 240) : "Refund failed.", refundUpdatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    throw error;
+  }
+}
+
+exports.requestOrderResolution = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const input = req.data || {};
+  const orderId = String(input.orderId || "").trim();
+  const type = String(input.type || "").trim();
+  const reason = String(input.reason || "").trim();
+  const note = String(input.note || "").trim().slice(0, 500);
+  if (!/^[a-zA-Z0-9._:-]{1,120}$/.test(orderId) || !["cancellation", "return"].includes(type) || !RESOLUTION_REASONS.has(reason)) throw new HttpsError("invalid-argument", "Invalid resolution request.");
+  const db = admin.firestore();
+  const orderRef = db.collection("orders").doc(orderId);
+  const snap = await orderRef.get();
+  if (!snap.exists) throw new HttpsError("not-found", "Order not found.");
+  const order = snap.data() || {};
+  if (order.buyerId !== req.auth.uid || order.status !== "paid") throw new HttpsError("permission-denied", "Only the buyer of a paid order can request this action.");
+  const fulfillment = String(order.fulfillmentStatus || "unfulfilled");
+  if (type === "cancellation" && !["unfulfilled", "processing", "packed"].includes(fulfillment)) throw new HttpsError("failed-precondition", "This order can no longer be canceled.");
+  if (type === "return" && fulfillment !== "delivered") throw new HttpsError("failed-precondition", "Returns are available after delivery.");
+  if (resolutionData(order) && !["rejected", "closed"].includes(String(resolutionData(order).status || ""))) throw new HttpsError("failed-precondition", "This order already has an open resolution.");
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  await orderRef.set({ resolution: { type, status: "requested", reason, note, requestedAt: now, restockDecision: "pending" }, refundStatus: "none", resolutionUpdatedAt: now }, { merge: true });
+  return { ok: true, orderId, type, status: "requested" };
+});
+
+exports.confirmOrderReturnSent = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const orderId = String(req.data?.orderId || "").trim();
+  const db = admin.firestore();
+  const orderRef = db.collection("orders").doc(orderId);
+  const snap = await orderRef.get();
+  if (!snap.exists) throw new HttpsError("not-found", "Order not found.");
+  const order = snap.data() || {};
+  const resolution = resolutionData(order);
+  if (order.buyerId !== req.auth.uid || !resolution || resolution.type !== "return" || resolution.status !== "approved") throw new HttpsError("failed-precondition", "This return is not ready for shipment.");
+  await orderRef.set({ resolution: { ...resolution, status: "item_sent", itemSentAt: admin.firestore.FieldValue.serverTimestamp() }, resolutionUpdatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  return { ok: true, orderId, status: "item_sent" };
+});
+
+exports.reviewOrderResolution = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const orderId = String(req.data?.orderId || "").trim();
+  const decision = String(req.data?.decision || "").trim();
+  if (!/^[a-zA-Z0-9._:-]{1,120}$/.test(orderId) || !["approve", "reject", "mark_received", "confirm_restock", "skip_restock"].includes(decision)) throw new HttpsError("invalid-argument", "Invalid resolution review.");
+  const db = admin.firestore();
+  const orderRef = db.collection("orders").doc(orderId);
+  const snap = await orderRef.get();
+  if (!snap.exists) throw new HttpsError("not-found", "Order not found.");
+  const order = snap.data() || {};
+  const role = await brandMemberRole(db, order.brandId, req.auth.uid);
+  if (!role || !RESOLUTION_MANAGER_ROLES.has(role)) throw new HttpsError("permission-denied", "You cannot review this brand resolution.");
+  const resolution = resolutionData(order);
+  if (!resolution) throw new HttpsError("failed-precondition", "No resolution is open for this order.");
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  if (decision === "reject") {
+    if (!["requested", "approved", "item_sent"].includes(resolution.status)) throw new HttpsError("failed-precondition", "This resolution cannot be rejected now.");
+    await orderRef.set({ resolution: { ...resolution, status: "rejected", reviewedAt: now }, refundStatus: "none", resolutionUpdatedAt: now }, { merge: true });
+    return { ok: true, orderId, status: "rejected" };
+  }
+  if (decision === "approve") {
+    if (resolution.status !== "requested") throw new HttpsError("failed-precondition", "This resolution has already been reviewed.");
+    if (resolution.type === "cancellation") {
+      const approved = await db.runTransaction(async (tx) => {
+        const latestSnap = await tx.get(orderRef);
+        const latest = latestSnap.data() || {};
+        const latestResolution = resolutionData(latest);
+        if (!latestResolution || latestResolution.status !== "requested" || !["unfulfilled", "processing", "packed"].includes(String(latest.fulfillmentStatus || "unfulfilled"))) throw new HttpsError("failed-precondition", "This cancellation is no longer available.");
+        tx.set(orderRef, { fulfillmentStatus: "canceled", canceledAt: now, refundStatus: "processing", refundAmountCents: Number(latest.totalCents || 0), resolution: { ...latestResolution, status: "approved", reviewedAt: now, refundRequestedAt: now }, resolutionUpdatedAt: now }, { merge: true });
+        return true;
+      });
+      if (approved) {
+        await restockOrderInventory(orderId);
+        return { ...(await executeRefund(orderId)), orderId };
+      }
+    }
+    await orderRef.set({ resolution: { ...resolution, status: "approved", reviewedAt: now }, resolutionUpdatedAt: now }, { merge: true });
+    return { ok: true, orderId, status: "approved" };
+  }
+  if (resolution.type !== "return") throw new HttpsError("failed-precondition", "Only returns can use this review action.");
+  if (decision === "mark_received") {
+    if (resolution.status !== "item_sent") throw new HttpsError("failed-precondition", "The buyer has not marked the return as sent.");
+    await orderRef.set({ fulfillmentStatus: "returned", resolution: { ...resolution, status: "received", receivedAt: now }, refundStatus: "processing", refundAmountCents: Number(order.totalCents || 0), resolutionUpdatedAt: now }, { merge: true });
+    return { ...(await executeRefund(orderId)), orderId };
+  }
+  if (resolution.status !== "received") throw new HttpsError("failed-precondition", "Receive the returned item before deciding restock.");
+  const shouldRestock = decision === "confirm_restock";
+  await orderRef.set({ resolution: { ...resolution, restockDecision: shouldRestock ? "restock" : "no_restock" }, resolutionUpdatedAt: now }, { merge: true });
+  if (shouldRestock) await restockOrderInventory(orderId);
+  return { ok: true, orderId, restockDecision: shouldRestock ? "restock" : "no_restock" };
+});
+
+function normalizedRefundStatus(value) {
+  const status = String(value || "").toLowerCase();
+  if (["succeeded", "processed", "completed", "success"].includes(status)) return "succeeded";
+  if (["failed", "canceled", "cancelled"].includes(status)) return "failed";
+  return "processing";
+}
+
+async function recordProviderRefund(orderId, providerId, providerStatus) {
+  if (!orderId) return;
+  const db = admin.firestore();
+  const state = normalizedRefundStatus(providerStatus);
+  const patch = { refundStatus: state, refundUpdatedAt: admin.firestore.FieldValue.serverTimestamp() };
+  if (providerId) patch.refundProviderId = providerId;
+  if (state === "succeeded") {
+    patch.refundedAt = admin.firestore.FieldValue.serverTimestamp();
+    const snap = await db.collection("orders").doc(orderId).get();
+    const resolution = snap.exists ? resolutionData(snap.data() || {}) : null;
+    if (resolution) patch.resolution = { ...resolution, status: "refunded", refundedAt: admin.firestore.FieldValue.serverTimestamp() };
+  }
+  await db.collection("orders").doc(orderId).set(patch, { merge: true });
+}

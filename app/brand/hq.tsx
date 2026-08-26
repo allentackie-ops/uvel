@@ -26,7 +26,7 @@ import { usd } from "../../lib/catalog";
 import { useUvel } from "../../lib/store";
 import { useColors } from "../../lib/theme";
 import { MARKETS, getMarket } from "../../lib/markets";
-import { updateOrderFulfillment, useOrders, watchBrandOrders, type FulfillmentStatus, type Order } from "../../lib/orders";
+import { reviewOrderResolution, updateOrderFulfillment, useOrders, watchBrandOrders, type FulfillmentStatus, type Order } from "../../lib/orders";
 import { unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { shipsToLabel } from "../../lib/ships";
 
@@ -88,6 +88,7 @@ export default function BrandHQ() {
   const manager = canManageTeam(activeBrand, app.uid);
   const orderViewer = canViewOrders(activeBrand, app.uid);
   const orderManager = canManageOrders(activeBrand, app.uid);
+  const orderReviewer = ["owner", "admin", "support", "finance"].includes(roleOn(activeBrand, app.uid) || "");
   const catalogManager = canManageCatalog(activeBrand, app.uid);
 
   function openSection(next: Section) {
@@ -152,7 +153,7 @@ export default function BrandHQ() {
         ) : section === "catalog" ? (
           <CatalogSection brand={brand} items={catalog} canManage={catalogManager} theme={theme} styles={styles} />
         ) : section === "orders" ? (
-          <OrdersSection orders={brandOrders} viewer={orderViewer} manager={orderManager} theme={theme} styles={styles} />
+          <OrdersSection orders={brandOrders} viewer={orderViewer} manager={orderManager} reviewer={orderReviewer} theme={theme} styles={styles} />
         ) : section === "team" ? (
           <TeamSection brand={brand} manager={manager} theme={theme} styles={styles} onRole={changeRole} />
         ) : section === "settings" ? (
@@ -333,7 +334,7 @@ const ORDER_FILTERS: Array<{ id: OrderFilter; label: string }> = [
   { id: "canceled", label: "Canceled" },
 ];
 
-function OrdersSection({ orders, viewer, manager, theme, styles }: { orders: Order[]; viewer: boolean; manager: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
+function OrdersSection({ orders, viewer, manager, reviewer, theme, styles }: { orders: Order[]; viewer: boolean; manager: boolean; reviewer: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const [filter, setFilter] = useState<OrderFilter>("all");
   if (!viewer) {
     return <View><Text style={[styles.sectionTitle, { color: theme.ink }]}>Orders</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Order operations are limited to the brand owner, admins, support, and finance team.</Text></View>;
@@ -358,7 +359,7 @@ function OrdersSection({ orders, viewer, manager, theme, styles }: { orders: Ord
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.orderFilters}>
         {ORDER_FILTERS.map((option) => <Pressable key={option.id} onPress={() => setFilter(option.id)} style={[styles.orderFilter, { borderColor: filter === option.id ? theme.accent : theme.lineColor, backgroundColor: filter === option.id ? theme.accent : theme.card }]}><Text style={[styles.orderFilterTxt, { color: filter === option.id ? theme.accentInk : theme.ink }]}>{option.label}</Text></Pressable>)}
       </ScrollView>
-      {filtered.length ? filtered.map((order) => <OrderCard key={order.id} order={order} manager={manager} theme={theme} styles={styles} />) : <Empty text={orders.length ? "No orders match this filter." : "No brand orders yet."} theme={theme} styles={styles} />}
+      {filtered.length ? filtered.map((order) => <OrderCard key={order.id} order={order} manager={manager} reviewer={reviewer} theme={theme} styles={styles} />) : <Empty text={orders.length ? "No orders match this filter." : "No brand orders yet."} theme={theme} styles={styles} />}
     </View>
   );
 }
@@ -381,7 +382,7 @@ function nextFulfillment(status: FulfillmentStatus): FulfillmentStatus | null {
   return null;
 }
 
-function OrderCard({ order, manager, theme, styles }: { order: Order; manager: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
+function OrderCard({ order, manager, reviewer, theme, styles }: { order: Order; manager: boolean; reviewer: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const fulfillment = order.fulfillmentStatus || (order.status === "paid" ? "unfulfilled" : "canceled");
   const [expanded, setExpanded] = useState(false);
   const [carrier, setCarrier] = useState(order.carrier || "");
@@ -389,6 +390,8 @@ function OrderCard({ order, manager, theme, styles }: { order: Order; manager: b
   const [busy, setBusy] = useState(false);
   const next = nextFulfillment(fulfillment);
   const buyer = order.address?.name || "Buyer";
+  const resolution = order.resolution;
+  const resolutionLabel = resolution ? `${resolution.type === "return" ? "Return" : "Cancellation"} · ${resolution.status.replace("_", " ")}` : "";
 
   async function advance() {
     if (!manager || !next) return;
@@ -407,13 +410,13 @@ function OrderCard({ order, manager, theme, styles }: { order: Order; manager: b
     }
   }
 
-  async function cancel() {
-    if (!manager || !["unfulfilled", "processing"].includes(fulfillment) || busy) return;
+  async function review(decision: "approve" | "reject" | "mark_received" | "confirm_restock" | "skip_restock") {
+    if (!reviewer || !resolution || busy) return;
     setBusy(true);
     try {
-      await updateOrderFulfillment(order.id, { fulfillmentStatus: "canceled", carrier: carrier.trim(), trackingNumber: tracking.trim() });
+      await reviewOrderResolution(order.id, decision);
     } catch (error) {
-      Alert.alert("Order update", error instanceof Error ? error.message : "Could not cancel this order.");
+      Alert.alert("Resolution update", error instanceof Error ? error.message : "Could not update this resolution.");
     } finally {
       setBusy(false);
     }
@@ -436,12 +439,12 @@ function OrderCard({ order, manager, theme, styles }: { order: Order; manager: b
           <Text style={[styles.detailValue, { color: theme.ink }]}>{order.address?.line1}{order.address?.line2 ? `, ${order.address.line2}` : ""}, {order.address?.city}, {order.address?.region} {order.address?.postal}</Text>
           <Text style={[styles.orderMeta, { color: theme.muted }]}>Payment: {order.status} · Method: {order.payMethod} · {new Date(order.createdAt).toLocaleDateString()}{order.variantLabel || order.variantKey ? ` · Size ${order.variantLabel || order.variantKey}` : ""}</Text>
           {order.trackingNumber ? <Text style={[styles.orderMeta, { color: theme.muted }]}>Tracking: {order.carrier || "Carrier"} · {order.trackingNumber}</Text> : null}
+          {resolution ? <View style={[styles.resolutionBox, { borderColor: theme.lineColor }]}><Text style={[styles.orderKicker, { color: theme.muted }]}>{resolutionLabel}</Text><Text style={[styles.orderMeta, { color: theme.muted }]}>Reason: {resolution.reason.replace("_", " ")}{resolution.note ? ` · ${resolution.note}` : ""}</Text>{reviewer && resolution.status === "requested" ? <View style={styles.orderActions}><Pressable disabled={busy} onPress={() => void review("reject")} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Reject</Text></Pressable><Pressable disabled={busy} onPress={() => void review("approve")} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Approve</Text></Pressable></View> : null}{reviewer && resolution.type === "return" && resolution.status === "item_sent" ? <View style={styles.orderActions}><Pressable disabled={busy} onPress={() => void review("reject")} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Reject</Text></Pressable><Pressable disabled={busy} onPress={() => void review("mark_received")} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Mark received</Text></Pressable></View> : null}{reviewer && resolution.type === "return" && resolution.status === "received" ? <View style={styles.orderActions}><Pressable disabled={busy} onPress={() => void review("skip_restock")} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Do not restock</Text></Pressable><Pressable disabled={busy} onPress={() => void review("confirm_restock")} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Restock item</Text></Pressable></View> : null}</View> : null}
           {manager && order.status === "paid" && next ? (
             <>
               <TextInput value={carrier} onChangeText={setCarrier} placeholder="Carrier" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} />
               <TextInput value={tracking} onChangeText={setTracking} placeholder="Tracking number (required before shipping)" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} autoCapitalize="characters" />
               <View style={styles.orderActions}>
-                <Pressable disabled={busy} onPress={() => void cancel()} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Cancel order</Text></Pressable>
                 <Pressable disabled={busy} onPress={() => void advance()} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>{busy ? "Saving…" : FULFILLMENT_LABELS[next]}</Text></Pressable>
               </View>
             </>
@@ -599,6 +602,7 @@ function make(theme: HQTheme) {
     orderMeta: { fontSize: 11, lineHeight: 16, marginTop: 4 },
     orderTotal: { fontSize: 12, fontWeight: "800", marginTop: 5 },
     orderDetail: { borderTopWidth: StyleSheet.hairlineWidth, padding: 14 },
+    resolutionBox: { marginTop: 12, padding: 11, borderWidth: 1, borderRadius: 12 },
     orderKicker: { fontSize: 10, letterSpacing: 1.2, fontWeight: "800" },
     orderInput: { height: 40, borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, fontSize: 13, marginTop: 9 },
     orderActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 12 },

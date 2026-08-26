@@ -31,7 +31,14 @@ const COL = (W - 52) / 2;
 type Hub = "shop" | "sold" | "purchases" | "likes";
 
 function orderStatusLabel(order: Order) {
-  if (order.status === "failed" || order.fulfillmentStatus === "canceled") return { tag: "Canceled", kind: "canceled" };
+  const resolution = order.resolution;
+  if (order.status === "failed" || order.fulfillmentStatus === "canceled") return { tag: order.refundStatus === "succeeded" ? "Canceled · Refunded" : "Canceled", kind: "canceled" };
+  if (order.refundStatus === "processing") return { tag: "Refund processing", kind: "in_progress" };
+  if (order.refundStatus === "succeeded") return { tag: "Refund complete", kind: "completed" };
+  if (resolution?.status === "requested") return { tag: resolution.type === "return" ? "Return requested" : "Cancellation requested", kind: "in_progress" };
+  if (resolution?.status === "approved") return { tag: resolution.type === "return" ? "Return approved" : "Cancellation approved", kind: "in_progress" };
+  if (resolution?.status === "item_sent") return { tag: "Return sent", kind: "in_progress" };
+  if (resolution?.status === "received") return { tag: "Refund processing", kind: "in_progress" };
   if (order.fulfillmentStatus === "delivered") return { tag: "Delivered", kind: "completed" };
   if (order.fulfillmentStatus === "returned") return { tag: "Returned", kind: "canceled" };
   if (order.fulfillmentStatus === "shipped") return { tag: "Shipped", kind: "to_ship" };
