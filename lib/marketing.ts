@@ -31,6 +31,7 @@ export type BrandCampaign = {
   body: string;
   channel: CampaignChannel;
   collectionId?: string;
+  promotionId?: string;
   productIds: string[];
   status: MarketingStatus;
   startAt?: number;
@@ -68,6 +69,8 @@ const listeners = new Set<() => void>();
 const watches = new Map<string, () => void>();
 const liveCampaignCache = new Map<string, BrandCampaign[]>();
 const liveWatches = new Map<string, () => void>();
+let liveShopCampaignCache: BrandCampaign[] | null = null;
+let liveShopWatch: (() => void) | null = null;
 
 function millis(value: unknown) {
   if (typeof value === "number") return value;
@@ -85,7 +88,7 @@ function normalizeCollection(data: BrandCollection): BrandCollection {
   return { ...data, productIds: Array.isArray(data.productIds) ? data.productIds : [], createdAt: millis(data.createdAt), updatedAt: millis(data.updatedAt) };
 }
 function normalizeCampaign(data: BrandCampaign): BrandCampaign {
-  return { ...data, productIds: Array.isArray(data.productIds) ? data.productIds : [], createdAt: millis(data.createdAt), updatedAt: millis(data.updatedAt) };
+  return { ...data, channel: data.channel || "brand_page", productIds: Array.isArray(data.productIds) ? data.productIds : [], createdAt: millis(data.createdAt), updatedAt: millis(data.updatedAt) };
 }
 function normalizePromotion(data: BrandPromotion): BrandPromotion {
   return { ...data, code: String(data.code || "").toUpperCase(), minimumOrderCents: Math.max(0, Number(data.minimumOrderCents) || 0), createdAt: millis(data.createdAt), updatedAt: millis(data.updatedAt) };
@@ -143,6 +146,24 @@ export function useLiveCampaigns(brandId: string) {
   useEffect(() => { const listener = () => setTick((value) => value + 1); listeners.add(listener); const stop = watchLiveBrandCampaigns(brandId); return () => { listeners.delete(listener); stop(); }; }, [brandId]);
   const local = cache.campaigns.filter((item) => item.brandId === brandId && item.status === "live");
   return liveCampaignCache.get(brandId) || local;
+}
+
+export function watchLiveShopCampaigns() {
+  if (liveShopWatch || !firebaseReady()) return () => undefined;
+  const unsubscribe = onSnapshot(query(collection(firebaseDb(), "brandCampaigns"), where("status", "==", "live")), (snap) => {
+    liveShopCampaignCache = snap.docs.map((item) => normalizeCampaign({ ...(item.data() as unknown as BrandCampaign), id: item.id }));
+    emit();
+  }, () => { liveShopCampaignCache = []; emit(); });
+  const stop = () => { unsubscribe(); liveShopCampaignCache = null; liveShopWatch = null; };
+  liveShopWatch = stop;
+  return () => { if (liveShopWatch === stop) stop(); };
+}
+
+export function useLiveShopCampaigns() {
+  const [, setTick] = useState(0);
+  useEffect(() => { const listener = () => setTick((value) => value + 1); listeners.add(listener); const stop = watchLiveShopCampaigns(); return () => { listeners.delete(listener); stop(); }; }, []);
+  const local = cache.campaigns.filter((item) => item.status === "live");
+  return liveShopCampaignCache || local;
 }
 
 export function useMarketing(brandId: string): MarketingState {

@@ -149,7 +149,7 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
 
 export default function ClosetPiece() {
   const insets = useSafeAreaInsets();
-  const { id, v, campaignId, collectionId, promotionId } = useLocalSearchParams<{ id: string; v?: string; campaignId?: string; collectionId?: string; promotionId?: string }>();
+  const { id, v, campaignId, collectionId, promotionId, campaignChannel } = useLocalSearchParams<{ id: string; v?: string; campaignId?: string; collectionId?: string; promotionId?: string; campaignChannel?: string }>();
   useWardrobe();
   useBrands();
   const piece = getPiece(id);
@@ -435,7 +435,7 @@ export default function ClosetPiece() {
               <Text style={styles.askTxt}>Ask</Text>
             </Pressable>
             <Pressable
-              onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id, variantKey: selectedSize, variantLabel: selectedSize, campaignId: typeof campaignId === "string" ? campaignId : "", collectionId: typeof collectionId === "string" ? collectionId : "", promotionId: typeof promotionId === "string" ? promotionId : "" } })}
+              onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id, variantKey: selectedSize, variantLabel: selectedSize, campaignId: typeof campaignId === "string" ? campaignId : "", collectionId: typeof collectionId === "string" ? collectionId : "", promotionId: typeof promotionId === "string" ? promotionId : "", campaignChannel: typeof campaignChannel === "string" ? campaignChannel : "" } })}
               disabled={!canBuy}
               style={[styles.buy, !canBuy && styles.buyOff]}
             >

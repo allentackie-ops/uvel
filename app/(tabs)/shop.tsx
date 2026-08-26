@@ -7,8 +7,9 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { OrbitLoader } from "../../components/OrbitLoader";
+import { recordCampaignAttribution } from "../../lib/attribution";
 import { VerifiedMark } from "../../components/VerifiedMark";
-import { followedBrandIds, ownedBrand, verifiedBrands, useBrands } from "../../lib/brands";
+import { followedBrandIds, getBrand, ownedBrand, verifiedBrands, useBrands } from "../../lib/brands";
 import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
 import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
@@ -16,7 +17,8 @@ import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
-import { shopFloor, useWardrobe } from "../../lib/wardrobe";
+import { useLiveShopCampaigns } from "../../lib/marketing";
+import { getPiece, shopFloor, useWardrobe } from "../../lib/wardrobe";
 
 function FrozenClip({
   uri,
@@ -119,7 +121,21 @@ export default function Shop() {
   const videoUrl = job?.videoUrl || "";
   const freezeAt = job?.time || 0;
   const live = shopFloor(country);
+  const liveCampaigns = useLiveShopCampaigns();
   const scanningLook = Boolean(scan === "1" || look || frame || videoUrl);
+  const shopCampaignRows = useMemo(() => liveCampaigns
+    .filter((campaign) => campaign.channel === "shop" && (!campaign.startAt || campaign.startAt <= Date.now()) && (!campaign.endAt || campaign.endAt >= Date.now()))
+    .map((campaign) => ({ campaign, lead: campaign.productIds.map((productId) => live.find((piece) => piece.id === productId) || getPiece(productId)).find(Boolean) }))
+    .filter((row): row is { campaign: (typeof liveCampaigns)[number]; lead: (typeof live)[number] } => Boolean(row.lead))
+    .slice(0, 6), [liveCampaigns, live]);
+
+  useEffect(() => {
+    if (!app.uid || scanningLook) return;
+    const day = new Date().toISOString().slice(0, 10);
+    shopCampaignRows.forEach(({ campaign }) => {
+      void recordCampaignAttribution({ brandId: campaign.brandId, campaignId: campaign.id, channel: "shop", type: "impression", eventId: `shop_impression_${campaign.id}_${app.uid}_${day}` }).catch(() => undefined);
+    });
+  }, [app.uid, scanningLook, shopCampaignRows.map(({ campaign }) => campaign.id).join("|")]);
 
   useEffect(() => {
     if (!scanningLook) return;
@@ -275,6 +291,45 @@ export default function Shop() {
         </View>
       ) : null}
 
+      {!scanningLook && shopCampaignRows.length ? (
+        <View style={styles.campaignSection}>
+          <View style={styles.campaignHead}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.campaignKicker}>SHOP CAMPAIGNS</Text>
+              <Text style={styles.campaignSub}>Live drops from brands in this shop</Text>
+            </View>
+            <Text style={styles.campaignLive}>LIVE</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.campaignRail}>
+            {shopCampaignRows.map(({ campaign, lead }) => {
+              const brand = getBrand(campaign.brandId);
+              return (
+                <Pressable
+                  key={campaign.id}
+                  onPress={() => {
+                    void recordCampaignAttribution({ brandId: campaign.brandId, campaignId: campaign.id, channel: "shop", type: "engagement", listingId: lead.id, eventId: `shop_engagement_${campaign.id}_${app.uid || "guest"}_${Date.now()}` }).catch(() => undefined);
+                    router.push({ pathname: "/closet/[id]", params: { id: lead.id, campaignId: campaign.id, collectionId: campaign.collectionId || "", promotionId: campaign.promotionId || "", campaignChannel: "shop" } });
+                  }}
+                  style={({ pressed }) => [styles.campaignCard, pressed && { opacity: 0.82 }]}
+                >
+                  <Image source={{ uri: lead.photo }} style={styles.campaignImg} contentFit="cover" />
+                  <View style={styles.campaignCopy}>
+                    <View style={styles.campaignBrandRow}>
+                      {brand?.logoUri ? <Image source={{ uri: brand.logoUri }} style={styles.campaignLogo} contentFit="cover" /> : null}
+                      <Text style={styles.campaignBrand} numberOfLines={1}>{brand?.name || "Brand drop"}</Text>
+                      {brand?.verified ? <VerifiedMark size={11} /> : null}
+                    </View>
+                    <Text style={styles.campaignTitle} numberOfLines={2}>{campaign.headline || campaign.name}</Text>
+                    <Text style={styles.campaignBody} numberOfLines={2}>{campaign.body || "Explore the latest drop."}</Text>
+                    <Text style={styles.campaignGo}>Shop the drop →</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
+
       {scanning ? (
         <Text style={styles.count}>Looking at the clothes in this frame</Text>
       ) : null}
@@ -320,6 +375,21 @@ function make(colors: Colors) {
       gap: 6,
     },
     brandBtnTxt: { color: "#F4F0E6", fontWeight: "700", fontSize: 12 },
+    campaignSection: { marginTop: 22 },
+    campaignHead: { flexDirection: "row", alignItems: "flex-end", gap: 10, marginBottom: 10 },
+    campaignKicker: { color: "#D6E27A", fontSize: 11, fontWeight: "800", letterSpacing: 1.5 },
+    campaignSub: { color: "rgba(244,240,230,0.52)", fontSize: 13, marginTop: 3 },
+    campaignLive: { color: "#16140F", backgroundColor: "#D6E27A", borderRadius: 11, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "800", letterSpacing: 1 },
+    campaignRail: { gap: 10, paddingBottom: 4 },
+    campaignCard: { width: 292, minHeight: 148, borderRadius: 16, overflow: "hidden", backgroundColor: "#161512", flexDirection: "row" },
+    campaignImg: { width: 106, height: "100%", minHeight: 148, backgroundColor: "#1A1915" },
+    campaignCopy: { flex: 1, paddingHorizontal: 12, paddingVertical: 11, justifyContent: "center" },
+    campaignBrandRow: { flexDirection: "row", alignItems: "center", gap: 5, minHeight: 18 },
+    campaignLogo: { width: 18, height: 18, borderRadius: 5, backgroundColor: "#1A1915" },
+    campaignBrand: { flexShrink: 1, color: "rgba(244,240,230,0.58)", fontSize: 11, fontWeight: "800", letterSpacing: 0.7 },
+    campaignTitle: { color: "#F4F0E6", fontSize: 17, lineHeight: 20, fontWeight: "700", marginTop: 6 },
+    campaignBody: { color: "rgba(244,240,230,0.58)", fontSize: 12, lineHeight: 16, marginTop: 4 },
+    campaignGo: { color: "#D6E27A", fontSize: 12, fontWeight: "800", marginTop: 8 },
     brandHead: { flexDirection: "row", alignItems: "center", marginTop: 6, marginBottom: 10, gap: 4 },
     brandHeadTxt: { color: "#F4F0E6", fontWeight: "700", fontSize: 18 },
     brandHeadGo: { color: "rgba(244,240,230,0.45)", fontSize: 22, marginTop: -2 },

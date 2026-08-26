@@ -160,7 +160,7 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
   if (order.brandId && normalizedCampaignId) {
     checkoutAttribution = await resolveCampaignAttribution(admin.firestore(), { brandId: order.brandId, campaignId: normalizedCampaignId, listingId: String(order.pieceId || normalizedListingId) });
     if (checkoutAttribution) {
-      await orderRef.set({ campaignAttribution: { ...checkoutAttribution, source: "brand_page", capturedAt: admin.firestore.FieldValue.serverTimestamp() } }, { merge: true });
+      await orderRef.set({ campaignAttribution: { ...checkoutAttribution, source: checkoutAttribution.channel, capturedAt: admin.firestore.FieldValue.serverTimestamp() } }, { merge: true });
     }
   }
 
@@ -381,17 +381,19 @@ async function resolveCampaignAttribution(db, input, requireLive = true) {
   const brandId = String(input.brandId || "").trim();
   const campaignId = String(input.campaignId || "").trim();
   const listingId = String(input.listingId || "").trim();
+  const requestedChannel = String(input.channel || "").trim();
   if (!brandId || !campaignId) return null;
   const campaignSnap = await db.collection("brandCampaigns").doc(campaignId).get();
   if (!campaignSnap.exists) return null;
   const campaign = campaignSnap.data() || {};
   const now = Date.now();
   const live = campaign.status === "live" && (!campaign.startAt || timestampMillis(campaign.startAt) <= now) && (!campaign.endAt || timestampMillis(campaign.endAt) >= now);
-  if (campaign.brandId !== brandId || campaign.channel !== "brand_page" || (requireLive && !live)) return null;
+  if (campaign.brandId !== brandId || !["brand_page", "shop"].includes(String(campaign.channel || "")) || (requestedChannel && campaign.channel !== requestedChannel) || (requireLive && !live)) return null;
   if (listingId && (!Array.isArray(campaign.productIds) || !campaign.productIds.includes(listingId))) return null;
   return {
     brandId,
     campaignId,
+    channel: String(campaign.channel),
     ...(campaign.collectionId ? { collectionId: String(campaign.collectionId).slice(0, 120) } : {}),
     ...(campaign.promotionId ? { promotionId: String(campaign.promotionId).slice(0, 120) } : {}),
     ...(listingId ? { listingId } : {}),
@@ -403,6 +405,7 @@ async function saveCampaignAttribution(input) {
   const brandId = String(input.brandId || "").trim();
   const campaignId = String(input.campaignId || "").trim();
   const type = String(input.type || "").trim();
+  const channel = String(input.channel || "").trim();
   if (!brandId || !campaignId || !["impression", "engagement", "checkout_started", "purchase"].includes(type)) return { ok: false, reason: "invalid-attribution" };
   const eventId = uidSafe(input.eventId || `${type}_${brandId}_${campaignId}_${input.listingId || ""}_${input.orderId || ""}_${dayKey()}`);
   const eventRef = db.collection("brandCampaignAttributionEvents").doc(eventId.slice(0, 120));
@@ -411,8 +414,8 @@ async function saveCampaignAttribution(input) {
   await db.runTransaction(async (tx) => {
     const existing = await tx.get(eventRef);
     if (existing.exists) return;
-    tx.create(eventRef, { brandId, campaignId, collectionId: String(input.collectionId || "").slice(0, 120) || null, promotionId: String(input.promotionId || "").slice(0, 120) || null, type, listingId: String(input.listingId || "").slice(0, 120) || null, orderId: type === "purchase" ? String(input.orderId || "").slice(0, 120) || null : null, valueCents: type === "purchase" ? Math.max(0, Number(input.valueCents) || 0) : 0, currency: String(input.currency || "USD").toUpperCase().slice(0, 3), createdAt: now });
-    const summary = { brandId, campaignId, updatedAt: now, currency: String(input.currency || "USD").toUpperCase().slice(0, 3), [attributionField(type)]: increment(1) };
+    tx.create(eventRef, { brandId, campaignId, channel: channel || null, collectionId: String(input.collectionId || "").slice(0, 120) || null, promotionId: String(input.promotionId || "").slice(0, 120) || null, type, listingId: String(input.listingId || "").slice(0, 120) || null, orderId: type === "purchase" ? String(input.orderId || "").slice(0, 120) || null : null, valueCents: type === "purchase" ? Math.max(0, Number(input.valueCents) || 0) : 0, currency: String(input.currency || "USD").toUpperCase().slice(0, 3), createdAt: now });
+    const summary = { brandId, campaignId, ...(channel ? { channel } : {}), updatedAt: now, currency: String(input.currency || "USD").toUpperCase().slice(0, 3), [attributionField(type)]: increment(1) };
     if (type === "purchase") summary.revenueCents = increment(Math.max(0, Number(input.valueCents) || 0));
     tx.set(summaryRef, summary, { merge: true });
   });
@@ -426,7 +429,7 @@ exports.recordCampaignAttribution = onCall(async (req) => {
   const campaignId = String(input.campaignId || "").trim();
   const type = String(input.type || "").trim();
   if (!brandId || !campaignId || !["impression", "engagement", "checkout_started"].includes(type)) throw new HttpsError("invalid-argument", "Invalid campaign attribution event.");
-  const resolved = await resolveCampaignAttribution(admin.firestore(), { brandId, campaignId, listingId: input.listingId });
+  const resolved = await resolveCampaignAttribution(admin.firestore(), { brandId, campaignId, listingId: input.listingId, channel: input.channel });
   if (!resolved) throw new HttpsError("failed-precondition", "Campaign is not live or the listing is not part of it.");
   await saveCampaignAttribution({ ...input, ...resolved, brandId, campaignId, type, eventId: String(input.eventId || `${type}_${req.auth.uid}_${campaignId}_${input.listingId || ""}_${dayKey()}`) });
   return { ok: true };
@@ -444,11 +447,11 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
     if (order.status === "paid") return { ok: true, duplicate: true };
     let verifiedAttribution = null;
     const storedAttribution = order.campaignAttribution && typeof order.campaignAttribution === "object" ? order.campaignAttribution : null;
-    if (order.brandId && order.pieceId && storedAttribution?.source === "brand_page" && storedAttribution.brandId === order.brandId && storedAttribution.campaignId) {
+    if (order.brandId && order.pieceId && ["brand_page", "shop"].includes(String(storedAttribution?.source || "")) && storedAttribution.brandId === order.brandId && storedAttribution.campaignId) {
       const campaignSnap = await tx.get(db.collection("brandCampaigns").doc(String(storedAttribution.campaignId)));
       const campaign = campaignSnap.data() || {};
       if (campaignSnap.exists && campaign.brandId === order.brandId && Array.isArray(campaign.productIds) && campaign.productIds.includes(String(order.pieceId))) {
-        verifiedAttribution = { brandId: String(order.brandId), campaignId: String(storedAttribution.campaignId), collectionId: campaign.collectionId ? String(campaign.collectionId) : undefined, promotionId: campaign.promotionId ? String(campaign.promotionId) : undefined, listingId: String(order.pieceId) };
+        verifiedAttribution = { brandId: String(order.brandId), campaignId: String(storedAttribution.campaignId), channel: String(storedAttribution.source), collectionId: campaign.collectionId ? String(campaign.collectionId) : undefined, promotionId: campaign.promotionId ? String(campaign.promotionId) : undefined, listingId: String(order.pieceId) };
       }
     }
     if (order.status !== "pending") return { ok: false, reason: "order-not-pending" };
@@ -1653,7 +1656,7 @@ exports.saveBrandCampaign = onCall((req) => saveMarketingRecord(req, "brandCampa
   const channel = CAMPAIGN_CHANNELS.has(String(input.channel || "")) ? String(input.channel) : "brand_page";
   const requestedStatus = MARKETING_STATUSES.has(String(input.status || "draft")) ? String(input.status || "draft") : "draft";
   const status = requestedStatus === "live" && startAt && startAt > Date.now() ? "scheduled" : requestedStatus;
-  return { name: marketingText(input.name, 100), headline: marketingText(input.headline, 140), body: marketingText(input.body, 1000), channel, collectionId: marketingText(input.collectionId, 160) || undefined, productIds, status, ...(startAt ? { startAt } : {}), ...(endAt ? { endAt } : {}), createdAt: input.createdAt || admin.firestore.FieldValue.serverTimestamp() };
+  return { name: marketingText(input.name, 100), headline: marketingText(input.headline, 140), body: marketingText(input.body, 1000), channel, collectionId: marketingText(input.collectionId, 160) || undefined, promotionId: marketingText(input.promotionId, 160) || undefined, productIds, status, ...(startAt ? { startAt } : {}), ...(endAt ? { endAt } : {}), createdAt: input.createdAt || admin.firestore.FieldValue.serverTimestamp() };
 }));
 
 exports.saveBrandPromotion = onCall((req) => saveMarketingRecord(req, "brandPromotions", "promotion", "promotion_saved", req.data || {}, async (_db, _brandId, _id, input) => {

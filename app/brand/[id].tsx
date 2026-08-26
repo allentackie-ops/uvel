@@ -67,7 +67,7 @@ export default function BrandPage() {
 
   useEffect(() => {
     if (!app.uid || !brand) return;
-    visibleCampaigns.forEach((campaign) => { void recordCampaignAttribution({ brandId: brand.id, campaignId: campaign.id, type: "impression", collectionId: campaign.collectionId }).catch(() => undefined); });
+    visibleCampaigns.forEach((campaign) => { void recordCampaignAttribution({ brandId: brand.id, campaignId: campaign.id, channel: "brand_page", type: "impression", collectionId: campaign.collectionId, promotionId: campaign.promotionId }).catch(() => undefined); });
   }, [app.uid, brand?.id, visibleCampaigns.map((campaign) => campaign.id).join("|")]);
 
   if (!brand || !theme) {
@@ -209,7 +209,7 @@ export default function BrandPage() {
             <Text style={[styles.meta, { color: theme.muted, paddingHorizontal: 20 }]}>LIVE CAMPAIGN</Text>
             {visibleCampaigns.slice(0, 3).map((campaign) => {
               const lead = campaign.productIds.map((productId) => getPiece(productId)).find(Boolean);
-              return <Pressable key={campaign.id} onPress={() => { void recordCampaignAttribution({ brandId: brand.id, campaignId: campaign.id, type: "engagement", collectionId: campaign.collectionId, listingId: lead?.id }).catch(() => undefined); if (lead) router.push({ pathname: "/closet/[id]", params: { id: lead.id, campaignId: campaign.id, collectionId: campaign.collectionId || "" } }); }} style={[styles.campaignCard, { backgroundColor: theme.card }]}>{lead?.photo ? <Image source={{ uri: lead.photo }} style={styles.campaignImg} contentFit="cover" /> : null}<View style={{ flex: 1 }}><Text style={[styles.dropTitle, { color: theme.ink }]} numberOfLines={2}>{campaign.headline}</Text><Text style={[styles.dropSub, { color: theme.muted }]} numberOfLines={2}>{campaign.body || campaign.name}</Text></View><Text style={[styles.chev, { color: theme.muted }]}>›</Text></Pressable>;
+              return <Pressable key={campaign.id} onPress={() => { void recordCampaignAttribution({ brandId: brand.id, campaignId: campaign.id, channel: "brand_page", type: "engagement", collectionId: campaign.collectionId, promotionId: campaign.promotionId, listingId: lead?.id }).catch(() => undefined); if (lead) router.push({ pathname: "/closet/[id]", params: { id: lead.id, campaignId: campaign.id, collectionId: campaign.collectionId || "", promotionId: campaign.promotionId || "", campaignChannel: "brand_page" } }); }} style={[styles.campaignCard, { backgroundColor: theme.card }]}>{lead?.photo ? <Image source={{ uri: lead.photo }} style={styles.campaignImg} contentFit="cover" /> : null}<View style={{ flex: 1 }}><Text style={[styles.dropTitle, { color: theme.ink }]} numberOfLines={2}>{campaign.headline}</Text><Text style={[styles.dropSub, { color: theme.muted }]} numberOfLines={2}>{campaign.body || campaign.name}</Text></View><Text style={[styles.chev, { color: theme.muted }]}>›</Text></Pressable>;
             })}
           </View>
         ) : null}

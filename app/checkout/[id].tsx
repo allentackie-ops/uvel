@@ -19,7 +19,7 @@ export default function Checkout() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { id, variantKey: variantParam, variantLabel: variantLabelParam, campaignId, collectionId, promotionId } = useLocalSearchParams<{ id: string; variantKey?: string; variantLabel?: string; campaignId?: string; collectionId?: string; promotionId?: string }>();
+  const { id, variantKey: variantParam, variantLabel: variantLabelParam, campaignId, collectionId, promotionId, campaignChannel } = useLocalSearchParams<{ id: string; variantKey?: string; variantLabel?: string; campaignId?: string; collectionId?: string; promotionId?: string; campaignChannel?: string }>();
   useWardrobe();
   const piece = getPiece(id);
   const selectedVariant = typeof variantParam === "string" ? variantParam : "";
@@ -107,7 +107,7 @@ export default function Checkout() {
         delivery: ship,
         address,
       });
-      if (piece.brandId && typeof campaignId === "string" && campaignId) void recordCampaignAttribution({ brandId: piece.brandId, campaignId, collectionId: typeof collectionId === "string" ? collectionId : undefined, promotionId: typeof promotionId === "string" ? promotionId : undefined, type: "checkout_started", listingId: piece.id, orderId: order.id, currency: market.currency }).catch(() => undefined);
+      if (piece.brandId && typeof campaignId === "string" && campaignId) void recordCampaignAttribution({ brandId: piece.brandId, campaignId, channel: campaignChannel === "shop" ? "shop" : "brand_page", collectionId: typeof collectionId === "string" ? collectionId : undefined, promotionId: typeof promotionId === "string" ? promotionId : undefined, type: "checkout_started", listingId: piece.id, orderId: order.id, currency: market.currency, eventId: `checkout_started_${order.id}` }).catch(() => undefined);
       const session = await createCheckoutSession({
         amountCents: total,
         currency: market.currency,

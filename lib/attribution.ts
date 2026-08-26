@@ -26,6 +26,7 @@ export type AttributionEventInput = {
   campaignId: string;
   collectionId?: string;
   promotionId?: string;
+  channel?: "brand_page" | "shop" | "today";
   type: AttributionEventType;
   listingId?: string;
   orderId?: string;
