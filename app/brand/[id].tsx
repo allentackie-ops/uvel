@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ActionSheetIOS, Alert, Dimensions, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandBanner } from "../../components/BrandBanner";
+import { BrandPageSkeleton } from "../../components/ScreenSkeletons";
 import { ListingCard } from "../../components/ListingCard";
 import { VerifiedMark } from "../../components/VerifiedMark";
 import {
@@ -14,6 +15,7 @@ import {
   canSeeAnalytics,
   canStudio,
   getBrand,
+  useBrandsHydrated,
   isFollowing,
   roleOn,
   themeFor,
@@ -23,6 +25,7 @@ import {
 import { usd } from "../../lib/catalog";
 import { recordAnalyticsEvent } from "../../lib/analytics";
 import { useUvel } from "../../lib/store";
+import { useColors } from "../../lib/theme";
 import { getPiece, useWardrobe } from "../../lib/wardrobe";
 import { recordCampaignAttribution } from "../../lib/attribution";
 import { useLiveCampaigns } from "../../lib/marketing";
@@ -33,8 +36,10 @@ const COL = (W - 48) / 2;
 export default function BrandPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   useBrands();
+  const brandsReady = useBrandsHydrated();
   useWardrobe();
   const app = useUvel();
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   const brand = getBrand(id);
   const liveCampaigns = useLiveCampaigns(id || "");
@@ -69,6 +74,8 @@ export default function BrandPage() {
     if (!app.uid || !brand) return;
     visibleCampaigns.forEach((campaign) => { void recordCampaignAttribution({ brandId: brand.id, campaignId: campaign.id, channel: "brand_page", type: "impression", collectionId: campaign.collectionId, promotionId: campaign.promotionId }).catch(() => undefined); });
   }, [app.uid, brand?.id, visibleCampaigns.map((campaign) => campaign.id).join("|")]);
+
+  if (!brandsReady) return <BrandPageSkeleton colors={colors} />;
 
   if (!brand || !theme) {
     return (

@@ -229,8 +229,9 @@ const SEED: Brand[] = [
   }),
 ];
 
-let brands: Brand[] = [];
+let brands: Brand[] = [...SEED];
 let invites: BrandInvite[] = [];
+let brandsHydrated = false;
 let seededListings = false;
 const listeners = new Set<() => void>();
 function emit() {
@@ -279,6 +280,7 @@ async function hydrate() {
   } catch {
     brands = [...SEED];
   }
+  brandsHydrated = true;
   emit();
   void pullRemote();
 }
@@ -323,6 +325,16 @@ async function pullRemote() {
   } catch {
     /* stay local */
   }
+}
+
+export function useBrandsHydrated() {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const l = () => setTick((n) => n + 1);
+    listeners.add(l);
+    return () => { listeners.delete(l); };
+  }, []);
+  return brandsHydrated;
 }
 
 export function useBrands() {

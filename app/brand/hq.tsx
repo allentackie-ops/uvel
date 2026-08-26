@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { VerifiedMark } from "../../components/VerifiedMark";
+import { BrandHQSkeleton } from "../../components/ScreenSkeletons";
 import {
   canAccessHQ,
   canManageCatalog,
@@ -19,6 +20,7 @@ import {
   themeFor,
   updateBrand,
   useBrands,
+  useBrandsHydrated,
   type Brand,
   type BrandMember,
   type MemberRole,
@@ -80,6 +82,7 @@ const ROLE_OPTIONS: Array<Exclude<MemberRole, "owner">> = [
 export default function BrandHQ() {
   const { id } = useLocalSearchParams<{ id: string }>();
   useBrands();
+  const brandsReady = useBrandsHydrated();
   const app = useUvel();
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -98,6 +101,8 @@ export default function BrandHQ() {
     if (!id) return;
     return watchBrandOrders(id);
   }, [id]);
+
+  if (!brandsReady) return <BrandHQSkeleton colors={colors} />;
 
   if (!brand || !canAccessHQ(brand, app.uid)) {
     return (

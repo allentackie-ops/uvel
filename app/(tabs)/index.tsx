@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
+import { TodaySkeleton } from "../../components/ScreenSkeletons";
 import { VerifiedMark } from "../../components/VerifiedMark";
 import { unreadFor, useInbox } from "../../lib/chat";
 import { usd } from "../../lib/catalog";
@@ -32,7 +33,7 @@ import { AI_CONTENT_EXPLANATION, AI_CONTENT_LABEL } from "../../lib/contentLabel
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
-import { getPiece, likeCount, shopFloor, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { getPiece, likeCount, shopFloor, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
 
 const { width: W, height: H } = Dimensions.get("screen");
 
@@ -264,6 +265,7 @@ export default function Today() {
   const unread = chats.reduce((n, t) => n + unreadFor(t, uid || "me"), 0);
   const { looks, refreshing, refresh, loading } = useLooks();
   useWardrobe();
+  const wardrobeReady = useWardrobeHydrated();
   const live = shopFloor(country);
   const liveCampaigns = useLiveShopCampaigns();
   const followedIds = useMemo(() => followedBrandIds(uid || ""), [brandState, uid]);
@@ -297,6 +299,8 @@ export default function Today() {
   );
   const featured = visible[0] ?? looks[0];
   const hits = featured ? matchListings(featured, live, taste, followedIds).slice(0, 6) : [];
+
+  if ((loading || !wardrobeReady) && !looks.length) return <TodaySkeleton colors={colors} />;
 
   return (
     <View style={styles.page}>

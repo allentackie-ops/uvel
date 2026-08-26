@@ -7,6 +7,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { OrbitLoader } from "../../components/OrbitLoader";
+import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
 import { VerifiedMark } from "../../components/VerifiedMark";
 import { followedBrandIds, getBrand, ownedBrand, verifiedBrands, useBrands } from "../../lib/brands";
@@ -18,7 +19,7 @@ import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
 import { useLiveShopCampaigns } from "../../lib/marketing";
-import { getPiece, shopFloor, useWardrobe } from "../../lib/wardrobe";
+import { getPiece, shopFloor, useWardrobe, useWardrobeHydrated } from "../../lib/wardrobe";
 
 function FrozenClip({
   uri,
@@ -85,6 +86,7 @@ export default function Shop() {
   const [scanning, setScanning] = useState(false);
   const [job, setJob] = useState<LookScan | null>(null);
   useWardrobe();
+  const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
   const followedIds = useMemo(() => followedBrandIds(app.uid), [brandState, app.uid]);
   const followedKey = followedIds.join("|");
@@ -183,6 +185,8 @@ export default function Shop() {
     const rows = look ? matchListings(look, live, taste, followedIds) : forYou(live, taste, country, followedIds);
     return rows.filter(passQ);
   }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey]);
+
+  if (!wardrobeReady && !scanningLook) return <ShopSkeleton colors={colors} />;
 
   return (
     <ScrollView

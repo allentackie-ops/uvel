@@ -113,6 +113,7 @@ const NAMES: Record<Category, string[]> = {
 let pieces: ClosetPiece[] = [];
 const listeners = new Set<() => void>();
 let listingsWatchStarted = false;
+let wardrobeHydrated = false;
 
 function timestampMillis(value: unknown) {
   if (typeof value === "number") return value;
@@ -171,8 +172,13 @@ function watchPublicListings() {
 }
 
 async function hydrate() {
-  const raw = await AsyncStorage.getItem(KEY);
-  if (raw) pieces = (JSON.parse(raw) as ClosetPiece[]).map(normalize);
+  try {
+    const raw = await AsyncStorage.getItem(KEY);
+    if (raw) pieces = (JSON.parse(raw) as ClosetPiece[]).map(normalize);
+  } catch {
+    pieces = [];
+  }
+  wardrobeHydrated = true;
   listeners.forEach((l) => l());
   void import("./brands").then((m) => m.seedBrandFloor());
 }
@@ -193,6 +199,16 @@ async function persistRemote(piece: ClosetPiece) {
   } catch {
     /* Local listing remains visible; server analytics will ignore unsynced inventory. */
   }
+}
+
+export function useWardrobeHydrated() {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const l = () => setTick((n) => n + 1);
+    listeners.add(l);
+    return () => { listeners.delete(l); };
+  }, []);
+  return wardrobeHydrated;
 }
 
 export function useWardrobe() {
