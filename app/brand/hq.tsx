@@ -37,6 +37,8 @@ import { createOrderShipment, reviewOrderResolution, updateOrderFulfillment, upd
 import { addSupportInternalNote, updateSupportCase, useSupportCases, type SupportCase, type SupportStatus } from "../../lib/support";
 import { archivePiece, createBrandCatalogRemote, duplicatePiece, restorePiece, updateBrandCatalogRemote, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { shipsToLabel } from "../../lib/ships";
+import { readBrandAnalytics } from "../../lib/analytics";
+import { buildGrowthSnapshot, type GrowthSnapshot } from "../../lib/growth";
 import { saveBrandCampaign, saveBrandCollection, saveBrandPromotion, useMarketing, type BrandCampaign, type BrandCollection, type BrandPromotion, type MarketingState, type MarketingStatus } from "../../lib/marketing";
 
 type Section = "overview" | "catalog" | "orders" | "finance" | "marketing" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
@@ -122,7 +124,7 @@ export default function BrandHQ() {
       return;
     }
     if (next === "analytics") {
-      if (canSeeAnalytics(activeBrand, app.uid)) router.push({ pathname: "/brand/analytics", params: { id: activeBrand.id } });
+      if (canSeeAnalytics(activeBrand, app.uid)) setSection("analytics");
       return;
     }
     setSection(next);
@@ -184,6 +186,8 @@ export default function BrandHQ() {
           <FinanceSection brand={activeBrand} orders={brandOrders} viewer={canViewFinance(activeBrand, app.uid)} manager={canManagePayouts(activeBrand, app.uid)} theme={theme} styles={styles} onPayoutFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
         ) : section === "marketing" ? (
           <MarketingSection brand={activeBrand} pieces={catalog} state={marketing} viewer={canViewMarketing(activeBrand, app.uid)} manager={canManageMarketing(activeBrand, app.uid)} theme={theme} styles={styles} onFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
+        ) : section === "analytics" ? (
+          <AdvancedAnalyticsSection brand={activeBrand} orders={brandOrders} pieces={catalog} marketing={marketing} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} />
         ) : section === "support" ? (
           <SupportSection brand={activeBrand} cases={supportCases} manager={orderManager} theme={theme} styles={styles} viewerName={app.displayName || "Support agent"} />
         ) : section === "audit" ? (
@@ -579,6 +583,29 @@ function TeamSection({ brand, manager, theme, styles, onRole }: { brand: Brand; 
   );
 }
 
+function AdvancedAnalyticsSection({ brand, orders, pieces, marketing, viewer, theme, styles }: { brand: Brand; orders: Order[]; pieces: ClosetPiece[]; marketing: MarketingState; viewer: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  const currency = getMarket(brand.country).currency;
+  const [remote, setRemote] = useState<Awaited<ReturnType<typeof readBrandAnalytics>>>(null);
+  const [source, setSource] = useState<"loading" | "synced" | "local">("loading");
+  const local = useMemo(() => buildGrowthSnapshot(brand.id, orders, pieces, currency, marketing.collections, marketing.campaigns, marketing.promotions), [brand.id, orders, pieces, currency, marketing]);
+  useEffect(() => {
+    let alive = true;
+    setSource("loading");
+    void readBrandAnalytics(brand.id, currency).then((data) => { if (!alive) return; setRemote(data); setSource(data ? "synced" : "local"); }).catch(() => { if (alive) { setRemote(null); setSource("local"); } });
+    return () => { alive = false; };
+  }, [brand.id, currency]);
+  if (!viewer) return <View><Text style={[styles.sectionTitle, { color: theme.ink }]}>Advanced analytics</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Analytics are restricted to the owner unless the brand shares them with the team.</Text></View>;
+  const views = remote?.views ?? pieces.filter((piece) => piece.brandId === brand.id).reduce((sum, piece) => sum + (piece.views || 0), 0);
+  const likes = remote?.likes ?? pieces.filter((piece) => piece.brandId === brand.id).reduce((sum, piece) => sum + (piece.likedBy?.length || 0), 0);
+  const follows = remote?.follows ?? brand.follows;
+  const sold = remote?.sold ?? local.soldUnits;
+  const conversion = remote?.conversion ?? local.conversion;
+  const earnings = remote?.earningsCents ?? local.netCents;
+  return <View><View style={styles.sectionHead}><View style={{ flex: 1 }}><Text style={[styles.sectionTitle, { color: theme.ink }]}>Advanced analytics & growth</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Real performance signals from orders, listings, inventory, marketing, and tracked discovery.</Text></View></View><View style={[styles.analyticsSource, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={[styles.analyticsDot, { backgroundColor: source === "synced" ? theme.accent : theme.muted }]} /><Text style={[styles.analyticsSourceText, { color: theme.muted }]}>{source === "synced" ? "Synced with tracked brand analytics" : source === "loading" ? "Checking tracked analytics…" : "Using available order and catalog data until backend analytics sync is connected"}</Text></View><View style={styles.financeStats}><FinanceStat label="Net earnings" value={usd(earnings, currency)} theme={theme} styles={styles} /><FinanceStat label="Sold units" value={String(sold)} theme={theme} styles={styles} /><FinanceStat label="Conversion" value={`${conversion}%`} theme={theme} styles={styles} /></View><View style={styles.financeStats}><FinanceStat label="Views" value={formatAnalyticsCount(views)} theme={theme} styles={styles} /><FinanceStat label="Likes" value={formatAnalyticsCount(likes)} theme={theme} styles={styles} /><FinanceStat label="Followers" value={formatAnalyticsCount(follows)} theme={theme} styles={styles} /></View><View style={[styles.analyticsPanel, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.financeBreakdownTitle, { color: theme.ink }]}>Growth picture</Text><Text style={[styles.financeLine, { color: theme.muted }]}>Average item order value <Text style={{ color: theme.ink }}>{usd(local.averageOrderValueCents, currency)}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Returning buyers <Text style={{ color: theme.ink }}>{local.returningBuyers}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Live listings <Text style={{ color: theme.ink }}>{local.liveListings}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Available units <Text style={{ color: theme.ink }}>{local.totalAvailableUnits}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Return rate <Text style={{ color: theme.ink }}>{local.returnRate}%</Text></Text></View><Text style={[styles.financeHeading, { color: theme.ink }]}>Actionable signals</Text>{local.recommendations.map((item) => <View key={item.id} style={[styles.analyticsRecommendation, { backgroundColor: theme.card, borderColor: item.tone === "warning" ? theme.accent : theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.analyticsRecommendationTitle, { color: theme.ink }]}>{item.title}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{item.detail}</Text></View><Text style={[styles.analyticsTone, { color: item.tone === "warning" ? theme.accent : theme.muted }]}>{item.tone === "accent" ? "ACT" : item.tone === "warning" ? "CHECK" : "WATCH"}</Text></View>)}<Text style={[styles.financeHeading, { color: theme.ink }]}>Product intelligence</Text>{local.products.slice(0, 8).map((item) => <Pressable key={item.id} onPress={() => router.push({ pathname: "/closet/[id]", params: { id: item.id } })} style={[styles.analyticsProduct, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>{item.photo ? <Image source={{ uri: item.photo }} style={styles.analyticsProductImg} contentFit="cover" /> : <View style={[styles.analyticsProductImg, { backgroundColor: theme.bg }]} />}<View style={{ flex: 1 }}><Text style={[styles.marketingCardTitle, { color: theme.ink }]} numberOfLines={1}>{item.name}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{item.sold} sold · {item.views} views · {item.available} available</Text><Text style={[styles.financeLine, { color: theme.muted }]}>Conversion {item.conversion}% · Returns {item.returnRate}%</Text></View></Pressable>)}<Text style={[styles.financeHeading, { color: theme.ink }]}>Market performance</Text>{local.markets.length ? local.markets.map((market) => <View key={`${market.country}-${market.currency}`} style={[styles.analyticsMarket, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.marketingCardTitle, { color: theme.ink }]}>{market.country}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{market.orders} orders · {market.sold} sold · {market.currency}</Text></View><Text style={[styles.financeRowAmount, { color: theme.ink }]}>{usd(market.netCents, market.currency)}</Text></View>) : <Empty text="No paid orders by market yet." theme={theme} styles={styles} />}<View style={[styles.analyticsPanel, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.financeBreakdownTitle, { color: theme.ink }]}>Marketing footprint</Text><Text style={[styles.financeLine, { color: theme.muted }]}>Collections and campaigns <Text style={{ color: theme.ink }}>{local.campaignCount}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Live campaigns <Text style={{ color: theme.ink }}>{local.liveCampaignCount}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Live promotions <Text style={{ color: theme.ink }}>{local.activePromotionCount}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Low-stock listings <Text style={{ color: theme.ink }}>{local.lowStockListings}</Text></Text></View></View>;
+}
+
+function formatAnalyticsCount(value: number) { return value >= 1000 ? `${(value / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(value); }
+
 function MarketingSection({ brand, pieces, state, viewer, manager, theme, styles, onFocus }: { brand: Brand; pieces: ClosetPiece[]; state: MarketingState; viewer: boolean; manager: boolean; theme: HQTheme; styles: ReturnType<typeof make>; onFocus: () => void }) {
   const [tab, setTab] = useState<"collections" | "campaigns" | "promotions">("collections");
   const [collectionName, setCollectionName] = useState("");
@@ -969,6 +996,16 @@ function make(theme: HQTheme) {
     marketingProductTxt: { fontSize: 11, fontWeight: "700" },
     marketingCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 9, flexDirection: "row", alignItems: "center", gap: 10 },
     marketingCardTitle: { fontSize: 14, fontWeight: "900" },
+    analyticsSource: { borderWidth: 1, borderRadius: 12, padding: 10, marginTop: 10, flexDirection: "row", alignItems: "center", gap: 8 },
+    analyticsDot: { width: 7, height: 7, borderRadius: 4 },
+    analyticsSourceText: { flex: 1, fontSize: 11, lineHeight: 16 },
+    analyticsPanel: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 10 },
+    analyticsRecommendation: { borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 8, flexDirection: "row", alignItems: "center", gap: 10 },
+    analyticsRecommendationTitle: { fontSize: 13, fontWeight: "900", marginBottom: 2 },
+    analyticsTone: { fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
+    analyticsProduct: { borderWidth: 1, borderRadius: 14, padding: 10, marginTop: 8, flexDirection: "row", alignItems: "center", gap: 10 },
+    analyticsProductImg: { width: 48, height: 60, borderRadius: 8 },
+    analyticsMarket: { borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 8, flexDirection: "row", alignItems: "center", gap: 10 },
     payoutSetup: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 10 },
     payoutSetupHead: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 9 },
     payoutLabel: { fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.7, marginTop: 12, marginBottom: 5 },
