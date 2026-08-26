@@ -1724,6 +1724,11 @@ exports.saveBrandCampaign = onCall((req) => saveMarketingRecord(req, "brandCampa
   const endAt = marketingTime(input.endAt);
   if (startAt && endAt && endAt <= startAt) throw new HttpsError("invalid-argument", "Campaign end time must be after its start time.");
   const channel = CAMPAIGN_CHANNELS.has(String(input.channel || "")) ? String(input.channel) : "brand_page";
+  const collectionId = marketingText(input.collectionId, 160);
+  if (collectionId) {
+    const collectionSnap = await db.collection("brandCollections").doc(collectionId).get();
+    if (!collectionSnap.exists || collectionSnap.data()?.brandId !== brandId) throw new HttpsError("invalid-argument", "Choose a collection owned by this brand.");
+  }
   const promotionId = marketingText(input.promotionId, 160);
   if (promotionId) {
     const promotionSnap = await db.collection("brandPromotions").doc(promotionId).get();
@@ -1731,7 +1736,7 @@ exports.saveBrandCampaign = onCall((req) => saveMarketingRecord(req, "brandCampa
   }
   const requestedStatus = MARKETING_STATUSES.has(String(input.status || "draft")) ? String(input.status || "draft") : "draft";
   const status = requestedStatus === "live" && startAt && startAt > Date.now() ? "scheduled" : requestedStatus;
-  return { name: marketingText(input.name, 100), headline: marketingText(input.headline, 140), body: marketingText(input.body, 1000), channel, collectionId: marketingText(input.collectionId, 160) || undefined, promotionId: promotionId || undefined, productIds, status, ...(startAt ? { startAt } : {}), ...(endAt ? { endAt } : {}), createdAt: input.createdAt || admin.firestore.FieldValue.serverTimestamp() };
+  return { name: marketingText(input.name, 100), headline: marketingText(input.headline, 140), body: marketingText(input.body, 1000), channel, collectionId: collectionId || undefined, promotionId: promotionId || undefined, productIds, status, ...(startAt ? { startAt } : {}), ...(endAt ? { endAt } : {}), createdAt: input.createdAt || admin.firestore.FieldValue.serverTimestamp() };
 }));
 
 exports.saveBrandPromotion = onCall((req) => saveMarketingRecord(req, "brandPromotions", "promotion", "promotion_saved", req.data || {}, async (db, brandId, id, input) => {
