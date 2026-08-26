@@ -135,6 +135,11 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /payoutProfiles/{brandId} {
+      allow read: if signedIn() && isBrandMember(brandId);
+      allow create, update, delete: if false;
+    }
+
     match /orders/{orderId} {
       allow read: if signedIn() &&
         (resource.data.buyerId == request.auth.uid ||

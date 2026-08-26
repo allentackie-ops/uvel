@@ -26,7 +26,7 @@ import {
   canViewFinance,
 } from "../../lib/brands";
 import { usd } from "../../lib/catalog";
-import { financeTotals, requestBrandPayout, settlementLedger, usePayouts, type SettlementEntry } from "../../lib/finance";
+import { financeTotals, requestBrandPayout, savePayoutProfile, settlementLedger, usePayoutProfile, usePayouts, type PayoutDestinationType, type SettlementEntry } from "../../lib/finance";
 import { useUvel } from "../../lib/store";
 import { useColors } from "../../lib/theme";
 import { MARKETS, getMarket } from "../../lib/markets";
@@ -570,6 +570,7 @@ function TeamSection({ brand, manager, theme, styles, onRole }: { brand: Brand; 
 
 function FinanceSection({ brand, orders, viewer, manager, theme, styles }: { brand: Brand; orders: Order[]; viewer: boolean; manager: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const payouts = usePayouts(brand.id);
+  const profile = usePayoutProfile(brand.id);
   const ledger = settlementLedger(orders, brand.id);
   const currencies = Array.from(new Set(ledger.map((entry) => entry.currency)));
   const [currency, setCurrency] = useState(currencies[0] || "");
@@ -606,6 +607,7 @@ function FinanceSection({ brand, orders, viewer, manager, theme, styles }: { bra
     <View>
       <View style={styles.sectionHead}><View style={{ flex: 1 }}><Text style={[styles.sectionTitle, { color: theme.ink }]}>Finance & settlements</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Order-linked earnings, refunds, available balance, and payouts.</Text></View></View>
       {currencies.length > 1 ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.orderFilters}>{currencies.map((option) => <Pressable key={option} onPress={() => setCurrency(option)} style={[styles.orderFilter, { borderColor: currency === option ? theme.accent : theme.lineColor, backgroundColor: currency === option ? theme.accent : theme.card }]}><Text style={[styles.orderFilterTxt, { color: currency === option ? theme.accentInk : theme.ink }]}>{option}</Text></Pressable>)}</ScrollView> : null}
+      <PayoutSetup brand={brand} profile={profile} manager={manager} currency={currency || getMarket(brand.country).currency} theme={theme} styles={styles} />
       {!totals ? <Empty text="No paid brand orders yet. Settlement balances will appear after payment confirmation." theme={theme} styles={styles} /> : <>
         <View style={styles.financeStats}><FinanceStat label="Net item earnings" value={usd(totals.netCents, currency)} theme={theme} styles={styles} /><FinanceStat label="Available" value={usd(totals.availableCents, currency)} theme={theme} styles={styles} /><FinanceStat label="Pending" value={usd(totals.pendingCents, currency)} theme={theme} styles={styles} /></View>
         <View style={[styles.financeBreakdown, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.financeBreakdownTitle, { color: theme.ink }]}>Settlement breakdown · {currency}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>Gross item sales <Text style={{ color: theme.ink }}>{usd(totals.grossCents, currency)}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Uvel fees <Text style={{ color: theme.ink }}>−{usd(totals.feesCents, currency)}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Refunds <Text style={{ color: theme.ink }}>−{usd(totals.refundsCents, currency)}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Payouts reserved <Text style={{ color: theme.ink }}>−{usd(totals.paidOutCents, currency)}</Text></Text></View>
@@ -615,6 +617,41 @@ function FinanceSection({ brand, orders, viewer, manager, theme, styles }: { bra
       </>}
     </View>
   );
+}
+
+function PayoutSetup({ brand, profile, manager, currency, theme, styles }: { brand: Brand; profile?: import("../../lib/finance").PayoutProfile; manager: boolean; currency: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  const [destinationType, setDestinationType] = useState<PayoutDestinationType>(profile?.destinationType || "bank");
+  const [legalName, setLegalName] = useState(profile?.legalName || brand.legalName || "");
+  const [registrationId, setRegistrationId] = useState(profile?.registrationId || brand.registrationId || "");
+  const [accountHolderName, setAccountHolderName] = useState(profile?.accountHolderName || "");
+  const [institutionName, setInstitutionName] = useState(profile?.institutionName || "");
+  const [destination, setDestination] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!profile) return;
+    setDestinationType(profile.destinationType);
+    setLegalName(profile.legalName);
+    setRegistrationId(profile.registrationId);
+    setAccountHolderName(profile.accountHolderName);
+    setInstitutionName(profile.institutionName);
+  }, [profile?.updatedAt]);
+
+  async function save() {
+    if (!manager || busy) return;
+    setBusy(true);
+    try {
+      await savePayoutProfile({ brandId: brand.id, destinationType, country: brand.country, currency: currency || "USD", legalName, registrationId, accountHolderName, institutionName, destination });
+      setDestination("");
+      Alert.alert("Payout profile submitted", "Your payout destination is saved securely for review. Raw account details are not stored in the app.");
+    } catch (error) {
+      Alert.alert("Payout setup", error instanceof Error ? error.message : "Could not save payout setup.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const statusLabel = profile?.status === "verified" ? "Verified" : profile?.status === "needs_attention" ? "Needs attention" : profile?.status === "submitted" ? "Submitted for review" : "Not set up";
+  return <View style={[styles.payoutSetup, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={styles.payoutSetupHead}><View style={{ flex: 1 }}><Text style={[styles.financeBreakdownTitle, { color: theme.ink }]}>Payout setup & compliance</Text><Text style={[styles.financeLine, { color: theme.muted }]}>Payouts must match the verified business filing.</Text></View><Text style={[styles.payoutStatus, { color: profile?.status === "verified" ? theme.accent : theme.muted }]}>{statusLabel}</Text></View><Text style={[styles.financeLine, { color: theme.muted }]}>Business: <Text style={{ color: theme.ink }}>{brand.legalName || brand.name}</Text> · Registration: <Text style={{ color: theme.ink }}>{brand.registrationId || "Not provided"}</Text></Text>{profile?.destinationLast4 ? <Text style={[styles.financeLine, { color: theme.muted, marginTop: 5 }]}>Saved destination: <Text style={{ color: theme.ink }}>{profile.destinationType === "bank" ? "Bank" : "Mobile money"} ending in {profile.destinationLast4}</Text></Text> : null}{manager ? <><Text style={[styles.payoutLabel, { color: theme.muted }]}>Destination type</Text><View style={styles.payoutTypeRow}><Pressable onPress={() => setDestinationType("bank")} style={[styles.payoutTypeChip, { borderColor: destinationType === "bank" ? theme.accent : theme.lineColor, backgroundColor: destinationType === "bank" ? theme.accent : theme.bg }]}><Text style={[styles.payoutTypeText, { color: destinationType === "bank" ? theme.accentInk : theme.ink }]}>Bank account</Text></Pressable><Pressable onPress={() => setDestinationType("mobile_money")} style={[styles.payoutTypeChip, { borderColor: destinationType === "mobile_money" ? theme.accent : theme.lineColor, backgroundColor: destinationType === "mobile_money" ? theme.accent : theme.bg }]}><Text style={[styles.payoutTypeText, { color: destinationType === "mobile_money" ? theme.accentInk : theme.ink }]}>Mobile money</Text></Pressable></View><TextInput value={legalName} onChangeText={setLegalName} placeholder="Verified legal business name" placeholderTextColor={theme.muted} style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} /><TextInput value={registrationId} onChangeText={setRegistrationId} placeholder="Registration ID" placeholderTextColor={theme.muted} style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} /><TextInput value={accountHolderName} onChangeText={setAccountHolderName} placeholder="Account holder name" placeholderTextColor={theme.muted} style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} /><TextInput value={institutionName} onChangeText={setInstitutionName} placeholder={destinationType === "bank" ? "Bank name" : "Mobile-money provider"} placeholderTextColor={theme.muted} style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} /><TextInput value={destination} onChangeText={(value) => setDestination(value.replace(/[^0-9]/g, ""))} placeholder={destinationType === "bank" ? "Account number" : "Mobile-money number"} placeholderTextColor={theme.muted} keyboardType="number-pad" secureTextEntry style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} /><Pressable disabled={busy} onPress={() => void save()} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>{busy ? "Saving…" : "Save payout profile"}</Text></Pressable></> : <Text style={[styles.financeLine, { color: theme.muted, marginTop: 9 }]}>Only owners and admins can edit payout setup. Finance members can review its status.</Text>}</View>;
 }
 
 function FinanceStat({ label, value, theme, styles }: { label: string; value: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
@@ -839,6 +876,12 @@ function make(theme: HQTheme) {
     financeBreakdownTitle: { fontSize: 14, fontWeight: "800", marginBottom: 8 },
     financeLine: { fontSize: 12, lineHeight: 21 },
     payoutCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 10 },
+    payoutSetup: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 10 },
+    payoutSetupHead: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 9 },
+    payoutLabel: { fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.7, marginTop: 12, marginBottom: 5 },
+    payoutTypeRow: { flexDirection: "row", gap: 8 },
+    payoutTypeChip: { flex: 1, minHeight: 40, borderWidth: 1, borderRadius: 11, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
+    payoutTypeText: { fontSize: 12, fontWeight: "800" },
     payoutInput: { height: 42, borderWidth: 1, borderRadius: 11, paddingHorizontal: 11, fontSize: 13, marginTop: 11 },
     financeHeading: { fontSize: 16, fontWeight: "900", marginTop: 20, marginBottom: 2 },
     financeRow: { borderWidth: 1, borderRadius: 14, padding: 10, marginTop: 8, flexDirection: "row", alignItems: "center", gap: 10 },

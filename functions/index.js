@@ -1144,7 +1144,7 @@ async function recordProviderRefund(orderId, providerId, providerStatus) {
 const AUDIT_ACTIONS = new Set([
   "product_created", "product_updated", "product_published", "product_drafted", "product_archived", "product_restored", "product_duplicated",
   "price_updated", "inventory_updated", "market_updated", "order_fulfillment_updated", "resolution_requested", "resolution_approved", "resolution_rejected", "resolution_reviewed",
-  "return_received", "refund_requested", "refund_succeeded", "restock_confirmed", "restock_decided", "team_role_updated", "brand_settings_updated", "support_case_created", "support_case_updated", "support_note_added", "payout_requested",
+  "return_received", "refund_requested", "refund_succeeded", "restock_confirmed", "restock_decided", "team_role_updated", "brand_settings_updated", "support_case_created", "support_case_updated", "support_note_added", "payout_requested", "payout_profile_submitted",
 ]);
 const AUDIT_ENTITIES = new Set(["product", "order", "team", "brand", "resolution", "payout"]);
 
@@ -1473,4 +1473,31 @@ exports.requestBrandPayout = onCall(async (req) => {
   await db.collection("payouts").doc(payoutId).set({ id: payoutId, brandId, currency, amountCents, status: "requested", requestedByUid: req.auth.uid, requestedAt: admin.firestore.FieldValue.serverTimestamp() });
   await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand admin"), action: "payout_requested", entity: "payout", entityId: payoutId, entityName: `${currency} payout`, summary: "Brand payout requested.", metadata: { amountCents, currency } });
   return { ok: true, payoutId, status: "requested" };
+});
+
+exports.savePayoutProfile = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const input = req.data || {};
+  const brandId = String(input.brandId || "").trim();
+  const destinationType = String(input.destinationType || "");
+  const country = String(input.country || "").toUpperCase();
+  const currency = String(input.currency || "").toUpperCase();
+  const legalName = String(input.legalName || "").trim().slice(0, 200);
+  const registrationId = String(input.registrationId || "").trim().slice(0, 120);
+  const accountHolderName = String(input.accountHolderName || "").trim().slice(0, 160);
+  const institutionName = String(input.institutionName || "").trim().slice(0, 160);
+  const destination = String(input.destination || "").replace(/\D/g, "");
+  if (!brandId || !["bank", "mobile_money"].includes(destinationType) || !/^[A-Z]{2}$/.test(country) || !/^[A-Z]{3}$/.test(currency) || !legalName || !registrationId || !accountHolderName || !institutionName || destination.length < 4) throw new HttpsError("invalid-argument", "Complete all payout and compliance fields.");
+  const db = admin.firestore();
+  const brandSnap = await db.collection("brands").doc(brandId).get();
+  if (!brandSnap.exists) throw new HttpsError("not-found", "Brand not found.");
+  const brand = brandSnap.data() || {};
+  const role = await brandMemberRole(db, brandId, req.auth.uid);
+  if (!role || !["owner", "admin"].includes(role)) throw new HttpsError("permission-denied", "Only brand owners and admins can edit payout setup.");
+  if (String(brand.legalName || "").trim() && legalName.toLowerCase() !== String(brand.legalName).trim().toLowerCase()) throw new HttpsError("failed-precondition", "The payout legal name must match the verified brand filing.");
+  if (String(brand.registrationId || "").trim() && registrationId.toLowerCase() !== String(brand.registrationId).trim().toLowerCase()) throw new HttpsError("failed-precondition", "The registration ID must match the verified brand filing.");
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  await db.collection("payoutProfiles").doc(brandId).set({ brandId, status: "submitted", destinationType, country, currency, legalName, registrationId, accountHolderName, institutionName, destinationLast4: destination.slice(-4), updatedAt: now, submittedByUid: req.auth.uid }, { merge: true });
+  await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand admin"), action: "payout_profile_submitted", entity: "payout", entityId: brandId, entityName: "Payout profile", summary: "Payout profile submitted for review.", metadata: { destinationType, country, currency } });
+  return { ok: true, brandId, status: "submitted", destinationLast4: destination.slice(-4) };
 });
