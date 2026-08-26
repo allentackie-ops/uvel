@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { confirmOrderReturnSent, requestOrderResolution, useOrders, watchOrder, type FulfillmentStatus } from "../../lib/orders";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, type Colors } from "../../lib/theme";
@@ -28,6 +28,7 @@ export default function OrderDone() {
   const confirmed = status === "paid";
   const fulfillmentLabel = fulfillment === "processing" ? "Being prepared" : fulfillment === "packed" ? "Packed" : fulfillment === "shipped" ? "On the way" : fulfillment === "delivered" ? "Delivered" : fulfillment === "canceled" ? "Canceled" : fulfillment === "returned" ? "Returned" : "Awaiting fulfillment";
   const resolution = currentOrder?.resolution;
+  const shipment = currentOrder?.shipment;
   const canCancel = confirmed && ["unfulfilled", "processing", "packed"].includes(fulfillment || "unfulfilled") && !resolution;
   const canReturn = confirmed && fulfillment === "delivered" && !resolution;
   const reasonOptions = [
@@ -84,7 +85,7 @@ export default function OrderDone() {
           : "We’re waiting for the payment provider to confirm this order. You can leave this screen; the order will update when confirmation arrives."}
       </Text>
       {confirmed ? <Text style={styles.status}>{fulfillmentLabel}</Text> : null}
-      {currentOrder?.trackingNumber ? <Text style={styles.tracking}>{currentOrder.carrier ? `${currentOrder.carrier} · ` : ""}{currentOrder.trackingNumber}</Text> : null}
+      {shipment ? <View style={styles.shipmentCard}><Text style={styles.shipmentK}>SHIPMENT · {shipment.status.replace("_", " ")}</Text><Text style={styles.tracking}>{shipment.carrier} · {shipment.trackingNumber}</Text>{shipment.trackingUrl ? <Pressable onPress={() => void Linking.openURL(shipment.trackingUrl || "")}><Text style={styles.trackingLink}>Open carrier tracking ↗</Text></Pressable> : null}{shipment.estimatedDeliveryAt ? <Text style={styles.shipmentMeta}>Estimated delivery: {new Date(shipment.estimatedDeliveryAt).toLocaleDateString()}</Text> : null}{shipment.lastLocation ? <Text style={styles.shipmentMeta}>Last location: {shipment.lastLocation}</Text> : null}{shipment.status === "exception" ? <Text style={styles.exception}>Delivery exception: {shipment.exceptionCode?.replace("_", " ") || "Carrier issue"}{shipment.exceptionNote ? ` · ${shipment.exceptionNote}` : ""}</Text> : null}</View> : currentOrder?.trackingNumber ? <Text style={styles.tracking}>{currentOrder.carrier ? `${currentOrder.carrier} · ` : ""}{currentOrder.trackingNumber}</Text> : null}
       {resolution ? <View style={styles.resolutionCard}><Text style={styles.resolutionK}>{resolution.type === "return" ? "RETURN" : "CANCELLATION"}</Text><Text style={styles.resolutionText}>{resolution.status === "requested" ? "Waiting for brand review" : resolution.status === "approved" ? "Approved" : resolution.status === "item_sent" ? "Return marked as sent" : resolution.status === "received" ? "Return received · refund processing" : resolution.status === "refunded" ? "Refund complete" : resolution.status === "rejected" ? "Request declined" : resolution.status.replace("_", " ")}</Text>{resolution.type === "return" && resolution.status === "approved" ? <Pressable disabled={busy} onPress={() => void markReturnSent()} style={[styles.actionBtn, busy && styles.actionBtnOff]}><Text style={styles.actionTxt}>{busy ? "Updating…" : "I sent the return"}</Text></Pressable> : null}</View> : null}
       {currentOrder?.refundStatus && currentOrder.refundStatus !== "none" ? <Text style={styles.refund}>Refund: {currentOrder.refundStatus === "succeeded" ? "Complete" : currentOrder.refundStatus === "failed" ? "Needs attention" : "Processing"}</Text> : null}
       {canCancel ? <Pressable disabled={busy} onPress={() => chooseResolution("cancellation")} style={[styles.secondaryBtn, busy && styles.actionBtnOff]}><Text style={styles.secondaryTxt}>Request cancellation</Text></Pressable> : null}
@@ -105,6 +106,11 @@ function make(colors: Colors) {
     p: { color: colors.muted, marginTop: 14, lineHeight: 22, fontSize: 16 },
     status: { alignSelf: "flex-start", color: colors.pulseInk, backgroundColor: colors.pulse, borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8, marginTop: 20, fontWeight: "800" },
     tracking: { color: colors.bone, marginTop: 12, fontSize: 14, fontWeight: "700" },
+    shipmentCard: { marginTop: 16, padding: 14, borderRadius: 16, backgroundColor: "#24221C", borderWidth: 1, borderColor: "rgba(214,226,122,0.28)" },
+    shipmentK: { color: colors.pulse, fontSize: 10, letterSpacing: 1.4, fontWeight: "800" },
+    trackingLink: { color: colors.pulse, marginTop: 8, fontSize: 13, fontWeight: "800" },
+    shipmentMeta: { color: colors.muted, marginTop: 8, fontSize: 12 },
+    exception: { color: colors.pulse, marginTop: 9, fontSize: 12, lineHeight: 18, fontWeight: "700" },
     resolutionCard: { marginTop: 18, padding: 14, borderRadius: 16, backgroundColor: "#24221C", borderWidth: 1, borderColor: "rgba(214,226,122,0.28)" },
     resolutionK: { color: colors.pulse, fontSize: 10, letterSpacing: 1.4, fontWeight: "800" },
     resolutionText: { color: colors.bone, fontSize: 14, fontWeight: "700", marginTop: 6, textTransform: "capitalize" },

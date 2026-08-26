@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { VerifiedMark } from "../../components/VerifiedMark";
 import {
@@ -28,7 +28,7 @@ import { useUvel } from "../../lib/store";
 import { useColors } from "../../lib/theme";
 import { MARKETS, getMarket } from "../../lib/markets";
 import { recordAuditEvent, useAudit, type AuditEvent } from "../../lib/audit";
-import { reviewOrderResolution, updateOrderFulfillment, useOrders, watchBrandOrders, type FulfillmentStatus, type Order } from "../../lib/orders";
+import { createOrderShipment, reviewOrderResolution, updateOrderFulfillment, updateOrderShipment, useOrders, watchBrandOrders, type FulfillmentStatus, type Order, type ShippingExceptionCode } from "../../lib/orders";
 import { archivePiece, createBrandCatalogRemote, duplicatePiece, restorePiece, updateBrandCatalogRemote, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { shipsToLabel } from "../../lib/ships";
 
@@ -431,8 +431,12 @@ function OrderCard({ order, manager, reviewer, theme, styles }: { order: Order; 
   const [expanded, setExpanded] = useState(false);
   const [carrier, setCarrier] = useState(order.carrier || "");
   const [tracking, setTracking] = useState(order.trackingNumber || "");
+  const [trackingUrl, setTrackingUrl] = useState(order.shipment?.trackingUrl || "");
+  const [exceptionNote, setExceptionNote] = useState("");
   const [busy, setBusy] = useState(false);
   const next = nextFulfillment(fulfillment);
+  const shipment = order.shipment;
+  const shipmentStatus = shipment?.status || (order.trackingNumber ? "in_transit" : "label_pending");
   const buyer = order.address?.name || "Buyer";
   const resolution = order.resolution;
   const resolutionLabel = resolution ? `${resolution.type === "return" ? "Return" : "Cancellation"} · ${resolution.status.replace("_", " ")}` : "";
@@ -446,12 +450,37 @@ function OrderCard({ order, manager, reviewer, theme, styles }: { order: Order; 
     }
     setBusy(true);
     try {
-      await updateOrderFulfillment(order.id, { fulfillmentStatus: next, carrier: carrier.trim(), trackingNumber: tracking.trim() });
+      if (next === "shipped") {
+        await createOrderShipment(order.id, { carrier: carrier.trim(), trackingNumber: tracking.trim(), trackingUrl: trackingUrl.trim() || undefined });
+      } else if (next === "delivered" && shipment) {
+        await updateOrderShipment(order.id, "delivered");
+      } else {
+        await updateOrderFulfillment(order.id, { fulfillmentStatus: next, carrier: carrier.trim(), trackingNumber: tracking.trim() });
+      }
     } catch (error) {
       Alert.alert("Order update", error instanceof Error ? error.message : "Could not update this order.");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function reportException(code: ShippingExceptionCode) {
+    if (!manager || !shipment || busy) return;
+    const note = exceptionNote.trim() || `Brand HQ reported a ${code.replace("_", " ")} exception.`;
+    setBusy(true);
+    try {
+      await updateOrderShipment(order.id, "exception", { exceptionCode: code, note });
+      setExceptionNote("");
+    } catch (error) {
+      Alert.alert("Shipment exception", error instanceof Error ? error.message : "Could not record this exception.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function chooseException() {
+    const options: Array<[ShippingExceptionCode, string]> = [["address_issue", "Address issue"], ["carrier_delay", "Carrier delay"], ["damaged", "Damaged in transit"], ["lost", "Lost shipment"], ["recipient_unavailable", "Recipient unavailable"], ["customs", "Customs hold"], ["other", "Other"]];
+    Alert.alert("Report delivery exception", "Choose the issue affecting this shipment.", [...options.map(([code, label]) => ({ text: label, onPress: () => void reportException(code) })), { text: "Cancel", style: "cancel" as const }]);
   }
 
   async function review(decision: "approve" | "reject" | "mark_received" | "confirm_restock" | "skip_restock") {
@@ -482,12 +511,13 @@ function OrderCard({ order, manager, reviewer, theme, styles }: { order: Order; 
           <Text style={[styles.orderKicker, { color: theme.muted }]}>ORDER {order.id}</Text>
           <Text style={[styles.detailValue, { color: theme.ink }]}>{order.address?.line1}{order.address?.line2 ? `, ${order.address.line2}` : ""}, {order.address?.city}, {order.address?.region} {order.address?.postal}</Text>
           <Text style={[styles.orderMeta, { color: theme.muted }]}>Payment: {order.status} · Method: {order.payMethod} · {new Date(order.createdAt).toLocaleDateString()}{order.variantLabel || order.variantKey ? ` · Size ${order.variantLabel || order.variantKey}` : ""}</Text>
-          {order.trackingNumber ? <Text style={[styles.orderMeta, { color: theme.muted }]}>Tracking: {order.carrier || "Carrier"} · {order.trackingNumber}</Text> : null}
+          {shipment ? <View style={[styles.shipmentBox, { borderColor: theme.lineColor }]}><Text style={[styles.orderKicker, { color: theme.muted }]}>SHIPMENT · {shipmentStatus.replace("_", " ")}</Text><Text style={[styles.orderMeta, { color: theme.ink }]}>{shipment.carrier} · {shipment.trackingNumber}</Text>{shipment.trackingUrl ? <Pressable onPress={() => void Linking.openURL(shipment.trackingUrl || "")}><Text style={[styles.trackingLink, { color: theme.accent }]}>Open carrier tracking ↗</Text></Pressable> : null}{shipment.lastLocation ? <Text style={[styles.orderMeta, { color: theme.muted }]}>Last location: {shipment.lastLocation}</Text> : null}{shipment.status === "exception" ? <Text style={[styles.exceptionText, { color: theme.accent }]}>Exception: {shipment.exceptionCode?.replace("_", " ") || "Delivery issue"}{shipment.exceptionNote ? ` · ${shipment.exceptionNote}` : ""}</Text> : null}{manager && shipment.status !== "delivered" && shipment.status !== "returned" && shipment.status !== "exception" ? <><TextInput value={exceptionNote} onChangeText={setExceptionNote} placeholder="Optional exception note" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} /><Pressable disabled={busy} onPress={chooseException} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Report delivery exception</Text></Pressable></> : null}</View> : order.trackingNumber ? <Text style={[styles.orderMeta, { color: theme.muted }]}>Tracking: {order.carrier || "Carrier"} · {order.trackingNumber}</Text> : null}
           {resolution ? <View style={[styles.resolutionBox, { borderColor: theme.lineColor }]}><Text style={[styles.orderKicker, { color: theme.muted }]}>{resolutionLabel}</Text><Text style={[styles.orderMeta, { color: theme.muted }]}>Reason: {resolution.reason.replace("_", " ")}{resolution.note ? ` · ${resolution.note}` : ""}</Text>{reviewer && resolution.status === "requested" ? <View style={styles.orderActions}><Pressable disabled={busy} onPress={() => void review("reject")} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Reject</Text></Pressable><Pressable disabled={busy} onPress={() => void review("approve")} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Approve</Text></Pressable></View> : null}{reviewer && resolution.type === "return" && resolution.status === "item_sent" ? <View style={styles.orderActions}><Pressable disabled={busy} onPress={() => void review("reject")} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Reject</Text></Pressable><Pressable disabled={busy} onPress={() => void review("mark_received")} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Mark received</Text></Pressable></View> : null}{reviewer && resolution.type === "return" && resolution.status === "received" ? <View style={styles.orderActions}><Pressable disabled={busy} onPress={() => void review("skip_restock")} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Do not restock</Text></Pressable><Pressable disabled={busy} onPress={() => void review("confirm_restock")} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Restock item</Text></Pressable></View> : null}</View> : null}
           {manager && order.status === "paid" && next ? (
             <>
               <TextInput value={carrier} onChangeText={setCarrier} placeholder="Carrier" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} />
               <TextInput value={tracking} onChangeText={setTracking} placeholder="Tracking number (required before shipping)" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} autoCapitalize="characters" />
+              <TextInput value={trackingUrl} onChangeText={setTrackingUrl} placeholder="Carrier tracking URL (optional)" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} autoCapitalize="none" keyboardType="url" />
               <View style={styles.orderActions}>
                 <Pressable disabled={busy} onPress={() => void advance()} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>{busy ? "Saving…" : FULFILLMENT_LABELS[next]}</Text></Pressable>
               </View>
@@ -677,6 +707,9 @@ function make(theme: HQTheme) {
     orderMeta: { fontSize: 11, lineHeight: 16, marginTop: 4 },
     orderTotal: { fontSize: 12, fontWeight: "800", marginTop: 5 },
     orderDetail: { borderTopWidth: StyleSheet.hairlineWidth, padding: 14 },
+    shipmentBox: { borderWidth: 1, borderRadius: 14, padding: 11, marginTop: 10 },
+    trackingLink: { fontSize: 12, fontWeight: "800", marginTop: 7 },
+    exceptionText: { fontSize: 12, lineHeight: 17, marginTop: 7, fontWeight: "700" },
     resolutionBox: { marginTop: 12, padding: 11, borderWidth: 1, borderRadius: 12 },
     orderKicker: { fontSize: 10, letterSpacing: 1.2, fontWeight: "800" },
     orderInput: { height: 40, borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, fontSize: 13, marginTop: 9 },

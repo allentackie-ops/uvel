@@ -1260,3 +1260,74 @@ exports.createBrandCatalog = onCall(async (req) => {
   await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: "product_duplicated", entity: "product", entityId: listingId, entityName: String(product.name || "Product"), summary: "Product created as a catalog draft." });
   return { ok: true, listingId, status: "draft" };
 });
+
+const SHIPMENT_TRANSITIONS = {
+  label_pending: new Set(["in_transit", "exception", "returned"]),
+  in_transit: new Set(["out_for_delivery", "delivered", "exception", "returned"]),
+  out_for_delivery: new Set(["delivered", "exception", "returned"]),
+  exception: new Set(["in_transit", "out_for_delivery", "delivered", "returned"]),
+  delivered: new Set(["returned"]),
+  returned: new Set(),
+};
+const SHIPMENT_STATUSES = new Set(["label_pending", "in_transit", "out_for_delivery", "delivered", "exception", "returned"]);
+const SHIPPING_EXCEPTION_CODES = new Set(["address_issue", "carrier_delay", "damaged", "lost", "recipient_unavailable", "customs", "other"]);
+
+function shipmentRoleAllowed(role) {
+  return ["owner", "admin", "support"].includes(role);
+}
+
+function safeShipmentInput(data) {
+  const carrier = String(data?.carrier || "").trim().slice(0, 80);
+  const trackingNumber = String(data?.trackingNumber || "").trim().slice(0, 120);
+  const trackingUrl = data?.trackingUrl ? String(data.trackingUrl).trim().slice(0, 500) : "";
+  if (!carrier || !trackingNumber) throw new HttpsError("invalid-argument", "Carrier and tracking number are required.");
+  if (trackingUrl && !/^https?:\/\//i.test(trackingUrl)) throw new HttpsError("invalid-argument", "Tracking URL must be a valid web URL.");
+  return { carrier, trackingNumber, trackingUrl };
+}
+
+exports.createOrderShipment = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const orderId = String(req.data?.orderId || "").trim();
+  const db = admin.firestore();
+  const orderRef = db.collection("orders").doc(orderId);
+  const snap = await orderRef.get();
+  if (!snap.exists) throw new HttpsError("not-found", "Order not found.");
+  const order = snap.data() || {};
+  const role = await brandMemberRole(db, order.brandId, req.auth.uid);
+  if (!role || !shipmentRoleAllowed(role)) throw new HttpsError("permission-denied", "Your role cannot create shipments.");
+  if (order.status !== "paid" || String(order.fulfillmentStatus || "unfulfilled") !== "packed") throw new HttpsError("failed-precondition", "Only packed paid orders can be shipped.");
+  const input = safeShipmentInput(req.data);
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const shipmentId = `sh-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  const shipment = { id: shipmentId, carrier: input.carrier, trackingNumber: input.trackingNumber, ...(input.trackingUrl ? { trackingUrl: input.trackingUrl } : {}), status: "in_transit", shippedAt: now, lastEventAt: now, createdAt: now, updatedAt: now };
+  await orderRef.set({ carrier: input.carrier, trackingNumber: input.trackingNumber, shipment, fulfillmentStatus: "shipped", fulfillmentUpdatedAt: now }, { merge: true });
+  await writeAudit(db, { brandId: String(order.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: "order_fulfillment_updated", entity: "order", entityId: orderId, entityName: String(order.pieceName || "Order"), summary: `Shipment created with ${input.carrier}.`, metadata: { shipmentStatus: "in_transit", carrier: input.carrier } });
+  return { ok: true, orderId, shipmentId, status: "in_transit" };
+});
+
+exports.updateOrderShipment = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const orderId = String(req.data?.orderId || "").trim();
+  const nextStatus = String(req.data?.status || "").trim();
+  if (!SHIPMENT_STATUSES.has(nextStatus)) throw new HttpsError("invalid-argument", "Invalid shipment status.");
+  const db = admin.firestore();
+  const orderRef = db.collection("orders").doc(orderId);
+  const snap = await orderRef.get();
+  if (!snap.exists) throw new HttpsError("not-found", "Order not found.");
+  const order = snap.data() || {};
+  const role = await brandMemberRole(db, order.brandId, req.auth.uid);
+  if (!role || !shipmentRoleAllowed(role)) throw new HttpsError("permission-denied", "Your role cannot update shipments.");
+  const shipment = order.shipment || {};
+  const currentStatus = String(shipment.status || "label_pending");
+  if (!SHIPMENT_TRANSITIONS[currentStatus] || !SHIPMENT_TRANSITIONS[currentStatus].has(nextStatus)) throw new HttpsError("failed-precondition", `Shipment cannot move from ${currentStatus} to ${nextStatus}.`);
+  const exceptionCode = req.data?.exceptionCode ? String(req.data.exceptionCode) : "";
+  const note = req.data?.note ? String(req.data.note).trim().slice(0, 240) : "";
+  const location = req.data?.location ? String(req.data.location).trim().slice(0, 120) : "";
+  if (nextStatus === "exception" && (!SHIPPING_EXCEPTION_CODES.has(exceptionCode) || !note)) throw new HttpsError("invalid-argument", "Exception code and note are required.");
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  const nextShipment = { ...shipment, status: nextStatus, updatedAt: now, lastEventAt: now, ...(location ? { lastLocation: location } : {}), ...(nextStatus === "exception" ? { exceptionCode, exceptionNote: note } : {}), ...(nextStatus === "delivered" ? { deliveredAt: now } : {}) };
+  const fulfillmentStatus = nextStatus === "delivered" ? "delivered" : nextStatus === "returned" ? "returned" : "shipped";
+  await orderRef.set({ shipment: nextShipment, fulfillmentStatus, fulfillmentUpdatedAt: now, ...(nextStatus === "delivered" ? { deliveredAt: now } : {}) }, { merge: true });
+  await writeAudit(db, { brandId: String(order.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: "order_fulfillment_updated", entity: "order", entityId: orderId, entityName: String(order.pieceName || "Order"), summary: `Shipment updated to ${nextStatus.replace("_", " ")}.`, metadata: { shipmentStatus: nextStatus, ...(exceptionCode ? { exceptionCode } : {}) } });
+  return { ok: true, orderId, status: nextStatus };
+});

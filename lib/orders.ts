@@ -18,6 +18,26 @@ export type Address = {
 };
 
 export type FulfillmentStatus = "unfulfilled" | "processing" | "packed" | "shipped" | "delivered" | "canceled" | "returned";
+export type ShipmentStatus = "label_pending" | "in_transit" | "out_for_delivery" | "delivered" | "exception" | "returned";
+export type ShippingExceptionCode = "address_issue" | "carrier_delay" | "damaged" | "lost" | "recipient_unavailable" | "customs" | "other";
+
+export type Shipment = {
+  id: string;
+  carrier: string;
+  trackingNumber: string;
+  trackingUrl?: string;
+  status: ShipmentStatus;
+  estimatedDeliveryAt?: number;
+  shippedAt?: number;
+  deliveredAt?: number;
+  lastEventAt?: number;
+  lastLocation?: string;
+  exceptionCode?: ShippingExceptionCode;
+  exceptionNote?: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type ResolutionType = "cancellation" | "return";
 export type ResolutionStatus = "requested" | "approved" | "rejected" | "item_sent" | "received" | "refund_pending" | "refunded" | "closed";
 export type RefundStatus = "none" | "requested" | "processing" | "succeeded" | "failed";
@@ -65,6 +85,7 @@ export type Order = {
   fulfillmentStatus?: FulfillmentStatus;
   carrier?: string;
   trackingNumber?: string;
+  shipment?: Shipment;
   paymentIntentId?: string;
   paymentTransactionId?: string;
   refundStatus?: RefundStatus;
@@ -112,9 +133,12 @@ function millis(value: unknown) {
 }
 
 function remoteOrder(id: string, data: Record<string, unknown>): Order {
+  const rawShipment = data.shipment as Shipment | undefined;
+  const shipment = rawShipment ? { ...rawShipment, createdAt: millis(rawShipment.createdAt), updatedAt: millis(rawShipment.updatedAt), estimatedDeliveryAt: rawShipment.estimatedDeliveryAt == null ? undefined : millis(rawShipment.estimatedDeliveryAt), shippedAt: rawShipment.shippedAt == null ? undefined : millis(rawShipment.shippedAt), deliveredAt: rawShipment.deliveredAt == null ? undefined : millis(rawShipment.deliveredAt), lastEventAt: rawShipment.lastEventAt == null ? undefined : millis(rawShipment.lastEventAt) } : undefined;
   return normalizeOrder({
     ...(data as unknown as Order),
     id,
+    shipment,
     createdAt: millis(data.createdAt),
     paidAt: data.paidAt == null ? undefined : millis(data.paidAt),
     fulfillmentUpdatedAt: data.fulfillmentUpdatedAt == null ? undefined : millis(data.fulfillmentUpdatedAt),
@@ -259,6 +283,25 @@ export async function updateOrderFulfillment(orderId: string, patch: Fulfillment
     /* The server update succeeded; keep the in-memory order visible if local persistence is unavailable. */
   }
   return next;
+}
+
+export type ShipmentCreateInput = {
+  carrier: string;
+  trackingNumber: string;
+  trackingUrl?: string;
+  estimatedDeliveryAt?: number;
+};
+
+export async function createOrderShipment(orderId: string, input: ShipmentCreateInput) {
+  if (!firebaseReady() || !firebaseAuth().currentUser) throw new Error("Shipment creation requires a signed-in connection to Uvel.");
+  const call = httpsCallable(firebaseFunctions(), "createOrderShipment");
+  await call({ orderId, ...input });
+}
+
+export async function updateOrderShipment(orderId: string, status: ShipmentStatus, details: { note?: string; location?: string; exceptionCode?: ShippingExceptionCode } = {}) {
+  if (!firebaseReady() || !firebaseAuth().currentUser) throw new Error("Shipment updates require a signed-in connection to Uvel.");
+  const call = httpsCallable(firebaseFunctions(), "updateOrderShipment");
+  await call({ orderId, status, ...details });
 }
 
 export async function requestOrderResolution(orderId: string, type: ResolutionType, reason: string, note?: string) {
