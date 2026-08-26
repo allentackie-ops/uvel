@@ -33,6 +33,7 @@ type State = {
   styles: string[];
   wardrobeUris: string[];
   wantsUpdates: boolean;
+  accessibilityMode: boolean;
 };
 
 const KEY = "uvel-state-v1";
@@ -64,6 +65,7 @@ const defaults: State = {
   styles: [],
   wardrobeUris: [],
   wantsUpdates: false,
+  accessibilityMode: false,
 };
 
 let memory = { ...defaults };
@@ -127,6 +129,7 @@ async function applyAccount(
       gender: (stashed?.gender as string) || memory.gender,
       styles: (stashed?.styles as string[]) || memory.styles,
       wantsUpdates: Boolean(stashed?.wantsUpdates) || memory.wantsUpdates,
+      accessibilityMode: typeof stashed?.accessibilityMode === "boolean" ? stashed.accessibilityMode : memory.accessibilityMode,
       avatarUri: (stashed?.avatarUri as string) || memory.avatarUri,
     };
     listeners.forEach((l) => l());
@@ -164,7 +167,8 @@ async function applyAccount(
     birthday: (typeof remote?.birthday === "string" && remote.birthday) || (stashed?.birthday as string) || memory.birthday,
     gender: (typeof remote?.gender === "string" && remote.gender) || (stashed?.gender as string) || memory.gender,
     styles: (Array.isArray(remote?.styles) ? (remote.styles as string[]) : null) || (stashed?.styles as string[]) || memory.styles,
-    wantsUpdates: Boolean(remote?.wantsUpdates) || Boolean(stashed?.wantsUpdates) || memory.wantsUpdates,
+    wantsUpdates: typeof remote?.wantsUpdates === "boolean" ? remote.wantsUpdates : typeof stashed?.wantsUpdates === "boolean" ? stashed.wantsUpdates : memory.wantsUpdates,
+    accessibilityMode: typeof remote?.accessibilityMode === "boolean" ? remote.accessibilityMode : typeof stashed?.accessibilityMode === "boolean" ? stashed.accessibilityMode : memory.accessibilityMode,
     avatarUri: (stashed?.avatarUri as string) || memory.avatarUri,
   };
   listeners.forEach((l) => l());
@@ -204,6 +208,7 @@ async function stashProfile() {
       gender: memory.gender,
       styles: memory.styles,
       wantsUpdates: memory.wantsUpdates,
+      accessibilityMode: memory.accessibilityMode,
     };
     await AsyncStorage.setItem(PROFILES, JSON.stringify(all));
   } catch {
@@ -302,6 +307,14 @@ export function useUvel() {
     setPerson: (uri: string | null) => save({ personUri: uri }),
     setAvatar: (uri: string | null) => save({ avatarUri: uri }).then(() => stashProfile()),
     setAppearance: (appearance: "light" | "dark") => save({ appearance }),
+    setAccessibilityMode: (accessibilityMode: boolean) => {
+      if (memory.uid) {
+        void import("./auth").then(({ writeUserProfile }) =>
+          writeUserProfile(memory.uid, { accessibilityMode }),
+        );
+      }
+      return save({ accessibilityMode }).then(() => stashProfile());
+    },
     setLocale: (locale: string) => save({ locale }),
     setCountry: (country: string) => save({ country }),
     completeOnboard: (provider?: string) =>
@@ -342,14 +355,6 @@ export function useUvel() {
         onboardVersion: 4,
       }).then(() => stashProfile());
     },
-    deleteAccount: async () => {
-      const { deleteAccount: deleteRemoteAccount } = await import("./account");
-      await deleteRemoteAccount();
-      memory = { ...defaults, locale: guessLocale(), country: detectCountry(), profileChecked: true };
-      setActiveMarket(memory.country);
-      listeners.forEach((l) => l());
-      await AsyncStorage.setItem(KEY, JSON.stringify(memory));
-    },
     signOutAccount: async () => {
       const { signOut } = await import("./auth");
       await stashProfile();
@@ -367,6 +372,7 @@ export function useUvel() {
         styles: [],
         wardrobeUris: [],
         wantsUpdates: false,
+        accessibilityMode: false,
         personUri: null,
         avatarUri: null,
       });

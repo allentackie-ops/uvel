@@ -81,22 +81,6 @@ export default function Settings() {
         </View>
       </View>
 
-      {app.uid ? (
-        <View style={styles.dangerBox}>
-          <Text style={styles.dangerTitle}>Delete account</Text>
-          <Text style={styles.dangerHint}>Permanently removes your account, profile, listings, and personal data.</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Delete account permanently"
-            onPress={confirmDelete}
-            disabled={busy}
-            style={styles.deleteBtn}
-          >
-            {busy ? <ActivityIndicator color="#C45C4A" /> : <Text style={styles.deleteText}>Delete account</Text>}
-          </Pressable>
-        </View>
-      ) : null}
-
       <Text style={styles.section}>Preferences</Text>
       <View style={styles.group}>
         <View style={styles.row}>
@@ -125,6 +109,22 @@ export default function Settings() {
             onValueChange={(v) => void toggleNotes(v)}
             trackColor={{ false: colors.surface, true: colors.success }}
             thumbColor="#fff"
+            accessibilityLabel="Notifications"
+            accessibilityHint="Turns Uvel notifications on or off."
+          />
+        </View>
+        <View style={styles.row}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={styles.rowLabel}>Accessibility features</Text>
+            <Text style={styles.hint}>Stronger focus indicators for easier navigation</Text>
+          </View>
+          <Switch
+            value={app.accessibilityMode}
+            onValueChange={(v) => void app.setAccessibilityMode(v)}
+            trackColor={{ false: colors.surface, true: colors.success }}
+            thumbColor="#fff"
+            accessibilityLabel="Accessibility features"
+            accessibilityHint="Turns enhanced focus indicators on or off."
           />
         </View>
         <Row
@@ -164,6 +164,21 @@ export default function Settings() {
         </Pressable>
       ) : null}
 
+      {app.uid ? (
+        <View style={styles.dangerBox}>
+          <Text style={styles.dangerTitle}>Account removal</Text>
+          <Text style={styles.dangerHint}>Permanently removes your account, profile, listings, and personal data.</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Delete account permanently"
+            onPress={confirmDelete}
+            disabled={busy}
+            style={styles.deleteBtn}
+          >
+            {busy ? <ActivityIndicator color="#C45C4A" /> : <Text style={styles.deleteText}>Delete account</Text>}
+          </Pressable>
+        </View>
+      ) : null}
 
       <Text style={styles.ver}>Uvel {VERSION}</Text>
     </ScrollView>
@@ -211,7 +226,7 @@ const stylesRow = StyleSheet.create({
 function make(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    content: { padding: 20, paddingBottom: 48 },
+    content: { padding: 20, paddingBottom: 72 },
     sell: {
       flexDirection: "row",
       alignItems: "center",
