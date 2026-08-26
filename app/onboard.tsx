@@ -899,6 +899,23 @@ function LegalPopup({
   onClose: () => void;
 }) {
   const doc = DOCS[id];
+  const sheetY = useSharedValue(0);
+  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetY.value }] }));
+  const drag = Gesture.Pan()
+    .activeOffsetY(10)
+    .failOffsetX([-40, 40])
+    .onUpdate((event) => {
+      sheetY.value = Math.max(0, event.translationY);
+    })
+    .onEnd((event) => {
+      if (event.translationY > 110 || event.velocityY > 800) {
+        sheetY.value = withTiming(SCREEN_H, { duration: 260, easing: Easing.in(Easing.cubic) }, (finished) => {
+          if (finished) runOnJS(onClose)();
+        });
+      } else {
+        sheetY.value = withSpring(0, { damping: 28, stiffness: 240, overshootClamping: true });
+      }
+    });
   return (
     <View style={styles.legalOverlay} accessibilityViewIsModal>
       <Pressable
@@ -907,13 +924,16 @@ function LegalPopup({
         accessibilityRole="button"
         accessibilityLabel="Close legal document"
       />
-      <View style={[styles.legalSheet, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
-        <View style={styles.legalHeader}>
-          <Text style={styles.legalTitle}>{doc.title}</Text>
-          <Pressable onPress={onClose} style={styles.legalClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close legal document">
-            <Text style={styles.legalCloseText}>✕</Text>
-          </Pressable>
-        </View>
+      <Animated.View style={[styles.legalSheet, sheetStyle, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
+        <GestureDetector gesture={drag}>
+          <View style={styles.legalHeader}>
+            <View style={styles.legalHandle} />
+            <Text style={styles.legalTitle}>{doc.title}</Text>
+            <Pressable onPress={onClose} style={styles.legalClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close legal document">
+              <Text style={styles.legalCloseText}>✕</Text>
+            </Pressable>
+          </View>
+        </GestureDetector>
         <ScrollView contentContainerStyle={styles.legalContent} showsVerticalScrollIndicator={false}>
           <Text style={styles.legalMeta}>Last updated {doc.updated}</Text>
           {doc.sections.map((section) => (
@@ -925,7 +945,7 @@ function LegalPopup({
             </View>
           ))}
         </ScrollView>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -1004,7 +1024,8 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     maxHeight: SCREEN_H * 0.82,
   },
-  legalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 12 },
+  legalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 12, paddingTop: 4 },
+  legalHandle: { position: "absolute", top: 0, left: "50%", marginLeft: -20, width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.28)" },
   legalTitle: { color: "#fff", fontSize: 20, fontWeight: "700", flex: 1, paddingRight: 12 },
   legalClose: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
   legalCloseText: { color: "rgba(255,255,255,0.9)", fontSize: 18 },
