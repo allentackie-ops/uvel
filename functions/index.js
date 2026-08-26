@@ -1144,9 +1144,9 @@ async function recordProviderRefund(orderId, providerId, providerStatus) {
 const AUDIT_ACTIONS = new Set([
   "product_created", "product_updated", "product_published", "product_drafted", "product_archived", "product_restored", "product_duplicated",
   "price_updated", "inventory_updated", "market_updated", "order_fulfillment_updated", "resolution_requested", "resolution_approved", "resolution_rejected", "resolution_reviewed",
-  "return_received", "refund_requested", "refund_succeeded", "restock_confirmed", "restock_decided", "team_role_updated", "brand_settings_updated", "support_case_created", "support_case_updated", "support_note_added",
+  "return_received", "refund_requested", "refund_succeeded", "restock_confirmed", "restock_decided", "team_role_updated", "brand_settings_updated", "support_case_created", "support_case_updated", "support_note_added", "payout_requested",
 ]);
-const AUDIT_ENTITIES = new Set(["product", "order", "team", "brand", "resolution"]);
+const AUDIT_ENTITIES = new Set(["product", "order", "team", "brand", "resolution", "payout"]);
 
 async function writeAudit(db, input) {
   if (!input || !input.brandId || !AUDIT_ACTIONS.has(String(input.action)) || !AUDIT_ENTITIES.has(String(input.entity))) return;
@@ -1439,4 +1439,38 @@ exports.addSupportInternalNote = onCall(async (req) => {
   await db.collection("supportCases").doc(caseId).collection("notes").doc(noteId).set({ id: noteId, caseId, authorUid: req.auth.uid, authorName: String(req.auth.token.name || req.auth.token.email || "Support agent").slice(0, 120), body, createdAt: admin.firestore.FieldValue.serverTimestamp() });
   await writeAudit(db, { brandId: String(supportCase.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Support agent"), action: "support_note_added", entity: "order", entityId: String(supportCase.orderId || caseId), entityName: String(supportCase.productName || "Order"), summary: "Private support note added." });
   return { ok: true, caseId, noteId };
+});
+
+function financeRefundCents(order) {
+  if (!["processing", "succeeded"].includes(String(order.refundStatus || ""))) return 0;
+  return Math.min(Math.max(0, Math.floor(Number(order.itemCents || 0))), Math.max(0, Math.floor(Number(order.refundAmountCents || order.itemCents || 0))));
+}
+
+exports.requestBrandPayout = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const brandId = String(req.data?.brandId || "").trim();
+  const currency = String(req.data?.currency || "").toUpperCase();
+  const amountCents = Number(req.data?.amountCents);
+  if (!brandId || !/^[A-Z]{3}$/.test(currency) || !Number.isSafeInteger(amountCents) || amountCents <= 0) throw new HttpsError("invalid-argument", "Invalid payout request.");
+  const db = admin.firestore();
+  const role = await brandMemberRole(db, brandId, req.auth.uid);
+  if (!role || !["owner", "admin"].includes(role)) throw new HttpsError("permission-denied", "Only brand owners and admins can request payouts.");
+  const ordersSnap = await db.collection("orders").where("brandId", "==", brandId).get();
+  const available = ordersSnap.docs.reduce((total, item) => {
+    const order = item.data() || {};
+    if (order.status !== "paid" || String(order.currency || "USD").toUpperCase() !== currency || String(order.fulfillmentStatus || "unfulfilled") !== "delivered") return total;
+    const gross = Math.max(0, Math.floor(Number(order.itemCents || 0)));
+    const fee = Math.max(0, Math.floor(Number(order.feeCents || 0)));
+    return total + Math.max(0, gross - fee - financeRefundCents(order));
+  }, 0);
+  const payoutsSnap = await db.collection("payouts").where("brandId", "==", brandId).get();
+  const reserved = payoutsSnap.docs.reduce((total, item) => {
+    const payout = item.data() || {};
+    return String(payout.currency || "").toUpperCase() === currency && ["requested", "processing", "paid"].includes(String(payout.status || "")) ? total + Math.max(0, Math.floor(Number(payout.amountCents || 0))) : total;
+  }, 0);
+  if (amountCents > Math.max(0, available - reserved)) throw new HttpsError("failed-precondition", "Payout amount exceeds the available balance.");
+  const payoutId = `payout-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}`;
+  await db.collection("payouts").doc(payoutId).set({ id: payoutId, brandId, currency, amountCents, status: "requested", requestedByUid: req.auth.uid, requestedAt: admin.firestore.FieldValue.serverTimestamp() });
+  await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand admin"), action: "payout_requested", entity: "payout", entityId: payoutId, entityName: `${currency} payout`, summary: "Brand payout requested.", metadata: { amountCents, currency } });
+  return { ok: true, payoutId, status: "requested" };
 });

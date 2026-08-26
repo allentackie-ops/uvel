@@ -416,6 +416,16 @@ export function canManageOrders(brand: Brand, uid: string) {
   return role === "owner" || role === "admin" || role === "support";
 }
 
+export function canViewFinance(brand: Brand, uid: string) {
+  const role = roleOn(brand, uid);
+  return role === "owner" || role === "admin" || role === "finance";
+}
+
+export function canManagePayouts(brand: Brand, uid: string) {
+  const role = roleOn(brand, uid);
+  return role === "owner" || role === "admin";
+}
+
 export function canViewAudit(brand: Brand, uid: string) {
   const role = roleOn(brand, uid);
   return role === "owner" || role === "admin" || role === "merchandiser" || role === "support" || role === "finance" || role === "viewer";

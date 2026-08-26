@@ -22,8 +22,11 @@ import {
   type Brand,
   type BrandMember,
   type MemberRole,
+  canManagePayouts,
+  canViewFinance,
 } from "../../lib/brands";
 import { usd } from "../../lib/catalog";
+import { financeTotals, requestBrandPayout, settlementLedger, usePayouts, type SettlementEntry } from "../../lib/finance";
 import { useUvel } from "../../lib/store";
 import { useColors } from "../../lib/theme";
 import { MARKETS, getMarket } from "../../lib/markets";
@@ -33,7 +36,7 @@ import { addSupportInternalNote, updateSupportCase, useSupportCases, type Suppor
 import { archivePiece, createBrandCatalogRemote, duplicatePiece, restorePiece, updateBrandCatalogRemote, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { shipsToLabel } from "../../lib/ships";
 
-type Section = "overview" | "catalog" | "orders" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
+type Section = "overview" | "catalog" | "orders" | "finance" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
 
 type CatalogAuditInput = Parameters<typeof recordAuditEvent>[0];
 
@@ -48,6 +51,7 @@ const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: "overview", label: "Overview" },
   { id: "catalog", label: "Catalog" },
   { id: "orders", label: "Orders" },
+  { id: "finance", label: "Finance" },
   { id: "support", label: "Support" },
   { id: "inbox", label: "Inbox" },
   { id: "analytics", label: "Analytics" },
@@ -169,6 +173,8 @@ export default function BrandHQ() {
           <CatalogSection brand={brand} items={catalog} canManage={catalogManager} theme={theme} styles={styles} />
         ) : section === "orders" ? (
           <OrdersSection orders={brandOrders} viewer={orderViewer} manager={orderManager} reviewer={orderReviewer} theme={theme} styles={styles} />
+        ) : section === "finance" ? (
+          <FinanceSection brand={activeBrand} orders={brandOrders} viewer={canViewFinance(activeBrand, app.uid)} manager={canManagePayouts(activeBrand, app.uid)} theme={theme} styles={styles} />
         ) : section === "support" ? (
           <SupportSection brand={activeBrand} cases={supportCases} manager={orderManager} theme={theme} styles={styles} viewerName={app.displayName || "Support agent"} />
         ) : section === "audit" ? (
@@ -197,6 +203,7 @@ function Overview({ brand, catalogCount, lowStockCount, teamCount, inquiryCount,
       <ActionCard title="Manage catalog" copy="Review products, stock, prices, and listing status." button="Open catalog" onPress={() => onSection("catalog")} theme={theme} styles={styles} />
       <ActionCard title="Team access" copy="Assign the right workspace role to every collaborator." button="Open team" onPress={() => onSection("team")} theme={theme} styles={styles} />
       <ActionCard title="Buyer inbox" copy="Keep brand inquiries in one shared conversation stream." button="Open inbox" onPress={() => onSection("inbox")} theme={theme} styles={styles} />
+      <ActionCard title="Finance & settlements" copy="Review order-linked earnings, refunds, balances, and payout history." button="Open finance" onPress={() => onSection("finance")} theme={theme} styles={styles} />
       <ActionCard title="Support desk" copy="Work order-linked cases with assignment, escalation, and private team notes." button="Open support" onPress={() => onSection("support")} theme={theme} styles={styles} />
       {brand.verified ? <Text style={[styles.note, { color: theme.muted }]}>Verified brand workspace · {brand.country} · {brand.legalName || brand.ownerName}</Text> : null}
     </View>
@@ -561,6 +568,63 @@ function TeamSection({ brand, manager, theme, styles, onRole }: { brand: Brand; 
   );
 }
 
+function FinanceSection({ brand, orders, viewer, manager, theme, styles }: { brand: Brand; orders: Order[]; viewer: boolean; manager: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  const payouts = usePayouts(brand.id);
+  const ledger = settlementLedger(orders, brand.id);
+  const currencies = Array.from(new Set(ledger.map((entry) => entry.currency)));
+  const [currency, setCurrency] = useState(currencies[0] || "");
+  const [payoutAmount, setPayoutAmount] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!currency && currencies[0]) setCurrency(currencies[0]);
+    if (currency && !currencies.includes(currency) && currencies.length) setCurrency(currencies[0]);
+  }, [currency, currencies.join(",")]);
+  if (!viewer) return <View><Text style={[styles.sectionTitle, { color: theme.ink }]}>Finance & settlements</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Finance data is restricted to owners, admins, and finance members.</Text></View>;
+  const totals = currency ? financeTotals(ledger, payouts, currency) : null;
+  const currencyPayouts = currency ? payouts.filter((payout) => payout.currency === currency) : [];
+
+  async function requestPayout() {
+    if (!manager || !currency || busy) return;
+    const amountCents = Math.round(Number(payoutAmount) * 100);
+    if (!totals || !Number.isSafeInteger(amountCents) || amountCents <= 0 || amountCents > totals.availableCents) {
+      Alert.alert("Payout request", `Enter an amount up to ${usd(totals?.availableCents || 0, currency)}.`);
+      return;
+    }
+    setBusy(true);
+    try {
+      await requestBrandPayout(brand.id, currency, amountCents);
+      setPayoutAmount("");
+      Alert.alert("Payout requested", "Your payout request was sent for processing.");
+    } catch (error) {
+      Alert.alert("Payout request", error instanceof Error ? error.message : "Payout requests are not available yet.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View>
+      <View style={styles.sectionHead}><View style={{ flex: 1 }}><Text style={[styles.sectionTitle, { color: theme.ink }]}>Finance & settlements</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Order-linked earnings, refunds, available balance, and payouts.</Text></View></View>
+      {currencies.length > 1 ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.orderFilters}>{currencies.map((option) => <Pressable key={option} onPress={() => setCurrency(option)} style={[styles.orderFilter, { borderColor: currency === option ? theme.accent : theme.lineColor, backgroundColor: currency === option ? theme.accent : theme.card }]}><Text style={[styles.orderFilterTxt, { color: currency === option ? theme.accentInk : theme.ink }]}>{option}</Text></Pressable>)}</ScrollView> : null}
+      {!totals ? <Empty text="No paid brand orders yet. Settlement balances will appear after payment confirmation." theme={theme} styles={styles} /> : <>
+        <View style={styles.financeStats}><FinanceStat label="Net item earnings" value={usd(totals.netCents, currency)} theme={theme} styles={styles} /><FinanceStat label="Available" value={usd(totals.availableCents, currency)} theme={theme} styles={styles} /><FinanceStat label="Pending" value={usd(totals.pendingCents, currency)} theme={theme} styles={styles} /></View>
+        <View style={[styles.financeBreakdown, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.financeBreakdownTitle, { color: theme.ink }]}>Settlement breakdown · {currency}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>Gross item sales <Text style={{ color: theme.ink }}>{usd(totals.grossCents, currency)}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Uvel fees <Text style={{ color: theme.ink }}>−{usd(totals.feesCents, currency)}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Refunds <Text style={{ color: theme.ink }}>−{usd(totals.refundsCents, currency)}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Payouts reserved <Text style={{ color: theme.ink }}>−{usd(totals.paidOutCents, currency)}</Text></Text></View>
+        {manager ? <View style={[styles.payoutCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.financeBreakdownTitle, { color: theme.ink }]}>Request a payout</Text><Text style={[styles.financeLine, { color: theme.muted }]}>Available to request: {usd(totals.availableCents, currency)}</Text></View><TextInput value={payoutAmount} onChangeText={(value) => setPayoutAmount(value.replace(/[^0-9.]/g, ""))} placeholder={`Amount in ${currency}`} placeholderTextColor={theme.muted} keyboardType="decimal-pad" style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} /><Pressable disabled={busy} onPress={() => void requestPayout()} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>{busy ? "Requesting…" : "Request payout"}</Text></Pressable></View> : null}
+        <Text style={[styles.financeHeading, { color: theme.ink }]}>Transaction ledger</Text>{ledger.filter((entry) => entry.currency === currency).map((entry) => <FinanceRow key={entry.id} entry={entry} theme={theme} styles={styles} />)}
+        {currencyPayouts.length ? <><Text style={[styles.financeHeading, { color: theme.ink }]}>Payout history</Text>{currencyPayouts.map((payout) => <View key={payout.id} style={[styles.payoutRow, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.financeRowTitle, { color: theme.ink }]}>{usd(payout.amountCents, payout.currency)}</Text><Text style={[styles.financeRowMeta, { color: theme.muted }]}>{new Date(payout.requestedAt).toLocaleDateString()} · {payout.status}{payout.failureReason ? ` · ${payout.failureReason}` : ""}</Text></View><Text style={[styles.payoutStatus, { color: payout.status === "paid" ? theme.accent : theme.muted }]}>{payout.status}</Text></View>)}</> : null}
+      </>}
+    </View>
+  );
+}
+
+function FinanceStat({ label, value, theme, styles }: { label: string; value: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  return <View style={[styles.financeStat, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.financeStatLabel, { color: theme.muted }]}>{label}</Text><Text style={[styles.financeStatValue, { color: theme.ink }]}>{value}</Text></View>;
+}
+
+function FinanceRow({ entry, theme, styles }: { entry: SettlementEntry; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  return <Pressable onPress={() => Alert.alert(`Order ${entry.orderId}`, `Gross item sales: ${usd(entry.grossCents, entry.currency)}\nUvel fees: −${usd(entry.feeCents, entry.currency)}\nRefunds: −${usd(entry.refundCents, entry.currency)}\nNet item earnings: ${usd(entry.netCents, entry.currency)}\n\nSettlement status: ${entry.status}`)} style={[styles.financeRow, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>{entry.productPhoto ? <Image source={{ uri: entry.productPhoto }} style={styles.financeImg} contentFit="cover" /> : null}<View style={{ flex: 1 }}><Text style={[styles.financeRowTitle, { color: theme.ink }]} numberOfLines={1}>{entry.productName}</Text><Text style={[styles.financeRowMeta, { color: theme.muted }]}>{entry.orderId} · {new Date(entry.orderDate).toLocaleDateString()} · {entry.status}</Text><Text style={[styles.financeRowMeta, { color: theme.muted }]}>Gross {usd(entry.grossCents, entry.currency)} · Fees {usd(entry.feeCents, entry.currency)}{entry.refundCents ? ` · Refund ${usd(entry.refundCents, entry.currency)}` : ""}</Text></View><Text style={[styles.financeRowAmount, { color: theme.ink }]}>{usd(entry.netCents, entry.currency)}</Text></Pressable>;
+}
+
 function SupportSection({ brand, cases, manager, theme, styles, viewerName }: { brand: Brand; cases: SupportCase[]; manager: boolean; theme: HQTheme; styles: ReturnType<typeof make>; viewerName: string }) {
   const [filter, setFilter] = useState<SupportStatus | "all">("all");
   const [busyId, setBusyId] = useState("");
@@ -767,6 +831,23 @@ function make(theme: HQTheme) {
     orderKicker: { fontSize: 10, letterSpacing: 1.2, fontWeight: "800" },
     orderInput: { height: 40, borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, fontSize: 13, marginTop: 9 },
     orderActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 12 },
+    financeStats: { flexDirection: "row", gap: 8, marginTop: 10 },
+    financeStat: { flex: 1, minHeight: 78, borderWidth: 1, borderRadius: 16, padding: 11, justifyContent: "space-between" },
+    financeStatLabel: { fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.5 },
+    financeStatValue: { fontSize: 16, fontWeight: "900", marginTop: 9 },
+    financeBreakdown: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 10 },
+    financeBreakdownTitle: { fontSize: 14, fontWeight: "800", marginBottom: 8 },
+    financeLine: { fontSize: 12, lineHeight: 21 },
+    payoutCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 10 },
+    payoutInput: { height: 42, borderWidth: 1, borderRadius: 11, paddingHorizontal: 11, fontSize: 13, marginTop: 11 },
+    financeHeading: { fontSize: 16, fontWeight: "900", marginTop: 20, marginBottom: 2 },
+    financeRow: { borderWidth: 1, borderRadius: 14, padding: 10, marginTop: 8, flexDirection: "row", alignItems: "center", gap: 10 },
+    financeImg: { width: 42, height: 52, borderRadius: 8 },
+    financeRowTitle: { fontSize: 13, fontWeight: "800" },
+    financeRowMeta: { fontSize: 10, lineHeight: 15, marginTop: 3 },
+    financeRowAmount: { fontSize: 12, fontWeight: "900" },
+    payoutRow: { borderWidth: 1, borderRadius: 14, padding: 11, marginTop: 8, flexDirection: "row", alignItems: "center" },
+    payoutStatus: { fontSize: 10, fontWeight: "900", textTransform: "uppercase" },
     supportCard: { borderWidth: 1, borderRadius: 18, padding: 13, marginTop: 10 },
     supportHead: { flexDirection: "row", alignItems: "center", gap: 10 },
     supportImg: { width: 48, height: 58, borderRadius: 10 },

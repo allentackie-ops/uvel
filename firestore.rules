@@ -130,6 +130,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /payouts/{payoutId} {
+      allow read: if signedIn() && resource.data.brandId is string && isBrandMember(resource.data.brandId);
+      allow create, update, delete: if false;
+    }
+
     match /orders/{orderId} {
       allow read: if signedIn() &&
         (resource.data.buyerId == request.auth.uid ||
