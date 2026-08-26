@@ -46,7 +46,7 @@ import { analyticsCurrencyValue, analyticsDisplayState, analyticsDisclosure, ana
 import { semanticStatus, semanticLabel, statusToneFor } from "../../lib/status";
 import { saveBrandCampaign, saveBrandCollection, saveBrandPromotion, useMarketing, type BrandCampaign, type BrandCollection, type BrandPromotion, type MarketingState, type MarketingStatus } from "../../lib/marketing";
 
-type Section = "overview" | "catalog" | "orders" | "finance" | "marketing" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
+type Section = "overview" | "catalog" | "orders" | "finance" | "marketing" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
 
 type CatalogAuditInput = Parameters<typeof recordAuditEvent>[0];
 
@@ -63,6 +63,7 @@ const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: "orders", label: "Orders" },
   { id: "finance", label: "Finance" },
   { id: "marketing", label: "Marketing" },
+  { id: "growth", label: "Growth" },
   { id: "support", label: "Support" },
   { id: "inbox", label: "Inbox" },
   { id: "analytics", label: "Analytics" },
@@ -194,6 +195,8 @@ export default function BrandHQ() {
           <FinanceSection brand={activeBrand} orders={brandOrders} viewer={canViewFinance(activeBrand, app.uid)} manager={canManagePayouts(activeBrand, app.uid)} theme={theme} styles={styles} onPayoutFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
         ) : section === "marketing" ? (
           <MarketingSection brand={activeBrand} pieces={catalog} state={marketing} viewer={canViewMarketing(activeBrand, app.uid)} manager={canManageMarketing(activeBrand, app.uid)} theme={theme} colors={colors} styles={styles} onFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
+        ) : section === "growth" ? (
+          <GrowthToolsSection brand={activeBrand} orders={brandOrders} pieces={catalog} marketing={marketing} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />
         ) : section === "analytics" ? (
           <AdvancedAnalyticsSection brand={activeBrand} orders={brandOrders} pieces={catalog} marketing={marketing} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} />
         ) : section === "support" ? (
@@ -586,6 +589,60 @@ function TeamSection({ brand, manager, theme, styles, onRole }: { brand: Brand; 
             {manager && member.role !== "owner" ? <Text style={[styles.manageTxt, { color: theme.accent }]}>Change</Text> : null}
           </Pressable>
         ))}
+      </View>
+    </View>
+  );
+}
+
+function GrowthToolsSection({ brand, orders, pieces, marketing, viewer, theme, styles, onSection }: { brand: Brand; orders: Order[]; pieces: ClosetPiece[]; marketing: MarketingState; viewer: boolean; theme: HQTheme; styles: ReturnType<typeof make>; onSection: (section: Section) => void }) {
+  const attributionReport = useCampaignAttributionReport(brand.id);
+  const channelReports = useMemo(() => summarizeCampaignAttributionByChannel(attributionReport.rows, (row) => marketing.campaigns.find((item) => item.id === row.campaignId)?.channel), [attributionReport.rows, marketing.campaigns]);
+  const liveListings = pieces.filter((piece) => piece.status === "listed");
+  const lowStock = liveListings.filter((piece) => typeof piece.stockQuantity === "number" && piece.stockQuantity > 0 && piece.stockQuantity <= 10);
+  const liveCampaigns = marketing.campaigns.filter((item) => item.status === "live");
+  const livePromotions = marketing.promotions.filter((item) => item.status === "live");
+  const paidOrderRecords = orders.filter((order) => order.status === "paid").length;
+  const actions: Array<{ id: string; title: string; detail: string; button: string; section: Section }> = [];
+
+  if (!liveListings.length) actions.push({ id: "publish", title: "Publish your first product", detail: "A live catalog gives shoppers something real to discover.", button: "Open catalog", section: "catalog" });
+  if (lowStock.length) actions.push({ id: "stock", title: "Review low-stock products", detail: `${lowStock.length} live listing${lowStock.length === 1 ? "" : "s"} need an inventory decision before demand outpaces supply.`, button: "Review stock", section: "catalog" });
+  if (!liveCampaigns.length) actions.push({ id: "campaign", title: "Create a channel campaign", detail: "Choose Today, Shop, or Brand Page and give a live product a focused reason to be seen.", button: "Open marketing", section: "marketing" });
+  if (!livePromotions.length && liveListings.length) actions.push({ id: "promotion", title: "Prepare a promotion", detail: "A verified offer can give a campaign a clear customer action.", button: "Open marketing", section: "marketing" });
+  if (!actions.length) actions.push({ id: "learn", title: "Keep learning from confirmed activity", detail: "Your operating basics are in place. Review channel results as trusted events arrive.", button: "View analytics", section: "analytics" });
+
+  return (
+    <View>
+      <View style={styles.sectionHead}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.sectionTitle, { color: theme.ink }]}>Brand growth tools</Text>
+          <Text style={[styles.sectionP, { color: theme.muted }]}>Turn the next clear opportunity into an action across your catalog, channels, and promotions.</Text>
+        </View>
+      </View>
+      <View style={[styles.analyticsPanel, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+        <Text style={[styles.financeBreakdownTitle, { color: theme.ink }]}>Growth readiness</Text>
+        <Text style={[styles.financeLine, { color: theme.muted }]}>Live listings <Text style={{ color: theme.ink }}>{liveListings.length}</Text></Text>
+        <Text style={[styles.financeLine, { color: theme.muted }]}>Live campaigns <Text style={{ color: theme.ink }}>{liveCampaigns.length}</Text></Text>
+        <Text style={[styles.financeLine, { color: theme.muted }]}>Live promotions <Text style={{ color: theme.ink }}>{livePromotions.length}</Text></Text>
+        <Text style={[styles.financeLine, { color: theme.muted }]}>Paid order records <Text style={{ color: theme.ink }}>{paidOrderRecords}</Text></Text>
+        <Text style={[styles.growthNote, { color: theme.muted }]}>Catalog and order counts are available workspace records, not platform-wide forecasts.</Text>
+      </View>
+      <Text style={[styles.financeHeading, { color: theme.ink }]}>Next best moves</Text>
+      {actions.map((action) => (
+        <View key={action.id} style={[styles.growthTool, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.analyticsRecommendationTitle, { color: theme.ink }]}>{action.title}</Text>
+            <Text style={[styles.financeLine, { color: theme.muted }]}>{action.detail}</Text>
+          </View>
+          <Pressable onPress={() => onSection(action.section)} style={[styles.smallCta, { backgroundColor: theme.accent }]}><Text style={[styles.smallCtaTxt, { color: theme.accentInk }]}>{action.button}</Text></Pressable>
+        </View>
+      ))}
+      <Text style={[styles.financeHeading, { color: theme.ink }]}>Confirmed channel signals</Text>
+      <View style={[styles.analyticsPanel, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+        <Text style={[styles.financeLine, { color: theme.muted }]}>{viewer ? attributionReport.state === "loading" ? "Checking confirmed campaign activity…" : attributionReport.state === "unavailable" ? "Channel signals are unavailable until backend attribution is connected." : attributionReport.state === "no_activity" ? "No confirmed channel activity yet." : "Confirmed campaign activity by placement." : "Channel signals are restricted to the brand analytics permission."}</Text>
+        {viewer && attributionReport.state === "confirmed" ? channelReports.map((report) => {
+          const hasActivity = report.impressions + report.engagements + report.checkoutStarted + report.purchases + Object.values(report.revenueByCurrency).reduce((sum, value) => sum + value, 0) > 0;
+          return <Text key={report.channel} style={[styles.financeLine, { color: theme.ink }]}>{channelLabel(report.channel)} · {hasActivity ? `${report.impressions} impressions · ${report.purchases} confirmed purchases` : "No confirmed activity"}</Text>;
+        }) : null}
       </View>
     </View>
   );
@@ -1144,6 +1201,8 @@ function make(theme: HQTheme) {
     analyticsProductImg: { width: 48, height: 60, borderRadius: 8 },
     analyticsMarket: { borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 8, flexDirection: "row", alignItems: "center", gap: 10 },
     analyticsCampaign: { borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 8, flexDirection: "row", alignItems: "center", gap: 10 },
+    growthTool: { borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 8, flexDirection: "row", alignItems: "center", gap: 10 },
+    growthNote: { fontSize: 11, lineHeight: 16, marginTop: 8 },
     channelReportRow: { paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", gap: 10 },
     channelReportName: { fontSize: 13, fontWeight: "900" },
     payoutSetup: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 10 },
