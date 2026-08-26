@@ -111,7 +111,7 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
     throw new HttpsError("unauthenticated", "Sign in before checking out.");
   }
 
-  const { amountCents, currency, email, method, country, reference, name, orderId, listingId, brandId, variantKey, campaignId, collectionId, promotionId } = req.data || {};
+  const { amountCents, currency, email, method, country, reference, name, orderId, listingId, brandId, variantKey, campaignId, collectionId, promotionId, promotionCode } = req.data || {};
   const normalizedCurrency = String(currency || "").toUpperCase();
   const normalizedEmail = String(req.auth.token.email || email || "").trim().toLowerCase();
   const normalizedMethod = String(method || "");
@@ -124,6 +124,7 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
   const normalizedCampaignId = uidSafe(campaignId).slice(0, 120);
   const normalizedCollectionId = uidSafe(collectionId).slice(0, 120);
   const normalizedPromotionId = uidSafe(promotionId).slice(0, 120);
+  const normalizedPromotionCode = String(promotionCode || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 32);
 
   if (
     !Number.isSafeInteger(amountCents) ||
@@ -146,8 +147,8 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
   if (order.buyerId !== req.auth.uid || order.status !== "pending") {
     throw new HttpsError("failed-precondition", "Order is not available for payment.");
   }
-  if (order.totalCents !== amountCents || String(order.currency || "").toUpperCase() !== normalizedCurrency) {
-    throw new HttpsError("invalid-argument", "Order amount changed.");
+  if (String(order.currency || "").toUpperCase() !== normalizedCurrency) {
+    throw new HttpsError("invalid-argument", "Order currency changed.");
   }
   if (normalizedListingId && order.pieceId !== normalizedListingId) {
     throw new HttpsError("invalid-argument", "Order listing changed.");
@@ -163,6 +164,18 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
       await orderRef.set({ campaignAttribution: { ...checkoutAttribution, source: checkoutAttribution.channel, capturedAt: admin.firestore.FieldValue.serverTimestamp() } }, { merge: true });
     }
   }
+  const promotionQuote = (normalizedPromotionId || normalizedPromotionCode)
+    ? await resolvePromotionQuote(admin.firestore(), { brandId: order.brandId || normalizedBrandId, listingId: String(order.pieceId || normalizedListingId), promotionId: normalizedPromotionId, code: normalizedPromotionCode, currency: normalizedCurrency, itemCents: Number(order.itemCents || 0) })
+    : null;
+  if ((normalizedPromotionId || normalizedPromotionCode) && !promotionQuote) {
+    throw new HttpsError("failed-precondition", "That promotion is invalid, expired, unavailable, or does not apply to this listing.");
+  }
+  const baseTotalCents = Math.max(0, Math.floor(Number(order.itemCents || 0))) + Math.max(0, Math.floor(Number(order.feeCents || 0))) + Math.max(0, Math.floor(Number(order.shipCents || 0))) + Math.max(0, Math.floor(Number(order.taxCents || 0)));
+  const expectedTotalCents = Math.max(0, baseTotalCents - Math.min(baseTotalCents, Number(promotionQuote?.discountCents || 0)));
+  if (!Number.isSafeInteger(expectedTotalCents) || expectedTotalCents <= 0 || order.totalCents !== expectedTotalCents || amountCents !== expectedTotalCents) {
+    throw new HttpsError("invalid-argument", "Order amount changed.");
+  }
+  await orderRef.set({ discountCents: promotionQuote?.discountCents || 0, ...(promotionQuote ? { promotionId: promotionQuote.promotionId, promotionCode: promotionQuote.code } : {}) }, { merge: true });
 
   if (order.brandId && order.pieceId) {
     const listingSnap = await admin.firestore().collection("listings").doc(String(order.pieceId)).get();
@@ -212,7 +225,8 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
             variantKey: normalizedVariantKey,
             campaignId: checkoutAttribution?.campaignId || "",
             collectionId: checkoutAttribution?.collectionId || "",
-            promotionId: checkoutAttribution?.promotionId || "",
+            promotionId: promotionQuote?.promotionId || "",
+            promotionCode: promotionQuote?.code || "",
           },
         }),
       });
@@ -256,7 +270,8 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
         variantKey: normalizedVariantKey,
         campaignId: checkoutAttribution?.campaignId || "",
         collectionId: checkoutAttribution?.collectionId || "",
-        promotionId: checkoutAttribution?.promotionId || "",
+        promotionId: promotionQuote?.promotionId || "",
+        promotionCode: promotionQuote?.code || "",
       },
     });
     await orderRef.set({ paymentProvider: "stripe", paymentReference: session.id, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
@@ -400,6 +415,46 @@ async function resolveCampaignAttribution(db, input, requireLive = true) {
   };
 }
 
+async function resolvePromotionQuote(db, input) {
+  const brandId = String(input.brandId || "").trim();
+  const listingId = String(input.listingId || "").trim();
+  const promotionId = String(input.promotionId || "").trim();
+  const code = String(input.code || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+  const currency = String(input.currency || "").toUpperCase();
+  const itemCents = Math.floor(Number(input.itemCents) || 0);
+  if (!brandId || !listingId || !currency || !Number.isSafeInteger(itemCents) || itemCents <= 0 || (!promotionId && !code)) return null;
+  const listingSnap = await db.collection("listings").doc(listingId).get();
+  const listing = listingSnap.data() || {};
+  if (!listingSnap.exists || listing.status !== "listed" || listing.brandId !== brandId) return null;
+  let promotionSnap = null;
+  if (promotionId) {
+    const snap = await db.collection("brandPromotions").doc(promotionId).get();
+    if (snap.exists) promotionSnap = snap;
+  } else {
+    const promotions = await db.collection("brandPromotions").where("brandId", "==", brandId).get();
+    promotionSnap = promotions.docs.find((snap) => String(snap.data()?.code || "").toUpperCase() === code) || null;
+  }
+  if (!promotionSnap || !promotionSnap.exists) return null;
+  const promotion = promotionSnap.data() || {};
+  const storedCode = String(promotion.code || "").toUpperCase();
+  const now = Date.now();
+  const active = promotion.status === "live" && (!promotion.startAt || timestampMillis(promotion.startAt) <= now) && (!promotion.endAt || timestampMillis(promotion.endAt) >= now);
+  if (promotion.brandId !== brandId || (code && storedCode !== code) || !active) return null;
+  const promotionCurrency = String(promotion.currency || "").toUpperCase();
+  if (promotionCurrency && promotionCurrency !== currency) return null;
+  const minimumOrderCents = Math.max(0, Math.floor(Number(promotion.minimumOrderCents) || 0));
+  if (itemCents < minimumOrderCents) return null;
+  const usageCount = Math.max(0, Math.floor(Number(promotion.usageCount) || 0));
+  const usageLimit = promotion.usageLimit == null ? undefined : Math.max(1, Math.floor(Number(promotion.usageLimit) || 0));
+  if (usageLimit != null && usageCount >= usageLimit) return null;
+  const kind = String(promotion.kind || "");
+  const value = Number(promotion.value);
+  if (!['percentage', 'fixed'].includes(kind) || !Number.isFinite(value) || value <= 0 || (kind === "percentage" && value > 100)) return null;
+  const discountCents = kind === "percentage" ? Math.min(itemCents, Math.floor(itemCents * value / 100)) : Math.min(itemCents, Math.floor(value * 100));
+  if (!discountCents) return null;
+  return { promotionId: promotionSnap.id, code: storedCode, kind, value, currency, discountCents, minimumOrderCents };
+}
+
 async function saveCampaignAttribution(input) {
   const db = admin.firestore();
   const brandId = String(input.brandId || "").trim();
@@ -433,6 +488,13 @@ exports.recordCampaignAttribution = onCall(async (req) => {
   if (!resolved) throw new HttpsError("failed-precondition", "Campaign is not live or the listing is not part of it.");
   await saveCampaignAttribution({ ...input, ...resolved, brandId, campaignId, type, eventId: String(input.eventId || `${type}_${req.auth.uid}_${campaignId}_${input.listingId || ""}_${dayKey()}`) });
   return { ok: true };
+});
+
+exports.validatePromotion = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before applying a promotion.");
+  const quote = await resolvePromotionQuote(admin.firestore(), req.data || {});
+  if (!quote) throw new HttpsError("failed-precondition", "That promotion is invalid, expired, unavailable, or does not apply to this listing.");
+  return quote;
 });
 
 async function markOrderPaid(orderId, provider, providerReference, providerAmount, providerCurrency, providerPaymentId, providerTransactionId, attribution = {}) {
@@ -486,6 +548,14 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
       }
     }
     tx.update(orderRef, paidUpdate);
+    if (order.brandId && order.promotionId) {
+      const promotionRef = db.collection("brandPromotions").doc(String(order.promotionId));
+      const promotionSnap = await tx.get(promotionRef);
+      const promotion = promotionSnap.data() || {};
+      if (promotionSnap.exists && promotion.brandId === order.brandId) {
+        tx.set(promotionRef, { usageCount: increment(1), updatedAt: paidAt }, { merge: true });
+      }
+    }
     if (listingRef && !reservationActive) {
       if (hasTrackedStock) {
         const remaining = Math.max(0, Math.floor(listingStock) - 1);
@@ -507,7 +577,7 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
       const refs = analyticsRefs(db, String(order.brandId));
       const day = dayKey();
       const currency = String(order.currency || "USD").toUpperCase();
-      const earnings = Math.max(0, Number(order.itemCents || 0) - Number(order.feeCents || 0));
+      const earnings = Math.max(0, Number(order.itemCents || 0) - Number(order.discountCents || 0) - Number(order.feeCents || 0));
       tx.set(refs.base, {
         sold: increment(1),
         earningsCents: increment(earnings),
@@ -1654,21 +1724,29 @@ exports.saveBrandCampaign = onCall((req) => saveMarketingRecord(req, "brandCampa
   const endAt = marketingTime(input.endAt);
   if (startAt && endAt && endAt <= startAt) throw new HttpsError("invalid-argument", "Campaign end time must be after its start time.");
   const channel = CAMPAIGN_CHANNELS.has(String(input.channel || "")) ? String(input.channel) : "brand_page";
+  const promotionId = marketingText(input.promotionId, 160);
+  if (promotionId) {
+    const promotionSnap = await db.collection("brandPromotions").doc(promotionId).get();
+    if (!promotionSnap.exists || promotionSnap.data()?.brandId !== brandId) throw new HttpsError("invalid-argument", "Choose a promotion owned by this brand.");
+  }
   const requestedStatus = MARKETING_STATUSES.has(String(input.status || "draft")) ? String(input.status || "draft") : "draft";
   const status = requestedStatus === "live" && startAt && startAt > Date.now() ? "scheduled" : requestedStatus;
-  return { name: marketingText(input.name, 100), headline: marketingText(input.headline, 140), body: marketingText(input.body, 1000), channel, collectionId: marketingText(input.collectionId, 160) || undefined, promotionId: marketingText(input.promotionId, 160) || undefined, productIds, status, ...(startAt ? { startAt } : {}), ...(endAt ? { endAt } : {}), createdAt: input.createdAt || admin.firestore.FieldValue.serverTimestamp() };
+  return { name: marketingText(input.name, 100), headline: marketingText(input.headline, 140), body: marketingText(input.body, 1000), channel, collectionId: marketingText(input.collectionId, 160) || undefined, promotionId: promotionId || undefined, productIds, status, ...(startAt ? { startAt } : {}), ...(endAt ? { endAt } : {}), createdAt: input.createdAt || admin.firestore.FieldValue.serverTimestamp() };
 }));
 
-exports.saveBrandPromotion = onCall((req) => saveMarketingRecord(req, "brandPromotions", "promotion", "promotion_saved", req.data || {}, async (_db, _brandId, _id, input) => {
+exports.saveBrandPromotion = onCall((req) => saveMarketingRecord(req, "brandPromotions", "promotion", "promotion_saved", req.data || {}, async (db, brandId, id, input) => {
   const code = marketingText(input.code, 32).toUpperCase().replace(/[^A-Z0-9_-]/g, "");
   const kind = String(input.kind || "");
   const value = Number(input.value);
   const minimumOrderCents = Math.max(0, Math.floor(Number(input.minimumOrderCents) || 0));
-  if (code.length < 3 || !["percentage", "fixed"].includes(kind) || !Number.isFinite(value) || value <= 0 || (kind === "percentage" && value > 100)) throw new HttpsError("invalid-argument", "Invalid promotion details.");
+  const usageLimit = input.usageLimit == null || input.usageLimit === "" ? undefined : Number(input.usageLimit);
+  if (code.length < 3 || !["percentage", "fixed"].includes(kind) || !Number.isFinite(value) || value <= 0 || (kind === "percentage" && value > 100) || (usageLimit != null && (!Number.isSafeInteger(usageLimit) || usageLimit <= 0))) throw new HttpsError("invalid-argument", "Invalid promotion details.");
+  const duplicateSnap = await db.collection("brandPromotions").where("brandId", "==", brandId).get();
+  if (duplicateSnap.docs.some((snap) => snap.id !== id && String(snap.data()?.code || "").toUpperCase() === code)) throw new HttpsError("already-exists", "That promotion code is already in use by this brand.");
   const startAt = marketingTime(input.startAt);
   const endAt = marketingTime(input.endAt);
   if (startAt && endAt && endAt <= startAt) throw new HttpsError("invalid-argument", "Promotion end time must be after its start time.");
   const requestedStatus = MARKETING_STATUSES.has(String(input.status || "draft")) ? String(input.status || "draft") : "draft";
   const status = requestedStatus === "live" && startAt && startAt > Date.now() ? "scheduled" : requestedStatus;
-  return { code, kind, value: Math.round(value * 100) / 100, currency: marketingText(input.currency, 3).toUpperCase() || undefined, minimumOrderCents, usageLimit: input.usageLimit == null ? undefined : Math.max(1, Math.floor(Number(input.usageLimit) || 0)), status, ...(startAt ? { startAt } : {}), ...(endAt ? { endAt } : {}), createdAt: input.createdAt || admin.firestore.FieldValue.serverTimestamp() };
+  return { code, kind, value: Math.round(value * 100) / 100, currency: marketingText(input.currency, 3).toUpperCase() || undefined, minimumOrderCents, ...(usageLimit != null ? { usageLimit } : {}), status, ...(startAt ? { startAt } : {}), ...(endAt ? { endAt } : {}), createdAt: input.createdAt || admin.firestore.FieldValue.serverTimestamp() };
 }));

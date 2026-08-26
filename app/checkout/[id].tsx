@@ -1,15 +1,15 @@
 import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Sheet } from "../../components/Sheet";
 import { payMethods, shippingCents, uvelFeeCents, type PayMethod } from "../../lib/fees";
 import { getMarket, moneyExact, convertCents } from "../../lib/markets";
 import { listingVisibleIn, shipsToLine } from "../../lib/ships";
 import { loadAddress, placeOrder, type Address } from "../../lib/orders";
-import { createCheckoutSession, openHostedPay, processorFor } from "../../lib/pay";
+import { createCheckoutSession, openHostedPay, processorFor, validatePromotion, type PromotionQuote } from "../../lib/pay";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { getPiece, useWardrobe } from "../../lib/wardrobe";
@@ -33,12 +33,65 @@ export default function Checkout() {
   const [payOpen, setPayOpen] = useState(false);
   const [paying, setPaying] = useState(false);
   const [feeInfo, setFeeInfo] = useState(false);
+  const [promotionCode, setPromotionCode] = useState("");
+  const [promotionQuote, setPromotionQuote] = useState<PromotionQuote | null>(null);
+  const [promotionBusy, setPromotionBusy] = useState(false);
+  const [promotionMessage, setPromotionMessage] = useState("");
 
   useFocusEffect(
     useCallback(() => {
       void loadAddress().then(setAddress);
     }, []),
   );
+
+  const currency = piece?.currency || "USD";
+  const item = piece?.listPriceCents || 0;
+  const itemLocal = piece ? convertCents(item, currency, market) : 0;
+  const fee = piece ? uvelFeeCents(item, currency, market) : 0;
+  const discountCents = Math.min(itemLocal, promotionQuote?.discountCents || 0);
+  const discountedItem = Math.max(0, itemLocal - discountCents);
+  const sellsHere = piece ? listingVisibleIn({ origin: piece.country, shipsTo: piece.shipsTo, buyer: market.code }) : false;
+  const addressOk = piece && address
+    ? listingVisibleIn({ origin: piece.country, shipsTo: piece.shipsTo, buyer: address.country })
+    : false;
+  const same = Boolean(address && piece && address.country === (piece.country || market.code));
+  const shipCost = address && addressOk ? shippingCents(same, ship === "express", market) : 0;
+  const total = discountedItem + fee + shipCost;
+  const method = methods.find((m) => m.id === pay) ?? methods[0];
+
+  useEffect(() => {
+    const linkedPromotionId = typeof promotionId === "string" ? promotionId.trim() : "";
+    if (!linkedPromotionId || !piece?.brandId || promotionQuote || promotionBusy) return;
+    setPromotionBusy(true);
+    void validatePromotion({ brandId: piece.brandId, listingId: piece.id, promotionId: linkedPromotionId, currency: market.currency, itemCents: itemLocal })
+      .then((quote) => { setPromotionQuote(quote); setPromotionCode(quote.code); setPromotionMessage(`${quote.code} applied · ${quote.kind === "percentage" ? `${quote.value}% off` : `${moneyExact(quote.discountCents, market.currency)} off`}`); })
+      .catch(() => setPromotionMessage("The campaign promotion is not active for this listing."))
+      .finally(() => setPromotionBusy(false));
+  }, [promotionId, piece?.brandId, piece?.id, market.currency, itemLocal]);
+
+  async function applyPromotion() {
+    if (!piece?.brandId || promotionBusy) return;
+    const code = promotionCode.trim().toUpperCase();
+    const linkedPromotionId = !code && typeof promotionId === "string" ? promotionId.trim() : "";
+    if (!code && !linkedPromotionId) {
+      setPromotionMessage("Enter a promotion code first.");
+      return;
+    }
+    setPromotionBusy(true);
+    setPromotionMessage("");
+    try {
+      const quote = await validatePromotion({ brandId: piece.brandId, listingId: piece.id, promotionId: linkedPromotionId || undefined, code: code || undefined, currency: market.currency, itemCents: itemLocal });
+      setPromotionQuote(quote);
+      setPromotionCode(quote.code);
+      setPromotionMessage(`${quote.code} applied · ${quote.kind === "percentage" ? `${quote.value}% off` : `${moneyExact(quote.discountCents, market.currency)} off`}`);
+    } catch (error) {
+      setPromotionQuote(null);
+      const raw = error instanceof Error ? error.message : String(error || "");
+      setPromotionMessage(/not-found|404|not connected|unavailable/i.test(raw) ? "Promotions will be available when Firebase checkout is deployed." : raw || "That promotion is not valid for this listing.");
+    } finally {
+      setPromotionBusy(false);
+    }
+  }
 
   if (!piece) {
     return (
@@ -48,22 +101,6 @@ export default function Checkout() {
     );
   }
 
-  const currency = piece.currency || "USD";
-  const item = piece.listPriceCents;
-  const itemLocal = convertCents(item, currency, market);
-  const fee = uvelFeeCents(item, currency, market);
-  const sellsHere = listingVisibleIn({
-    origin: piece.country,
-    shipsTo: piece.shipsTo,
-    buyer: market.code,
-  });
-  const addressOk = address
-    ? listingVisibleIn({ origin: piece.country, shipsTo: piece.shipsTo, buyer: address.country })
-    : false;
-  const same = Boolean(address && address.country === (piece.country || market.code));
-  const shipCost = address && addressOk ? shippingCents(same, ship === "express", market) : 0;
-  const total = itemLocal + fee + shipCost;
-  const method = methods.find((m) => m.id === pay) ?? methods[0];
   const variantTracked = Boolean(piece.brandId && piece.sizeStock);
   const selectedStock = selectedVariant && piece.sizeStock ? piece.sizeStock[selectedVariant] : piece.stockQuantity;
   const inventoryAvailable = !variantTracked || (typeof selectedStock === "number" && selectedStock > 0);
@@ -98,6 +135,9 @@ export default function Checkout() {
         sellerId: piece.ownerId || "seller",
         itemCents: itemLocal,
         feeCents: fee,
+        discountCents: discountCents || undefined,
+        promotionId: promotionQuote?.promotionId,
+        promotionCode: promotionQuote?.code,
         shipCents: shipCost,
         taxCents: 0,
         totalCents: total,
@@ -122,7 +162,8 @@ export default function Checkout() {
         variantKey: selectedVariant,
         campaignId: typeof campaignId === "string" ? campaignId : undefined,
         collectionId: typeof collectionId === "string" ? collectionId : undefined,
-        promotionId: typeof promotionId === "string" ? promotionId : undefined,
+        promotionId: promotionQuote?.promotionId,
+        promotionCode: promotionQuote?.code,
       });
       if (!session.url) throw new Error("That payment method isn’t live yet.");
       const ok = await openHostedPay(session.url);
@@ -213,6 +254,25 @@ export default function Checkout() {
           <Text style={styles.plus}>Edit</Text>
         </Pressable>
 
+        <Text style={styles.h}>Promotion</Text>
+        <View style={styles.promotionBox}>
+          <TextInput
+            value={promotionCode}
+            onChangeText={(value) => { setPromotionCode(value.toUpperCase()); if (promotionQuote) { setPromotionQuote(null); setPromotionMessage(""); } }}
+            placeholder="Enter promotion code"
+            placeholderTextColor="rgba(244,240,230,0.4)"
+            autoCapitalize="characters"
+            autoCorrect={false}
+            returnKeyType="done"
+            style={styles.promotionInput}
+            editable={!promotionBusy}
+          />
+          <Pressable onPress={() => void applyPromotion()} disabled={promotionBusy} style={[styles.promotionButton, promotionBusy && { opacity: 0.5 }]}>
+            <Text style={styles.promotionButtonTxt}>{promotionBusy ? "Checking…" : promotionQuote ? "Applied" : "Apply"}</Text>
+          </Pressable>
+        </View>
+        {promotionMessage ? <Text style={[styles.promotionMessage, promotionQuote ? styles.promotionGood : styles.promotionBad]}>{promotionMessage}</Text> : null}
+
         <Text style={styles.h}>Order summary</Text>
         <View style={styles.sum}>
           <View style={styles.item}>
@@ -225,9 +285,10 @@ export default function Checkout() {
               <Text style={styles.itemM}>{[selectedVariantLabel || piece.size, piece.color].filter(Boolean).join(" / ")}</Text>
               {variantTracked && typeof selectedStock === "number" ? <Text style={styles.itemM}>{selectedStock} available now</Text> : null}
             </View>
-            <Text style={styles.itemP}>{moneyExact(item, currency)}</Text>
+            <Text style={styles.itemP}>{moneyExact(itemLocal, market.currency)}</Text>
           </View>
 
+          {discountCents > 0 ? <View style={styles.line}><Text style={styles.lineL}>Promotion · {promotionQuote?.code}</Text><Text style={styles.discountValue}>−{moneyExact(discountCents, market.currency)}</Text></View> : null}
           <View style={styles.line}>
             <Pressable onPress={() => setFeeInfo(true)} style={styles.feeL}>
               <Text style={styles.lineL}>Uvel fee</Text>
@@ -381,6 +442,14 @@ function make(colors: Colors) {
       gap: 12,
     },
     boxOn: { borderColor: "#D6E27A" },
+    promotionBox: { marginHorizontal: 20, minHeight: 52, borderRadius: 14, borderWidth: 1, borderColor: "rgba(214,226,122,0.42)", backgroundColor: "#161512", flexDirection: "row", alignItems: "center", paddingLeft: 14, overflow: "hidden" },
+    promotionInput: { flex: 1, height: 50, color: "#F4F0E6", fontSize: 15, fontWeight: "600" },
+    promotionButton: { alignSelf: "stretch", minWidth: 78, alignItems: "center", justifyContent: "center", backgroundColor: "#D6E27A", paddingHorizontal: 13 },
+    promotionButtonTxt: { color: "#16140F", fontSize: 13, fontWeight: "800" },
+    promotionMessage: { marginHorizontal: 22, marginTop: 7, fontSize: 12, lineHeight: 16 },
+    promotionGood: { color: "#D6E27A" },
+    promotionBad: { color: "#E8B4A0" },
+    discountValue: { color: "#D6E27A", fontSize: 14, fontWeight: "700" },
     boxT: { color: colors.bone, fontSize: 15, flex: 1, fontWeight: "500" },
     boxS: { color: colors.muted, fontSize: 13, marginTop: 2 },
     dim: { color: colors.subtle, fontSize: 15, paddingVertical: 16 },

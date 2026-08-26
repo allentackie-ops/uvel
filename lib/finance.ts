@@ -72,7 +72,7 @@ function millis(value: unknown) {
 export function settlementEntry(order: Order, brandId: string): SettlementEntry | null {
   if (order.brandId !== brandId || order.status !== "paid") return null;
   const currency = String(order.currency || "USD").toUpperCase();
-  const grossCents = Math.max(0, Math.floor(Number(order.itemCents) || 0));
+  const grossCents = Math.max(0, Math.floor(Number(order.itemCents) || 0) - Math.floor(Number(order.discountCents) || 0));
   const feeCents = Math.max(0, Math.floor(Number(order.feeCents) || 0));
   const hasRefund = order.refundStatus === "processing" || order.refundStatus === "succeeded";
   const refundCents = hasRefund ? Math.min(grossCents, Math.max(0, Math.floor(Number(order.refundAmountCents || order.itemCents) || 0))) : 0;

@@ -65,7 +65,7 @@ export function buildGrowthSnapshot(brandId: string, orders: Order[], pieces: Cl
   const brandOrders = orders.filter((order) => order.brandId === brandId && order.currency === currency);
   const paid = brandOrders.filter((order) => order.status === "paid");
   const completed = paid.filter(successful);
-  const grossCents = paid.reduce((sum, order) => sum + Math.max(0, order.itemCents || 0), 0);
+  const grossCents = paid.reduce((sum, order) => sum + Math.max(0, (order.itemCents || 0) - (order.discountCents || 0)), 0);
   const feeCents = paid.reduce((sum, order) => sum + Math.max(0, order.feeCents || 0), 0);
   const refundCents = paid.reduce((sum, order) => sum + Math.max(0, order.refundAmountCents || 0), 0);
   const netCents = Math.max(0, grossCents - feeCents - refundCents);
@@ -94,8 +94,9 @@ export function buildGrowthSnapshot(brandId: string, orders: Order[], pieces: Cl
     const row = marketMap.get(key) || { country: order.country || "Unknown", currency: order.currency, orders: 0, sold: 0, grossCents: 0, netCents: 0 };
     row.orders += 1;
     row.sold += successful(order) ? 1 : 0;
-    row.grossCents += Math.max(0, order.itemCents || 0);
-    row.netCents += successful(order) ? Math.max(0, (order.itemCents || 0) - (order.feeCents || 0) - (order.refundAmountCents || 0)) : 0;
+    const paidItemCents = Math.max(0, (order.itemCents || 0) - (order.discountCents || 0));
+    row.grossCents += paidItemCents;
+    row.netCents += successful(order) ? Math.max(0, paidItemCents - (order.feeCents || 0) - (order.refundAmountCents || 0)) : 0;
     marketMap.set(key, row);
   });
   const totalAvailableUnits = livePieces.reduce((sum, piece) => sum + Math.max(0, piece.stockQuantity || 0), 0);

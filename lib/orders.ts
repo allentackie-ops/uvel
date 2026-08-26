@@ -73,6 +73,9 @@ export type Order = {
   sellerId: string;
   itemCents: number;
   feeCents: number;
+  discountCents?: number;
+  promotionId?: string;
+  promotionCode?: string;
   shipCents: number;
   taxCents: number;
   totalCents: number;

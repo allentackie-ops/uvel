@@ -49,6 +49,7 @@ export type BrandPromotion = {
   currency?: string;
   minimumOrderCents: number;
   usageLimit?: number;
+  usageCount?: number;
   status: MarketingStatus;
   startAt?: number;
   endAt?: number;
@@ -91,7 +92,7 @@ function normalizeCampaign(data: BrandCampaign): BrandCampaign {
   return { ...data, channel: data.channel || "brand_page", productIds: Array.isArray(data.productIds) ? data.productIds : [], createdAt: millis(data.createdAt), updatedAt: millis(data.updatedAt) };
 }
 function normalizePromotion(data: BrandPromotion): BrandPromotion {
-  return { ...data, code: String(data.code || "").toUpperCase(), minimumOrderCents: Math.max(0, Number(data.minimumOrderCents) || 0), createdAt: millis(data.createdAt), updatedAt: millis(data.updatedAt) };
+  return { ...data, code: String(data.code || "").toUpperCase(), minimumOrderCents: Math.max(0, Number(data.minimumOrderCents) || 0), usageLimit: data.usageLimit == null ? undefined : Math.max(1, Math.floor(Number(data.usageLimit) || 0)), usageCount: Math.max(0, Math.floor(Number(data.usageCount) || 0)), createdAt: millis(data.createdAt), updatedAt: millis(data.updatedAt) };
 }
 
 async function hydrate() {

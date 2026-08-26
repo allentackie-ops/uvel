@@ -20,6 +20,16 @@ export function stripeNativeReady() {
   return Boolean((NativeModules as { StripeSdk?: unknown }).StripeSdk);
 }
 
+export type PromotionQuote = {
+  promotionId: string;
+  code: string;
+  kind: "percentage" | "fixed";
+  value: number;
+  currency: string;
+  discountCents: number;
+  minimumOrderCents: number;
+};
+
 export type CheckoutPay = {
   amountCents: number;
   currency: string;
@@ -35,6 +45,7 @@ export type CheckoutPay = {
   campaignId?: string;
   collectionId?: string;
   promotionId?: string;
+  promotionCode?: string;
 };
 
 export type CheckoutSession = {
@@ -47,6 +58,13 @@ export type CheckoutSession = {
 export async function createCheckoutSession(input: CheckoutPay): Promise<CheckoutSession> {
   if (!firebaseReady()) throw new Error("Payments aren’t connected yet.");
   const call = httpsCallable<CheckoutPay, CheckoutSession>(firebaseFunctions(), "createCheckout");
+  const res = await call(input);
+  return res.data;
+}
+
+export async function validatePromotion(input: { brandId: string; listingId: string; promotionId?: string; code?: string; currency: string; itemCents: number }): Promise<PromotionQuote> {
+  if (!firebaseReady()) throw new Error("Promotion validation is not connected yet.");
+  const call = httpsCallable<typeof input, PromotionQuote>(firebaseFunctions(), "validatePromotion");
   const res = await call(input);
   return res.data;
 }
