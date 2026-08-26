@@ -271,7 +271,6 @@ export default function Today() {
   const unread = chats.reduce((n, t) => n + unreadFor(t, uid || "me"), 0);
   const { looks, refreshing, refresh, loading } = useLooks();
   useWardrobe();
-  const marketplaceSync = useMarketplaceSyncState();
   const wardrobeReady = useWardrobeHydrated();
   const live = shopFloor(country);
   const liveCampaigns = useLiveShopCampaigns();
@@ -327,11 +326,6 @@ export default function Today() {
           />
         }
       >
-        {marketplaceSync !== "confirmed" ? (
-          <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={styles.syncNotice}>
-            {marketplaceSync === "loading" ? "Checking live marketplace listings…" : "Live marketplace listings are unavailable. Try again when the marketplace reconnects."}
-          </Text>
-        ) : null}
         {featured ? (
           <Hero
             key={featured.id}
@@ -674,7 +668,6 @@ function ShopLookCard({
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: "#0B0A08" },
-    syncNotice: { color: "rgba(244,240,230,0.62)", fontSize: 12, lineHeight: 18, marginHorizontal: 16, marginTop: 10, marginBottom: 4 },
     heroWrap: { width: W, backgroundColor: "#0B0A08", overflow: "hidden" },
     heroLoad: { alignItems: "center", justifyContent: "center" },
     hero: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
