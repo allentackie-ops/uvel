@@ -30,7 +30,11 @@ jobs:
 
       - name: Verify deployment identity
         run: |
-          gcloud auth list --filter=status:ACTIVE --format='value(account)'
+          python3 - <<'PY'
+          import json, os
+          with open(os.environ["GOOGLE_APPLICATION_CREDENTIALS"], encoding="utf-8") as f:
+              print(json.load(f).get("client_email", "credential has no client_email"))
+          PY
           gcloud config get-value project
 
       - name: Set up Node.js
