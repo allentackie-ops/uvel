@@ -13,7 +13,7 @@ import { shopLookOf, type ShopLook } from "../../lib/shopLook";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { VerifiedMark } from "../../components/VerifiedMark";
-import { getPiece, likeCount, markSold, recordPieceView, unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { getPiece, isRemoteListedPiece, likeCount, markSold, recordPieceView, unlistPiece, updatePiece, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
 const HERO_H = Math.round(W * 1.28);
@@ -151,12 +151,13 @@ export default function ClosetPiece() {
   const insets = useSafeAreaInsets();
   const { id, v, campaignId, collectionId, promotionId, campaignChannel } = useLocalSearchParams<{ id: string; v?: string; campaignId?: string; collectionId?: string; promotionId?: string; campaignChannel?: string }>();
   useWardrobe();
+  const marketplaceSync = useMarketplaceSyncState();
   useBrands();
-  const piece = getPiece(id);
+  const app = useUvel();
   const preview = v === "buy";
   const [page, setPage] = useState(0);
   const [selectedSize, setSelectedSize] = useState("");
-  const app = useUvel();
+  const piece = getPiece(id);
   const look = shopLookOf(piece?.shopLook);
 
   useEffect(() => {
@@ -199,6 +200,8 @@ export default function ClosetPiece() {
   }
 
   const onFloor = piece.status === "listed";
+  const remoteListing = isRemoteListedPiece(piece.id);
+  const availabilityConfirmed = marketplaceSync === "confirmed" && remoteListing;
   const sizeOptions = piece.sizes?.length ? piece.sizes : piece.size ? [piece.size] : [];
   const selectedStock = selectedSize && piece.sizeStock ? piece.sizeStock[selectedSize] : piece.stockQuantity;
   const inventoryTracked = Boolean(piece.brandId && (typeof piece.stockQuantity === "number" || Boolean(piece.sizeStock)));
@@ -223,7 +226,7 @@ export default function ClosetPiece() {
     shipsTo: piece.shipsTo,
     buyer: app.country,
   });
-  const canBuy = onFloor && onThisFloor && inStock && (!inventoryTracked || sizeOptions.length === 0 || Boolean(selectedSize));
+  const canBuy = availabilityConfirmed && onFloor && onThisFloor && inStock && (!inventoryTracked || sizeOptions.length === 0 || Boolean(selectedSize));
 
   function tryOnMe() {
     if (!app.isPlus && app.remainingTryOns <= 0) {
@@ -427,6 +430,9 @@ export default function ClosetPiece() {
 
       {onFloor && onThisFloor ? (
         <View style={[styles.dock, { paddingBottom: insets.bottom + 10 }]}>
+          <Text accessibilityRole="text" style={styles.availabilityNotice}>
+            {marketplaceSync === "loading" ? "Checking live availability…" : marketplaceSync === "unavailable" ? "Live availability is unavailable. Checkout is paused until the marketplace reconnects." : !remoteListing ? "This listing is not currently confirmed by Uvel’s marketplace service." : "Live availability confirmed."}
+          </Text>
           <Pressable onPress={tryOnMe} style={styles.try}>
             <Text style={styles.tryTxt}>Try on me</Text>
           </Pressable>
@@ -439,7 +445,7 @@ export default function ClosetPiece() {
               disabled={!canBuy}
               style={[styles.buy, !canBuy && styles.buyOff]}
             >
-              <Text style={styles.ctaTxt}>{!inStock ? "Sold out" : !selectedSize && sizeOptions.length ? "Choose a size" : `Buy · ${usd(piece.listPriceCents, piece.currency || "USD")}`}</Text>
+              <Text style={styles.ctaTxt}>{!availabilityConfirmed ? "Availability unavailable" : !inStock ? "Sold out" : !selectedSize && sizeOptions.length ? "Choose a size" : `Buy · ${usd(piece.listPriceCents, piece.currency || "USD")}`}</Text>
             </Pressable>
           </View>
         </View>
@@ -680,6 +686,7 @@ function make(look: ShopLook) {
     sellerNameRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
     sellerN: { color: look.bone, fontSize: 16, fontWeight: "600" },
     sellerP: { color: look.muted, fontSize: 13, marginTop: 2 },
+    availabilityNotice: { color: look.muted, fontSize: 12, lineHeight: 18, marginBottom: 2 },
     p: { color: look.muted, lineHeight: 22 },
     ctaTxt: { color: look.accentInk, fontWeight: "700", fontSize: 16 },
     dock: {

@@ -219,6 +219,9 @@ export function watchOrder(id: string, onStatus: (status: Order["status"] | null
 }
 
 export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status">): Promise<Order> {
+  if (!firebaseReady() || !firebaseAuth().currentUser) {
+    throw new Error("Orders are unavailable until Uvel reconnects to the marketplace service.");
+  }
   const full: Order = {
     ...order,
     id: `o-${Date.now().toString(36)}`,
@@ -229,23 +232,21 @@ export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status
     fulfillmentStatus: "unfulfilled",
   };
   try {
+    await setDoc(doc(firebaseDb(), "orders", full.id), {
+      ...full,
+      createdAt: serverTimestamp(),
+    });
+  } catch {
+    throw new Error("We couldn’t save this order securely, so no payment was started. Please try again when Uvel reconnects.");
+  }
+  try {
     const raw = await AsyncStorage.getItem(ORDERS);
     const list = raw ? (JSON.parse(raw) as Order[]) : [];
     await AsyncStorage.setItem(ORDERS, JSON.stringify([full, ...list]));
     cache = [full, ...list];
     emit();
   } catch {
-    /* ignore */
-  }
-  if (firebaseReady()) {
-    try {
-      await setDoc(doc(firebaseDb(), "orders", full.id), {
-        ...full,
-        createdAt: serverTimestamp(),
-      });
-    } catch {
-      /* The checkout callable will reject an order that never reached Firestore. */
-    }
+    /* The remote order remains authoritative if local caching is unavailable. */
   }
   if (order.sellerId && order.sellerId !== order.buyerId) {
     const other = await readUserLite(order.sellerId);

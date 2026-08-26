@@ -120,6 +120,9 @@ let pieces: ClosetPiece[] = [];
 const listeners = new Set<() => void>();
 let listingsWatchStarted = false;
 let wardrobeHydrated = false;
+const remoteListingIds = new Set<string>();
+export type MarketplaceSyncState = "loading" | "confirmed" | "unavailable";
+let marketplaceSyncState: MarketplaceSyncState = "loading";
 
 function timestampMillis(value: unknown) {
   if (typeof value === "number") return value;
@@ -129,6 +132,11 @@ function timestampMillis(value: unknown) {
 
 function emit() {
   listeners.forEach((listener) => listener());
+}
+
+function setMarketplaceSyncState(state: MarketplaceSyncState) {
+  marketplaceSyncState = state;
+  emit();
 }
 
 function normalize(p: ClosetPiece): ClosetPiece {
@@ -147,14 +155,20 @@ function normalize(p: ClosetPiece): ClosetPiece {
 }
 
 function watchPublicListings() {
-  if (listingsWatchStarted || !firebaseReady()) return;
+  if (listingsWatchStarted) return;
+  if (!firebaseReady()) {
+    setMarketplaceSyncState("unavailable");
+    return;
+  }
   listingsWatchStarted = true;
+  setMarketplaceSyncState("loading");
   try {
     const q = query(collection(firebaseDb(), "listings"), where("status", "==", "listed"));
     onSnapshot(q, (snap) => {
       snap.docChanges().forEach((change) => {
         const existing = pieces.find((piece) => piece.id === change.doc.id);
         if (change.type === "removed") {
+          remoteListingIds.delete(change.doc.id);
           if (existing && existing.brandId) {
             pieces = pieces.map((piece) => piece.id === change.doc.id ? { ...piece, status: "sold", stockQuantity: 0 } : piece);
           }
@@ -167,14 +181,16 @@ function watchPublicListings() {
           createdAt: timestampMillis(data.createdAt),
         });
         if (isDemoListing(remote)) return;
+        remoteListingIds.add(remote.id);
         pieces = pieces.some((piece) => piece.id === remote.id)
           ? pieces.map((piece) => piece.id === remote.id ? { ...piece, ...remote } : piece)
           : [remote, ...pieces];
       });
-      emit();
-    }, () => undefined);
+      setMarketplaceSyncState("confirmed");
+    }, () => setMarketplaceSyncState("unavailable"));
   } catch {
     listingsWatchStarted = false;
+    setMarketplaceSyncState("unavailable");
   }
 }
 
@@ -236,6 +252,21 @@ export function useWardrobe() {
   return pieces;
 }
 
+export function useMarketplaceSyncState() {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    watchPublicListings();
+    const l = () => setTick((n) => n + 1);
+    listeners.add(l);
+    return () => { listeners.delete(l); };
+  }, []);
+  return marketplaceSyncState;
+}
+
+export function isRemoteListedPiece(id: string) {
+  return remoteListingIds.has(id);
+}
+
 export function getPiece(id: string) {
   return pieces.find((p) => p.id === id);
 }
@@ -244,8 +275,9 @@ export function allPieces() {
   return pieces;
 }
 
+/** Public marketplace listings confirmed by the latest remote snapshot. */
 export function listedPieces() {
-  return pieces.filter((p) => p.status === "listed");
+  return pieces.filter((p) => p.status === "listed" && remoteListingIds.has(p.id));
 }
 
 /** Live listings a buyer in this country is allowed to see. */

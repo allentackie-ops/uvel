@@ -7,7 +7,7 @@ import { uvelFeeCents } from "../lib/fees";
 import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
-import { getPiece, likeCount, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
+import { getPiece, isRemoteListedPiece, likeCount, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { VerifiedMark } from "./VerifiedMark";
 
 export function ListingCard({
@@ -36,11 +36,14 @@ export function ListingCard({
   const localPriceCents = convertCents(live.listPriceCents, itemCurrency, here);
   const buyerFee = uvelFeeCents(live.listPriceCents, itemCurrency, here);
   const total = localPriceCents + buyerFee;
+  const sync = useMarketplaceSyncState();
+  const remote = isRemoteListedPiece(live.id);
+  const confirmed = sync === "confirmed" && remote;
   return (
     <AccessiblePressable      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
       style={({ pressed }) => [styles.wrap, wide ? { width: wide, flex: undefined } : null, framed && styles.framed, pressed && styles.focused]}
       accessibilityRole="button"
-      accessibilityLabel={`${brand} ${live.name}, ${moneyInMarket(live.listPriceCents, itemCurrency, here)}${typeof live.stockQuantity === "number" ? live.stockQuantity === 0 ? ", sold out" : live.stockQuantity <= 10 ? `, ${live.stockQuantity} remaining` : "" : ""}`}
+      accessibilityLabel={`${brand} ${live.name}, ${moneyInMarket(live.listPriceCents, itemCurrency, here)}${typeof live.stockQuantity === "number" ? live.stockQuantity === 0 ? ", sold out" : live.stockQuantity <= 10 ? `, ${live.stockQuantity} remaining` : "" : ""}${!confirmed ? ", availability not confirmed" : ""}`}
       accessibilityHint="Double tap to view this listing."
     >
       <View>
@@ -92,8 +95,11 @@ export function ListingCard({
           {[live.size || live.sizes?.[0] || "One size", live.condition || "Condition not listed"].join(" · ")}
         </Text>
         <Text style={[styles.total, framed && styles.totalFramed]} numberOfLines={1}>
-          {moneyInMarket(total, here.currency, here)} incl. buyer protection
+          {moneyInMarket(total, here.currency, here)} {confirmed ? "incl. buyer protection" : "availability pending"}
         </Text>
+        {!confirmed && sync !== "loading" ? (
+          <View style={styles.syncDot} />
+        ) : null}
       </View>
     </AccessiblePressable>
   );
@@ -103,74 +109,20 @@ function make(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     wrap: { flex: 1, borderRadius: 18 },
     focused: { borderWidth: 2, borderColor: colors.success },
-    framed: {
-      backgroundColor: "#161512",
-      borderRadius: 18,
-      overflow: "hidden",
-    },
-    img: {
-      width: "100%",
-      aspectRatio: 3 / 4,
-      borderRadius: 18,
-      backgroundColor: colors.surface,
-    },
+    framed: { backgroundColor: "#161512", borderRadius: 18, overflow: "hidden" },
+    img: { width: "100%", aspectRatio: 3 / 4, borderRadius: 18, backgroundColor: colors.surface },
     framedImg: { borderRadius: 0, backgroundColor: "#1A1915" },
-    newBadge: {
-      position: "absolute",
-      top: 10,
-      left: 10,
-      zIndex: 8,
-    },
-    newBadgeTxt: {
-      color: "#F4F0E6",
-      fontSize: 13,
-      fontWeight: "800",
-      textShadowColor: "rgba(0,0,0,0.45)",
-      textShadowOffset: { width: 0, height: 1 },
-      textShadowRadius: 3,
-    },
-    hearts: {
-      position: "absolute",
-      minWidth: 44,
-      minHeight: 44,
-      right: 10,
-      bottom: 10,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 5,
-      zIndex: 8,
-    },
-    heartsIco: {
-      color: "#F4F0E6",
-      fontSize: 16,
-      textShadowColor: "rgba(0,0,0,0.45)",
-      textShadowOffset: { width: 0, height: 1 },
-      textShadowRadius: 3,
-    },
+    newBadge: { position: "absolute", top: 10, left: 10, zIndex: 8 },
+    newBadgeTxt: { color: "#F4F0E6", fontSize: 13, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+    hearts: { position: "absolute", minWidth: 44, minHeight: 44, right: 10, bottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, zIndex: 8 },
+    heartsIco: { color: "#F4F0E6", fontSize: 16, textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
     heartsOn: { color: "#D6E27A" },
-    heartsN: {
-      color: "#F4F0E6",
-      fontSize: 14,
-      fontWeight: "800",
-      textShadowColor: "rgba(0,0,0,0.45)",
-      textShadowOffset: { width: 0, height: 1 },
-      textShadowRadius: 3,
-    },
-    badge: {
-      position: "absolute",
-      left: 10,
-      bottom: 10,
-      backgroundColor: "rgba(244,240,230,0.94)",
-      paddingHorizontal: 12,
-      height: 28,
-      borderRadius: 14,
-      alignItems: "center",
-      justifyContent: "center",
-    },
+    heartsN: { color: "#F4F0E6", fontSize: 14, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+    badge: { position: "absolute", left: 10, bottom: 10, backgroundColor: "rgba(244,240,230,0.94)", paddingHorizontal: 12, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
     badgeTxt: { color: "#16140F", fontWeight: "700", fontSize: 12 },
     stockBadge: { position: "absolute", left: 10, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center", zIndex: 9 },
-    stockBadgeTxt: { color: "#16140F", fontSize: 12, fontWeight: "800" },
+    stockBadgeTxt: { color: "#16140F", fontSize: 11, fontWeight: "800" },
+    syncDot: { position: "absolute", top: 10, right: 10, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.muted, opacity: 0.5 },
     framedMeta: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12 },
     brand: { color: colors.subtle, fontSize: 11, marginTop: 8, letterSpacing: 0.4 },
     brandFramed: { marginTop: 0, letterSpacing: 1.3, fontWeight: "700", color: "rgba(244,240,230,0.42)" },

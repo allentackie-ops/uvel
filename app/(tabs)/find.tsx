@@ -19,7 +19,7 @@ import { pickFromLibrary, takePhoto } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { dressPerson } from "../../lib/tryon";
-import { shopFloor, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { shopFloor, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 type GarmentPick =
   | { kind: "uvel"; piece: ClosetPiece }
@@ -31,6 +31,7 @@ export default function Mirror() {
   const insets = useSafeAreaInsets();
   const app = useUvel();
   useWardrobe();
+  const marketplaceSync = useMarketplaceSyncState();
   const live = shopFloor(app.country);
   const person = app.personUri;
   const [picked, setPicked] = useState<GarmentPick | null>(null);
@@ -156,6 +157,11 @@ export default function Mirror() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 108 }} showsVerticalScrollIndicator={false}>
+        {marketplaceSync !== "confirmed" ? (
+          <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={styles.syncNotice}>
+            {marketplaceSync === "loading" ? "Checking live marketplace listings…" : "Live marketplace listings are unavailable. Try again when the marketplace reconnects."}
+          </Text>
+        ) : null}
 
         <View style={styles.hero}>
           {result ? (
@@ -279,6 +285,7 @@ export default function Mirror() {
 function make(_colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: "#0B0A08" },
+    syncNotice: { color: "rgba(244,240,230,0.62)", fontSize: 12, lineHeight: 18, marginHorizontal: 20, marginTop: 10, marginBottom: 4 },
     top: {
       flexDirection: "row",
       alignItems: "flex-start",

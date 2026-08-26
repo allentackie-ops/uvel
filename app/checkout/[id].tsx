@@ -13,7 +13,7 @@ import { loadAddress, placeOrder, type Address } from "../../lib/orders";
 import { createCheckoutSession, openHostedPay, processorFor, validatePromotion, type PromotionQuote } from "../../lib/pay";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
-import { getPiece, useWardrobe } from "../../lib/wardrobe";
+import { getPiece, isRemoteListedPiece, useMarketplaceSyncState, useWardrobe } from "../../lib/wardrobe";
 import { recordCampaignAttribution } from "../../lib/attribution";
 
 export default function Checkout() {
@@ -22,6 +22,7 @@ export default function Checkout() {
   const insets = useSafeAreaInsets();
   const { id, variantKey: variantParam, variantLabel: variantLabelParam, campaignId, collectionId, promotionId, campaignChannel } = useLocalSearchParams<{ id: string; variantKey?: string; variantLabel?: string; campaignId?: string; collectionId?: string; promotionId?: string; campaignChannel?: string }>();
   useWardrobe();
+  const marketplaceSync = useMarketplaceSyncState();
   const piece = getPiece(id);
   const selectedVariant = typeof variantParam === "string" ? variantParam : "";
   const selectedVariantLabel = typeof variantLabelParam === "string" ? variantLabelParam : selectedVariant;
@@ -55,6 +56,7 @@ export default function Checkout() {
   const addressOk = piece && address
     ? listingVisibleIn({ origin: piece.country, shipsTo: piece.shipsTo, buyer: address.country })
     : false;
+  const availabilityConfirmed = marketplaceSync === "confirmed" && isRemoteListedPiece(piece?.id || "");
   const same = Boolean(address && piece && address.country === (piece.country || market.code));
   const shipCost = address && addressOk ? shippingCents(same, ship === "express", market) : 0;
   const total = discountedItem + fee + shipCost;
@@ -110,6 +112,10 @@ export default function Checkout() {
 
   async function payNow() {
     if (!address || !piece) return;
+    if (!availabilityConfirmed) {
+      Alert.alert("Availability unavailable", marketplaceSync === "loading" ? "Uvel is still checking this listing. Try again in a moment." : "Uvel could not confirm this listing with the marketplace service. Checkout is paused.");
+      return;
+    }
     if (!sellsHere || !addressOk) {
       Alert.alert("Wrong store", "This seller doesn’t ship this piece to that country.");
       return;
@@ -201,6 +207,12 @@ export default function Checkout() {
         <Text style={[styles.boxS, { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 }]}>
           {shipsToLine(piece.country || market.code, piece.shipsTo)}
         </Text>
+        {!availabilityConfirmed ? (
+          <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={[styles.boxS, { paddingHorizontal: 20, color: colors.warning, paddingBottom: 8 }]}
+          >
+            {marketplaceSync === "loading" ? "Checking live listing availability…" : "Live listing availability is unavailable. Checkout is paused until the marketplace reconnects."}
+          </Text>
+        ) : null}
         {!sellsHere ? (
           <Text accessibilityRole="text" accessibilityLiveRegion="assertive" style={[styles.boxS, { paddingHorizontal: 20, color: colors.danger, paddingBottom: 8 }]}>
             This piece isn’t on the {market.name} floor.
@@ -345,7 +357,7 @@ export default function Checkout() {
             accessibilityRole="button"
             accessibilityLabel="Learn about Uvel purchase protection"
           >
-            <Text style={styles.protect}>Uvel protects every purchase.</Text>
+            <Text style={styles.protect}>Review purchase protection terms.</Text>
           </AccessiblePressable>
         </View>
       </ScrollView>
@@ -355,29 +367,27 @@ export default function Checkout() {
           <Text style={styles.totalL}>Total to pay</Text>
           <Text style={styles.totalV}>{moneyExact(total, market.currency)}</Text>
         </View>
-        <AccessiblePressable          onPress={() => void payNow()}
-          disabled={!ready}
-          style={({ pressed }) => [styles.payBtn, !ready && { opacity: 0.4 }, pressed && styles.focused]}
+        <AccessiblePressable onPress={() => void payNow()}
+          disabled={!ready || !availabilityConfirmed}
+          style={({ pressed }) => [styles.payBtn, (!ready || !availabilityConfirmed) && { opacity: 0.4 }, pressed && styles.focused]}
           accessibilityRole="button"
           accessibilityLabel={paying ? "Processing payment" : `Pay with ${method?.label || "selected method"}, ${moneyExact(total, market.currency)}`}
-          accessibilityState={{ disabled: !ready, busy: paying }}
+          accessibilityState={{ disabled: !ready || !availabilityConfirmed, busy: paying }}
         >
           <Text style={styles.payTxt}>
             {paying ? "Paying…" : method?.kind === "apple" ? "Apple Pay" : `Pay with ${method?.label}`}
           </Text>
         </AccessiblePressable>
-        <Text style={styles.lock}>Your payment details are encrypted and secure</Text>
+        <Text style={styles.lock}>Payment details are handled by the connected payment provider.</Text>
       </View>
 
       {feeInfo ? (
         <Sheet open={feeInfo} onClose={() => setFeeInfo(false)}>
           <Text style={styles.sheetH}>Uvel fee</Text>
           <Text style={styles.sheetP}>
-            Buyer protection. Under $50 it’s $0.99, from $50 it’s $2.99, from $150 it’s $4.99, from $500 it’s $6.99,
-            and $1,000+ is $8.99 — shown here in {market.currency}. The seller gets the full listing price. You get
-            purchase protection on Uvel.
+            Buyer protection fees are shown here in {market.currency}. The seller gets the full listing price. Review the purchase protection terms before paying; payment confirmation and any protection eligibility depend on the connected payment and order services.
           </Text>
-          <AccessiblePressable            onPress={() => setFeeInfo(false)}
+          <AccessiblePressable onPress={() => setFeeInfo(false)}
             style={({ pressed }) => [styles.sheetBtn, pressed && styles.focused]}
             accessibilityRole="button"
             accessibilityLabel="Close fee information"
@@ -394,7 +404,7 @@ export default function Checkout() {
           {method.id === "apple" ? " · Apple Pay" : ""} · {market.name}
         </Text>
         {methods.map((m) => (
-          <AccessiblePressable            key={m.id}
+          <AccessiblePressable key={m.id}
             onPress={() => {
               setPay(m.id);
               setPayOpen(false);

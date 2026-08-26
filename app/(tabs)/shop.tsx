@@ -20,7 +20,7 @@ import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
 import { useLiveShopCampaigns } from "../../lib/marketing";
-import { getPiece, shopFloor, useWardrobe, useWardrobeHydrated } from "../../lib/wardrobe";
+import { getPiece, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated } from "../../lib/wardrobe";
 
 function FrozenClip({
   uri,
@@ -123,6 +123,7 @@ export default function Shop() {
   const frame = job?.frame || "";
   const videoUrl = job?.videoUrl || "";
   const freezeAt = job?.time || 0;
+  const marketplaceSync = useMarketplaceSyncState();
   const live = shopFloor(country);
   const liveCampaigns = useLiveShopCampaigns();
   const scanningLook = Boolean(scan === "1" || look || frame || videoUrl);
@@ -236,6 +237,12 @@ export default function Shop() {
         <View style={styles.orbitBox}>
           <OrbitLoader />
         </View>
+      ) : null}
+
+      {marketplaceSync !== "confirmed" ? (
+        <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={styles.syncNotice}>
+          {marketplaceSync === "loading" ? "Checking live marketplace listings…" : "Live marketplace listings are unavailable. Local drafts and unsynced listings stay out of Shop until the marketplace reconnects."}
+        </Text>
       ) : null}
 
       <View style={styles.search}>
@@ -376,7 +383,9 @@ export default function Shop() {
           copy={
             scanningLook
               ? "Nothing on this shop looks like that yet."
-              : `Nothing on the ${market.name} shop yet. Listings from other countries stay there unless the seller opens them to this store.`
+              : marketplaceSync !== "confirmed"
+                ? "Live marketplace listings are unavailable right now. Try again when the marketplace reconnects."
+                : `Nothing on the ${market.name} shop yet. Listings from other countries stay there unless the seller opens them to this store.`
           }
         />
       ) : null}
@@ -402,6 +411,7 @@ function make(colors: Colors) {
       gap: 6,
     },
     brandBtnTxt: { color: "#F4F0E6", fontWeight: "700", fontSize: 12 },
+    syncNotice: { color: "rgba(244,240,230,0.62)", fontSize: 12, lineHeight: 18, marginTop: 10, marginBottom: 4 },
     campaignSection: { marginTop: 22 },
     campaignHead: { flexDirection: "row", alignItems: "flex-end", gap: 10, marginBottom: 10 },
     campaignKicker: { color: "#D6E27A", fontSize: 11, fontWeight: "800", letterSpacing: 1.5 },
