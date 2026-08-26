@@ -123,7 +123,7 @@ export default function Settings() {
           <Switch
             value={app.wantsUpdates}
             onValueChange={(v) => void toggleNotes(v)}
-            trackColor={{ false: colors.surface, true: "#D6E27A" }}
+            trackColor={{ false: colors.surface, true: colors.success }}
             thumbColor="#fff"
           />
         </View>
@@ -247,9 +247,9 @@ function make(colors: ReturnType<typeof useColors>) {
     rowLabel: { color: colors.bone, fontSize: 16 },
     seg: { flexDirection: "row", backgroundColor: colors.ink, borderRadius: 10, padding: 2 },
     segBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-    segOn: { backgroundColor: "#D6E27A" },
+    segOn: { backgroundColor: colors.success },
     segTxt: { color: colors.muted, fontSize: 13, fontWeight: "600" },
-    segTxtOn: { color: "#16140F" },
+    segTxtOn: { color: colors.successInk },
     lang: {
       paddingVertical: 12,
       paddingHorizontal: 16,
@@ -259,11 +259,11 @@ function make(colors: ReturnType<typeof useColors>) {
     last: { borderBottomWidth: 0 },
     langTxt: { color: colors.muted, fontSize: 15 },
     langOn: { color: colors.bone, fontWeight: "700" },
-    dangerBox: { marginTop: 20, borderWidth: 1, borderColor: "#B85C5C66", borderRadius: 16, padding: 16 },
-    dangerTitle: { color: "#E08C8C", fontWeight: "700", fontSize: 16 },
+    dangerBox: { marginTop: 20, borderWidth: 1, borderColor: `${colors.danger}66`, borderRadius: 16, padding: 16 },
+    dangerTitle: { color: colors.danger, fontWeight: "700", fontSize: 16 },
     dangerHint: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 5 },
     deleteBtn: { marginTop: 14, alignSelf: "flex-start", paddingVertical: 8 },
-    deleteText: { color: "#E08C8C", fontSize: 15, fontWeight: "700" },
+    deleteText: { color: colors.danger, fontSize: 15, fontWeight: "700" },
     out: { marginTop: 28, alignItems: "flex-start", paddingHorizontal: 4 },
     outText: { color: colors.muted, fontSize: 16 },
     ver: { color: colors.subtle, fontSize: 12, marginTop: 20 },

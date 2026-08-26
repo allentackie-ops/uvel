@@ -9,6 +9,7 @@ import { openThread, threadId } from "../../lib/chat";
 import { useUvel } from "../../lib/store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, type Colors } from "../../lib/theme";
+import { semanticStatus, statusToneFor } from "../../lib/status";
 
 export default function OrderDone() {
   const colors = useColors();
@@ -33,6 +34,7 @@ export default function OrderDone() {
 
   const confirmed = status === "paid";
   const fulfillmentLabel = fulfillment === "processing" ? "Being prepared" : fulfillment === "packed" ? "Packed" : fulfillment === "shipped" ? "On the way" : fulfillment === "delivered" ? "Delivered" : fulfillment === "canceled" ? "Canceled" : fulfillment === "returned" ? "Returned" : "Awaiting fulfillment";
+  const orderStatusAppearance = semanticStatus(colors, statusToneFor(confirmed ? fulfillment : status));
   const resolution = currentOrder?.resolution;
   const shipment = currentOrder?.shipment;
   const orderBrand = currentOrder?.brandId ? getBrand(currentOrder.brandId) : undefined;
@@ -116,10 +118,11 @@ export default function OrderDone() {
           ? fulfillment === "shipped" ? "Your order is on the way. Tracking will appear here as soon as the seller adds it." : fulfillment === "delivered" ? "The seller marked this order delivered. Keep Uvel’s protection details available if you need help." : fulfillment === "canceled" ? "This order was canceled. Contact Uvel support if you need help with the refund." : `Payment is confirmed. Fulfillment status: ${fulfillmentLabel}.`
           : "We’re waiting for the payment provider to confirm this order. You can leave this screen; the order will update when confirmation arrives."}
       </Text>
-      {confirmed ? <Text style={styles.status}>{fulfillmentLabel}</Text> : null}
-      {shipment ? <View style={styles.shipmentCard}><Text style={styles.shipmentK}>SHIPMENT · {shipment.status.replace("_", " ")}</Text><Text style={styles.tracking}>{shipment.carrier} · {shipment.trackingNumber}</Text>{shipment.trackingUrl ? <Pressable onPress={() => void Linking.openURL(shipment.trackingUrl || "")}><Text style={styles.trackingLink}>Open carrier tracking ↗</Text></Pressable> : null}{shipment.estimatedDeliveryAt ? <Text style={styles.shipmentMeta}>Estimated delivery: {new Date(shipment.estimatedDeliveryAt).toLocaleDateString()}</Text> : null}{shipment.lastLocation ? <Text style={styles.shipmentMeta}>Last location: {shipment.lastLocation}</Text> : null}{shipment.status === "exception" ? <Text style={styles.exception}>Delivery exception: {shipment.exceptionCode?.replace("_", " ") || "Carrier issue"}{shipment.exceptionNote ? ` · ${shipment.exceptionNote}` : ""}</Text> : null}</View> : currentOrder?.trackingNumber ? <Text style={styles.tracking}>{currentOrder.carrier ? `${currentOrder.carrier} · ` : ""}{currentOrder.trackingNumber}</Text> : null}
-      {resolution ? <View style={styles.resolutionCard}><Text style={styles.resolutionK}>{resolution.type === "return" ? "RETURN" : "CANCELLATION"}</Text><Text style={styles.resolutionText}>{resolution.status === "requested" ? "Waiting for brand review" : resolution.status === "approved" ? "Approved" : resolution.status === "item_sent" ? "Return marked as sent" : resolution.status === "received" ? "Return received · refund processing" : resolution.status === "refunded" ? "Refund complete" : resolution.status === "rejected" ? "Request declined" : resolution.status.replace("_", " ")}</Text>{resolution.type === "return" && resolution.status === "approved" ? <Pressable disabled={busy} onPress={() => void markReturnSent()} style={[styles.actionBtn, busy && styles.actionBtnOff]}><Text style={styles.actionTxt}>{busy ? "Updating…" : "I sent the return"}</Text></Pressable> : null}</View> : null}
-      {currentOrder?.refundStatus && currentOrder.refundStatus !== "none" ? <Text style={styles.refund}>Refund: {currentOrder.refundStatus === "succeeded" ? "Complete" : currentOrder.refundStatus === "failed" ? "Needs attention" : "Processing"}</Text> : null}
+      {confirmed ? <Text style={[styles.status, orderStatusAppearance]}>{fulfillmentLabel}</Text> : null}
+      {shipment ? <View style={styles.shipmentCard}><Text style={[styles.shipmentK, { color: semanticStatus(colors, statusToneFor(shipment.status)).color }]}>SHIPMENT · {shipment.status.replace("_", " ")}</Text><Text style={styles.tracking}>{shipment.carrier} · {shipment.trackingNumber}</Text>{shipment.trackingUrl ? <Pressable onPress={() => void Linking.openURL(shipment.trackingUrl || "")}><Text style={styles.trackingLink}>Open carrier tracking ↗</Text></Pressable> : null}{shipment.estimatedDeliveryAt ? <Text style={styles.shipmentMeta}>Estimated delivery: {new Date(shipment.estimatedDeliveryAt).toLocaleDateString()}</Text> : null}{shipment.lastLocation ? <Text style={styles.shipmentMeta}>Last location: {shipment.lastLocation}</Text> : null}{shipment.status === "exception" ? <Text style={[styles.exception, { color: semanticStatus(colors, "danger").color }]}>
+Delivery exception: {shipment.exceptionCode?.replace("_", " ") || "Carrier issue"}{shipment.exceptionNote ? ` · ${shipment.exceptionNote}` : ""}</Text> : null}</View> : currentOrder?.trackingNumber ? <Text style={styles.tracking}>{currentOrder.carrier ? `${currentOrder.carrier} · ` : ""}{currentOrder.trackingNumber}</Text> : null}
+      {resolution ? <View style={styles.resolutionCard}><Text style={[styles.resolutionK, { color: semanticStatus(colors, statusToneFor(resolution.status)).color }]}>{resolution.type === "return" ? "RETURN" : "CANCELLATION"}</Text><Text style={styles.resolutionText}>{resolution.status === "requested" ? "Waiting for brand review" : resolution.status === "approved" ? "Approved" : resolution.status === "item_sent" ? "Return marked as sent" : resolution.status === "received" ? "Return received · refund processing" : resolution.status === "refunded" ? "Refund complete" : resolution.status === "rejected" ? "Request declined" : resolution.status.replace("_", " ")}</Text>{resolution.type === "return" && resolution.status === "approved" ? <Pressable disabled={busy} onPress={() => void markReturnSent()} style={[styles.actionBtn, busy && styles.actionBtnOff]}><Text style={styles.actionTxt}>{busy ? "Updating…" : "I sent the return"}</Text></Pressable> : null}</View> : null}
+      {currentOrder?.refundStatus && currentOrder.refundStatus !== "none" ? <Text style={[styles.refund, { color: semanticStatus(colors, statusToneFor(currentOrder.refundStatus)).color }]}>Refund: {currentOrder.refundStatus === "succeeded" ? "Complete" : currentOrder.refundStatus === "failed" ? "Needs attention" : "Processing"}</Text> : null}
       {currentOrder && orderBrand ? <Pressable disabled={busy} onPress={chooseSupportReason} style={[styles.secondaryBtn, busy && styles.actionBtnOff]}><Text style={styles.secondaryTxt}>Contact support about this order</Text></Pressable> : null}
       {canCancel ? <Pressable disabled={busy} onPress={() => chooseResolution("cancellation")} style={[styles.secondaryBtn, busy && styles.actionBtnOff]}><Text style={styles.secondaryTxt}>Request cancellation</Text></Pressable> : null}
       {canReturn ? <Pressable disabled={busy} onPress={() => chooseResolution("return")} style={[styles.secondaryBtn, busy && styles.actionBtnOff]}><Text style={styles.secondaryTxt}>Request a return</Text></Pressable> : null}
@@ -139,12 +142,12 @@ function make(colors: Colors) {
     p: { color: colors.muted, marginTop: 14, lineHeight: 22, fontSize: 16 },
     status: { alignSelf: "flex-start", color: colors.pulseInk, backgroundColor: colors.pulse, borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8, marginTop: 20, fontWeight: "800" },
     tracking: { color: colors.bone, marginTop: 12, fontSize: 14, fontWeight: "700" },
-    shipmentCard: { marginTop: 16, padding: 14, borderRadius: 16, backgroundColor: "#24221C", borderWidth: 1, borderColor: "rgba(214,226,122,0.28)" },
+    shipmentCard: { marginTop: 16, padding: 14, borderRadius: 16, backgroundColor: colors.neutral, borderWidth: 1, borderColor: colors.subtle },
     shipmentK: { color: colors.pulse, fontSize: 10, letterSpacing: 1.4, fontWeight: "800" },
     trackingLink: { color: colors.pulse, marginTop: 8, fontSize: 13, fontWeight: "800" },
     shipmentMeta: { color: colors.muted, marginTop: 8, fontSize: 12 },
     exception: { color: colors.pulse, marginTop: 9, fontSize: 12, lineHeight: 18, fontWeight: "700" },
-    resolutionCard: { marginTop: 18, padding: 14, borderRadius: 16, backgroundColor: "#24221C", borderWidth: 1, borderColor: "rgba(214,226,122,0.28)" },
+    resolutionCard: { marginTop: 18, padding: 14, borderRadius: 16, backgroundColor: colors.neutral, borderWidth: 1, borderColor: colors.subtle },
     resolutionK: { color: colors.pulse, fontSize: 10, letterSpacing: 1.4, fontWeight: "800" },
     resolutionText: { color: colors.bone, fontSize: 14, fontWeight: "700", marginTop: 6, textTransform: "capitalize" },
     actionBtn: { marginTop: 12, height: 42, borderRadius: 21, backgroundColor: colors.pulse, alignItems: "center", justifyContent: "center" },
@@ -158,10 +161,10 @@ function make(colors: Colors) {
       marginTop: 36,
       height: 52,
       borderRadius: 26,
-      backgroundColor: "#D6E27A",
+      backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
     },
-    btnTxt: { color: "#16140F", fontWeight: "700", fontSize: 16 },
+    btnTxt: { color: colors.successInk, fontWeight: "700", fontSize: 16 },
   });
 }

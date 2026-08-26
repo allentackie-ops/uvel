@@ -196,12 +196,12 @@ export default function Checkout() {
           {shipsToLine(piece.country || market.code, piece.shipsTo)}
         </Text>
         {!sellsHere ? (
-          <Text style={[styles.boxS, { paddingHorizontal: 20, color: "#E8B4A0", paddingBottom: 8 }]}>
+          <Text style={[styles.boxS, { paddingHorizontal: 20, color: colors.danger, paddingBottom: 8 }]}>
             This piece isn’t on the {market.name} floor.
           </Text>
         ) : null}
         {address && !addressOk ? (
-          <Text style={[styles.boxS, { paddingHorizontal: 20, color: "#E8B4A0", paddingBottom: 8 }]}>
+          <Text style={[styles.boxS, { paddingHorizontal: 20, color: colors.danger, paddingBottom: 8 }]}>
             This seller doesn’t ship to {getMarket(address.country).name}.
           </Text>
         ) : null}
@@ -441,15 +441,15 @@ function make(colors: Colors) {
       alignItems: "center",
       gap: 12,
     },
-    boxOn: { borderColor: "#D6E27A" },
-    promotionBox: { marginHorizontal: 20, minHeight: 52, borderRadius: 14, borderWidth: 1, borderColor: "rgba(214,226,122,0.42)", backgroundColor: "#161512", flexDirection: "row", alignItems: "center", paddingLeft: 14, overflow: "hidden" },
-    promotionInput: { flex: 1, height: 50, color: "#F4F0E6", fontSize: 15, fontWeight: "600" },
-    promotionButton: { alignSelf: "stretch", minWidth: 78, alignItems: "center", justifyContent: "center", backgroundColor: "#D6E27A", paddingHorizontal: 13 },
-    promotionButtonTxt: { color: "#16140F", fontSize: 13, fontWeight: "800" },
+    boxOn: { borderColor: colors.success },
+    promotionBox: { marginHorizontal: 20, minHeight: 52, borderRadius: 14, borderWidth: 1, borderColor: colors.subtle, backgroundColor: colors.neutral, flexDirection: "row", alignItems: "center", paddingLeft: 14, overflow: "hidden" },
+    promotionInput: { flex: 1, height: 50, color: colors.bone, fontSize: 15, fontWeight: "600" },
+    promotionButton: { alignSelf: "stretch", minWidth: 78, alignItems: "center", justifyContent: "center", backgroundColor: colors.success, paddingHorizontal: 13 },
+    promotionButtonTxt: { color: colors.successInk, fontSize: 13, fontWeight: "800" },
     promotionMessage: { marginHorizontal: 22, marginTop: 7, fontSize: 12, lineHeight: 16 },
-    promotionGood: { color: "#D6E27A" },
-    promotionBad: { color: "#E8B4A0" },
-    discountValue: { color: "#D6E27A", fontSize: 14, fontWeight: "700" },
+    promotionGood: { color: colors.success },
+    promotionBad: { color: colors.danger },
+    discountValue: { color: colors.success, fontSize: 14, fontWeight: "700" },
     boxT: { color: colors.bone, fontSize: 15, flex: 1, fontWeight: "500" },
     boxS: { color: colors.muted, fontSize: 13, marginTop: 2 },
     dim: { color: colors.subtle, fontSize: 15, paddingVertical: 16 },
@@ -464,7 +464,7 @@ function make(colors: Colors) {
       paddingHorizontal: 14,
       paddingVertical: 14,
     },
-    shipOn: { borderColor: "#D6E27A" },
+    shipOn: { borderColor: colors.success },
     payMark: {
       width: 36,
       height: 24,

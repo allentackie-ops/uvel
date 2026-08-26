@@ -22,6 +22,7 @@ import { seedFromStyles, ARCH, PALS, SILS, dnaHint } from "../../lib/styleDna";
 import { useUvel } from "../../lib/store";
 import { pullLooks } from "../../lib/trends";
 import { useColors, type Colors } from "../../lib/theme";
+import { semanticStatus, statusToneFor } from "../../lib/status";
 import { getPiece, likesOnMine, stampMine, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { draftProgress, useListingDraft, type ListingDraft } from "../../lib/listingDraft";
 
@@ -327,10 +328,11 @@ export default function You() {
           filter={soldFilter}
           setFilter={setSoldFilter}
           earned={earned}
+          colors={colors}
           styles={styles}
         />
       ) : hub === "purchases" ? (
-        <BuyPane rows={buyRows} filter={buyFilter} setFilter={setBuyFilter} styles={styles} />
+        <BuyPane rows={buyRows} filter={buyFilter} setFilter={setBuyFilter} colors={colors} styles={styles} />
       ) : (
         <LikesPane
           received={likesOnMine(app.uid, app.saved, {
@@ -415,12 +417,14 @@ function SoldPane({
   filter,
   setFilter,
   earned,
+  colors,
   styles,
 }: {
-  rows: { id: string; pieceId: string; photo: string; name: string; cents: number; currency: string; tag: string }[];
+  rows: { id: string; pieceId: string; photo: string; name: string; cents: number; currency: string; tag: string; kind: string }[];
   filter: string;
   setFilter: (v: string) => void;
   earned: number;
+  colors: Colors;
   styles: ReturnType<typeof make>;
 }) {
   return (
@@ -447,7 +451,7 @@ function SoldPane({
         })}
       </ScrollView>
       {rows.length ? (
-        rows.map((r) => <OrderRow key={r.id} row={r} sold styles={styles} />)
+        rows.map((r) => <OrderRow key={r.id} row={r} sold colors={colors} styles={styles} />)
       ) : (
         <View style={styles.empty}>
           <Stack />
@@ -462,11 +466,13 @@ function BuyPane({
   rows,
   filter,
   setFilter,
+  colors,
   styles,
 }: {
-  rows: { id: string; pieceId: string; photo: string; name: string; cents: number; currency: string; tag: string }[];
+  rows: { id: string; pieceId: string; photo: string; name: string; cents: number; currency: string; tag: string; kind: string }[];
   filter: string;
   setFilter: (v: string) => void;
+  colors: Colors;
   styles: ReturnType<typeof make>;
 }) {
   return (
@@ -487,7 +493,7 @@ function BuyPane({
         })}
       </ScrollView>
       {rows.length ? (
-        rows.map((r) => <OrderRow key={r.id} row={r} styles={styles} />)
+        rows.map((r) => <OrderRow key={r.id} row={r} colors={colors} styles={styles} />)
       ) : (
         <View style={styles.empty}>
           <Receipt />
@@ -591,10 +597,12 @@ function LikesPane({
 function OrderRow({
   row,
   sold,
+  colors,
   styles,
 }: {
-  row: { id: string; pieceId: string; photo: string; name: string; cents: number; currency: string; tag: string };
+  row: { id: string; pieceId: string; photo: string; name: string; cents: number; currency: string; tag: string; kind: string };
   sold?: boolean;
+  colors: Colors;
   styles: ReturnType<typeof make>;
 }) {
   return (
@@ -614,8 +622,8 @@ function OrderRow({
         </Text>
         <Text style={styles.orderPrice}>{usd(row.cents, row.currency)}</Text>
       </View>
-      <View style={styles.tag}>
-        <Text style={styles.tagTxt}>{row.tag}</Text>
+      <View style={[styles.tag, { backgroundColor: semanticStatus(colors, statusToneFor(row.kind)).backgroundColor, borderColor: semanticStatus(colors, statusToneFor(row.kind)).borderColor, borderWidth: 1 }]}>
+        <Text style={[styles.tagTxt, { color: semanticStatus(colors, statusToneFor(row.kind)).color }]}>{row.tag}</Text>
       </View>
     </Pressable>
   );
@@ -728,7 +736,7 @@ const art = StyleSheet.create({
   bars: { marginTop: 14, width: 40, height: 10, backgroundColor: "rgba(22,20,15,0.55)" },
 });
 
-function make(_colors: Colors) {
+function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: "#0B0A08" },
     content: { paddingHorizontal: 20 },
@@ -775,11 +783,11 @@ function make(_colors: Colors) {
       width: 18,
       height: 18,
       borderRadius: 9,
-      backgroundColor: "#D6E27A",
+      backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
     },
-    faceDotTxt: { color: "#16140F", fontSize: 13, fontWeight: "800", marginTop: -1 },
+    faceDotTxt: { color: colors.successInk, fontSize: 13, fontWeight: "800", marginTop: -1 },
     menuBtn: {
       width: 44,
       height: 44,
@@ -836,17 +844,17 @@ function make(_colors: Colors) {
     active: { color: "#F4F0E6", fontSize: 16, fontWeight: "700", marginTop: 16, marginBottom: 8 },
     draftSection: { marginTop: 14 },
     draftHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
-    draftHint: { color: "#D6E27A", fontSize: 12, fontWeight: "600" },
+    draftHint: { color: colors.warning, fontSize: 12, fontWeight: "600" },
     draftCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 10, borderRadius: 18, backgroundColor: "#161512", marginTop: 2 },
     draftImg: { width: 82, height: 104, borderRadius: 12, backgroundColor: "#1A1915" },
     draftImgEmpty: { width: 82, height: 104, borderRadius: 12, backgroundColor: "#1A1915", borderWidth: 1, borderStyle: "dashed", borderColor: "rgba(244,240,230,0.24)", alignItems: "center", justifyContent: "center" },
     draftImgPlus: { color: "#F4F0E6", fontSize: 28 },
     draftMeta: { flex: 1, minWidth: 0 },
-    draftTag: { alignSelf: "flex-start", paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: "#D6E27A", justifyContent: "center" },
-    draftTagTxt: { color: "#16140F", fontSize: 10, fontWeight: "800", letterSpacing: 0.4 },
+    draftTag: { alignSelf: "flex-start", paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: colors.warning, justifyContent: "center" },
+    draftTagTxt: { color: colors.warningInk, fontSize: 10, fontWeight: "800", letterSpacing: 0.4 },
     draftName: { color: "#F4F0E6", fontSize: 15, fontWeight: "700", marginTop: 7 },
     draftDetails: { color: "rgba(244,240,230,0.55)", fontSize: 12, marginTop: 4 },
-    draftProgress: { color: "#D6E27A", fontSize: 12, fontWeight: "700", marginTop: 8 },
+    draftProgress: { color: colors.warning, fontSize: 12, fontWeight: "700", marginTop: 8 },
     draftArrow: { color: "#F4F0E6", fontSize: 30, marginRight: 4 },
     liker: {
       flexDirection: "row",
