@@ -388,7 +388,7 @@ async function resolveCampaignAttribution(db, input, requireLive = true) {
   const campaign = campaignSnap.data() || {};
   const now = Date.now();
   const live = campaign.status === "live" && (!campaign.startAt || timestampMillis(campaign.startAt) <= now) && (!campaign.endAt || timestampMillis(campaign.endAt) >= now);
-  if (campaign.brandId !== brandId || !["brand_page", "shop"].includes(String(campaign.channel || "")) || (requestedChannel && campaign.channel !== requestedChannel) || (requireLive && !live)) return null;
+  if (campaign.brandId !== brandId || !["brand_page", "shop", "today"].includes(String(campaign.channel || "")) || (requestedChannel && campaign.channel !== requestedChannel) || (requireLive && !live)) return null;
   if (listingId && (!Array.isArray(campaign.productIds) || !campaign.productIds.includes(listingId))) return null;
   return {
     brandId,
@@ -447,7 +447,7 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
     if (order.status === "paid") return { ok: true, duplicate: true };
     let verifiedAttribution = null;
     const storedAttribution = order.campaignAttribution && typeof order.campaignAttribution === "object" ? order.campaignAttribution : null;
-    if (order.brandId && order.pieceId && ["brand_page", "shop"].includes(String(storedAttribution?.source || "")) && storedAttribution.brandId === order.brandId && storedAttribution.campaignId) {
+    if (order.brandId && order.pieceId && ["brand_page", "shop", "today"].includes(String(storedAttribution?.source || "")) && storedAttribution.brandId === order.brandId && storedAttribution.campaignId) {
       const campaignSnap = await tx.get(db.collection("brandCampaigns").doc(String(storedAttribution.campaignId)));
       const campaign = campaignSnap.data() || {};
       if (campaignSnap.exists && campaign.brandId === order.brandId && Array.isArray(campaign.productIds) && campaign.productIds.includes(String(order.pieceId))) {

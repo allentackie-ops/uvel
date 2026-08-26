@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
+import { VerifiedMark } from "../../components/VerifiedMark";
 import { unreadFor, useInbox } from "../../lib/chat";
 import { usd } from "../../lib/catalog";
 import { frameAtTime, playableLookVideo, prefetchLookVideo } from "../../lib/lookFrame";
@@ -25,6 +26,8 @@ import { forYou, matchListings } from "../../lib/lookMatch";
 import { beginLookScan, finishLookScan } from "../../lib/lookSearch";
 import { getMarket } from "../../lib/markets";
 import { followedBrandIds, getBrand, useBrands } from "../../lib/brands";
+import { recordCampaignAttribution } from "../../lib/attribution";
+import { useLiveShopCampaigns, type BrandCampaign } from "../../lib/marketing";
 import { AI_CONTENT_EXPLANATION, AI_CONTENT_LABEL } from "../../lib/contentLabels";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
@@ -262,12 +265,26 @@ export default function Today() {
   const { looks, refreshing, refresh, loading } = useLooks();
   useWardrobe();
   const live = shopFloor(country);
+  const liveCampaigns = useLiveShopCampaigns();
   const followedIds = useMemo(() => followedBrandIds(uid || ""), [brandState, uid]);
   const followedKey = followedIds.join("|");
   const followedListings = useMemo(
     () => live.filter((p) => Boolean(p.brandId && followedIds.includes(p.brandId))).sort((a, b) => b.createdAt - a.createdAt).slice(0, 8),
     [live, followedKey],
   );
+  const todayCampaignRows = useMemo(() => liveCampaigns
+    .filter((campaign) => campaign.channel === "today" && (!campaign.startAt || campaign.startAt <= Date.now()) && (!campaign.endAt || campaign.endAt >= Date.now()))
+    .map((campaign) => ({ campaign, lead: campaign.productIds.map((productId) => live.find((piece) => piece.id === productId) || getPiece(productId)).find(Boolean) }))
+    .filter((row): row is { campaign: BrandCampaign; lead: ClosetPiece } => Boolean(row.lead))
+    .slice(0, 6), [liveCampaigns, live]);
+
+  useEffect(() => {
+    if (!uid) return;
+    const day = new Date().toISOString().slice(0, 10);
+    todayCampaignRows.forEach(({ campaign }) => {
+      void recordCampaignAttribution({ brandId: campaign.brandId, campaignId: campaign.id, channel: "today", type: "impression", eventId: `today_impression_${campaign.id}_${uid}_${day}` }).catch(() => undefined);
+    });
+  }, [uid, todayCampaignRows.map(({ campaign }) => campaign.id).join("|")]);
   const [source, setSource] = useState<Source>("All");
   const [videoWait, setVideoWait] = useState(false);
   const [shopWait, setShopWait] = useState(false);
@@ -351,6 +368,23 @@ export default function Today() {
               <LookCard key={look.id} look={look} colors={colors} />
             ))}
           </ScrollView>
+
+          {todayCampaignRows.length ? (
+            <View>
+              <View style={styles.head}>
+                <View>
+                  <Text style={styles.h2}>Today campaigns</Text>
+                  <Text style={styles.sectionSub}>Live drops selected for this feed.</Text>
+                </View>
+                <Text style={styles.todayLive}>LIVE</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.todayCampaignStrip}>
+                {todayCampaignRows.map(({ campaign, lead }) => (
+                  <TodayCampaignCard key={campaign.id} campaign={campaign} lead={lead} uid={uid} colors={colors} />
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
 
           <View style={styles.head}>
             <Text style={styles.h2}>Shop the look</Text>
@@ -512,6 +546,32 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
         {look.title}
       </Text>
     </View>
+  );
+}
+
+function TodayCampaignCard({ campaign, lead, uid, colors }: { campaign: BrandCampaign; lead: ClosetPiece; uid: string; colors: Colors }) {
+  const styles = make(colors);
+  const brand = getBrand(campaign.brandId);
+  return (
+    <Pressable
+      onPress={() => {
+        if (uid) void recordCampaignAttribution({ brandId: campaign.brandId, campaignId: campaign.id, channel: "today", type: "engagement", listingId: lead.id, eventId: `today_engagement_${campaign.id}_${uid}_${Date.now()}` }).catch(() => undefined);
+        router.push({ pathname: "/closet/[id]", params: { id: lead.id, campaignId: campaign.id, collectionId: campaign.collectionId || "", promotionId: campaign.promotionId || "", campaignChannel: "today" } });
+      }}
+      style={({ pressed }) => [styles.todayCampaignCard, pressed && { opacity: 0.82 }]}
+    >
+      <Image source={{ uri: lead.photo }} style={styles.todayCampaignImg} contentFit="cover" />
+      <View style={styles.todayCampaignCopy}>
+        <View style={styles.todayCampaignBrandRow}>
+          {brand?.logoUri ? <Image source={{ uri: brand.logoUri }} style={styles.todayCampaignLogo} contentFit="cover" /> : null}
+          <Text style={styles.todayCampaignBrand} numberOfLines={1}>{brand?.name || "Brand drop"}</Text>
+          {brand?.verified ? <VerifiedMark size={11} /> : null}
+        </View>
+        <Text style={styles.todayCampaignTitle} numberOfLines={2}>{campaign.headline || campaign.name}</Text>
+        <Text style={styles.todayCampaignBody} numberOfLines={2}>{campaign.body || "Explore the latest drop."}</Text>
+        <Text style={styles.todayCampaignGo}>Explore the drop →</Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -680,6 +740,17 @@ function make(colors: Colors) {
     searchFabTxt: { color: "#16140F", fontSize: 22, fontWeight: "700", marginTop: -1 },
     cardSrc: { color: "#F4F0E6", fontSize: 11, fontWeight: "700" },
     cardTitle: { color: "#F4F0E6", fontSize: 14, marginTop: 8, lineHeight: 18, fontWeight: "500" },
+    todayLive: { color: "#16140F", backgroundColor: "#D6E27A", borderRadius: 11, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "800", letterSpacing: 1 },
+    todayCampaignStrip: { paddingHorizontal: 16, gap: 10, paddingRight: 28 },
+    todayCampaignCard: { width: Math.min(W - 32, 360), minHeight: 172, borderRadius: 18, overflow: "hidden", backgroundColor: "#161512", flexDirection: "row" },
+    todayCampaignImg: { width: 122, height: "100%", minHeight: 172, backgroundColor: "#1A1915" },
+    todayCampaignCopy: { flex: 1, paddingHorizontal: 13, paddingVertical: 12, justifyContent: "center" },
+    todayCampaignBrandRow: { flexDirection: "row", alignItems: "center", gap: 5, minHeight: 18 },
+    todayCampaignLogo: { width: 18, height: 18, borderRadius: 5, backgroundColor: "#1A1915" },
+    todayCampaignBrand: { flexShrink: 1, color: "rgba(244,240,230,0.58)", fontSize: 11, fontWeight: "800", letterSpacing: 0.7 },
+    todayCampaignTitle: { color: "#F4F0E6", fontSize: 18, lineHeight: 21, fontWeight: "700", marginTop: 7 },
+    todayCampaignBody: { color: "rgba(244,240,230,0.58)", fontSize: 12, lineHeight: 16, marginTop: 4 },
+    todayCampaignGo: { color: "#D6E27A", fontSize: 12, fontWeight: "800", marginTop: 9 },
     shopStrip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
     followedStrip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
     followedCell: { width: Math.round(W * 0.62) },
