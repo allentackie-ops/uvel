@@ -29,10 +29,11 @@ import { useColors } from "../../lib/theme";
 import { MARKETS, getMarket } from "../../lib/markets";
 import { recordAuditEvent, useAudit, type AuditEvent } from "../../lib/audit";
 import { createOrderShipment, reviewOrderResolution, updateOrderFulfillment, updateOrderShipment, useOrders, watchBrandOrders, type FulfillmentStatus, type Order, type ShippingExceptionCode } from "../../lib/orders";
+import { addSupportInternalNote, updateSupportCase, useSupportCases, type SupportCase, type SupportStatus } from "../../lib/support";
 import { archivePiece, createBrandCatalogRemote, duplicatePiece, restorePiece, updateBrandCatalogRemote, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { shipsToLabel } from "../../lib/ships";
 
-type Section = "overview" | "catalog" | "orders" | "inbox" | "analytics" | "audit" | "team" | "settings";
+type Section = "overview" | "catalog" | "orders" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
 
 type CatalogAuditInput = Parameters<typeof recordAuditEvent>[0];
 
@@ -47,6 +48,7 @@ const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: "overview", label: "Overview" },
   { id: "catalog", label: "Catalog" },
   { id: "orders", label: "Orders" },
+  { id: "support", label: "Support" },
   { id: "inbox", label: "Inbox" },
   { id: "analytics", label: "Analytics" },
   { id: "audit", label: "Audit log" },
@@ -73,6 +75,7 @@ export default function BrandHQ() {
   const pieces = useWardrobe();
   const orders = useOrders();
   const auditEvents = useAudit(id || "");
+  const supportCases = useSupportCases(id || "");
   const brand = getBrand(id);
   const theme: HQTheme = brand ? themeFor(brand) : { bg: colors.ink, ink: colors.bone, muted: colors.muted, card: colors.surface, accent: colors.pulse, accentInk: colors.ink, lineColor: colors.subtle };
   const styles = useMemo(() => make(theme), [theme]);
@@ -166,6 +169,8 @@ export default function BrandHQ() {
           <CatalogSection brand={brand} items={catalog} canManage={catalogManager} theme={theme} styles={styles} />
         ) : section === "orders" ? (
           <OrdersSection orders={brandOrders} viewer={orderViewer} manager={orderManager} reviewer={orderReviewer} theme={theme} styles={styles} />
+        ) : section === "support" ? (
+          <SupportSection brand={activeBrand} cases={supportCases} manager={orderManager} theme={theme} styles={styles} viewerName={app.displayName || "Support agent"} />
         ) : section === "audit" ? (
           <AuditSection events={auditEvents} viewer={canViewAudit(activeBrand, app.uid)} theme={theme} styles={styles} />
         ) : section === "team" ? (
@@ -192,6 +197,7 @@ function Overview({ brand, catalogCount, lowStockCount, teamCount, inquiryCount,
       <ActionCard title="Manage catalog" copy="Review products, stock, prices, and listing status." button="Open catalog" onPress={() => onSection("catalog")} theme={theme} styles={styles} />
       <ActionCard title="Team access" copy="Assign the right workspace role to every collaborator." button="Open team" onPress={() => onSection("team")} theme={theme} styles={styles} />
       <ActionCard title="Buyer inbox" copy="Keep brand inquiries in one shared conversation stream." button="Open inbox" onPress={() => onSection("inbox")} theme={theme} styles={styles} />
+      <ActionCard title="Support desk" copy="Work order-linked cases with assignment, escalation, and private team notes." button="Open support" onPress={() => onSection("support")} theme={theme} styles={styles} />
       {brand.verified ? <Text style={[styles.note, { color: theme.muted }]}>Verified brand workspace · {brand.country} · {brand.legalName || brand.ownerName}</Text> : null}
     </View>
   );
@@ -555,6 +561,53 @@ function TeamSection({ brand, manager, theme, styles, onRole }: { brand: Brand; 
   );
 }
 
+function SupportSection({ brand, cases, manager, theme, styles, viewerName }: { brand: Brand; cases: SupportCase[]; manager: boolean; theme: HQTheme; styles: ReturnType<typeof make>; viewerName: string }) {
+  const [filter, setFilter] = useState<SupportStatus | "all">("all");
+  const [busyId, setBusyId] = useState("");
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const visible = filter === "all" ? cases : cases.filter((item) => item.status === filter);
+  const filters: Array<[SupportStatus | "all", string]> = [["all", "All"], ["open", "Open"], ["in_progress", "In progress"], ["waiting_on_buyer", "Waiting"], ["escalated", "Escalated"], ["resolved", "Resolved"]];
+  const agents = brand.members.filter((member) => ["owner", "admin", "support"].includes(member.role));
+
+  async function saveNote(item: SupportCase) {
+    if (!manager || busyId === item.id) return;
+    setBusyId(item.id);
+    try {
+      await addSupportInternalNote(item.id, notes[item.id] || "", viewerName);
+      setNotes((current) => ({ ...current, [item.id]: "" }));
+    } catch (error) {
+      Alert.alert("Internal note", error instanceof Error ? error.message : "Could not save this note.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  function chooseAssignee(item: SupportCase) {
+    Alert.alert("Assign support case", "Choose a support teammate.", [...agents.map((agent) => ({ text: agent.name, onPress: () => void changeCase(item, { assigneeUid: agent.uid, assigneeName: agent.name }) })), { text: "Unassign", onPress: () => void changeCase(item, { assigneeUid: "", assigneeName: "" }) }, { text: "Cancel", style: "cancel" as const }]);
+  }
+
+  async function changeCase(item: SupportCase, patch: Partial<Pick<SupportCase, "status" | "priority" | "assigneeUid" | "assigneeName">>) {
+    if (!manager || busyId === item.id) return;
+    setBusyId(item.id);
+    try {
+      await updateSupportCase(item.id, patch);
+    } catch (error) {
+      Alert.alert("Support update", error instanceof Error ? error.message : "Could not update this support case.");
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  return (
+    <View>
+      <View style={styles.sectionHead}><View style={{ flex: 1 }}><Text style={[styles.sectionTitle, { color: theme.ink }]}>Customer support</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Every case is linked to an order, product, buyer, and conversation.</Text></View></View>
+      <View style={styles.orderStats}><Stat label="Open" value={String(cases.filter((item) => !["resolved", "closed"].includes(item.status)).length)} theme={theme} styles={styles} /><Stat label="Urgent" value={String(cases.filter((item) => item.priority === "urgent").length)} theme={theme} styles={styles} /></View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.orderFilters}>{filters.map(([id, label]) => <Pressable key={id} onPress={() => setFilter(id)} style={[styles.orderFilter, { borderColor: filter === id ? theme.accent : theme.lineColor, backgroundColor: filter === id ? theme.accent : theme.card }]}><Text style={[styles.orderFilterTxt, { color: filter === id ? theme.accentInk : theme.ink }]}>{label}</Text></Pressable>)}</ScrollView>
+      {visible.length ? visible.map((item) => <View key={item.id} style={[styles.supportCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Pressable onPress={() => router.push({ pathname: "/ask/[id]", params: { id: item.pieceId, threadId: item.threadId, orderId: item.orderId, supportCaseId: item.id } })} style={styles.supportHead}>{item.productPhoto ? <Image source={{ uri: item.productPhoto }} style={styles.supportImg} contentFit="cover" /> : <View style={[styles.supportImg, { backgroundColor: theme.bg }]} />}<View style={{ flex: 1 }}><Text style={[styles.supportSubject, { color: theme.ink }]} numberOfLines={2}>{item.subject}</Text><Text style={[styles.supportMeta, { color: theme.muted }]}>{item.buyerName} · Order {item.orderId}</Text><Text style={[styles.supportMeta, { color: theme.muted }]}>{item.category.replace("_", " ")} · {item.status.replaceAll("_", " ")}</Text></View><Text style={[styles.supportPriority, { color: item.priority === "urgent" ? theme.accent : theme.muted }]}>{item.priority}</Text></Pressable><Text style={[styles.supportProduct, { color: theme.ink }]}>{item.productName}</Text><View style={styles.supportActions}>{manager ? <><Pressable disabled={busyId === item.id} onPress={() => void changeCase(item, { status: item.status === "escalated" ? "in_progress" : "escalated" })} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busyId === item.id ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>{item.status === "escalated" ? "De-escalate" : "Escalate"}</Text></Pressable><Pressable disabled={busyId === item.id} onPress={() => chooseAssignee(item)} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busyId === item.id ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Assign</Text></Pressable><Pressable disabled={busyId === item.id} onPress={() => void changeCase(item, { priority: item.priority === "urgent" ? "normal" : "urgent" })} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busyId === item.id ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>{item.priority === "urgent" ? "Set normal" : "Set urgent"}</Text></Pressable><Pressable disabled={busyId === item.id} onPress={() => void changeCase(item, { status: item.status === "resolved" ? "open" : "resolved" })} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busyId === item.id ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>{item.status === "resolved" ? "Reopen" : "Resolve"}</Text></Pressable></> : null}</View>{manager ? <><TextInput value={notes[item.id] ?? ""} onChangeText={(value) => setNotes((current) => ({ ...current, [item.id]: value }))} placeholder="Internal note — hidden from the buyer" placeholderTextColor={theme.muted} style={[styles.supportNote, { color: theme.ink, borderColor: theme.lineColor }]} multiline /><Pressable disabled={busyId === item.id} onPress={() => void saveNote(item)} style={[styles.noteButton, { borderColor: theme.lineColor, opacity: busyId === item.id ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Save internal note</Text></Pressable></> : null}</View>) : <Empty text={cases.length ? "No support cases match this filter." : "No order-linked support cases yet."} theme={theme} styles={styles} />}
+    </View>
+  );
+}
+
 function AuditSection({ events, viewer, theme, styles }: { events: AuditEvent[]; viewer: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const [filter, setFilter] = useState("all");
   if (!viewer) return <View><Text style={[styles.sectionTitle, { color: theme.ink }]}>Audit log</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Audit history is limited to approved Brand HQ roles.</Text></View>;
@@ -714,7 +767,16 @@ function make(theme: HQTheme) {
     orderKicker: { fontSize: 10, letterSpacing: 1.2, fontWeight: "800" },
     orderInput: { height: 40, borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, fontSize: 13, marginTop: 9 },
     orderActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 12 },
-    featureCard: { borderRadius: 18, padding: 18, marginTop: 10 },
+    supportCard: { borderWidth: 1, borderRadius: 18, padding: 13, marginTop: 10 },
+    supportHead: { flexDirection: "row", alignItems: "center", gap: 10 },
+    supportImg: { width: 48, height: 58, borderRadius: 10 },
+    supportSubject: { fontSize: 14, fontWeight: "800", lineHeight: 19 },
+    supportMeta: { fontSize: 11, lineHeight: 16, marginTop: 3 },
+    supportPriority: { fontSize: 10, fontWeight: "900", textTransform: "uppercase" },
+    supportProduct: { fontSize: 12, fontWeight: "700", marginTop: 10 },
+    supportActions: { flexDirection: "row", justifyContent: "flex-end", gap: 7, marginTop: 10, flexWrap: "wrap" },
+    supportNote: { minHeight: 54, borderWidth: 1, borderRadius: 11, paddingHorizontal: 10, paddingVertical: 8, marginTop: 10, fontSize: 12, textAlignVertical: "top" },
+    noteButton: { alignSelf: "flex-end", borderWidth: 1, borderRadius: 16, paddingHorizontal: 11, paddingVertical: 7, marginTop: 7 },
     featureKicker: { fontSize: 10, letterSpacing: 1.3, fontWeight: "800" },
     featureTitle: { fontSize: 19, fontWeight: "800", marginTop: 8 },
     featureP: { fontSize: 13, lineHeight: 19, marginTop: 8 },

@@ -1144,7 +1144,7 @@ async function recordProviderRefund(orderId, providerId, providerStatus) {
 const AUDIT_ACTIONS = new Set([
   "product_created", "product_updated", "product_published", "product_drafted", "product_archived", "product_restored", "product_duplicated",
   "price_updated", "inventory_updated", "market_updated", "order_fulfillment_updated", "resolution_requested", "resolution_approved", "resolution_rejected", "resolution_reviewed",
-  "return_received", "refund_requested", "refund_succeeded", "restock_confirmed", "restock_decided", "team_role_updated", "brand_settings_updated",
+  "return_received", "refund_requested", "refund_succeeded", "restock_confirmed", "restock_decided", "team_role_updated", "brand_settings_updated", "support_case_created", "support_case_updated", "support_note_added",
 ]);
 const AUDIT_ENTITIES = new Set(["product", "order", "team", "brand", "resolution"]);
 
@@ -1330,4 +1330,113 @@ exports.updateOrderShipment = onCall(async (req) => {
   await orderRef.set({ shipment: nextShipment, fulfillmentStatus, fulfillmentUpdatedAt: now, ...(nextStatus === "delivered" ? { deliveredAt: now } : {}) }, { merge: true });
   await writeAudit(db, { brandId: String(order.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: "order_fulfillment_updated", entity: "order", entityId: orderId, entityName: String(order.pieceName || "Order"), summary: `Shipment updated to ${nextStatus.replace("_", " ")}.`, metadata: { shipmentStatus: nextStatus, ...(exceptionCode ? { exceptionCode } : {}) } });
   return { ok: true, orderId, status: nextStatus };
+});
+
+const SUPPORT_STATUSES = new Set(["open", "in_progress", "waiting_on_buyer", "escalated", "resolved", "closed"]);
+const SUPPORT_PRIORITIES = new Set(["normal", "high", "urgent"]);
+const SUPPORT_AGENT_ROLES = new Set(["owner", "admin", "support"]);
+const SUPPORT_TRANSITIONS = { open: new Set(["in_progress", "waiting_on_buyer", "escalated", "resolved", "closed"]), in_progress: new Set(["waiting_on_buyer", "escalated", "resolved", "closed"]), waiting_on_buyer: new Set(["in_progress", "escalated", "resolved", "closed"]), escalated: new Set(["in_progress", "resolved", "closed"]), resolved: new Set(["open", "closed"]), closed: new Set(["open"]) };
+const SUPPORT_CATEGORIES = new Set(["order_status", "shipping", "return", "refund", "cancellation", "product", "payment", "other"]);
+
+exports.createSupportCase = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const input = req.data || {};
+  const caseId = String(input.id || "").trim();
+  const orderId = String(input.orderId || "").trim();
+  const brandId = String(input.brandId || "").trim();
+  if (!/^sc-[a-zA-Z0-9_-]{8,160}$/.test(caseId) || !orderId || !brandId || !String(input.threadId || "") || !String(input.pieceId || "")) throw new HttpsError("invalid-argument", "An order-linked support case is required.");
+  if (!SUPPORT_CATEGORIES.has(String(input.category || "")) || !SUPPORT_PRIORITIES.has(String(input.priority || "normal"))) throw new HttpsError("invalid-argument", "Invalid support case category or priority.");
+  const db = admin.firestore();
+  const orderSnap = await db.collection("orders").doc(orderId).get();
+  if (!orderSnap.exists) throw new HttpsError("not-found", "Order not found.");
+  const order = orderSnap.data() || {};
+  if (String(order.brandId || "") !== brandId || String(order.pieceId || "") !== String(input.pieceId)) throw new HttpsError("failed-precondition", "Support case does not match the order.");
+  const role = await brandMemberRole(db, brandId, req.auth.uid);
+  if (order.buyerId !== req.auth.uid && !role) throw new HttpsError("permission-denied", "Only the buyer or brand team can open this support case.");
+  const caseRef = db.collection("supportCases").doc(caseId);
+  const existing = await caseRef.get();
+  if (existing.exists) return { ok: true, caseId, existing: true };
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  await caseRef.set({
+    id: caseId,
+    brandId,
+    orderId,
+    threadId: String(input.threadId),
+    pieceId: String(input.pieceId),
+    buyerId: String(order.buyerId),
+    buyerName: String(input.buyerName || order.address?.name || "Buyer").slice(0, 120),
+    productName: String(input.productName || order.pieceName || "Order").slice(0, 160),
+    productPhoto: String(input.productPhoto || order.piecePhoto || "").slice(0, 500),
+    subject: String(input.subject || `Help with ${order.pieceName || "my order"}`).slice(0, 180),
+    category: String(input.category),
+    status: "open",
+    priority: String(input.priority || "normal"),
+    lastMessage: "",
+    lastAt: now,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Buyer"), action: "support_case_created", entity: "order", entityId: orderId, entityName: String(order.pieceName || "Order"), summary: "Order-linked support case opened.", metadata: { category: String(input.category), priority: String(input.priority || "normal") } });
+  return { ok: true, caseId, status: "open" };
+});
+
+exports.updateSupportCase = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const caseId = String(req.data?.caseId || "").trim();
+  const db = admin.firestore();
+  const caseRef = db.collection("supportCases").doc(caseId);
+  const snap = await caseRef.get();
+  if (!snap.exists) throw new HttpsError("not-found", "Support case not found.");
+  const current = snap.data() || {};
+  const role = await brandMemberRole(db, current.brandId, req.auth.uid);
+  if (!role || !SUPPORT_AGENT_ROLES.has(role)) throw new HttpsError("permission-denied", "Your role cannot update support cases.");
+  const input = req.data?.patch || {};
+  const patch = {};
+  if (input.status !== undefined) {
+    if (!SUPPORT_STATUSES.has(String(input.status))) throw new HttpsError("invalid-argument", "Invalid support status.");
+    const currentStatus = String(current.status || "open");
+    if (String(input.status) !== currentStatus && !SUPPORT_TRANSITIONS[currentStatus]?.has(String(input.status))) throw new HttpsError("failed-precondition", "That support status transition is not allowed.");
+    patch.status = String(input.status);
+  }
+  if (input.priority !== undefined) {
+    if (!SUPPORT_PRIORITIES.has(String(input.priority))) throw new HttpsError("invalid-argument", "Invalid support priority.");
+    patch.priority = String(input.priority);
+  }
+  if (input.assigneeUid !== undefined) {
+    const assigneeUid = String(input.assigneeUid || "");
+    if (assigneeUid) {
+      const assigneeRole = await brandMemberRole(db, current.brandId, assigneeUid);
+      if (!assigneeRole || !SUPPORT_AGENT_ROLES.has(assigneeRole)) throw new HttpsError("invalid-argument", "Assignee is not an eligible support agent.");
+      patch.assigneeUid = assigneeUid;
+      patch.assigneeName = String(input.assigneeName || "Support agent").slice(0, 120);
+    } else {
+      patch.assigneeUid = "";
+      patch.assigneeName = "";
+    }
+  }
+  if (input.lastMessage !== undefined) patch.lastMessage = String(input.lastMessage || "").trim().slice(0, 240);
+  if (!Object.keys(patch).length) throw new HttpsError("invalid-argument", "No support changes were supplied.");
+  patch.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+  patch.lastAt = admin.firestore.FieldValue.serverTimestamp();
+  await caseRef.set(patch, { merge: true });
+  await writeAudit(db, { brandId: String(current.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Support agent"), action: "support_case_updated", entity: "order", entityId: String(current.orderId || caseId), entityName: String(current.productName || "Order"), summary: "Support case updated.", metadata: { ...(patch.status ? { status: patch.status } : {}), ...(patch.priority ? { priority: patch.priority } : {}) } });
+  return { ok: true, caseId };
+});
+
+exports.addSupportInternalNote = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const input = req.data || {};
+  const caseId = String(input.caseId || "").trim();
+  const noteId = String(input.id || "").trim();
+  const body = String(input.body || "").trim().slice(0, 500);
+  if (!caseId || !/^note-[a-zA-Z0-9_-]{8,160}$/.test(noteId) || !body) throw new HttpsError("invalid-argument", "A note is required.");
+  const db = admin.firestore();
+  const caseSnap = await db.collection("supportCases").doc(caseId).get();
+  if (!caseSnap.exists) throw new HttpsError("not-found", "Support case not found.");
+  const supportCase = caseSnap.data() || {};
+  const role = await brandMemberRole(db, supportCase.brandId, req.auth.uid);
+  if (!role || !SUPPORT_AGENT_ROLES.has(role)) throw new HttpsError("permission-denied", "Your role cannot add internal notes.");
+  await db.collection("supportCases").doc(caseId).collection("notes").doc(noteId).set({ id: noteId, caseId, authorUid: req.auth.uid, authorName: String(req.auth.token.name || req.auth.token.email || "Support agent").slice(0, 120), body, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+  await writeAudit(db, { brandId: String(supportCase.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Support agent"), action: "support_note_added", entity: "order", entityId: String(supportCase.orderId || caseId), entityName: String(supportCase.productName || "Order"), summary: "Private support note added." });
+  return { ok: true, caseId, noteId };
 });

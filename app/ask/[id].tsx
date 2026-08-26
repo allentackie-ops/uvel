@@ -36,15 +36,17 @@ import { pickFromLibrary, takePhoto } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { getPiece, useWardrobe } from "../../lib/wardrobe";
+import { useOrders } from "../../lib/orders";
 
 export default function Ask() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { id, threadId: routeThreadId } = useLocalSearchParams<{ id: string; threadId?: string }>();
+  const { id, threadId: routeThreadId, orderId: routeOrderId, supportCaseId: routeSupportCaseId } = useLocalSearchParams<{ id: string; threadId?: string; orderId?: string; supportCaseId?: string }>();
   const app = useUvel();
   useWardrobe();
   useBrands();
+  const orders = useOrders();
   const piece = getPiece(id);
   const storedThread = routeThreadId ? getThread(routeThreadId) : undefined;
   const brand = piece?.brandId ? getBrand(piece.brandId) : undefined;
@@ -66,6 +68,9 @@ export default function Ask() {
 
   const mine = app.uid || "me";
   const activeThread = storedThread || threadData || (thread ? getThread(thread) : undefined);
+  const linkedOrderId = routeOrderId || activeThread?.orderId;
+  const linkedCaseId = routeSupportCaseId || activeThread?.supportCaseId;
+  const supportOrder = linkedOrderId ? orders.find((order) => order.id === linkedOrderId) : undefined;
   const brandRecipients = brand ? (activeThread?.recipientIds?.length ? activeThread.recipientIds : inquiryRecipients(brand)) : [];
   const isTeamRecipient = Boolean(brand && brandRecipients.includes(mine));
   const isSellerSide = Boolean(activeThread && (activeThread.sellerId === mine || (activeThread.recipientIds || []).includes(mine))) || isTeamRecipient;
@@ -97,6 +102,9 @@ export default function Ask() {
       brandLogo: brand?.logoUri,
       brandVerified: Boolean(brand?.verified && brand.status === "verified"),
       recipientIds: brand ? brandRecipients : undefined,
+      orderId: routeOrderId,
+      supportCaseId: routeSupportCaseId,
+      contextId: routeOrderId,
     });
     setThread(tid);
     const unsub = listenMessages(tid, (next) => {
@@ -127,7 +135,7 @@ export default function Ask() {
       clearInterval(tick);
       setTyping(tid, mine, false);
     };
-  }, [piece?.id, mine, routeThreadId, activeThread?.id, activeThread?.buyerId, activeThread?.buyerName, activeThread?.recipientIds?.join(","), brand?.id, brand?.name, brand?.logoUri, brand?.verified, brand?.status, isSellerSide, sellerId, brandRecipients.join(",")]);
+  }, [piece?.id, mine, routeThreadId, routeOrderId, routeSupportCaseId, activeThread?.id, activeThread?.buyerId, activeThread?.buyerName, activeThread?.recipientIds?.join(","), brand?.id, brand?.name, brand?.logoUri, brand?.verified, brand?.status, isSellerSide, sellerId, brandRecipients.join(",")]);
 
   async function send(text: string, kind: ChatMsg["kind"] = "text", offerCents?: number, photoUrl?: string) {
     if (!piece) return;
@@ -159,6 +167,9 @@ export default function Ask() {
             brandLogo: brand?.logoUri,
             brandVerified: Boolean(brand?.verified && brand.status === "verified"),
             recipientIds: brand ? recipientIds : undefined,
+            orderId: routeOrderId,
+            supportCaseId: routeSupportCaseId,
+            contextId: routeOrderId,
           })
         : "");
     if (!tid) return;
@@ -258,17 +269,7 @@ export default function Ask() {
           </View>
         </View>
 
-        <View style={styles.actions}>
-          <Pressable onPress={() => setOfferOn(true)} style={styles.offerBtn}>
-            <Text style={styles.offerTxt}>Make an offer</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id } })}
-            style={styles.buyBtn}
-          >
-            <Text style={styles.buyTxt}>Buy now</Text>
-          </Pressable>
-        </View>
+        {linkedOrderId ? <View style={styles.supportContext}><Text style={styles.supportKicker}>ORDER SUPPORT</Text><Text style={styles.supportTitle}>{supportOrder ? `Help with ${supportOrder.pieceName}` : "Order-linked conversation"}</Text><Text style={styles.supportMeta}>{supportOrder ? `Order #${supportOrder.id} · ${supportOrder.fulfillmentStatus || supportOrder.status}` : `Order #${linkedOrderId}`}</Text><Text style={styles.supportHint}>The brand team can see this order context. Internal notes stay private to the brand.</Text></View> : <View style={styles.actions}><Pressable onPress={() => setOfferOn(true)} style={styles.offerBtn}><Text style={styles.offerTxt}>Make an offer</Text></Pressable><Pressable onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id } })} style={styles.buyBtn}><Text style={styles.buyTxt}>Buy now</Text></Pressable></View>}
 
         <View style={styles.rule} />
 
@@ -435,6 +436,11 @@ function make(colors: Colors) {
       paddingBottom: 12,
       alignItems: "center",
     },
+    supportContext: { marginHorizontal: 16, marginTop: 4, marginBottom: 12, padding: 13, borderRadius: 14, backgroundColor: "#24221C", borderWidth: 1, borderColor: "rgba(214,226,122,0.28)" },
+    supportKicker: { color: colors.pulse, fontSize: 10, letterSpacing: 1.4, fontWeight: "800" },
+    supportTitle: { color: colors.bone, fontSize: 14, fontWeight: "800", marginTop: 6 },
+    supportMeta: { color: colors.muted, fontSize: 12, marginTop: 5, textTransform: "capitalize" },
+    supportHint: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 7 },
     thumb: { width: 56, height: 56, borderRadius: 8, backgroundColor: colors.surface },
     listName: { color: colors.bone, fontWeight: "600", fontSize: 15 },
     listPrice: { color: colors.bone, marginTop: 2, fontSize: 14 },

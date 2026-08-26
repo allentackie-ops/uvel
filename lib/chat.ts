@@ -42,6 +42,8 @@ export type ChatThread = {
   brandLogo?: string;
   brandVerified?: boolean;
   recipientIds?: string[];
+  orderId?: string;
+  supportCaseId?: string;
   lastText: string;
   lastAt: number;
   lastFrom: string;
@@ -104,10 +106,10 @@ function patchThread(id: string, patch: Partial<ChatThread>) {
   emitInbox();
 }
 
-export function threadId(buyerId: string, sellerId: string, pieceId: string, brandId?: string) {
+export function threadId(buyerId: string, sellerId: string, pieceId: string, brandId?: string, contextId?: string) {
   const a = buyerId || "me";
   const b = brandId ? `brand:${brandId}` : sellerId || "seller";
-  return `${[a, b].sort().join("_")}__${pieceId}`;
+  return `${[a, b].sort().join("_")}__${pieceId}${contextId ? `__${contextId}` : ""}`;
 }
 
 export function getThread(id: string) {
@@ -170,8 +172,11 @@ export function openThread(input: {
   brandLogo?: string;
   brandVerified?: boolean;
   recipientIds?: string[];
+  orderId?: string;
+  supportCaseId?: string;
+  contextId?: string;
 }): string {
-  const id = threadId(input.buyerId, input.sellerId, input.pieceId, input.brandId);
+  const id = threadId(input.buyerId, input.sellerId, input.pieceId, input.brandId, input.contextId);
   const prev = memory.threads[id];
   memory.threads[id] = {
     ...(prev || {}),

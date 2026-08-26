@@ -117,6 +117,15 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /supportCases/{caseId} {
+      allow read: if signedIn() && (resource.data.buyerId == request.auth.uid || (resource.data.brandId is string && isBrandMember(resource.data.brandId)));
+      allow create, update, delete: if false;
+      match /notes/{noteId} {
+        allow read: if signedIn() && get(/databases/$(database)/documents/supportCases/$(caseId)).data.brandId is string && isBrandMember(get(/databases/$(database)/documents/supportCases/$(caseId)).data.brandId);
+        allow create, update, delete: if false;
+      }
+    }
+
     match /brandAnalytics/{brandId}/{document=**} {
       allow read, write: if false;
     }
@@ -151,7 +160,8 @@ service cloud.firestore {
         request.resource.data.sellerId == resource.data.sellerId &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           "lastText", "lastAt", "lastFrom", "unreadBuyer", "unreadSeller",
-          "typingBy", "typingAt", "seenBy", "seenAt", "updatedAt"
+          "typingBy", "typingAt", "seenBy", "seenAt", "updatedAt",
+          "orderId", "supportCaseId", "contextId"
         ]);
 
       allow delete: if false;

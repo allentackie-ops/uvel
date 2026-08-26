@@ -3,11 +3,17 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { confirmOrderReturnSent, requestOrderResolution, useOrders, watchOrder, type FulfillmentStatus } from "../../lib/orders";
+import { createSupportCase, type SupportCategory } from "../../lib/support";
+import { getBrand, inquiryRecipients, useBrands } from "../../lib/brands";
+import { openThread, threadId } from "../../lib/chat";
+import { useUvel } from "../../lib/store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, type Colors } from "../../lib/theme";
 
 export default function OrderDone() {
   const colors = useColors();
+  const app = useUvel();
+  useBrands();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -29,8 +35,10 @@ export default function OrderDone() {
   const fulfillmentLabel = fulfillment === "processing" ? "Being prepared" : fulfillment === "packed" ? "Packed" : fulfillment === "shipped" ? "On the way" : fulfillment === "delivered" ? "Delivered" : fulfillment === "canceled" ? "Canceled" : fulfillment === "returned" ? "Returned" : "Awaiting fulfillment";
   const resolution = currentOrder?.resolution;
   const shipment = currentOrder?.shipment;
+  const orderBrand = currentOrder?.brandId ? getBrand(currentOrder.brandId) : undefined;
   const canCancel = confirmed && ["unfulfilled", "processing", "packed"].includes(fulfillment || "unfulfilled") && !resolution;
   const canReturn = confirmed && fulfillment === "delivered" && !resolution;
+  const supportReasonOptions: Array<[SupportCategory, string]> = [["order_status", "Order status"], ["shipping", "Shipping or delivery"], ["return", "Return"], ["refund", "Refund"], ["cancellation", "Cancellation"], ["product", "Product issue"], ["payment", "Payment"], ["other", "Something else"]];
   const reasonOptions = [
     ["changed_mind", "Changed my mind"],
     ["wrong_size", "Wrong size"],
@@ -56,6 +64,30 @@ export default function OrderDone() {
       Alert.alert("Request sent", type === "return" ? "The brand will review your return request." : "The brand will review your cancellation request.");
     } catch (error) {
       Alert.alert("Could not send request", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function chooseSupportReason() {
+    Alert.alert("What do you need help with?", "Choose a reason so the brand team can route your case.", [...supportReasonOptions.map(([category, label]) => ({ text: label, onPress: () => void openSupport(category) })), { text: "Not now", style: "cancel" as const }]);
+  }
+
+  async function openSupport(category: SupportCategory) {
+    if (!currentOrder || !orderBrand || !id || busy) return;
+    setBusy(true);
+    try {
+      const recipients = inquiryRecipients(orderBrand);
+      const sellerId = recipients[0] || orderBrand.ownerId;
+      const buyerId = app.uid || currentOrder.buyerId;
+      const conversationId = threadId(buyerId, sellerId, currentOrder.pieceId, orderBrand.id, id);
+      const base = { pieceId: currentOrder.pieceId, buyerId, sellerId, pieceName: currentOrder.pieceName, piecePhoto: currentOrder.piecePhoto, piecePriceCents: currentOrder.itemCents, sellerName: orderBrand.name, buyerName: currentOrder.address?.name || app.displayName || "Buyer", brandId: orderBrand.id, brandName: orderBrand.name, brandLogo: orderBrand.logoUri, brandVerified: Boolean(orderBrand.verified), recipientIds: recipients, orderId: id, contextId: id };
+      openThread(base);
+      const supportCase = await createSupportCase({ brandId: orderBrand.id, orderId: id, threadId: conversationId, pieceId: currentOrder.pieceId, buyerId, buyerName: currentOrder.address?.name || app.displayName || "Buyer", productName: currentOrder.pieceName, productPhoto: currentOrder.piecePhoto, subject: `Help with ${currentOrder.pieceName}`, category, priority: "normal" });
+      openThread({ ...base, supportCaseId: supportCase.id });
+      router.push({ pathname: "/ask/[id]", params: { id: currentOrder.pieceId, threadId: conversationId, orderId: id, supportCaseId: supportCase.id } });
+    } catch (error) {
+      Alert.alert("Could not open support", error instanceof Error ? error.message : "Please try again.");
     } finally {
       setBusy(false);
     }
@@ -88,6 +120,7 @@ export default function OrderDone() {
       {shipment ? <View style={styles.shipmentCard}><Text style={styles.shipmentK}>SHIPMENT · {shipment.status.replace("_", " ")}</Text><Text style={styles.tracking}>{shipment.carrier} · {shipment.trackingNumber}</Text>{shipment.trackingUrl ? <Pressable onPress={() => void Linking.openURL(shipment.trackingUrl || "")}><Text style={styles.trackingLink}>Open carrier tracking ↗</Text></Pressable> : null}{shipment.estimatedDeliveryAt ? <Text style={styles.shipmentMeta}>Estimated delivery: {new Date(shipment.estimatedDeliveryAt).toLocaleDateString()}</Text> : null}{shipment.lastLocation ? <Text style={styles.shipmentMeta}>Last location: {shipment.lastLocation}</Text> : null}{shipment.status === "exception" ? <Text style={styles.exception}>Delivery exception: {shipment.exceptionCode?.replace("_", " ") || "Carrier issue"}{shipment.exceptionNote ? ` · ${shipment.exceptionNote}` : ""}</Text> : null}</View> : currentOrder?.trackingNumber ? <Text style={styles.tracking}>{currentOrder.carrier ? `${currentOrder.carrier} · ` : ""}{currentOrder.trackingNumber}</Text> : null}
       {resolution ? <View style={styles.resolutionCard}><Text style={styles.resolutionK}>{resolution.type === "return" ? "RETURN" : "CANCELLATION"}</Text><Text style={styles.resolutionText}>{resolution.status === "requested" ? "Waiting for brand review" : resolution.status === "approved" ? "Approved" : resolution.status === "item_sent" ? "Return marked as sent" : resolution.status === "received" ? "Return received · refund processing" : resolution.status === "refunded" ? "Refund complete" : resolution.status === "rejected" ? "Request declined" : resolution.status.replace("_", " ")}</Text>{resolution.type === "return" && resolution.status === "approved" ? <Pressable disabled={busy} onPress={() => void markReturnSent()} style={[styles.actionBtn, busy && styles.actionBtnOff]}><Text style={styles.actionTxt}>{busy ? "Updating…" : "I sent the return"}</Text></Pressable> : null}</View> : null}
       {currentOrder?.refundStatus && currentOrder.refundStatus !== "none" ? <Text style={styles.refund}>Refund: {currentOrder.refundStatus === "succeeded" ? "Complete" : currentOrder.refundStatus === "failed" ? "Needs attention" : "Processing"}</Text> : null}
+      {currentOrder && orderBrand ? <Pressable disabled={busy} onPress={chooseSupportReason} style={[styles.secondaryBtn, busy && styles.actionBtnOff]}><Text style={styles.secondaryTxt}>Contact support about this order</Text></Pressable> : null}
       {canCancel ? <Pressable disabled={busy} onPress={() => chooseResolution("cancellation")} style={[styles.secondaryBtn, busy && styles.actionBtnOff]}><Text style={styles.secondaryTxt}>Request cancellation</Text></Pressable> : null}
       {canReturn ? <Pressable disabled={busy} onPress={() => chooseResolution("return")} style={[styles.secondaryBtn, busy && styles.actionBtnOff]}><Text style={styles.secondaryTxt}>Request a return</Text></Pressable> : null}
       <Text style={styles.id}>#{id}</Text>
