@@ -179,7 +179,7 @@ export default function BrandApply() {
 
   return (
     <View style={styles.page}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
         <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
           <Pressable onPress={() => router.back()} hitSlop={16} style={styles.back}>
             <Text style={styles.backTxt}>‹</Text>
@@ -187,7 +187,7 @@ export default function BrandApply() {
           <Text style={styles.topTitle}>Open a brand</Text>
           <View style={{ width: 40 }} />
         </View>
-        <ScrollView contentContainerStyle={{ paddingBottom: 128, paddingHorizontal: 20 }} keyboardShouldPersistTaps="handled">
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 240, paddingHorizontal: 20 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}>
           <Text style={styles.lede}>
             Brands are not personal closets. We check the required fields for a real fashion house — Instagram, site, and tax id can wait.
           </Text>

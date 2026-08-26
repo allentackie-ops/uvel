@@ -233,7 +233,7 @@ export default function Ask() {
   return (
     <View style={styles.page}>
       <StatusBar style="light" />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
         <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>
             <Text style={styles.navBack}>‹</Text>
@@ -275,8 +275,10 @@ export default function Ask() {
 
         <ScrollView
           ref={scroller}
-          contentContainerStyle={{ padding: 16, paddingBottom: 12 }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         >
           <View style={styles.hello}>
             {conversationBrand?.logoUri ? (
