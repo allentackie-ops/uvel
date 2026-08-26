@@ -19,7 +19,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
 import type { Category } from "../lib/catalog";
-import { ShipsPicker } from "../components/ShipsPicker";
 import { usd } from "../lib/catalog";
 import { uvelFeeCents } from "../lib/fees";
 import { getMarket, getMarketByCurrency, moneyExact } from "../lib/markets";
@@ -27,7 +26,7 @@ import { takePendingListingPrice } from "../lib/listingPriceDraft";
 import { clearListingDraft, loadListingDraft, saveListingDraft } from "../lib/listingDraft";
 import { pickListingPhoto, takeListingPhoto } from "../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
-import { encodeShipsTo, type ShipsTo } from "../lib/ships";
+import { encodeShipsTo, shipsToLabel, type ShipsTo } from "../lib/ships";
 import { SHOP_LOOKS } from "../lib/shopLook";
 import { takePendingListingSelection } from "../lib/listingOptions";
 import { useUvel } from "../lib/store";
@@ -145,6 +144,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       if (pendingCategory) setCategory(pendingCategory);
       const pendingCondition = takePendingListingSelection("condition");
       if (pendingCondition) setCondition(pendingCondition);
+      const pendingShipsTo = takePendingListingSelection("shipsTo");
+      if (pendingShipsTo) setShipsTo(pendingShipsTo);
       return undefined;
     }, [priceKey]),
   );
@@ -642,7 +643,23 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               accessibilityLabel="Original price, optional"
             />
 
-            <ShipsPicker origin={origin} value={shipsTo} onChange={setShipsTo} />
+            <View>
+              <Text style={styles.label}>Where it sells</Text>
+              <Text style={styles.sellsLede}>Choose which countries can see this listing.</Text>
+              <AccessiblePressable
+                onPress={() => router.push({ pathname: "/sell-countries", params: { origin, selected: shipsTo === "all" ? "all" : Array.isArray(shipsTo) ? shipsTo.join(",") : origin } })}
+                style={({ pressed }) => [styles.choiceRow, pressed && styles.focused]}
+                accessibilityRole="button"
+                accessibilityLabel={`Choose countries. Currently ${shipsToLabel(origin, shipsTo)}.`}
+                accessibilityHint="Double tap to choose the countries where this listing can be seen."
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.choiceValue}>{shipsToLabel(origin, shipsTo)}</Text>
+                  <Text style={styles.choiceSub}>Choose countries</Text>
+                </View>
+                <Text style={styles.choiceArrow}>›</Text>
+              </AccessiblePressable>
+            </View>
 
             <View style={styles.lookHead}>
               <Text style={styles.label}>Shop look</Text>
@@ -841,6 +858,7 @@ function make(colors: Colors) {
     },
     bodyIn: { color: colors.bone, fontSize: 16, lineHeight: 22, minHeight: 88, marginTop: 0, textAlignVertical: "top" },
     label: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 20, marginBottom: 8 },
+    sellsLede: { color: colors.muted, fontSize: 14, lineHeight: 20, marginBottom: 10 },
     field: {
       height: 48,
       borderRadius: 14,
@@ -859,6 +877,7 @@ function make(colors: Colors) {
       justifyContent: "space-between",
     },
     choiceValue: { color: colors.bone, fontSize: 16 },
+    choiceSub: { color: colors.muted, fontSize: 13, marginTop: 4 },
     choicePlaceholder: { color: colors.subtle },
     choiceArrow: { color: colors.subtle, fontSize: 28, lineHeight: 30, marginTop: -3 },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },

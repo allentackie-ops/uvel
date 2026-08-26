@@ -1,4 +1,5 @@
 import type { Category } from "./catalog";
+import type { ShipsTo } from "./ships";
 
 export const LISTING_CATEGORIES: Category[] = [
   "Outerwear",
@@ -18,6 +19,7 @@ export type ListingCondition = (typeof LISTING_CONDITIONS)[number];
 type PendingSelection = {
   category?: Category;
   condition?: ListingCondition;
+  shipsTo?: ShipsTo;
 };
 
 let pending: PendingSelection = {};
