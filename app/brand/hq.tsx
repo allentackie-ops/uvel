@@ -42,6 +42,7 @@ import { shipsToLabel } from "../../lib/ships";
 import { readBrandAnalytics } from "../../lib/analytics";
 import { buildGrowthSnapshot } from "../../lib/growth";
 import { useCampaignAttribution } from "../../lib/attribution";
+import { analyticsCurrencyValue, analyticsDisplayState, analyticsDisclosure, analyticsValue, type AnalyticsDisplayState } from "../../lib/analyticsDisplay";
 import { semanticStatus, semanticLabel, statusToneFor } from "../../lib/status";
 import { saveBrandCampaign, saveBrandCollection, saveBrandPromotion, useMarketing, type BrandCampaign, type BrandCollection, type BrandPromotion, type MarketingState, type MarketingStatus } from "../../lib/marketing";
 
@@ -593,23 +594,92 @@ function TeamSection({ brand, manager, theme, styles, onRole }: { brand: Brand; 
 function AdvancedAnalyticsSection({ brand, orders, pieces, marketing, viewer, theme, styles }: { brand: Brand; orders: Order[]; pieces: ClosetPiece[]; marketing: MarketingState; viewer: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const currency = getMarket(brand.country).currency;
   const [remote, setRemote] = useState<Awaited<ReturnType<typeof readBrandAnalytics>>>(null);
-  const [source, setSource] = useState<"loading" | "synced" | "local">("loading");
+  const [source, setSource] = useState<AnalyticsDisplayState>("loading");
   const attribution = useCampaignAttribution(brand.id);
   const local = useMemo(() => buildGrowthSnapshot(brand.id, orders, pieces, currency, marketing.collections, marketing.campaigns, marketing.promotions), [brand.id, orders, pieces, currency, marketing]);
+
   useEffect(() => {
     let alive = true;
     setSource("loading");
-    void readBrandAnalytics(brand.id, currency).then((data) => { if (!alive) return; setRemote(data); setSource(data ? "synced" : "local"); }).catch(() => { if (alive) { setRemote(null); setSource("local"); } });
+    void readBrandAnalytics(brand.id, currency)
+      .then((data) => { if (!alive) return; setRemote(data); setSource(analyticsDisplayState(false, data)); })
+      .catch(() => { if (alive) { setRemote(null); setSource("unavailable"); } });
     return () => { alive = false; };
   }, [brand.id, currency]);
+
   if (!viewer) return <View><Text style={[styles.sectionTitle, { color: theme.ink }]}>Advanced analytics</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Analytics are restricted to the owner unless the brand shares them with the team.</Text></View>;
-  const views = remote?.views ?? pieces.filter((piece) => piece.brandId === brand.id).reduce((sum, piece) => sum + (piece.views || 0), 0);
-  const likes = remote?.likes ?? pieces.filter((piece) => piece.brandId === brand.id).reduce((sum, piece) => sum + (piece.likedBy?.length || 0), 0);
-  const follows = remote?.follows ?? brand.follows;
-  const sold = remote?.sold ?? local.soldUnits;
-  const conversion = remote?.conversion ?? local.conversion;
-  const earnings = remote?.earningsCents ?? local.netCents;
-  return <View><View style={styles.sectionHead}><View style={{ flex: 1 }}><Text style={[styles.sectionTitle, { color: theme.ink }]}>Advanced analytics & growth</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Real performance signals from orders, listings, inventory, marketing, and tracked discovery.</Text></View></View><View style={[styles.analyticsSource, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={[styles.analyticsDot, { backgroundColor: source === "synced" ? theme.accent : theme.muted }]} /><Text style={[styles.analyticsSourceText, { color: theme.muted }]}>{source === "synced" ? "Synced with tracked brand analytics" : source === "loading" ? "Checking tracked analytics…" : "Using available order and catalog data until backend analytics sync is connected"}</Text></View><View style={styles.financeStats}><FinanceStat label="Net earnings" value={usd(earnings, currency)} theme={theme} styles={styles} /><FinanceStat label="Sold units" value={String(sold)} theme={theme} styles={styles} /><FinanceStat label="Conversion" value={`${conversion}%`} theme={theme} styles={styles} /></View><View style={styles.financeStats}><FinanceStat label="Views" value={formatAnalyticsCount(views)} theme={theme} styles={styles} /><FinanceStat label="Likes" value={formatAnalyticsCount(likes)} theme={theme} styles={styles} /><FinanceStat label="Followers" value={formatAnalyticsCount(follows)} theme={theme} styles={styles} /></View><View style={[styles.analyticsPanel, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.financeBreakdownTitle, { color: theme.ink }]}>Growth picture</Text><Text style={[styles.financeLine, { color: theme.muted }]}>Average item order value <Text style={{ color: theme.ink }}>{usd(local.averageOrderValueCents, currency)}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Returning buyers <Text style={{ color: theme.ink }}>{local.returningBuyers}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Live listings <Text style={{ color: theme.ink }}>{local.liveListings}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Available units <Text style={{ color: theme.ink }}>{local.totalAvailableUnits}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Return rate <Text style={{ color: theme.ink }}>{local.returnRate}%</Text></Text></View><Text style={[styles.financeHeading, { color: theme.ink }]}>Actionable signals</Text>{local.recommendations.map((item) => <View key={item.id} style={[styles.analyticsRecommendation, { backgroundColor: theme.card, borderColor: item.tone === "warning" ? theme.accent : theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.analyticsRecommendationTitle, { color: theme.ink }]}>{item.title}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{item.detail}</Text></View><Text style={[styles.analyticsTone, { color: item.tone === "warning" ? theme.accent : theme.muted }]}>{item.tone === "accent" ? "ACT" : item.tone === "warning" ? "CHECK" : "WATCH"}</Text></View>)}<Text style={[styles.financeHeading, { color: theme.ink }]}>Product intelligence</Text>{local.products.slice(0, 8).map((item) => <Pressable key={item.id} onPress={() => router.push({ pathname: "/closet/[id]", params: { id: item.id } })} style={[styles.analyticsProduct, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>{item.photo ? <Image source={{ uri: item.photo }} style={styles.analyticsProductImg} contentFit="cover" /> : <View style={[styles.analyticsProductImg, { backgroundColor: theme.bg }]} />}<View style={{ flex: 1 }}><Text style={[styles.marketingCardTitle, { color: theme.ink }]} numberOfLines={1}>{item.name}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{item.sold} sold · {item.views} views · {item.available} available</Text><Text style={[styles.financeLine, { color: theme.muted }]}>Conversion {item.conversion}% · Returns {item.returnRate}%</Text></View></Pressable>)}<Text style={[styles.financeHeading, { color: theme.ink }]}>Campaign attribution</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Brand Page touchpoints only. Revenue appears after a trusted Stripe or Paystack webhook confirms payment; these are attributed touchpoints, not proof that a campaign caused a purchase.</Text>{attribution.length ? attribution.slice(0, 8).map((row) => { const campaign = marketing.campaigns.find((item) => item.id === row.campaignId); const rate = row.impressions ? Math.round((row.purchases / row.impressions) * 1000) / 10 : 0; return <View key={row.id} style={[styles.analyticsCampaign, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.marketingCardTitle, { color: theme.ink }]} numberOfLines={1}>{campaign?.name || row.campaignId}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{campaign?.channel === "brand_page" ? "Brand Page" : campaign?.channel || "Campaign source unavailable"}{campaign?.startAt ? ` · ${new Date(campaign.startAt).toLocaleDateString()}` : ""}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{row.impressions} impressions · {row.engagements} engagements · {row.checkoutStarted} checkouts</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{row.purchases} attributed purchases · {rate}% impression-to-purchase</Text></View><Text style={[styles.financeRowAmount, { color: theme.ink }]}>{usd(row.revenueCents, row.currency || currency)}</Text></View>; }) : <Empty text="No campaign-attributed activity yet." theme={theme} styles={styles} />}<Text style={[styles.financeHeading, { color: theme.ink }]}>Market performance</Text>{local.markets.length ? local.markets.map((market) => <View key={`${market.country}-${market.currency}`} style={[styles.analyticsMarket, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.marketingCardTitle, { color: theme.ink }]}>{market.country}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{market.orders} orders · {market.sold} sold · {market.currency}</Text></View><Text style={[styles.financeRowAmount, { color: theme.ink }]}>{usd(market.netCents, market.currency)}</Text></View>) : <Empty text="No paid orders by market yet." theme={theme} styles={styles} />}<View style={[styles.analyticsPanel, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.financeBreakdownTitle, { color: theme.ink }]}>Marketing footprint</Text><Text style={[styles.financeLine, { color: theme.muted }]}>Collections and campaigns <Text style={{ color: theme.ink }}>{local.campaignCount}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Live campaigns <Text style={{ color: theme.ink }}>{local.liveCampaignCount}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Live promotions <Text style={{ color: theme.ink }}>{local.activePromotionCount}</Text></Text><Text style={[styles.financeLine, { color: theme.muted }]}>Low-stock listings <Text style={{ color: theme.ink }}>{local.lowStockListings}</Text></Text></View></View>;
+
+  const confirmed = source === "confirmed";
+  const confirmedProducts = remote?.top || [];
+  const confirmedPurchases = Number(remote?.sold || 0);
+  const confirmedAttribution = attribution.filter((row) => row.purchases > 0 || row.revenueCents > 0);
+
+  return (
+    <View>
+      <View style={styles.sectionHead}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.sectionTitle, { color: theme.ink }]}>Advanced analytics & growth</Text>
+          <Text style={[styles.sectionP, { color: theme.muted }]}>Confirmed backend activity only. Unavailable or empty data stays labeled.</Text>
+        </View>
+      </View>
+      <View style={[styles.analyticsSource, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+        <View style={[styles.analyticsDot, { backgroundColor: confirmed ? theme.accent : theme.muted }]} />
+        <Text style={[styles.analyticsSourceText, { color: theme.muted }]}>{analyticsDisclosure(source)}</Text>
+      </View>
+      <View style={styles.financeStats}>
+        <FinanceStat label="Net earnings" value={analyticsCurrencyValue(remote?.earningsCents, source, (cents) => usd(cents, currency))} theme={theme} styles={styles} />
+        <FinanceStat label="Sold units" value={analyticsValue(remote?.sold, source)} theme={theme} styles={styles} />
+        <FinanceStat label="Conversion" value={source === "loading" ? "Loading…" : source === "unavailable" ? "Unavailable" : source === "no_activity" ? "No activity yet" : `${remote?.conversion || 0}%`} theme={theme} styles={styles} />
+      </View>
+      <View style={styles.financeStats}>
+        <FinanceStat label="Views" value={confirmed ? formatAnalyticsCount(remote?.views || 0) : analyticsValue(remote?.views, source)} theme={theme} styles={styles} />
+        <FinanceStat label="Likes" value={confirmed ? formatAnalyticsCount(remote?.likes || 0) : analyticsValue(remote?.likes, source)} theme={theme} styles={styles} />
+        <FinanceStat label="Followers" value={confirmed ? formatAnalyticsCount(remote?.follows || 0) : analyticsValue(remote?.follows, source)} theme={theme} styles={styles} />
+      </View>
+
+      <View style={[styles.analyticsPanel, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+        <Text style={[styles.financeBreakdownTitle, { color: theme.ink }]}>Catalog health</Text>
+        <Text style={[styles.financeLine, { color: theme.muted }]}>Live listings <Text style={{ color: theme.ink }}>{local.liveListings}</Text></Text>
+        <Text style={[styles.financeLine, { color: theme.muted }]}>Available units <Text style={{ color: theme.ink }}>{local.totalAvailableUnits}</Text></Text>
+        <Text style={[styles.financeLine, { color: theme.muted }]}>Low-stock listings <Text style={{ color: theme.ink }}>{local.lowStockListings}</Text></Text>
+        <Text style={[styles.financeLine, { color: theme.muted }]}>Repeat buyers <Text style={{ color: theme.ink }}>{confirmed ? analyticsValue(local.returningBuyers, source, "No repeat buyers yet") : source === "loading" ? "Loading…" : "Unavailable"}</Text></Text>
+      </View>
+
+      <Text style={[styles.financeHeading, { color: theme.ink }]}>Actionable signals</Text>
+      {confirmed && local.recommendations.length ? local.recommendations.map((item) => (
+        <View key={item.id} style={[styles.analyticsRecommendation, { backgroundColor: theme.card, borderColor: item.tone === "warning" ? theme.accent : theme.lineColor }]}>
+          <View style={{ flex: 1 }}><Text style={[styles.analyticsRecommendationTitle, { color: theme.ink }]}>{item.title}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{item.detail}</Text></View>
+          <Text style={[styles.analyticsTone, { color: item.tone === "warning" ? theme.accent : theme.muted }]}>{item.tone === "accent" ? "ACT" : item.tone === "warning" ? "CHECK" : "WATCH"}</Text>
+        </View>
+      )) : <Empty text={source === "loading" ? "Checking confirmed signals…" : source === "unavailable" ? "Actionable signals are unavailable until backend analytics is connected." : "No confirmed signals yet."} theme={theme} styles={styles} />}
+
+      <Text style={[styles.financeHeading, { color: theme.ink }]}>Product intelligence</Text>
+      {confirmedProducts.length ? confirmedProducts.slice(0, 8).map((item) => (
+        <Pressable key={item.id} onPress={() => router.push({ pathname: "/closet/[id]", params: { id: item.id } })} style={[styles.analyticsProduct, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+          {item.photo ? <Image source={{ uri: item.photo }} style={styles.analyticsProductImg} contentFit="cover" /> : <View style={[styles.analyticsProductImg, { backgroundColor: theme.bg }]} />}
+          <View style={{ flex: 1 }}><Text style={[styles.marketingCardTitle, { color: theme.ink }]} numberOfLines={1}>{item.name}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{item.sold} sold · {item.views} views</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{item.likes} likes</Text></View>
+        </Pressable>
+      )) : <Empty text={source === "loading" ? "Checking confirmed product activity…" : source === "unavailable" ? "Product analytics are unavailable until backend analytics is connected." : "No confirmed product activity yet."} theme={theme} styles={styles} />}
+
+      <Text style={[styles.financeHeading, { color: theme.ink }]}>Campaign attribution</Text>
+      <Text style={[styles.sectionP, { color: theme.muted }]}>Recorded touchpoints by channel. Revenue appears only after a trusted Stripe or Paystack webhook confirms payment.</Text>
+      {attribution.length ? attribution.slice(0, 8).map((row) => {
+        const campaign = marketing.campaigns.find((item) => item.id === row.campaignId);
+        const rate = row.impressions ? Math.round((row.purchases / row.impressions) * 1000) / 10 : 0;
+        return <View key={row.id} style={[styles.analyticsCampaign, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.marketingCardTitle, { color: theme.ink }]} numberOfLines={1}>{campaign?.name || row.campaignId}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{campaign?.channel || "Campaign source unavailable"}{campaign?.startAt ? ` · ${new Date(campaign.startAt).toLocaleDateString()}` : ""}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{row.impressions} impressions · {row.engagements} engagements · {row.checkoutStarted} checkouts</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{row.purchases ? `${row.purchases} confirmed purchases · ${rate}% impression-to-purchase` : "No confirmed purchases yet"}</Text></View><Text style={[styles.financeRowAmount, { color: theme.ink }]}>{row.purchases ? usd(row.revenueCents, row.currency || currency) : "No confirmed revenue"}</Text></View>;
+      }) : <Empty text={source === "loading" ? "Checking campaign activity…" : source === "unavailable" ? "Campaign aggregation is unavailable until the backend is connected." : "No campaign-attributed activity yet."} theme={theme} styles={styles} />}
+
+      <Text style={[styles.financeHeading, { color: theme.ink }]}>Market performance</Text>
+      <Empty text={confirmedPurchases ? "Market breakdown is not available in the current analytics feed." : source === "loading" ? "Checking confirmed orders…" : source === "unavailable" ? "Market performance is unavailable until backend analytics is connected." : "No confirmed orders by market yet."} theme={theme} styles={styles} />
+
+      <View style={[styles.analyticsPanel, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+        <Text style={[styles.financeBreakdownTitle, { color: theme.ink }]}>Marketing setup</Text>
+        <Text style={[styles.financeLine, { color: theme.muted }]}>Collections and campaigns <Text style={{ color: theme.ink }}>{local.campaignCount}</Text></Text>
+        <Text style={[styles.financeLine, { color: theme.muted }]}>Live campaigns <Text style={{ color: theme.ink }}>{local.liveCampaignCount}</Text></Text>
+        <Text style={[styles.financeLine, { color: theme.muted }]}>Live promotions <Text style={{ color: theme.ink }}>{local.activePromotionCount}</Text></Text>
+      </View>
+    </View>
+  );
 }
 
 function formatAnalyticsCount(value: number) { return value >= 1000 ? `${(value / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(value); }
