@@ -1144,9 +1144,9 @@ async function recordProviderRefund(orderId, providerId, providerStatus) {
 const AUDIT_ACTIONS = new Set([
   "product_created", "product_updated", "product_published", "product_drafted", "product_archived", "product_restored", "product_duplicated",
   "price_updated", "inventory_updated", "market_updated", "order_fulfillment_updated", "resolution_requested", "resolution_approved", "resolution_rejected", "resolution_reviewed",
-  "return_received", "refund_requested", "refund_succeeded", "restock_confirmed", "restock_decided", "team_role_updated", "brand_settings_updated", "support_case_created", "support_case_updated", "support_note_added", "payout_requested", "payout_profile_submitted",
+  "return_received", "refund_requested", "refund_succeeded", "restock_confirmed", "restock_decided", "team_role_updated", "brand_settings_updated", "support_case_created", "support_case_updated", "support_note_added", "payout_requested", "payout_profile_submitted", "collection_saved", "campaign_saved", "promotion_saved", "campaign_status_changed",
 ]);
-const AUDIT_ENTITIES = new Set(["product", "order", "team", "brand", "resolution", "payout"]);
+const AUDIT_ENTITIES = new Set(["product", "order", "team", "brand", "resolution", "payout", "collection", "campaign", "promotion"]);
 
 async function writeAudit(db, input) {
   if (!input || !input.brandId || !AUDIT_ACTIONS.has(String(input.action)) || !AUDIT_ENTITIES.has(String(input.entity))) return;
@@ -1501,3 +1501,82 @@ exports.savePayoutProfile = onCall(async (req) => {
   await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand admin"), action: "payout_profile_submitted", entity: "payout", entityId: brandId, entityName: "Payout profile", summary: "Payout profile submitted for review.", metadata: { destinationType, country, currency } });
   return { ok: true, brandId, status: "submitted", destinationLast4: destination.slice(-4) };
 });
+
+const MARKETING_STATUSES = new Set(["draft", "scheduled", "live", "paused", "ended"]);
+const CAMPAIGN_CHANNELS = new Set(["brand_page", "shop", "today"]);
+
+function marketingText(value, max) {
+  return String(value || "").trim().slice(0, max);
+}
+
+function marketingIds(value) {
+  return Array.from(new Set((Array.isArray(value) ? value : []).map((item) => String(item || "").trim()).filter(Boolean))).slice(0, 50);
+}
+
+function marketingTime(value) {
+  if (value == null || value === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : undefined;
+}
+
+async function assertListedBrandProducts(db, brandId, productIds) {
+  if (!productIds.length) throw new HttpsError("invalid-argument", "Select at least one listed product.");
+  const docs = await Promise.all(productIds.map((id) => db.collection("listings").doc(id).get()));
+  if (docs.some((snap) => !snap.exists || String(snap.data()?.brandId || "") !== brandId || String(snap.data()?.status || "") !== "listed")) throw new HttpsError("failed-precondition", "Every selected product must be a listed product from this brand.");
+}
+
+async function assertMarketingEditor(db, brandId, uid) {
+  const role = await brandMemberRole(db, brandId, uid);
+  if (!role || !["owner", "admin", "marketing"].includes(role)) throw new HttpsError("permission-denied", "Marketing changes are restricted to brand owners, admins, and marketing members.");
+  return role;
+}
+
+async function saveMarketingRecord(req, collectionName, entity, action, input, build) {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const brandId = marketingText(input.brandId, 120);
+  if (!brandId) throw new HttpsError("invalid-argument", "Brand is required.");
+  const db = admin.firestore();
+  await assertMarketingEditor(db, brandId, req.auth.uid);
+  const id = marketingText(input.id, 160) || `${entity}-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}`;
+  const record = await build(db, brandId, id, input);
+  await db.collection(collectionName).doc(id).set({ ...record, brandId, id, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Marketing team"), action, entity, entityId: id, entityName: String(record.name || record.code || entity), summary: `${entity[0].toUpperCase()}${entity.slice(1)} saved.`, metadata: { status: record.status || "draft" } });
+  return { ok: true, id, status: record.status || "draft" };
+}
+
+exports.saveBrandCollection = onCall((req) => saveMarketingRecord(req, "brandCollections", "collection", "collection_saved", req.data || {}, async (db, brandId, id, input) => {
+  const productIds = marketingIds(input.productIds);
+  await assertListedBrandProducts(db, brandId, productIds);
+  const startAt = marketingTime(input.startAt);
+  const endAt = marketingTime(input.endAt);
+  if (startAt && endAt && endAt <= startAt) throw new HttpsError("invalid-argument", "Collection end time must be after its start time.");
+  const requestedStatus = MARKETING_STATUSES.has(String(input.status || "draft")) ? String(input.status || "draft") : "draft";
+  const status = requestedStatus === "live" && startAt && startAt > Date.now() ? "scheduled" : requestedStatus;
+  return { name: marketingText(input.name, 100), description: marketingText(input.description, 500), productIds, coverProductId: productIds.includes(String(input.coverProductId || "")) ? String(input.coverProductId) : productIds[0], status, ...(startAt ? { startAt } : {}), ...(endAt ? { endAt } : {}), createdAt: input.createdAt || admin.firestore.FieldValue.serverTimestamp() };
+}));
+
+exports.saveBrandCampaign = onCall((req) => saveMarketingRecord(req, "brandCampaigns", "campaign", "campaign_saved", req.data || {}, async (db, brandId, id, input) => {
+  const productIds = marketingIds(input.productIds);
+  await assertListedBrandProducts(db, brandId, productIds);
+  const startAt = marketingTime(input.startAt);
+  const endAt = marketingTime(input.endAt);
+  if (startAt && endAt && endAt <= startAt) throw new HttpsError("invalid-argument", "Campaign end time must be after its start time.");
+  const channel = CAMPAIGN_CHANNELS.has(String(input.channel || "")) ? String(input.channel) : "brand_page";
+  const requestedStatus = MARKETING_STATUSES.has(String(input.status || "draft")) ? String(input.status || "draft") : "draft";
+  const status = requestedStatus === "live" && startAt && startAt > Date.now() ? "scheduled" : requestedStatus;
+  return { name: marketingText(input.name, 100), headline: marketingText(input.headline, 140), body: marketingText(input.body, 1000), channel, collectionId: marketingText(input.collectionId, 160) || undefined, productIds, status, ...(startAt ? { startAt } : {}), ...(endAt ? { endAt } : {}), createdAt: input.createdAt || admin.firestore.FieldValue.serverTimestamp() };
+}));
+
+exports.saveBrandPromotion = onCall((req) => saveMarketingRecord(req, "brandPromotions", "promotion", "promotion_saved", req.data || {}, async (_db, _brandId, _id, input) => {
+  const code = marketingText(input.code, 32).toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+  const kind = String(input.kind || "");
+  const value = Number(input.value);
+  const minimumOrderCents = Math.max(0, Math.floor(Number(input.minimumOrderCents) || 0));
+  if (code.length < 3 || !["percentage", "fixed"].includes(kind) || !Number.isFinite(value) || value <= 0 || (kind === "percentage" && value > 100)) throw new HttpsError("invalid-argument", "Invalid promotion details.");
+  const startAt = marketingTime(input.startAt);
+  const endAt = marketingTime(input.endAt);
+  if (startAt && endAt && endAt <= startAt) throw new HttpsError("invalid-argument", "Promotion end time must be after its start time.");
+  const requestedStatus = MARKETING_STATUSES.has(String(input.status || "draft")) ? String(input.status || "draft") : "draft";
+  const status = requestedStatus === "live" && startAt && startAt > Date.now() ? "scheduled" : requestedStatus;
+  return { code, kind, value: Math.round(value * 100) / 100, currency: marketingText(input.currency, 3).toUpperCase() || undefined, minimumOrderCents, usageLimit: input.usageLimit == null ? undefined : Math.max(1, Math.floor(Number(input.usageLimit) || 0)), status, ...(startAt ? { startAt } : {}), ...(endAt ? { endAt } : {}), createdAt: input.createdAt || admin.firestore.FieldValue.serverTimestamp() };
+}));

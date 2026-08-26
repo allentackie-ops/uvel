@@ -24,6 +24,8 @@ import {
   type MemberRole,
   canManagePayouts,
   canViewFinance,
+  canManageMarketing,
+  canViewMarketing,
 } from "../../lib/brands";
 import { usd } from "../../lib/catalog";
 import { financeTotals, requestBrandPayout, savePayoutProfile, settlementLedger, usePayoutProfile, usePayouts, type PayoutDestinationType, type SettlementEntry } from "../../lib/finance";
@@ -35,8 +37,9 @@ import { createOrderShipment, reviewOrderResolution, updateOrderFulfillment, upd
 import { addSupportInternalNote, updateSupportCase, useSupportCases, type SupportCase, type SupportStatus } from "../../lib/support";
 import { archivePiece, createBrandCatalogRemote, duplicatePiece, restorePiece, updateBrandCatalogRemote, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { shipsToLabel } from "../../lib/ships";
+import { saveBrandCampaign, saveBrandCollection, saveBrandPromotion, useMarketing, type BrandCampaign, type BrandCollection, type BrandPromotion, type MarketingState, type MarketingStatus } from "../../lib/marketing";
 
-type Section = "overview" | "catalog" | "orders" | "finance" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
+type Section = "overview" | "catalog" | "orders" | "finance" | "marketing" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
 
 type CatalogAuditInput = Parameters<typeof recordAuditEvent>[0];
 
@@ -52,6 +55,7 @@ const SECTIONS: Array<{ id: Section; label: string }> = [
   { id: "catalog", label: "Catalog" },
   { id: "orders", label: "Orders" },
   { id: "finance", label: "Finance" },
+  { id: "marketing", label: "Marketing" },
   { id: "support", label: "Support" },
   { id: "inbox", label: "Inbox" },
   { id: "analytics", label: "Analytics" },
@@ -80,6 +84,7 @@ export default function BrandHQ() {
   const orders = useOrders();
   const auditEvents = useAudit(id || "");
   const supportCases = useSupportCases(id || "");
+  const marketing = useMarketing(id || "");
   const brand = getBrand(id);
   const theme: HQTheme = brand ? themeFor(brand) : { bg: colors.ink, ink: colors.bone, muted: colors.muted, card: colors.surface, accent: colors.pulse, accentInk: colors.ink, lineColor: colors.subtle };
   const styles = useMemo(() => make(theme), [theme]);
@@ -177,6 +182,8 @@ export default function BrandHQ() {
           <OrdersSection orders={brandOrders} viewer={orderViewer} manager={orderManager} reviewer={orderReviewer} theme={theme} styles={styles} />
         ) : section === "finance" ? (
           <FinanceSection brand={activeBrand} orders={brandOrders} viewer={canViewFinance(activeBrand, app.uid)} manager={canManagePayouts(activeBrand, app.uid)} theme={theme} styles={styles} onPayoutFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
+        ) : section === "marketing" ? (
+          <MarketingSection brand={activeBrand} pieces={catalog} state={marketing} viewer={canViewMarketing(activeBrand, app.uid)} manager={canManageMarketing(activeBrand, app.uid)} theme={theme} styles={styles} onFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
         ) : section === "support" ? (
           <SupportSection brand={activeBrand} cases={supportCases} manager={orderManager} theme={theme} styles={styles} viewerName={app.displayName || "Support agent"} />
         ) : section === "audit" ? (
@@ -207,6 +214,7 @@ function Overview({ brand, catalogCount, lowStockCount, teamCount, inquiryCount,
       <ActionCard title="Team access" copy="Assign the right workspace role to every collaborator." button="Open team" onPress={() => onSection("team")} theme={theme} styles={styles} />
       <ActionCard title="Buyer inbox" copy="Keep brand inquiries in one shared conversation stream." button="Open inbox" onPress={() => onSection("inbox")} theme={theme} styles={styles} />
       <ActionCard title="Finance & settlements" copy="Review order-linked earnings, refunds, balances, and payout history." button="Open finance" onPress={() => onSection("finance")} theme={theme} styles={styles} />
+      <ActionCard title="Merchandising & marketing" copy="Build collections, schedule drops, and control brand promotions." button="Open marketing" onPress={() => onSection("marketing")} theme={theme} styles={styles} />
       <ActionCard title="Support desk" copy="Work order-linked cases with assignment, escalation, and private team notes." button="Open support" onPress={() => onSection("support")} theme={theme} styles={styles} />
       {brand.verified ? <Text style={[styles.note, { color: theme.muted }]}>Verified brand workspace · {brand.country} · {brand.legalName || brand.ownerName}</Text> : null}
     </View>
@@ -571,6 +579,75 @@ function TeamSection({ brand, manager, theme, styles, onRole }: { brand: Brand; 
   );
 }
 
+function MarketingSection({ brand, pieces, state, viewer, manager, theme, styles, onFocus }: { brand: Brand; pieces: ClosetPiece[]; state: MarketingState; viewer: boolean; manager: boolean; theme: HQTheme; styles: ReturnType<typeof make>; onFocus: () => void }) {
+  const [tab, setTab] = useState<"collections" | "campaigns" | "promotions">("collections");
+  const [collectionName, setCollectionName] = useState("");
+  const [collectionDescription, setCollectionDescription] = useState("");
+  const [campaignName, setCampaignName] = useState("");
+  const [campaignHeadline, setCampaignHeadline] = useState("");
+  const [campaignBody, setCampaignBody] = useState("");
+  const [campaignChannel, setCampaignChannel] = useState<BrandCampaign["channel"]>("brand_page");
+  const [promotionCode, setPromotionCode] = useState("");
+  const [promotionKind, setPromotionKind] = useState<BrandPromotion["kind"]>("percentage");
+  const [promotionValue, setPromotionValue] = useState("");
+  const [minimumOrder, setMinimumOrder] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [launchStatus, setLaunchStatus] = useState<MarketingStatus>("draft");
+  const [busy, setBusy] = useState(false);
+  const listed = pieces.filter((piece) => piece.status === "listed");
+  const parseDate = (value: string) => { const time = Date.parse(value); return Number.isFinite(time) ? time : undefined; };
+  const scheduledTimes = () => { const startAt = parseDate(startDate); const endAt = parseDate(endDate); if (startAt && endAt && endAt <= startAt) throw new Error("End date must be after the start date."); return { startAt, endAt }; };
+  const selectProduct = (id: string) => setSelectedProductIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  const resetForm = () => { setCollectionName(""); setCollectionDescription(""); setCampaignName(""); setCampaignHeadline(""); setCampaignBody(""); setPromotionCode(""); setPromotionValue(""); setMinimumOrder(""); setStartDate(""); setEndDate(""); setSelectedProductIds([]); setLaunchStatus("draft"); };
+  const statusForSave = (startAt?: number) => launchStatus === "live" && startAt && startAt > Date.now() ? "scheduled" : launchStatus;
+
+  async function save() {
+    if (!manager || busy) return;
+    setBusy(true);
+    try {
+      const times = scheduledTimes();
+      if (tab === "collections") {
+        await saveBrandCollection({ brandId: brand.id, name: collectionName, description: collectionDescription, productIds: selectedProductIds, coverProductId: selectedProductIds[0] || "", status: statusForSave(times.startAt), ...times });
+      } else if (tab === "campaigns") {
+        await saveBrandCampaign({ brandId: brand.id, name: campaignName, headline: campaignHeadline, body: campaignBody, channel: campaignChannel, productIds: selectedProductIds, status: statusForSave(times.startAt), ...times });
+      } else {
+        await saveBrandPromotion({ brandId: brand.id, code: promotionCode, kind: promotionKind, value: Number(promotionValue), currency: getMarket(brand.country).currency, minimumOrderCents: Math.round(Number(minimumOrder) * 100) || 0, status: statusForSave(times.startAt), ...times });
+      }
+      resetForm();
+      Alert.alert("Saved", tab === "collections" ? "Collection saved to the brand workspace." : tab === "campaigns" ? "Campaign saved with its launch timing." : "Promotion saved to the brand workspace.");
+    } catch (error) {
+      Alert.alert("Marketing", error instanceof Error ? error.message : "Could not save this marketing item.");
+    } finally { setBusy(false); }
+  }
+
+  async function toggleStatus(item: BrandCollection | BrandCampaign | BrandPromotion) {
+    if (!manager || busy) return;
+    setBusy(true);
+    try {
+      const status: MarketingStatus = item.status === "live" ? "paused" : "live";
+      if ("headline" in item) await saveBrandCampaign({ ...item, status });
+      else if ("code" in item) await saveBrandPromotion({ ...item, status });
+      else await saveBrandCollection({ ...item, status });
+    } catch (error) { Alert.alert("Marketing", error instanceof Error ? error.message : "Could not update status."); } finally { setBusy(false); }
+  }
+
+  if (!viewer) return <View><Text style={[styles.sectionTitle, { color: theme.ink }]}>Merchandising & marketing</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Marketing data is restricted to owners, admins, marketing members, and viewers.</Text></View>;
+  return <View><View style={styles.sectionHead}><View style={{ flex: 1 }}><Text style={[styles.sectionTitle, { color: theme.ink }]}>Merchandising & marketing</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Build catalog-led collections, launch campaigns, and control promotions.</Text></View></View><View style={styles.marketingStats}><Stat label="Collections" value={String(state.collections.length)} theme={theme} styles={styles} /><Stat label="Campaigns" value={String(state.campaigns.length)} theme={theme} styles={styles} /><Stat label="Live" value={String([...state.collections, ...state.campaigns, ...state.promotions].filter((item) => item.status === "live").length)} theme={theme} styles={styles} /></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.orderFilters}>{([["collections", "Collections"], ["campaigns", "Campaigns"], ["promotions", "Promotions"]] as const).map(([id, label]) => <Pressable key={id} onPress={() => { setTab(id); resetForm(); }} style={[styles.orderFilter, { borderColor: tab === id ? theme.accent : theme.lineColor, backgroundColor: tab === id ? theme.accent : theme.card }]}><Text style={[styles.orderFilterTxt, { color: tab === id ? theme.accentInk : theme.ink }]}>{label}</Text></Pressable>)}</ScrollView>{manager ? <View style={[styles.marketingComposer, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.financeBreakdownTitle, { color: theme.ink }]}>{tab === "collections" ? "Create a collection" : tab === "campaigns" ? "Create a campaign" : "Create a promotion"}</Text>{tab === "collections" ? <><TextInput value={collectionName} onChangeText={setCollectionName} placeholder="Collection name" placeholderTextColor={theme.muted} onFocus={onFocus} style={[styles.marketingInput, { color: theme.ink, borderColor: theme.lineColor }]} /><TextInput value={collectionDescription} onChangeText={setCollectionDescription} placeholder="Description for buyers" placeholderTextColor={theme.muted} onFocus={onFocus} style={[styles.marketingInput, { color: theme.ink, borderColor: theme.lineColor }]} /></> : tab === "campaigns" ? <><TextInput value={campaignName} onChangeText={setCampaignName} placeholder="Campaign name" placeholderTextColor={theme.muted} onFocus={onFocus} style={[styles.marketingInput, { color: theme.ink, borderColor: theme.lineColor }]} /><TextInput value={campaignHeadline} onChangeText={setCampaignHeadline} placeholder="Headline" placeholderTextColor={theme.muted} onFocus={onFocus} style={[styles.marketingInput, { color: theme.ink, borderColor: theme.lineColor }]} /><TextInput value={campaignBody} onChangeText={setCampaignBody} placeholder="Campaign message" placeholderTextColor={theme.muted} multiline onFocus={onFocus} style={[styles.marketingInput, styles.marketingBody, { color: theme.ink, borderColor: theme.lineColor }]} /><MarketingChoice label="Channel" choices={[["brand_page", "Brand page"], ["shop", "Shop"], ["today", "Today"]]} value={campaignChannel} onChange={(value) => setCampaignChannel(value as BrandCampaign["channel"])} theme={theme} styles={styles} /></> : <><TextInput value={promotionCode} onChangeText={setPromotionCode} placeholder="Promotion code · e.g. APION10" placeholderTextColor={theme.muted} autoCapitalize="characters" onFocus={onFocus} style={[styles.marketingInput, { color: theme.ink, borderColor: theme.lineColor }]} /><MarketingChoice label="Discount type" choices={[["percentage", "Percentage"], ["fixed", "Fixed amount"]]} value={promotionKind} onChange={(value) => setPromotionKind(value as BrandPromotion["kind"])} theme={theme} styles={styles} /><TextInput value={promotionValue} onChangeText={(value) => setPromotionValue(value.replace(/[^0-9.]/g, ""))} placeholder={promotionKind === "percentage" ? "Discount percent" : "Discount amount"} placeholderTextColor={theme.muted} keyboardType="decimal-pad" onFocus={onFocus} style={[styles.marketingInput, { color: theme.ink, borderColor: theme.lineColor }]} /><TextInput value={minimumOrder} onChangeText={(value) => setMinimumOrder(value.replace(/[^0-9.]/g, ""))} placeholder="Minimum order amount · optional" placeholderTextColor={theme.muted} keyboardType="decimal-pad" onFocus={onFocus} style={[styles.marketingInput, { color: theme.ink, borderColor: theme.lineColor }]} /></>}<TextInput value={startDate} onChangeText={setStartDate} placeholder="Start · YYYY-MM-DD (optional)" placeholderTextColor={theme.muted} onFocus={onFocus} style={[styles.marketingInput, { color: theme.ink, borderColor: theme.lineColor }]} /><TextInput value={endDate} onChangeText={setEndDate} placeholder="End · YYYY-MM-DD (optional)" placeholderTextColor={theme.muted} onFocus={onFocus} style={[styles.marketingInput, { color: theme.ink, borderColor: theme.lineColor }]} /><MarketingChoice label="Launch status" choices={[["draft", "Draft"], ["live", "Live"]]} value={launchStatus === "scheduled" ? "live" : launchStatus} onChange={(value) => setLaunchStatus(value as MarketingStatus)} theme={theme} styles={styles} />{tab !== "promotions" ? <><Text style={[styles.marketingLabel, { color: theme.muted }]}>Listed products</Text><View style={styles.marketingProducts}>{listed.length ? listed.map((piece) => <Pressable key={piece.id} onPress={() => selectProduct(piece.id)} style={[styles.marketingProduct, { borderColor: selectedProductIds.includes(piece.id) ? theme.accent : theme.lineColor, backgroundColor: selectedProductIds.includes(piece.id) ? theme.accent : theme.bg }]}><Text style={[styles.marketingProductTxt, { color: selectedProductIds.includes(piece.id) ? theme.accentInk : theme.ink }]} numberOfLines={1}>{piece.name}</Text></Pressable>) : <Text style={[styles.financeLine, { color: theme.muted }]}>No listed products available.</Text>}</View></> : null}<Pressable disabled={busy} onPress={() => void save()} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>{busy ? "Saving…" : `Save ${tab.slice(0, -1)}`}</Text></Pressable></View> : <Text style={[styles.sectionP, { color: theme.muted }]}>Only owners, admins, and marketing members can create or change merchandising items.</Text>}{tab === "collections" ? state.collections.map((item) => <MarketingCard key={item.id} item={item} manager={manager} onToggle={() => void toggleStatus(item)} theme={theme} styles={styles} />) : tab === "campaigns" ? state.campaigns.map((item) => <MarketingCard key={item.id} item={item} manager={manager} onToggle={() => void toggleStatus(item)} theme={theme} styles={styles} />) : state.promotions.map((item) => <MarketingCard key={item.id} item={item} manager={manager} onToggle={() => void toggleStatus(item)} theme={theme} styles={styles} />)}</View>;
+}
+
+function MarketingChoice({ label, choices, value, onChange, theme, styles }: { label: string; choices: ReadonlyArray<readonly [string, string]>; value: string; onChange: (value: string) => void; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  return <View><Text style={[styles.marketingLabel, { color: theme.muted }]}>{label}</Text><View style={styles.marketingChoiceRow}>{choices.map(([id, text]) => <Pressable key={id} onPress={() => onChange(id)} style={[styles.marketingChoice, { borderColor: value === id ? theme.accent : theme.lineColor, backgroundColor: value === id ? theme.accent : theme.bg }]}><Text style={[styles.marketingChoiceTxt, { color: value === id ? theme.accentInk : theme.ink }]}>{text}</Text></Pressable>)}</View></View>;
+}
+
+function MarketingCard({ item, manager, onToggle, theme, styles }: { item: BrandCollection | BrandCampaign | BrandPromotion; manager: boolean; onToggle: () => void; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  const title = "code" in item ? item.code : item.name;
+  const detail = "code" in item ? `${item.kind === "percentage" ? `${item.value}% off` : `${item.value} fixed discount`} · minimum ${item.minimumOrderCents / 100}` : "headline" in item ? `${item.headline} · ${item.channel.replace("_", " ")}` : `${item.productIds.length} products · ${item.description || "No description"}`;
+  const timing = item.startAt ? `${new Date(item.startAt).toLocaleDateString()}${item.endAt ? ` → ${new Date(item.endAt).toLocaleDateString()}` : ""}` : "No launch window";
+  return <View style={[styles.marketingCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.marketingCardTitle, { color: theme.ink }]}>{title}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{detail}</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{timing} · {item.status}</Text></View>{manager ? <Pressable onPress={onToggle} style={[styles.actionButton, { borderColor: theme.lineColor }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>{item.status === "live" ? "Pause" : "Make live"}</Text></Pressable> : null}</View>;
+}
+
 function FinanceSection({ brand, orders, viewer, manager, theme, styles, onPayoutFocus }: { brand: Brand; orders: Order[]; viewer: boolean; manager: boolean; theme: HQTheme; styles: ReturnType<typeof make>; onPayoutFocus: () => void }) {
   const payouts = usePayouts(brand.id);
   const profile = usePayoutProfile(brand.id);
@@ -879,6 +956,19 @@ function make(theme: HQTheme) {
     financeBreakdownTitle: { fontSize: 14, fontWeight: "800", marginBottom: 8 },
     financeLine: { fontSize: 12, lineHeight: 21 },
     payoutCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 10 },
+    marketingStats: { flexDirection: "row", gap: 8, marginTop: 10 },
+    marketingComposer: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 10 },
+    marketingInput: { minHeight: 42, borderWidth: 1, borderRadius: 11, paddingHorizontal: 11, fontSize: 13, marginTop: 10 },
+    marketingBody: { minHeight: 84, textAlignVertical: "top", paddingTop: 10 },
+    marketingLabel: { fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.7, marginTop: 13, marginBottom: 5 },
+    marketingChoiceRow: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+    marketingChoice: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, minHeight: 36, justifyContent: "center" },
+    marketingChoiceTxt: { fontSize: 11, fontWeight: "800" },
+    marketingProducts: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+    marketingProduct: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, minHeight: 36, justifyContent: "center", maxWidth: "100%" },
+    marketingProductTxt: { fontSize: 11, fontWeight: "700" },
+    marketingCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 9, flexDirection: "row", alignItems: "center", gap: 10 },
+    marketingCardTitle: { fontSize: 14, fontWeight: "900" },
     payoutSetup: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 10 },
     payoutSetupHead: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 9 },
     payoutLabel: { fontSize: 10, fontWeight: "800", textTransform: "uppercase", letterSpacing: 0.7, marginTop: 12, marginBottom: 5 },

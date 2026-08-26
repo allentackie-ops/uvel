@@ -4,7 +4,7 @@ import { collection, doc, onSnapshot, query, serverTimestamp, setDoc, where } fr
 import { httpsCallable } from "firebase/functions";
 import { firebaseAuth, firebaseDb, firebaseFunctions, firebaseReady } from "./firebase";
 
-export type AuditEntity = "product" | "order" | "team" | "brand" | "resolution" | "payout";
+export type AuditEntity = "product" | "order" | "team" | "brand" | "resolution" | "payout" | "collection" | "campaign" | "promotion";
 
 export type AuditEvent = {
   id: string;

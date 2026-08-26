@@ -140,6 +140,21 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /brandCollections/{collectionId} {
+      allow read: if resource.data.status == "live" || (signedIn() && resource.data.brandId is string && isBrandMember(resource.data.brandId));
+      allow create, update, delete: if false;
+    }
+
+    match /brandCampaigns/{campaignId} {
+      allow read: if resource.data.status == "live" || (signedIn() && resource.data.brandId is string && isBrandMember(resource.data.brandId));
+      allow create, update, delete: if false;
+    }
+
+    match /brandPromotions/{promotionId} {
+      allow read: if signedIn() && resource.data.brandId is string && isBrandMember(resource.data.brandId);
+      allow create, update, delete: if false;
+    }
+
     match /orders/{orderId} {
       allow read: if signedIn() &&
         (resource.data.buyerId == request.auth.uid ||
