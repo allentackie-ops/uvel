@@ -156,7 +156,6 @@ export default function Mirror() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 108 }} showsVerticalScrollIndicator={false}>
-        <Text style={styles.lede}>See yourself in it before you buy. From Uvel, or anything you point at.</Text>
 
         <View style={styles.hero}>
           {result ? (
