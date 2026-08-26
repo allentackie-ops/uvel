@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -129,12 +130,14 @@ function DriftRow({
 function Catalog({
   onSignUp,
   onLogIn,
+  onLegal,
   insets,
   copy,
   rtl,
 }: {
   onSignUp: () => void;
   onLogIn: () => void;
+  onLegal: (id: "terms" | "privacy") => void;
   insets: { top: number; bottom: number };
   copy: { marketTitle: string; signUp: string; logIn: string };
   rtl?: boolean;
@@ -172,6 +175,16 @@ function Catalog({
         <Pressable onPress={onLogIn} style={styles.ctaLogin}>
           <Text style={styles.ctaLoginText}>{copy.logIn}</Text>
         </Pressable>
+        <Text style={[styles.legalCopy, rtl && styles.rtl]}>
+          By continuing you agree to our{" "}
+          <Text style={styles.legalLink} onPress={() => onLegal("terms")}>
+            Terms and Conditions
+          </Text>{" "}and{" "}
+          <Text style={styles.legalLink} onPress={() => onLegal("privacy")}>
+            Privacy Policy
+          </Text>
+          .
+        </Text>
       </View>
     </View>
   );
@@ -587,6 +600,7 @@ export default function Onboard() {
                   setPane("providers");
                   setError("");
                 }}
+                onLegal={(id) => router.push({ pathname: "/legal/[id]", params: { id } })}
                 insets={insets}
                 copy={{ marketTitle: C.marketTitle, signUp: C.signUp, logIn: C.logIn }}
                 rtl={rtl}
@@ -1005,6 +1019,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   ctaLoginText: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  legalCopy: { color: "rgba(255,255,255,0.58)", fontSize: 11, lineHeight: 16, textAlign: "center", marginTop: 12, paddingHorizontal: 8 },
+  legalLink: { color: "#C5D4A0", textDecorationLine: "underline" },
   email: { height: 44, alignItems: "center", justifyContent: "center", marginTop: 6 },
   emailText: { color: "#C5D4A0", fontSize: 16, fontWeight: "600" },
   overlay: {
