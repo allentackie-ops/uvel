@@ -18,9 +18,11 @@ export default function Checkout() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, variantKey: variantParam, variantLabel: variantLabelParam } = useLocalSearchParams<{ id: string; variantKey?: string; variantLabel?: string }>();
   useWardrobe();
   const piece = getPiece(id);
+  const selectedVariant = typeof variantParam === "string" ? variantParam : "";
+  const selectedVariantLabel = typeof variantLabelParam === "string" ? variantLabelParam : selectedVariant;
   const app = useUvel();
   const market = getMarket(app.country);
   const methods = payMethods(market.code);
@@ -61,12 +63,24 @@ export default function Checkout() {
   const shipCost = address && addressOk ? shippingCents(same, ship === "express", market) : 0;
   const total = itemLocal + fee + shipCost;
   const method = methods.find((m) => m.id === pay) ?? methods[0];
-  const ready = Boolean(address) && addressOk && sellsHere && !paying && piece.status === "listed";
+  const variantTracked = Boolean(piece.brandId && piece.sizeStock);
+  const selectedStock = selectedVariant && piece.sizeStock ? piece.sizeStock[selectedVariant] : piece.stockQuantity;
+  const inventoryAvailable = !variantTracked || (typeof selectedStock === "number" && selectedStock > 0);
+  const needsVariant = variantTracked && Boolean(piece.sizes?.length || piece.size) && !selectedVariant;
+  const ready = Boolean(address) && addressOk && sellsHere && !paying && piece.status === "listed" && inventoryAvailable && !needsVariant;
 
   async function payNow() {
     if (!address || !piece) return;
     if (!sellsHere || !addressOk) {
       Alert.alert("Wrong store", "This seller doesn’t ship this piece to that country.");
+      return;
+    }
+    if (needsVariant) {
+      Alert.alert("Choose a size", "Go back to the listing and choose an available size first.");
+      return;
+    }
+    if (!inventoryAvailable) {
+      Alert.alert("Sold out", "That size is no longer available.");
       return;
     }
     setPaying(true);
@@ -77,6 +91,8 @@ export default function Checkout() {
         pieceName: piece.name,
         piecePhoto: piece.photo,
         brandId: piece.brandId,
+        variantKey: selectedVariant || undefined,
+        variantLabel: selectedVariantLabel || undefined,
         buyerId: app.uid,
         sellerId: piece.ownerId || "seller",
         itemCents: itemLocal,
@@ -101,6 +117,7 @@ export default function Checkout() {
         orderId: order.id,
         listingId: piece.id,
         brandId: piece.brandId || "",
+        variantKey: selectedVariant,
       });
       if (!session.url) throw new Error("That payment method isn’t live yet.");
       const ok = await openHostedPay(session.url);
@@ -198,7 +215,8 @@ export default function Checkout() {
                 {piece.name}
               </Text>
               <Text style={styles.itemM}>{piece.brand === "Unlabeled" ? "Uvel" : piece.brand}</Text>
-              <Text style={styles.itemM}>{[piece.size, piece.color].filter(Boolean).join(" / ")}</Text>
+              <Text style={styles.itemM}>{[selectedVariantLabel || piece.size, piece.color].filter(Boolean).join(" / ")}</Text>
+              {variantTracked && typeof selectedStock === "number" ? <Text style={styles.itemM}>{selectedStock} available now</Text> : null}
             </View>
             <Text style={styles.itemP}>{moneyExact(item, currency)}</Text>
           </View>

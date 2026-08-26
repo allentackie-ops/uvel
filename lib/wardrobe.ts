@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
-import { deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import type { Category } from "./catalog";
 import { firebaseAuth, firebaseDb, firebaseReady } from "./firebase";
 import { reviewListingPhoto } from "./photoCheck";
@@ -44,8 +44,12 @@ export type ClosetPiece = {
   listedByUid?: string;
   listedByName?: string;
   views?: number;
-  /** Total available units for brand inventory; ordinary resale listings may omit it. */
+  /** Available units remaining after active checkout reservations. */
   stockQuantity?: number;
+  /** Units currently held by pending checkout reservations. */
+  reservedQuantity?: number;
+  /** Reserved units keyed by size for variant-aware brand inventory. */
+  reservedSizeStock?: Record<string, number>;
 };
 
 export type Liker = {
@@ -107,6 +111,17 @@ const NAMES: Record<Category, string[]> = {
 
 let pieces: ClosetPiece[] = [];
 const listeners = new Set<() => void>();
+let listingsWatchStarted = false;
+
+function timestampMillis(value: unknown) {
+  if (typeof value === "number") return value;
+  if (value && typeof (value as { toMillis?: () => number }).toMillis === "function") return (value as { toMillis: () => number }).toMillis();
+  return Date.now();
+}
+
+function emit() {
+  listeners.forEach((listener) => listener());
+}
 
 function normalize(p: ClosetPiece): ClosetPiece {
   const photos = p.photos?.length ? p.photos : p.photo ? [p.photo] : [];
@@ -121,6 +136,37 @@ function normalize(p: ClosetPiece): ClosetPiece {
     marketPrices: p.marketPrices || undefined,
     marketAvailability: p.marketAvailability || undefined,
   };
+}
+
+function watchPublicListings() {
+  if (listingsWatchStarted || !firebaseReady()) return;
+  listingsWatchStarted = true;
+  try {
+    const q = query(collection(firebaseDb(), "listings"), where("status", "==", "listed"));
+    onSnapshot(q, (snap) => {
+      snap.docChanges().forEach((change) => {
+        const existing = pieces.find((piece) => piece.id === change.doc.id);
+        if (change.type === "removed") {
+          if (existing && existing.brandId) {
+            pieces = pieces.map((piece) => piece.id === change.doc.id ? { ...piece, status: "sold", stockQuantity: 0 } : piece);
+          }
+          return;
+        }
+        const data = change.doc.data() as Record<string, unknown>;
+        const remote = normalize({
+          ...(data as unknown as ClosetPiece),
+          id: change.doc.id,
+          createdAt: timestampMillis(data.createdAt),
+        });
+        pieces = pieces.some((piece) => piece.id === remote.id)
+          ? pieces.map((piece) => piece.id === remote.id ? { ...piece, ...remote } : piece)
+          : [remote, ...pieces];
+      });
+      emit();
+    }, () => undefined);
+  } catch {
+    listingsWatchStarted = false;
+  }
 }
 
 async function hydrate() {
@@ -150,6 +196,9 @@ async function persistRemote(piece: ClosetPiece) {
 
 export function useWardrobe() {
   const [, setTick] = useState(0);
+  useEffect(() => {
+    watchPublicListings();
+  }, []);
   useEffect(() => {
     const l = () => setTick((n) => n + 1);
     listeners.add(l);

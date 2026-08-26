@@ -25,6 +25,12 @@ export type Order = {
   pieceName: string;
   piecePhoto: string;
   brandId?: string;
+  /** Exact size or variant selected by the buyer, when the listing has variants. */
+  variantKey?: string;
+  variantLabel?: string;
+  inventoryReservationId?: string;
+  inventoryReservationStatus?: "active" | "consumed" | "released" | "expired";
+  inventoryReservationExpiresAt?: number;
   buyerId: string;
   sellerId: string;
   itemCents: number;
@@ -87,6 +93,7 @@ function remoteOrder(id: string, data: Record<string, unknown>): Order {
     createdAt: millis(data.createdAt),
     paidAt: data.paidAt == null ? undefined : millis(data.paidAt),
     fulfillmentUpdatedAt: data.fulfillmentUpdatedAt == null ? undefined : millis(data.fulfillmentUpdatedAt),
+    inventoryReservationExpiresAt: data.inventoryReservationExpiresAt == null ? undefined : millis(data.inventoryReservationExpiresAt),
   });
 }
 

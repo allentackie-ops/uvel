@@ -155,8 +155,14 @@ export default function ClosetPiece() {
   const piece = getPiece(id);
   const preview = v === "buy";
   const [page, setPage] = useState(0);
+  const [selectedSize, setSelectedSize] = useState("");
   const app = useUvel();
   const look = shopLookOf(piece?.shopLook);
+
+  useEffect(() => {
+    const sizes = piece?.sizes?.length ? piece.sizes : piece?.size ? [piece.size] : [];
+    setSelectedSize((current) => (current && sizes.includes(current) ? current : sizes[0] || ""));
+  }, [piece?.id, piece?.size, piece?.sizes?.join("|")]);
 
   useEffect(() => {
     if (!piece || !piece.brandId || !app.uid || (isMine(piece, app.uid) && !preview)) return;
@@ -193,6 +199,10 @@ export default function ClosetPiece() {
   }
 
   const onFloor = piece.status === "listed";
+  const sizeOptions = piece.sizes?.length ? piece.sizes : piece.size ? [piece.size] : [];
+  const selectedStock = selectedSize && piece.sizeStock ? piece.sizeStock[selectedSize] : piece.stockQuantity;
+  const inventoryTracked = Boolean(piece.brandId && (typeof piece.stockQuantity === "number" || Boolean(piece.sizeStock)));
+  const inStock = !inventoryTracked || (typeof selectedStock === "number" && selectedStock > 0);
   const gallery = piece.photos?.length ? piece.photos : piece.photo ? [piece.photo] : [];
   const pieceId = piece.id;
   const framed = look.photo === "frame";
@@ -213,6 +223,7 @@ export default function ClosetPiece() {
     shipsTo: piece.shipsTo,
     buyer: app.country,
   });
+  const canBuy = onFloor && onThisFloor && inStock && (!inventoryTracked || sizeOptions.length === 0 || Boolean(selectedSize));
 
   function tryOnMe() {
     if (!app.isPlus && app.remainingTryOns <= 0) {
@@ -249,9 +260,9 @@ export default function ClosetPiece() {
               />
             ))}
           </ScrollView>
-          {piece.brandId && typeof piece.stockQuantity === "number" && piece.stockQuantity > 0 && piece.stockQuantity <= 10 ? (
+          {piece.brandId && typeof selectedStock === "number" && selectedStock > 0 && selectedStock <= 10 ? (
             <View style={[styles.stockBadge, { top: insets.top + 58, left: 16 }]}>
-              <Text style={styles.stockBadgeTxt}>{piece.stockQuantity} remaining</Text>
+              <Text style={styles.stockBadgeTxt}>{selectedStock} remaining{selectedSize ? ` · ${selectedSize}` : ""}</Text>
             </View>
           ) : null}
           {gallery.length > 1 ? (
@@ -321,12 +332,26 @@ export default function ClosetPiece() {
           ) : null}
 
           <View style={styles.specs}>
-            {piece.size ? (
+            {sizeOptions.length ? (
               <View style={styles.spec}>
-                <Text style={styles.factK}>Size</Text>
-                <View style={styles.sizePill}>
-                  <Text style={styles.sizeTxt}>{piece.size}</Text>
+                <Text style={styles.factK}>{inventoryTracked ? "Choose size" : "Size"}</Text>
+                <View style={styles.sizeOptions}>
+                  {sizeOptions.map((size) => {
+                    const stock = piece.sizeStock?.[size];
+                    const unavailable = inventoryTracked && typeof stock === "number" && stock <= 0;
+                    return (
+                      <Pressable
+                        key={size}
+                        disabled={unavailable}
+                        onPress={() => setSelectedSize(size)}
+                        style={[styles.sizePill, selectedSize === size && styles.sizePillOn, unavailable && styles.sizePillOff]}
+                      >
+                        <Text style={[styles.sizeTxt, selectedSize === size && styles.sizeTxtOn, unavailable && styles.sizeTxtOff]}>{size}</Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
+                {inventoryTracked && typeof selectedStock === "number" && selectedStock <= 0 ? <Text style={styles.stockHint}>This size is sold out.</Text> : null}
               </View>
             ) : null}
             {piece.color ? (
@@ -410,10 +435,11 @@ export default function ClosetPiece() {
               <Text style={styles.askTxt}>Ask</Text>
             </Pressable>
             <Pressable
-              onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id } })}
-              style={styles.buy}
+              onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id, variantKey: selectedSize, variantLabel: selectedSize } })}
+              disabled={!canBuy}
+              style={[styles.buy, !canBuy && styles.buyOff]}
             >
-              <Text style={styles.ctaTxt}>Buy · {usd(piece.listPriceCents, piece.currency || "USD")}</Text>
+              <Text style={styles.ctaTxt}>{!inStock ? "Sold out" : !selectedSize && sizeOptions.length ? "Choose a size" : `Buy · ${usd(piece.listPriceCents, piece.currency || "USD")}`}</Text>
             </Pressable>
           </View>
         </View>
@@ -593,15 +619,21 @@ function make(look: ShopLook) {
     factK: { color: look.muted, fontSize: 10, letterSpacing: 1, textTransform: "uppercase" },
     factV: { color: look.bone, fontSize: 14, fontWeight: "600", marginTop: 6 },
     sizePill: {
-      alignSelf: "flex-start",
-      marginTop: 8,
+      alignSelf: "auto",
+      marginTop: 0,
       borderWidth: 1,
       borderColor: look.accent,
       borderRadius: 999,
       paddingHorizontal: 10,
-      paddingVertical: 3,
+      paddingVertical: 6,
     },
+    sizeOptions: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 8 },
+    sizePillOn: { backgroundColor: look.accent },
+    sizePillOff: { opacity: 0.35 },
     sizeTxt: { color: look.bone, fontSize: 13, fontWeight: "700" },
+    sizeTxtOn: { color: look.accentInk },
+    sizeTxtOff: { textDecorationLine: "line-through" },
+    stockHint: { color: look.muted, fontSize: 11, marginTop: 8 },
     colorRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6 },
     swatch: {
       width: 14,
@@ -689,6 +721,7 @@ function make(look: ShopLook) {
       alignItems: "center",
       justifyContent: "center",
     },
+    buyOff: { opacity: 0.45 },
     runway: {
       position: "absolute",
       left: 0,

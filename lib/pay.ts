@@ -31,6 +31,7 @@ export type CheckoutPay = {
   orderId: string;
   listingId: string;
   brandId: string;
+  variantKey?: string;
 };
 
 export type CheckoutSession = {

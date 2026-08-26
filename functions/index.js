@@ -1,4 +1,5 @@
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const crypto = require("crypto");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
@@ -11,13 +12,106 @@ const paystackWebhookSecret = defineSecret("PAYSTACK_WEBHOOK_SECRET");
 if (!admin.apps.length) admin.initializeApp();
 
 const PAYSTACK = new Set(["GH", "NG", "KE", "ZA"]);
+const RESERVATION_MINUTES = 30;
+
+function timestampMillis(value) {
+  if (typeof value === "number") return value;
+  if (value && typeof value.toMillis === "function") return value.toMillis();
+  return 0;
+}
+
+async function releaseOrderReservation(orderId, reason = "released") {
+  const db = admin.firestore();
+  const orderRef = db.collection("orders").doc(orderId);
+  const reservationRef = db.collection("inventoryReservations").doc(orderId);
+  await db.runTransaction(async (tx) => {
+    const orderSnap = await tx.get(orderRef);
+    const reservationSnap = await tx.get(reservationRef);
+    if (!orderSnap.exists || !reservationSnap.exists) return;
+    const order = orderSnap.data() || {};
+    const reservation = reservationSnap.data() || {};
+    if (reservation.status !== "active") return;
+    const listingRef = order.pieceId ? db.collection("listings").doc(String(order.pieceId)) : null;
+    const listingSnap = listingRef ? await tx.get(listingRef) : null;
+    if (listingRef && listingSnap && listingSnap.exists) {
+      const listing = listingSnap.data() || {};
+      const currentStock = Number(listing.stockQuantity);
+      const patch = {};
+      if (Number.isFinite(currentStock)) patch.stockQuantity = Math.max(0, Math.floor(currentStock) + 1);
+      patch.reservedQuantity = increment(-1);
+      const variantKey = String(reservation.variantKey || "");
+      if (variantKey && listing.sizeStock && typeof listing.sizeStock === "object") {
+        patch.sizeStock = { ...listing.sizeStock, [variantKey]: Math.max(0, Math.floor(Number(listing.sizeStock[variantKey]) || 0) + 1) };
+      }
+      if (variantKey && listing.reservedSizeStock && typeof listing.reservedSizeStock === "object") {
+        patch.reservedSizeStock = { ...listing.reservedSizeStock, [variantKey]: Math.max(0, Math.floor(Number(listing.reservedSizeStock[variantKey]) || 0) - 1) };
+      }
+      if (listing.status === "sold" && Number.isFinite(currentStock)) patch.status = "listed";
+      if (Object.keys(patch).length) tx.set(listingRef, patch, { merge: true });
+    }
+    tx.set(reservationRef, { status: reason, releasedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    tx.set(orderRef, { inventoryReservationStatus: reason, inventoryReservationReleasedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  });
+}
+
+async function reserveOrderInventory(orderId, listingId, brandId, variantKey) {
+  const db = admin.firestore();
+  const orderRef = db.collection("orders").doc(orderId);
+  const listingRef = db.collection("listings").doc(listingId);
+  const reservationRef = db.collection("inventoryReservations").doc(orderId);
+  const expiresAt = Date.now() + RESERVATION_MINUTES * 60 * 1000;
+  await db.runTransaction(async (tx) => {
+    const orderSnap = await tx.get(orderRef);
+    const listingSnap = await tx.get(listingRef);
+    const reservationSnap = await tx.get(reservationRef);
+    if (!orderSnap.exists || !listingSnap.exists) throw new HttpsError("not-found", "Order or listing not found.");
+    const order = orderSnap.data() || {};
+    const existing = reservationSnap.exists ? reservationSnap.data() || {} : {};
+    if (existing.status === "active" && timestampMillis(existing.expiresAt) > Date.now()) return;
+    const listing = listingSnap.data() || {};
+    if (listing.status !== "listed" || listing.brandId !== brandId) throw new HttpsError("failed-precondition", "Listing is no longer available.");
+    const stock = Number(listing.stockQuantity);
+    const hasStock = Number.isFinite(stock);
+    if (!hasStock) throw new HttpsError("failed-precondition", "This listing has no inventory configured.");
+    const variant = String(variantKey || order.variantKey || "").trim();
+    const sizeStock = listing.sizeStock && typeof listing.sizeStock === "object" ? { ...listing.sizeStock } : null;
+    if (variant && sizeStock) {
+      const variantStock = Number(sizeStock[variant]);
+      if (!Number.isFinite(variantStock) || variantStock <= 0) throw new HttpsError("failed-precondition", "That size is sold out.");
+      sizeStock[variant] = Math.max(0, Math.floor(variantStock) - 1);
+    } else if (stock <= 0) {
+      throw new HttpsError("failed-precondition", "This listing is sold out.");
+    }
+    const listingPatch = { stockQuantity: Math.max(0, Math.floor(stock) - 1), reservedQuantity: increment(1) };
+    if (sizeStock) listingPatch.sizeStock = sizeStock;
+    if (variant && listing.reservedSizeStock && typeof listing.reservedSizeStock === "object") {
+      listingPatch.reservedSizeStock = { ...listing.reservedSizeStock, [variant]: Math.max(0, Math.floor(Number(listing.reservedSizeStock[variant]) || 0) + 1) };
+    }
+    tx.set(listingRef, listingPatch, { merge: true });
+    tx.set(reservationRef, {
+      orderId,
+      listingId,
+      brandId,
+      variantKey: variant || null,
+      status: "active",
+      expiresAt: admin.firestore.Timestamp.fromMillis(expiresAt),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+    tx.set(orderRef, {
+      inventoryReservationId: orderId,
+      inventoryReservationStatus: "active",
+      inventoryReservationExpiresAt: admin.firestore.Timestamp.fromMillis(expiresAt),
+      inventoryReservedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  });
+}
 
 exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, async (req) => {
   if (!req.auth) {
     throw new HttpsError("unauthenticated", "Sign in before checking out.");
   }
 
-  const { amountCents, currency, email, method, country, reference, name, orderId, listingId, brandId } = req.data || {};
+  const { amountCents, currency, email, method, country, reference, name, orderId, listingId, brandId, variantKey } = req.data || {};
   const normalizedCurrency = String(currency || "").toUpperCase();
   const normalizedEmail = String(req.auth.token.email || email || "").trim().toLowerCase();
   const normalizedMethod = String(method || "");
@@ -26,6 +120,7 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
   const normalizedOrderId = String(orderId || "").trim();
   const normalizedListingId = String(listingId || "").trim();
   const normalizedBrandId = String(brandId || "").trim();
+  const normalizedVariantKey = String(variantKey || "").trim().slice(0, 80);
 
   if (
     !Number.isSafeInteger(amountCents) ||
@@ -57,79 +152,102 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
   if (normalizedBrandId && order.brandId !== normalizedBrandId) {
     throw new HttpsError("invalid-argument", "Order brand changed.");
   }
+  let reserved = false;
   if (order.brandId && order.pieceId) {
     const listingSnap = await admin.firestore().collection("listings").doc(String(order.pieceId)).get();
     const listing = listingSnap.data() || {};
     if (!listingSnap.exists || listing.status !== "listed" || listing.brandId !== order.brandId) {
       throw new HttpsError("failed-precondition", "Listing is no longer available.");
     }
+    const orderVariant = String(order.variantKey || "").trim();
+    if (normalizedVariantKey && orderVariant && normalizedVariantKey !== orderVariant) {
+      throw new HttpsError("invalid-argument", "Selected size changed.");
+    }
+    const effectiveVariant = normalizedVariantKey || orderVariant;
+    if (listing.sizeStock && typeof listing.sizeStock === "object" && Object.keys(listing.sizeStock).length && !effectiveVariant) {
+      throw new HttpsError("invalid-argument", "Choose a size before checking out.");
+    }
+    await reserveOrderInventory(normalizedOrderId, String(order.pieceId), String(order.brandId), effectiveVariant);
+    reserved = true;
   }
 
   if (normalizedMethod !== "apple" && PAYSTACK.has(normalizedCountry)) {
-    const key = paystackSecret.value();
-    if (!key) throw new HttpsError("failed-precondition", "Paystack isn’t connected yet.");
-    const channels =
-      normalizedMethod === "momo" || normalizedMethod === "telecel" || normalizedMethod === "mpesa"
-        ? ["mobile_money"]
-        : normalizedMethod === "card"
-          ? ["card"]
-          : undefined;
-    const r = await fetch("https://api.paystack.co/transaction/initialize", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: normalizedEmail,
-        amount: Math.round(amountCents),
-        currency: normalizedCurrency,
-        reference: normalizedReference,
-        callback_url: "https://allentackie-ops.github.io/uvel/pay.html",
-        channels,
-        metadata: {
-          name: String(name || "").slice(0, 160),
-          country: normalizedCountry,
-          method: normalizedMethod,
-          orderId: normalizedOrderId,
-          listingId: normalizedListingId,
-          brandId: normalizedBrandId,
-        },
-      }),
-    });
-    const json = await r.json();
-    if (!json.status) throw new HttpsError("internal", json.message || "Paystack failed.");
-    await orderRef.set({ paymentProvider: "paystack", paymentReference: normalizedReference, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-    return { processor: "paystack", url: json.data.authorization_url, reference: normalizedReference };
+    try {
+      const key = paystackSecret.value();
+      if (!key) throw new HttpsError("failed-precondition", "Paystack isn’t connected yet.");
+      const channels =
+        normalizedMethod === "momo" || normalizedMethod === "telecel" || normalizedMethod === "mpesa"
+          ? ["mobile_money"]
+          : normalizedMethod === "card"
+            ? ["card"]
+            : undefined;
+      const r = await fetch("https://api.paystack.co/transaction/initialize", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          amount: Math.round(amountCents),
+          currency: normalizedCurrency,
+          reference: normalizedReference,
+          callback_url: "https://allentackie-ops.github.io/uvel/pay.html",
+          channels,
+          metadata: {
+            name: String(name || "").slice(0, 160),
+            country: normalizedCountry,
+            method: normalizedMethod,
+            orderId: normalizedOrderId,
+            listingId: normalizedListingId,
+            brandId: normalizedBrandId,
+            variantKey: normalizedVariantKey,
+          },
+        }),
+      });
+      const json = await r.json();
+      if (!json.status) throw new HttpsError("internal", json.message || "Paystack failed.");
+      await orderRef.set({ paymentProvider: "paystack", paymentReference: normalizedReference, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      return { processor: "paystack", url: json.data.authorization_url, reference: normalizedReference };
+    } catch (error) {
+      if (reserved) await releaseOrderReservation(normalizedOrderId).catch(() => undefined);
+      throw error;
+    }
   }
 
-  const key = stripeSecret.value();
-  if (!key) throw new HttpsError("failed-precondition", "Stripe isn’t connected yet.");
-  const stripe = require("stripe")(key);
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    customer_email: normalizedEmail,
-    success_url: "https://allentackie-ops.github.io/uvel/pay.html",
-    cancel_url: "https://allentackie-ops.github.io/uvel/pay.html",
-    line_items: [
-      {
-        quantity: 1,
-        price_data: {
-          currency: normalizedCurrency.toLowerCase(),
-          unit_amount: Math.round(amountCents),
-          product_data: { name: name || "Uvel order" },
+  try {
+    const key = stripeSecret.value();
+    if (!key) throw new HttpsError("failed-precondition", "Stripe isn’t connected yet.");
+    const stripe = require("stripe")(key);
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      customer_email: normalizedEmail,
+      success_url: "https://allentackie-ops.github.io/uvel/pay.html",
+      cancel_url: "https://allentackie-ops.github.io/uvel/pay.html",
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: normalizedCurrency.toLowerCase(),
+            unit_amount: Math.round(amountCents),
+            product_data: { name: name || "Uvel order" },
+          },
         },
+      ],
+      payment_method_types: ["card"],
+      metadata: {
+        reference: normalizedReference,
+        orderId: normalizedOrderId,
+        listingId: normalizedListingId,
+        brandId: normalizedBrandId,
+        country: normalizedCountry,
+        method: normalizedMethod,
+        variantKey: normalizedVariantKey,
       },
-    ],
-    payment_method_types: ["card"],
-    metadata: {
-      reference: normalizedReference,
-      orderId: normalizedOrderId,
-      listingId: normalizedListingId,
-      brandId: normalizedBrandId,
-      country: normalizedCountry,
-      method: normalizedMethod,
-    },
-  });
-  await orderRef.set({ paymentProvider: "stripe", paymentReference: session.id, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-  return { processor: "stripe", url: session.url, reference: session.id };
+    });
+    await orderRef.set({ paymentProvider: "stripe", paymentReference: session.id, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    return { processor: "stripe", url: session.url, reference: session.id };
+  } catch (error) {
+    if (reserved) await releaseOrderReservation(normalizedOrderId).catch(() => undefined);
+    throw error;
+  }
 });
 
 function uidSafe(value) {
@@ -242,30 +360,55 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
   if (!orderId) return { ok: false, reason: "missing-order" };
   const db = admin.firestore();
   const orderRef = db.collection("orders").doc(orderId);
+  const reservationRef = db.collection("inventoryReservations").doc(orderId);
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(orderRef);
     if (!snap.exists) return { ok: false, reason: "order-not-found" };
     const order = snap.data() || {};
-    const listingRef = order.pieceId ? db.collection("listings").doc(String(order.pieceId)) : null;
-    const listingSnap = listingRef ? await tx.get(listingRef) : null;
     if (order.status === "paid") return { ok: true, duplicate: true };
     if (order.status !== "pending") return { ok: false, reason: "order-not-pending" };
     if (Number(providerAmount) > 0 && Number(order.totalCents) !== Number(providerAmount)) return { ok: false, reason: "amount-mismatch" };
+    if (providerCurrency && String(order.currency || "").toUpperCase() !== String(providerCurrency).toUpperCase()) return { ok: false, reason: "currency-mismatch" };
+    const reservationSnap = await tx.get(reservationRef);
+    const reservation = reservationSnap.exists ? reservationSnap.data() || {} : {};
+    const reservationActive = reservation.status === "active" && timestampMillis(reservation.expiresAt) > Date.now();
+    const reservationExpired = reservation.status === "active" && !reservationActive;
+    const listingRef = order.pieceId ? db.collection("listings").doc(String(order.pieceId)) : null;
+    const listingSnap = listingRef ? await tx.get(listingRef) : null;
     const listingData = listingSnap && listingSnap.exists ? listingSnap.data() || {} : {};
     const listingStock = Number(listingData.stockQuantity);
-    const hasTrackedStock = order.brandId && Number.isFinite(listingStock);
-    if (order.brandId && (!listingSnap || !listingSnap.exists || listingData.status !== "listed" || (hasTrackedStock && listingStock <= 0))) return { ok: false, reason: "listing-unavailable" };
-    if (providerCurrency && String(order.currency || "").toUpperCase() !== String(providerCurrency).toUpperCase()) return { ok: false, reason: "currency-mismatch" };
+    const hasTrackedStock = Boolean(order.brandId && Number.isFinite(listingStock));
+    if (order.brandId && reservationExpired) return { ok: false, reason: "inventory-reservation-expired" };
+    if (order.brandId && (!listingSnap || !listingSnap.exists || listingData.status !== "listed") && !reservationActive) return { ok: false, reason: "listing-unavailable" };
+    if (order.brandId && !reservationActive && (!hasTrackedStock || listingStock <= 0)) return { ok: false, reason: "listing-unavailable" };
     const paidAt = admin.firestore.FieldValue.serverTimestamp();
-      tx.update(orderRef, { status: "paid", fulfillmentStatus: "unfulfilled", paymentProvider: provider, paymentReference: providerReference, paidAt });
-    if (listingRef) {
+    const paidUpdate = { status: "paid", fulfillmentStatus: "unfulfilled", paymentProvider: provider, paymentReference: providerReference, paidAt };
+    if (reservationActive) {
+      tx.set(reservationRef, { status: "consumed", consumedAt: paidAt }, { merge: true });
+      paidUpdate.inventoryReservationStatus = "consumed";
+      if (listingRef && listingSnap && listingSnap.exists) {
+        const reservationPatch = { reservedQuantity: increment(-1) };
+        if (hasTrackedStock && listingStock <= 0) {
+          reservationPatch.status = "sold";
+          reservationPatch.soldAt = paidAt;
+        }
+        tx.set(listingRef, reservationPatch, { merge: true });
+      }
+    }
+    tx.update(orderRef, paidUpdate);
+    if (listingRef && !reservationActive) {
       if (hasTrackedStock) {
         const remaining = Math.max(0, Math.floor(listingStock) - 1);
-        tx.set(
-          listingRef,
-          remaining > 0 ? { stockQuantity: remaining } : { stockQuantity: 0, status: "sold", soldAt: paidAt },
-          { merge: true },
-        );
+        const variantKey = String(order.variantKey || "").trim();
+        const sizeStock = listingData.sizeStock && typeof listingData.sizeStock === "object" ? { ...listingData.sizeStock } : null;
+        if (variantKey && sizeStock) {
+          const variantStock = Number(sizeStock[variantKey]);
+          if (!Number.isFinite(variantStock) || variantStock <= 0) return { ok: false, reason: "variant-unavailable" };
+          sizeStock[variantKey] = Math.max(0, Math.floor(variantStock) - 1);
+        }
+        const listingPatch = remaining > 0 ? { stockQuantity: remaining } : { stockQuantity: 0, status: "sold", soldAt: paidAt };
+        if (sizeStock) listingPatch.sizeStock = sizeStock;
+        tx.set(listingRef, listingPatch, { merge: true });
       } else {
         tx.set(listingRef, { status: "sold", soldAt: paidAt }, { merge: true });
       }
@@ -756,4 +899,15 @@ exports.deleteAccount = onCall(async (req) => {
   await db.collection("users").doc(uid).delete().catch(() => undefined);
   await admin.auth().deleteUser(uid);
   return { ok: true };
+});
+
+exports.expireInventoryReservations = onSchedule("every 15 minutes", async () => {
+  const db = admin.firestore();
+  const snapshot = await db.collection("inventoryReservations").where("status", "==", "active").limit(200).get();
+  const now = Date.now();
+  await Promise.all(
+    snapshot.docs
+      .filter((item) => timestampMillis(item.data()?.expiresAt) > 0 && timestampMillis(item.data()?.expiresAt) <= now)
+      .map((item) => releaseOrderReservation(item.id, "expired").catch(() => undefined)),
+  );
 });

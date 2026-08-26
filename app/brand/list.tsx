@@ -50,6 +50,7 @@ export default function BrandList() {
   const [category, setCategory] = useState<Category | null>(null);
   const [system, setSystem] = useState<SizeSystem>("clothing");
   const [picked, setPicked] = useState<string[]>([]);
+  const [sizeStock, setSizeStock] = useState<Record<string, string>>({});
   const [color, setColor] = useState("");
   const [material, setMaterial] = useState("");
   const [notes, setNotes] = useState("");
@@ -70,6 +71,7 @@ export default function BrandList() {
     return () => clearInterval(t);
   }, [gate.phase]);
 
+  const hasVariantStock = picked.length > 0 && picked.every((size) => Number(sizeStock[size]) > 0);
   const canList =
     Boolean(brand && canPost(brand, app.uid)) &&
     contactReady &&
@@ -78,7 +80,7 @@ export default function BrandList() {
     Boolean(sku.trim()) &&
     Boolean(notes.trim()) &&
     Number(price) > 0 &&
-    Number(stockQuantity) > 0 &&
+    hasVariantStock &&
     Boolean(category) &&
     picked.length > 0 &&
     Boolean(color.trim()) &&
@@ -172,6 +174,7 @@ export default function BrandList() {
     const sys = systemFor(c);
     setSystem(sys);
     setPicked([]);
+    setSizeStock({});
   }
 
   async function publish() {
@@ -201,6 +204,14 @@ export default function BrandList() {
       return;
     }
     const uris = photos.map((p) => p.uri);
+    const variantStock = Object.fromEntries(
+      picked.map((size) => [size, Math.max(0, Math.round(Number(sizeStock[size] || stockQuantity) || 0))]),
+    );
+    const totalStock = Object.values(variantStock).reduce((sum, value) => sum + value, 0);
+    if (!totalStock) {
+      setGate({ phase: "block", headline: "Add inventory first", reasons: ["Enter at least one unit for every selected size."] });
+      return;
+    }
     try {
       addPiece({
         photo: uris[0],
@@ -217,7 +228,8 @@ export default function BrandList() {
         notes: notes.trim(),
         listPriceCents: Math.max(1, Number(price) || 0) * 100,
         originalPriceCents: 0,
-        stockQuantity: Math.max(1, Number(stockQuantity) || 0),
+        stockQuantity: totalStock,
+        sizeStock: variantStock,
         country: origin,
         currency: market.currency,
         shipsTo,
@@ -301,8 +313,8 @@ export default function BrandList() {
             <Text style={styles.hint}>A unique product code for your team and inventory system.</Text>
             <TextInput style={styles.field} value={sku} onChangeText={(v) => setSku(v.replace(/[^a-z0-9-]/gi, "").toUpperCase())} placeholder="e.g. AT4-SLIP-001" placeholderTextColor={ph} autoCapitalize="characters" />
 
-            <Text style={styles.label}>Units in stock *</Text>
-            <Text style={styles.hint}>How many of this item can buyers order?</Text>
+            <Text style={styles.label}>Default units per size</Text>
+            <Text style={styles.hint}>Optional shortcut used to prefill each selected size below.</Text>
             <TextInput
               style={styles.field}
               value={stockQuantity}
@@ -336,6 +348,7 @@ export default function BrandList() {
                   onPress={() => {
                     setSystem(s.id);
                     setPicked([]);
+                    setSizeStock({});
                   }}
                   style={[styles.chip, system === s.id && styles.chipOn]}
                 >
@@ -350,7 +363,10 @@ export default function BrandList() {
                 return (
                   <Pressable
                     key={s}
-                    onPress={() => setPicked((prev) => (on ? prev.filter((x) => x !== s) : [...prev, s]))}
+                    onPress={() => {
+                      setPicked((prev) => (on ? prev.filter((x) => x !== s) : [...prev, s]));
+                      if (!on) setSizeStock((prev) => ({ ...prev, [s]: prev[s] || stockQuantity }));
+                    }}
                     style={[styles.chip, on && styles.chipOn]}
                   >
                     <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{s}</Text>
@@ -358,6 +374,25 @@ export default function BrandList() {
                 );
               })}
             </View>
+            {picked.length ? (
+              <View style={styles.variantStockBlock}>
+                <Text style={styles.label}>Stock by size *</Text>
+                <Text style={styles.hint}>Enter the sellable units for every selected size.</Text>
+                {picked.map((size) => (
+                  <View key={size} style={styles.variantStockRow}>
+                    <Text style={styles.variantStockSize}>{size}</Text>
+                    <TextInput
+                      style={styles.variantStockInput}
+                      value={sizeStock[size] || ""}
+                      onChangeText={(value) => setSizeStock((prev) => ({ ...prev, [size]: value.replace(/[^0-9]/g, "") }))}
+                      keyboardType="number-pad"
+                      placeholder="0"
+                      placeholderTextColor={ph}
+                    />
+                  </View>
+                ))}
+              </View>
+            ) : null}
 
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
@@ -482,6 +517,10 @@ const styles = StyleSheet.create({
   chipTxt: { color: "#F4F0E6", fontSize: 13, fontWeight: "600" },
   chipTxtOn: { color: "#16140F" },
   row: { flexDirection: "row", gap: 10 },
+  variantStockBlock: { marginTop: 2 },
+  variantStockRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
+  variantStockSize: { color: "#F4F0E6", fontSize: 14, fontWeight: "700" },
+  variantStockInput: { width: 92, height: 42, borderRadius: 12, borderWidth: 1, borderColor: "rgba(244,240,230,0.22)", color: "#F4F0E6", paddingHorizontal: 12, textAlign: "right", fontSize: 15 },
   foot: { paddingHorizontal: 20, paddingTop: 10, backgroundColor: "#0B0A08" },
   cta: { height: 52, borderRadius: 26, backgroundColor: "#F4F0E6", alignItems: "center", justifyContent: "center" },
   ctaOff: { backgroundColor: "#2A2824" },

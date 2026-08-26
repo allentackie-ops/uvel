@@ -279,6 +279,10 @@ function CatalogRow({ item, canManage, marketCode, theme, styles }: { item: Clos
   function saveCatalogFields() {
     const nextSizeStock = Object.fromEntries(Object.entries(sizeStock).map(([size, value]) => [size, Math.max(0, Math.round(Number(value) || 0))]));
     const total = sizes.length ? Object.values(nextSizeStock).reduce((sum, value) => sum + value, 0) : Math.max(0, Math.round(Number(sizeStock.total || stock || 0)));
+    if (item.status === "listed" && total <= 0) {
+      Alert.alert("Inventory required", "A listed product must have at least one sellable unit.");
+      return;
+    }
     const priceCents = Math.max(1, Math.round(Number(price) * 100));
     updatePiece(item.id, {
       listPriceCents: priceCents,
@@ -421,7 +425,7 @@ function OrderCard({ order, manager, theme, styles }: { order: Order; manager: b
         {order.piecePhoto ? <Image source={{ uri: order.piecePhoto }} style={styles.orderImg} contentFit="cover" /> : <View style={[styles.orderImg, { backgroundColor: theme.bg }]} />}
         <View style={styles.orderCopy}>
           <Text style={[styles.orderName, { color: theme.ink }]} numberOfLines={2}>{order.pieceName}</Text>
-          <Text style={[styles.orderMeta, { color: theme.muted }]}>{buyer} · {order.country} · {order.delivery}</Text>
+          <Text style={[styles.orderMeta, { color: theme.muted }]}>{buyer} · {order.country} · {order.delivery}{order.variantLabel || order.variantKey ? ` · Size ${order.variantLabel || order.variantKey}` : ""}</Text>
           <Text style={[styles.orderTotal, { color: theme.ink }]}>{usd(order.totalCents, order.currency)} · {order.status === "paid" ? FULFILLMENT_LABELS[fulfillment] : "Payment pending"}</Text>
         </View>
         <Text style={[styles.rowArrow, { color: theme.ink }]}>{expanded ? "⌃" : "›"}</Text>
@@ -430,7 +434,7 @@ function OrderCard({ order, manager, theme, styles }: { order: Order; manager: b
         <View style={[styles.orderDetail, { borderTopColor: theme.lineColor }]}>
           <Text style={[styles.orderKicker, { color: theme.muted }]}>ORDER {order.id}</Text>
           <Text style={[styles.detailValue, { color: theme.ink }]}>{order.address?.line1}{order.address?.line2 ? `, ${order.address.line2}` : ""}, {order.address?.city}, {order.address?.region} {order.address?.postal}</Text>
-          <Text style={[styles.orderMeta, { color: theme.muted }]}>Payment: {order.status} · Method: {order.payMethod} · {new Date(order.createdAt).toLocaleDateString()}</Text>
+          <Text style={[styles.orderMeta, { color: theme.muted }]}>Payment: {order.status} · Method: {order.payMethod} · {new Date(order.createdAt).toLocaleDateString()}{order.variantLabel || order.variantKey ? ` · Size ${order.variantLabel || order.variantKey}` : ""}</Text>
           {order.trackingNumber ? <Text style={[styles.orderMeta, { color: theme.muted }]}>Tracking: {order.carrier || "Carrier"} · {order.trackingNumber}</Text> : null}
           {manager && order.status === "paid" && next ? (
             <>
