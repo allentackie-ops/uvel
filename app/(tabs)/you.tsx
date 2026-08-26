@@ -215,8 +215,8 @@ export default function You() {
         <Pressable onPress={() => router.push("/brand/apply")} style={styles.brandCard}>
           <View style={{ flex: 1 }}>
             <Text style={styles.brandK}>BRANDS</Text>
-            <Text style={styles.brandName}>Open a house</Text>
-            <Text style={styles.brandP}>Verified brands post new fashion, not a closet.</Text>
+            <Text style={styles.brandName}>Start your brand</Text>
+            <Text style={styles.brandP}>List your brand now to post new fashion.</Text>
           </View>
           <Text style={styles.brandGo}>Start</Text>
         </Pressable>
