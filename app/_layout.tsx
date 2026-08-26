@@ -157,6 +157,22 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="sell-category"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#12110E" },
+            }}
+          />
+          <Stack.Screen
+            name="sell-condition"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#12110E" },
+            }}
+          />
+          <Stack.Screen
             name="closet/[id]"
             options={{
               headerShown: false,

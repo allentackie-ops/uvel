@@ -61,6 +61,12 @@ export type Liker = {
 };
 
 const KEY = "uvel-wardrobe-v1";
+const DEMO_BRAND_IDS = new Set(["maison-found", "archive-1982", "atelier-no4"]);
+const DEMO_BRAND_OWNER_IDS = new Set(["house-maison", "house-archive", "house-atelier"]);
+
+function isDemoListing(piece: Pick<ClosetPiece, "brandId" | "ownerId">) {
+  return Boolean((piece.brandId && DEMO_BRAND_IDS.has(piece.brandId)) || (piece.ownerId && DEMO_BRAND_OWNER_IDS.has(piece.ownerId)));
+}
 const CATS: Category[] = [
   "Outerwear",
   "Dresses",
@@ -160,6 +166,7 @@ function watchPublicListings() {
           id: change.doc.id,
           createdAt: timestampMillis(data.createdAt),
         });
+        if (isDemoListing(remote)) return;
         pieces = pieces.some((piece) => piece.id === remote.id)
           ? pieces.map((piece) => piece.id === remote.id ? { ...piece, ...remote } : piece)
           : [remote, ...pieces];
@@ -174,13 +181,16 @@ function watchPublicListings() {
 async function hydrate() {
   try {
     const raw = await AsyncStorage.getItem(KEY);
-    if (raw) pieces = (JSON.parse(raw) as ClosetPiece[]).map(normalize);
+    if (raw) {
+      const stored = (JSON.parse(raw) as ClosetPiece[]).map(normalize);
+      pieces = stored.filter((piece) => !isDemoListing(piece));
+      if (pieces.length !== stored.length) void persist();
+    }
   } catch {
     pieces = [];
   }
   wardrobeHydrated = true;
   listeners.forEach((l) => l());
-  void import("./brands").then((m) => m.seedBrandFloor());
 }
 void hydrate();
 

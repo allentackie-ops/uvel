@@ -10,12 +10,11 @@ import {
   setDoc,
   where,
 } from "firebase/firestore";
-import { Image } from "react-native";
 import { useEffect, useState } from "react";
 import { themeOf, type BrandTheme } from "./brandThemes";
 import { reviewBrand, type BrandFiling } from "./brandVerify";
 import { firebaseDb, firebaseReady } from "./firebase";
-import { addPiece, allPieces, listedPieces, type ClosetPiece } from "./wardrobe";
+import { listedPieces } from "./wardrobe";
 import { allOrders } from "./orders";
 
 export type BrandStatus = "draft" | "pending" | "verified" | "rejected";
@@ -95,29 +94,6 @@ export type BrandPerson = {
 const KEY = "uvel-brands-v1";
 const INV = "uvel-brand-invites-v1";
 
-const assets = {
-  leatherTrench: require("../assets/catalog/leather-trench.jpg"),
-  silkSlip: require("../assets/catalog/silk-slip.jpg"),
-  woolBlazer: require("../assets/catalog/wool-blazer.jpg"),
-  wideTrousers: require("../assets/catalog/wide-trousers.jpg"),
-  vintageDenim: require("../assets/catalog/vintage-denim.jpg"),
-  cashmereCrew: require("../assets/catalog/cashmere-crew.jpg"),
-  cowboyBoots: require("../assets/catalog/cowboy-boots.jpg"),
-  poetBlouse: require("../assets/catalog/poet-blouse.jpg"),
-  suedeJacket: require("../assets/catalog/suede-jacket.jpg"),
-  satinSkirt: require("../assets/catalog/satin-skirt.jpg"),
-  fieldJacket: require("../assets/catalog/field-jacket.jpg"),
-  loafer: require("../assets/catalog/loafer.jpg"),
-  herringboneCoat: require("../assets/catalog/herringbone-coat.jpg"),
-  bourgeois: require("../assets/catalog/trend-bourgeois.jpg"),
-  western: require("../assets/catalog/trend-western.jpg"),
-  romantic: require("../assets/catalog/trend-romantic.jpg"),
-};
-
-function uriOf(src: number) {
-  return Image.resolveAssetSource(src)?.uri ?? "";
-}
-
 export const DIRECTORY: BrandPerson[] = [
   { uid: "demo-ama", name: "Ama Mensah", email: "ama@uvel.app" },
   { uid: "demo-kofi", name: "Kofi Boateng", email: "kofi@uvel.app" },
@@ -126,113 +102,12 @@ export const DIRECTORY: BrandPerson[] = [
   { uid: "demo-jules", name: "Jules Moreau", email: "jules@uvel.app" },
 ];
 
-function house(partial: Brand): Brand {
-  return partial;
-}
+const DEMO_BRAND_IDS = new Set(["maison-found", "archive-1982", "atelier-no4"]);
+const DEMO_BRAND_OWNER_IDS = new Set(["house-maison", "house-archive", "house-atelier"]);
 
-const SEED: Brand[] = [
-  house({
-    id: "maison-found",
-    name: "Maison Found",
-    handle: "maisonfound",
-    tagline: "Knit, stone, and a bag that looks inherited.",
-    story: "A quiet house for camel, cream, and the pieces you keep.",
-    vertical: "Unisex",
-    website: "https://maisonfound.example",
-    instagram: "maisonfound",
-    phone: "",
-    whatsapp: "",
-    legalName: "Maison Found Atelier Ltd",
-    registrationId: "MF-1984",
-    contactEmail: "desk@maisonfound.example",
-    country: "GB",
-    logoUri: uriOf(assets.cashmereCrew),
-    bannerKind: "image",
-    bannerUri: uriOf(assets.bourgeois),
-    themeId: "olive",
-    status: "verified",
-    verified: true,
-    verifiedAt: Date.now() - 86400000 * 40,
-    ownerId: "house-maison",
-    ownerName: "House desk",
-    analyticsShared: true,
-    members: [{ uid: "house-maison", name: "House desk", role: "owner", joinedAt: Date.now() - 86400000 * 40 }],
-    views: 0,
-    likes: 0,
-    follows: 0,
-    followers: [],
-    createdAt: Date.now() - 86400000 * 40,
-  }),
-  house({
-    id: "archive-1982",
-    name: "Archive 1982",
-    handle: "archive1982",
-    tagline: "Leather, suede, and the western after 6.",
-    story: "Deadstock and archive cuts. One western piece, not a costume.",
-    vertical: "Archive",
-    website: "https://archive1982.example",
-    instagram: "archive1982",
-    phone: "",
-    whatsapp: "",
-    legalName: "Archive 1982 LLC",
-    registrationId: "AR-1982",
-    contactEmail: "desk@archive1982.example",
-    country: "US",
-    logoUri: uriOf(assets.leatherTrench),
-    bannerKind: "image",
-    bannerUri: uriOf(assets.western),
-    themeId: "noir",
-    status: "verified",
-    verified: true,
-    verifiedAt: Date.now() - 86400000 * 70,
-    ownerId: "house-archive",
-    ownerName: "Archive desk",
-    analyticsShared: false,
-    members: [{ uid: "house-archive", name: "Archive desk", role: "owner", joinedAt: Date.now() - 86400000 * 70 }],
-    views: 0,
-    likes: 0,
-    follows: 0,
-    followers: [],
-    createdAt: Date.now() - 86400000 * 70,
-  }),
-  house({
-    id: "atelier-no4",
-    name: "Atelier No. 4",
-    handle: "atelierno4",
-    tagline: "Ivory bias. Champagne satin. After dark.",
-    story: "A small atelier for liquid evening — slips, poets, and silk that moves.",
-    vertical: "Atelier",
-    website: "https://atelier4.example",
-    instagram: "atelierno4",
-    phone: "",
-    whatsapp: "",
-    legalName: "Atelier No. 4 SARL",
-    registrationId: "AT-0004",
-    contactEmail: "desk@atelier4.example",
-    country: "FR",
-    logoUri: uriOf(assets.silkSlip),
-    bannerKind: "image",
-    bannerUri: uriOf(assets.romantic),
-    themeId: "ivory",
-    status: "verified",
-    verified: true,
-    verifiedAt: Date.now() - 86400000 * 22,
-    ownerId: "house-atelier",
-    ownerName: "Atelier desk",
-    analyticsShared: true,
-    members: [{ uid: "house-atelier", name: "Atelier desk", role: "owner", joinedAt: Date.now() - 86400000 * 22 }],
-    views: 0,
-    likes: 0,
-    follows: 0,
-    followers: [],
-    createdAt: Date.now() - 86400000 * 22,
-  }),
-];
-
-let brands: Brand[] = [...SEED];
+let brands: Brand[] = [];
 let invites: BrandInvite[] = [];
 let brandsHydrated = false;
-let seededListings = false;
 const listeners = new Set<() => void>();
 function emit() {
   listeners.forEach((l) => l());
@@ -244,41 +119,18 @@ async function persist() {
   await AsyncStorage.setItem(INV, JSON.stringify(invites));
 }
 
-function seedListings() {
-  if (seededListings) return;
-  seededListings = true;
-  if (listedPieces().some((p) => p.brandId)) return;
-  const rows: Array<Omit<ClosetPiece, "id" | "status" | "createdAt"> & { status?: ClosetPiece["status"] }> = [
-    { photo: uriOf(assets.cashmereCrew), photos: [uriOf(assets.cashmereCrew)], name: "Camel cashmere crew", brand: "Maison Found", category: "Knitwear", color: "Camel", size: "M", sizes: ["XS", "S", "M", "L", "XL"], condition: "New", material: "Cashmere", notes: "A fine camel crew that sits close without clinging.", listPriceCents: 24500, originalPriceCents: 0, brandId: "maison-found", ownerId: "house-maison", ownerName: "Maison Found", country: "GB", currency: "GBP", shipsTo: "all" },
-    { photo: uriOf(assets.wideTrousers), photos: [uriOf(assets.wideTrousers)], name: "Stone wide-leg trousers", brand: "Maison Found", category: "Trousers", color: "Stone", size: "M", sizes: ["S", "M", "L", "XL"], condition: "New", material: "Wool blend", notes: "Full-leg trousers in warm stone.", listPriceCents: 16800, originalPriceCents: 0, brandId: "maison-found", ownerId: "house-maison", ownerName: "Maison Found", country: "GB", currency: "GBP", shipsTo: "all" },
-    { photo: uriOf(assets.loafer), photos: [uriOf(assets.loafer)], name: "Chocolate leather loafers", brand: "Maison Found", category: "Shoes", color: "Chocolate", size: "40", sizes: ["38", "39", "40", "41", "42"], condition: "New", material: "Calf leather", notes: "Unadorned chocolate loafers.", listPriceCents: 22000, originalPriceCents: 0, brandId: "maison-found", ownerId: "house-maison", ownerName: "Maison Found", country: "GB", currency: "GBP", shipsTo: "all" },
-    { photo: uriOf(assets.leatherTrench), photos: [uriOf(assets.leatherTrench)], name: "Espresso leather trench", brand: "Archive 1982", category: "Outerwear", color: "Espresso", size: "M", sizes: ["S", "M", "L"], condition: "New", material: "Lamb leather", notes: "A belted trench in espresso lamb.", listPriceCents: 42000, originalPriceCents: 0, brandId: "archive-1982", ownerId: "house-archive", ownerName: "Archive 1982", country: "US", currency: "USD", shipsTo: "all" },
-    { photo: uriOf(assets.suedeJacket), photos: [uriOf(assets.suedeJacket)], name: "Rust suede western jacket", brand: "Archive 1982", category: "Outerwear", color: "Rust", size: "M", sizes: ["S", "M", "L", "XL"], condition: "New", material: "Suede", notes: "A western cut in rust suede.", listPriceCents: 28000, originalPriceCents: 0, brandId: "archive-1982", ownerId: "house-archive", ownerName: "Archive 1982", country: "US", currency: "USD", shipsTo: "all" },
-    { photo: uriOf(assets.cowboyBoots), photos: [uriOf(assets.cowboyBoots)], name: "Oxblood cowboy boots", brand: "Archive 1982", category: "Shoes", color: "Oxblood", size: "41", sizes: ["39", "40", "41", "42", "43"], condition: "New", material: "Leather", notes: "Stacked heel, pointed toe.", listPriceCents: 31000, originalPriceCents: 0, brandId: "archive-1982", ownerId: "house-archive", ownerName: "Archive 1982", country: "US", currency: "USD", shipsTo: "all" },
-    { photo: uriOf(assets.vintageDenim), photos: [uriOf(assets.vintageDenim)], name: "Indigo vintage denim", brand: "Archive 1982", category: "Trousers", color: "Indigo", size: "30", sizes: ["28", "29", "30", "31", "32"], condition: "Limited run", material: "Cotton denim", notes: "High-rise vintage wash.", listPriceCents: 18000, originalPriceCents: 0, brandId: "archive-1982", ownerId: "house-archive", ownerName: "Archive 1982", country: "US", currency: "USD", shipsTo: "all" },
-    { photo: uriOf(assets.silkSlip), photos: [uriOf(assets.silkSlip)], name: "Ivory bias silk slip", brand: "Atelier No. 4", category: "Dresses", color: "Ivory", size: "S", sizes: ["XS", "S", "M"], condition: "New", material: "Silk charmeuse", notes: "A bias-cut slip that moves like water.", listPriceCents: 26000, originalPriceCents: 0, brandId: "atelier-no4", ownerId: "house-atelier", ownerName: "Atelier No. 4", country: "FR", currency: "EUR", shipsTo: "all" },
-    { photo: uriOf(assets.poetBlouse), photos: [uriOf(assets.poetBlouse)], name: "Cream silk poet blouse", brand: "Atelier No. 4", category: "Tops", color: "Cream", size: "S", sizes: ["XS", "S", "M", "L"], condition: "New", material: "Silk", notes: "Gathered cuffs, an open neck.", listPriceCents: 14000, originalPriceCents: 0, brandId: "atelier-no4", ownerId: "house-atelier", ownerName: "Atelier No. 4", country: "FR", currency: "EUR", shipsTo: "all" },
-    { photo: uriOf(assets.satinSkirt), photos: [uriOf(assets.satinSkirt)], name: "Champagne satin midi", brand: "Atelier No. 4", category: "Skirts", color: "Champagne", size: "S", sizes: ["XS", "S", "M"], condition: "New", material: "Acetate satin", notes: "Bias midi in champagne satin.", listPriceCents: 16000, originalPriceCents: 0, brandId: "atelier-no4", ownerId: "house-atelier", ownerName: "Atelier No. 4", country: "FR", currency: "EUR", shipsTo: "all" },
-  ];
-  const demoStock = [8, 16, 6, 24, 9, 18, 7, 13, 5, 21];
-  rows.forEach((row, index) => addPiece({ ...row, stockQuantity: demoStock[index] ?? 12, status: "listed" }));
-}
-
-export function seedBrandFloor() {
-  seedListings();
-}
 
 async function hydrate() {
   try {
     const raw = await AsyncStorage.getItem(KEY);
     const inv = await AsyncStorage.getItem(INV);
-    const saved = raw ? (JSON.parse(raw) as Brand[]) : [];
+    const saved = raw
+      ? (JSON.parse(raw) as Brand[]).filter((b) => !DEMO_BRAND_IDS.has(b.id) && !DEMO_BRAND_OWNER_IDS.has(b.ownerId))
+      : [];
     invites = inv ? (JSON.parse(inv) as BrandInvite[]) : [];
-    const byId = new Map(saved.map((b) => [b.id, b]));
-    for (const s of SEED) if (!byId.has(s.id)) byId.set(s.id, s);
-    brands = Array.from(byId.values());
+    brands = saved;
   } catch {
-    brands = [...SEED];
+    brands = [];
   }
   brandsHydrated = true;
   emit();
@@ -309,7 +161,9 @@ async function pullRemote() {
   try {
     const snap = await getDocs(collection(firebaseDb(), "brands"));
     if (!snap.empty) {
-      const remote = snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) })) as Brand[];
+      const remote = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as object) }) as Brand)
+        .filter((b) => !DEMO_BRAND_IDS.has(b.id) && !DEMO_BRAND_OWNER_IDS.has(b.ownerId));
       const byId = new Map(brands.map((b) => [b.id, b]));
       for (const r of remote) byId.set(r.id, { ...byId.get(r.id), ...r } as Brand);
       brands = Array.from(byId.values());
