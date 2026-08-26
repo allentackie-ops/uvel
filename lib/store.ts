@@ -4,7 +4,7 @@ import type { Session } from "./auth";
 import { guessLocale } from "./i18n";
 import { detectCountry, setActiveMarket } from "./markets";
 import { skipSetup } from "./sessionPath";
-import { syncSavedLikes, toggleLiker } from "./wardrobe";
+import { getPiece, syncSavedLikes, toggleLiker } from "./wardrobe";
 
 type State = {
   isPlus: boolean;
@@ -106,6 +106,10 @@ async function applyAccount(
   user: Session,
   opts: { restored?: boolean } = {},
 ) {
+  const switchingAccount = Boolean(memory.uid && memory.uid !== user.uid);
+  if (switchingAccount) {
+    memory = { ...memory, saved: [] };
+  }
   const stashed = await restoreProfile(user.uid);
   const knownDone = skipSetup({
     via: opts.restored ? null : user.via,
@@ -257,9 +261,11 @@ export function useUvel() {
         saved: memory.saved.includes(id)
           ? memory.saved.filter((x) => x !== id)
           : [...memory.saved, id],
-      }),
+      }).then(() => stashProfile()),
     likePiece: (id: string) => {
       const uid = memory.uid || "me";
+      const target = getPiece(id);
+      if (target?.ownerId === uid) return;
       const liker = {
         uid,
         name: memory.displayName || "Uvel member",
@@ -269,7 +275,7 @@ export function useUvel() {
       const { liked, piece } = toggleLiker(id, liker);
       void save({
         saved: liked ? Array.from(new Set([...memory.saved, id])) : memory.saved.filter((x) => x !== id),
-      });
+      }).then(() => stashProfile());
       if (!liked || !piece?.ownerId || piece.ownerId === uid) return;
       void import("./chat").then(({ readUserLite }) =>
         readUserLite(piece.ownerId as string).then((other) => {
@@ -363,6 +369,7 @@ export function useUvel() {
         onboarded: false,
         signedInWith: "",
         uid: "",
+        saved: [],
         email: "",
         displayName: "",
         profileDone: false,

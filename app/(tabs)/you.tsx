@@ -64,8 +64,8 @@ export default function You() {
   const [soldFilter, setSoldFilter] = useState("all");
   const [buyFilter, setBuyFilter] = useState("all");
 
-  const listed = pieces.filter((p) => p.status === "listed" && (!p.ownerId || p.ownerId === app.uid));
-  const soldPieces = pieces.filter((p) => p.status === "sold" && (!p.ownerId || p.ownerId === app.uid));
+  const listed = pieces.filter((p) => p.status === "listed" && Boolean(app.uid) && p.ownerId === app.uid);
+  const soldPieces = pieces.filter((p) => p.status === "sold" && Boolean(app.uid) && p.ownerId === app.uid);
   const soldOrders = orders.filter((o) => o.sellerId === app.uid);
   const buyOrders = orders.filter((o) => o.buyerId === app.uid);
   const likedPieces = app.saved.map((id) => getPiece(id)).filter(Boolean) as ClosetPiece[];
@@ -299,11 +299,7 @@ export default function You() {
         <BuyPane rows={buyRows} filter={buyFilter} setFilter={setBuyFilter} colors={colors} styles={styles} />
       ) : (
         <LikesPane
-          received={likesOnMine(app.uid, app.saved, {
-            uid: app.uid || "me",
-            name: app.displayName || "You",
-            photo: app.avatarUri || app.personUri || undefined,
-          })}
+          received={likesOnMine(app.uid)}
           pieces={likedPieces}
           garments={likedGarments}
           styles={styles}
@@ -489,23 +485,27 @@ function LikesPane({
   garments: (typeof GARMENTS)[number][];
   styles: ReturnType<typeof make>;
 }) {
-  if (!received.length && !pieces.length && !garments.length) {
+  const hasSaved = pieces.length > 0 || garments.length > 0;
+  if (!received.length && !hasSaved) {
     return (
       <View style={styles.empty}>
         <Text style={styles.emptyH}>No likes yet</Text>
-        <Text style={styles.emptyP}>When someone likes your listing, they show up here.</Text>
+        <Text style={styles.emptyP}>Items you save appear here. Likes on your own listings will appear when someone likes them.</Text>
       </View>
     );
   }
   return (
     <View>
-      <Text style={styles.active}>Likes on your listings</Text>
       {received.length ? (
-        received.map((row) => (
+        <>
+          <Text style={styles.active}>Likes on your listings</Text>
+          {received.map((row) => (
             <Pressable
               key={`${row.uid}-${row.piece.id}-${row.at}`}
               onPress={() => router.push({ pathname: "/closet/[id]", params: { id: row.piece.id } })}
               style={styles.liker}
+              accessibilityRole="button"
+              accessibilityLabel={`${row.name} liked ${row.piece.name}`}
             >
               {row.photo ? (
                 <Image source={{ uri: row.photo }} style={styles.likerFace} contentFit="cover" />
@@ -515,21 +515,16 @@ function LikesPane({
                 </View>
               )}
               <View style={{ flex: 1, paddingRight: 10 }}>
-                <Text style={styles.likerName} numberOfLines={1}>
-                  {row.name}
-                </Text>
-                <Text style={styles.likerP} numberOfLines={1}>
-                  liked {row.piece.name}
-                </Text>
+                <Text style={styles.likerName} numberOfLines={1}>{row.name}</Text>
+                <Text style={styles.likerP} numberOfLines={1}>liked {row.piece.name}</Text>
                 <Text style={styles.likerT}>{ago(row.at)}</Text>
               </View>
               <Image source={{ uri: row.piece.photo }} style={styles.likerThumb} contentFit="cover" />
             </Pressable>
-        ))
-      ) : (
-        <Text style={styles.emptyP}>Nobody’s liked a listing yet.</Text>
-      )}
-      {pieces.length || garments.length ? (
+          ))}
+        </>
+      ) : null}
+      {hasSaved ? (
         <View>
           <Text style={styles.active}>You liked</Text>
           <View style={styles.grid}>
@@ -543,11 +538,11 @@ function LikesPane({
                 key={g.id}
                 onPress={() => router.push({ pathname: "/product/[id]", params: { id: g.id } })}
                 style={[styles.likeCard, { width: COL }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Open liked item ${g.name}`}
               >
                 <Image source={g.image} style={styles.likeImg} contentFit="cover" />
-                <Text style={styles.likeName} numberOfLines={2}>
-                  {g.name}
-                </Text>
+                <Text style={styles.likeName} numberOfLines={2}>{g.name}</Text>
                 <Text style={styles.likePrice}>{usd(g.priceCents)}</Text>
               </Pressable>
             ))}

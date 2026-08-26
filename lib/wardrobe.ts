@@ -175,9 +175,21 @@ function watchPublicListings() {
           return;
         }
         const data = change.doc.data() as Record<string, unknown>;
+        const remoteOwnerId = typeof data.ownerId === "string" && data.ownerId.trim()
+          ? data.ownerId.trim()
+          : typeof data.listedByUid === "string" && data.listedByUid.trim()
+            ? data.listedByUid.trim()
+            : undefined;
+        const remoteOwnerName = typeof data.ownerName === "string" && data.ownerName.trim()
+          ? data.ownerName.trim()
+          : typeof data.listedByName === "string" && data.listedByName.trim()
+            ? data.listedByName.trim()
+            : undefined;
         const remote = normalize({
           ...(data as unknown as ClosetPiece),
           id: change.doc.id,
+          ownerId: remoteOwnerId,
+          ownerName: remoteOwnerName,
           createdAt: timestampMillis(data.createdAt),
         });
         if (isDemoListing(remote)) return;
@@ -350,15 +362,16 @@ export function addPiece(
 }
 
 export function stampMine(uid: string, patch: Partial<ClosetPiece>) {
+  if (!uid) return;
   pieces = pieces.map((p) => {
-    if (p.ownerId && p.ownerId !== uid) return p;
+    if (p.ownerId !== uid) return p;
     return { ...p, ...patch };
   });
   void persist();
 }
 
-export function likeCount(p: ClosetPiece, saved: string[] = []) {
-  const n = p.likedBy?.length ?? 0;
+export function likeCount(p: ClosetPiece, saved: string[] = [], uid?: string) {
+  const n = uid ? (p.likedBy || []).filter((l) => l.uid !== uid).length : (p.likedBy?.length ?? 0);
   if (n > 0) return n;
   return saved.includes(p.id) ? 1 : 0;
 }
@@ -379,6 +392,7 @@ export function syncSavedLikes(ids: string[], liker: Liker) {
   let changed = false;
   pieces = pieces.map((p) => {
     if (!ids.includes(p.id)) return p;
+    if (p.ownerId === liker.uid) return p;
     if ((p.likedBy || []).some((l) => l.uid === liker.uid)) return p;
     changed = true;
     return { ...p, likedBy: [{ ...liker, at: p.createdAt || Date.now() }, ...(p.likedBy || [])] };
@@ -386,17 +400,12 @@ export function syncSavedLikes(ids: string[], liker: Liker) {
   if (changed) void persist();
 }
 
-export function likesOnMine(uid: string, saved: string[] = [], me?: Pick<Liker, "uid" | "name" | "photo">) {
-  const rows = pieces.flatMap((p) => (p.likedBy || []).map((l) => ({ ...l, piece: p })));
-  if (me) {
-    for (const id of saved) {
-      const p = pieces.find((x) => x.id === id);
-      if (!p) continue;
-      if (rows.some((r) => r.piece.id === id && r.uid === me.uid)) continue;
-      rows.push({ ...me, at: p.createdAt || Date.now(), piece: p });
-    }
-  }
-  return rows.sort((a, b) => b.at - a.at);
+export function likesOnMine(uid: string) {
+  if (!uid) return [];
+  return pieces
+    .filter((p) => p.ownerId === uid)
+    .flatMap((p) => (p.likedBy || []).filter((l) => l.uid !== uid).map((l) => ({ ...l, piece: p })))
+    .sort((a, b) => b.at - a.at);
 }
 
 export function updatePiece(id: string, patch: Partial<ClosetPiece>) {

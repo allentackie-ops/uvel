@@ -639,8 +639,8 @@ function ShopLookCard({
   const house = piece.brandId ? getBrand(piece.brandId) : undefined;
   const brand = house?.name || (local ? (piece.brand === "Unlabeled" ? "UVEL" : piece.brand) : from.name);
   const live = getPiece(piece.id) || piece;
-  const { saved } = useUvel();
-  const hearts = likeCount(live, saved);
+  const { saved, uid } = useUvel();
+  const hearts = likeCount(live, saved, uid);
   return (
     <AccessiblePressable      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
       style={({ pressed }) => [styles.shopCard, pressed && styles.focused]}

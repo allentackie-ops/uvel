@@ -28,8 +28,9 @@ export function ListingCard({
   const live = getPiece(piece.id) || piece;
   const here = getMarket(app.country);
   const fresh = Date.now() - (live.createdAt || 0) < 1000 * 60 * 60 * 24 * 7;
-  const hearts = likeCount(live, app.saved);
-  const liked = (live.likedBy || []).some((l) => l.uid === (app.uid || "me")) || app.saved.includes(live.id);
+  const isMine = Boolean(app.uid) && live.ownerId === app.uid;
+  const hearts = likeCount(live, isMine ? [] : app.saved, app.uid);
+  const liked = !isMine && ((live.likedBy || []).some((l) => l.uid === app.uid) || app.saved.includes(live.id));
   const house = live.brandId ? getBrand(live.brandId) : undefined;
   const brand = house?.name || (live.brand && live.brand !== "Unlabeled" ? live.brand : "Unbranded");
   const itemCurrency = live.currency || getMarket(live.country || app.country).currency;
@@ -68,13 +69,14 @@ export function ListingCard({
             <Text style={styles.badgeTxt}>{badge}</Text>
           </View>
         ) : null}
-        <AccessiblePressable          onPress={() => app.likePiece(live.id)}
+        <AccessiblePressable onPress={() => { if (!isMine) app.likePiece(live.id); }}
+          disabled={isMine}
           hitSlop={8}
           style={styles.hearts}
           accessibilityRole="button"
-          accessibilityLabel={`${liked ? "Unlike" : "Like"} ${brand} ${live.name}`}
-          accessibilityHint={liked ? "Double tap to remove this listing from your saved items." : "Double tap to save this listing."}
-          accessibilityState={{ selected: liked }}
+          accessibilityLabel={isMine ? `Likes on your listing ${live.name}` : `${liked ? "Unlike" : "Like"} ${brand} ${live.name}`}
+          accessibilityHint={isMine ? "Your own listing cannot be liked from your seller view." : liked ? "Double tap to remove this listing from your saved items." : "Double tap to save this listing."}
+          accessibilityState={{ selected: liked, disabled: isMine }}
         >
           <Text style={[styles.heartsIco, liked && styles.heartsOn]}>{liked ? "♥" : "♡"}</Text>
           <Text style={styles.heartsN}>{hearts}</Text>

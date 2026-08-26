@@ -54,7 +54,7 @@ function swatchOf(color?: string) {
 }
 
 function isMine(piece: ClosetPiece, uid: string) {
-  return !piece.ownerId || piece.ownerId === uid;
+  return Boolean(uid) && Boolean(piece.ownerId) && piece.ownerId === uid;
 }
 
 function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: number; bottom: number } }) {
@@ -178,8 +178,9 @@ export default function ClosetPiece() {
   const styles = useMemo(() => make(look), [look]);
   const liked =
     !!piece &&
-    (app.saved.includes(piece.id) || (piece.likedBy || []).some((l) => l.uid === (app.uid || "me")));
-  const hearts = piece ? likeCount(piece, app.saved) : 0;
+    Boolean(app.uid) &&
+    (app.saved.includes(piece.id) || (piece.likedBy || []).some((l) => l.uid === app.uid));
+  const hearts = piece ? likeCount(piece, app.saved, app.uid) : 0;
 
   useEffect(() => {
     if (!piece) return;
