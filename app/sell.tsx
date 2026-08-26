@@ -29,6 +29,7 @@ import { pickListingPhoto, takeListingPhoto } from "../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
 import { encodeShipsTo, type ShipsTo } from "../lib/ships";
 import { SHOP_LOOKS } from "../lib/shopLook";
+import { takePendingListingSelection } from "../lib/listingOptions";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { addPiece, getPiece, listPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
@@ -36,18 +37,6 @@ import { addPiece, getPiece, listPiece, updatePiece, useWardrobe } from "../lib/
 const MAX = 5;
 const W = Dimensions.get("window").width;
 const LISTING_RATIO = 4 / 5;
-const CATS: Category[] = [
-  "Outerwear",
-  "Dresses",
-  "Tops",
-  "Trousers",
-  "Knitwear",
-  "Skirts",
-  "Shoes",
-  "Bags",
-  "Accessories",
-];
-const CONDITIONS = ["New with tags", "Like new", "Excellent", "Good", "Fair"];
 const STAGES = [
   "Looking at the photos…",
   "Is this something we sell?",
@@ -152,6 +141,10 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     useCallback(() => {
       const selected = takePendingListingPrice(priceKey);
       if (selected !== undefined) setPrice(selected);
+      const pendingCategory = takePendingListingSelection("category");
+      if (pendingCategory) setCategory(pendingCategory);
+      const pendingCondition = takePendingListingSelection("condition");
+      if (pendingCondition) setCondition(pendingCondition);
       return undefined;
     }, [priceKey]),
   );
@@ -326,6 +319,14 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     setPhotos((prev) => prev.filter((p) => p.uri !== uri));
   }
 
+  function openCategory() {
+    router.push({ pathname: "/sell-category", params: { selected: category || "" } });
+  }
+
+  function openCondition() {
+    router.push({ pathname: "/sell-condition", params: { selected: condition || "" } });
+  }
+
   function openPrice() {
     router.push({
       pathname: "/price",
@@ -430,7 +431,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
 
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: 120 }}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 232 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -558,19 +559,16 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             />
 
             <Text style={styles.label}>Category *</Text>
-            <View style={styles.chips}>
-              {CATS.map((c) => (
-                <AccessiblePressable                  key={c}
-                  onPress={() => setCategory(c)}
-                  style={({ pressed }) => [styles.chip, category === c && styles.chipOn, pressed && styles.focused]}
-                  accessibilityRole="radio"
-                  accessibilityLabel={`Category: ${c}`}
-                  accessibilityState={{ selected: category === c }}
-                >
-                  <Text style={[styles.chipTxt, category === c && styles.chipTxtOn]}>{c}</Text>
-                </AccessiblePressable>
-              ))}
-            </View>
+            <AccessiblePressable
+              onPress={openCategory}
+              style={({ pressed }) => [styles.choiceRow, pressed && styles.focused]}
+              accessibilityRole="button"
+              accessibilityLabel={`Category: ${category || "not selected"}`}
+              accessibilityHint="Double tap to open the category picker."
+            >
+              <Text style={[styles.choiceValue, !category && styles.choicePlaceholder]}>{category || "Choose a category"}</Text>
+              <Text style={styles.choiceArrow}>›</Text>
+            </AccessiblePressable>
 
             <View style={styles.row}>
               <View style={{ flex: 1.2 }}>
@@ -623,19 +621,16 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             </View>
 
             <Text style={styles.label}>Condition *</Text>
-            <View style={styles.chips}>
-              {CONDITIONS.map((c) => (
-                <AccessiblePressable                  key={c}
-                  onPress={() => setCondition(c)}
-                  style={({ pressed }) => [styles.chip, condition === c && styles.chipOn, pressed && styles.focused]}
-                  accessibilityRole="radio"
-                  accessibilityLabel={`Condition: ${c}`}
-                  accessibilityState={{ selected: condition === c }}
-                >
-                  <Text style={[styles.chipTxt, condition === c && styles.chipTxtOn]}>{c}</Text>
-                </AccessiblePressable>
-              ))}
-            </View>
+            <AccessiblePressable
+              onPress={openCondition}
+              style={({ pressed }) => [styles.choiceRow, pressed && styles.focused]}
+              accessibilityRole="button"
+              accessibilityLabel={`Condition: ${condition || "not selected"}`}
+              accessibilityHint="Double tap to open the condition picker."
+            >
+              <Text style={[styles.choiceValue, !condition && styles.choicePlaceholder]}>{condition || "Choose a condition"}</Text>
+              <Text style={styles.choiceArrow}>›</Text>
+            </AccessiblePressable>
             <Text style={styles.label}>Original price</Text>
             <TextInput
               style={styles.field}
@@ -777,6 +772,7 @@ function make(colors: Colors) {
     },
     progressFill: { height: 3, backgroundColor: "#D6E27A", borderRadius: 2 },
     progressLbl: { color: colors.subtle, fontSize: 11, marginTop: 6, marginBottom: 8, marginLeft: 20 },
+    scrollContent: { flexGrow: 1 },
     photosLabel: { marginTop: 16, marginLeft: 20 },
     photoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 20, paddingTop: 10 },
     photoTile: { width: Math.round((W - 50) / 2), height: Math.round(((W - 50) / 2) * 1.25), borderRadius: 14, overflow: "hidden", backgroundColor: colors.surface, position: "relative" },
@@ -853,6 +849,18 @@ function make(colors: Colors) {
       backgroundColor: colors.surface,
       fontSize: 16,
     },
+    choiceRow: {
+      minHeight: 54,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      backgroundColor: colors.surface,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    choiceValue: { color: colors.bone, fontSize: 16 },
+    choicePlaceholder: { color: colors.subtle },
+    choiceArrow: { color: colors.subtle, fontSize: 28, lineHeight: 30, marginTop: -3 },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     chip: {
       minHeight: 44,
@@ -887,10 +895,6 @@ function make(colors: Colors) {
     preview: { marginTop: 14, marginBottom: 8 },
     previewTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
     foot: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
       paddingHorizontal: 16,
       paddingTop: 10,
       backgroundColor: colors.ink,
