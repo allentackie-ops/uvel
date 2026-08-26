@@ -271,7 +271,6 @@ export default function Mirror() {
         <Pressable onPress={clearPick} style={styles.ghostCta}>
           <Text style={styles.ghostCtaTxt}>Pick something else</Text>
         </Pressable>
-        <Text style={styles.foot}>Point at any piece online or in real life.{"\n"}Uvel will show it on you.</Text>
       </ScrollView>
     </View>
   );
