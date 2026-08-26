@@ -255,7 +255,7 @@ export default function You() {
           <Text style={styles.dnaSum} numberOfLines={1}>
             {dnaReady
               ? [app.archetype, app.palette, app.silhouette].filter(Boolean).join("  ·  ")
-              : "Set how Today picks looks"}
+              : "Set how your picks look on the Today page"}
           </Text>
         </View>
         <Text style={styles.dnaChevron}>›</Text>
@@ -264,11 +264,9 @@ export default function You() {
       <Pressable onPress={() => router.push("/plus")} style={styles.plan}>
         <View>
           <Text style={styles.planH}>{app.isPlus ? "Uvel+" : "Free plan"}</Text>
-          <Text style={styles.planP}>
-            {app.isPlus
-              ? `${app.plusPlan === "yearly" ? "Yearly" : "Monthly"} · unlimited try-on`
-              : `${app.remainingFinds} finds · ${app.remainingTryOns} try-on left`}
-          </Text>
+          {app.isPlus ? (
+            <Text style={styles.planP}>{`${app.plusPlan === "yearly" ? "Yearly" : "Monthly"} · unlimited try-on`}</Text>
+          ) : null}
         </View>
         {!app.isPlus ? <Text style={styles.planGo}>Get Uvel+</Text> : null}
       </Pressable>
