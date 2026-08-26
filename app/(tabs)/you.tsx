@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "../../components/ListingCard";
+import { VerifiedMark } from "../../components/VerifiedMark";
 import { GARMENTS, getGarment, usd } from "../../lib/catalog";
 import {
   acceptInvite,
@@ -210,7 +211,7 @@ export default function You() {
             <Text style={styles.brandK}>{mine.verified ? "YOUR BRAND" : "IN REVIEW"}</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
               <Text style={styles.brandName}>{mine.name}</Text>
-              {mine.verified && mine.logoUri ? <Image source={{ uri: mine.logoUri }} style={styles.brandBrandLogo} contentFit="cover" /> : null}
+              {mine.verified ? <VerifiedMark size={14} /> : null}
             </View>
             <Text style={styles.brandP}>{mine.verified ? "Page, listings, team, analysis" : "Waiting on verification"}</Text>
           </View>
@@ -733,8 +734,7 @@ function make(_colors: Colors) {
     content: { paddingHorizontal: 20 },
     kicker: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
     title: { color: "#F4F0E6", fontWeight: "700", fontSize: 28, marginTop: 8, lineHeight: 34, flexShrink: 1 },
-    ownerBrandLogo: { width: 19, height: 19, borderRadius: 5, marginLeft: 1 },
-    brandBrandLogo: { width: 16, height: 16, borderRadius: 4, marginLeft: 1 },
+    ownerBrandLogo: { width: 19, height: 19, borderRadius: 5, marginLeft: 1, transform: [{ translateY: 3 }] },
     ownerLine: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 4 },
     invite: { marginTop: 16, backgroundColor: "#161512", borderRadius: 18, padding: 16 },
     inviteH: { color: "#F4F0E6", fontWeight: "700", fontSize: 16 },
