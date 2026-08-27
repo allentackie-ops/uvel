@@ -62,29 +62,11 @@ export default function Plus() {
         contentContainerStyle={[styles.body, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.close} accessibilityRole="button" accessibilityLabel="Close Uvel Plus">
-            <Text style={styles.closeText}>×</Text>
-          </Pressable>
-          <Text style={styles.headerTitle}>Uvel+</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
         <View style={styles.hero}>
-          <View style={styles.heroKickerRow}>
-            <View style={styles.heroRule} />
-            <Text style={styles.heroKicker}>THE UVEL EDIT</Text>
-          </View>
           <Text style={styles.title}>More intention.{"\n"}Less second-guessing.</Text>
-          <Text style={styles.lead}>A quieter way to find what fits, sell what matters, and stay close to the pieces you want.</Text>
           <View style={styles.heroStamp}>
             <Text style={styles.heroStampText}>U+</Text>
           </View>
-        </View>
-
-        <View style={styles.benefitHeader}>
-          <Text style={styles.sectionLabel}>WHAT YOU GET</Text>
-          <Text style={styles.sectionHint}>Built for the way you shop and sell.</Text>
         </View>
 
         <View style={styles.benefits}>
@@ -105,11 +87,7 @@ export default function Plus() {
         </View>
 
         <View style={styles.planHeading}>
-          <View>
-            <Text style={styles.sectionLabel}>CHOOSE YOUR RHYTHM</Text>
-            <Text style={styles.planHint}>Change or cancel anytime in iOS Settings.</Text>
-          </View>
-          <Text style={styles.planCurrency}>USD</Text>
+          <Text style={styles.planHint}>Change or cancel anytime in iOS Settings.</Text>
         </View>
 
         <View style={styles.planGroup}>
@@ -164,23 +142,11 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     body: { paddingHorizontal: 22 },
-    header: { height: 42, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    close: { width: 40, height: 40, alignItems: "center", justifyContent: "center", marginLeft: -10 },
-    closeText: { color: colors.bone, fontSize: 31, fontWeight: "300", lineHeight: 34 },
-    headerTitle: { color: colors.bone, fontSize: 16, fontWeight: "700", letterSpacing: 0.2 },
-    headerSpacer: { width: 40 },
-    hero: { marginTop: 30, paddingBottom: 28, position: "relative" },
-    heroKickerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 14 },
-    heroRule: { width: 28, height: 1, backgroundColor: colors.success },
-    heroKicker: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 2 },
+    hero: { marginTop: 18, paddingBottom: 28, position: "relative" },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 37, lineHeight: 42, letterSpacing: -0.7 },
-    lead: { color: colors.muted, fontSize: 15, lineHeight: 22, marginTop: 14, maxWidth: 330 },
-    heroStamp: { position: "absolute", right: 2, bottom: 24, width: 54, height: 54, borderRadius: 27, borderWidth: 1, borderColor: colors.success, alignItems: "center", justifyContent: "center", transform: [{ rotate: "-12deg" }] },
+    heroStamp: { position: "absolute", right: 2, bottom: 4, width: 54, height: 54, borderRadius: 27, borderWidth: 1, borderColor: colors.success, alignItems: "center", justifyContent: "center", transform: [{ rotate: "-12deg" }] },
     heroStampText: { color: colors.success, fontFamily: "Georgia", fontSize: 19 },
-    benefitHeader: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.neutral, paddingTop: 18, marginTop: 2, marginBottom: 6 },
-    sectionLabel: { color: colors.muted, fontSize: 10, fontWeight: "800", letterSpacing: 1.7 },
-    sectionHint: { color: colors.bone, fontSize: 14, marginTop: 5 },
-    benefits: { marginTop: 8 },
+    benefits: { marginTop: 2, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.neutral },
     benefit: { flexDirection: "row", gap: 13, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.neutral },
     mark: { width: 29, height: 29, borderRadius: 15, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", marginTop: 1 },
     markText: { color: colors.successInk, fontSize: 9, fontWeight: "900", letterSpacing: 0.4 },
@@ -189,9 +155,8 @@ function make(colors: Colors) {
     benefitDetail: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 3 },
     benefitAction: { color: colors.success, fontSize: 12, fontWeight: "800", marginTop: 6 },
     benefitArrow: { fontSize: 14 },
-    planHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 26, marginBottom: 11 },
-    planHint: { color: colors.muted, fontSize: 12, marginTop: 5 },
-    planCurrency: { color: colors.muted, fontSize: 10, letterSpacing: 1.2, fontWeight: "800" },
+    planHeading: { marginTop: 26, marginBottom: 11 },
+    planHint: { color: colors.muted, fontSize: 12 },
     planGroup: { gap: 10 },
     planCard: { minHeight: 83, borderRadius: 18, borderWidth: 1, borderColor: colors.neutral, backgroundColor: colors.surface, paddingHorizontal: 14, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 11 },
     planCardOn: { borderColor: colors.success, backgroundColor: colors.pulse },
