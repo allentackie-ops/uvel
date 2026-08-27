@@ -60,10 +60,12 @@ export default function Price() {
     currency?: string;
     market?: string;
     price?: string;
+    analysis?: string;
   }>();
   const pieces = useWardrobe();
   const key = param(params.key) || "new";
   const pieceId = param(params.pieceId);
+  const analysisComplete = param(params.analysis) === "complete";
   const currency = param(params.currency) || getMarketByCurrency(param(params.market)).currency;
   const market = getMarketByCurrency(currency);
   const existing = pieceId ? getPiece(pieceId) : undefined;
@@ -93,6 +95,27 @@ export default function Price() {
   const selectedLabel = currentCents ? formatPriceCents(currentCents, currency) : "No price selected";
   const title = target.name || "Your piece";
   const details = [target.brand, target.category, target.condition].filter(Boolean).join(" · ");
+
+  if (!analysisComplete) {
+    return (
+      <View style={styles.page}>
+        <View style={[styles.nav, { paddingTop: insets.top + 6 }]}>
+          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel="Back to listing">
+            <Text style={styles.backTxt}>‹</Text>
+          </Pressable>
+          <Text style={styles.navTitle}>Price</Text>
+          <View style={styles.navSpace} />
+        </View>
+        <View style={styles.analysisGate}>
+          <Text style={styles.analysisGateTitle}>Add a product photo first</Text>
+          <Text style={styles.analysisGateCopy}>Price recommendations appear only after Uvel has successfully analyzed a product photo.</Text>
+          <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.analysisGateButton, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Return to listing and add a photo">
+            <Text style={styles.analysisGateButtonText}>Return to listing</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   function choose(tier: "bargain" | "optimal" | "premium", cents: number) {
     setSelectedTier(tier);
@@ -215,6 +238,11 @@ function Recommendation({
 function make(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
+    analysisGate: { margin: 20, marginTop: 44, padding: 20, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.subtle + "44" },
+    analysisGateTitle: { color: colors.bone, fontSize: 22, fontWeight: "700" },
+    analysisGateCopy: { color: colors.muted, fontSize: 15, lineHeight: 22, marginTop: 10 },
+    analysisGateButton: { marginTop: 20, minHeight: 50, borderRadius: 25, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center", paddingHorizontal: 18 },
+    analysisGateButtonText: { color: "#16140F", fontSize: 15, fontWeight: "700" },
     nav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingBottom: 10 },
     back: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
     backTxt: { color: colors.bone, fontSize: 36, lineHeight: 38, marginTop: -4 },

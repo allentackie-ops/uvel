@@ -13,6 +13,7 @@ export type PhotoReview = {
   conditionGuess: string;
   material: string;
   description: string;
+  analysisStatus: "complete" | "unavailable";
 };
 
 export type FeedReview = {
@@ -118,6 +119,7 @@ export async function reviewListingPhoto(uri: string): Promise<PhotoReview> {
       conditionGuess: "Excellent",
       material: "",
       description: "",
+      analysisStatus: "unavailable",
     };
   }
 
@@ -192,6 +194,7 @@ brand: guess or "".`,
     conditionGuess: String(parsed.conditionGuess ?? "Excellent"),
     material: String(parsed.material ?? ""),
     description: String(parsed.description ?? ""),
+    analysisStatus: "complete",
   };
 }
 

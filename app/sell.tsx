@@ -45,7 +45,7 @@ const STAGES = [
 
 type Slot = {
   uri: string;
-  status: "checking" | "ok" | "warn";
+  status: "checking" | "ok" | "warn" | "unverified";
   review?: PhotoReview;
 };
 
@@ -189,6 +189,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const warn = photos.find((p) => p.status === "warn");
   const checking = photos.some((p) => p.status === "checking");
   const hasPhoto = photos.length > 0;
+  const photoReadyForPricing = photos.some((photo) => photo.review?.analysisStatus === "complete" && photo.review.ok);
   const hasTitle = Boolean(name.trim());
   const hasNotes = Boolean(notes.trim());
   const hasPrice = Number(price) > 0;
@@ -261,10 +262,12 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     try {
       const review = await reviewListingPhoto(uri);
       setPhotos((prev) =>
-        prev.map((p) => (p.uri === uri ? { uri, status: review.ok ? "ok" : "warn", review } : p)),
+        prev.map((p) => (p.uri === uri
+          ? { uri, status: review.analysisStatus === "unavailable" ? "unverified" : review.ok ? "ok" : "warn", review }
+          : p)),
       );
     } catch {
-      setPhotos((prev) => prev.map((p) => (p.uri === uri ? { uri, status: "ok" } : p)));
+      setPhotos((prev) => prev.map((p) => (p.uri === uri ? { uri, status: "unverified" } : p)));
     }
   }
 
@@ -329,6 +332,18 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   }
 
   function openPrice() {
+    if (!hasPhoto) {
+      Alert.alert("Add a product photo first", "Uvel needs to analyze the product photo before it can show price recommendations.");
+      return;
+    }
+    if (checking) {
+      Alert.alert("Analyzing your photo", "Price recommendations will be available after the AI review finishes.");
+      return;
+    }
+    if (!photoReadyForPricing) {
+      Alert.alert("Photo analysis required", "Add a clear product photo that passes the AI review before opening price recommendations.");
+      return;
+    }
     router.push({
       pathname: "/price",
       params: {
@@ -341,6 +356,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         material,
         size,
         condition,
+        analysis: "complete",
         currency: listingCurrency,
         market: origin,
         price,
@@ -447,6 +463,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                   </View>
                 ) : null}
                 {p.status === "warn" ? <View style={styles.warnDot} /> : null}
+                {p.status === "unverified" ? <View style={styles.unverifiedDot} /> : null}
                 {p.status === "checking" ? (
                   <View style={styles.photoCheck}>
                     <ActivityIndicator color="#16140F" />
@@ -516,6 +533,13 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               >
                 <Text style={styles.warnCta}>Take another</Text>
               </AccessiblePressable>
+            </View>
+          ) : null}
+
+          {hasPhoto && !photoReadyForPricing && !checking ? (
+            <View style={styles.analysisNotice} accessibilityLiveRegion="polite">
+              <Text style={styles.analysisTitle}>AI review required for price recommendations</Text>
+              <Text style={styles.analysisCopy}>Uvel will show recommendations only after a product photo has been analyzed successfully.</Text>
             </View>
           ) : null}
 
@@ -804,6 +828,26 @@ function make(colors: Colors) {
     focused: { borderWidth: 2, borderColor: colors.success },
     photoX: { position: "absolute", top: 4, right: 4, minWidth: 44, minHeight: 44, borderRadius: 22, backgroundColor: colors.bone, alignItems: "center", justifyContent: "center" },
     photoXTxt: { color: colors.ink, fontSize: 19, lineHeight: 21, fontWeight: "700", marginTop: -1 },
+    unverifiedDot: {
+      position: "absolute",
+      right: 4,
+      top: 4,
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      backgroundColor: colors.subtle,
+    },
+    analysisNotice: {
+      margin: 16,
+      padding: 14,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.subtle + "44",
+      gap: 6,
+    },
+    analysisTitle: { color: colors.bone, fontWeight: "700" },
+    analysisCopy: { color: colors.muted, lineHeight: 20 },
     warnDot: {
       position: "absolute",
       right: 4,
