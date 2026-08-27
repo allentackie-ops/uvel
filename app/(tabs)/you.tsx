@@ -197,20 +197,32 @@ export default function You() {
       ))}
 
       {mine ? (
-        <Pressable
-          onPress={() => router.push({ pathname: "/brand/[id]", params: { id: mine.id } })}
-          style={styles.brandCard}
-        >
-          <View style={{ flex: 1 }}>
-            <Text style={styles.brandK}>{mine.verified ? "YOUR BRAND" : "IN REVIEW"}</Text>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-              <Text style={styles.brandName}>{mine.name}</Text>
-              {mine.verified ? <VerifiedMark size={14} /> : null}
+        <View style={styles.brandCard}>
+          <Pressable
+            onPress={() => router.push({ pathname: "/brand/[id]", params: { id: mine.id } })}
+            style={styles.brandCardMain}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${mine.name} brand page`}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.brandK}>{mine.verified ? "YOUR BRAND" : "IN REVIEW"}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                <Text style={styles.brandName}>{mine.name}</Text>
+                {mine.verified ? <VerifiedMark size={14} /> : null}
+              </View>
+              <Text style={styles.brandP}>{mine.verified ? "Page, listings, team, analysis" : "Workspace ready while verification is pending"}</Text>
             </View>
-            <Text style={styles.brandP}>{mine.verified ? "Page, listings, team, analysis" : "Waiting on verification"}</Text>
-          </View>
-          <Text style={styles.brandGo}>Open</Text>
-        </Pressable>
+            <Text style={styles.brandGo}>Page</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push({ pathname: "/brand/hq", params: { id: mine.id } })}
+            style={styles.brandHQButton}
+            accessibilityRole="button"
+            accessibilityLabel={`Open Brand HQ for ${mine.name}`}
+          >
+            <Text style={styles.brandHQText}>HQ</Text>
+          </Pressable>
+        </View>
       ) : (
         <Pressable onPress={() => router.push("/brand/apply")} style={styles.brandCard}>
           <View style={{ flex: 1 }}>
@@ -702,6 +714,9 @@ function make(colors: Colors) {
     brandName: { color: "#F4F0E6", fontWeight: "700", fontSize: 17 },
     brandP: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 4 },
     brandGo: { color: "#F4F0E6", fontWeight: "700", fontSize: 13 },
+    brandCardMain: { flex: 1, flexDirection: "row", alignItems: "center", minWidth: 0 },
+    brandHQButton: { marginLeft: 12, minWidth: 44, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: "#F4F0E6", alignItems: "center", justifyContent: "center" },
+    brandHQText: { color: "#16140F", fontWeight: "800", fontSize: 12, letterSpacing: 0.4 },
     top: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
     faceBtn: { marginRight: 8, marginTop: 4 },
     avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#1A1915" },
