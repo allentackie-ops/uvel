@@ -117,7 +117,7 @@ export default function Plus() {
             accessibilityLabel="Monthly Uvel Plus plan, 7 dollars and 99 cents per month"
           >
             <View style={[styles.radio, plan === "monthly" && styles.radioOn]}>{plan === "monthly" ? <View style={styles.radioDot} /> : null}</View>
-            <View style={styles.planInfo}><Text style={styles.planName}>Monthly</Text><Text style={styles.planSub}>Flexible month to month</Text></View>
+            <View style={styles.planInfo}><Text style={styles.planName}>Monthly</Text></View>
             <Text style={styles.planPrice}>$7.99<Text style={styles.planUnit}>/mo</Text></Text>
           </Pressable>
         </View>
