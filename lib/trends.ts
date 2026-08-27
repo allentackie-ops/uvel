@@ -23,6 +23,7 @@ export type Look = Trend & {
 };
 
 const LOOKS_KEY = "uvel-looks-v1";
+const RECENT_LOOKS_KEY = "uvel-today-recent-v1";
 
 function localImage(id: string) {
   return TRENDS.find((t) => t.slug === id)?.image ?? TRENDS[0].image;
@@ -71,6 +72,8 @@ let primed = false;
 let heroId: string | null = null;
 let heroTurn = 0;
 let merging = false;
+let recentLookIds: string[] = [];
+let refreshTurn = 0;
 const listeners = new Set<(looks: Look[]) => void>();
 
 const HERO_SOURCES: Exclude<Source, "All">[] = ["Instagram", "TikTok", "Snapchat"];
@@ -124,13 +127,41 @@ function serialize(looks: Look[]) {
   }));
 }
 
-function setCache(next: Look[]) {
+function freshOrder(next: Look[]) {
+  if (next.length < 2) return next;
+  const unseen = next.filter((look) => !recentLookIds.includes(look.id));
+  const threshold = Math.max(2, Math.ceil(next.length * 0.35));
+  const pool = unseen.length >= threshold ? [...unseen, ...next.filter((look) => recentLookIds.includes(look.id))] : [...next];
+  const offset = refreshTurn % pool.length;
+  return [...pool.slice(offset), ...pool.slice(0, offset)];
+}
+
+function rememberRecent(next: Look[]) {
+  recentLookIds = [...new Set([...next.map((look) => look.id), ...recentLookIds])].slice(0, 30);
+  void AsyncStorage.setItem(RECENT_LOOKS_KEY, JSON.stringify(recentLookIds)).catch(() => undefined);
+}
+
+function setCache(next: Look[], fresh = false) {
   if (!next.length) return;
-  cache = pin(balanceSources(rankLooks(next, dnaFrom(snapshot()))));
+  const prepared = fresh ? freshOrder(next) : next;
+  cache = pin(balanceSources(rankLooks(prepared, dnaFrom(snapshot()))));
   updatedAt = new Date().toISOString();
+  if (fresh) rememberRecent(cache);
   listeners.forEach((l) => l(cache));
   void AsyncStorage.setItem(LOOKS_KEY, JSON.stringify({ looks: serialize(cache) })).catch(() => undefined);
 }
+
+void AsyncStorage.getItem(RECENT_LOOKS_KEY)
+  .then((raw) => {
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) recentLookIds = parsed.map(String).slice(0, 30);
+    } catch {
+      /* ignore malformed recent history */
+    }
+  })
+  .catch(() => undefined);
 
 void AsyncStorage.getItem(LOOKS_KEY)
   .then((raw) => {
@@ -161,6 +192,7 @@ export async function pullLooks(opts?: { fresh?: boolean }) {
   if (opts?.fresh) {
     heroId = null;
     heroTurn = (heroTurn + 1) % HERO_SOURCES.length;
+    refreshTurn += 1;
     primed = false;
   }
   if (primed && cache.length && !opts?.fresh) return cache;
@@ -175,7 +207,7 @@ export async function pullLooks(opts?: { fresh?: boolean }) {
         }
       }, dnaFrom(snapshot()));
       if (live.length) {
-        setCache(live as Look[]);
+        setCache(live as Look[], Boolean(opts?.fresh));
         warmHero(live as Look[]);
         merging = true;
         primed = true;
@@ -190,7 +222,7 @@ export async function pullLooks(opts?: { fresh?: boolean }) {
         const json = (await res.json()) as { updatedAt?: string; looks?: unknown };
         const looks = parse(json);
         if (looks.length) {
-          setCache(looks);
+          setCache(looks, Boolean(opts?.fresh));
           warmHero(looks);
           primed = true;
           merging = true;

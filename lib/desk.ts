@@ -115,7 +115,7 @@ type Clip = {
 };
 
 async function tagClips(tag: { id: string; tag: string }): Promise<Clip[]> {
-  const res = await fetch(`https://www.tikwm.com/api/challenge/posts?challenge_id=${tag.id}&count=8`);
+  const res = await fetch(`https://www.tikwm.com/api/challenge/posts?challenge_id=${tag.id}&count=20`);
   if (!res.ok) return [];
   const json = (await res.json()) as {
     data?: {
@@ -240,7 +240,7 @@ async function tiktokLooks(): Promise<DeskLook[]> {
       seen.add(c.id);
       picked.push(c);
       n += 1;
-      if (n >= 2) break;
+      if (n >= 4) break;
     }
   }
   if (!picked.length) return [];
@@ -347,7 +347,7 @@ async function instagramLooks(): Promise<DeskLook[]> {
     const json = await res.json();
     const blob = JSON.stringify(json);
     const codes = [...new Set([...blob.matchAll(/instagram\.com\/(?:reel|p)\/([A-Za-z0-9_-]{5,})/g)].map((m) => m[1]))];
-    const hydrated = await Promise.all(codes.slice(0, 8).map((c) => timeout(hydrateIg(c), 12000)));
+    const hydrated = await Promise.all(codes.slice(0, 20).map((c) => timeout(hydrateIg(c), 9000)));
     return hydrated.filter((x): x is DeskLook => Boolean(x && x.videoUrl));
   } catch {
     return [];
@@ -413,7 +413,7 @@ async function snapRaw(): Promise<SnapRaw[]> {
 
 async function pickFashionSnaps(snaps: SnapRaw[]): Promise<{ id: string; caption: string }[]> {
   const key = openaiKey();
-  const slice = snaps.slice(0, 8);
+  const slice = snaps.slice(0, 20);
   if (!key || !slice.length) return [];
   try {
     const content: unknown[] = [
@@ -514,23 +514,22 @@ export async function liveDesk(onPartial?: (looks: DeskLook[]) => void, dna?: Dn
     return mixed;
   };
 
-  const tt = timeout(tiktokLooks(), 12000).then((v) => {
+  const tt = timeout(tiktokLooks(), 9000).then((v) => {
     buckets[0] = v?.length ? v : FALLBACK_BY_SOURCE.TikTok || [];
     return publish();
   });
-  const ig = timeout(instagramLooks(), 16000).then((v) => {
+  const ig = timeout(instagramLooks(), 10000).then((v) => {
     buckets[1] = v?.length ? v : FALLBACK_BY_SOURCE.Instagram || [];
     return publish();
   });
-  const snap = timeout(snapLooks(), 14000).then((v) => {
+  const snap = timeout(snapLooks(), 9000).then((v) => {
     buckets[2] = v || [];
     return publish();
   });
 
-  await Promise.race([tt, new Promise((r) => setTimeout(r, 4500))]);
-  const early = publish();
-  void Promise.all([ig, snap, tt]).then(() => publish());
-  if (early.length) return early;
+  await Promise.all([tt, ig, snap]);
+  const complete = publish();
+  if (complete.length) return complete;
   const fb = sort(FALLBACK);
   onPartial?.(fb);
   return fb;
