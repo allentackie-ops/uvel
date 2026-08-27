@@ -67,14 +67,36 @@ let updatedAt = "";
 let pulling: Promise<Look[]> | null = null;
 let primed = false;
 let heroId: string | null = null;
+let heroTurn = 0;
 let merging = false;
 const listeners = new Set<(looks: Look[]) => void>();
+
+const HERO_SOURCES: Exclude<Source, "All">[] = ["Instagram", "TikTok", "Snapchat"];
+
+function balanceSources(next: Look[]): Look[] {
+  const order: Exclude<Source, "All">[] = ["TikTok", "Instagram", "Snapchat", "X"];
+  const groups = new Map<Exclude<Source, "All">, Look[]>();
+  for (const source of order) groups.set(source, next.filter((look) => look.source === source));
+  const out: Look[] = [];
+  for (let i = 0; out.length < next.length; i += 1) {
+    let added = false;
+    for (const source of order) {
+      const row = groups.get(source)?.[i];
+      if (!row) continue;
+      out.push(row);
+      added = true;
+    }
+    if (!added) break;
+  }
+  return out;
+}
 
 function pin(next: Look[]): Look[] {
   const withVid = next.filter((l) => l.videoUrl);
   const pool = withVid.length ? withVid : next;
   if (!heroId || !next.some((l) => l.id === heroId)) {
-    heroId = pool[0]?.id ?? next[0]?.id ?? null;
+    const preferred = HERO_SOURCES[heroTurn % HERO_SOURCES.length];
+    heroId = pool.find((l) => l.source === preferred)?.id ?? pool[0]?.id ?? next[0]?.id ?? null;
   }
   const hero = next.find((l) => l.id === heroId);
   const rest = next.filter((l) => l.id !== heroId);
@@ -101,7 +123,7 @@ function serialize(looks: Look[]) {
 
 function setCache(next: Look[]) {
   if (!next.length) return;
-  cache = pin(rankLooks(next, dnaFrom(snapshot())));
+  cache = pin(balanceSources(rankLooks(next, dnaFrom(snapshot()))));
   updatedAt = new Date().toISOString();
   listeners.forEach((l) => l(cache));
   void AsyncStorage.setItem(LOOKS_KEY, JSON.stringify({ looks: serialize(cache) })).catch(() => undefined);
@@ -135,6 +157,7 @@ function warmHero(looks: Look[]) {
 export async function pullLooks(opts?: { fresh?: boolean }) {
   if (opts?.fresh) {
     heroId = null;
+    heroTurn = (heroTurn + 1) % HERO_SOURCES.length;
     primed = false;
   }
   if (primed && cache.length && !opts?.fresh) return cache;

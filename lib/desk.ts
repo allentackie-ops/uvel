@@ -36,8 +36,13 @@ const FALLBACK: DeskLook[] = [
   look("lexia", "Grey maxi dress", "TikTok", "@notverylexi", "https://www.tiktok.com/@notverylexi/video/7624626484992298253", `${RAW}/lexia.mp4`, `${RAW}/lexia.jpg`, "grey dress"),
   look("kiki", "Fit check", "TikTok", "fitcheck", "https://www.tiktok.com/tag/ootd", `${RAW}/kiki.mp4`, `${RAW}/kiki.jpg`, "denim"),
   look("asooke", "Aso oke cargos", "Instagram", "@styledbyfeesah", "https://www.instagram.com/explore/tags/ootd/", `${RAW}/asooke.mp4`, `${RAW}/asooke.jpg`, "linen shirt"),
-  look("nthabi", "Same pants three ways", "Snapchat", "@itsnthabimm9zb", "https://www.snapchat.com/spotlight", `${RAW}/nthabi.mp4`, `${RAW}/nthabi.jpg`, "trousers"),
+  look("sooj", "Proof of life", "Instagram", "@sooj_official", "https://www.instagram.com/sooj_official/", "", `${RAW}/sooj.jpg`, "cream tee trousers"),
 ];
+
+const FALLBACK_BY_SOURCE = {
+  TikTok: FALLBACK.filter((item) => item.source === "TikTok"),
+  Instagram: FALLBACK.filter((item) => item.source === "Instagram"),
+} satisfies Partial<Record<Source, DeskLook[]>>;
 
 function look(
   id: string,
@@ -402,7 +407,7 @@ async function snapRaw(): Promise<SnapRaw[]> {
 async function pickFashionSnaps(snaps: SnapRaw[]): Promise<{ id: string; caption: string }[]> {
   const key = openaiKey();
   const slice = snaps.slice(0, 8);
-  if (!key || !slice.length) return slice.slice(0, 4).map((s) => ({ id: s.id, caption: "Spotlight look" }));
+  if (!key || !slice.length) return [];
   try {
     const content: unknown[] = [
       {
@@ -437,10 +442,9 @@ JSON: {"picks":[{"i":0,"fashion":true,"caption":"white tank denim shorts"}]}`,
         id: slice[p.i!].id,
         caption: captionFrom(p.caption || "Spotlight look", "ootd"),
       }));
-    if (fashion.length) return fashion.slice(0, 5);
-    return slice.slice(0, 3).map((s) => ({ id: s.id, caption: "Spotlight look" }));
+    return fashion.slice(0, 5);
   } catch {
-    return slice.slice(0, 3).map((s) => ({ id: s.id, caption: "Spotlight look" }));
+    return [];
   }
 }
 
@@ -504,11 +508,11 @@ export async function liveDesk(onPartial?: (looks: DeskLook[]) => void, dna?: Dn
   };
 
   const tt = timeout(tiktokLooks(), 12000).then((v) => {
-    buckets[0] = v || [];
+    buckets[0] = v?.length ? v : FALLBACK_BY_SOURCE.TikTok || [];
     return publish();
   });
   const ig = timeout(instagramLooks(), 16000).then((v) => {
-    buckets[1] = v || [];
+    buckets[1] = v?.length ? v : FALLBACK_BY_SOURCE.Instagram || [];
     return publish();
   });
   const snap = timeout(snapLooks(), 14000).then((v) => {
