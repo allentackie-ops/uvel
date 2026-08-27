@@ -387,10 +387,7 @@ export default function Today() {
           </AccessiblePressable>
 
           <View style={styles.head}>
-            <View>
-              <Text style={styles.h2}>{source === "All" ? "Moving now" : `Now on ${source}`}</Text>
-              {source === "All" ? <Text style={styles.sectionSub}>{getMarket(country).name} first · U.S. culture in the mix</Text> : null}
-            </View>
+            <Text style={styles.h2}>{source === "All" ? "Moving now" : `Now on ${source}`}</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
             {visible.map((look) => (
