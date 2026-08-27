@@ -66,13 +66,22 @@ export default function Plus() {
         </Pressable>
 
         {app.isPlus ? (
-          <Pressable onPress={() => router.push("/seller-analytics")} style={styles.analyticsLink} accessibilityRole="button" accessibilityLabel="Open seller analytics">
-            <View style={{ flex: 1 }}>
-              <Text style={styles.analyticsTitle}>Seller analytics</Text>
-              <Text style={styles.analyticsCopy}>See your listing signals and seller records.</Text>
-            </View>
-            <Text style={styles.analyticsArrow}>›</Text>
-          </Pressable>
+          <>
+            <Pressable onPress={() => router.push("/seller-analytics")} style={styles.analyticsLink} accessibilityRole="button" accessibilityLabel="Open seller analytics">
+              <View style={{ flex: 1 }}>
+                <Text style={styles.analyticsTitle}>Seller analytics</Text>
+                <Text style={styles.analyticsCopy}>See your listing signals and seller records.</Text>
+              </View>
+              <Text style={styles.analyticsArrow}>›</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push("/alerts")} style={styles.analyticsLink} accessibilityRole="button" accessibilityLabel="Open price and restock alerts">
+              <View style={{ flex: 1 }}>
+                <Text style={styles.analyticsTitle}>Price & restock alerts</Text>
+                <Text style={styles.analyticsCopy}>Keep watch on the saved pieces you care about.</Text>
+              </View>
+              <Text style={styles.analyticsArrow}>›</Text>
+            </Pressable>
+          </>
         ) : null}
 
         <Pressable onPress={start} style={styles.cta}>

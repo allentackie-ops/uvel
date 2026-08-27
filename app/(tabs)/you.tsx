@@ -233,18 +233,32 @@ export default function You() {
       ) : null}
 
       {app.isPlus ? (
-        <Pressable
-          onPress={() => router.push("/seller-analytics")}
-          style={styles.plan}
-          accessibilityRole="button"
-          accessibilityLabel="Open seller analytics"
-        >
-          <View>
-            <Text style={styles.planH}>Seller analytics</Text>
-            <Text style={styles.planP}>Listing signals and order records</Text>
-          </View>
-          <Text style={styles.planGo}>See</Text>
-        </Pressable>
+        <>
+          <Pressable
+            onPress={() => router.push("/seller-analytics")}
+            style={styles.plan}
+            accessibilityRole="button"
+            accessibilityLabel="Open seller analytics"
+          >
+            <View>
+              <Text style={styles.planH}>Seller analytics</Text>
+              <Text style={styles.planP}>Listing signals and order records</Text>
+            </View>
+            <Text style={styles.planGo}>See</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push("/alerts")}
+            style={styles.plan}
+            accessibilityRole="button"
+            accessibilityLabel="Open price and restock alerts"
+          >
+            <View>
+              <Text style={styles.planH}>Price & restock alerts</Text>
+              <Text style={styles.planP}>Watch the saved pieces you care about</Text>
+            </View>
+            <Text style={styles.planGo}>See</Text>
+          </Pressable>
+        </>
       ) : null}
 
       {teams.map((b) => (

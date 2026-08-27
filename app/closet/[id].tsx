@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { alertKindLabel, enableAlert, setAlertPreference, type AlertKind, useAlertPreference } from "../../lib/alerts";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
@@ -55,6 +56,90 @@ function swatchOf(color?: string) {
 
 function isMine(piece: ClosetPiece, uid: string) {
   return Boolean(uid) && Boolean(piece.ownerId) && piece.ownerId === uid;
+}
+
+function AlertPanel({
+  piece,
+  uid,
+  isPlus,
+  saved,
+  preference,
+  onSave,
+  styles,
+}: {
+  piece: ClosetPiece;
+  uid: string;
+  isPlus: boolean;
+  saved: boolean;
+  preference: ReturnType<typeof useAlertPreference>;
+  onSave: (id: string) => Promise<void>;
+  styles: ReturnType<typeof make>;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  if (!isPlus) {
+    return (
+      <View style={styles.alertCard}>
+        <Text style={styles.alertTitle}>Want a price or restock alert?</Text>
+        <Text style={styles.alertCopy}>Uvel+ can watch saved items and notify you when a recorded price drops or inventory returns.</Text>
+        <Pressable onPress={() => router.push("/plus")} style={styles.alertOption} accessibilityRole="button" accessibilityLabel="Unlock price and restock alerts with Uvel Plus">
+          <Text style={styles.alertOptionText}>Unlock with Uvel+</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  async function choose(kind: AlertKind) {
+    if (!uid || busy) return;
+    setBusy(true);
+    try {
+      if (!saved) await onSave(piece.id);
+      const result = await enableAlert(uid, piece, kind);
+      if (!result.permission) {
+        Alert.alert("Alert saved", "Your alert is saved in Uvel. Turn on notifications in Settings if you want device notifications when a change is recorded.");
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function turnOff() {
+    if (!uid || busy) return;
+    setBusy(true);
+    try {
+      await setAlertPreference(uid, piece, "off");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const selected = preference?.kind;
+  return (
+    <View style={styles.alertCard}>
+      <View style={styles.alertHead}>
+        <Text style={styles.alertTitle}>Price & restock alerts</Text>
+        {busy ? <Text style={styles.alertOff}>Saving…</Text> : null}
+      </View>
+      <Text style={styles.alertCopy}>Save this item and get notified when its recorded price drops or its published inventory returns.</Text>
+      <View style={styles.alertOptions}>
+        {(["price_drop", "restock", "both"] as const).map((kind) => {
+          const on = selected === kind;
+          return (
+            <Pressable key={kind} onPress={() => void choose(kind)} disabled={busy} style={[styles.alertOption, on && styles.alertOptionOn]} accessibilityRole="button" accessibilityState={{ selected: on, disabled: busy }} accessibilityLabel={`Set ${alertKindLabel(kind)} alert for ${piece.name}`}>
+              <Text style={[styles.alertOptionText, on && styles.alertOptionTextOn]}>{kind === "price_drop" ? "Price drops" : kind === "restock" ? "Restocks" : "Both"}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {preference ? (
+        <Pressable onPress={() => void turnOff()} disabled={busy} accessibilityRole="button" accessibilityLabel={`Turn off ${alertKindLabel(preference.kind)} alerts for ${piece.name}`}>
+          <Text style={styles.alertOff}>Watching for {alertKindLabel(preference.kind)} · Turn off</Text>
+        </Pressable>
+      ) : (
+        <Text style={styles.alertOff}>Choose an alert to save this item and start watching it.</Text>
+      )}
+    </View>
+  );
 }
 
 function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: number; bottom: number } }) {
@@ -158,6 +243,7 @@ export default function ClosetPiece() {
   const [page, setPage] = useState(0);
   const [selectedSize, setSelectedSize] = useState("");
   const piece = getPiece(id);
+  const alertPreference = useAlertPreference(app.uid, piece?.id || "");
   const look = shopLookOf(piece?.shopLook);
 
   useEffect(() => {
@@ -401,6 +487,8 @@ export default function ClosetPiece() {
               </View>
             </View>
           ) : null}
+
+          {!mine ? <AlertPanel piece={piece} uid={app.uid} isPlus={app.isPlus} saved={app.saved.includes(piece.id)} preference={alertPreference} onSave={app.toggleSaved} styles={styles} /> : null}
 
           <Pressable
             onPress={owningBrand ? () => router.push({ pathname: "/brand/[id]", params: { id: owningBrand.id } }) : undefined}
@@ -664,6 +752,16 @@ function make(look: ShopLook) {
     },
     notes: { color: look.bone, fontSize: 16, lineHeight: 24 },
     metaRow: { flexDirection: "row", gap: 16 },
+    alertCard: { marginTop: 22, paddingTop: 18, borderTopWidth: StyleSheet.hairlineWidth, borderColor: line },
+    alertHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+    alertTitle: { color: look.bone, fontSize: 16, fontWeight: "700" },
+    alertCopy: { color: look.muted, fontSize: 12, lineHeight: 18, marginTop: 5 },
+    alertOptions: { flexDirection: "row", gap: 8, marginTop: 12 },
+    alertOption: { flex: 1, minHeight: 40, borderRadius: 20, borderWidth: 1, borderColor: line, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
+    alertOptionOn: { backgroundColor: look.accent, borderColor: look.accent },
+    alertOptionText: { color: look.bone, fontSize: 11, fontWeight: "700", textAlign: "center" },
+    alertOptionTextOn: { color: look.accentInk },
+    alertOff: { color: look.muted, fontSize: 12, marginTop: 9 },
     seller: {
       marginTop: 22,
       paddingTop: 18,

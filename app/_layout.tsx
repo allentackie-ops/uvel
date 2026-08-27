@@ -1,11 +1,12 @@
 import { DarkTheme, Stack, ThemeProvider, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Appearance, Pressable, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { LaunchSplash } from "../components/LaunchSplash";
+import { observeListing } from "../lib/alerts";
 import { useOtaReady } from "../lib/ota";
 import { armNotificationHandler, registerPushToken, watchLastSeen } from "../lib/push";
 import { useUvel } from "../lib/store";
@@ -36,6 +37,26 @@ function LikesSync() {
   return null;
 }
 
+function AlertSync() {
+  const { uid } = useUvel();
+  const pieces = useWardrobe();
+  const observed = useRef(new Map<string, string>());
+  useEffect(() => {
+    observed.current.clear();
+  }, [uid]);
+  useEffect(() => {
+    if (!uid) return;
+    for (const piece of pieces) {
+      const stock = typeof piece.stockQuantity === "number" ? piece.stockQuantity : piece.sizeStock ? Object.values(piece.sizeStock).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0) : "none";
+      const signature = `${piece.listPriceCents}:${stock}:${piece.status}`;
+      if (observed.current.get(piece.id) === signature) continue;
+      observed.current.set(piece.id, signature);
+      void observeListing(uid, piece);
+    }
+  }, [uid, pieces]);
+  return null;
+}
+
 function PushSync() {
   const { uid } = useUvel();
   useEffect(() => {
@@ -51,8 +72,13 @@ function PushSync() {
         sub = N.addNotificationResponseReceivedListener((res) => {
           const data = res.notification.request.content.data || {};
           const pieceId = data.pieceId;
+          const alertId = data.alertId;
           const threadId = data.threadId;
           if (typeof pieceId === "string" && pieceId) {
+            if (typeof alertId === "string" && alertId) {
+              router.push({ pathname: "/closet/[id]", params: { id: pieceId } });
+              return;
+            }
             router.push({
               pathname: "/ask/[id]",
               params: { id: pieceId, ...(typeof threadId === "string" && threadId ? { threadId } : {}) },
@@ -93,6 +119,7 @@ function AppStack() {
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
         <ThemeSync />
         <PushSync />
+        <AlertSync />
         <LikesSync />
         <StatusBar style={appearance === "dark" ? "light" : "dark"} />
         <Stack
@@ -126,6 +153,14 @@ function AppStack() {
           />
           <Stack.Screen
             name="seller-analytics"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
+            name="alerts"
             options={{
               headerShown: false,
               animation: "slide_from_right",
