@@ -19,6 +19,7 @@ export type DeskLook = {
   shopQuery: string;
   heat: string;
   aiGenerated?: boolean;
+  country?: string;
 };
 
 const TAGS = [
@@ -33,10 +34,11 @@ const TAGS = [
 const RAW = "https://raw.githubusercontent.com/allentackie-ops/uvel/main/docs/looks";
 
 const FALLBACK: DeskLook[] = [
-  look("lexia", "Grey maxi dress", "TikTok", "@notverylexi", "https://www.tiktok.com/@notverylexi/video/7624626484992298253", `${RAW}/lexia.mp4`, `${RAW}/lexia.jpg`, "grey dress"),
-  look("kiki", "Fit check", "TikTok", "fitcheck", "https://www.tiktok.com/tag/ootd", `${RAW}/kiki.mp4`, `${RAW}/kiki.jpg`, "denim"),
-  look("asooke", "Aso oke cargos", "Instagram", "@styledbyfeesah", "https://www.instagram.com/explore/tags/ootd/", `${RAW}/asooke.mp4`, `${RAW}/asooke.jpg`, "linen shirt"),
-  look("sooj", "Proof of life", "Instagram", "@sooj_official", "https://www.instagram.com/sooj_official/", "", `${RAW}/sooj.jpg`, "cream tee trousers"),
+  look("lexia", "Grey maxi dress", "TikTok", "@notverylexi", "https://www.tiktok.com/@notverylexi/video/7624626484992298253", `${RAW}/lexia.mp4`, `${RAW}/lexia.jpg`, "grey dress", "US"),
+  look("kiki", "Fit check", "TikTok", "fitcheck", "https://www.tiktok.com/tag/ootd", `${RAW}/kiki.mp4`, `${RAW}/kiki.jpg`, "denim", "US"),
+  look("asooke", "Aso oke cargos", "Instagram", "@styledbyfeesah", "https://www.instagram.com/explore/tags/ootd/", `${RAW}/asooke.mp4`, `${RAW}/asooke.jpg`, "linen shirt", "GH"),
+  look("lagos-loafers", "Shirt and loafers, Lagos", "Instagram", "Lagos", "https://www.instagram.com/explore/tags/menswear/", "", `${RAW}/lagos-loafers.jpg`, "shirt loafers", "NG"),
+  look("sooj", "Proof of life", "Instagram", "@sooj_official", "https://www.instagram.com/sooj_official/", "", `${RAW}/sooj.jpg`, "cream tee trousers", "US"),
 ];
 
 const FALLBACK_BY_SOURCE = {
@@ -53,6 +55,7 @@ function look(
   videoUrl: string,
   imageUrl: string,
   shopQuery: string,
+  country?: string,
 ): DeskLook {
   return {
     id,
@@ -68,6 +71,7 @@ function look(
     garmentIds: [],
     shopQuery,
     heat: `${source} · ${handle}`,
+    country,
   };
 }
 
@@ -107,6 +111,7 @@ type Clip = {
   handle: string;
   postUrl: string;
   aiGenerated?: boolean;
+  country?: string;
 };
 
 async function tagClips(tag: { id: string; tag: string }): Promise<Clip[]> {
@@ -127,7 +132,7 @@ async function tagClips(tag: { id: string; tag: string }): Promise<Clip[]> {
         is_ai_generated?: boolean;
         content_label?: string;
         labels?: string[];
-        author?: { unique_id?: string };
+        author?: { unique_id?: string; country?: string };
       }[];
     };
   };
@@ -148,6 +153,7 @@ async function tagClips(tag: { id: string; tag: string }): Promise<Clip[]> {
           ? `https://www.tiktok.com/@${v.author.unique_id}/video/${v.video_id}`
           : `https://www.tiktok.com/tag/${tag.tag}`,
         aiGenerated: aiGeneratedFromUnknown(v) || undefined,
+        country: typeof v.author?.country === "string" ? v.author.country.toUpperCase() : undefined,
       });
   }
   return out;
@@ -218,6 +224,7 @@ function asTikTok(c: Clip, title: string): DeskLook {
     shopQuery: title,
     heat: `TikTok · #${c.tag}`,
     aiGenerated: c.aiGenerated,
+    country: c.country,
   };
 }
 

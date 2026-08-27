@@ -31,6 +31,7 @@ import { recordCampaignAttribution } from "../../lib/attribution";
 import { useLiveShopCampaigns, type BrandCampaign } from "../../lib/marketing";
 import { AI_CONTENT_EXPLANATION, AI_CONTENT_LABEL } from "../../lib/contentLabels";
 import { useUvel } from "../../lib/store";
+import { useFeedPersonalization } from "../../lib/feedPersonalization";
 import { useColors, type Colors } from "../../lib/theme";
 import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
 import { getPiece, likeCount, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
@@ -266,6 +267,7 @@ export default function Today() {
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { uid, styles: taste, country } = useUvel();
+  const { rank: rankForUser, track: trackFeed } = useFeedPersonalization(uid || "guest", country);
   const brandState = useBrands();
   const chats = useInbox(uid || "me");
   const unread = chats.reduce((n, t) => n + unreadFor(t, uid || "me"), 0);
@@ -299,9 +301,10 @@ export default function Today() {
   const heroH = Math.round(H - insets.bottom - 196);
   const orbitOn = useMinHold(refreshing || loading || videoWait || shopWait, 1200);
 
+  const personalizedLooks = useMemo(() => rankForUser(looks), [looks, rankForUser]);
   const visible = useMemo(
-    () => (source === "All" ? looks : looks.filter((t) => t.source === source)),
-    [looks, source],
+    () => (source === "All" ? personalizedLooks : personalizedLooks.filter((t) => t.source === source)),
+    [personalizedLooks, source],
   );
   const featured = visible[0] ?? looks[0];
   const hits = featured ? matchListings(featured, live, taste, followedIds).slice(0, 6) : [];
@@ -334,6 +337,8 @@ export default function Today() {
             height={heroH}
             onWait={setVideoWait}
             onBusy={setShopWait}
+            onShop={() => trackFeed(featured, "shop")}
+            onSource={() => trackFeed(featured, "source")}
           />
         ) : (
           <View style={[styles.heroWrap, { height: heroH }]} />
@@ -382,11 +387,14 @@ export default function Today() {
           </AccessiblePressable>
 
           <View style={styles.head}>
-            <Text style={styles.h2}>{source === "All" ? "Moving now" : `Now on ${source}`}</Text>
+            <View>
+              <Text style={styles.h2}>{source === "All" ? "Moving now" : `Now on ${source}`}</Text>
+              {source === "All" ? <Text style={styles.sectionSub}>{getMarket(country).name} first · U.S. culture in the mix</Text> : null}
+            </View>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
             {visible.map((look) => (
-              <LookCard key={look.id} look={look} colors={colors} />
+              <LookCard key={look.id} look={look} colors={colors} onShop={() => trackFeed(look, "shop")} />
             ))}
           </ScrollView>
 
@@ -486,12 +494,16 @@ function Hero({
   height,
   onWait,
   onBusy,
+  onShop,
+  onSource,
 }: {
   look: Look;
   colors: Colors;
   height: number;
   onWait?: (v: boolean) => void;
   onBusy?: (v: boolean) => void;
+  onShop?: () => void;
+  onSource?: () => void;
 }) {
   const styles = make(colors);
   const seen = where(look.postUrl) || look.source;
@@ -503,6 +515,7 @@ function Hero({
     if (busy) return;
     setBusy(true);
     onBusy?.(true);
+    onShop?.();
     scanLook(look, grab.current);
     setTimeout(() => {
       setBusy(false);
@@ -524,7 +537,10 @@ function Hero({
             <Text style={styles.ctaTxt}>{busy ? "Searching…" : "Shop the look"}</Text>
           </AccessiblePressable>
           {look.postUrl ? (
-            <AccessiblePressable              onPress={() => void Linking.openURL(look.postUrl!)}
+            <AccessiblePressable              onPress={() => {
+                onSource?.();
+                void Linking.openURL(look.postUrl!);
+              }}
               style={({ pressed }) => [styles.ghost, pressed && styles.focused]}
               accessibilityRole="link"
               accessibilityLabel={`See this look on ${seen}`}
@@ -547,7 +563,7 @@ function Hero({
   );
 }
 
-function LookCard({ look, colors }: { look: Look; colors: Colors }) {
+function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop?: () => void }) {
   const styles = make(colors);
   const grab = useRef<FrameGrab | null>(null);
   const [busy, setBusy] = useState(false);
@@ -555,6 +571,7 @@ function LookCard({ look, colors }: { look: Look; colors: Colors }) {
   function shopThis() {
     if (busy) return;
     setBusy(true);
+    onShop?.();
     scanLook(look, grab.current);
     setTimeout(() => setBusy(false), 400);
   }
