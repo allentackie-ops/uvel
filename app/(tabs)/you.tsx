@@ -232,6 +232,21 @@ export default function You() {
         </Pressable>
       ) : null}
 
+      {app.isPlus ? (
+        <Pressable
+          onPress={() => router.push("/seller-analytics")}
+          style={styles.plan}
+          accessibilityRole="button"
+          accessibilityLabel="Open seller analytics"
+        >
+          <View>
+            <Text style={styles.planH}>Seller analytics</Text>
+            <Text style={styles.planP}>Listing signals and order records</Text>
+          </View>
+          <Text style={styles.planGo}>See</Text>
+        </Pressable>
+      ) : null}
+
       {teams.map((b) => (
         <Pressable key={b.id} onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })} style={styles.brandCard}>
           <View style={{ flex: 1 }}>

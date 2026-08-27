@@ -5,7 +5,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 
-const PERKS = ["Unlimited virtual try-on before you buy", "Custom shop looks on every listing you sell"];
+const PERKS = [
+  "Unlimited virtual try-on before you buy",
+  "Custom shop looks on every listing you sell",
+  "Seller analytics for your listings and order records",
+];
 
 export default function Plus() {
   const colors = useColors();
@@ -60,6 +64,16 @@ export default function Plus() {
             <Text style={styles.cardPrice}>$7.99/mo</Text>
           </View>
         </Pressable>
+
+        {app.isPlus ? (
+          <Pressable onPress={() => router.push("/seller-analytics")} style={styles.analyticsLink} accessibilityRole="button" accessibilityLabel="Open seller analytics">
+            <View style={{ flex: 1 }}>
+              <Text style={styles.analyticsTitle}>Seller analytics</Text>
+              <Text style={styles.analyticsCopy}>See your listing signals and seller records.</Text>
+            </View>
+            <Text style={styles.analyticsArrow}>›</Text>
+          </Pressable>
+        ) : null}
 
         <Pressable onPress={start} style={styles.cta}>
           <Text style={styles.ctaTxt}>{app.isPlus ? "Update plan" : "Start Uvel+"}</Text>
@@ -144,6 +158,10 @@ function make(colors: Colors) {
       backgroundColor: colors.pulse,
     },
     ctaTxt: { color: colors.bone, fontSize: 16, fontWeight: "600" },
+    analyticsLink: { marginTop: 12, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.neutral, flexDirection: "row", alignItems: "center" },
+    analyticsTitle: { color: colors.bone, fontSize: 15, fontWeight: "800" },
+    analyticsCopy: { color: colors.muted, fontSize: 12, marginTop: 4 },
+    analyticsArrow: { color: colors.muted, fontSize: 25 },
     legal: { color: colors.subtle, fontSize: 12, marginTop: 16, lineHeight: 17, textAlign: "center" },
     links: {
       flexDirection: "row",

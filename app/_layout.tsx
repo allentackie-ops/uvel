@@ -125,6 +125,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="seller-analytics"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="legal/[id]"
             options={{
               headerTransparent: false,
