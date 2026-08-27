@@ -282,7 +282,7 @@ function AuthBtn({
 }
 
 export default function Onboard() {
-  const { completeOnboard, acceptSession, locale, setLocale, onboardVersion } = useUvel();
+  const { acceptSession, locale, setLocale, onboardVersion } = useUvel();
   const insets = useSafeAreaInsets();
   const C = t(locale || "en-US");
   const rtl = isRtl(locale || "en-US");
@@ -504,9 +504,10 @@ export default function Onboard() {
     dismissLangs();
   }
 
-  function finish(provider?: string) {
-    closeAuth();
-    void completeOnboard(provider);
+  function skipToAuthPage() {
+    const n = PAGES.length - 1;
+    scroller.current?.scrollTo({ x: n * SCREEN_W, animated: true });
+    setPage(n);
   }
 
   function afterSignIn(session: Session) {
@@ -632,7 +633,7 @@ export default function Onboard() {
             <Text style={styles.langChev}>▾</Text>
           </Pressable>
           {PAGES[page].kind !== "market" ? (
-            <Pressable onPress={() => finish()} style={[styles.skip, { top: insets.top + 8 }]} hitSlop={16}>
+            <Pressable onPress={skipToAuthPage} style={[styles.skip, { top: insets.top + 8 }]} hitSlop={16}>
               <Text style={styles.skipText}>{C.skip}</Text>
             </Pressable>
           ) : null}
