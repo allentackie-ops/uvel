@@ -43,6 +43,12 @@ const STAGES = [
   "Looking for anything that shouldn’t be here…",
 ];
 
+const SELL_COLORS: Colors = {
+  ...palettes.dark,
+  ink: "#0B0A08",
+  surface: "#161512",
+};
+
 type Slot = {
   uri: string;
   status: "checking" | "ok" | "warn" | "unverified";
@@ -56,7 +62,7 @@ type Gate =
   | { phase: "pass" };
 
 export default function Sell({ embedded = false }: { embedded?: boolean }) {
-  const colors = palettes.dark;
+  const colors = SELL_COLORS;
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { id, fits, draft: draftParam } = useLocalSearchParams<{ id?: string; fits?: string; draft?: string }>();
