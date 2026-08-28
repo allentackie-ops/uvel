@@ -30,7 +30,7 @@ import { encodeShipsTo, shipsToLabel, type ShipsTo } from "../lib/ships";
 import { SHOP_LOOKS } from "../lib/shopLook";
 import { takePendingListingSelection } from "../lib/listingOptions";
 import { useUvel } from "../lib/store";
-import { useColors, type Colors } from "../lib/theme";
+import { palettes, type Colors } from "../lib/theme";
 import { addPiece, getPiece, listPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
 
 const MAX = 5;
@@ -56,13 +56,13 @@ type Gate =
   | { phase: "pass" };
 
 export default function Sell({ embedded = false }: { embedded?: boolean }) {
-  const colors = useColors();
+  const colors = palettes.dark;
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { id, fits, draft: draftParam } = useLocalSearchParams<{ id?: string; fits?: string; draft?: string }>();
   useWardrobe();
   const existing = id ? getPiece(id) : undefined;
-  const { wardrobeUris, appearance, uid, displayName, country, isPlus, personUri, avatarUri } = useUvel();
+  const { wardrobeUris, uid, displayName, country, isPlus, personUri, avatarUri } = useUvel();
   const market = getMarket(country);
   const [draftOrigin, setDraftOrigin] = useState<string | undefined>();
   const [draftCurrency, setDraftCurrency] = useState<string | undefined>();
@@ -213,7 +213,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const progress = [hasPhoto, hasPrice, hasTitle, hasNotes, hasCat, hasSize, hasColor, hasMaterial, hasCond].filter(
     Boolean,
   ).length;
-  const ph = appearance === "dark" ? "rgba(244,240,230,0.28)" : "rgba(22,20,15,0.32)";
+  const ph = "rgba(244,240,230,0.28)";
   const ctaLabel = checking
     ? "Checking photos…"
     : !hasPhoto
@@ -301,7 +301,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         {
           options,
           cancelButtonIndex: options.length - 1,
-          userInterfaceStyle: appearance,
+          userInterfaceStyle: "dark",
         },
         (i) => {
           if (i === 0) void fromCamera();
