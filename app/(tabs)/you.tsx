@@ -205,12 +205,12 @@ export default function You() {
             accessibilityLabel={`Open ${mine.name} brand page`}
           >
             <View style={{ flex: 1 }}>
-              <Text style={styles.brandK}>{mine.verified ? "YOUR BRAND" : "IN REVIEW"}</Text>
+              <Text style={styles.brandK}>{mine.reviewStatus === "human_review" ? "HUMAN REVIEW" : mine.reviewStatus === "needs_information" ? "INFORMATION NEEDED" : mine.verified ? "UVEL-REVIEWED" : "IN REVIEW"}</Text>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
                 <Text style={styles.brandName}>{mine.name}</Text>
                 {mine.verified ? <VerifiedMark size={14} /> : null}
               </View>
-              <Text style={styles.brandP}>{mine.verified ? "Page, listings, team, analysis" : "Workspace ready while verification is pending"}</Text>
+              <Text style={styles.brandP}>{mine.verified ? "Page, listings, team, analysis" : mine.reviewStatus === "human_review" ? "Submit evidence for an admin review" : mine.reviewStatus === "needs_information" ? "Add the missing details, then submit again" : "Workspace ready while Uvel review is pending"}</Text>
             </View>
             <Text style={styles.brandGo}>Page</Text>
           </Pressable>

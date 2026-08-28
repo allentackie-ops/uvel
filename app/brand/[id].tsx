@@ -181,7 +181,7 @@ export default function BrandPage() {
         </View>
 
         <View style={{ paddingHorizontal: 20, paddingTop: 56 }}>
-          <Text style={[styles.kicker, { color: theme.muted }]}>{brand.verified ? "VERIFIED BRAND" : "BRAND · IN REVIEW"}</Text>
+          <Text style={[styles.kicker, { color: theme.muted }]}>{brand.reviewStatus === "uvel_reviewed" && brand.verified ? "UVEL-REVIEWED BRAND" : brand.reviewStatus === "human_review" ? "BRAND · HUMAN REVIEW" : brand.reviewStatus === "needs_information" ? "BRAND · INFORMATION NEEDED" : "BRAND · IN REVIEW"}</Text>
           <View style={styles.nameRow}>
             <Text style={[styles.name, { color: theme.ink }]}>{brand.name}</Text>
             {brand.verified ? <VerifiedMark size={20} /> : null}
@@ -297,7 +297,7 @@ export default function BrandPage() {
           ))
         ) : (
           <Text style={[styles.empty, { color: theme.muted }]}>
-            {brand.verified ? "Nothing listed yet." : "Verification first. Then they can post."}
+            {brand.verified && brand.reviewStatus === "uvel_reviewed" ? "Nothing listed yet." : "Uvel review is required before this brand can post publicly."}
           </Text>
         )}
 

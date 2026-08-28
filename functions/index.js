@@ -942,20 +942,21 @@ function isSoftReason(reason) {
 
 function localHardFail(f) {
   if (!String(f.name || "").trim()) {
-    return { ok: false, headline: "Need a brand name", reasons: ["Add the name buyers will see."], notes: "" };
+    return { ok: false, decision: "needs_information", headline: "Need a brand name", reasons: ["Add the name buyers will see."], notes: "" };
   }
   if (!coreToken(f.handle)) {
-    return { ok: false, headline: "Need a handle", reasons: ["Pick an @ made of letters or numbers."], notes: "" };
+    return { ok: false, decision: "needs_information", headline: "Need a handle", reasons: ["Pick an @ made of letters or numbers."], notes: "" };
   }
   if (!String(f.legalName || "").trim()) {
-    return { ok: false, headline: "Need a legal name", reasons: ["Add the registered or legal name of the house."], notes: "" };
+    return { ok: false, decision: "needs_information", headline: "Need a legal name", reasons: ["Add the registered or legal name of the house."], notes: "" };
   }
   if (String(f.story || "").trim().length < 4) {
-    return { ok: false, headline: "Need a story", reasons: ["Write a line about who you are and what you make."], notes: "" };
+    return { ok: false, decision: "needs_information", headline: "Need a story", reasons: ["Write a line about who you are and what you make."], notes: "" };
   }
   if (!hasBrandContact(f)) {
     return {
       ok: false,
+      decision: "needs_information",
       headline: "Add a contact channel",
       reasons: ["Add at least one reachable brand contact: phone, WhatsApp, Instagram, email, or website."],
       notes: "",
@@ -964,7 +965,8 @@ function localHardFail(f) {
   if (impersonates(f.name, f.handle)) {
     return {
       ok: false,
-      headline: "That name is taken by a known house",
+      decision: "human_review",
+      headline: "That name needs a human review",
       reasons: ["Pick a name and handle that are yours — not a famous label."],
       notes: "",
     };
@@ -977,18 +979,19 @@ function sanitizeReview(f, review) {
   if (hard) return hard;
   const kept = (review.reasons || []).filter((r) => !isSoftReason(r));
   if (review.ok || kept.length === 0) {
-    return { ok: true, headline: "Verified.", reasons: [], notes: review.notes || "" };
+    return { ok: true, decision: "uvel_reviewed", headline: "Uvel review complete.", reasons: [], notes: review.notes || "" };
   }
   return {
     ok: false,
-    headline: review.headline || "This brand can’t be verified yet.",
+    decision: review.decision === "needs_information" || review.decision === "rejected" ? review.decision : "human_review",
+    headline: review.headline || "This brand needs review.",
     reasons: kept.slice(0, 3),
     notes: review.notes || "",
   };
 }
 
 function promptOf(f) {
-  return `You are the brand-verification desk for Uvel, a fashion marketplace in early access. A person is applying to open a BRAND page. Brands get a blue check and may post new fashion.
+  return `You are the brand-verification desk for Uvel, a fashion marketplace in early access. A person is applying to open a BRAND page. Brands may receive a Uvel-reviewed badge after the internal marketplace-safety review. This is not government registration, trademark clearance, or payout verification.
 
 Be a light gate, not an editor. Uvel is early: independent labels, new houses, and small ateliers should pass. Default to APPROVE.
 
@@ -1025,12 +1028,14 @@ Reject ONLY if:
 Return ONLY JSON:
 {
   "ok": boolean,
+  "decision": "needs_information" | "human_review" | "uvel_reviewed" | "rejected",
   "headline": string,
   "reasons": string[],
   "notes": string
 }
 
-headline: "Verified." if ok, else a few words.
+decision: use "uvel_reviewed" only for a passed Uvel marketplace-safety screen; use "needs_information" for missing information; use "human_review" for possible impersonation, trademark, ownership, or uncertain conflicts; use "rejected" only for a clear Uvel policy violation. Never claim legal clearance or trademark ownership.
+headline: "Uvel review complete." if ok, else a few words.
 reasons: 0–3 actionable sentences. Empty if ok. Never mention optional fields.
 notes: one sentence on what you checked.`;
 }
@@ -1062,14 +1067,18 @@ exports.reviewBrand = onCall({ secrets: [anthropicSecret] }, async (req) => {
   const json = await res.json();
   if (!res.ok) throw new HttpsError("internal", json.error?.message || "Couldn’t finish the check.");
   const parsed = parseJson(json.content?.[0]?.text || "{}");
-  const ok = parsed.ok === true;
-  const reasons = Array.isArray(parsed.reasons) ? parsed.reasons.map(String).filter(Boolean).slice(0, 3) : [];
-  return sanitizeReview(f, {
-    ok,
-    reasons,
-    headline: String(parsed.headline || (ok ? "Verified." : "This brand can’t be verified yet.")),
-    notes: String(parsed.notes || ""),
-  });
+    const ok = parsed.ok === true;
+    const reasons = Array.isArray(parsed.reasons) ? parsed.reasons.map(String).filter(Boolean).slice(0, 3) : [];
+    const decision = parsed.decision === "needs_information" || parsed.decision === "human_review" || parsed.decision === "uvel_reviewed" || parsed.decision === "rejected"
+      ? parsed.decision
+      : ok ? "uvel_reviewed" : "human_review";
+    return sanitizeReview(f, {
+      ok,
+      decision,
+      reasons,
+      headline: String(parsed.headline || (ok ? "Uvel review complete." : "This brand needs review.")),
+      notes: String(parsed.notes || ""),
+    });
 });
 
 exports.deleteAccount = onCall(async (req) => {

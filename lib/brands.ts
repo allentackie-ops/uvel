@@ -18,6 +18,8 @@ import { listedPieces } from "./wardrobe";
 import { allOrders } from "./orders";
 
 export type BrandStatus = "draft" | "pending" | "verified" | "rejected";
+export type BrandReviewStatus = "not_started" | "review_pending" | "needs_information" | "human_review" | "uvel_reviewed" | "rejected";
+export type PayoutStatus = "not_started" | "pending" | "enabled" | "needs_attention" | "unavailable";
 export type MemberRole = "owner" | "admin" | "merchandiser" | "marketing" | "support" | "finance" | "viewer" | "poster";
 
 export type BrandMember = {
@@ -65,6 +67,10 @@ export type Brand = {
   custom?: Partial<BrandTheme>;
   status: BrandStatus;
   verified: boolean;
+  /** Uvel marketplace review state; this is not legal registration or trademark clearance. */
+  reviewStatus?: BrandReviewStatus;
+  /** Payment-provider status, kept separate from Uvel review. */
+  payoutStatus?: PayoutStatus;
   verifiedAt?: number;
   rejectReasons?: string[];
   rejectHeadline?: string;
@@ -388,6 +394,8 @@ export async function createBrand(input: {
     themeId: "ink",
     status: "draft",
     verified: false,
+    reviewStatus: "not_started",
+    payoutStatus: "not_started",
     ownerId: input.ownerId,
     ownerName: input.ownerName,
     ownerPhoto: input.ownerPhoto,
@@ -422,20 +430,30 @@ export function updateBrand(id: string, patch: Partial<Brand>) {
 }
 
 export async function submitForVerification(id: string, filing: BrandFiling) {
-  updateBrand(id, { status: "pending" });
+  updateBrand(id, { status: "pending", reviewStatus: "review_pending", verified: false });
   const result = await reviewBrand(filing);
-  if (result.ok) {
+  if (result.decision === "uvel_reviewed" && result.ok) {
     updateBrand(id, {
       status: "verified",
       verified: true,
+      reviewStatus: "uvel_reviewed",
       verifiedAt: Date.now(),
       rejectReasons: [],
       rejectHeadline: "",
     });
-  } else {
+  } else if (result.decision === "rejected") {
     updateBrand(id, {
       status: "rejected",
       verified: false,
+      reviewStatus: "rejected",
+      rejectReasons: result.reasons,
+      rejectHeadline: result.headline,
+    });
+  } else {
+    updateBrand(id, {
+      status: "pending",
+      verified: false,
+      reviewStatus: result.decision,
       rejectReasons: result.reasons,
       rejectHeadline: result.headline,
     });

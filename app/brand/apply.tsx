@@ -23,7 +23,7 @@ import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { OrbitLoader } from "../../components/OrbitLoader";
 
-type Gate = { phase: "idle" } | { phase: "review" } | { phase: "block"; headline: string; reasons: string[] } | { phase: "pass" };
+type Gate = { phase: "idle" } | { phase: "review" } | { phase: "block"; decision: "needs_information" | "human_review" | "rejected"; headline: string; reasons: string[] } | { phase: "pass" };
 
 export default function BrandApply() {
   const colors = useColors();
@@ -145,7 +145,7 @@ export default function BrandApply() {
       const wait = Math.max(0, 18000 - (Date.now() - started));
       if (wait) await new Promise((r) => setTimeout(r, wait));
       if (!result.ok) {
-        setGate({ phase: "block", headline: result.headline, reasons: result.reasons });
+        setGate({ phase: "block", decision: result.decision === "needs_information" || result.decision === "rejected" ? result.decision : "human_review", headline: result.headline, reasons: result.reasons });
         return;
       }
       setGate({ phase: "pass" });
@@ -153,7 +153,8 @@ export default function BrandApply() {
     } catch (err) {
       setGate({
         phase: "block",
-        headline: "Couldn’t finish the check",
+        decision: "human_review",
+        headline: "Human review is needed",
         reasons: [err instanceof Error ? err.message : "Try again in a moment."],
       });
     }
@@ -290,7 +291,7 @@ export default function BrandApply() {
             <>
               <OrbitLoader />
               <Text style={styles.gateH}>{VERIFY_STAGES[stage]}</Text>
-              <Text style={styles.gateP}>A light check for impersonation and a real fashion house.</Text>
+              <Text style={styles.gateP}>Checking for marketplace-safety signals and possible impersonation.</Text>
             </>
           ) : null}
           {gate.phase === "block" ? (
@@ -301,16 +302,23 @@ export default function BrandApply() {
                   {r}
                 </Text>
               ))}
+              <Text style={styles.gateP}>
+                {gate.decision === "human_review"
+                  ? "This is a Uvel safety signal, not a legal or trademark decision. No public verification badge has been applied."
+                  : gate.decision === "needs_information"
+                    ? "Add the missing information, then submit again."
+                    : "This outcome is based on Uvel marketplace policy."}
+              </Text>
               <Pressable onPress={() => setGate({ phase: "idle" })} style={styles.gateCta}>
-                <Text style={styles.ctaTxt}>Fix filing</Text>
+                <Text style={styles.ctaTxt}>{gate.decision === "human_review" ? "Review filing" : "Fix filing"}</Text>
               </Pressable>
             </>
           ) : null}
           {gate.phase === "pass" ? (
             <>
               <VerifiedMark size={36} />
-              <Text style={styles.gateH}>Verified.</Text>
-              <Text style={styles.gateP}>The blue check is on. You own this house.</Text>
+              <Text style={styles.gateH}>Uvel review complete.</Text>
+              <Text style={styles.gateP}>Your brand passed Uvel’s internal marketplace-safety review. This is not government registration, trademark clearance, or payout verification.</Text>
             </>
           ) : null}
         </View>

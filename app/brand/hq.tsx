@@ -1039,7 +1039,8 @@ function SettingsSection({ brand, theme, styles }: { brand: Brand; theme: HQThem
         <Detail label="Legal owner" value={brand.legalName || brand.ownerName} theme={theme} styles={styles} />
         <Detail label="Registration" value={brand.registrationId || "Not provided"} theme={theme} styles={styles} />
         <Detail label="Primary market" value={brand.country} theme={theme} styles={styles} />
-        <Detail label="Brand status" value={brand.verified ? "Verified" : brand.status} theme={theme} styles={styles} />
+        <Detail label="Brand review" value={brand.reviewStatus === "uvel_reviewed" && brand.verified ? "Uvel-reviewed" : brand.reviewStatus === "human_review" ? "Human review needed" : brand.reviewStatus === "needs_information" ? "Information needed" : brand.status} theme={theme} styles={styles} />
+        <Detail label="Payout status" value={brand.payoutStatus === "enabled" ? "Enabled" : brand.payoutStatus === "pending" ? "Pending provider review" : "Not started"} theme={theme} styles={styles} />
       </View>
     </View>
   );
