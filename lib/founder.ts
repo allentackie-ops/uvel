@@ -18,15 +18,40 @@ export type FounderBoard = {
   updatedAt: number;
 };
 
+export type FounderBrief = {
+  audience: string;
+  category: string;
+  pricePosition: "accessible" | "mid-market" | "premium" | "not-set";
+  promise: string;
+  values: string;
+  tone: string;
+  story: string;
+};
+
+export type FounderIdentity = {
+  colors: string[];
+  typography: string;
+  logoDirection: string;
+};
+
 export type FounderProject = {
   id: string;
   name: string;
   description: string;
   stage: FounderStage;
+  brief: FounderBrief;
+  identity: FounderIdentity;
   boards: FounderBoard[];
   createdAt: number;
   updatedAt: number;
 };
+
+export const emptyFounderBrief = (): FounderBrief => ({ audience: "", category: "", pricePosition: "not-set", promise: "", values: "", tone: "", story: "" });
+export const defaultFounderIdentity = (): FounderIdentity => ({ colors: ["#D6E27A", "#F4F0E6", "#161512"], typography: "Warm editorial sans", logoDirection: "" });
+
+function normalizeProject(project: FounderProject): FounderProject {
+  return { ...project, brief: { ...emptyFounderBrief(), ...(project.brief || {}) }, identity: { ...defaultFounderIdentity(), ...(project.identity || {}) }, boards: project.boards || [] };
+}
 
 const KEY = "uvel-founder-projects-v1";
 let projects: FounderProject[] = [];
@@ -43,7 +68,7 @@ async function persist() {
 async function hydrate() {
   try {
     const raw = await AsyncStorage.getItem(KEY);
-    projects = raw ? (JSON.parse(raw) as FounderProject[]) : [];
+    projects = raw ? (JSON.parse(raw) as FounderProject[]).map(normalizeProject) : [];
   } catch {
     projects = [];
   }
@@ -69,6 +94,8 @@ export function createFounderProject(name: string, description = "") {
     name: name.trim() || "Untitled label",
     description: description.trim(),
     stage: "idea",
+    brief: emptyFounderBrief(),
+    identity: defaultFounderIdentity(),
     boards: [],
     createdAt: now,
     updatedAt: now,
