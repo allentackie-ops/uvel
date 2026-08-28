@@ -5,14 +5,19 @@ import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, S
 import { LANGS } from "../lib/i18n";
 import { getMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
-import { useColors } from "../lib/theme";
+import { palettes, type Colors } from "../lib/theme";
 
 const HELP = "mailto:himforson@gmail.com?subject=Uvel%20help";
 const VERSION = Constants.expoConfig?.version ?? "1.0.0";
+const SETTINGS_COLORS: Colors = {
+  ...palettes.dark,
+  ink: "#0B0A08",
+  surface: "#161512",
+};
 
 export default function Settings() {
   const app = useUvel();
-  const colors = useColors();
+  const colors = SETTINGS_COLORS;
   const styles = make(colors);
   const [langs, setLangs] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -196,7 +201,7 @@ function Row({
   hint?: string;
   onPress: () => void;
   last?: boolean;
-  colors: ReturnType<typeof useColors>;
+  colors: Colors;
 }) {
   return (
     <Pressable onPress={onPress} style={[stylesRow.row, last && stylesRow.last, { borderBottomColor: colors.ink }]}>
@@ -223,7 +228,7 @@ const stylesRow = StyleSheet.create({
   chev: { fontSize: 22, marginLeft: 8 },
 });
 
-function make(colors: ReturnType<typeof useColors>) {
+function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     content: { padding: 20, paddingBottom: 72 },
