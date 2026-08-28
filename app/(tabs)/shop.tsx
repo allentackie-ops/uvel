@@ -17,6 +17,7 @@ import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
 import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
 import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
+import { useCopy } from "../../lib/useCopy";
 import { useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
 import { useLiveShopCampaigns } from "../../lib/marketing";
@@ -78,6 +79,7 @@ export default function Shop() {
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const app = useUvel();
+  const C = useCopy();
   const { country, styles: taste } = app;
   const market = getMarket(country);
   const { q: qParam, look: lookParam, scan } = useLocalSearchParams<{ q?: string; look?: string; scan?: string }>();
@@ -197,7 +199,7 @@ export default function Shop() {
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.titleRow}>
-        <Text style={styles.title}>{scanningLook ? "Shop the look" : "Shop"}</Text>
+        <Text style={styles.title}>{scanningLook ? C.shopTheLook : C.shop}</Text>
         {!scanningLook ? (
           <AccessiblePressable            onPress={() => {
               if (mine?.verified) router.push({ pathname: "/brand/[id]", params: { id: mine.id } });

@@ -11,6 +11,7 @@ import { useOtaReady } from "../lib/ota";
 import { armNotificationHandler, registerPushToken, watchLastSeen } from "../lib/push";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
+import { useCopy } from "../lib/useCopy";
 import { pullLooks } from "../lib/trends";
 import { useWardrobe } from "../lib/wardrobe";
 import { consumeListingDraftNotice } from "../lib/listingDraft";
@@ -22,7 +23,7 @@ void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 function ThemeSync() {
   const { appearance } = useUvel();
   useEffect(() => {
-    Appearance.setColorScheme(appearance);
+    if (typeof Appearance.setColorScheme === "function") Appearance.setColorScheme(appearance);
   }, [appearance]);
   return null;
 }
@@ -97,6 +98,7 @@ function PushSync() {
 
 function AppStack() {
   const colors = useColors();
+  const C = useCopy();
   const { appearance } = useUvel();
   const navTheme = useMemo(
     () => ({
@@ -177,7 +179,7 @@ function AppStack() {
           <Stack.Screen
             name="settings"
             options={{
-              headerTitle: "Settings",
+              headerTitle: C.settings,
               headerTransparent: false,
               headerShadowVisible: false,
             }}

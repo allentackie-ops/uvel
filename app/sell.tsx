@@ -30,6 +30,7 @@ import { encodeShipsTo, shipsToLabel, type ShipsTo } from "../lib/ships";
 import { SHOP_LOOKS } from "../lib/shopLook";
 import { takePendingListingSelection } from "../lib/listingOptions";
 import { useUvel } from "../lib/store";
+import { useCopy } from "../lib/useCopy";
 import { palettes, type Colors } from "../lib/theme";
 import { addPiece, getPiece, listPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
 
@@ -69,6 +70,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   useWardrobe();
   const existing = id ? getPiece(id) : undefined;
   const { wardrobeUris, uid, displayName, country, isPlus, personUri, avatarUri } = useUvel();
+  const C = useCopy();
   const market = getMarket(country);
   const [draftOrigin, setDraftOrigin] = useState<string | undefined>();
   const [draftCurrency, setDraftCurrency] = useState<string | undefined>();
@@ -293,7 +295,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       const uri = await pickListingPhoto();
       if (uri) await addUri(uri);
     } catch (err) {
-      Alert.alert("Photos", err instanceof Error ? err.message : "Couldn’t open photos.");
+      Alert.alert(C.photos, err instanceof Error ? err.message : "Couldn’t open photos.");
     }
   }
 
@@ -444,7 +446,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
           <View style={styles.backPlaceholder} />
-          <Text style={styles.topTitle}>New listing</Text>
+          <Text style={styles.topTitle}>{C.newListing}</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.progressTrack}>
@@ -494,7 +496,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 accessibilityHint="Double tap to choose a listing photo."
               >
                 <Text style={styles.photoAddIcon}>＋</Text>
-                <Text style={styles.photoAddTxt}>Add photo</Text>
+                <Text style={styles.photoAddTxt}>{C.addPhoto}</Text>
                 <Text style={styles.photoCount}>{photos.length}/{MAX}</Text>
               </AccessiblePressable>
             ) : null}
@@ -550,7 +552,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           ) : null}
 
           <View style={styles.sheet}>
-            <Text style={styles.priceLabel}>Price *</Text>
+            <Text style={styles.priceLabel}>{C.price} *</Text>
             <AccessiblePressable              onPress={openPrice}
               style={({ pressed }) => [styles.priceRow, pressed && styles.focused]}
               accessibilityRole="button"
@@ -567,7 +569,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               </Text>
             ) : null}
 
-            <Text style={styles.label}>Title *</Text>
+            <Text style={styles.label}>{C.title} *</Text>
             <TextInput
               style={styles.titleIn}
               value={name}
@@ -577,7 +579,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               accessibilityLabel="Listing title"
               accessibilityHint="Required. Enter the name buyers will see."
             />
-            <Text style={styles.label}>Description *</Text>
+            <Text style={styles.label}>{C.description} *</Text>
             <TextInput
               style={styles.bodyIn}
               value={notes}
@@ -589,7 +591,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               multiline
             />
 
-            <Text style={styles.label}>Category *</Text>
+            <Text style={styles.label}>{C.category} *</Text>
             <AccessiblePressable
               onPress={openCategory}
               style={({ pressed }) => [styles.choiceRow, pressed && styles.focused]}
@@ -603,7 +605,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
 
             <View style={styles.row}>
               <View style={{ flex: 1.2 }}>
-                <Text style={styles.label}>Brand</Text>
+                <Text style={styles.label}>{C.brand}</Text>
                 <TextInput
                   style={styles.field}
                   value={brand}
@@ -614,7 +616,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Size *</Text>
+                <Text style={styles.label}>{C.size} *</Text>
                 <TextInput
                   style={styles.field}
                   value={size}
@@ -628,7 +630,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
 
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Colour *</Text>
+                <Text style={styles.label}>{C.color}</Text>
                 <TextInput
                   style={styles.field}
                   value={color}
@@ -651,7 +653,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               </View>
             </View>
 
-            <Text style={styles.label}>Condition *</Text>
+            <Text style={styles.label}>{C.condition} *</Text>
             <AccessiblePressable
               onPress={openCondition}
               style={({ pressed }) => [styles.choiceRow, pressed && styles.focused]}

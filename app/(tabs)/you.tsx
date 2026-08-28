@@ -20,6 +20,7 @@ import { useOrders, type Order } from "../../lib/orders";
 import { pickAvatar, takeAvatar } from "../../lib/photo";
 import { seedFromStyles } from "../../lib/styleDna";
 import { useUvel } from "../../lib/store";
+import { useCopy } from "../../lib/useCopy";
 import { useColors, type Colors } from "../../lib/theme";
 import { semanticStatus, statusToneFor } from "../../lib/status";
 import { getPiece, likesOnMine, stampMine, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
@@ -49,6 +50,7 @@ function orderStatusLabel(order: Order) {
 
 export default function You() {
   const app = useUvel();
+  const C = useCopy();
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
@@ -174,7 +176,7 @@ export default function You() {
             <Text style={styles.faceDotTxt}>+</Text>
           </View>
         </Pressable>
-        <Pressable onPress={() => router.push("/settings")} style={styles.menuBtn} accessibilityLabel="Settings">
+        <Pressable onPress={() => router.push("/settings")} style={styles.menuBtn} accessibilityLabel={C.settings}>
           <View style={styles.dash} />
           <View style={styles.dash} />
           <View style={styles.dash} />
@@ -315,7 +317,7 @@ export default function You() {
       <View style={styles.tabs}>
         {(["shop", "sold", "purchases", "likes"] as const).map((id) => {
           const on = hub === id;
-          const label = id === "shop" ? "Shop" : id === "sold" ? "Sold" : id === "purchases" ? "Purchases" : "Likes";
+          const label = id === "shop" ? C.shop : id === "sold" ? C.sold : id === "purchases" ? C.purchases : C.likes;
           return (
             <Pressable key={id} onPress={() => setHub(id)} style={styles.tab}>
               <Text style={[styles.tabTxt, on && styles.tabOn]}>{label}</Text>

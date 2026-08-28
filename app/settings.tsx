@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, S
 import { LANGS } from "../lib/i18n";
 import { getMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
+import { useCopy } from "../lib/useCopy";
 import { palettes, type Colors } from "../lib/theme";
 
 const HELP = "mailto:himforson@gmail.com?subject=Uvel%20help";
@@ -17,6 +18,7 @@ const SETTINGS_COLORS: Colors = {
 
 export default function Settings() {
   const app = useUvel();
+  const C = useCopy();
   const colors = SETTINGS_COLORS;
   const styles = make(colors);
   const [langs, setLangs] = useState(false);
@@ -38,17 +40,17 @@ export default function Settings() {
 
   function confirmDelete() {
     Alert.alert(
-      "Delete your account?",
-      "This permanently deletes your Uvel account, profile, and saved style. Listings you posted come down. This cannot be undone.",
+      C.deleteAccountTitle,
+      C.deleteAccountBody,
       [
-        { text: "Keep account", style: "cancel" },
+        { text: C.keepAccount, style: "cancel" },
         {
-          text: "Delete account",
+          text: C.deleteAccount,
           style: "destructive",
           onPress: () =>
-            Alert.alert("Delete forever?", "Tap Delete to confirm. You can create a new account later.", [
-              { text: "Cancel", style: "cancel" },
-              { text: "Delete", style: "destructive", onPress: () => void runDelete() },
+            Alert.alert(C.deleteForever, C.deleteConfirm, [
+              { text: C.cancel, style: "cancel" },
+              { text: C.deleteAccount, style: "destructive", onPress: () => void runDelete() },
             ]),
         },
       ],
@@ -61,7 +63,7 @@ export default function Settings() {
       await app.deleteAccount();
       router.replace("/setup");
     } catch (err) {
-      Alert.alert("Couldn’t delete", err instanceof Error ? err.message : "Sign in again, then try.");
+      Alert.alert(C.deleteAccount, err instanceof Error ? err.message : "Sign in again, then try.");
     } finally {
       setBusy(false);
     }
@@ -69,36 +71,36 @@ export default function Settings() {
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <Text style={styles.section}>Support</Text>
+      <Text style={styles.section}>{C.support}</Text>
       <View style={styles.group}>
-        <Row label="Help and support" onPress={() => void Linking.openURL(HELP)} colors={colors} />
-        <Row label="Privacy policy" onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "privacy" } })} colors={colors} />
-        <Row label="Terms and conditions" onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "terms" } })} colors={colors} last />
+        <Row label={C.helpSupport} onPress={() => void Linking.openURL(HELP)} colors={colors} />
+        <Row label={C.privacyPolicy} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "privacy" } })} colors={colors} />
+        <Row label={C.terms} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "terms" } })} colors={colors} last />
       </View>
 
-      <Text style={styles.section}>Account</Text>
+      <Text style={styles.section}>{C.account}</Text>
       <View style={styles.group}>
         <View style={styles.account}>
-          <Text style={styles.name}>{app.displayName || (app.uid ? "Uvel member" : "Guest")}</Text>
+          <Text style={styles.name}>{app.displayName || (app.uid ? "Uvel member" : C.guest)}</Text>
           <Text style={styles.hint}>
-            {app.email || (app.signedInWith ? `Signed in with ${app.signedInWith}` : "Not signed in")}
+            {app.email || (app.signedInWith ? `Signed in with ${app.signedInWith}` : C.notSignedIn)}
           </Text>
         </View>
       </View>
 
-      <Text style={styles.section}>Preferences</Text>
+      <Text style={styles.section}>{C.preferences}</Text>
       <View style={styles.group}>
         <View style={styles.row}>
           <View>
-            <Text style={styles.rowLabel}>Appearance</Text>
-            <Text style={styles.hint}>{app.appearance === "dark" ? "Dark" : "Light"}</Text>
+            <Text style={styles.rowLabel}>{C.appearance}</Text>
+            <Text style={styles.hint}>{app.appearance === "dark" ? C.dark : C.light}</Text>
           </View>
           <View style={styles.seg}>
             {(["light", "dark"] as const).map((mode) => {
               const on = app.appearance === mode;
               return (
                 <Pressable key={mode} onPress={() => app.setAppearance(mode)} style={[styles.segBtn, on && styles.segOn]}>
-                  <Text style={[styles.segTxt, on && styles.segTxtOn]}>{mode === "light" ? "Light" : "Dark"}</Text>
+                  <Text style={[styles.segTxt, on && styles.segTxtOn]}>{mode === "light" ? C.light : C.dark}</Text>
                 </Pressable>
               );
             })}
@@ -106,39 +108,39 @@ export default function Settings() {
         </View>
         <View style={styles.row}>
           <View style={{ flex: 1, paddingRight: 12 }}>
-            <Text style={styles.rowLabel}>Notifications</Text>
-            <Text style={styles.hint}>Drops, price cuts, messages</Text>
+            <Text style={styles.rowLabel}>{C.notifications}</Text>
+            <Text style={styles.hint}>{C.notificationHint}</Text>
           </View>
           <Switch
             value={app.wantsUpdates}
             onValueChange={(v) => void toggleNotes(v)}
             trackColor={{ false: colors.surface, true: colors.success }}
             thumbColor="#fff"
-            accessibilityLabel="Notifications"
-            accessibilityHint="Turns Uvel notifications on or off."
+            accessibilityLabel={C.notifications}
+            accessibilityHint={C.notificationHint}
           />
         </View>
         <View style={styles.row}>
           <View style={{ flex: 1, paddingRight: 12 }}>
-            <Text style={styles.rowLabel}>Accessibility features</Text>
-            <Text style={styles.hint}>Stronger focus indicators for easier navigation</Text>
+            <Text style={styles.rowLabel}>{C.accessibilityFeatures}</Text>
+            <Text style={styles.hint}>{C.accessibilityHint}</Text>
           </View>
           <Switch
             value={app.accessibilityMode}
             onValueChange={(v) => void app.setAccessibilityMode(v)}
             trackColor={{ false: colors.surface, true: colors.success }}
             thumbColor="#fff"
-            accessibilityLabel="Accessibility features"
-            accessibilityHint="Turns enhanced focus indicators on or off."
+            accessibilityLabel={C.accessibilityFeatures}
+            accessibilityHint={C.accessibilityHint}
           />
         </View>
         <Row
-          label="Store"
+          label={C.store}
           hint={`${market.name} floor · ${market.currency}`}
           onPress={() => router.push("/store")}
           colors={colors}
         />
-        <Row label="Language" hint={localeLabel} onPress={() => setLangs((v) => !v)} colors={colors} last={!langs} />
+        <Row label={C.language} hint={localeLabel} onPress={() => setLangs((v) => !v)} colors={colors} last={!langs} />
         {langs
           ? LANGS.map((l, i) => (
               <Pressable
@@ -158,29 +160,29 @@ export default function Settings() {
       {app.uid || app.signedInWith ? (
         <Pressable
           onPress={() =>
-            Alert.alert("Log out?", "You’ll need to sign in again to sell, buy, or message.", [
-              { text: "Stay", style: "cancel" },
-              { text: "Log out", style: "destructive", onPress: () => void app.signOutAccount() },
+            Alert.alert(C.logOutTitle, C.logOutBody, [
+              { text: C.stay, style: "cancel" },
+              { text: C.logOut, style: "destructive", onPress: () => void app.signOutAccount() },
             ])
           }
           style={styles.out}
         >
-          <Text style={styles.outText}>Log out</Text>
+          <Text style={styles.outText}>{C.logOut}</Text>
         </Pressable>
       ) : null}
 
       {app.uid ? (
         <View style={styles.dangerBox}>
-          <Text style={styles.dangerTitle}>Account removal</Text>
-          <Text style={styles.dangerHint}>Permanently removes your account, profile, listings, and personal data.</Text>
+          <Text style={styles.dangerTitle}>{C.accountRemoval}</Text>
+          <Text style={styles.dangerHint}>{C.accountRemovalHint}</Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Delete account permanently"
+            accessibilityLabel={C.deleteAccount}
             onPress={confirmDelete}
             disabled={busy}
             style={styles.deleteBtn}
           >
-            {busy ? <ActivityIndicator color="#C45C4A" /> : <Text style={styles.deleteText}>Delete account</Text>}
+            {busy ? <ActivityIndicator color="#C45C4A" /> : <Text style={styles.deleteText}>{C.deleteAccount}</Text>}
           </Pressable>
         </View>
       ) : null}

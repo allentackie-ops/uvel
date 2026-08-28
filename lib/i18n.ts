@@ -29,6 +29,64 @@ export type Copy = {
   forgot: string;
   language: string;
   search: string;
+  today: string;
+  mirror: string;
+  sell: string;
+  shop: string;
+  you: string;
+  settings: string;
+  support: string;
+  helpSupport: string;
+  privacyPolicy: string;
+  terms: string;
+  account: string;
+  guest: string;
+  notSignedIn: string;
+  preferences: string;
+  appearance: string;
+  light: string;
+  dark: string;
+  notifications: string;
+  notificationHint: string;
+  accessibilityFeatures: string;
+  accessibilityHint: string;
+  store: string;
+  logOut: string;
+  accountRemoval: string;
+  accountRemovalHint: string;
+  deleteAccount: string;
+  deleteAccountTitle: string;
+  deleteAccountBody: string;
+  keepAccount: string;
+  cancel: string;
+  deleteForever: string;
+  deleteConfirm: string;
+  stay: string;
+  logOutTitle: string;
+  logOutBody: string;
+  movingNow: string;
+  nowOn: string;
+  shopTheLook: string;
+  searching: string;
+  newListing: string;
+  photos: string;
+  addPhoto: string;
+  price: string;
+  title: string;
+  description: string;
+  category: string;
+  brand: string;
+  size: string;
+  color: string;
+  condition: string;
+  save: string;
+  publish: string;
+  sold: string;
+  purchases: string;
+  likes: string;
+  continueAgreement: string;
+  termsAndConditions: string;
+  andWord: string;
 };
 
 export const LANGS: { id: string; label: string }[] = [
@@ -108,6 +166,64 @@ const en: Copy = {
   forgot: "Forgot password",
   language: "Language",
   search: "Search",
+  today: "Today",
+  mirror: "Mirror",
+  sell: "Sell",
+  shop: "Shop",
+  you: "You",
+  settings: "Settings",
+  support: "Support",
+  helpSupport: "Help and support",
+  privacyPolicy: "Privacy policy",
+  terms: "Terms and conditions",
+  account: "Account",
+  guest: "Guest",
+  notSignedIn: "Not signed in",
+  preferences: "Preferences",
+  appearance: "Appearance",
+  light: "Light",
+  dark: "Dark",
+  notifications: "Notifications",
+  notificationHint: "Drops, price cuts, messages",
+  accessibilityFeatures: "Accessibility features",
+  accessibilityHint: "Stronger focus indicators for easier navigation",
+  store: "Store",
+  logOut: "Log out",
+  accountRemoval: "Account removal",
+  accountRemovalHint: "Permanently removes your account, profile, listings, and personal data.",
+  deleteAccount: "Delete account",
+  deleteAccountTitle: "Delete your account?",
+  deleteAccountBody: "This permanently deletes your Uvel account, profile, and saved style. Listings you posted come down. This cannot be undone.",
+  keepAccount: "Keep account",
+  cancel: "Cancel",
+  deleteForever: "Delete forever?",
+  deleteConfirm: "Tap Delete to confirm. You can create a new account later.",
+  stay: "Stay",
+  logOutTitle: "Log out?",
+  logOutBody: "You’ll need to sign in again to sell, buy, or message.",
+  movingNow: "Moving now",
+  nowOn: "Now on",
+  shopTheLook: "Shop the look",
+  searching: "Searching…",
+  newListing: "New listing",
+  photos: "Photos",
+  addPhoto: "Add photo",
+  price: "Price",
+  title: "Title",
+  description: "Description",
+  category: "Category",
+  brand: "Brand",
+  size: "Size",
+  color: "Color",
+  condition: "Condition",
+  save: "Save",
+  publish: "Publish",
+  sold: "Sold",
+  purchases: "Purchases",
+  likes: "Likes",
+  continueAgreement: "By continuing you agree to our",
+  termsAndConditions: "Terms and Conditions",
+  andWord: "and",
 };
 
 function pack(p: Partial<Copy>): Copy {
@@ -151,6 +267,64 @@ export const COPY: Record<string, Copy> = {
     forgot: "Mot de passe oublié",
     language: "Langue",
     search: "Rechercher",
+    today: "Aujourd’hui",
+    mirror: "Miroir",
+    sell: "Vendre",
+    shop: "Boutique",
+    you: "Vous",
+    settings: "Réglages",
+    support: "Assistance",
+    helpSupport: "Aide et assistance",
+    privacyPolicy: "Politique de confidentialité",
+    terms: "Conditions générales",
+    account: "Compte",
+    guest: "Invité",
+    notSignedIn: "Non connecté",
+    preferences: "Préférences",
+    appearance: "Apparence",
+    light: "Clair",
+    dark: "Sombre",
+    notifications: "Notifications",
+    notificationHint: "Nouveautés, baisses de prix, messages",
+    accessibilityFeatures: "Fonctions d’accessibilité",
+    accessibilityHint: "Indicateurs de focus renforcés pour faciliter la navigation",
+    store: "Boutique",
+    logOut: "Se déconnecter",
+    accountRemoval: "Suppression du compte",
+    accountRemovalHint: "Supprime définitivement votre compte, votre profil, vos annonces et vos données personnelles.",
+    deleteAccount: "Supprimer le compte",
+    deleteAccountTitle: "Supprimer votre compte ?",
+    deleteAccountBody: "Cette action supprime définitivement votre compte Uvel, votre profil et votre style enregistré. Vos annonces seront retirées. Cette action est irréversible.",
+    keepAccount: "Garder le compte",
+    cancel: "Annuler",
+    deleteForever: "Supprimer définitivement ?",
+    deleteConfirm: "Touchez Supprimer pour confirmer. Vous pourrez créer un nouveau compte plus tard.",
+    stay: "Rester",
+    logOutTitle: "Se déconnecter ?",
+    logOutBody: "Vous devrez vous reconnecter pour vendre, acheter ou envoyer des messages.",
+    movingNow: "En ce moment",
+    nowOn: "Sur",
+    shopTheLook: "Acheter le look",
+    searching: "Recherche…",
+    newListing: "Nouvelle annonce",
+    photos: "Photos",
+    addPhoto: "Ajouter une photo",
+    price: "Prix",
+    title: "Titre",
+    description: "Description",
+    category: "Catégorie",
+    brand: "Marque",
+    size: "Taille",
+    color: "Couleur",
+    condition: "État",
+    save: "Enregistrer",
+    publish: "Publier",
+    sold: "Vendus",
+    purchases: "Achats",
+    likes: "J’aime",
+    continueAgreement: "En continuant, vous acceptez nos",
+    termsAndConditions: "conditions générales",
+    andWord: "et",
   }),
   es: pack({
     skip: "Omitir",

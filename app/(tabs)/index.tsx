@@ -31,6 +31,7 @@ import { recordCampaignAttribution } from "../../lib/attribution";
 import { useLiveShopCampaigns, type BrandCampaign } from "../../lib/marketing";
 import { AI_CONTENT_EXPLANATION, AI_CONTENT_LABEL } from "../../lib/contentLabels";
 import { useUvel } from "../../lib/store";
+import { useCopy } from "../../lib/useCopy";
 import { useFeedPersonalization } from "../../lib/feedPersonalization";
 import { useColors, type Colors } from "../../lib/theme";
 import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
@@ -267,6 +268,7 @@ export default function Today() {
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { uid, styles: taste, country } = useUvel();
+  const C = useCopy();
   const { rank: rankForUser, track: trackFeed } = useFeedPersonalization(uid || "guest", country);
   const brandState = useBrands();
   const chats = useInbox(uid || "me");
@@ -387,7 +389,7 @@ export default function Today() {
           </AccessiblePressable>
 
           <View style={styles.head}>
-            <Text style={styles.h2}>{source === "All" ? "Moving now" : `Now on ${source}`}</Text>
+            <Text style={styles.h2}>{source === "All" ? C.movingNow : `${C.nowOn} ${source}`}</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
             {visible.map((look) => (
@@ -413,7 +415,7 @@ export default function Today() {
           ) : null}
 
           <View style={styles.head}>
-            <Text style={styles.h2}>Shop the look</Text>
+            <Text style={styles.h2}>{C.shopTheLook}</Text>
           </View>
           {hits.length ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shopStrip}>
@@ -503,6 +505,7 @@ function Hero({
   onSource?: () => void;
 }) {
   const styles = make(colors);
+  const C = useCopy();
   const seen = where(look.postUrl) || look.source;
   const grab = useRef<FrameGrab | null>(null);
   const [busy, setBusy] = useState(false);
@@ -528,10 +531,10 @@ function Hero({
           <AccessiblePressable            onPress={() => void shopThis()}
             style={({ pressed }) => [styles.cta, pressed && styles.focused]}
             accessibilityRole="button"
-            accessibilityLabel={busy ? "Searching this look" : "Shop the look"}
+            accessibilityLabel={busy ? C.searching : C.shopTheLook}
             accessibilityHint="Double tap to find matching listings."
           >
-            <Text style={styles.ctaTxt}>{busy ? "Searching…" : "Shop the look"}</Text>
+            <Text style={styles.ctaTxt}>{busy ? C.searching : C.shopTheLook}</Text>
           </AccessiblePressable>
           {look.postUrl ? (
             <AccessiblePressable              onPress={() => {

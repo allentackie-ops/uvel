@@ -134,6 +134,7 @@ async function applyAccount(
       styles: (stashed?.styles as string[]) || memory.styles,
       wantsUpdates: Boolean(stashed?.wantsUpdates) || memory.wantsUpdates,
       accessibilityMode: typeof stashed?.accessibilityMode === "boolean" ? stashed.accessibilityMode : memory.accessibilityMode,
+      locale: (typeof stashed?.locale === "string" && stashed.locale) || memory.locale,
       avatarUri: (stashed?.avatarUri as string) || memory.avatarUri,
     };
     listeners.forEach((l) => l());
@@ -173,6 +174,7 @@ async function applyAccount(
     styles: (Array.isArray(remote?.styles) ? (remote.styles as string[]) : null) || (stashed?.styles as string[]) || memory.styles,
     wantsUpdates: typeof remote?.wantsUpdates === "boolean" ? remote.wantsUpdates : typeof stashed?.wantsUpdates === "boolean" ? stashed.wantsUpdates : memory.wantsUpdates,
     accessibilityMode: typeof remote?.accessibilityMode === "boolean" ? remote.accessibilityMode : typeof stashed?.accessibilityMode === "boolean" ? stashed.accessibilityMode : memory.accessibilityMode,
+    locale: typeof remote?.locale === "string" && remote.locale ? remote.locale : (typeof stashed?.locale === "string" && stashed.locale) || memory.locale,
     avatarUri: (stashed?.avatarUri as string) || memory.avatarUri,
   };
   listeners.forEach((l) => l());
@@ -213,6 +215,7 @@ async function stashProfile() {
       styles: memory.styles,
       wantsUpdates: memory.wantsUpdates,
       accessibilityMode: memory.accessibilityMode,
+      locale: memory.locale,
     };
     await AsyncStorage.setItem(PROFILES, JSON.stringify(all));
   } catch {
@@ -321,7 +324,12 @@ export function useUvel() {
       }
       return save({ accessibilityMode }).then(() => stashProfile());
     },
-    setLocale: (locale: string) => save({ locale }),
+    setLocale: (locale: string) => {
+      if (memory.uid) {
+        void import("./auth").then(({ writeUserProfile }) => writeUserProfile(memory.uid, { locale }));
+      }
+      return save({ locale });
+    },
     setCountry: (country: string) => save({ country }),
     completeOnboard: (provider?: string) =>
       save({

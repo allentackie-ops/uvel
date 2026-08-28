@@ -139,7 +139,7 @@ function Catalog({
   onLogIn: () => void;
   onLegal: (id: "terms" | "privacy") => void;
   insets: { top: number; bottom: number };
-  copy: { marketTitle: string; signUp: string; logIn: string };
+  copy: { marketTitle: string; signUp: string; logIn: string; continueAgreement: string; termsAndConditions: string; andWord: string; privacyPolicy: string };
   rtl?: boolean;
 }) {
   const { gridH, gridTop } = gridMetrics(insets.top);
@@ -176,12 +176,12 @@ function Catalog({
           <Text style={styles.ctaLoginText}>{copy.logIn}</Text>
         </Pressable>
         <Text style={[styles.legalCopy, rtl && styles.rtl]}>
-          By continuing you agree to our{" "}
+          {copy.continueAgreement}{" "}
           <Text style={styles.legalLink} onPress={() => onLegal("terms")}>
-            Terms and Conditions
-          </Text>{" "}and{" "}
+            {copy.termsAndConditions}
+          </Text>{" "}{copy.andWord}{" "}
           <Text style={styles.legalLink} onPress={() => onLegal("privacy")}>
-            Privacy Policy
+            {copy.privacyPolicy}
           </Text>
           .
         </Text>
@@ -604,7 +604,7 @@ export default function Onboard() {
                 }}
                 onLegal={setLegalId}
                 insets={insets}
-                copy={{ marketTitle: C.marketTitle, signUp: C.signUp, logIn: C.logIn }}
+                copy={{ marketTitle: C.marketTitle, signUp: C.signUp, logIn: C.logIn, continueAgreement: C.continueAgreement, termsAndConditions: C.termsAndConditions, andWord: C.andWord, privacyPolicy: C.privacyPolicy }}
                 rtl={rtl}
               />
             ) : (
