@@ -2,7 +2,6 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -22,6 +21,7 @@ import { VERIFY_STAGES } from "../../lib/brandVerify";
 import { pickLogo, takeLogo } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
+import { OrbitLoader } from "../../components/OrbitLoader";
 
 type Gate = { phase: "idle" } | { phase: "review" } | { phase: "block"; headline: string; reasons: string[] } | { phase: "pass" };
 
@@ -288,7 +288,7 @@ export default function BrandApply() {
         <View style={[styles.gate, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 28 }]}>
           {gate.phase === "review" ? (
             <>
-              <ActivityIndicator color="#D6E27A" />
+              <OrbitLoader />
               <Text style={styles.gateH}>{VERIFY_STAGES[stage]}</Text>
               <Text style={styles.gateP}>A light check for impersonation and a real fashion house.</Text>
             </>
