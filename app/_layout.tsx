@@ -330,6 +330,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="brand/founder"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: "#0B0A08" },
+            }}
+          />
+          <Stack.Screen
             name="brand/list"
             options={{
               headerShown: false,

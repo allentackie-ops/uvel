@@ -226,14 +226,24 @@ export default function You() {
           </Pressable>
         </View>
       ) : (
-        <Pressable onPress={() => router.push("/brand/apply")} style={styles.brandCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.brandK}>BRANDS</Text>
-            <Text style={styles.brandName}>Start your brand</Text>
-            <Text style={styles.brandP}>List your brand now to post new fashion.</Text>
-          </View>
-          <Text style={styles.brandGo}>Start</Text>
-        </Pressable>
+        <>
+          <Pressable onPress={() => router.push("/brand/apply")} style={styles.brandCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.brandK}>BRANDS</Text>
+              <Text style={styles.brandName}>Start your brand</Text>
+              <Text style={styles.brandP}>List your brand now to post new fashion.</Text>
+            </View>
+            <Text style={styles.brandGo}>Start</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push("/brand/founder")} style={styles.brandCard} accessibilityRole="button" accessibilityLabel="Open private Founder Studio">
+            <View style={{ flex: 1 }}>
+              <Text style={styles.brandK}>PRIVATE WORKSPACE</Text>
+              <Text style={styles.brandName}>Founder Studio</Text>
+              <Text style={styles.brandP}>Shape your first idea before it becomes a public brand.</Text>
+            </View>
+            <Text style={styles.brandGo}>Open</Text>
+          </Pressable>
+        </>
       )}
 
       {mine?.verified && canSeeAnalytics(mine, app.uid) ? (
