@@ -34,6 +34,16 @@ export type FounderIdentity = {
   logoDirection: string;
 };
 
+export type FounderProductBrief = {
+  name: string;
+  silhouette: string;
+  materials: string;
+  sizes: string;
+  targetPrice: string;
+  productionQuestions: string;
+  boardId: string;
+};
+
 export type FounderProject = {
   id: string;
   name: string;
@@ -41,6 +51,7 @@ export type FounderProject = {
   stage: FounderStage;
   brief: FounderBrief;
   identity: FounderIdentity;
+  product: FounderProductBrief;
   boards: FounderBoard[];
   createdAt: number;
   updatedAt: number;
@@ -48,9 +59,10 @@ export type FounderProject = {
 
 export const emptyFounderBrief = (): FounderBrief => ({ audience: "", category: "", pricePosition: "not-set", promise: "", values: "", tone: "", story: "" });
 export const defaultFounderIdentity = (): FounderIdentity => ({ colors: ["#D6E27A", "#F4F0E6", "#161512"], typography: "Warm editorial sans", logoDirection: "" });
+export const emptyFounderProduct = (): FounderProductBrief => ({ name: "", silhouette: "", materials: "", sizes: "", targetPrice: "", productionQuestions: "", boardId: "" });
 
 function normalizeProject(project: FounderProject): FounderProject {
-  return { ...project, brief: { ...emptyFounderBrief(), ...(project.brief || {}) }, identity: { ...defaultFounderIdentity(), ...(project.identity || {}) }, boards: project.boards || [] };
+  return { ...project, brief: { ...emptyFounderBrief(), ...(project.brief || {}) }, identity: { ...defaultFounderIdentity(), ...(project.identity || {}) }, product: { ...emptyFounderProduct(), ...(project.product || {}) }, boards: project.boards || [] };
 }
 
 const KEY = "uvel-founder-projects-v1";
@@ -96,6 +108,7 @@ export function createFounderProject(name: string, description = "") {
     stage: "idea",
     brief: emptyFounderBrief(),
     identity: defaultFounderIdentity(),
+    product: emptyFounderProduct(),
     boards: [],
     createdAt: now,
     updatedAt: now,
