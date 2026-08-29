@@ -49,6 +49,45 @@ export type FounderSetup = {
   notes: string;
 };
 
+export type FounderSupplierStatus = "researching" | "contacted" | "sample" | "shortlisted" | "passed";
+export type FounderSampleStatus = "not-requested" | "requested" | "received" | "approved" | "changes-needed";
+export type FounderProductionMilestoneStatus = "todo" | "in-progress" | "done";
+
+export type FounderSupplier = {
+  id: string;
+  name: string;
+  location: string;
+  specialty: string;
+  minimumOrder: string;
+  leadTime: string;
+  status: FounderSupplierStatus;
+  notes: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type FounderSample = {
+  id: string;
+  supplierId: string;
+  name: string;
+  status: FounderSampleStatus;
+  cost: string;
+  receivedAt: string;
+  notes: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type FounderProduction = {
+  targetUnits: string;
+  targetCost: string;
+  currency: string;
+  notes: string;
+  suppliers: FounderSupplier[];
+  samples: FounderSample[];
+  milestones: { id: string; title: string; status: FounderProductionMilestoneStatus }[];
+};
+
 export type FounderProject = {
   id: string;
   name: string;
@@ -58,6 +97,7 @@ export type FounderProject = {
   identity: FounderIdentity;
   product: FounderProductBrief;
   setup: FounderSetup;
+  production: FounderProduction;
   boards: FounderBoard[];
   createdAt: number;
   updatedAt: number;
@@ -67,9 +107,23 @@ export const emptyFounderBrief = (): FounderBrief => ({ audience: "", category: 
 export const defaultFounderIdentity = (): FounderIdentity => ({ colors: ["#D6E27A", "#F4F0E6", "#161512"], typography: "Warm editorial sans", logoDirection: "" });
 export const emptyFounderProduct = (): FounderProductBrief => ({ name: "", silhouette: "", materials: "", sizes: "", targetPrice: "", productionQuestions: "", boardId: "" });
 export const emptyFounderSetup = (): FounderSetup => ({ completedTaskIds: [], notes: "" });
+export const emptyFounderProduction = (): FounderProduction => ({
+  targetUnits: "",
+  targetCost: "",
+  currency: "USD",
+  notes: "",
+  suppliers: [],
+  samples: [],
+  milestones: [
+    { id: "spec", title: "Lock the product spec", status: "todo" },
+    { id: "supplier", title: "Choose a supplier to sample with", status: "todo" },
+    { id: "sample", title: "Review the first sample", status: "todo" },
+    { id: "cost", title: "Confirm cost and first run", status: "todo" },
+  ],
+});
 
 function normalizeProject(project: FounderProject): FounderProject {
-  return { ...project, brief: { ...emptyFounderBrief(), ...(project.brief || {}) }, identity: { ...defaultFounderIdentity(), ...(project.identity || {}) }, product: { ...emptyFounderProduct(), ...(project.product || {}) }, setup: { ...emptyFounderSetup(), ...(project.setup || {}) }, boards: project.boards || [] };
+  return { ...project, brief: { ...emptyFounderBrief(), ...(project.brief || {}) }, identity: { ...defaultFounderIdentity(), ...(project.identity || {}) }, product: { ...emptyFounderProduct(), ...(project.product || {}) }, setup: { ...emptyFounderSetup(), ...(project.setup || {}) }, production: { ...emptyFounderProduction(), ...(project.production || {}), suppliers: project.production?.suppliers || [], samples: project.production?.samples || [], milestones: project.production?.milestones?.length ? project.production.milestones : emptyFounderProduction().milestones }, boards: project.boards || [] };
 }
 
 const KEY = "uvel-founder-projects-v1";
@@ -117,6 +171,7 @@ export function createFounderProject(name: string, description = "") {
     identity: defaultFounderIdentity(),
     product: emptyFounderProduct(),
     setup: emptyFounderSetup(),
+    production: emptyFounderProduction(),
     boards: [],
     createdAt: now,
     updatedAt: now,
@@ -151,6 +206,10 @@ export function createFounderBoard(projectId: string, kind: FounderBoardKind, na
   projects = projects.map((project) => project.id === projectId ? { ...project, boards: [board, ...project.boards], stage: "design", updatedAt: now } : project);
   void persist();
   return board;
+}
+
+export function updateFounderProduction(projectId: string, production: FounderProduction) {
+  updateFounderProject(projectId, { production, stage: "source" });
 }
 
 export function updateFounderBoard(projectId: string, boardId: string, patch: Partial<FounderBoard>) {
