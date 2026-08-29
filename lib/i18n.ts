@@ -87,6 +87,25 @@ export type Copy = {
   continueAgreement: string;
   termsAndConditions: string;
   andWord: string;
+  dailyEdit: string;
+  todayIntroTitle: string;
+  todayIntroBody: string;
+  forYou: string;
+  following: string;
+  nearby: string;
+  browseBySource: string;
+  piecesForLook: string;
+  exactMatch: string;
+  similarPiece: string;
+  personalizedTodayTitle: string;
+  personalizedTodayBody: string;
+  shopLookIntro: string;
+  shopLookBody: string;
+  discoveringNear: string;
+  sellerListingAvailability: string;
+  discoveryBody: string;
+  viewBrand: string;
+  viewListing: string;
 };
 
 export const LANGS: { id: string; label: string }[] = [
@@ -224,6 +243,25 @@ const en: Copy = {
   continueAgreement: "By continuing you agree to our",
   termsAndConditions: "Terms and Conditions",
   andWord: "and",
+  dailyEdit: "YOUR DAILY EDIT",
+  todayIntroTitle: "Find a look worth remembering.",
+  todayIntroBody: "Save a few looks and Uvel will learn what belongs in your world.",
+  forYou: "For you",
+  following: "Following",
+  nearby: "Nearby",
+  browseBySource: "Browse by source",
+  piecesForLook: "Pieces for this look",
+  exactMatch: "Exact match",
+  similarPiece: "Similar piece",
+  personalizedTodayTitle: "A sharper read on your style.",
+  personalizedTodayBody: "Built from the looks, pieces, and brands you keep coming back to.",
+  shopLookIntro: "Shop the look",
+  shopLookBody: "Exact matches, similar pieces, and inspiration—clearly separated.",
+  discoveringNear: "DISCOVERING NEAR YOU",
+  sellerListingAvailability: "Seller listing · availability may vary",
+  discoveryBody: "A piece connected to the style you are exploring. Open the profile and see the rest of the shop.",
+  viewBrand: "View brand",
+  viewListing: "View listing",
 };
 
 function pack(p: Partial<Copy>): Copy {
@@ -415,6 +453,25 @@ export const COPY: Record<string, Copy> = {
     continueAgreement: "Al continuar aceptas nuestros",
     termsAndConditions: "Términos y condiciones",
     andWord: "y",
+    dailyEdit: "TU SELECCIÓN DIARIA",
+    todayIntroTitle: "Encuentra un look que quieras recordar.",
+    todayIntroBody: "Guarda algunos looks y Uvel aprenderá qué encaja contigo.",
+    forYou: "Para ti",
+    following: "Siguiendo",
+    nearby: "Cerca de ti",
+    browseBySource: "Explorar por fuente",
+    piecesForLook: "Prendas de este look",
+    exactMatch: "Coincidencia exacta",
+    similarPiece: "Prenda similar",
+    personalizedTodayTitle: "Una lectura más clara de tu estilo.",
+    personalizedTodayBody: "Basado en los looks, prendas y marcas a los que siempre vuelves.",
+    shopLookIntro: "Comprar el look",
+    shopLookBody: "Coincidencias exactas, prendas similares e inspiración, claramente separadas.",
+    discoveringNear: "DESCUBRIENDO CERCA DE TI",
+    sellerListingAvailability: "Anuncio de vendedor · la disponibilidad puede variar",
+    discoveryBody: "Una prenda conectada con el estilo que estás explorando. Abre el perfil y descubre el resto de la tienda.",
+    viewBrand: "Ver marca",
+    viewListing: "Ver anuncio",
   }),
   "pt-BR": pack({
     skip: "Pular",

@@ -352,17 +352,17 @@ export default function Today() {
 
         <View style={styles.body}>
           <View style={styles.todayIntro}>
-            <Text style={styles.todayEyebrow}>{country ? `${country} · YOUR DAILY EDIT` : "YOUR DAILY EDIT"}</Text>
-            <Text style={styles.todayIntroTitle}>{taste.length ? "A sharper read on your style." : "Find a look worth remembering."}</Text>
-            <Text style={styles.todayIntroBody}>{taste.length ? "Built from the looks, pieces, and brands you keep coming back to." : "Save a few looks and Uvel will learn what belongs in your world."}</Text>
+            <Text style={styles.todayEyebrow}>{country ? `${country} · ${C.dailyEdit}` : C.dailyEdit}</Text>
+            <Text style={styles.todayIntroTitle}>{taste.length ? C.personalizedTodayTitle : C.todayIntroTitle}</Text>
+            <Text style={styles.todayIntroBody}>{taste.length ? C.personalizedTodayBody : C.todayIntroBody}</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modeRow}>
-            {[{ id: "forYou", label: "For you" }, { id: "shop", label: "Shop the look" }, { id: "following", label: "Following" }, { id: "nearby", label: "Nearby" }].map((item) => {
+            {[{ id: "forYou", label: C.forYou }, { id: "shop", label: C.shopTheLook }, { id: "following", label: C.following }, { id: "nearby", label: C.nearby }].map((item) => {
               const active = todayMode === item.id;
               return <AccessiblePressable key={item.id} onPress={() => setTodayMode(item.id as typeof todayMode)} style={({ pressed }) => [styles.modeButton, active && styles.modeButtonOn, pressed && { opacity: 0.92 }]} accessibilityRole="tab" accessibilityLabel={`${item.label} mode`} accessibilityState={{ selected: active }}><Text style={[styles.modeText, active && styles.modeTextOn]}>{item.label}</Text></AccessiblePressable>;
             })}
           </ScrollView>
-          <Text style={styles.sourceLabel}>Browse by source</Text>
+          <Text style={styles.sourceLabel}>{C.browseBySource}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
             {SOURCES.map((s) => {
               const on = source === s;
@@ -404,10 +404,10 @@ export default function Today() {
             ) : null}
           </AccessiblePressable>
 
-          {todayMode === "shop" ? <View style={styles.featureIntro}><Text style={styles.h2}>Shop the look</Text><Text style={styles.sectionSub}>Exact matches, similar pieces, and inspiration—clearly separated.</Text></View> : null}
+          {todayMode === "shop" ? <View style={styles.featureIntro}><Text style={styles.h2}>{C.shopLookIntro}</Text><Text style={styles.sectionSub}>{C.shopLookBody}</Text></View> : null}
           {todayMode === "nearby" ? <TodayLocalCard piece={followedListings[0] || live[0]} country={country} colors={colors} /> : null}
           <View style={styles.head}>
-            <Text style={styles.h2}>{todayMode === "shop" ? "Pieces for this look" : source === "All" ? C.movingNow : `${C.nowOn} ${source}`}</Text>
+            <Text style={styles.h2}>{todayMode === "shop" ? C.piecesForLook : source === "All" ? C.movingNow : `${C.nowOn} ${source}`}</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
             {visible.map((look) => (
@@ -626,16 +626,17 @@ function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop
 
 function TodayLocalCard({ piece, country, colors }: { piece?: ClosetPiece; country?: string; colors: Colors }) {
   const styles = make(colors);
-  if (!piece) return <View style={styles.localEmpty}><Text style={styles.sectionSub}>Discovering creators and sellers near you.</Text></View>;
+  const C = useCopy();
+  if (!piece) return <View style={styles.localEmpty}><Text style={styles.sectionSub}>{C.discoveryBody}</Text></View>;
   const brand = piece.brandId ? getBrand(piece.brandId) : undefined;
   return <AccessiblePressable onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })} style={({ pressed }) => [styles.localCard, pressed && { opacity: 0.92 }]} accessibilityRole="button" accessibilityLabel={`Open ${brand?.name || piece.brand || "seller"} discovery`}>
     <Image source={{ uri: piece.photo }} style={styles.localImage} contentFit="cover" accessible={false} />
     <View style={styles.localCopy}>
-      <Text style={styles.localK}>DISCOVERING {country ? `· ${country}` : "NEAR YOU"}</Text>
+      <Text style={styles.localK}>{country ? `${C.discoveringNear} · ${country}` : C.discoveringNear}</Text>
       <Text style={styles.localTitle}>{brand?.name || piece.brand || "Independent seller"}</Text>
-      {brand?.verified ? <View style={styles.localVerified}><VerifiedMark size={13} /><Text style={styles.localVerifiedText}>Uvel-reviewed brand</Text></View> : <Text style={styles.localMeta}>Seller listing · availability may vary</Text>}
-      <Text style={styles.localBody}>A piece connected to the style you are exploring. Open the profile and see the rest of the shop.</Text>
-      <Text style={styles.localAction}>{brand ? "View brand" : "View listing"}  →</Text>
+      {brand?.verified ? <View style={styles.localVerified}><VerifiedMark size={13} /><Text style={styles.localVerifiedText}>Uvel-reviewed brand</Text></View> : <Text style={styles.localMeta}>{C.sellerListingAvailability}</Text>}
+      <Text style={styles.localBody}>{C.discoveryBody}</Text>
+      <Text style={styles.localAction}>{brand ? C.viewBrand : C.viewListing}  →</Text>
     </View>
   </AccessiblePressable>;
 }
@@ -701,7 +702,7 @@ function ShopLookCard({
           <Text style={styles.shopNowTxt}>Shop now</Text>
         </View>
         <View style={styles.matchPill}>
-          <Text style={styles.matchPillTxt}>{matchKind === "exact" ? "EXACT MATCH" : "SIMILAR PIECE"}</Text>
+          <Text style={styles.matchPillTxt}>{matchKind === "exact" ? C.exactMatch.toUpperCase() : C.similarPiece.toUpperCase()}</Text>
         </View>
         <View style={styles.shopHearts}>
           <Text style={styles.shopHeartsIco}>♥</Text>
