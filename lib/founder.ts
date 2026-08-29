@@ -44,6 +44,11 @@ export type FounderProductBrief = {
   boardId: string;
 };
 
+export type FounderSetup = {
+  completedTaskIds: string[];
+  notes: string;
+};
+
 export type FounderProject = {
   id: string;
   name: string;
@@ -52,6 +57,7 @@ export type FounderProject = {
   brief: FounderBrief;
   identity: FounderIdentity;
   product: FounderProductBrief;
+  setup: FounderSetup;
   boards: FounderBoard[];
   createdAt: number;
   updatedAt: number;
@@ -60,9 +66,10 @@ export type FounderProject = {
 export const emptyFounderBrief = (): FounderBrief => ({ audience: "", category: "", pricePosition: "not-set", promise: "", values: "", tone: "", story: "" });
 export const defaultFounderIdentity = (): FounderIdentity => ({ colors: ["#D6E27A", "#F4F0E6", "#161512"], typography: "Warm editorial sans", logoDirection: "" });
 export const emptyFounderProduct = (): FounderProductBrief => ({ name: "", silhouette: "", materials: "", sizes: "", targetPrice: "", productionQuestions: "", boardId: "" });
+export const emptyFounderSetup = (): FounderSetup => ({ completedTaskIds: [], notes: "" });
 
 function normalizeProject(project: FounderProject): FounderProject {
-  return { ...project, brief: { ...emptyFounderBrief(), ...(project.brief || {}) }, identity: { ...defaultFounderIdentity(), ...(project.identity || {}) }, product: { ...emptyFounderProduct(), ...(project.product || {}) }, boards: project.boards || [] };
+  return { ...project, brief: { ...emptyFounderBrief(), ...(project.brief || {}) }, identity: { ...defaultFounderIdentity(), ...(project.identity || {}) }, product: { ...emptyFounderProduct(), ...(project.product || {}) }, setup: { ...emptyFounderSetup(), ...(project.setup || {}) }, boards: project.boards || [] };
 }
 
 const KEY = "uvel-founder-projects-v1";
@@ -109,6 +116,7 @@ export function createFounderProject(name: string, description = "") {
     brief: emptyFounderBrief(),
     identity: defaultFounderIdentity(),
     product: emptyFounderProduct(),
+    setup: emptyFounderSetup(),
     boards: [],
     createdAt: now,
     updatedAt: now,
