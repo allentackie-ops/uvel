@@ -298,6 +298,7 @@ export default function Today() {
     });
   }, [uid, todayCampaignRows.map(({ campaign }) => campaign.id).join("|")]);
   const [source, setSource] = useState<Source>("All");
+  const [todayMode, setTodayMode] = useState<"forYou" | "shop" | "following" | "nearby">("forYou");
   const [videoWait, setVideoWait] = useState(false);
   const [shopWait, setShopWait] = useState(false);
   const heroH = Math.round(H - insets.bottom - 196);
@@ -347,6 +348,17 @@ export default function Today() {
         )}
 
         <View style={styles.body}>
+          <View style={styles.todayIntro}>
+            <Text style={styles.todayEyebrow}>{country ? `${country} · YOUR DAILY EDIT` : "YOUR DAILY EDIT"}</Text>
+            <Text style={styles.todayIntroTitle}>{taste.length ? "A sharper read on your style." : "Find a look worth remembering."}</Text>
+            <Text style={styles.todayIntroBody}>{taste.length ? "Built from the looks, pieces, and brands you keep coming back to." : "Save a few looks and Uvel will learn what belongs in your world."}</Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modeRow}>
+            {[{ id: "forYou", label: "For you" }, { id: "shop", label: "Shop the look" }, { id: "following", label: "Following" }, { id: "nearby", label: "Nearby" }].map((item) => {
+              const active = todayMode === item.id;
+              return <AccessiblePressable key={item.id} onPress={() => setTodayMode(item.id as typeof todayMode)} style={({ pressed }) => [styles.modeButton, active && styles.modeButtonOn, pressed && styles.focused]} accessibilityRole="tab" accessibilityLabel={`${item.label} mode`} accessibilityState={{ selected: active }}><Text style={[styles.modeText, active && styles.modeTextOn]}>{item.label}</Text></AccessiblePressable>;
+            })}
+          </ScrollView>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
             {SOURCES.map((s) => {
               const on = source === s;
@@ -388,8 +400,10 @@ export default function Today() {
             ) : null}
           </AccessiblePressable>
 
+          {todayMode === "shop" ? <View style={styles.featureIntro}><Text style={styles.h2}>Shop the look</Text><Text style={styles.sectionSub}>Exact matches, similar pieces, and inspiration—clearly separated.</Text></View> : null}
+          {todayMode === "nearby" ? <TodayLocalCard piece={followedListings[0] || live[0]} country={country} colors={colors} /> : null}
           <View style={styles.head}>
-            <Text style={styles.h2}>{source === "All" ? C.movingNow : `${C.nowOn} ${source}`}</Text>
+            <Text style={styles.h2}>{todayMode === "shop" ? "Pieces for this look" : source === "All" ? C.movingNow : `${C.nowOn} ${source}`}</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
             {visible.map((look) => (
@@ -420,7 +434,7 @@ export default function Today() {
           {hits.length ? (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shopStrip}>
               {hits.map((p) => (
-                <ShopLookCard key={p.id} piece={p} country={country} colors={colors} />
+                <ShopLookCard key={p.id} piece={p} country={country} colors={colors} matchKind={featured?.garmentIds.includes(p.id) ? "exact" : "similar"} />
               ))}
             </ScrollView>
           ) : (
@@ -429,7 +443,7 @@ export default function Today() {
             </View>
           )}
 
-          {followedIds.length ? (
+          {todayMode === "following" && followedIds.length ? (
             <>
               <View style={styles.head}>
                 <View>
@@ -606,6 +620,22 @@ function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop
   );
 }
 
+function TodayLocalCard({ piece, country, colors }: { piece?: ClosetPiece; country?: string; colors: Colors }) {
+  const styles = make(colors);
+  if (!piece) return <View style={styles.localEmpty}><Text style={styles.sectionSub}>Discovering creators and sellers near you.</Text></View>;
+  const brand = piece.brandId ? getBrand(piece.brandId) : undefined;
+  return <AccessiblePressable onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })} style={({ pressed }) => [styles.localCard, pressed && styles.focused]} accessibilityRole="button" accessibilityLabel={`Open ${brand?.name || piece.brand || "seller"} discovery`}>
+    <Image source={{ uri: piece.photo }} style={styles.localImage} contentFit="cover" accessible={false} />
+    <View style={styles.localCopy}>
+      <Text style={styles.localK}>DISCOVERING {country ? `· ${country}` : "NEAR YOU"}</Text>
+      <Text style={styles.localTitle}>{brand?.name || piece.brand || "Independent seller"}</Text>
+      {brand?.verified ? <View style={styles.localVerified}><VerifiedMark size={13} /><Text style={styles.localVerifiedText}>Uvel-reviewed brand</Text></View> : <Text style={styles.localMeta}>Seller listing · availability may vary</Text>}
+      <Text style={styles.localBody}>A piece connected to the style you are exploring. Open the profile and see the rest of the shop.</Text>
+      <Text style={styles.localAction}>{brand ? "View brand" : "View listing"}  →</Text>
+    </View>
+  </AccessiblePressable>;
+}
+
 function TodayCampaignCard({ campaign, lead, uid, colors }: { campaign: BrandCampaign; lead: ClosetPiece; uid: string; colors: Colors }) {
   const styles = make(colors);
   const brand = getBrand(campaign.brandId);
@@ -638,10 +668,12 @@ function ShopLookCard({
   piece,
   country,
   colors,
+  matchKind,
 }: {
   piece: ClosetPiece;
   country: string;
   colors: Colors;
+  matchKind: "exact" | "similar";
 }) {
   const styles = make(colors);
   const here = getMarket(country);
@@ -663,6 +695,9 @@ function ShopLookCard({
         <Image source={{ uri: live.photo }} style={styles.shopImg} contentFit="cover" accessible={false} />
         <View style={styles.shopNow}>
           <Text style={styles.shopNowTxt}>Shop now</Text>
+        </View>
+        <View style={styles.matchPill}>
+          <Text style={styles.matchPillTxt}>{matchKind === "exact" ? "EXACT MATCH" : "SIMILAR PIECE"}</Text>
         </View>
         <View style={styles.shopHearts}>
           <Text style={styles.shopHeartsIco}>♥</Text>
@@ -717,6 +752,27 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     ghostTxt: { color: "#F4F0E6", fontWeight: "600", fontSize: 15 },
+    todayIntro: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 6 },
+    todayEyebrow: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.6 },
+    todayIntroTitle: { color: colors.ink, fontFamily: "Georgia", fontSize: 27, lineHeight: 33, marginTop: 8 },
+    todayIntroBody: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 5, maxWidth: 360 },
+    modeRow: { gap: 8, paddingHorizontal: 16, paddingVertical: 12 },
+    modeButton: { borderWidth: 1, borderColor: colors.subtle, borderRadius: 18, paddingHorizontal: 13, paddingVertical: 9 },
+    modeButtonOn: { backgroundColor: colors.success, borderColor: colors.success },
+    modeText: { color: colors.muted, fontSize: 12, fontWeight: "800" },
+    modeTextOn: { color: colors.successInk },
+    featureIntro: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
+    localCard: { marginHorizontal: 16, marginTop: 12, marginBottom: 8, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.subtle, overflow: "hidden", flexDirection: "row" },
+    localImage: { width: 132, minHeight: 190, backgroundColor: colors.surface },
+    localCopy: { flex: 1, padding: 14 },
+    localK: { color: colors.success, fontSize: 9, fontWeight: "900", letterSpacing: 1.3 },
+    localTitle: { color: colors.ink, fontSize: 18, fontWeight: "900", marginTop: 8 },
+    localVerified: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 5 },
+    localVerifiedText: { color: colors.muted, fontSize: 11 },
+    localMeta: { color: colors.muted, fontSize: 11, marginTop: 5 },
+    localBody: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 12 },
+    localAction: { color: colors.ink, fontSize: 12, fontWeight: "900", marginTop: 14 },
+    localEmpty: { marginHorizontal: 16, marginTop: 12, padding: 16, borderRadius: 18, borderWidth: 1, borderColor: colors.subtle, backgroundColor: colors.surface },
     body: { paddingTop: 14, backgroundColor: "#0B0A08" },
     chips: { paddingHorizontal: 16, gap: 8, paddingBottom: 4 },
     filter: {
@@ -838,6 +894,8 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     shopNowTxt: { color: "#16140F", fontWeight: "700", fontSize: 13 },
+    matchPill: { position: "absolute", left: 14, top: 14, backgroundColor: "rgba(11,10,8,0.82)", borderWidth: 1, borderColor: "rgba(244,240,230,0.26)", borderRadius: 12, paddingHorizontal: 9, paddingVertical: 6 },
+    matchPillTxt: { color: "#F4F0E6", fontSize: 9, fontWeight: "900", letterSpacing: 1.1 },
     shopHearts: {
       position: "absolute",
       left: 14,
