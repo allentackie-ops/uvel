@@ -198,53 +198,55 @@ export default function You() {
         </View>
       ))}
 
-      {mine ? (
-        <View style={styles.brandCard}>
-          <Pressable
-            onPress={() => router.push({ pathname: "/brand/[id]", params: { id: mine.id } })}
-            style={styles.brandCardMain}
-            accessibilityRole="button"
-            accessibilityLabel={`Open ${mine.name} brand page`}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={styles.brandK}>{mine.reviewStatus === "human_review" ? "HUMAN REVIEW" : mine.reviewStatus === "needs_information" ? "INFORMATION NEEDED" : mine.verified ? "UVEL-REVIEWED" : "IN REVIEW"}</Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-                <Text style={styles.brandName}>{mine.name}</Text>
-                {mine.verified ? <VerifiedMark size={14} /> : null}
+      <View style={styles.brandArea}>
+        <Text style={styles.brandAreaLabel}>YOUR BRAND</Text>
+        {mine ? (
+          <View style={styles.brandCard}>
+            <Pressable
+              onPress={() => router.push({ pathname: "/brand/[id]", params: { id: mine.id } })}
+              style={styles.brandCardMain}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${mine.name} brand page`}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.brandK}>{mine.reviewStatus === "human_review" ? "HUMAN REVIEW" : mine.reviewStatus === "needs_information" ? "INFORMATION NEEDED" : mine.verified ? "UVEL-REVIEWED" : "IN REVIEW"}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                  <Text style={styles.brandName}>{mine.name}</Text>
+                  {mine.verified ? <VerifiedMark size={14} /> : null}
+                </View>
+                <Text style={styles.brandP}>{mine.verified ? "Page, listings, team, analysis" : mine.reviewStatus === "human_review" ? "Submit evidence for an admin review" : mine.reviewStatus === "needs_information" ? "Add the missing details, then submit again" : "Workspace ready while Uvel review is pending"}</Text>
               </View>
-              <Text style={styles.brandP}>{mine.verified ? "Page, listings, team, analysis" : mine.reviewStatus === "human_review" ? "Submit evidence for an admin review" : mine.reviewStatus === "needs_information" ? "Add the missing details, then submit again" : "Workspace ready while Uvel review is pending"}</Text>
-            </View>
-            <Text style={styles.brandGo}>Page</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push({ pathname: "/brand/hq", params: { id: mine.id } })}
-            style={styles.brandHQButton}
-            accessibilityRole="button"
-            accessibilityLabel={`Open Brand HQ for ${mine.name}`}
-          >
-            <Text style={styles.brandHQText}>HQ</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <>
-          <Pressable onPress={() => router.push("/brand/apply")} style={styles.brandCard}>
+              <Text style={styles.brandGo}>Page</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push({ pathname: "/brand/hq", params: { id: mine.id } })}
+              style={styles.brandHQButton}
+              accessibilityRole="button"
+              accessibilityLabel={`Open Brand HQ for ${mine.name}`}
+            >
+              <Text style={styles.brandHQText}>HQ</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable onPress={() => router.push("/brand/apply")} style={styles.brandCard} accessibilityRole="button" accessibilityLabel="Start a public brand application">
             <View style={{ flex: 1 }}>
-              <Text style={styles.brandK}>BRANDS</Text>
+              <Text style={styles.brandK}>PUBLIC BRAND</Text>
               <Text style={styles.brandName}>Start your brand</Text>
               <Text style={styles.brandP}>List your brand now to post new fashion.</Text>
             </View>
             <Text style={styles.brandGo}>Start</Text>
           </Pressable>
-          <Pressable onPress={() => router.push("/brand/founder")} style={styles.brandCard} accessibilityRole="button" accessibilityLabel="Open private Founder Studio">
-            <View style={{ flex: 1 }}>
-              <Text style={styles.brandK}>PRIVATE WORKSPACE</Text>
-              <Text style={styles.brandName}>Founder Studio</Text>
-              <Text style={styles.brandP}>Shape your first idea before it becomes a public brand.</Text>
-            </View>
-            <Text style={styles.brandGo}>Open</Text>
-          </Pressable>
-        </>
-      )}
+        )}
+        <Text style={styles.brandAreaLabel}>STARTING FROM SCRATCH</Text>
+        <Pressable onPress={() => router.push("/brand/founder")} style={styles.brandCard} accessibilityRole="button" accessibilityLabel="Open private Founder Studio">
+          <View style={{ flex: 1 }}>
+            <Text style={styles.brandK}>PRIVATE WORKSPACE</Text>
+            <Text style={styles.brandName}>Founder Studio</Text>
+            <Text style={styles.brandP}>Sketch, plan, source, and prepare your first product before applying publicly.</Text>
+          </View>
+          <Text style={styles.brandGo}>Open</Text>
+        </Pressable>
+      </View>
 
       {mine?.verified && canSeeAnalytics(mine, app.uid) ? (
         <Pressable onPress={() => router.push({ pathname: "/brand/analytics", params: { id: mine.id } })} style={styles.plan}>
@@ -714,6 +716,8 @@ function make(colors: Colors) {
     inviteYesTxt: { color: "#16140F", fontWeight: "800", fontSize: 13 },
     inviteNo: { height: 34, paddingHorizontal: 16, borderRadius: 17, borderWidth: 1, borderColor: "rgba(244,240,230,0.16)", alignItems: "center", justifyContent: "center" },
     inviteNoTxt: { color: "#F4F0E6", fontWeight: "700", fontSize: 13 },
+    brandArea: { marginBottom: 8 },
+    brandAreaLabel: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 10, marginBottom: 9 },
     brandCard: {
       marginTop: 16,
       backgroundColor: "#161512",
