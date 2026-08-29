@@ -157,14 +157,14 @@ export default function BrandPage() {
           <BrandBanner uri={brand.bannerUri} kind={brand.bannerKind} style={[styles.banner, { backgroundColor: theme.bg }]} />
           <View style={[styles.nav, { top: insets.top + 4 }]}>
             <AccessiblePressable              onPress={() => router.back()}
-              style={({ pressed }) => [styles.orb, { backgroundColor: "rgba(0,0,0,0.42)" }, pressed && styles.focused]}
+              style={({ pressed }) => [styles.orb, { backgroundColor: "rgba(0,0,0,0.42)" }, pressed && { opacity: 0.92 }]}
               accessibilityRole="button"
               accessibilityLabel="Go back"
             >
               <Text style={styles.orbTxt}>‹</Text>
             </AccessiblePressable>
             <AccessiblePressable              onPress={more}
-              style={({ pressed }) => [styles.orb, { backgroundColor: "rgba(0,0,0,0.42)" }, pressed && styles.focused]}
+              style={({ pressed }) => [styles.orb, { backgroundColor: "rgba(0,0,0,0.42)" }, pressed && { opacity: 0.92 }]}
               accessibilityRole="button"
               accessibilityLabel="More brand actions"
             >
@@ -204,7 +204,7 @@ export default function BrandPage() {
                   }).catch(() => undefined);
                 }
               }}
-              style={({ pressed }) => [styles.follow, { backgroundColor: following ? theme.card : theme.accent }, pressed && styles.focused]}
+              style={({ pressed }) => [styles.follow, { backgroundColor: following ? theme.card : theme.accent }, pressed && { opacity: 0.92 }]}
               accessibilityRole="button"
               accessibilityLabel={following ? `Unfollow ${brand.name}` : `Follow ${brand.name}`}
               accessibilityState={{ selected: following }}
@@ -213,7 +213,7 @@ export default function BrandPage() {
             </AccessiblePressable>
             {poster ? (
               <AccessiblePressable                onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })}
-                style={({ pressed }) => [styles.ghost, { borderColor: theme.lineColor }, pressed && styles.focused]}
+                style={({ pressed }) => [styles.ghost, { borderColor: theme.lineColor }, pressed && { opacity: 0.92 }]}
                 accessibilityRole="button"
                 accessibilityLabel={`List an item for ${brand.name}`}
               >
@@ -228,7 +228,7 @@ export default function BrandPage() {
             <Text style={[styles.meta, { color: theme.muted, paddingHorizontal: 20 }]}>LIVE CAMPAIGN</Text>
             {visibleCampaigns.slice(0, 3).map((campaign) => {
               const lead = campaign.productIds.map((productId) => getPiece(productId)).find(Boolean);
-              return <AccessiblePressable key={campaign.id} onPress={() => { void recordCampaignAttribution({ brandId: brand.id, campaignId: campaign.id, channel: "brand_page", type: "engagement", collectionId: campaign.collectionId, promotionId: campaign.promotionId, listingId: lead?.id }).catch(() => undefined); if (lead) router.push({ pathname: "/closet/[id]", params: { id: lead.id, campaignId: campaign.id, collectionId: campaign.collectionId || "", promotionId: campaign.promotionId || "", campaignChannel: "brand_page" } }); }} style={({ pressed }) => [styles.campaignCard, { backgroundColor: theme.card }, pressed && styles.focused]} accessibilityRole="button" accessibilityLabel={`Explore ${brand.name} campaign ${campaign.headline || campaign.name}`} accessibilityHint="Double tap to explore this drop.">{lead?.photo ? <Image source={{ uri: lead.photo }} style={styles.campaignImg} contentFit="cover" accessible={false} /> : null}<View style={{ flex: 1 }}><Text style={[styles.dropTitle, { color: theme.ink }]} numberOfLines={2}>{campaign.headline}</Text><Text style={[styles.dropSub, { color: theme.muted }]} numberOfLines={2}>{campaign.body || campaign.name}</Text></View><Text style={[styles.chev, { color: theme.muted }]}>›</Text></AccessiblePressable>;
+              return <AccessiblePressable key={campaign.id} onPress={() => { void recordCampaignAttribution({ brandId: brand.id, campaignId: campaign.id, channel: "brand_page", type: "engagement", collectionId: campaign.collectionId, promotionId: campaign.promotionId, listingId: lead?.id }).catch(() => undefined); if (lead) router.push({ pathname: "/closet/[id]", params: { id: lead.id, campaignId: campaign.id, collectionId: campaign.collectionId || "", promotionId: campaign.promotionId || "", campaignChannel: "brand_page" } }); }} style={({ pressed }) => [styles.campaignCard, { backgroundColor: theme.card }, pressed && { opacity: 0.92 }]} accessibilityRole="button" accessibilityLabel={`Explore ${brand.name} campaign ${campaign.headline || campaign.name}`} accessibilityHint="Double tap to explore this drop.">{lead?.photo ? <Image source={{ uri: lead.photo }} style={styles.campaignImg} contentFit="cover" accessible={false} /> : null}<View style={{ flex: 1 }}><Text style={[styles.dropTitle, { color: theme.ink }]} numberOfLines={2}>{campaign.headline}</Text><Text style={[styles.dropSub, { color: theme.muted }]} numberOfLines={2}>{campaign.body || campaign.name}</Text></View><Text style={[styles.chev, { color: theme.muted }]}>›</Text></AccessiblePressable>;
             })}
           </View>
         ) : null}
@@ -239,7 +239,7 @@ export default function BrandPage() {
             <Text style={[styles.dropTitle, { color: theme.ink, paddingHorizontal: 20 }]}>{collections[0].cat}</Text>
             <Text style={[styles.dropSub, { color: theme.muted, paddingHorizontal: 20 }]}>{brand.name}</Text>
             <AccessiblePressable              onPress={() => router.push({ pathname: "/closet/[id]", params: { id: featured.id } })}
-              style={({ pressed }) => [styles.heroCard, { backgroundColor: theme.card }, pressed && styles.focused]}
+              style={({ pressed }) => [styles.heroCard, { backgroundColor: theme.card }, pressed && { opacity: 0.92 }]}
               accessibilityRole="button"
               accessibilityLabel={`Open ${featured.name} from ${brand.name}`}
               accessibilityHint="Double tap to view this listing."
@@ -258,7 +258,7 @@ export default function BrandPage() {
         ) : null}
 
           <AccessiblePressable            onPress={openLatest}
-            style={({ pressed }) => [styles.sectionHead, pressed && styles.focused]}
+            style={({ pressed }) => [styles.sectionHead, pressed && { opacity: 0.92 }]}
             disabled={!listings.length && !featured}
             accessibilityRole="button"
             accessibilityLabel="Open latest listings"
@@ -271,7 +271,7 @@ export default function BrandPage() {
           listings.slice(0, 8).map((p) => (
             <AccessiblePressable              key={p.id}
               onPress={() => router.push({ pathname: "/closet/[id]", params: { id: p.id } })}
-              style={({ pressed }) => [styles.row, { borderBottomColor: theme.lineColor }, pressed && styles.focused]}
+              style={({ pressed }) => [styles.row, { borderBottomColor: theme.lineColor }, pressed && { opacity: 0.92 }]}
               accessibilityRole="button"
               accessibilityLabel={`Open ${p.name}, ${usd(p.listPriceCents, p.currency)}`}
               accessibilityHint="Double tap to view this listing."
@@ -287,7 +287,7 @@ export default function BrandPage() {
               </View>
               <AccessiblePressable                onPress={() => listingActions(p)}
                 hitSlop={10}
-                style={({ pressed }) => [styles.moreBtn, pressed && styles.focused]}
+                style={({ pressed }) => [styles.moreBtn, pressed && { opacity: 0.92 }]}
                 accessibilityRole="button"
                 accessibilityLabel={`More actions for ${p.name}`}
               >

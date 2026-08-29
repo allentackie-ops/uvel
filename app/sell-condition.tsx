@@ -17,7 +17,7 @@ export default function SellCondition() {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <AccessiblePressable
           onPress={() => router.back()}
-          style={({ pressed }) => [styles.back, pressed && styles.focused]}
+          style={({ pressed }) => [styles.back, pressed && { opacity: 0.92 }]}
           accessibilityRole="button"
           accessibilityLabel="Back to new listing"
         >
@@ -43,7 +43,7 @@ export default function SellCondition() {
                   setPendingListingSelection("condition", item);
                   router.back();
                 }}
-                style={({ pressed }) => [styles.option, isSelected && styles.optionSelected, pressed && styles.focused]}
+                style={({ pressed }) => [styles.option, isSelected && styles.optionSelected, pressed && { opacity: 0.92 }]}
                 accessibilityRole="radio"
                 accessibilityLabel={`Condition: ${item}`}
                 accessibilityState={{ selected: isSelected }}

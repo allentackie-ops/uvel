@@ -479,7 +479,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 ) : null}
                 <AccessiblePressable                  onPress={() => removePhoto(p.uri)}
                   hitSlop={8}
-                  style={({ pressed }) => [styles.photoX, pressed && styles.focused]}
+                  style={({ pressed }) => [styles.photoX, pressed && { opacity: 0.92 }]}
                   accessibilityRole="button"
                   accessibilityLabel={`Remove photo ${i + 1}`}
                   accessibilityHint="Double tap to remove this photo from the listing."
@@ -490,7 +490,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             ))}
             {photos.length < MAX ? (
               <AccessiblePressable                onPress={choosePhoto}
-                style={({ pressed }) => [styles.photoTile, styles.photoAdd, pressed && styles.focused]}
+                style={({ pressed }) => [styles.photoTile, styles.photoAdd, pressed && { opacity: 0.92 }]}
                 accessibilityRole="button"
                 accessibilityLabel={`Add photo, ${photos.length} of ${MAX} added`}
                 accessibilityHint="Double tap to choose a listing photo."
@@ -535,7 +535,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               ))}
               {warn.review.tip ? <Text style={styles.warnTip}>{warn.review.tip}</Text> : null}
               <AccessiblePressable                onPress={() => removePhoto(warn.uri)}
-                style={({ pressed }) => [pressed && styles.focused]}
+                style={({ pressed }) => [pressed && { opacity: 0.92 }]}
                 accessibilityRole="button"
                 accessibilityLabel="Take another photo"
               >
@@ -554,7 +554,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           <View style={styles.sheet}>
             <Text style={styles.priceLabel}>{C.price} *</Text>
             <AccessiblePressable              onPress={openPrice}
-              style={({ pressed }) => [styles.priceRow, pressed && styles.focused]}
+              style={({ pressed }) => [styles.priceRow, pressed && { opacity: 0.92 }]}
               accessibilityRole="button"
               accessibilityLabel={`Listing price: ${price ? `${listingMarket.symbol}${price}` : "not set"}`}
               accessibilityHint="Double tap to set the listing price."
@@ -594,7 +594,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             <Text style={styles.label}>{C.category} *</Text>
             <AccessiblePressable
               onPress={openCategory}
-              style={({ pressed }) => [styles.choiceRow, pressed && styles.focused]}
+              style={({ pressed }) => [styles.choiceRow, pressed && { opacity: 0.92 }]}
               accessibilityRole="button"
               accessibilityLabel={`Category: ${category || "not selected"}`}
               accessibilityHint="Double tap to open the category picker."
@@ -656,7 +656,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             <Text style={styles.label}>{C.condition} *</Text>
             <AccessiblePressable
               onPress={openCondition}
-              style={({ pressed }) => [styles.choiceRow, pressed && styles.focused]}
+              style={({ pressed }) => [styles.choiceRow, pressed && { opacity: 0.92 }]}
               accessibilityRole="button"
               accessibilityLabel={`Condition: ${condition || "not selected"}`}
               accessibilityHint="Double tap to open the condition picker."
@@ -680,7 +680,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               <Text style={styles.sellsLede}>Choose which countries can see this listing.</Text>
               <AccessiblePressable
                 onPress={() => router.push({ pathname: "/sell-countries", params: { origin, selected: shipsTo === "all" ? "all" : Array.isArray(shipsTo) ? shipsTo.join(",") : origin } })}
-                style={({ pressed }) => [styles.choiceRow, pressed && styles.focused]}
+                style={({ pressed }) => [styles.choiceRow, pressed && { opacity: 0.92 }]}
                 accessibilityRole="button"
                 accessibilityLabel={`Choose countries. Currently ${shipsToLabel(origin, shipsTo)}.`}
                 accessibilityHint="Double tap to choose the countries where this listing can be seen."
@@ -713,7 +713,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                       setShopLook(look.id);
                       if (existing) updatePiece(existing.id, { shopLook: look.id });
                     }}
-                    style={({ pressed }) => [styles.lookCard, on && styles.lookCardOn, locked && { opacity: 0.55 }, pressed && styles.focused]}
+                    style={({ pressed }) => [styles.lookCard, on && styles.lookCardOn, locked && { opacity: 0.55 }, pressed && { opacity: 0.92 }]}
                     accessibilityRole="radio"
                     accessibilityLabel={`${look.name}${locked ? ", requires Uvel Plus" : ""}`}
                     accessibilityHint={locked ? "Double tap to view Uvel Plus." : "Double tap to choose this Shop the look style."}
@@ -748,7 +748,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         <View style={[styles.foot, { paddingBottom: insets.bottom + 12 }]}>
           <AccessiblePressable            onPress={() => void publish()}
             disabled={!canList}
-            style={({ pressed }) => [styles.cta, !canList && styles.ctaOff, pressed && styles.focused]}
+            style={({ pressed }) => [styles.cta, !canList && styles.ctaOff, pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
             accessibilityLabel={ctaLabel}
             accessibilityState={{ disabled: !canList, busy: gate.phase === "review" }}
@@ -779,7 +779,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 </Text>
               ))}
               <AccessiblePressable                onPress={() => setGate({ phase: "idle" })}
-                style={({ pressed }) => [styles.gateCta, pressed && styles.focused]}
+                style={({ pressed }) => [styles.gateCta, pressed && { opacity: 0.92 }]}
                 accessibilityRole="button"
                 accessibilityLabel="Fix listing"
               >

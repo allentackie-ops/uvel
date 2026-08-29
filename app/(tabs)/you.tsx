@@ -300,7 +300,7 @@ export default function You() {
 
       <Pressable
         onPress={() => router.push("/style-dna")}
-        style={({ pressed }) => [styles.dnaHead, pressed && styles.focused]}
+        style={({ pressed }) => [styles.dnaHead, pressed && { opacity: 0.92 }]}
         accessibilityRole="button"
         accessibilityLabel={`Style DNA${dnaReady ? `: ${[app.archetype, app.palette, app.silhouette].filter(Boolean).join(", ")}` : ": not set"}`}
         accessibilityHint="Double tap to choose your style, palette, and silhouette."

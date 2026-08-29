@@ -25,7 +25,7 @@ export default function StyleDna() {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <AccessiblePressable
           onPress={() => router.back()}
-          style={({ pressed }) => [styles.back, pressed && styles.focused]}
+          style={({ pressed }) => [styles.back, pressed && { opacity: 0.92 }]}
           accessibilityRole="button"
           accessibilityLabel="Back to You"
         >
@@ -105,7 +105,7 @@ function OptionGroup({
             <AccessiblePressable
               key={item}
               onPress={() => onPick(item)}
-              style={({ pressed }) => [styles.option, selected && styles.optionSelected, pressed && styles.focused]}
+              style={({ pressed }) => [styles.option, selected && styles.optionSelected, pressed && { opacity: 0.92 }]}
               accessibilityRole="radio"
               accessibilityLabel={`${label}: ${item}`}
               accessibilityState={{ selected }}

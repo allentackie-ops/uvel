@@ -193,7 +193,7 @@ export default function Checkout() {
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
         <AccessiblePressable          onPress={() => router.back()}
           hitSlop={12}
-          style={({ pressed }) => [styles.navBtn, pressed && styles.focused]}
+          style={({ pressed }) => [styles.navBtn, pressed && { opacity: 0.92 }]}
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
@@ -225,7 +225,7 @@ export default function Checkout() {
         ) : null}
         <Text style={styles.h}>Address</Text>
         <AccessiblePressable          onPress={() => router.push("/address")}
-          style={({ pressed }) => [styles.box, pressed && styles.focused]}
+          style={({ pressed }) => [styles.box, pressed && { opacity: 0.92 }]}
           accessibilityRole="button"
           accessibilityLabel={address ? `Shipping address: ${address.name}, ${address.city}` : "Add shipping address"}
           accessibilityHint="Double tap to add or edit your shipping address."
@@ -247,7 +247,7 @@ export default function Checkout() {
         {address ? (
           <View style={styles.col}>
             <AccessiblePressable              onPress={() => setShip("standard")}
-              style={({ pressed }) => [styles.ship, ship === "standard" && styles.shipOn, pressed && styles.focused]}
+              style={({ pressed }) => [styles.ship, ship === "standard" && styles.shipOn, pressed && { opacity: 0.92 }]}
               accessibilityRole="radio"
               accessibilityLabel={`Standard delivery, ${moneyExact(shippingCents(same, false, market), market.currency)}`}
               accessibilityState={{ selected: ship === "standard" }}
@@ -259,7 +259,7 @@ export default function Checkout() {
               <Text style={styles.boxT}>{moneyExact(shippingCents(same, false, market), market.currency)}</Text>
             </AccessiblePressable>
             <AccessiblePressable              onPress={() => setShip("express")}
-              style={({ pressed }) => [styles.ship, ship === "express" && styles.shipOn, pressed && styles.focused]}
+              style={({ pressed }) => [styles.ship, ship === "express" && styles.shipOn, pressed && { opacity: 0.92 }]}
               accessibilityRole="radio"
               accessibilityLabel={`Express delivery, ${moneyExact(shippingCents(same, true, market), market.currency)}`}
               accessibilityState={{ selected: ship === "express" }}
@@ -279,7 +279,7 @@ export default function Checkout() {
 
         <Text style={styles.h}>Payment</Text>
         <AccessiblePressable          onPress={() => setPayOpen(true)}
-          style={({ pressed }) => [styles.box, pressed && styles.focused]}
+          style={({ pressed }) => [styles.box, pressed && { opacity: 0.92 }]}
           accessibilityRole="button"
           accessibilityLabel={`Payment method: ${method.label}`}
           accessibilityHint="Double tap to choose a payment method."
@@ -306,7 +306,7 @@ export default function Checkout() {
           />
           <AccessiblePressable            onPress={() => void applyPromotion()}
             disabled={promotionBusy}
-            style={({ pressed }) => [styles.promotionButton, promotionBusy && { opacity: 0.5 }, pressed && styles.focused]}
+            style={({ pressed }) => [styles.promotionButton, promotionBusy && { opacity: 0.5 }, pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
             accessibilityLabel={promotionBusy ? "Checking promotion" : promotionQuote ? "Promotion applied" : "Apply promotion code"}
             accessibilityState={{ disabled: promotionBusy, selected: Boolean(promotionQuote) }}
@@ -334,7 +334,7 @@ export default function Checkout() {
           {discountCents > 0 ? <View style={styles.line}><Text style={styles.lineL}>Promotion · {promotionQuote?.code}</Text><Text style={styles.discountValue}>−{moneyExact(discountCents, market.currency)}</Text></View> : null}
           <View style={styles.line}>
             <AccessiblePressable              onPress={() => setFeeInfo(true)}
-              style={({ pressed }) => [styles.feeL, pressed && styles.focused]}
+              style={({ pressed }) => [styles.feeL, pressed && { opacity: 0.92 }]}
               accessibilityRole="button"
               accessibilityLabel="Uvel fee information"
               accessibilityHint="Double tap to learn how the buyer protection fee is calculated."
@@ -353,7 +353,7 @@ export default function Checkout() {
             <Text style={styles.muted}>To be confirmed</Text>
           </View>
           <AccessiblePressable            onPress={() => setFeeInfo(true)}
-            style={({ pressed }) => [pressed && styles.focused]}
+            style={({ pressed }) => [pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
             accessibilityLabel="Learn about Uvel purchase protection"
           >
@@ -369,7 +369,7 @@ export default function Checkout() {
         </View>
         <AccessiblePressable onPress={() => void payNow()}
           disabled={!ready || !availabilityConfirmed}
-          style={({ pressed }) => [styles.payBtn, (!ready || !availabilityConfirmed) && { opacity: 0.4 }, pressed && styles.focused]}
+          style={({ pressed }) => [styles.payBtn, (!ready || !availabilityConfirmed) && { opacity: 0.4 }, pressed && { opacity: 0.92 }]}
           accessibilityRole="button"
           accessibilityLabel={paying ? "Processing payment" : `Pay with ${method?.label || "selected method"}, ${moneyExact(total, market.currency)}`}
           accessibilityState={{ disabled: !ready || !availabilityConfirmed, busy: paying }}
@@ -388,7 +388,7 @@ export default function Checkout() {
             Buyer protection fees are shown here in {market.currency}. The seller gets the full listing price. Review the purchase protection terms before paying; payment confirmation and any protection eligibility depend on the connected payment and order services.
           </Text>
           <AccessiblePressable onPress={() => setFeeInfo(false)}
-            style={({ pressed }) => [styles.sheetBtn, pressed && styles.focused]}
+            style={({ pressed }) => [styles.sheetBtn, pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
             accessibilityLabel="Close fee information"
           >
@@ -409,7 +409,7 @@ export default function Checkout() {
               setPay(m.id);
               setPayOpen(false);
             }}
-            style={({ pressed }) => [styles.pick, pressed && styles.focused]}
+            style={({ pressed }) => [styles.pick, pressed && { opacity: 0.92 }]}
             accessibilityRole="radio"
             accessibilityLabel={m.label}
             accessibilityState={{ selected: pay === m.id }}

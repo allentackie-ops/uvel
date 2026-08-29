@@ -227,7 +227,7 @@ function AiGeneratedPill({ colors, compact = false }: { colors: Colors; compact?
   const styles = make(colors);
   return (
     <AccessiblePressable      onPress={showAiExplanation}
-      style={({ pressed }) => [styles.aiPill, compact && styles.aiPillCompact, pressed && styles.focused]}
+      style={({ pressed }) => [styles.aiPill, compact && styles.aiPillCompact, pressed && { opacity: 0.92 }]}
       hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel="AI-generated content"
@@ -359,7 +359,7 @@ export default function Today() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modeRow}>
             {[{ id: "forYou", label: "For you" }, { id: "shop", label: "Shop the look" }, { id: "following", label: "Following" }, { id: "nearby", label: "Nearby" }].map((item) => {
               const active = todayMode === item.id;
-              return <AccessiblePressable key={item.id} onPress={() => setTodayMode(item.id as typeof todayMode)} style={({ pressed }) => [styles.modeButton, active && styles.modeButtonOn, pressed && styles.focused]} accessibilityRole="tab" accessibilityLabel={`${item.label} mode`} accessibilityState={{ selected: active }}><Text style={[styles.modeText, active && styles.modeTextOn]}>{item.label}</Text></AccessiblePressable>;
+              return <AccessiblePressable key={item.id} onPress={() => setTodayMode(item.id as typeof todayMode)} style={({ pressed }) => [styles.modeButton, active && styles.modeButtonOn, pressed && { opacity: 0.92 }]} accessibilityRole="tab" accessibilityLabel={`${item.label} mode`} accessibilityState={{ selected: active }}><Text style={[styles.modeText, active && styles.modeTextOn]}>{item.label}</Text></AccessiblePressable>;
             })}
           </ScrollView>
           <Text style={styles.sourceLabel}>Browse by source</Text>
@@ -369,7 +369,7 @@ export default function Today() {
               return (
                 <AccessiblePressable                  key={s}
                   onPress={() => setSource(s)}
-                  style={({ pressed }) => [styles.filter, on && styles.filterOn, pressed && styles.focused]}
+                  style={({ pressed }) => [styles.filter, on && styles.filterOn, pressed && { opacity: 0.92 }]}
                   accessibilityRole="tab"
                   accessibilityLabel={`${s} feed`}
                   accessibilityState={{ selected: on }}
@@ -382,7 +382,7 @@ export default function Today() {
           </ScrollView>
 
           <AccessiblePressable            onPress={() => router.push("/inbox")}
-            style={({ pressed }) => [styles.inbox, pressed && styles.focused]}
+            style={({ pressed }) => [styles.inbox, pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
             accessibilityLabel={`Chats${unread > 0 ? `, ${unread} unread` : ""}`}
             accessibilityHint="Double tap to open your messages."
@@ -474,7 +474,7 @@ export default function Today() {
           <View style={styles.head}>
             <Text style={styles.h2}>For you</Text>
             <AccessiblePressable              onPress={() => router.push("/(tabs)/shop")}
-              style={({ pressed }) => [pressed && styles.focused]}
+              style={({ pressed }) => [pressed && { opacity: 0.92 }]}
               accessibilityRole="button"
               accessibilityLabel="See all shop listings"
             >
@@ -547,7 +547,7 @@ function Hero({
       <View style={styles.heroCopy}>
         <View style={styles.heroBar}>
           <AccessiblePressable            onPress={() => void shopThis()}
-            style={({ pressed }) => [styles.cta, pressed && styles.focused]}
+            style={({ pressed }) => [styles.cta, pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
             accessibilityLabel={busy ? C.searching : C.shopTheLook}
             accessibilityHint="Double tap to find matching listings."
@@ -559,7 +559,7 @@ function Hero({
                 onSource?.();
                 void Linking.openURL(look.postUrl!);
               }}
-              style={({ pressed }) => [styles.ghost, pressed && styles.focused]}
+              style={({ pressed }) => [styles.ghost, pressed && { opacity: 0.92 }]}
               accessibilityRole="link"
               accessibilityLabel={`See this look on ${seen}`}
             >
@@ -608,7 +608,7 @@ function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop
           </View>
         ) : null}
         <AccessiblePressable          onPress={() => void shopThis()}
-          style={({ pressed }) => [styles.searchFab, pressed && styles.focused]}
+          style={({ pressed }) => [styles.searchFab, pressed && { opacity: 0.92 }]}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={busy ? `Searching listings for ${look.title}` : `Shop listings for ${look.title}`}
@@ -628,7 +628,7 @@ function TodayLocalCard({ piece, country, colors }: { piece?: ClosetPiece; count
   const styles = make(colors);
   if (!piece) return <View style={styles.localEmpty}><Text style={styles.sectionSub}>Discovering creators and sellers near you.</Text></View>;
   const brand = piece.brandId ? getBrand(piece.brandId) : undefined;
-  return <AccessiblePressable onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })} style={({ pressed }) => [styles.localCard, pressed && styles.focused]} accessibilityRole="button" accessibilityLabel={`Open ${brand?.name || piece.brand || "seller"} discovery`}>
+  return <AccessiblePressable onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })} style={({ pressed }) => [styles.localCard, pressed && { opacity: 0.92 }]} accessibilityRole="button" accessibilityLabel={`Open ${brand?.name || piece.brand || "seller"} discovery`}>
     <Image source={{ uri: piece.photo }} style={styles.localImage} contentFit="cover" accessible={false} />
     <View style={styles.localCopy}>
       <Text style={styles.localK}>DISCOVERING {country ? `· ${country}` : "NEAR YOU"}</Text>
@@ -648,7 +648,7 @@ function TodayCampaignCard({ campaign, lead, uid, colors }: { campaign: BrandCam
         if (uid) void recordCampaignAttribution({ brandId: campaign.brandId, campaignId: campaign.id, channel: "today", type: "engagement", listingId: lead.id, eventId: `today_engagement_${campaign.id}_${uid}_${Date.now()}` }).catch(() => undefined);
         router.push({ pathname: "/closet/[id]", params: { id: lead.id, campaignId: campaign.id, collectionId: campaign.collectionId || "", promotionId: campaign.promotionId || "", campaignChannel: "today" } });
       }}
-      style={({ pressed }) => [styles.todayCampaignCard, pressed && styles.focused]}
+      style={({ pressed }) => [styles.todayCampaignCard, pressed && { opacity: 0.92 }]}
       accessibilityRole="button"
       accessibilityLabel={`Explore ${brand?.name || "Brand"} campaign ${campaign.headline || campaign.name}`}
       accessibilityHint="Double tap to explore this drop."
@@ -690,7 +690,7 @@ function ShopLookCard({
   const hearts = likeCount(live, saved, uid);
   return (
     <AccessiblePressable      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
-      style={({ pressed }) => [styles.shopCard, pressed && styles.focused]}
+      style={({ pressed }) => [styles.shopCard, pressed && { opacity: 0.92 }]}
       accessibilityRole="button"
       accessibilityLabel={`Open ${brand} ${live.name}, ${usd(live.listPriceCents, live.currency || "USD")}`}
       accessibilityHint="Double tap to view this listing."

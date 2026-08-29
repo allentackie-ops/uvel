@@ -52,7 +52,7 @@ export default function SellCountries() {
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <AccessiblePressable
           onPress={() => router.back()}
-          style={({ pressed }) => [styles.headerButton, pressed && styles.focused]}
+          style={({ pressed }) => [styles.headerButton, pressed && { opacity: 0.92 }]}
           accessibilityRole="button"
           accessibilityLabel="Back to new listing"
         >
@@ -61,7 +61,7 @@ export default function SellCountries() {
         <Text style={styles.title}>Where it sells</Text>
         <AccessiblePressable
           onPress={finish}
-          style={({ pressed }) => [styles.doneButton, pressed && styles.focused]}
+          style={({ pressed }) => [styles.doneButton, pressed && { opacity: 0.92 }]}
           accessibilityRole="button"
           accessibilityLabel="Save country selection and return to new listing"
         >
@@ -75,7 +75,7 @@ export default function SellCountries() {
 
         <AccessiblePressable
           onPress={() => setAllCountries(true)}
-          style={({ pressed }) => [styles.option, allCountries && styles.optionSelected, pressed && styles.focused]}
+          style={({ pressed }) => [styles.option, allCountries && styles.optionSelected, pressed && { opacity: 0.92 }]}
           accessibilityRole="radio"
           accessibilityLabel="All countries"
           accessibilityState={{ selected: allCountries }}
@@ -100,7 +100,7 @@ export default function SellCountries() {
                   key={market.code}
                   onPress={() => toggleCountry(market.code)}
                   disabled={home}
-                  style={({ pressed }) => [styles.countryRow, pressed && styles.focused]}
+                  style={({ pressed }) => [styles.countryRow, pressed && { opacity: 0.92 }]}
                   accessibilityRole="checkbox"
                   accessibilityLabel={`${market.name}, ${market.currency}${home ? ", listing home Shop" : ""}`}
                   accessibilityState={{ checked: on, disabled: home }}

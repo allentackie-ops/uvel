@@ -205,7 +205,7 @@ export default function Shop() {
               if (mine?.verified) router.push({ pathname: "/brand/[id]", params: { id: mine.id } });
               else router.push("/brand/apply");
             }}
-            style={({ pressed }) => [styles.brandBtn, pressed && styles.focused]}
+            style={({ pressed }) => [styles.brandBtn, pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
             accessibilityLabel={mine?.verified ? "Open your brand page" : mine ? "Continue brand filing" : "Start a brand"}
           >
@@ -218,7 +218,7 @@ export default function Shop() {
         <Text style={styles.look}>{job?.title || look?.title || "This frame"}</Text>
       ) : (
         <AccessiblePressable          onPress={() => router.push("/store")}
-          style={({ pressed }) => [styles.store, pressed && styles.focused]}
+          style={({ pressed }) => [styles.store, pressed && { opacity: 0.92 }]}
           accessibilityRole="button"
           accessibilityLabel={`Current shop: ${market.name}, ${market.currency}`}
           accessibilityHint="Double tap to change shop."
@@ -262,7 +262,7 @@ export default function Shop() {
         {q ? (
           <AccessiblePressable            onPress={() => setQ("")}
             hitSlop={8}
-            style={({ pressed }) => [styles.clearBtn, pressed && styles.focused]}
+            style={({ pressed }) => [styles.clearBtn, pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
             accessibilityLabel="Clear search"
           >
@@ -277,7 +277,7 @@ export default function Shop() {
           return (
             <AccessiblePressable              key={c}
               onPress={() => setCat(c)}
-              style={({ pressed }) => [styles.chip, on && styles.chipOn, pressed && styles.focused]}
+              style={({ pressed }) => [styles.chip, on && styles.chipOn, pressed && { opacity: 0.92 }]}
               accessibilityRole="tab"
               accessibilityLabel={`${c} category`}
               accessibilityState={{ selected: on }}
@@ -298,7 +298,7 @@ export default function Shop() {
             {houses.map((b) => (
               <AccessiblePressable                key={b.id}
                 onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })}
-                style={({ pressed }) => [styles.house, pressed && styles.focused]}
+                style={({ pressed }) => [styles.house, pressed && { opacity: 0.92 }]}
                 accessibilityRole="button"
                 accessibilityLabel={`Open ${b.name}${b.verified ? ", verified brand" : ""}`}
                 accessibilityHint="Double tap to open this brand."
@@ -343,7 +343,7 @@ export default function Shop() {
                     void recordCampaignAttribution({ brandId: campaign.brandId, campaignId: campaign.id, channel: "shop", type: "engagement", listingId: lead.id, eventId: `shop_engagement_${campaign.id}_${app.uid || "guest"}_${Date.now()}` }).catch(() => undefined);
                     router.push({ pathname: "/closet/[id]", params: { id: lead.id, campaignId: campaign.id, collectionId: campaign.collectionId || "", promotionId: campaign.promotionId || "", campaignChannel: "shop" } });
                   }}
-                  style={({ pressed }) => [styles.campaignCard, pressed && styles.focused]}
+                  style={({ pressed }) => [styles.campaignCard, pressed && { opacity: 0.92 }]}
                   accessibilityRole="button"
                   accessibilityLabel={`Shop ${brand?.name || "brand"} campaign ${campaign.headline || campaign.name}`}
                   accessibilityHint="Double tap to explore this drop."
