@@ -21,7 +21,6 @@ export default function Settings() {
   const C = useCopy();
   const colors = SETTINGS_COLORS;
   const styles = make(colors);
-  const [langs, setLangs] = useState(false);
   const [busy, setBusy] = useState(false);
   const localeLabel = LANGS.find((l) => l.id === app.locale)?.label ?? "English, US";
   const market = getMarket(app.country);
@@ -140,21 +139,7 @@ export default function Settings() {
           onPress={() => router.push("/store")}
           colors={colors}
         />
-        <Row label={C.language} hint={localeLabel} onPress={() => setLangs((v) => !v)} colors={colors} last={!langs} />
-        {langs
-          ? LANGS.map((l, i) => (
-              <Pressable
-                key={l.id}
-                onPress={() => {
-                  app.setLocale(l.id);
-                  setLangs(false);
-                }}
-                style={[styles.lang, i === LANGS.length - 1 && styles.last]}
-              >
-                <Text style={[styles.langTxt, l.id === app.locale && styles.langOn]}>{l.label}</Text>
-              </Pressable>
-            ))
-          : null}
+        <Row label={C.language} hint={localeLabel} onPress={() => router.push("/language")} colors={colors} last />
       </View>
 
       {app.uid || app.signedInWith ? (

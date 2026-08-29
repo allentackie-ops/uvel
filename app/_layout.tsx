@@ -185,6 +185,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="language"
+            options={{
+              headerTitle: C.language,
+              headerTransparent: false,
+              headerShadowVisible: false,
+            }}
+          />
+          <Stack.Screen
             name="price"
             options={{
               headerShown: false,
