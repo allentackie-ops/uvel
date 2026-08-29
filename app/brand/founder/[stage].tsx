@@ -44,8 +44,8 @@ export default function FounderStagePage() {
   if (!hydrated || !project) return <View style={[local.page, { backgroundColor: palette.ink, paddingTop: insets.top + 24 }]}><Text style={{ color: palette.muted }}>Loading your studio…</Text></View>;
   return <View style={[local.page, { backgroundColor: palette.ink }]}> 
     <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 42 }} keyboardShouldPersistTaps="handled">
-      <View style={local.top}><Pressable onPress={back} hitSlop={12} accessibilityLabel="Go back"><Text style={[local.back, { color: palette.bone }]}>‹</Text></Pressable><Text style={[local.topTitle, { color: palette.bone }]}>Founder Studio</Text><View style={{ width: 36 }} /></View>
-      <View style={local.progress}><Text style={[local.progressCount, { color: palette.success }]}>{String(index + 1).padStart(2, "0")} / {String(JOURNEY.length).padStart(2, "0")}</Text><View style={local.progressLine}>{JOURNEY.map((item, itemIndex) => <View key={item} style={[local.progressDot, { backgroundColor: itemIndex <= index ? palette.success : palette.subtle }]} />)}</View></View>
+      <View style={local.progress}>
+<Text style={[local.progressCount, { color: palette.success }]}>{String(index + 1).padStart(2, "0")} / {String(JOURNEY.length).padStart(2, "0")}</Text><View style={local.progressLine}>{JOURNEY.map((item, itemIndex) => <View key={item} style={[local.progressDot, { backgroundColor: itemIndex <= index ? palette.success : palette.subtle }]} />)}</View></View>
       <View style={local.hero}><Text style={[styles.kicker, { color: colors.accent }]}>{title.kicker}</Text><Text style={[styles.title, { color: colors.ink }]}>{title.title}</Text><Text style={[styles.lede, { color: colors.muted }]}>{title.body}</Text></View>
       <View style={local.content}>
         {stage === "idea" || stage === "identity" ? <FounderStrategy project={project} colors={colors} /> : null}
