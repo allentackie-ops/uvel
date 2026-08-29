@@ -181,11 +181,13 @@ function LookMedia({
   style,
   handleRef,
   onWait,
+  bleedTop,
 }: {
   look: Look;
   style: object;
   handleRef?: MutableRefObject<FrameGrab | null>;
   onWait?: (v: boolean) => void;
+  bleedTop?: boolean;
 }) {
   useEffect(() => {
     if (!look.videoUrl) onWait?.(false);
@@ -203,7 +205,8 @@ function LookMedia({
       <MutedLoop uri={look.videoUrl} cover={look.imageUrl} style={style} handleRef={handleRef} onWait={onWait} />
     );
   }
-  return <Image source={lookImage(look)} style={style} contentFit="cover" />;
+  const insets = useSafeAreaInsets();
+  return <Image source={lookImage(look)} style={bleedTop ? [style, { top: -insets.top, bottom: -insets.bottom }] : style} contentFit="cover" />;
 }
 
 function where(url?: string): Exclude<Source, "All"> | null {
@@ -540,7 +543,7 @@ function Hero({
 
   return (
     <View style={[styles.heroWrap, { height }]}>
-      <LookMedia look={look} style={styles.hero} handleRef={grab} onWait={onWait} />
+      <LookMedia look={look} style={styles.hero} handleRef={grab} onWait={onWait} bleedTop />
       <View style={styles.heroCopy}>
         <View style={styles.heroBar}>
           <AccessiblePressable            onPress={() => void shopThis()}
