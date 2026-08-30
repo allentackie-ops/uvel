@@ -152,26 +152,22 @@ export default function Mirror() {
       <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
         <View style={{ flex: 1 }}>
           <Text style={styles.kicker}>ON YOU</Text>
-          <Text style={styles.head}>The mirror</Text>
+          <Text style={styles.head}>See it on you.</Text>
         </View>
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 108 }} showsVerticalScrollIndicator={false}>
-        {marketplaceSync !== "confirmed" ? (
-          <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={styles.syncNotice}>
-            {marketplaceSync === "loading" ? "Checking live marketplace listings…" : "Live marketplace listings are unavailable. Try again when the marketplace reconnects."}
-          </Text>
-        ) : null}
+        <Text style={styles.lede}>Try any piece before you decide. Use a Uvel listing, a photo, or a product link.</Text>
 
-        <View style={styles.hero}>
+        <View style={[styles.hero, !person && styles.heroNeed]}>
           {result ? (
             <Image source={{ uri: result }} style={styles.fill} contentFit="cover" />
           ) : person ? (
             <Image source={{ uri: person }} style={styles.fill} contentFit="cover" />
           ) : (
             <View style={styles.need}>
-              <Text style={styles.needH}>Your mirror pic</Text>
-              <Text style={styles.needP}>Head to shoes. Same one from setup, or a new shot.</Text>
+              <Text style={styles.needH}>Add your full-length photo</Text>
+              <Text style={styles.needP}>Then see how a look works on you before you buy. Your photo stays private unless you choose to share it.</Text>
               <View style={styles.needRow}>
                 <Pressable onPress={() => void fromCamera()} style={styles.needBtn}>
                   <Text style={styles.needBtnTxt}>Camera</Text>
@@ -196,12 +192,52 @@ export default function Mirror() {
           ) : null}
         </View>
 
-        <View style={styles.headRow}>
-          <Text style={styles.h2}>From Uvel</Text>
-          <Pressable onPress={() => router.push("/(tabs)/shop")}>
-            <Text style={styles.seeAll}>See all</Text>
-          </Pressable>
+        <View style={styles.sourceCard}>
+          <View style={styles.sourceHead}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sourceKicker}>START HERE</Text>
+              <Text style={styles.sourceTitle}>{person ? "Choose something to try" : "Add your photo to begin"}</Text>
+              <Text style={styles.sourceCopy}>{person ? "Bring in a look from anywhere, or choose a piece from Uvel." : "Once your photo is ready, choose a piece from Uvel or anywhere else."}</Text>
+            </View>
+            {person ? <Text style={styles.step}>1 of 2</Text> : null}
+          </View>
+          <View style={styles.anywhere}>
+            <Pressable onPress={() => void pickGarment(true)} style={[styles.chip, picked?.kind === "photo" && styles.chipOn]}>
+              <Text style={[styles.chipTxt, picked?.kind === "photo" && styles.chipTxtOn]}>Camera</Text>
+            </Pressable>
+            <Pressable onPress={() => void pickGarment(false)} style={styles.chip}>
+              <Text style={styles.chipTxt}>Photos</Text>
+            </Pressable>
+            <Pressable onPress={() => setShowLink((v) => !v)} style={[styles.chip, showLink && styles.chipOn]}>
+              <Text style={[styles.chipTxt, showLink && styles.chipTxtOn]}>Paste link</Text>
+            </Pressable>
+          </View>
+          {showLink ? (
+            <View style={styles.linkRow}>
+              <TextInput
+                placeholder="Paste an image or product link"
+                placeholderTextColor="rgba(244,240,230,0.35)"
+                value={link}
+                onChangeText={setLink}
+                autoCapitalize="none"
+                keyboardType="url"
+                style={styles.input}
+              />
+              <Pressable onPress={useLink} style={styles.linkGo}>
+                <Text style={styles.linkGoTxt}>Use</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
+
+        {live.length ? (
+          <View style={styles.headRow}>
+            <Text style={styles.h2}>From Uvel</Text>
+            <Pressable onPress={() => router.push("/(tabs)/shop")}>
+              <Text style={styles.seeAll}>See all</Text>
+            </Pressable>
+          </View>
+        ) : null}
         {live.length ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
             {live.slice(0, 16).map((p) => {
@@ -235,35 +271,19 @@ export default function Mirror() {
             })}
           </ScrollView>
         ) : (
-          <Text style={styles.empty}>When people list on Uvel, those pieces land here to try on.</Text>
+          <View style={styles.emptySource}>
+            <Text style={styles.empty}>{marketplaceSync === "confirmed" ? "No Uvel pieces are live yet. Bring in a look from anywhere and try it here." : "Uvel pieces are temporarily unavailable. You can still bring in a look from anywhere and try it here."}</Text>
+            <Pressable onPress={() => router.push("/")} style={styles.emptyLink}>
+              <Text style={styles.emptyLinkTxt}>Explore Today’s edit</Text>
+            </Pressable>
+          </View>
         )}
 
-        <Text style={[styles.h2, { paddingHorizontal: 20, marginTop: 26 }]}>From anywhere</Text>
-        <View style={styles.anywhere}>
-          <Pressable onPress={() => void pickGarment(true)} style={[styles.chip, picked?.kind === "photo" && !showLink && styles.chipOn]}>
-            <Text style={[styles.chipTxt, picked?.kind === "photo" && !showLink && styles.chipTxtOn]}>📷  Camera</Text>
-          </Pressable>
-          <Pressable onPress={() => void pickGarment(false)} style={styles.chip}>
-            <Text style={styles.chipTxt}>🖼  Photos</Text>
-          </Pressable>
-          <Pressable onPress={() => setShowLink((v) => !v)} style={[styles.chip, showLink && styles.chipOn]}>
-            <Text style={[styles.chipTxt, showLink && styles.chipTxtOn]}>📋  Paste</Text>
-          </Pressable>
-        </View>
-        {showLink ? (
-          <View style={styles.linkRow}>
-            <TextInput
-              placeholder="Image or post link"
-              placeholderTextColor="rgba(244,240,230,0.35)"
-              value={link}
-              onChangeText={setLink}
-              autoCapitalize="none"
-              keyboardType="url"
-              style={styles.input}
-            />
-            <Pressable onPress={useLink} style={styles.linkGo}>
-              <Text style={styles.linkGoTxt}>Use</Text>
-            </Pressable>
+        {picked ? (
+          <View style={styles.selected}>
+            <Text style={styles.selectedKicker}>READY TO TRY</Text>
+            <Text style={styles.selectedTitle}>{garmentName}</Text>
+            <Text style={styles.selectedCopy}>Your photo and this piece are ready for a preview.</Text>
           </View>
         ) : null}
 
@@ -271,12 +291,16 @@ export default function Mirror() {
 
         <Pressable onPress={() => void run()} disabled={!canTry} style={[styles.cta, !canTry && styles.ctaOff]}>
           <Text style={[styles.ctaTxt, !canTry && styles.ctaTxtOff]}>
-            {busy ? "Dressing you…" : "Try this look"}
+            {busy ? "Dressing you…" : !person ? "Add your photo" : !picked ? "Choose a piece" : "Try this look"}
           </Text>
         </Pressable>
-        <Pressable onPress={clearPick} style={styles.ghostCta}>
-          <Text style={styles.ghostCtaTxt}>Pick something else</Text>
-        </Pressable>
+        <Text style={styles.allowance}>{app.isPlus ? "Unlimited try-ons with Uvel+" : `${app.remainingTryOns} free try-on${app.remainingTryOns === 1 ? "" : "s"} remaining`}</Text>
+        <Text style={styles.trust}>Preview only—not a guarantee of fit. Your photo stays private unless you choose to share it.</Text>
+        {picked ? (
+          <Pressable onPress={clearPick} style={styles.ghostCta}>
+            <Text style={styles.ghostCtaTxt}>Pick something else</Text>
+          </Pressable>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -286,6 +310,15 @@ function make(_colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: "#0B0A08" },
     syncNotice: { color: "rgba(244,240,230,0.62)", fontSize: 12, lineHeight: 18, marginHorizontal: 20, marginTop: 10, marginBottom: 4 },
+    lede: { color: "rgba(244,240,230,0.64)", fontSize: 16, lineHeight: 23, paddingHorizontal: 20, marginTop: 8, marginBottom: 18 },
+    heroNeed: { height: 360 },
+    sourceCard: { marginTop: 24, marginHorizontal: 16, padding: 16, borderRadius: 20, backgroundColor: "#161512", borderWidth: 1, borderColor: "rgba(244,240,230,0.12)" },
+    sourceHead: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+    sourceKicker: { color: "#D6E27A", fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
+    sourceTitle: { color: "#F4F0E6", fontSize: 19, fontWeight: "800", marginTop: 5 },
+    sourceCopy: { color: "rgba(244,240,230,0.58)", fontSize: 13, lineHeight: 19, marginTop: 4 },
+    step: { color: "rgba(244,240,230,0.42)", fontSize: 11, fontWeight: "800" },
+
     top: {
       flexDirection: "row",
       alignItems: "flex-start",
@@ -406,8 +439,17 @@ function make(_colors: Colors) {
     uvelMeta: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12 },
     uvelName: { color: "#F4F0E6", fontSize: 14, fontWeight: "600", lineHeight: 18 },
     uvelPrice: { color: "#F4F0E6", fontSize: 14, fontWeight: "700", marginTop: 4 },
-    empty: { color: "rgba(244,240,230,0.5)", paddingHorizontal: 20, fontSize: 14, lineHeight: 20 },
-    anywhere: { flexDirection: "row", gap: 8, paddingHorizontal: 16, marginTop: 14, flexWrap: "wrap" },
+    empty: { color: "rgba(244,240,230,0.58)", fontSize: 13, lineHeight: 19 },
+    emptySource: { marginHorizontal: 20, marginTop: 12, padding: 16, borderRadius: 16, backgroundColor: "#161512" },
+    emptyLink: { marginTop: 10 },
+    emptyLinkTxt: { color: "#D6E27A", fontSize: 13, fontWeight: "800" },
+    anywhere: { flexDirection: "row", gap: 8, marginTop: 14, flexWrap: "wrap" },
+    selected: { marginHorizontal: 20, marginTop: 24, padding: 16, borderRadius: 18, borderWidth: 1, borderColor: "rgba(214,226,122,0.28)", backgroundColor: "rgba(214,226,122,0.06)" },
+    selectedKicker: { color: "#D6E27A", fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
+    selectedTitle: { color: "#F4F0E6", fontSize: 18, fontWeight: "800", marginTop: 5 },
+    selectedCopy: { color: "rgba(244,240,230,0.58)", fontSize: 13, marginTop: 4 },
+    allowance: { color: "rgba(244,240,230,0.48)", textAlign: "center", fontSize: 12, marginTop: 10 },
+    trust: { color: "rgba(244,240,230,0.34)", textAlign: "center", fontSize: 11, lineHeight: 16, paddingHorizontal: 28, marginTop: 10 },
     chip: {
       height: 42,
       paddingHorizontal: 16,
