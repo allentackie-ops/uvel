@@ -198,134 +198,22 @@ export default function You() {
         </View>
       ))}
 
-      <View style={styles.brandArea}>
-        <Text style={styles.brandAreaLabel}>YOUR BRAND</Text>
-        {mine ? (
-          <View style={styles.brandCard}>
-            <Pressable
-              onPress={() => router.push({ pathname: "/brand/[id]", params: { id: mine.id } })}
-              style={styles.brandCardMain}
-              accessibilityRole="button"
-              accessibilityLabel={`Open ${mine.name} brand page`}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.brandK}>{mine.reviewStatus === "human_review" ? "HUMAN REVIEW" : mine.reviewStatus === "needs_information" ? "INFORMATION NEEDED" : mine.verified ? "UVEL-REVIEWED" : "IN REVIEW"}</Text>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
-                  <Text style={styles.brandName}>{mine.name}</Text>
-                  {mine.verified ? <VerifiedMark size={14} /> : null}
-                </View>
-                <Text style={styles.brandP}>{mine.verified ? "Page, listings, team, analysis" : mine.reviewStatus === "human_review" ? "Submit evidence for an admin review" : mine.reviewStatus === "needs_information" ? "Add the missing details, then submit again" : "Workspace ready while Uvel review is pending"}</Text>
-              </View>
-              <Text style={styles.brandGo}>Page</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => router.push({ pathname: "/brand/hq", params: { id: mine.id } })}
-              style={styles.brandHQButton}
-              accessibilityRole="button"
-              accessibilityLabel={`Open Brand HQ for ${mine.name}`}
-            >
-              <Text style={styles.brandHQText}>HQ</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <Pressable onPress={() => router.push("/brand/apply")} style={styles.brandCard} accessibilityRole="button" accessibilityLabel="Start a public brand application">
-            <View style={{ flex: 1 }}>
-              <Text style={styles.brandK}>PUBLIC BRAND</Text>
-              <Text style={styles.brandName}>Start your brand</Text>
-              <Text style={styles.brandP}>List your brand now to post new fashion.</Text>
-            </View>
-            <Text style={styles.brandGo}>Start</Text>
-          </Pressable>
-        )}
-        <Text style={styles.brandAreaLabel}>STARTING FROM SCRATCH</Text>
-        <Pressable onPress={() => router.push("/brand/founder")} style={styles.brandCard} accessibilityRole="button" accessibilityLabel="Open private Founder Studio">
-          <View style={{ flex: 1 }}>
-            <Text style={styles.brandK}>PRIVATE WORKSPACE</Text>
-            <Text style={styles.brandName}>Founder Studio</Text>
-            <Text style={styles.brandP}>Sketch, plan, source, and prepare your first product before applying publicly.</Text>
-          </View>
-          <Text style={styles.brandGo}>Open</Text>
-        </Pressable>
-      </View>
-
-      {mine?.verified && canSeeAnalytics(mine, app.uid) ? (
-        <Pressable onPress={() => router.push({ pathname: "/brand/analytics", params: { id: mine.id } })} style={styles.plan}>
-          <View>
-            <Text style={styles.planH}>Brand analysis</Text>
-            <Text style={styles.planP}>Earnings, views, likes</Text>
-          </View>
-          <Text style={styles.planGo}>See</Text>
-        </Pressable>
-      ) : null}
-
-      {app.isPlus ? (
-        <>
-          <Pressable
-            onPress={() => router.push("/seller-analytics")}
-            style={styles.plan}
-            accessibilityRole="button"
-            accessibilityLabel="Open seller analytics"
-          >
-            <View>
-              <Text style={styles.planH}>Seller analytics</Text>
-              <Text style={styles.planP}>Listing signals and order records</Text>
-            </View>
-            <Text style={styles.planGo}>See</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push("/alerts")}
-            style={styles.plan}
-            accessibilityRole="button"
-            accessibilityLabel="Open price and restock alerts"
-          >
-            <View>
-              <Text style={styles.planH}>Price & restock alerts</Text>
-              <Text style={styles.planP}>Watch the saved pieces you care about</Text>
-            </View>
-            <Text style={styles.planGo}>See</Text>
-          </Pressable>
-        </>
-      ) : null}
-
-      {teams.map((b) => (
-        <Pressable key={b.id} onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })} style={styles.brandCard}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.brandK}>TEAM</Text>
-            <Text style={styles.brandName}>{b.name}</Text>
-            <Text style={styles.brandP}>You post on this house</Text>
-          </View>
-          <Text style={styles.brandGo}>Open</Text>
-        </Pressable>
-      ))}
-
+      <Text style={styles.sectionLabel}>NEXT UP</Text>
       <Pressable
-        onPress={() => router.push("/style-dna")}
-        style={({ pressed }) => [styles.dnaHead, pressed && { opacity: 0.92 }]}
+        onPress={() => mine ? router.push({ pathname: "/brand/[id]", params: { id: mine.id } }) : router.push("/brand/apply")}
+        style={styles.nextCard}
         accessibilityRole="button"
-        accessibilityLabel={`Style DNA${dnaReady ? `: ${[app.archetype, app.palette, app.silhouette].filter(Boolean).join(", ")}` : ": not set"}`}
-        accessibilityHint="Double tap to choose your style, palette, and silhouette."
+        accessibilityLabel={mine ? `Open ${mine.name} brand status` : "Start a public brand application"}
       >
         <View style={{ flex: 1 }}>
-          <Text style={styles.dnaTitle}>Style DNA</Text>
-          <Text style={styles.dnaSum} numberOfLines={1}>
-            {dnaReady
-              ? [app.archetype, app.palette, app.silhouette].filter(Boolean).join("  ·  ")
-              : "Set how your picks look on the Today page"}
-          </Text>
+          <Text style={styles.nextK}>{mine ? (mine.verified ? "UVEL-REVIEWED" : mine.reviewStatus === "needs_information" ? "ACTION NEEDED" : "IN REVIEW") : "YOUR NEXT STEP"}</Text>
+          <Text style={styles.nextTitle}>{mine ? mine.name : "Start your brand"}</Text>
+          <Text style={styles.nextP}>{mine ? (mine.verified ? "Your page, listings, and team are ready." : mine.reviewStatus === "needs_information" ? "Add the missing details, then submit again." : "Your workspace is ready while Uvel reviews the brand.") : "Apply publicly when you are ready to post."}</Text>
         </View>
-        <Text style={styles.dnaChevron}>›</Text>
+        <Text style={styles.nextAction}>{mine ? (mine.reviewStatus === "needs_information" ? "Fix" : "Open") : "Start"}</Text>
       </Pressable>
 
-      <Pressable onPress={() => router.push("/plus")} style={styles.plan}>
-        <View>
-          <Text style={styles.planH}>{app.isPlus ? "Uvel+" : "Free plan"}</Text>
-          {app.isPlus ? (
-            <Text style={styles.planP}>{`${app.plusPlan === "yearly" ? "Yearly" : "Monthly"} · unlimited try-on`}</Text>
-          ) : null}
-        </View>
-        {!app.isPlus ? <Text style={styles.planGo}>Get Uvel+</Text> : null}
-      </Pressable>
-
+      <Text style={styles.sectionLabel}>YOUR ACTIVITY</Text>
       <View style={styles.tabs}>
         {(["shop", "sold", "purchases", "likes"] as const).map((id) => {
           const on = hub === id;
@@ -360,6 +248,61 @@ export default function You() {
           styles={styles}
         />
       )}
+
+      <Text style={[styles.sectionLabel, { marginTop: 30 }]}>TOOLS & PREFERENCES</Text>
+      <Pressable onPress={() => router.push("/style-dna")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel={`Style DNA${dnaReady ? `: ${[app.archetype, app.palette, app.silhouette].filter(Boolean).join(", ")}` : ": not set"}`}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.dnaTitle}>Style DNA</Text>
+          <Text style={styles.dnaSum} numberOfLines={1}>{dnaReady ? [app.archetype, app.palette, app.silhouette].filter(Boolean).join("  ·  ") : "Set how your picks look on the Today page"}</Text>
+        </View>
+        <Text style={styles.dnaChevron}>›</Text>
+      </Pressable>
+
+      <Text style={[styles.sectionLabel, { marginTop: 24 }]}>BRAND WORKSPACE</Text>
+      {mine ? (
+        <View style={styles.brandCard}>
+          <Pressable onPress={() => router.push({ pathname: "/brand/[id]", params: { id: mine.id } })} style={styles.brandCardMain} accessibilityRole="button" accessibilityLabel={`View ${mine.name} brand page`}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.brandK}>PUBLIC PAGE</Text>
+              <Text style={styles.brandName}>{mine.name}</Text>
+              <Text style={styles.brandP}>View the public brand page.</Text>
+            </View>
+            <Text style={styles.brandGo}>View</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push({ pathname: "/brand/hq", params: { id: mine.id } })} style={styles.brandHQButton} accessibilityRole="button" accessibilityLabel={`Manage ${mine.name} brand`}>
+            <Text style={styles.brandHQText}>Manage</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      <Pressable onPress={() => router.push("/brand/founder")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Open private Founder Studio">
+        <View style={{ flex: 1 }}>
+          <Text style={styles.brandK}>OPTIONAL WORKSPACE</Text>
+          <Text style={styles.brandName}>Founder Studio</Text>
+          <Text style={styles.brandP}>{mine ? "Building another brand? Plan it privately before applying." : "Sketch, plan, source, and prepare before applying publicly."}</Text>
+        </View>
+        <Text style={styles.brandGo}>Open</Text>
+      </Pressable>
+
+      {mine?.verified && canSeeAnalytics(mine, app.uid) ? (
+        <Pressable onPress={() => router.push({ pathname: "/brand/analytics", params: { id: mine.id } })} style={styles.toolRow}>
+          <View><Text style={styles.planH}>Brand analysis</Text><Text style={styles.planP}>Earnings, views, likes</Text></View><Text style={styles.planGo}>View</Text>
+        </Pressable>
+      ) : null}
+      {app.isPlus ? (
+        <>
+          <Pressable onPress={() => router.push("/seller-analytics")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Open seller analytics"><View><Text style={styles.planH}>Seller analytics</Text><Text style={styles.planP}>Listing signals and order records</Text></View><Text style={styles.planGo}>View</Text></Pressable>
+          <Pressable onPress={() => router.push("/alerts")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Open price and restock alerts"><View><Text style={styles.planH}>Price & restock alerts</Text><Text style={styles.planP}>Watch the saved pieces you care about</Text></View><Text style={styles.planGo}>View</Text></Pressable>
+        </>
+      ) : null}
+      {teams.map((b) => (
+        <Pressable key={b.id} onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })} style={styles.toolRow}>
+          <View style={{ flex: 1 }}><Text style={styles.brandK}>TEAM</Text><Text style={styles.brandName}>{b.name}</Text><Text style={styles.brandP}>You post on this house</Text></View><Text style={styles.brandGo}>Open</Text>
+        </Pressable>
+      ))}
+      <Pressable onPress={() => router.push("/plus")} style={styles.upgradeRow} accessibilityRole="button" accessibilityLabel="Manage Uvel plan">
+        <Text style={styles.planH}>{app.isPlus ? "Uvel+" : "Free plan"}</Text>
+        {!app.isPlus ? <Text style={styles.planGo}>Upgrade</Text> : <Text style={styles.planP}>{`${app.plusPlan === "yearly" ? "Yearly" : "Monthly"} · unlimited try-on`}</Text>}
+      </Pressable>
     </ScrollView>
   );
 }
@@ -717,6 +660,7 @@ function make(colors: Colors) {
     inviteNo: { height: 34, paddingHorizontal: 16, borderRadius: 17, borderWidth: 1, borderColor: "rgba(244,240,230,0.16)", alignItems: "center", justifyContent: "center" },
     inviteNoTxt: { color: "#F4F0E6", fontWeight: "700", fontSize: 13 },
     brandArea: { marginBottom: 8 },
+    sectionLabel: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 22, marginBottom: 9 },
     brandAreaLabel: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 10, marginBottom: 9 },
     brandCard: {
       marginTop: 16,
@@ -770,16 +714,23 @@ function make(colors: Colors) {
     },
     dash: { width: 16, height: 1.5, borderRadius: 1, backgroundColor: "#F4F0E6" },
     h2: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 26, marginTop: 22 },
+    nextCard: { marginTop: 2, backgroundColor: "#F4F0E6", borderRadius: 20, padding: 16, flexDirection: "row", alignItems: "center", gap: 12 },
+    nextK: { color: "rgba(22,20,15,0.52)", letterSpacing: 1.4, fontSize: 10, fontWeight: "800" },
+    nextTitle: { color: "#16140F", fontWeight: "800", fontSize: 19, marginTop: 4 },
+    nextP: { color: "rgba(22,20,15,0.62)", fontSize: 13, marginTop: 4, lineHeight: 18 },
+    nextAction: { color: "#16140F", fontWeight: "800", fontSize: 13 },
     dnaHead: {
-      marginTop: 22,
+      marginTop: 0,
       backgroundColor: "#161512",
-      borderRadius: 20,
+      borderRadius: 18,
       paddingHorizontal: 16,
       paddingVertical: 14,
       flexDirection: "row",
       alignItems: "center",
       gap: 12,
     },
+    toolRow: { marginTop: 10, backgroundColor: "#161512", borderRadius: 18, padding: 16, flexDirection: "row", alignItems: "center", gap: 12 },
+    upgradeRow: { marginTop: 10, paddingHorizontal: 16, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     focused: { borderWidth: 2, borderColor: colors.success },
     dnaTitle: { color: "#F4F0E6", fontWeight: "700", fontSize: 17 },
     dnaSum: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 4 },
@@ -787,7 +738,7 @@ function make(colors: Colors) {
     lede: { color: "rgba(244,240,230,0.58)", fontSize: 15, lineHeight: 22, marginTop: 12 },
     foot: { color: "rgba(244,240,230,0.4)", fontSize: 13, lineHeight: 19, marginTop: 16 },
     plan: {
-      marginTop: 22,
+      marginTop: 10,
       backgroundColor: "#161512",
       borderRadius: 20,
       padding: 16,
@@ -800,7 +751,7 @@ function make(colors: Colors) {
     planGo: { color: "#F4F0E6", fontWeight: "700", fontSize: 13 },
     tabs: {
       flexDirection: "row",
-      marginTop: 28,
+      marginTop: 2,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: "rgba(244,240,230,0.12)",
     },

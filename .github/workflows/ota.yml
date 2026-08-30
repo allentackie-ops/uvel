@@ -1,6 +1,6 @@
 name: OTA
 
-# Token-based publish. Set repo secret EXPO_TOKEN (expo.dev → Access tokens).
+# Token-based publish. Set the repository secret Ota_publish to an Expo access token.
 # Dispatch with channel=production to ship JS to App Store binaries.
 # See docs/ota.md.
 
@@ -31,7 +31,7 @@ jobs:
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+          token: ${{ secrets.Ota_publish }}
 
       - name: Scan for credential-shaped values
         run: npm run security:secrets
