@@ -88,6 +88,25 @@ export default function Mirror() {
     }
   }
 
+  function chooseGarmentPhoto() {
+    const options = ["Take clothing photo", "Choose clothing photo", "Cancel"];
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex: 2, title: "Add a clothing piece" },
+        (i) => {
+          if (i === 0) void pickGarment(true);
+          if (i === 1) void pickGarment(false);
+        },
+      );
+      return;
+    }
+    Alert.alert("Add a clothing piece", "Choose a clothing photo to try on.", [
+      { text: "Take clothing photo", onPress: () => void pickGarment(true) },
+      { text: "Choose clothing photo", onPress: () => void pickGarment(false) },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
+
   async function pickGarment(fromCamera: boolean) {
     try {
       const uri = fromCamera ? await takePhoto(false) : await pickFromLibrary();
@@ -170,10 +189,10 @@ export default function Mirror() {
               <Text style={styles.needP}>Then see how a look works on you before you buy. Your photo stays private unless you choose to share it.</Text>
               <View style={styles.needRow}>
                 <Pressable onPress={() => void fromCamera()} style={styles.needBtn}>
-                  <Text style={styles.needBtnTxt}>Camera</Text>
+                  <Text style={styles.needBtnTxt}>Take my photo</Text>
                 </Pressable>
                 <Pressable onPress={() => void fromLibrary()} style={styles.needBtnGhost}>
-                  <Text style={styles.needBtnGhostTxt}>Library</Text>
+                  <Text style={styles.needBtnGhostTxt}>Choose my photo</Text>
                 </Pressable>
               </View>
             </View>
@@ -202,14 +221,11 @@ export default function Mirror() {
             {person ? <Text style={styles.step}>1 of 2</Text> : null}
           </View>
           <View style={styles.anywhere}>
-            <Pressable onPress={() => void pickGarment(true)} style={[styles.chip, picked?.kind === "photo" && styles.chipOn]}>
-              <Text style={[styles.chipTxt, picked?.kind === "photo" && styles.chipTxtOn]}>Camera</Text>
-            </Pressable>
-            <Pressable onPress={() => void pickGarment(false)} style={styles.chip}>
-              <Text style={styles.chipTxt}>Photos</Text>
+            <Pressable onPress={chooseGarmentPhoto} style={[styles.chip, picked?.kind === "photo" && styles.chipOn]}>
+              <Text style={[styles.chipTxt, picked?.kind === "photo" && styles.chipTxtOn]}>Add clothing photo</Text>
             </Pressable>
             <Pressable onPress={() => setShowLink((v) => !v)} style={[styles.chip, showLink && styles.chipOn]}>
-              <Text style={[styles.chipTxt, showLink && styles.chipTxtOn]}>Paste link</Text>
+              <Text style={[styles.chipTxt, showLink && styles.chipTxtOn]}>Paste product link</Text>
             </Pressable>
           </View>
           {showLink ? (
