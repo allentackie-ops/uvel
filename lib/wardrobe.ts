@@ -119,6 +119,7 @@ const NAMES: Record<Category, string[]> = {
 let pieces: ClosetPiece[] = [];
 const listeners = new Set<() => void>();
 let listingsWatchStarted = false;
+let listingsUnsubscribe: (() => void) | null = null;
 let wardrobeHydrated = false;
 const remoteListingIds = new Set<string>();
 export type MarketplaceSyncState = "loading" | "confirmed" | "unavailable";
@@ -154,8 +155,14 @@ function normalize(p: ClosetPiece): ClosetPiece {
   };
 }
 
-function watchPublicListings() {
-  if (listingsWatchStarted) return;
+function watchPublicListings(force = false) {
+  if (listingsWatchStarted && !force) return;
+  if (force) {
+    listingsUnsubscribe?.();
+    listingsUnsubscribe = null;
+    listingsWatchStarted = false;
+    remoteListingIds.clear();
+  }
   if (!firebaseReady()) {
     setMarketplaceSyncState("unavailable");
     return;
@@ -164,7 +171,7 @@ function watchPublicListings() {
   setMarketplaceSyncState("loading");
   try {
     const q = query(collection(firebaseDb(), "listings"), where("status", "==", "listed"));
-    onSnapshot(q, (snap) => {
+    listingsUnsubscribe = onSnapshot(q, (snap) => {
       snap.docChanges().forEach((change) => {
         const existing = pieces.find((piece) => piece.id === change.doc.id);
         if (change.type === "removed") {
@@ -199,7 +206,11 @@ function watchPublicListings() {
           : [remote, ...pieces];
       });
       setMarketplaceSyncState("confirmed");
-    }, () => setMarketplaceSyncState("unavailable"));
+    }, () => {
+      listingsWatchStarted = false;
+      listingsUnsubscribe = null;
+      setMarketplaceSyncState("unavailable");
+    });
   } catch {
     listingsWatchStarted = false;
     setMarketplaceSyncState("unavailable");
@@ -275,6 +286,9 @@ export function useMarketplaceSyncState() {
   return marketplaceSyncState;
 }
 
+export function refreshMarketplaceListings() {
+  watchPublicListings(true);
+}
 export function isRemoteListedPiece(id: string) {
   return remoteListingIds.has(id);
 }

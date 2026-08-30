@@ -6,12 +6,12 @@ import { useEffect, useMemo, useState } from "react";
 import {  ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
-import { ListingCard, ListingEmpty } from "../../components/ListingCard";
+import { ListingCard } from "../../components/ListingCard";
 import { OrbitLoader } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
 import { VerifiedMark } from "../../components/VerifiedMark";
-import { followedBrandIds, getBrand, ownedBrand, verifiedBrands, useBrands } from "../../lib/brands";
+import { followedBrandIds, getBrand, verifiedBrands, useBrands } from "../../lib/brands";
 import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
 import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
@@ -21,7 +21,7 @@ import { useCopy } from "../../lib/useCopy";
 import { useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
 import { useLiveShopCampaigns } from "../../lib/marketing";
-import { getPiece, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated } from "../../lib/wardrobe";
+import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated } from "../../lib/wardrobe";
 
 function FrozenClip({
   uri,
@@ -88,12 +88,12 @@ export default function Shop() {
   const [aiIds, setAiIds] = useState<string[] | null>(null);
   const [scanning, setScanning] = useState(false);
   const [job, setJob] = useState<LookScan | null>(null);
+  const [retrying, setRetrying] = useState(false);
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
   const followedIds = useMemo(() => followedBrandIds(app.uid), [brandState, app.uid]);
   const followedKey = followedIds.join("|");
-  const mine = ownedBrand(app.uid);
   const houses = verifiedBrands();
 
   useEffect(() => {
@@ -200,19 +200,6 @@ export default function Shop() {
     >
       <View style={styles.titleRow}>
         <Text style={styles.title}>{scanningLook ? C.shopTheLook : C.shop}</Text>
-        {!scanningLook ? (
-          <AccessiblePressable            onPress={() => {
-              if (mine?.verified) router.push({ pathname: "/brand/[id]", params: { id: mine.id } });
-              else router.push("/brand/apply");
-            }}
-            style={({ pressed }) => [styles.brandBtn, pressed && { opacity: 0.92 }]}
-            accessibilityRole="button"
-            accessibilityLabel={mine?.verified ? "Open your brand page" : mine ? "Continue brand filing" : "Start a brand"}
-          >
-            {mine?.verified ? <VerifiedMark size={14} /> : null}
-            <Text style={styles.brandBtnTxt}>{mine?.verified ? "Your brand" : mine ? "Brand filing" : "Start a brand"}</Text>
-          </AccessiblePressable>
-        ) : null}
       </View>
       {scanningLook ? (
         <Text style={styles.look}>{job?.title || look?.title || "This frame"}</Text>
@@ -242,9 +229,21 @@ export default function Shop() {
       ) : null}
 
       {marketplaceSync !== "confirmed" ? (
-        <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={styles.syncNotice}>
-          {marketplaceSync === "loading" ? "Checking live marketplace listings…" : "Live marketplace listings are unavailable. Local drafts and unsynced listings stay out of Shop until the marketplace reconnects."}
-        </Text>
+        <View style={styles.syncCard} accessibilityLiveRegion="polite">
+          <Text style={styles.syncKicker}>{marketplaceSync === "loading" ? "CONNECTING TO SHOP" : "SHOP TEMPORARILY UNAVAILABLE"}</Text>
+          <Text style={styles.syncTitle}>{marketplaceSync === "loading" ? "Finding live listings" : "We’re reconnecting the marketplace"}</Text>
+          <Text style={styles.syncNotice}>{marketplaceSync === "loading" ? "Your shop is loading the latest verified inventory." : "Live listings will return when the marketplace connection is restored."}</Text>
+          {marketplaceSync === "unavailable" ? (
+            <View style={styles.syncActions}>
+              <AccessiblePressable onPress={() => { setRetrying(true); refreshMarketplaceListings(); setTimeout(() => setRetrying(false), 1200); }} style={styles.syncPrimary} accessibilityRole="button" accessibilityLabel="Retry marketplace connection">
+                <Text style={styles.syncPrimaryTxt}>{retrying ? "Retrying…" : "Retry"}</Text>
+              </AccessiblePressable>
+              <AccessiblePressable onPress={() => router.push("/")} style={styles.syncSecondary} accessibilityRole="button" accessibilityLabel="Explore Today’s edit">
+                <Text style={styles.syncSecondaryTxt}>Explore Today</Text>
+              </AccessiblePressable>
+            </View>
+          ) : null}
+        </View>
       ) : null}
 
       <View style={styles.search}>
@@ -381,15 +380,16 @@ export default function Shop() {
       </View>
 
       {!scanning && ranked.length === 0 ? (
-        <ListingEmpty
-          copy={
-            scanningLook
-              ? "Nothing on this shop looks like that yet."
-              : marketplaceSync !== "confirmed"
-                ? "Live marketplace listings are unavailable right now. Try again when the marketplace reconnects."
-                : `Nothing on the ${market.name} shop yet. Listings from other countries stay there unless the seller opens them to this store.`
-          }
-        />
+        marketplaceSync !== "confirmed" ? null : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyKicker}>{scanningLook ? "LOOK SEARCH" : "THIS SHOP IS QUIET"}</Text>
+            <Text style={styles.emptyTitle}>{scanningLook ? "Nothing matches this look yet" : `Nothing is listed in the ${market.name} shop yet`}</Text>
+            <Text style={styles.emptyCopy}>{scanningLook ? "Try another frame or remove a filter to see more pieces." : "Explore the daily edit while verified houses bring new pieces online."}</Text>
+            <AccessiblePressable onPress={() => router.push("/")} style={styles.emptyPrimary} accessibilityRole="button" accessibilityLabel="Explore Today’s edit">
+              <Text style={styles.emptyPrimaryTxt}>Explore Today’s Edit</Text>
+            </AccessiblePressable>
+          </View>
+        )
       ) : null}
     </ScrollView>
   );
@@ -401,19 +401,21 @@ function make(colors: Colors) {
     content: { paddingHorizontal: 16, paddingBottom: 108 },
     title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
     titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-    brandBtn: {
-      minHeight: 44,
-      paddingHorizontal: 12,
-      borderRadius: 17,
-      backgroundColor: "#161512",
-      borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.16)",
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-    },
-    brandBtnTxt: { color: "#F4F0E6", fontWeight: "700", fontSize: 12 },
-    syncNotice: { color: "rgba(244,240,230,0.62)", fontSize: 12, lineHeight: 18, marginTop: 10, marginBottom: 4 },
+    syncCard: { marginTop: 18, padding: 16, borderRadius: 18, backgroundColor: "#161512", borderWidth: 1, borderColor: "rgba(244,240,230,0.12)" },
+    syncKicker: { color: "#D6E27A", fontSize: 10, fontWeight: "800", letterSpacing: 1.4 },
+    syncTitle: { color: "#F4F0E6", fontSize: 17, fontWeight: "800", marginTop: 5 },
+    syncNotice: { color: "rgba(244,240,230,0.6)", fontSize: 13, lineHeight: 18, marginTop: 5 },
+    syncActions: { flexDirection: "row", gap: 8, marginTop: 14 },
+    syncPrimary: { minHeight: 40, paddingHorizontal: 16, borderRadius: 20, backgroundColor: "#F4F0E6", alignItems: "center", justifyContent: "center" },
+    syncPrimaryTxt: { color: "#16140F", fontSize: 13, fontWeight: "800" },
+    syncSecondary: { minHeight: 40, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: "rgba(244,240,230,0.18)", alignItems: "center", justifyContent: "center" },
+    syncSecondaryTxt: { color: "#F4F0E6", fontSize: 13, fontWeight: "700" },
+    emptyState: { marginTop: 22, padding: 22, borderRadius: 20, backgroundColor: "#161512", alignItems: "center" },
+    emptyKicker: { color: "#D6E27A", fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
+    emptyTitle: { color: "#F4F0E6", fontSize: 19, fontWeight: "800", textAlign: "center", marginTop: 7 },
+    emptyCopy: { color: "rgba(244,240,230,0.58)", fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 6 },
+    emptyPrimary: { marginTop: 16, minHeight: 44, paddingHorizontal: 18, borderRadius: 22, backgroundColor: "#F4F0E6", alignItems: "center", justifyContent: "center" },
+    emptyPrimaryTxt: { color: "#16140F", fontSize: 13, fontWeight: "800" },
     campaignSection: { marginTop: 22 },
     campaignHead: { flexDirection: "row", alignItems: "flex-end", gap: 10, marginBottom: 10 },
     campaignKicker: { color: "#D6E27A", fontSize: 11, fontWeight: "800", letterSpacing: 1.5 },
