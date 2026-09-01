@@ -23,6 +23,8 @@ import { bundledLooks } from "../../lib/trends";
 import { useLiveShopCampaigns } from "../../lib/marketing";
 import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated } from "../../lib/wardrobe";
 
+const MIN_REFRESH_MS = 1200;
+
 const orbitTop = {
   position: "absolute" as const,
   top: 0,
@@ -140,14 +142,17 @@ export default function Shop() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await refreshMarketplaceListings();
+      await Promise.all([
+        refreshMarketplaceListings(),
+        new Promise<void>((resolve) => setTimeout(resolve, MIN_REFRESH_MS)),
+      ]);
     } finally {
       setRefreshing(false);
       setRetrying(false);
     }
   }, []);
 
-  const orbitOn = useMinHold(refreshing, 1200);
+  const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
   const live = shopFloor(country);
   const liveCampaigns = useLiveShopCampaigns();
   const scanningLook = Boolean(scan === "1" || look || frame || videoUrl);
@@ -218,7 +223,9 @@ export default function Shop() {
     <View style={styles.page}>
       <ScrollView
         style={styles.page}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
+        contentContainerStyle={[styles.content, { flexGrow: 1, paddingTop: insets.top + 8 }]}
+        alwaysBounceVertical
+        bounces
         keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
