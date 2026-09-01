@@ -270,7 +270,7 @@ async function reviewBrandLocal(filing: BrandFiling): Promise<BrandReview> {
   return asReview(parseJson(json.content?.[0]?.text ?? "{}"));
 }
 
-export async function reviewBrand(filing: BrandFiling): Promise<BrandReview> {
+export async function reviewBrand(filing: BrandFiling, brandId?: string): Promise<BrandReview> {
   const hard = localHardFail(filing);
   if (hard) return hard;
   const payload = filingForReview(filing);
@@ -278,10 +278,11 @@ export async function reviewBrand(filing: BrandFiling): Promise<BrandReview> {
   if (firebaseReady()) {
     try {
       const call = httpsCallable(firebaseFunctions(), "reviewBrand");
-      const res = await withTimeout(call(payload) as Promise<{ data: BrandReview }>, 25000);
+      const res = await withTimeout(call({ ...payload, ...(brandId ? { brandId } : {}) }) as Promise<{ data: BrandReview }>, 25000);
       if (res?.data && typeof res.data.ok === "boolean") return sanitizeReview(filing, res.data);
-    } catch {
-      /* fall through to the same Anthropic desk the listings use */
+    } catch (error) {
+      if (brandId) throw error;
+      /* Unscoped prototype checks may still use the local desk. */
     }
   }
   return sanitizeReview(filing, await reviewBrandLocal(payload));

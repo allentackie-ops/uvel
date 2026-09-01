@@ -9,7 +9,7 @@ const anthropicSecret = defineSecret("ANTHROPIC_API_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const paystackWebhookSecret = defineSecret("PAYSTACK_WEBHOOK_SECRET");
 
-if (!admin.apps.length) admin.initializeApp();
+if (!admin.apps.length) admin.initializeApp({ storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "uvel-32d32.firebasestorage.app" });
 
 const PAYSTACK = new Set(["GH", "NG", "KE", "ZA"]);
 const RESERVATION_MINUTES = 30;
@@ -1043,14 +1043,21 @@ notes: one sentence on what you checked.`;
 exports.reviewBrand = onCall({ secrets: [anthropicSecret] }, async (req) => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
   const f = req.data || {};
-  const hard = localHardFail(f);
+  const brandId = String(f.brandId || "").trim();
+  const filing = { ...f };
+  delete filing.brandId;
+  const hard = localHardFail(filing);
   if (hard) return hard;
 
   const key = anthropicSecret.value();
   if (!key) throw new HttpsError("failed-precondition", "Brand check isn’t connected yet.");
 
-  const prompt = promptOf(f);
+  if (brandId) {
+    const brandSnap = await admin.firestore().collection("brands").doc(brandId).get();
+    if (!brandSnap.exists || brandSnap.data()?.ownerId !== req.auth.uid) throw new HttpsError("permission-denied", "Only the brand owner can submit this filing.");
+  }
 
+  const prompt = promptOf(filing);
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -1067,18 +1074,29 @@ exports.reviewBrand = onCall({ secrets: [anthropicSecret] }, async (req) => {
   const json = await res.json();
   if (!res.ok) throw new HttpsError("internal", json.error?.message || "Couldn’t finish the check.");
   const parsed = parseJson(json.content?.[0]?.text || "{}");
-    const ok = parsed.ok === true;
-    const reasons = Array.isArray(parsed.reasons) ? parsed.reasons.map(String).filter(Boolean).slice(0, 3) : [];
-    const decision = parsed.decision === "needs_information" || parsed.decision === "human_review" || parsed.decision === "uvel_reviewed" || parsed.decision === "rejected"
-      ? parsed.decision
-      : ok ? "uvel_reviewed" : "human_review";
-    return sanitizeReview(f, {
-      ok,
-      decision,
-      reasons,
-      headline: String(parsed.headline || (ok ? "Uvel review complete." : "This brand needs review.")),
-      notes: String(parsed.notes || ""),
-    });
+  const ok = parsed.ok === true;
+  const reasons = Array.isArray(parsed.reasons) ? parsed.reasons.map(String).filter(Boolean).slice(0, 3) : [];
+  const decision = parsed.decision === "needs_information" || parsed.decision === "human_review" || parsed.decision === "uvel_reviewed" || parsed.decision === "rejected"
+    ? parsed.decision
+    : ok ? "uvel_reviewed" : "human_review";
+  const review = sanitizeReview(filing, {
+    ok,
+    decision,
+    reasons,
+    headline: String(parsed.headline || (ok ? "Uvel review complete." : "This brand needs review.")),
+    notes: String(parsed.notes || ""),
+  });
+  if (brandId) {
+    const patch = review.ok && review.decision === "uvel_reviewed"
+      ? { status: "verified", verified: true, reviewStatus: "uvel_reviewed", verifiedAt: admin.firestore.FieldValue.serverTimestamp(), rejectReasons: [], rejectHeadline: "" }
+      : review.decision === "rejected"
+        ? { status: "rejected", verified: false, reviewStatus: "rejected", rejectReasons: review.reasons, rejectHeadline: review.headline }
+        : { status: "pending", verified: false, reviewStatus: review.decision, rejectReasons: review.reasons, rejectHeadline: review.headline };
+    const db = admin.firestore();
+    await db.collection("brands").doc(brandId).set({ ...patch, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand owner"), action: "brand_review_submitted", entity: "brand", entityId: brandId, entityName: String((await db.collection("brands").doc(brandId).get()).data()?.name || "Brand"), summary: `Brand review result: ${review.decision}.` });
+  }
+  return review;
 });
 
 exports.deleteAccount = onCall(async (req) => {
@@ -1115,6 +1133,80 @@ async function brandMemberRole(db, brandId, uid) {
   const member = Array.isArray(brand.members) ? brand.members.find((candidate) => candidate && candidate.uid === uid) : null;
   return member && member.role ? String(member.role) : null;
 }
+
+const TEAM_ROLES = new Set(["admin", "merchandiser", "marketing", "support", "finance", "viewer", "poster"]);
+
+exports.uploadBrandAsset = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const brandId = String(req.data?.brandId || "").trim();
+  const kind = String(req.data?.kind || "").trim();
+  const contentType = String(req.data?.contentType || "").trim().toLowerCase();
+  const extension = String(req.data?.extension || "jpg").trim().toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8) || "jpg";
+  const base64 = String(req.data?.base64 || "");
+  if (!brandId || !["logo", "banner"].includes(kind) || !["image/jpeg", "image/png", "image/webp", "video/mp4", "video/webm"].includes(contentType) || !base64 || base64.length > 8 * 1024 * 1024) throw new HttpsError("invalid-argument", "Invalid brand asset.");
+  const db = admin.firestore();
+  const role = await brandMemberRole(db, brandId, req.auth.uid);
+  if (!role || !["owner", "admin", "marketing"].includes(role)) throw new HttpsError("permission-denied", "Your role cannot edit brand media.");
+  const path = `brands/${brandId}/${kind}/${Date.now().toString(36)}-${crypto.randomBytes(8).toString("hex")}.${extension}`;
+  const file = admin.storage().bucket().file(path);
+  await file.save(Buffer.from(base64, "base64"), { resumable: false, metadata: { contentType, metadata: { uploadedByUid: req.auth.uid, brandId, kind } } });
+  const [url] = await file.getSignedUrl({ action: "read", expires: "2500-01-01" });
+  return { ok: true, url, path };
+});
+
+exports.acceptBrandInvite = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const inviteId = String(req.data?.inviteId || "").trim();
+  if (!/^inv-[a-zA-Z0-9_-]{4,160}$/.test(inviteId)) throw new HttpsError("invalid-argument", "Invalid invite.");
+  const db = admin.firestore();
+  const inviteRef = db.collection("brandInvites").doc(inviteId);
+  const inviteSnap = await inviteRef.get();
+  if (!inviteSnap.exists) throw new HttpsError("not-found", "Invite not found.");
+  const invite = inviteSnap.data() || {};
+  const email = String(req.auth.token.email || "").toLowerCase();
+  if (invite.status !== "pending" || (invite.toUid && invite.toUid !== req.auth.uid) || (!invite.toUid && invite.toEmail && String(invite.toEmail).toLowerCase() !== email)) {
+    throw new HttpsError("permission-denied", "This invite is not available to your account.");
+  }
+  const brandRef = db.collection("brands").doc(String(invite.brandId || ""));
+  await db.runTransaction(async (tx) => {
+    const brandSnap = await tx.get(brandRef);
+    if (!brandSnap.exists) throw new HttpsError("not-found", "Brand not found.");
+    const brand = brandSnap.data() || {};
+    const members = Array.isArray(brand.members) ? brand.members.slice() : [];
+    if (!members.some((member) => member && member.uid === req.auth.uid)) {
+      const profileSnap = await tx.get(db.collection("users").doc(req.auth.uid));
+      const profile = profileSnap.exists ? profileSnap.data() || {} : {};
+      members.push({ uid: req.auth.uid, name: String(profile.name || req.auth.token.name || req.auth.token.email || "Uvel member").slice(0, 120), photo: String(profile.photo || "").slice(0, 2000) || undefined, role: TEAM_ROLES.has(String(invite.role || "")) ? String(invite.role) : "poster", joinedAt: Date.now() });
+      tx.set(brandRef, { members, memberIds: members.map((member) => member.uid), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    }
+    tx.set(inviteRef, { status: "accepted", toUid: req.auth.uid, acceptedAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  });
+  await writeAudit(db, { brandId: String(invite.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Uvel member"), action: "team_invite_accepted", entity: "team", entityId: req.auth.uid, entityName: String(invite.toName || "Uvel member"), summary: "Brand team invite accepted." });
+  return { ok: true, brandId: String(invite.brandId) };
+});
+
+exports.updateBrandTeam = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const brandId = String(req.data?.brandId || "").trim();
+  const memberUid = String(req.data?.memberUid || "").trim();
+  const action = String(req.data?.action || "").trim();
+  const role = String(req.data?.role || "").trim();
+  if (!brandId || !memberUid || !["role", "remove"].includes(action) || (action === "role" && !TEAM_ROLES.has(role))) throw new HttpsError("invalid-argument", "Invalid team change.");
+  const db = admin.firestore();
+  const brandRef = db.collection("brands").doc(brandId);
+  const snap = await brandRef.get();
+  if (!snap.exists) throw new HttpsError("not-found", "Brand not found.");
+  const brand = snap.data() || {};
+  const actorRole = await brandMemberRole(db, brandId, req.auth.uid);
+  if (!actorRole || !["owner", "admin"].includes(actorRole)) throw new HttpsError("permission-denied", "Only brand owners and admins can change team access.");
+  if (brand.ownerId === memberUid) throw new HttpsError("failed-precondition", "The brand owner cannot be changed here.");
+  const members = Array.isArray(brand.members) ? brand.members.slice() : [];
+  if (!members.some((member) => member && member.uid === memberUid)) throw new HttpsError("not-found", "Team member not found.");
+  const nextMembers = action === "remove" ? members.filter((member) => member.uid !== memberUid) : members.map((member) => member.uid === memberUid ? { ...member, role } : member);
+  await brandRef.set({ members: nextMembers, memberIds: nextMembers.map((member) => member.uid), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand admin"), action: action === "remove" ? "team_member_removed" : "team_role_updated", entity: "team", entityId: memberUid, entityName: memberUid, summary: action === "remove" ? "Team member removed." : `Team role changed to ${role}.` });
+  return { ok: true, brandId, memberUid, action, ...(action === "role" ? { role } : {}) };
+});
 
 async function restockOrderInventory(orderId) {
   const db = admin.firestore();
@@ -1315,7 +1407,7 @@ async function recordProviderRefund(orderId, providerId, providerStatus) {
 const AUDIT_ACTIONS = new Set([
   "product_created", "product_updated", "product_published", "product_drafted", "product_archived", "product_restored", "product_duplicated",
   "price_updated", "inventory_updated", "market_updated", "order_fulfillment_updated", "resolution_requested", "resolution_approved", "resolution_rejected", "resolution_reviewed",
-  "return_received", "refund_requested", "refund_succeeded", "restock_confirmed", "restock_decided", "team_role_updated", "brand_settings_updated", "support_case_created", "support_case_updated", "support_note_added", "payout_requested", "payout_profile_submitted", "collection_saved", "campaign_saved", "promotion_saved", "campaign_status_changed",
+  "return_received", "refund_requested", "refund_succeeded", "restock_confirmed", "restock_decided", "team_role_updated", "team_member_removed", "team_invite_accepted", "brand_review_submitted", "brand_settings_updated", "support_case_created", "support_case_updated", "support_note_added", "payout_requested", "payout_profile_submitted", "collection_saved", "campaign_saved", "promotion_saved", "campaign_status_changed",
 ]);
 const AUDIT_ENTITIES = new Set(["product", "order", "team", "brand", "resolution", "payout", "collection", "campaign", "promotion"]);
 
@@ -1423,13 +1515,14 @@ exports.createBrandCatalog = onCall(async (req) => {
   const role = await brandMemberRole(db, brandId, req.auth.uid);
   if (!role || !CATALOG_EDIT_ROLES.has(role)) throw new HttpsError("permission-denied", "Your role cannot create catalog products.");
   const patch = safeCatalogPatch(piece);
-  if (patch.status !== "draft") throw new HttpsError("failed-precondition", "New team catalog products must start as drafts.");
+  if (! ["draft", "listed"].includes(String(patch.status || "draft"))) throw new HttpsError("failed-precondition", "New team catalog products must start as drafts or listed items.");
+  if (patch.status === "listed" && Number(patch.stockQuantity) <= 0) throw new HttpsError("failed-precondition", "A listed product must have inventory.");
   const brandSnap = await db.collection("brands").doc(brandId).get();
   const brand = brandSnap.data() || {};
   const product = { ...patch, brandId, ownerId: String(brand.ownerId || req.auth.uid), listedByUid: req.auth.uid, listedByName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() };
   await db.collection("listings").doc(listingId).set(product, { merge: false });
-  await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: "product_duplicated", entity: "product", entityId: listingId, entityName: String(product.name || "Product"), summary: "Product created as a catalog draft." });
-  return { ok: true, listingId, status: "draft" };
+  await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: patch.status === "listed" ? "product_published" : "product_duplicated", entity: "product", entityId: listingId, entityName: String(product.name || "Product"), summary: patch.status === "listed" ? "Product published to the brand catalog." : "Product created as a catalog draft." });
+  return { ok: true, listingId, status: patch.status || "draft" };
 });
 
 const SHIPMENT_TRANSITIONS = {

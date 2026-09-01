@@ -10,10 +10,12 @@ import {
   setDoc,
   where,
 } from "firebase/firestore";
+import { httpsCallable } from "firebase/functions";
 import { useEffect, useState } from "react";
+import * as FileSystem from "expo-file-system/legacy";
 import { themeOf, type BrandTheme } from "./brandThemes";
 import { reviewBrand, type BrandFiling } from "./brandVerify";
-import { firebaseDb, firebaseReady } from "./firebase";
+import { firebaseAuth, firebaseDb, firebaseFunctions, firebaseReady } from "./firebase";
 import { listedPieces } from "./wardrobe";
 import { allOrders } from "./orders";
 
@@ -164,23 +166,31 @@ async function pushInvite(i: BrandInvite) {
 
 async function pullRemote() {
   if (!firebaseReady()) return;
+  const user = firebaseAuth().currentUser;
+  if (!user) return;
   try {
-    const snap = await getDocs(collection(firebaseDb(), "brands"));
-    if (!snap.empty) {
-      const remote = snap.docs
-        .map((d) => ({ id: d.id, ...(d.data() as object) }) as Brand)
-        .filter((b) => !DEMO_BRAND_IDS.has(b.id) && !DEMO_BRAND_OWNER_IDS.has(b.ownerId));
-      const byId = new Map(brands.map((b) => [b.id, b]));
-      for (const r of remote) byId.set(r.id, { ...byId.get(r.id), ...r } as Brand);
-      brands = Array.from(byId.values());
+    const brandQueries = [
+      query(collection(firebaseDb(), "brands"), where("status", "==", "verified")),
+      query(collection(firebaseDb(), "brands"), where("ownerId", "==", user.uid)),
+      query(collection(firebaseDb(), "brands"), where("memberIds", "array-contains", user.uid)),
+    ];
+    const brandSnaps = await Promise.all(brandQueries.map((brandQuery) => getDocs(brandQuery)));
+    const remote = brandSnaps.flatMap((snap) => snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }) as Brand));
+    const byId = new Map(brands.map((b) => [b.id, b]));
+    for (const r of remote) {
+      if (!DEMO_BRAND_IDS.has(r.id) && !DEMO_BRAND_OWNER_IDS.has(r.ownerId)) byId.set(r.id, { ...byId.get(r.id), ...r } as Brand);
     }
-    const invSnap = await getDocs(collection(firebaseDb(), "brandInvites"));
-    if (!invSnap.empty) {
-      const remote = invSnap.docs.map((d) => ({ id: d.id, ...(d.data() as object) })) as BrandInvite[];
-      const byId = new Map(invites.map((i) => [i.id, i]));
-      for (const r of remote) byId.set(r.id, r);
-      invites = Array.from(byId.values());
-    }
+    brands = Array.from(byId.values());
+
+    const inviteQueries = [
+      query(collection(firebaseDb(), "brandInvites"), where("toUid", "==", user.uid)),
+      query(collection(firebaseDb(), "brandInvites"), where("fromUid", "==", user.uid)),
+    ];
+    const inviteSnaps = await Promise.all(inviteQueries.map((inviteQuery) => getDocs(inviteQuery)));
+    const remoteInvites = inviteSnaps.flatMap((snap) => snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }) as BrandInvite));
+    const byInviteId = new Map(invites.map((i) => [i.id, i]));
+    for (const invite of remoteInvites) byInviteId.set(invite.id, invite);
+    invites = Array.from(byInviteId.values());
     emit();
   } catch {
     /* stay local */
@@ -341,6 +351,18 @@ export function themeFor(brand: Brand) {
   return themeOf(brand.themeId, brand.custom);
 }
 
+export async function uploadBrandAsset(uri: string, brandId: string, kind: "logo" | "banner") {
+  if (!firebaseReady() || !firebaseAuth().currentUser) throw new Error("Brand media upload requires a signed-in connection to Uvel.");
+  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+  if (!base64 || base64.length > 8 * 1024 * 1024) throw new Error("Choose a smaller brand image or video.");
+  const extension = uri.split("?")[0].split(".").pop()?.toLowerCase() || (kind === "banner" ? "jpg" : "png");
+  const contentType = extension === "mp4" ? "video/mp4" : extension === "webm" ? "video/webm" : extension === "png" ? "image/png" : "image/jpeg";
+  const result = await httpsCallable(firebaseFunctions(), "uploadBrandAsset")({ brandId, kind, contentType, extension, base64 });
+  const url = String((result.data as { url?: string })?.url || "");
+  if (!url) throw new Error("Brand media upload did not return a URL.");
+  return url;
+}
+
 function slugify(name: string) {
   return name
     .toLowerCase()
@@ -431,7 +453,7 @@ export function updateBrand(id: string, patch: Partial<Brand>) {
 
 export async function submitForVerification(id: string, filing: BrandFiling) {
   updateBrand(id, { status: "pending", reviewStatus: "review_pending", verified: false });
-  const result = await reviewBrand(filing);
+  const result = await reviewBrand(filing, id);
   if (result.decision === "uvel_reviewed" && result.ok) {
     updateBrand(id, {
       status: "verified",
@@ -557,14 +579,17 @@ export function pendingInvitesFor(uid: string, email?: string) {
   );
 }
 
-export function acceptInvite(id: string, uid: string, name: string, photo?: string) {
+export async function acceptInvite(id: string, uid: string, name: string, photo?: string) {
   const invite = invites.find((i) => i.id === id);
   if (!invite) return;
+  if (firebaseReady() && firebaseAuth().currentUser) {
+    await httpsCallable(firebaseFunctions(), "acceptBrandInvite")({ inviteId: id });
+  }
   invites = invites.map((i) => (i.id === id ? { ...i, status: "accepted" as const, toUid: uid } : i));
   const brand = getBrand(invite.brandId);
   if (brand && !brand.members.some((m) => m.uid === uid)) {
     updateBrand(brand.id, {
-        members: [...brand.members, { uid, name, photo, role: invite.role || "poster", joinedAt: Date.now() }],
+      members: [...brand.members, { uid, name, photo, role: invite.role || "poster", joinedAt: Date.now() }],
     });
   }
   void persist();
@@ -583,6 +608,23 @@ export function removeMember(brandId: string, uid: string) {
   const brand = getBrand(brandId);
   if (!brand || brand.ownerId === uid) return;
   updateBrand(brandId, { members: brand.members.filter((m) => m.uid !== uid) });
+  void updateBrandTeamRemote({ brandId, memberUid: uid, action: "remove" });
+}
+
+export function updateMemberRole(brandId: string, uid: string, role: Exclude<MemberRole, "owner">) {
+  const brand = getBrand(brandId);
+  if (!brand || brand.ownerId === uid) return;
+  updateBrand(brandId, { members: brand.members.map((member) => member.uid === uid ? { ...member, role } : member) });
+  void updateBrandTeamRemote({ brandId, memberUid: uid, action: "role", role });
+}
+
+async function updateBrandTeamRemote(input: { brandId: string; memberUid: string; action: "role" | "remove"; role?: Exclude<MemberRole, "owner"> }) {
+  if (!firebaseReady() || !firebaseAuth().currentUser) return;
+  try {
+    await httpsCallable(firebaseFunctions(), "updateBrandTeam")(input);
+  } catch {
+    /* Local state remains usable while a disconnected client retries on the next edit. */
+  }
 }
 
 export function watchBrand(id: string, cb: (b: Brand | undefined) => void) {

@@ -28,7 +28,8 @@ import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../.
 import { encodeShipsTo, type ShipsTo } from "../../lib/ships";
 import { useUvel } from "../../lib/store";
 import { recordAuditEvent } from "../../lib/audit";
-import { addPiece } from "../../lib/wardrobe";
+import { addPiece, createBrandCatalogRemote } from "../../lib/wardrobe";
+import { firebaseReady } from "../../lib/firebase";
 
 const W = Dimensions.get("window").width;
 const MAX = 5;
@@ -242,6 +243,10 @@ export default function BrandList() {
         listedByName: app.displayName,
         status: "listed",
       });
+      if (firebaseReady()) {
+        const synced = await createBrandCatalogRemote(created);
+        if (!synced) throw new Error("The product was not connected to the brand catalog. Check your connection and try again.");
+      }
       void recordAuditEvent({ brandId: activeBrand.id, action: "product_created", entity: "product", entityId: created.id, entityName: created.name, summary: "Product published from the brand listing form.", metadata: { sku: created.sku || "", stockUnits: created.stockQuantity || 0 } });
     } catch (err) {
       setGate({

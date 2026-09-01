@@ -188,7 +188,7 @@ export default function You() {
           <Text style={styles.inviteH}>{inv.brandName}</Text>
           <Text style={styles.inviteP}>{inv.fromName} invited you to post on this brand.</Text>
           <View style={styles.inviteRow}>
-            <Pressable onPress={() => acceptInvite(inv.id, app.uid, app.displayName || "You", app.avatarUri || undefined)} style={styles.inviteYes}>
+            <Pressable onPress={() => void acceptInvite(inv.id, app.uid, app.displayName || "You", app.avatarUri || undefined).catch((error) => Alert.alert("Couldn’t join brand", error instanceof Error ? error.message : "Try again in a moment."))} style={styles.inviteYes}>
               <Text style={styles.inviteYesTxt}>Join</Text>
             </Pressable>
             <Pressable onPress={() => declineInvite(inv.id)} style={styles.inviteNo}>

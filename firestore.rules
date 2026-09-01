@@ -90,13 +90,15 @@ service cloud.firestore {
     match /listings/{listingId} {
       allow read: if resource.data.status == "listed" ||
         (signedIn() && (resource.data.ownerId == request.auth.uid || resource.data.listedByUid == request.auth.uid));
+      // Brand catalog writes must use the role-checked backend callable. Generic personal listings remain client-writable.
       allow create: if signedIn() &&
+        !request.resource.data.keys().hasAny(["brandId"]) &&
         request.resource.data.listedByUid == request.auth.uid &&
-        request.resource.data.brandId is string &&
         request.resource.data.stockQuantity is int &&
         request.resource.data.stockQuantity > 0 &&
         request.resource.data.status in ["owned", "draft", "listed"];
       allow update: if signedIn() &&
+        !resource.data.keys().hasAny(["brandId"]) &&
         resource.data.listedByUid == request.auth.uid &&
         request.resource.data.listedByUid == resource.data.listedByUid &&
         request.resource.data.brandId == resource.data.brandId &&
@@ -105,7 +107,7 @@ service cloud.firestore {
          (request.resource.data.status == "archived" && request.resource.data.stockQuantity >= 0) ||
          (request.resource.data.status == "sold" && request.resource.data.stockQuantity == 0)) &&
         request.resource.data.status in ["owned", "draft", "listed", "archived", "sold"];
-      allow delete: if signedIn() && resource.data.listedByUid == request.auth.uid;
+      allow delete: if signedIn() && !resource.data.keys().hasAny(["brandId"]) && resource.data.listedByUid == request.auth.uid;
     }
 
     match /brandAnalytics/{brandId} {

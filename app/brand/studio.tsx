@@ -5,7 +5,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandBanner } from "../../components/BrandBanner";
 import { BRAND_THEMES } from "../../lib/brandThemes";
-import { canStudio, getBrand, inquiryRecipients, memberRoleLabel, removeMember, themeFor, updateBrand, useBrands } from "../../lib/brands";
+import { canStudio, getBrand, inquiryRecipients, memberRoleLabel, removeMember, themeFor, updateBrand, uploadBrandAsset, useBrands } from "../../lib/brands";
 import { pickBannerImage, pickBannerVideo, pickLogo } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
 
@@ -54,6 +54,17 @@ export default function BrandStudio() {
     });
   }
 
+  async function saveAsset(kind: "logo" | "banner", picker: () => Promise<string | null>, bannerKind?: "image" | "video") {
+    try {
+      const uri = await picker();
+      if (!uri) return;
+      const remoteUri = await uploadBrandAsset(uri, currentBrand.id, kind);
+      updateBrand(currentBrand.id, kind === "logo" ? { logoUri: remoteUri } : { bannerUri: remoteUri, bannerKind: bannerKind || "image" });
+    } catch (error) {
+      Alert.alert("Couldn’t save brand media", error instanceof Error ? error.message : "Try again in a moment.");
+    }
+  }
+
   return (
     <View style={[styles.page, { backgroundColor: theme.bg }]}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: insets.bottom + 40 }}>
@@ -68,17 +79,13 @@ export default function BrandStudio() {
         <BrandBanner uri={brand.bannerUri} kind={brand.bannerKind} style={[styles.banner, { backgroundColor: theme.card }]} />
         <View style={styles.bannerRow}>
           <Pressable
-            onPress={() =>
-              void pickBannerImage().then((u) => u && updateBrand(brand.id, { bannerUri: u, bannerKind: "image" }))
-            }
+            onPress={() => void saveAsset("banner", pickBannerImage, "image")}
             style={[styles.small, { backgroundColor: theme.card }]}
           >
             <Text style={[styles.smallTxt, { color: theme.ink }]}>Image banner</Text>
           </Pressable>
           <Pressable
-            onPress={() =>
-              void pickBannerVideo().then((u) => u && updateBrand(brand.id, { bannerUri: u, bannerKind: "video" }))
-            }
+            onPress={() => void saveAsset("banner", pickBannerVideo, "video")}
             style={[styles.small, { backgroundColor: theme.card }]}
           >
             <Text style={[styles.smallTxt, { color: theme.ink }]}>Video banner</Text>
@@ -104,7 +111,7 @@ export default function BrandStudio() {
 
         <View style={{ paddingHorizontal: 20 }}>
           <Pressable
-            onPress={() => void pickLogo().then((u) => u && updateBrand(brand.id, { logoUri: u }))}
+            onPress={() => void saveAsset("logo", pickLogo)}
             style={styles.logoRow}
           >
             {brand.logoUri ? (

@@ -28,6 +28,7 @@ import {
   canViewFinance,
   canManageMarketing,
   canViewMarketing,
+  updateMemberRole,
 } from "../../lib/brands";
 import { usd } from "../../lib/catalog";
 import { financeTotals, requestBrandPayout, savePayoutProfile, settlementLedger, usePayoutProfile, usePayouts, type PayoutDestinationType, type SettlementEntry } from "../../lib/finance";
@@ -142,7 +143,7 @@ export default function BrandHQ() {
   function changeRole(member: BrandMember) {
     if (!manager || member.role === "owner") return;
     Alert.alert(`Role for ${member.name}`, "Choose the access this person should have in Brand HQ.", [
-      ...ROLE_OPTIONS.map((role) => ({ text: memberRoleLabel(role), onPress: () => { updateBrand(activeBrand.id, { members: activeBrand.members.map((m) => (m.uid === member.uid ? { ...m, role } : m)) }); void recordAuditEvent({ brandId: activeBrand.id, action: "team_role_updated", entity: "team", entityId: member.uid, entityName: member.name, summary: `${member.name} changed to ${memberRoleLabel(role)}.` }); } })),
+      ...ROLE_OPTIONS.map((role) => ({ text: memberRoleLabel(role), onPress: () => { updateMemberRole(activeBrand.id, member.uid, role); void recordAuditEvent({ brandId: activeBrand.id, action: "team_role_updated", entity: "team", entityId: member.uid, entityName: member.name, summary: `${member.name} changed to ${memberRoleLabel(role)}.` }); } })),
       { text: "Cancel", style: "cancel" as const },
     ]);
   }
