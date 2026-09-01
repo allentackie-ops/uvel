@@ -135,6 +135,12 @@ export default function Mirror() {
     setShowLink(false);
   }
 
+  function clearPerson() {
+    app.setPerson(null);
+    setResult(null);
+    setErr("");
+  }
+
   async function run() {
     if (!person || !garmentUri) return;
     if (!app.isPlus && app.remainingTryOns <= 0) {
@@ -186,7 +192,7 @@ export default function Mirror() {
           ) : (
             <View style={styles.need}>
               <Text style={styles.needH}>Add your full-length photo</Text>
-              <Text style={styles.needP}>Then see how a look works on you before you buy. Your photo stays private unless you choose to share it.</Text>
+              <Text style={styles.needP}>Then see how a look works on you before you buy.</Text>
               <View style={styles.needRow}>
                 <Pressable onPress={() => void fromCamera()} style={styles.needBtn}>
                   <Text style={styles.needBtnTxt}>Take my photo</Text>
@@ -201,6 +207,9 @@ export default function Mirror() {
             <View style={styles.changeWrap} pointerEvents="box-none">
               <Pressable onPress={askPerson} style={styles.change}>
                 <Text style={styles.changeTxt}>📷  Change photo</Text>
+              </Pressable>
+              <Pressable onPress={clearPerson} style={styles.removePhoto} accessibilityRole="button" accessibilityLabel="Remove photo" accessibilityHint="Double tap to remove your saved Mirror photo.">
+                <Text style={styles.removePhotoTxt}>Remove</Text>
               </Pressable>
             </View>
           ) : null}
@@ -311,7 +320,6 @@ export default function Mirror() {
           </Text>
         </Pressable>
         <Text style={styles.allowance}>{app.isPlus ? "Unlimited try-ons with Uvel+" : `${app.remainingTryOns} free try-on${app.remainingTryOns === 1 ? "" : "s"} remaining`}</Text>
-        <Text style={styles.trust}>Preview only—not a guarantee of fit. Your photo stays private unless you choose to share it.</Text>
         {picked ? (
           <Pressable onPress={clearPick} style={styles.ghostCta}>
             <Text style={styles.ghostCtaTxt}>Pick something else</Text>
@@ -407,6 +415,9 @@ function make(_colors: Colors) {
       right: 0,
       bottom: 16,
       alignItems: "center",
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 8,
     },
     change: {
       backgroundColor: "rgba(18,17,14,0.82)",
@@ -419,6 +430,8 @@ function make(_colors: Colors) {
       justifyContent: "center",
     },
     changeTxt: { color: "#F4F0E6", fontSize: 13, fontWeight: "600" },
+    removePhoto: { backgroundColor: "rgba(18,17,14,0.82)", borderWidth: 1, borderColor: "rgba(244,240,230,0.18)", height: 36, paddingHorizontal: 16, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+    removePhotoTxt: { color: "rgba(244,240,230,0.72)", fontSize: 13, fontWeight: "600" },
     headRow: {
       flexDirection: "row",
       alignItems: "baseline",
