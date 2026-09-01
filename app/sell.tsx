@@ -242,7 +242,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                   ? "Add a material"
                   : !hasCond
                     ? "Pick a condition"
-                    : `List for ${usd(Math.max(1, Number(price) || 0) * 100, listingCurrency)}`;
+                    : "Complete";
 
   useEffect(() => {
     if (!existing && photos.length === 1 && photos[0].status === "ok" && photos[0].review) {
