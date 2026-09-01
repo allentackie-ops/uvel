@@ -107,7 +107,7 @@ export type Copy = {
   viewBrand: string;
   viewListing: string;
   todayShopPromise: string;
-  followingTodayTitle: string;
+  followingEmptyTitle: string;
   followingTodayBody: string;
   nearbyTodayTitle: string;
   nearbyTodayBody: string;
@@ -272,7 +272,7 @@ const en: Copy = {
   viewBrand: "View brand",
   viewListing: "View listing",
   todayShopPromise: "Find exact pieces and the closest alternatives.",
-  followingTodayTitle: "The houses you keep close.",
+  followingEmptyTitle: "Your following feed is quiet for now.",
   followingTodayBody: "Fresh pieces from the brands you follow, in one considered edit.",
   nearbyTodayTitle: "What is moving near you.",
   nearbyTodayBody: "Available pieces from sellers in your market, starting with the closest match.",
@@ -491,7 +491,7 @@ export const COPY: Record<string, Copy> = {
     viewBrand: "Ver marca",
     viewListing: "Ver anuncio",
     todayShopPromise: "Encuentra las prendas exactas y las alternativas más cercanas.",
-    followingTodayTitle: "Las marcas que sigues de cerca.",
+    followingEmptyTitle: "Tu feed de seguidos está tranquilo por ahora.",
     followingTodayBody: "Prendas nuevas de las marcas que sigues, en una selección cuidada.",
     nearbyTodayTitle: "Lo que se mueve cerca de ti.",
     nearbyTodayBody: "Prendas disponibles de vendedores en tu mercado, empezando por la coincidencia más cercana.",

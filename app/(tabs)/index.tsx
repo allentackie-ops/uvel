@@ -316,7 +316,7 @@ export default function Today() {
   const featured = personalizedLooks[0] ?? looks[0];
   const hits = featured ? matchListings(featured, live, taste, followedIds).slice(0, 6) : [];
   const intro = todayMode === "following"
-    ? { eyebrow: C.following, title: C.followingTodayTitle, body: C.followingTodayBody }
+    ? { eyebrow: C.following, title: C.following, body: C.followingTodayBody }
     : todayMode === "nearby"
       ? { eyebrow: C.nearby, title: C.nearbyTodayTitle, body: C.nearbyTodayBody }
       : { eyebrow: country ? `${country} · ${C.dailyEdit}` : C.dailyEdit, title: taste.length ? C.personalizedTodayTitle : C.todayIntroTitle, body: taste.length ? C.personalizedTodayBody : C.todayIntroBody };
@@ -626,7 +626,7 @@ function TodayEmptyHero({ mode, colors, height }: { mode: TodayMode; colors: Col
   const styles = make(colors);
   const C = useCopy();
   const browse = mode === "following" || mode === "nearby";
-  const title = mode === "following" ? C.followingTodayTitle : mode === "nearby" ? C.nearbyTodayTitle : C.todayEmptyTitle;
+  const title = mode === "following" ? C.followingEmptyTitle : mode === "nearby" ? C.nearbyTodayTitle : C.todayEmptyTitle;
   const body = mode === "following" ? C.followingTodayBody : mode === "nearby" ? C.nearbyTodayBody : C.todayEmptyBody;
   return (
     <View style={[styles.heroWrap, styles.emptyHero, { height }]}>
