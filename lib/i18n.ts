@@ -106,6 +106,15 @@ export type Copy = {
   discoveryBody: string;
   viewBrand: string;
   viewListing: string;
+  todayShopPromise: string;
+  followingTodayTitle: string;
+  followingTodayBody: string;
+  nearbyTodayTitle: string;
+  nearbyTodayBody: string;
+  todayEmptyKicker: string;
+  todayEmptyTitle: string;
+  todayEmptyBody: string;
+  todayEmptyAction: string;
 };
 
 export const LANGS: { id: string; label: string }[] = [
@@ -262,6 +271,15 @@ const en: Copy = {
   discoveryBody: "A piece connected to the style you are exploring. Open the profile and see the rest of the shop.",
   viewBrand: "View brand",
   viewListing: "View listing",
+  todayShopPromise: "Find exact pieces and the closest alternatives.",
+  followingTodayTitle: "The houses you keep close.",
+  followingTodayBody: "Fresh pieces from the brands you follow, in one considered edit.",
+  nearbyTodayTitle: "What is moving near you.",
+  nearbyTodayBody: "Available pieces from sellers in your market, starting with the closest match.",
+  todayEmptyKicker: "YOUR EDIT IS STARTING",
+  todayEmptyTitle: "Teach Uvel your taste.",
+  todayEmptyBody: "Save a few looks or set your Style DNA. Your next edit will feel more like you.",
+  todayEmptyAction: "Shape your edit",
 };
 
 function pack(p: Partial<Copy>): Copy {
@@ -472,6 +490,15 @@ export const COPY: Record<string, Copy> = {
     discoveryBody: "Una prenda conectada con el estilo que estás explorando. Abre el perfil y descubre el resto de la tienda.",
     viewBrand: "Ver marca",
     viewListing: "Ver anuncio",
+    todayShopPromise: "Encuentra las prendas exactas y las alternativas más cercanas.",
+    followingTodayTitle: "Las marcas que sigues de cerca.",
+    followingTodayBody: "Prendas nuevas de las marcas que sigues, en una selección cuidada.",
+    nearbyTodayTitle: "Lo que se mueve cerca de ti.",
+    nearbyTodayBody: "Prendas disponibles de vendedores en tu mercado, empezando por la coincidencia más cercana.",
+    todayEmptyKicker: "TU SELECCIÓN ESTÁ EMPEZANDO",
+    todayEmptyTitle: "Enséñale a Uvel tu estilo.",
+    todayEmptyBody: "Guarda algunos looks o define tu ADN de estilo. Tu próxima selección se parecerá más a ti.",
+    todayEmptyAction: "Moldea tu selección",
   }),
   "pt-BR": pack({
     skip: "Pular",

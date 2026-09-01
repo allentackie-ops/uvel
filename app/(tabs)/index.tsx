@@ -34,7 +34,7 @@ import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
 import { useFeedPersonalization } from "../../lib/feedPersonalization";
 import { useColors, type Colors } from "../../lib/theme";
-import { SOURCES, lookImage, useLooks, type Look, type Source } from "../../lib/trends";
+import { lookImage, useLooks, type Look, type Source } from "../../lib/trends";
 import { getPiece, likeCount, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
 
 const { width: W, height: H } = Dimensions.get("screen");
@@ -62,6 +62,7 @@ type FrameGrab = {
   freeze: () => number;
   frame: () => Promise<string | null>;
 };
+type TodayMode = "forYou" | "following" | "nearby";
 
 function MutedLoop({
   uri,
@@ -300,22 +301,26 @@ export default function Today() {
       void recordCampaignAttribution({ brandId: campaign.brandId, campaignId: campaign.id, channel: "today", type: "impression", eventId: `today_impression_${campaign.id}_${uid}_${day}` }).catch(() => undefined);
     });
   }, [uid, todayCampaignRows.map(({ campaign }) => campaign.id).join("|")]);
-  const [source, setSource] = useState<Source>("All");
-  const [todayMode, setTodayMode] = useState<"forYou" | "shop" | "following" | "nearby">("forYou");
+  const [todayMode, setTodayMode] = useState<TodayMode>("forYou");
   const [videoWait, setVideoWait] = useState(false);
   const [shopWait, setShopWait] = useState(false);
   const heroH = Math.round(H - insets.bottom - 196);
   const orbitOn = useMinHold(refreshing || loading || videoWait || shopWait, 1200);
-
   const personalizedLooks = useMemo(() => rankForUser(looks), [looks, rankForUser]);
-  const visible = useMemo(
-    () => (source === "All" ? personalizedLooks : personalizedLooks.filter((t) => t.source === source)),
-    [personalizedLooks, source],
+  const localMarket = getMarket(country).code;
+  const nearbyListings = useMemo(
+    () => live.filter((piece) => piece.country?.toUpperCase() === localMarket).sort((a, b) => b.createdAt - a.createdAt).slice(0, 8),
+    [live, localMarket],
   );
-  const featured = visible[0] ?? looks[0];
+  const modeListings = todayMode === "following" ? followedListings : todayMode === "nearby" ? nearbyListings : [];
+  const featured = personalizedLooks[0] ?? looks[0];
   const hits = featured ? matchListings(featured, live, taste, followedIds).slice(0, 6) : [];
-
-  if ((loading || !wardrobeReady) && !looks.length) return <TodaySkeleton colors={colors} />;
+  const intro = todayMode === "following"
+    ? { eyebrow: C.following, title: C.followingTodayTitle, body: C.followingTodayBody }
+    : todayMode === "nearby"
+      ? { eyebrow: C.nearby, title: C.nearbyTodayTitle, body: C.nearbyTodayBody }
+      : { eyebrow: country ? `${country} · ${C.dailyEdit}` : C.dailyEdit, title: taste.length ? C.personalizedTodayTitle : C.todayIntroTitle, body: taste.length ? C.personalizedTodayBody : C.todayIntroBody };
+  if ((loading || !wardrobeReady) && !looks.length && todayMode === "forYou") return <TodaySkeleton colors={colors} />;
 
   return (
     <View style={styles.page}>
@@ -335,53 +340,107 @@ export default function Today() {
           />
         }
       >
-        {featured ? (
-          <Hero
-            key={featured.id}
-            look={featured}
-            colors={colors}
-            height={heroH}
-            onWait={setVideoWait}
-            onBusy={setShopWait}
-            onShop={() => trackFeed(featured, "shop")}
-            onSource={() => trackFeed(featured, "source")}
-          />
+        {todayMode === "forYou" ? (
+          featured ? (
+            <Hero
+              key={featured.id}
+              look={featured}
+              colors={colors}
+              height={heroH}
+              onWait={setVideoWait}
+              onBusy={setShopWait}
+              onShop={() => trackFeed(featured, "shop")}
+              onSource={() => trackFeed(featured, "source")}
+            />
+          ) : (
+            <TodayEmptyHero mode={todayMode} height={heroH} colors={colors} />
+          )
+        ) : modeListings[0] ? (
+          <ListingHero piece={modeListings[0]} mode={todayMode} height={heroH} colors={colors} />
         ) : (
-          <View style={[styles.heroWrap, { height: heroH }]} />
+          <TodayEmptyHero mode={todayMode} height={heroH} colors={colors} />
         )}
-
         <View style={styles.body}>
           <View style={styles.todayIntro}>
-            <Text style={styles.todayEyebrow}>{country ? `${country} · ${C.dailyEdit}` : C.dailyEdit}</Text>
-            <Text style={styles.todayIntroTitle}>{taste.length ? C.personalizedTodayTitle : C.todayIntroTitle}</Text>
-            <Text style={styles.todayIntroBody}>{taste.length ? C.personalizedTodayBody : C.todayIntroBody}</Text>
+            <Text style={styles.todayEyebrow}>{intro.eyebrow}</Text>
+            <Text style={styles.todayIntroTitle}>{intro.title}</Text>
+            <Text style={styles.todayIntroBody}>{intro.body}</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modeRow}>
-            {[{ id: "forYou", label: C.forYou }, { id: "shop", label: C.shopTheLook }, { id: "following", label: C.following }, { id: "nearby", label: C.nearby }].map((item) => {
+            {[{ id: "forYou", label: C.forYou }, { id: "following", label: C.following }, { id: "nearby", label: C.nearby }].map((item) => {
               const active = todayMode === item.id;
-              return <AccessiblePressable key={item.id} onPress={() => setTodayMode(item.id as typeof todayMode)} style={({ pressed }) => [styles.modeButton, active && styles.modeButtonOn, pressed && { opacity: 0.92 }]} accessibilityRole="tab" accessibilityLabel={`${item.label} mode`} accessibilityState={{ selected: active }}><Text style={[styles.modeText, active && styles.modeTextOn]}>{item.label}</Text></AccessiblePressable>;
+              return <AccessiblePressable key={item.id} onPress={() => setTodayMode(item.id as TodayMode)} style={({ pressed }) => [styles.modeButton, active && styles.modeButtonOn, pressed && { opacity: 0.92 }]} accessibilityRole="tab" accessibilityLabel={`${item.label} mode`} accessibilityState={{ selected: active }}><Text style={[styles.modeText, active && styles.modeTextOn]}>{item.label}</Text></AccessiblePressable>;
             })}
           </ScrollView>
-          <Text style={styles.sourceLabel}>{C.browseBySource}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-            {SOURCES.map((s) => {
-              const on = source === s;
-              return (
-                <AccessiblePressable                  key={s}
-                  onPress={() => setSource(s)}
-                  style={({ pressed }) => [styles.filter, on && styles.filterOn, pressed && { opacity: 0.92 }]}
-                  accessibilityRole="tab"
-                  accessibilityLabel={`${s} feed`}
-                  accessibilityState={{ selected: on }}
-                >
-                  {s !== "All" ? <View style={[styles.dot, { backgroundColor: DOT[s] }]} /> : null}
-                  <Text style={[styles.filterTxt, on && styles.filterTxtOn]}>{s}</Text>
-                </AccessiblePressable>
-              );
-            })}
-          </ScrollView>
-
-          <AccessiblePressable            onPress={() => router.push("/inbox")}
+          {todayMode === "forYou" ? (
+            <>
+              <View style={styles.head}>
+                <Text style={styles.h2}>{C.movingNow}</Text>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
+                {personalizedLooks.map((look) => (
+                  <LookCard key={look.id} look={look} colors={colors} onShop={() => trackFeed(look, "shop")} />
+                ))}
+              </ScrollView>
+              {todayCampaignRows.length ? (
+                <View>
+                  <View style={styles.head}>
+                    <View>
+                      <Text style={styles.h2}>Today campaigns</Text>
+                      <Text style={styles.sectionSub}>Live drops selected for this feed.</Text>
+                    </View>
+                    <Text style={styles.todayLive}>LIVE</Text>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.todayCampaignStrip}>
+                    {todayCampaignRows.map(({ campaign, lead }) => (
+                      <TodayCampaignCard key={campaign.id} campaign={campaign} lead={lead} uid={uid} colors={colors} />
+                    ))}
+                  </ScrollView>
+                </View>
+              ) : null}
+              <View style={styles.head}>
+                <View>
+                  <Text style={styles.h2}>{C.shopTheLook}</Text>
+                  <Text style={styles.sectionSub}>{C.todayShopPromise}</Text>
+                </View>
+              </View>
+              {hits.length ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shopStrip}>
+                  {hits.map((p) => (
+                    <ShopLookCard key={p.id} piece={p} country={country} colors={colors} matchKind={featured?.garmentIds.includes(p.id) ? "exact" : "similar"} />
+                  ))}
+                </ScrollView>
+              ) : (
+                <View style={{ paddingHorizontal: 16 }}>
+                  <ListingEmpty copy="No pieces on this floor match this look yet. A close match will appear here when it does." />
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              <View style={styles.head}>
+                <View>
+                  <Text style={styles.h2}>{todayMode === "following" ? C.following : C.nearby}</Text>
+                  <Text style={styles.sectionSub}>{todayMode === "following" ? C.followingTodayBody : C.nearbyTodayBody}</Text>
+                </View>
+              </View>
+              {modeListings.length > 1 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.followedStrip}>
+                  {modeListings.slice(1).map((piece) => (
+                    <View key={`${todayMode}-${piece.id}`} style={styles.followedCell}>
+                      <ListingCard piece={piece} wide={Math.round(W * 0.62)} framed badge={todayMode === "following" ? followedBadge(piece) : "Local"} />
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : modeListings.length === 1 ? (
+                <View style={{ paddingHorizontal: 16 }}>
+                  <ListingEmpty copy={todayMode === "following" ? "More from this shop will land here as it arrives." : "More local pieces will land here as they arrive."} />
+                </View>
+              ) : null}
+            </>
+          )}
+          <AccessiblePressable
+            onPress={() => router.push("/inbox")}
             style={({ pressed }) => [styles.inbox, pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
             accessibilityLabel={`Chats${unread > 0 ? `, ${unread} unread` : ""}`}
@@ -403,97 +462,34 @@ export default function Today() {
               </View>
             ) : null}
           </AccessiblePressable>
-
-          {todayMode === "shop" ? <View style={styles.featureIntro}><Text style={styles.h2}>{C.shopLookIntro}</Text><Text style={styles.sectionSub}>{C.shopLookBody}</Text></View> : null}
-          {todayMode === "nearby" ? <TodayLocalCard piece={followedListings[0] || live[0]} country={country} colors={colors} /> : null}
-          <View style={styles.head}>
-            <Text style={styles.h2}>{todayMode === "shop" ? C.piecesForLook : source === "All" ? C.movingNow : `${C.nowOn} ${source}`}</Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
-            {visible.map((look) => (
-              <LookCard key={look.id} look={look} colors={colors} onShop={() => trackFeed(look, "shop")} />
-            ))}
-          </ScrollView>
-
-          {todayCampaignRows.length ? (
-            <View>
-              <View style={styles.head}>
-                <View>
-                  <Text style={styles.h2}>Today campaigns</Text>
-                  <Text style={styles.sectionSub}>Live drops selected for this feed.</Text>
-                </View>
-                <Text style={styles.todayLive}>LIVE</Text>
-              </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.todayCampaignStrip}>
-                {todayCampaignRows.map(({ campaign, lead }) => (
-                  <TodayCampaignCard key={campaign.id} campaign={campaign} lead={lead} uid={uid} colors={colors} />
-                ))}
-              </ScrollView>
-            </View>
-          ) : null}
-
-          <View style={styles.head}>
-            <Text style={styles.h2}>{C.shopTheLook}</Text>
-          </View>
-          {hits.length ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shopStrip}>
-              {hits.map((p) => (
-                <ShopLookCard key={p.id} piece={p} country={country} colors={colors} matchKind={featured?.garmentIds.includes(p.id) ? "exact" : "similar"} />
-              ))}
-            </ScrollView>
-          ) : (
-            <View style={{ paddingHorizontal: 16 }}>
-              <ListingEmpty copy="No listings on this floor match this look yet. When someone sells the real piece here, it lands here." />
-            </View>
-          )}
-
-          {todayMode === "following" && followedIds.length ? (
+          {todayMode === "forYou" ? (
             <>
               <View style={styles.head}>
-                <View>
-                  <Text style={styles.h2}>From brands you follow</Text>
-                  <Text style={styles.sectionSub}>New drops and recent pieces from your followed shops.</Text>
-                </View>
+                <Text style={styles.h2}>{C.forYou}</Text>
+                <AccessiblePressable
+                  onPress={() => router.push("/(tabs)/shop")}
+                  style={({ pressed }) => [pressed && { opacity: 0.92 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="See all shop listings"
+                >
+                  <Text style={styles.seeAll}>See all</Text>
+                </AccessiblePressable>
               </View>
-              {followedListings.length ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.followedStrip}>
-                  {followedListings.map((p) => (
-                    <View key={`followed-${p.id}`} style={styles.followedCell}>
-                      <ListingCard piece={p} wide={Math.round(W * 0.62)} framed badge={followedBadge(p)} />
+              {live.length ? (
+                <View style={styles.grid}>
+                  {forYou(live, taste, country, followedIds).slice(0, 8).map((p) => (
+                    <View key={p.id} style={styles.cell}>
+                      <ListingCard piece={p} />
                     </View>
                   ))}
-                </ScrollView>
+                </View>
               ) : (
                 <View style={{ paddingHorizontal: 16 }}>
-                  <ListingEmpty copy="You’re following brands, but they have no available pieces for your market yet. New drops will appear here." />
+                  <ListingEmpty copy="This country’s floor is empty. Sell from Closet — it stays on this store unless you open it to others." />
                 </View>
               )}
             </>
           ) : null}
-
-          <View style={styles.head}>
-            <Text style={styles.h2}>For you</Text>
-            <AccessiblePressable              onPress={() => router.push("/(tabs)/shop")}
-              style={({ pressed }) => [pressed && { opacity: 0.92 }]}
-              accessibilityRole="button"
-              accessibilityLabel="See all shop listings"
-            >
-              <Text style={styles.seeAll}>See all</Text>
-            </AccessiblePressable>
-          </View>
-          {live.length ? (
-            <View style={styles.grid}>
-              {forYou(live, taste, country, followedIds).slice(0, 8).map((p) => (
-                <View key={p.id} style={styles.cell}>
-                  <ListingCard piece={p} />
-                </View>
-              ))}
-            </View>
-          ) : (
-            <View style={{ paddingHorizontal: 16 }}>
-              <ListingEmpty copy="This country’s floor is empty. Sell from Closet — it stays on this store unless you open it to others." />
-            </View>
-          )}
         </View>
       </ScrollView>
       {orbitOn ? (
@@ -581,6 +577,76 @@ function Hero({
   );
 }
 
+function ListingHero({
+  piece,
+  mode,
+  colors,
+  height,
+}: {
+  piece: ClosetPiece;
+  mode: Exclude<TodayMode, "forYou">;
+  colors: Colors;
+  height: number;
+}) {
+  const styles = make(colors);
+  const C = useCopy();
+  const house = piece.brandId ? getBrand(piece.brandId) : undefined;
+  const brand = house?.name || (piece.brand === "Unlabeled" ? "UVEL" : piece.brand);
+  return (
+    <View style={[styles.heroWrap, { height }]}>
+      <Image source={{ uri: piece.photo }} style={styles.hero} contentFit="cover" accessible={false} />
+      <View style={styles.heroCopy}>
+        <View style={styles.heroBar}>
+          <AccessiblePressable
+            onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })}
+            style={({ pressed }) => [styles.cta, !house && styles.ctaSolo, pressed && { opacity: 0.92 }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${piece.name}`}
+          >
+            <Text style={styles.ctaTxt}>{C.viewListing}</Text>
+          </AccessiblePressable>
+          {house ? (
+            <AccessiblePressable
+              onPress={() => router.push({ pathname: "/brand/[id]", params: { id: house.id } })}
+              style={({ pressed }) => [styles.ghost, pressed && { opacity: 0.92 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${house.name}`}
+            >
+              <Text style={styles.ghostTxt}>{C.viewBrand}</Text>
+            </AccessiblePressable>
+          ) : null}
+        </View>
+        <Text style={styles.src}>{mode === "following" ? C.following : C.nearby} · {brand}</Text>
+        <Text style={styles.title}>{piece.name}</Text>
+        <Text style={styles.hash}>{usd(piece.listPriceCents, piece.currency || "USD")} · {piece.size || piece.sizes?.[0] || "One size"}</Text>
+      </View>
+    </View>
+  );
+}
+function TodayEmptyHero({ mode, colors, height }: { mode: TodayMode; colors: Colors; height: number }) {
+  const styles = make(colors);
+  const C = useCopy();
+  const browse = mode === "following" || mode === "nearby";
+  const title = mode === "following" ? C.followingTodayTitle : mode === "nearby" ? C.nearbyTodayTitle : C.todayEmptyTitle;
+  const body = mode === "following" ? C.followingTodayBody : mode === "nearby" ? C.nearbyTodayBody : C.todayEmptyBody;
+  return (
+    <View style={[styles.heroWrap, styles.emptyHero, { height }]}>
+      <View style={styles.emptyHeroCopy}>
+        <Text style={styles.todayEyebrow}>{mode === "forYou" ? C.todayEmptyKicker : mode === "following" ? C.following : C.nearby}</Text>
+        <Text style={styles.emptyHeroTitle}>{title}</Text>
+        <Text style={styles.emptyHeroBody}>{body}</Text>
+        <AccessiblePressable
+          onPress={() => router.push(browse ? "/(tabs)/shop" : "/style-dna")}
+          style={({ pressed }) => [styles.emptyHeroCta, pressed && { opacity: 0.92 }]}
+          accessibilityRole="button"
+          accessibilityLabel={browse ? C.shop : C.todayEmptyAction}
+        >
+          <Text style={styles.ctaTxt}>{browse ? C.shop : C.todayEmptyAction}</Text>
+        </AccessiblePressable>
+      </View>
+    </View>
+  );
+}
 function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop?: () => void }) {
   const styles = make(colors);
   const grab = useRef<FrameGrab | null>(null);
@@ -622,23 +688,6 @@ function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop
       </Text>
     </View>
   );
-}
-
-function TodayLocalCard({ piece, country, colors }: { piece?: ClosetPiece; country?: string; colors: Colors }) {
-  const styles = make(colors);
-  const C = useCopy();
-  if (!piece) return <View style={styles.localEmpty}><Text style={styles.sectionSub}>{C.discoveryBody}</Text></View>;
-  const brand = piece.brandId ? getBrand(piece.brandId) : undefined;
-  return <AccessiblePressable onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })} style={({ pressed }) => [styles.localCard, pressed && { opacity: 0.92 }]} accessibilityRole="button" accessibilityLabel={`Open ${brand?.name || piece.brand || "seller"} discovery`}>
-    <Image source={{ uri: piece.photo }} style={styles.localImage} contentFit="cover" accessible={false} />
-    <View style={styles.localCopy}>
-      <Text style={styles.localK}>{country ? `${C.discoveringNear} · ${country}` : C.discoveringNear}</Text>
-      <Text style={styles.localTitle}>{brand?.name || piece.brand || "Independent seller"}</Text>
-      {brand?.verified ? <View style={styles.localVerified}><VerifiedMark size={13} /><Text style={styles.localVerifiedText}>Uvel-reviewed brand</Text></View> : <Text style={styles.localMeta}>{C.sellerListingAvailability}</Text>}
-      <Text style={styles.localBody}>{C.discoveryBody}</Text>
-      <Text style={styles.localAction}>{brand ? C.viewBrand : C.viewListing}  →</Text>
-    </View>
-  </AccessiblePressable>;
 }
 
 function TodayCampaignCard({ campaign, lead, uid, colors }: { campaign: BrandCampaign; lead: ClosetPiece; uid: string; colors: Colors }) {
@@ -730,6 +779,11 @@ function make(colors: Colors) {
     heroLoad: { alignItems: "center", justifyContent: "center" },
     hero: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
     heroCopy: { position: "absolute", left: 16, right: 16, bottom: 18 },
+    emptyHero: { justifyContent: "center", paddingHorizontal: 24, backgroundColor: "#16140F" },
+    emptyHeroCopy: { maxWidth: 420 },
+    emptyHeroTitle: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 34, lineHeight: 40, marginTop: 12 },
+    emptyHeroBody: { color: "rgba(244,240,230,0.68)", fontSize: 16, lineHeight: 24, marginTop: 10, maxWidth: 340 },
+    emptyHeroCta: { alignSelf: "flex-start", backgroundColor: "#F4F0E6", minHeight: 48, paddingHorizontal: 20, borderRadius: 24, alignItems: "center", justifyContent: "center", marginTop: 22 },
     heroBar: { flexDirection: "row", gap: 10, marginBottom: 16 },
     srcRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
     src: { color: "rgba(244,240,230,0.86)", fontSize: 13, fontWeight: "500" },
@@ -749,6 +803,7 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     ctaTxt: { color: "#16140F", fontWeight: "700", fontSize: 15 },
+    ctaSolo: { flex: 1 },
     ghost: {
       flex: 1,
       height: 46,
