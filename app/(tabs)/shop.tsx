@@ -9,7 +9,6 @@ import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
 import { OrbitLoader } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
-import { TabSwipeNavigator } from "../../components/TabSwipeNavigator";
 import { recordCampaignAttribution } from "../../lib/attribution";
 import { VerifiedMark } from "../../components/VerifiedMark";
 import { followedBrandIds, getBrand, verifiedBrands, useBrands } from "../../lib/brands";
@@ -194,7 +193,6 @@ export default function Shop() {
   if (!wardrobeReady && !scanningLook) return <ShopSkeleton colors={colors} />;
 
   return (
-    <TabSwipeNavigator index={3}>
     <ScrollView
       style={styles.page}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
@@ -394,7 +392,6 @@ export default function Shop() {
         )
       ) : null}
     </ScrollView>
-    </TabSwipeNavigator>
   );
 }
 

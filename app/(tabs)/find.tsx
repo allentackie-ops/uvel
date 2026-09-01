@@ -14,7 +14,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader } from "../../components/OrbitLoader";
-import { TabSwipeNavigator } from "../../components/TabSwipeNavigator";
 import { usd } from "../../lib/catalog";
 import { pickFromLibrary, takePhoto } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
@@ -174,7 +173,6 @@ export default function Mirror() {
   const canTry = Boolean(person && picked && !busy);
 
   return (
-    <TabSwipeNavigator index={1}>
     <View style={styles.page}>
       <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
         <View style={{ flex: 1 }}>
@@ -329,7 +327,6 @@ export default function Mirror() {
         ) : null}
       </ScrollView>
     </View>
-    </TabSwipeNavigator>
   );
 }
 
