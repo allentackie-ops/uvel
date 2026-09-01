@@ -58,4 +58,4 @@ jobs:
           PY
 
       - name: Submit iOS IPA to App Store Connect
-        run: npx eas-cli submit --platform ios --latest --profile production --non-interactive --wait --verbose
+        run: timeout 15m npx eas-cli submit --platform ios --latest --profile production --non-interactive --no-wait --verbose
