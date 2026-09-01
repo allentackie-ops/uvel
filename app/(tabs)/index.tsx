@@ -401,7 +401,6 @@ export default function Today() {
               <View style={styles.head}>
                 <View>
                   <Text style={styles.h2}>{C.shopTheLook}</Text>
-                  <Text style={styles.sectionSub}>{C.todayShopPromise}</Text>
                 </View>
               </View>
               {hits.length ? (
