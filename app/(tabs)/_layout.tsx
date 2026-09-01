@@ -89,7 +89,7 @@ export default function TabsLayout() {
                 accessibilityLabel={tab.label}
                 accessibilityState={{ selected: active }}
               >
-                <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={24} color={active ? "#F4F0E6" : "rgba(244,240,230,0.72)"} />
+                <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={23} color={active ? "#16140F" : "#A9A398"} />
                 <Text style={[styles.label, active && styles.labelActive]}>{tab.label}</Text>
               </Pressable>
             );
@@ -112,11 +112,11 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   pager: { flex: 1 },
   page: { flex: 1, backgroundColor: "#0B0A08" },
-  barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 34, paddingTop: 8, backgroundColor: "transparent" },
-  bar: { minHeight: 72, borderRadius: 38, borderWidth: 1, borderColor: "rgba(244,240,230,0.2)", backgroundColor: "rgba(32,30,27,0.92)", flexDirection: "row", alignItems: "center", paddingHorizontal: 6 },
-  tab: { flex: 1, minHeight: 62, borderRadius: 32, alignItems: "center", justifyContent: "center", gap: 2 },
-  tabActive: { backgroundColor: "rgba(244,240,230,0.17)" },
+  barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 10, backgroundColor: "#0B0A08", borderTopWidth: 1, borderTopColor: "#2A271F" },
+  bar: { minHeight: 68, borderRadius: 0, borderWidth: 0, backgroundColor: "#15130F", flexDirection: "row", alignItems: "center", paddingHorizontal: 10 },
+  tab: { flex: 1, minHeight: 58, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 3 },
+  tabActive: { backgroundColor: "#D6E27A" },
   tabPressed: { opacity: 0.76 },
-  label: { color: "rgba(244,240,230,0.72)", fontSize: 12, fontWeight: "600" },
-  labelActive: { color: "#F4F0E6" },
+  label: { color: "#A9A398", fontSize: 11, fontWeight: "700" },
+  labelActive: { color: "#16140F" },
 });
