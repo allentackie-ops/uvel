@@ -2,12 +2,12 @@ import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useMemo, useState } from "react";
-import {  ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
-import { OrbitLoader } from "../../components/OrbitLoader";
+import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
 import { VerifiedMark } from "../../components/VerifiedMark";
@@ -22,6 +22,16 @@ import { useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
 import { useLiveShopCampaigns } from "../../lib/marketing";
 import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated } from "../../lib/wardrobe";
+
+const orbitTop = {
+  position: "absolute" as const,
+  top: 0,
+  left: 0,
+  right: 0,
+  alignItems: "center" as const,
+  zIndex: 40,
+  elevation: 40,
+};
 
 function FrozenClip({
   uri,
@@ -89,6 +99,7 @@ export default function Shop() {
   const [scanning, setScanning] = useState(false);
   const [job, setJob] = useState<LookScan | null>(null);
   const [retrying, setRetrying] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
@@ -126,6 +137,17 @@ export default function Shop() {
   const videoUrl = job?.videoUrl || "";
   const freezeAt = job?.time || 0;
   const marketplaceSync = useMarketplaceSyncState();
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refreshMarketplaceListings();
+    } finally {
+      setRefreshing(false);
+      setRetrying(false);
+    }
+  }, []);
+
+  const orbitOn = useMinHold(refreshing, 1200);
   const live = shopFloor(country);
   const liveCampaigns = useLiveShopCampaigns();
   const scanningLook = Boolean(scan === "1" || look || frame || videoUrl);
@@ -193,11 +215,21 @@ export default function Shop() {
   if (!wardrobeReady && !scanningLook) return <ShopSkeleton colors={colors} />;
 
   return (
-    <ScrollView
-      style={styles.page}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
-      keyboardShouldPersistTaps="handled"
-    >
+    <View style={styles.page}>
+      <ScrollView
+        style={styles.page}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void onRefresh()}
+            tintColor="transparent"
+            colors={["transparent"]}
+            progressViewOffset={insets.top}
+          />
+        }
+      >
       <View style={styles.titleRow}>
         <Text style={styles.title}>{scanningLook ? C.shopTheLook : C.shop}</Text>
       </View>
@@ -235,7 +267,7 @@ export default function Shop() {
           <Text style={styles.syncNotice}>{marketplaceSync === "loading" ? "Your shop is loading the latest verified inventory." : "Live listings will return when the marketplace connection is restored."}</Text>
           {marketplaceSync === "unavailable" ? (
             <View style={styles.syncActions}>
-              <AccessiblePressable onPress={() => { setRetrying(true); refreshMarketplaceListings(); setTimeout(() => setRetrying(false), 1200); }} style={styles.syncPrimary} accessibilityRole="button" accessibilityLabel="Retry marketplace connection">
+              <AccessiblePressable onPress={() => { setRetrying(true); void onRefresh(); }} style={styles.syncPrimary} accessibilityRole="button" accessibilityLabel="Retry marketplace connection">
                 <Text style={styles.syncPrimaryTxt}>{retrying ? "Retrying…" : "Retry"}</Text>
               </AccessiblePressable>
               <AccessiblePressable onPress={() => router.push("/")} style={styles.syncSecondary} accessibilityRole="button" accessibilityLabel="Explore Today’s edit">
@@ -391,7 +423,13 @@ export default function Shop() {
           </View>
         )
       ) : null}
-    </ScrollView>
+      </ScrollView>
+      {orbitOn ? (
+        <View style={[orbitTop, { paddingTop: insets.top + 10 }]} pointerEvents="none">
+          <OrbitLoader />
+        </View>
+      ) : null}
+    </View>
   );
 }
 

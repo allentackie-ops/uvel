@@ -120,6 +120,8 @@ let pieces: ClosetPiece[] = [];
 const listeners = new Set<() => void>();
 let listingsWatchStarted = false;
 let listingsUnsubscribe: (() => void) | null = null;
+let settleListings: () => void = () => undefined;
+let listingsSettled: Promise<void> = Promise.resolve();
 let wardrobeHydrated = false;
 const remoteListingIds = new Set<string>();
 export type MarketplaceSyncState = "loading" | "confirmed" | "unavailable";
@@ -155,18 +157,27 @@ function normalize(p: ClosetPiece): ClosetPiece {
   };
 }
 
-function watchPublicListings(force = false) {
-  if (listingsWatchStarted && !force) return;
+function settleListingSnapshot() {
+  settleListings();
+  settleListings = () => undefined;
+}
+
+function watchPublicListings(force = false): Promise<void> {
+  if (listingsWatchStarted && !force) return listingsSettled;
   if (force) {
     listingsUnsubscribe?.();
     listingsUnsubscribe = null;
     listingsWatchStarted = false;
     remoteListingIds.clear();
+    settleListingSnapshot();
   }
   if (!firebaseReady()) {
     setMarketplaceSyncState("unavailable");
-    return;
+    return Promise.resolve();
   }
+  listingsSettled = new Promise<void>((resolve) => {
+    settleListings = resolve;
+  });
   listingsWatchStarted = true;
   setMarketplaceSyncState("loading");
   try {
@@ -206,15 +217,19 @@ function watchPublicListings(force = false) {
           : [remote, ...pieces];
       });
       setMarketplaceSyncState("confirmed");
+      settleListingSnapshot();
     }, () => {
       listingsWatchStarted = false;
       listingsUnsubscribe = null;
       setMarketplaceSyncState("unavailable");
+      settleListingSnapshot();
     });
   } catch {
     listingsWatchStarted = false;
     setMarketplaceSyncState("unavailable");
+    settleListingSnapshot();
   }
+  return listingsSettled;
 }
 
 async function hydrate() {
@@ -287,7 +302,7 @@ export function useMarketplaceSyncState() {
 }
 
 export function refreshMarketplaceListings() {
-  watchPublicListings(true);
+  return watchPublicListings(true);
 }
 export function isRemoteListedPiece(id: string) {
   return remoteListingIds.has(id);
