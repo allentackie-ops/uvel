@@ -19,6 +19,7 @@ import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { TodaySkeleton } from "../../components/ScreenSkeletons";
+import { TabSwipeNavigator } from "../../components/TabSwipeNavigator";
 import { VerifiedMark } from "../../components/VerifiedMark";
 import { unreadFor, useInbox } from "../../lib/chat";
 import { usd } from "../../lib/catalog";
@@ -323,6 +324,7 @@ export default function Today() {
   if ((loading || !wardrobeReady) && !looks.length && todayMode === "forYou") return <TodaySkeleton colors={colors} />;
 
   return (
+    <TabSwipeNavigator index={0}>
     <View style={styles.page}>
       <StatusBar style="light" />
       <ScrollView
@@ -494,6 +496,7 @@ export default function Today() {
         </View>
       ) : null}
     </View>
+    </TabSwipeNavigator>
   );
 }
 

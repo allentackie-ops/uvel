@@ -1,5 +1,10 @@
 import Sell from "../sell";
+import { TabSwipeNavigator } from "../../components/TabSwipeNavigator";
 
 export default function Closet() {
-  return <Sell embedded />;
+  return (
+    <TabSwipeNavigator index={2}>
+      <Sell embedded />
+    </TabSwipeNavigator>
+  );
 }

@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { TabSwipeNavigator } from "../../components/TabSwipeNavigator";
 import { ListingCard } from "../../components/ListingCard";
 import { VerifiedMark } from "../../components/VerifiedMark";
 import { GARMENTS, getGarment, usd } from "../../lib/catalog";
@@ -148,6 +149,7 @@ export default function You() {
   }, [buyOrders, buyFilter]);
 
   return (
+    <TabSwipeNavigator index={4}>
     <ScrollView
       style={styles.page}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 108 }]}
@@ -304,6 +306,7 @@ export default function You() {
         {!app.isPlus ? <Text style={styles.planGo}>Upgrade</Text> : <Text style={styles.planP}>{`${app.plusPlan === "yearly" ? "Yearly" : "Monthly"} · unlimited try-on`}</Text>}
       </Pressable>
     </ScrollView>
+    </TabSwipeNavigator>
   );
 }
 
