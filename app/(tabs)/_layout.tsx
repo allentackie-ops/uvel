@@ -25,7 +25,7 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const pagerRef = useRef<PagerView>(null);
-  const [selected, setSelected] = useState(() => routeIndex(pathname));
+  const [selected, setSelected] = useState(() => routeIndex(pathname) ?? 0);
 
   const tabs = useMemo<TabScreen[]>(
     () => [
@@ -39,8 +39,11 @@ export default function TabsLayout() {
   );
 
   useEffect(() => {
+    // Keep the current tab mounted behind stack screens such as Settings.
+    // Treating every non-tab route as Today causes a visible pager reset while
+    // the stack screen is pushed or popped.
     const next = routeIndex(pathname);
-    if (next === selected) return;
+    if (next === null || next === selected) return;
     setSelected(next);
     pagerRef.current?.setPageWithoutAnimation(next);
   }, [pathname, selected]);
@@ -57,7 +60,8 @@ export default function TabsLayout() {
     if (index === selected) return;
     setSelected(index);
     void Haptics.selectionAsync().catch(() => undefined);
-    if (routeIndex(pathname) !== index) router.navigate(ROUTES[index]);
+    const currentRouteIndex = routeIndex(pathname);
+    if (currentRouteIndex !== null && currentRouteIndex !== index) router.navigate(ROUTES[index]);
   }
 
   return (
@@ -102,12 +106,13 @@ export default function TabsLayout() {
   );
 }
 
-function routeIndex(pathname: string) {
+function routeIndex(pathname: string): number | null {
+  if (pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/")) return 0;
   if (pathname.includes("/find")) return 1;
   if (pathname.includes("/closet")) return 2;
   if (pathname.includes("/shop")) return 3;
   if (pathname.includes("/you")) return 4;
-  return 0;
+  return null;
 }
 
 const styles = StyleSheet.create({
