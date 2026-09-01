@@ -340,6 +340,28 @@ export default function Today() {
           />
         }
       >
+        <View style={[styles.heroHeader, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
+          <AccessiblePressable
+            onPress={() => router.push("/inbox")}
+            style={({ pressed }) => [styles.chatHeaderButton, pressed && { opacity: 0.9 }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Chats${unread > 0 ? `, ${unread} unread` : ""}`}
+            accessibilityHint="Double tap to open your messages."
+          >
+            <View style={styles.chatGlyph}>
+              <View style={styles.chatDots}>
+                <View style={styles.chatDot} />
+                <View style={styles.chatDot} />
+                <View style={styles.chatDot} />
+              </View>
+            </View>
+            {unread > 0 ? (
+              <View style={styles.chatUnreadBadge}>
+                <Text style={styles.chatUnreadText}>{unread > 9 ? "9+" : String(unread)}</Text>
+              </View>
+            ) : null}
+          </AccessiblePressable>
+        </View>
         {todayMode === "forYou" ? (
           featured ? (
             <Hero
@@ -438,29 +460,6 @@ export default function Today() {
               ) : null}
             </>
           )}
-          <AccessiblePressable
-            onPress={() => router.push("/inbox")}
-            style={({ pressed }) => [styles.inbox, pressed && { opacity: 0.92 }]}
-            accessibilityRole="button"
-            accessibilityLabel={`Chats${unread > 0 ? `, ${unread} unread` : ""}`}
-            accessibilityHint="Double tap to open your messages."
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={styles.inboxK}>Chats</Text>
-              <Text style={styles.inboxP} numberOfLines={1}>
-                {chats[0]?.lastText
-                  ? chats[0].lastText
-                  : chats.length
-                    ? `${chats.length} open`
-                    : "Asks on your listings land here"}
-              </Text>
-            </View>
-            {unread > 0 ? (
-              <View style={styles.redBadge}>
-                <Text style={styles.redBadgeTxt}>{unread > 9 ? "9+" : String(unread)}</Text>
-              </View>
-            ) : null}
-          </AccessiblePressable>
           {todayMode === "forYou" ? (
             <>
               <View style={styles.head}>
@@ -775,6 +774,13 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: "#0B0A08" },
     heroWrap: { width: W, backgroundColor: "#0B0A08", overflow: "hidden" },
+    heroHeader: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 20, alignItems: "flex-end", paddingHorizontal: 16 },
+    chatHeaderButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(22,20,15,0.62)", borderWidth: 1, borderColor: "rgba(244,240,230,0.32)", alignItems: "center", justifyContent: "center" },
+    chatGlyph: { width: 25, height: 20, borderRadius: 7, borderWidth: 2, borderColor: "#F4F0E6", alignItems: "center", justifyContent: "center", position: "relative" },
+    chatDots: { flexDirection: "row", gap: 3 },
+    chatDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: "#F4F0E6" },
+    chatUnreadBadge: { position: "absolute", top: -2, right: -2, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#16140F" },
+    chatUnreadText: { color: "#16140F", fontSize: 10, fontWeight: "900" },
     heroLoad: { alignItems: "center", justifyContent: "center" },
     hero: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
     heroCopy: { position: "absolute", left: 16, right: 16, bottom: 18 },
