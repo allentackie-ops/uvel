@@ -364,7 +364,7 @@ export default function Today() {
           <View style={styles.todayIntro}>
             <Text style={styles.todayEyebrow}>{intro.eyebrow}</Text>
             <Text style={styles.todayIntroTitle}>{intro.title}</Text>
-            <Text style={styles.todayIntroBody}>{intro.body}</Text>
+            {todayMode !== "forYou" ? <Text style={styles.todayIntroBody}>{intro.body}</Text> : null}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modeRow}>
             {[{ id: "forYou", label: C.forYou }, { id: "following", label: C.following }, { id: "nearby", label: C.nearby }].map((item) => {
