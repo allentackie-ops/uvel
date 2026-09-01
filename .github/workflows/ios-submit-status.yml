@@ -1,0 +1,26 @@
+name: iOS Submission Status
+
+on:
+  workflow_dispatch:
+    inputs:
+      submission_id:
+        description: EAS submission ID
+        required: true
+        type: string
+        default: c051281e-bacd-41ee-96df-7f5d0f407cd9
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: npm
+      - name: Check EAS submission status
+        run: npx eas-cli submit:view "${{ github.event.inputs.submission_id }}" --json
