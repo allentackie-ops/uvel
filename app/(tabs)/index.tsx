@@ -364,7 +364,7 @@ export default function Today() {
           <View style={styles.todayIntro}>
             <Text style={styles.todayEyebrow}>{intro.eyebrow}</Text>
             <Text style={styles.todayIntroTitle}>{intro.title}</Text>
-            {todayMode !== "forYou" ? <Text style={styles.todayIntroBody}>{intro.body}</Text> : null}
+            {todayMode !== "forYou" && todayMode !== "nearby" ? <Text style={styles.todayIntroBody}>{intro.body}</Text> : null}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modeRow}>
             {[{ id: "forYou", label: C.forYou }, { id: "following", label: C.following }, { id: "nearby", label: C.nearby }].map((item) => {
@@ -420,7 +420,7 @@ export default function Today() {
               <View style={styles.head}>
                 <View>
                   <Text style={styles.h2}>{todayMode === "following" ? C.following : C.nearby}</Text>
-                  <Text style={styles.sectionSub}>{todayMode === "following" ? C.followingTodayBody : C.nearbyTodayBody}</Text>
+                  {todayMode === "following" ? <Text style={styles.sectionSub}>{C.followingTodayBody}</Text> : null}
                 </View>
               </View>
               {modeListings.length > 1 ? (
@@ -633,7 +633,7 @@ function TodayEmptyHero({ mode, colors, height }: { mode: TodayMode; colors: Col
       <View style={styles.emptyHeroCopy}>
         <Text style={styles.todayEyebrow}>{mode === "forYou" ? C.todayEmptyKicker : mode === "following" ? C.following : C.nearby}</Text>
         <Text style={styles.emptyHeroTitle}>{title}</Text>
-        <Text style={styles.emptyHeroBody}>{body}</Text>
+        {mode !== "nearby" ? <Text style={styles.emptyHeroBody}>{body}</Text> : null}
         <AccessiblePressable
           onPress={() => router.push(browse ? "/(tabs)/shop" : "/style-dna")}
           style={({ pressed }) => [styles.emptyHeroCta, pressed && { opacity: 0.92 }]}
