@@ -316,7 +316,7 @@ export default function Today() {
   const featured = personalizedLooks[0] ?? looks[0];
   const hits = featured ? matchListings(featured, live, taste, followedIds).slice(0, 6) : [];
   const intro = todayMode === "following"
-    ? { eyebrow: C.following, title: C.following, body: C.followingTodayBody }
+    ? { eyebrow: C.following, title: C.following, body: "" }
     : todayMode === "nearby"
       ? { eyebrow: C.nearby, title: C.nearbyTodayTitle, body: C.nearbyTodayBody }
       : { eyebrow: country ? `${country} · ${C.dailyEdit}` : C.dailyEdit, title: taste.length ? C.personalizedTodayTitle : C.todayIntroTitle, body: taste.length ? C.personalizedTodayBody : C.todayIntroBody };
@@ -386,7 +386,6 @@ export default function Today() {
           <View style={styles.todayIntro}>
             <Text style={styles.todayEyebrow}>{intro.eyebrow}</Text>
             <Text style={styles.todayIntroTitle}>{intro.title}</Text>
-            {todayMode !== "forYou" && todayMode !== "nearby" ? <Text style={styles.todayIntroBody}>{intro.body}</Text> : null}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modeRow}>
             {[{ id: "forYou", label: C.forYou }, { id: "following", label: C.following }, { id: "nearby", label: C.nearby }].map((item) => {
@@ -442,7 +441,6 @@ export default function Today() {
               <View style={styles.head}>
                 <View>
                   <Text style={styles.h2}>{todayMode === "following" ? C.following : C.nearby}</Text>
-                  {todayMode === "following" ? <Text style={styles.sectionSub}>{C.followingTodayBody}</Text> : null}
                 </View>
               </View>
               {modeListings.length > 1 ? (
@@ -626,13 +624,12 @@ function TodayEmptyHero({ mode, colors, height }: { mode: TodayMode; colors: Col
   const C = useCopy();
   const browse = mode === "following" || mode === "nearby";
   const title = mode === "following" ? C.followingEmptyTitle : mode === "nearby" ? C.nearbyTodayTitle : C.todayEmptyTitle;
-  const body = mode === "following" ? C.followingTodayBody : mode === "nearby" ? C.nearbyTodayBody : C.todayEmptyBody;
+  const body = mode === "nearby" ? C.nearbyTodayBody : C.todayEmptyBody;
   return (
     <View style={[styles.heroWrap, styles.emptyHero, { height }]}>
       <View style={styles.emptyHeroCopy}>
         <Text style={styles.todayEyebrow}>{mode === "forYou" ? C.todayEmptyKicker : mode === "following" ? C.following : C.nearby}</Text>
         <Text style={styles.emptyHeroTitle}>{title}</Text>
-        {mode !== "nearby" ? <Text style={styles.emptyHeroBody}>{body}</Text> : null}
         <AccessiblePressable
           onPress={() => router.push(browse ? "/(tabs)/shop" : "/style-dna")}
           style={({ pressed }) => [styles.emptyHeroCta, pressed && { opacity: 0.92 }]}
