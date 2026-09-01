@@ -223,7 +223,7 @@ export default function Shop() {
     <View style={styles.page}>
       <ScrollView
         style={styles.page}
-        contentContainerStyle={[styles.content, { flexGrow: 1, paddingTop: insets.top + 8 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
         alwaysBounceVertical
         bounces
         keyboardShouldPersistTaps="handled"
@@ -240,11 +240,6 @@ export default function Shop() {
       <View style={styles.titleRow}>
         <Text style={styles.title}>{scanningLook ? C.shopTheLook : C.shop}</Text>
       </View>
-      {orbitOn ? (
-        <View style={styles.refreshOrbit} accessibilityRole="progressbar" accessibilityLabel="Refreshing shop listings">
-          <OrbitLoader label="Refreshing shop" caption="Loading latest listings" />
-        </View>
-      ) : null}
       {scanningLook ? (
         <Text style={styles.look}>{job?.title || look?.title || "This frame"}</Text>
       ) : (
@@ -508,7 +503,6 @@ function make(colors: Colors) {
       backgroundColor: "#0B0A08",
     },
     orbitBox: { paddingVertical: 48, alignItems: "center" },
-    refreshOrbit: { marginTop: 14, marginBottom: 4, minHeight: 132, paddingVertical: 12, borderRadius: 16, backgroundColor: "#161512", borderWidth: 1, borderColor: "rgba(214,226,122,0.22)", alignItems: "center", justifyContent: "center" },
     store: { flexDirection: "row", alignItems: "center", marginTop: 8, gap: 6 },
     storeTxt: { color: "rgba(244,240,230,0.5)", fontSize: 15 },
     storeGo: { color: "rgba(244,240,230,0.72)", fontSize: 15, textDecorationLine: "underline" },
