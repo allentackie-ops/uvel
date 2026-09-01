@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { router, usePathname } from "expo-router";
 import PagerView, { type PagerViewOnPageSelectedEvent } from "react-native-pager-view";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -55,6 +56,7 @@ export default function TabsLayout() {
     const index = event.nativeEvent.position;
     if (index === selected) return;
     setSelected(index);
+    void Haptics.selectionAsync().catch(() => undefined);
     if (routeIndex(pathname) !== index) router.navigate(ROUTES[index]);
   }
 
