@@ -1,77 +1,33 @@
-# Uvel — dress & shop
+# uvel-7f
 
-Native **iOS + Android** app on **Expo SDK 57**.
+This is a [Next.js](https://nextjs.org) project bootstrapped with [v0](https://v0.app).
 
-Liquid Glass is Apple’s, not CSS: `expo-glass-effect` (`UIVisualEffectView` / iOS 26) and Expo Router **native tabs**.
+## Built with v0
 
-You do **not** need Xcode on your Mac. Expo’s cloud (EAS) compiles with Xcode 26.
+This repository is linked to a [v0](https://v0.app) project. You can continue developing by visiting the link below -- start new chats to make changes, and v0 will push commits directly to this repo. Every merge to `main` will automatically deploy.
 
-Repo: https://github.com/allentackie-ops/uvel
+[Continue working on v0 →](https://v0.app/chat/projects/prj_4CujTCe12WW7vEIeU2TFiXEe5woh)
 
-## Ship to the App Store (no local Xcode)
+## Getting Started
 
-1. Create / log into [expo.dev](https://expo.dev) with the same Apple Developer account you already have.
-2. **Import this GitHub repo** (Project → Create → GitHub → `allentackie-ops/uvel`).
-3. Under **Credentials**, connect your Apple team. Expo stores the certs; you never open Xcode.
-4. Create the app in [App Store Connect](https://appstoreconnect.apple.com) if it doesn’t exist yet:
-   - Bundle ID: `com.uvel.dressandshop`
-   - Name: Uvel
-   - Subscriptions: `uvel.plus.monthly` ($7.99) and `uvel.plus.yearly` ($68.99)
-5. Run a production build:
+First, run the development server:
 
 ```bash
-npx eas-cli login
-npx eas-cli init          # paste the project ID into app.json extra.eas.projectId
-npx eas-cli build --platform ios --profile production --auto-submit
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
 ```
 
-`--auto-submit` sends the .ipa to App Store Connect when the cloud build finishes.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-Android / Play Store (same project):
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-```bash
-npx eas-cli build --platform android --profile production --auto-submit
-```
+## Learn More
 
-## OTA (JS updates, no new binary)
+To learn more, take a look at the following resources:
 
-JS-only changes go out with a token — no local Expo login. Store an Expo access token as the GitHub secret `EXPO_TOKEN`, then:
-
-- GitHub → Actions → **OTA** → Run workflow → channel `production`, or
-- `EXPO_TOKEN=… npx eas-cli update --channel production --message "what changed" --platform ios --non-interactive`
-
-Phones on the current App Store binary pull the bundle on next launch. Full steps: [docs/ota.md](docs/ota.md).
-
-## What’s in the binary
-
-| Tab | Native behavior |
-| --- | --- |
-| Today | iOS 26 liquid-glass tab bar over editorial looks |
-| Find | Camera + Photos (`expo-image-picker`), paste IG / TikTok / Pinterest / Snap links |
-| Try on | Your photo + a piece, on-device overlay |
-| Shop | Archive floor, plus **Start a brand** |
-| You | Style DNA, Uvel+, brand owner desk |
-| You | Style DNA, Uvel+ |
-
-Glass surfaces use `GlassView` / `GlassContainer` from `expo-glass-effect` (iOS 26+). Older iOS and Android get a translucent fallback.
-
-## Brands
-
-Brands are not personal closets. **Start a brand** lives on Shop.
-
-1. File the house (name, legal, story, mark).
-2. Anthropic scans the filing. Impersonation, empty shells, and anything that isn’t fashion fail.
-3. The person who filed becomes **Owner** (You tab). Verified houses get the blue Meta-style check.
-4. Owner invites posters. Posters list on the brand page; they don’t own it.
-5. The brand page is its own room: logo, image or video banner, sixteen colourways plus custom hex.
-6. Listings take the whole rack — clothes, shoes, jewelry, hats, swim — with available sizes.
-7. Analysis (earnings, views, likes, conversion) stays on the owner desk unless they share it with the team.
-
-
-## Local preview (optional)
-
-```bash
-npx expo start
-```
-
-Scan the QR code with **Expo Go** on iPhone. Liquid Glass only shows on **iOS 26** (or a device/simulator with that OS). A store build from EAS is what ships.
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [v0 Documentation](https://v0.app/docs) - learn about v0 and how to use it.

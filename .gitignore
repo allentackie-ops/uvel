@@ -1,19 +1,15 @@
-node_modules/
-.env
-.env.*
-!.env.example
-.expo/
-dist/
-certs/
-credentials.json
-fastlane/report.xml
-fastlane/README.md
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-*.orig.*
-web-build/
+# v0 sandbox internal files
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+.snowflake/
+.v0-trash/
+.vercel/
+
+# Environment variables
+.env*.local
+
+# Common ignores
+node_modules
+.next/
 .DS_Store
-eas-build-local/
