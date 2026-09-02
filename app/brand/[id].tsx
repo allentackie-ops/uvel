@@ -26,7 +26,7 @@ import {
 import { usd } from "../../lib/catalog";
 import { recordAnalyticsEvent } from "../../lib/analytics";
 import { useUvel } from "../../lib/store";
-import { useColors } from "../../lib/theme";
+import { useColors, type Colors } from "../../lib/theme";
 import { getPiece, useWardrobe } from "../../lib/wardrobe";
 import { recordCampaignAttribution } from "../../lib/attribution";
 import { useLiveCampaigns } from "../../lib/marketing";
@@ -41,6 +41,7 @@ export default function BrandPage() {
   useWardrobe();
   const app = useUvel();
   const colors = useColors();
+  const styles = make(colors);
   const insets = useSafeAreaInsets();
   const brand = getBrand(id);
   const liveCampaigns = useLiveCampaigns(id || "");
@@ -82,7 +83,7 @@ export default function BrandPage() {
     return (
       <View style={[styles.missing, { paddingTop: insets.top + 20 }]}>
         <AccessiblePressable onPress={() => router.back()}>
-          <Text style={{ color: "#F4F0E6", fontSize: 16 }}>‹ Back</Text>
+          <Text style={{ color: colors.bone, fontSize: 16 }}>‹ Back</Text>
         </AccessiblePressable>
         <Text style={styles.missingH}>This house isn’t here</Text>
       </View>
@@ -346,10 +347,11 @@ export default function BrandPage() {
   );
 }
 
-const styles = StyleSheet.create({
-  missing: { flex: 1, backgroundColor: "#0B0A08", paddingHorizontal: 20 },
-  missingH: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, marginTop: 24 },
-  banner: { width: W, height: 280, backgroundColor: "#161512" },
+function make(colors: Colors) {
+  return StyleSheet.create({
+  missing: { flex: 1, backgroundColor: colors.ink, paddingHorizontal: 20 },
+  missingH: { color: colors.bone, fontFamily: "Georgia", fontSize: 28, marginTop: 24 },
+  banner: { width: W, height: 280, backgroundColor: colors.surface },
   nav: {
     position: "absolute",
     left: 16,
@@ -357,7 +359,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  focused: { borderWidth: 2, borderColor: "#D6E27A" },
+  focused: { borderWidth: 2, borderColor: colors.success },
   orb: {
     minWidth: 44,
     minHeight: 44,
@@ -374,7 +376,7 @@ const styles = StyleSheet.create({
     height: 88,
     borderRadius: 22,
     borderWidth: 4,
-    backgroundColor: "#161512",
+    backgroundColor: colors.surface,
   },
   kicker: { letterSpacing: 1.6, fontSize: 11, fontWeight: "700" },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
@@ -409,7 +411,7 @@ const styles = StyleSheet.create({
   heroP: { fontSize: 13, lineHeight: 18, marginTop: 8 },
   heroImg: { width: W * 0.42, minHeight: 180 },
   campaignCard: { marginHorizontal: 20, borderRadius: 16, padding: 10, flexDirection: "row", alignItems: "center", gap: 10, minHeight: 92 },
-  campaignImg: { width: 72, height: 72, borderRadius: 10, backgroundColor: "#1A1915" },
+  campaignImg: { width: 72, height: 72, borderRadius: 10, backgroundColor: colors.surface },
   sectionHead: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, marginTop: 32, marginBottom: 8, gap: 6 },
   section: { fontSize: 22, fontWeight: "700" },
   chev: { fontSize: 26, marginTop: -2 },
@@ -421,7 +423,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  thumb: { width: 48, height: 48, borderRadius: 6, backgroundColor: "#1A1915" },
+  thumb: { width: 48, height: 48, borderRadius: 6, backgroundColor: colors.surface },
   rowName: { fontSize: 16, fontWeight: "600" },
   rowSub: { fontSize: 13, marginTop: 3 },
   moreBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
@@ -429,9 +431,10 @@ const styles = StyleSheet.create({
   empty: { paddingHorizontal: 20, fontSize: 15, lineHeight: 22 },
   playlists: { paddingHorizontal: 16, gap: 12, paddingBottom: 8 },
   play: { width: 148, borderRadius: 14, overflow: "hidden" },
-  playImg: { width: 148, height: 148, backgroundColor: "#1A1915" },
+  playImg: { width: 148, height: 148, backgroundColor: colors.surface },
   playName: { fontWeight: "700", fontSize: 14, paddingHorizontal: 10, paddingTop: 10 },
   playN: { fontSize: 12, paddingHorizontal: 10, paddingBottom: 12, marginTop: 2 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 },
   story: { fontSize: 15, lineHeight: 22, marginTop: 8 },
-});
+  });
+}

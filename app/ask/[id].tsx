@@ -34,7 +34,7 @@ import {
 } from "../../lib/chat";
 import { pickFromLibrary, takePhoto } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
-import { useColors, type Colors } from "../../lib/theme";
+import { alpha, useColors, type Colors } from "../../lib/theme";
 import { getPiece, useWardrobe } from "../../lib/wardrobe";
 import { useOrders } from "../../lib/orders";
 
@@ -232,7 +232,7 @@ export default function Ask() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style="light" />
+      <StatusBar style={app.appearance === "dark" ? "light" : "dark"} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
         <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>
@@ -467,7 +467,7 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     buyTxt: { color: colors.successInk, fontWeight: "700", fontSize: 15 },
-    rule: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(244,240,230,0.12)" },
+    rule: { height: StyleSheet.hairlineWidth, backgroundColor: alpha(colors.bone, 0.12) },
     hello: { flexDirection: "row", gap: 10, marginBottom: 18, alignItems: "flex-start" },
     avatar: {
       width: 40,
@@ -498,7 +498,7 @@ function make(colors: Colors) {
     bubbleMine: { alignSelf: "flex-end", backgroundColor: "#2A320E" },
     bubbleThem: { alignSelf: "flex-start", backgroundColor: colors.surface },
     bubbleTxt: { color: colors.bone, fontSize: 15, lineHeight: 21 },
-    bubbleTxtMine: { color: "#F4F0E6" },
+    bubbleTxtMine: { color: colors.pulseInk },
     offerTag: { color: colors.success, fontSize: 11, fontWeight: "700", letterSpacing: 1, marginBottom: 4 },
     msgPhoto: { width: 180, height: 180, borderRadius: 12, marginBottom: 8 },
     day: { color: colors.subtle, textAlign: "center", fontSize: 12, marginVertical: 10 },
@@ -524,7 +524,7 @@ function make(colors: Colors) {
       paddingHorizontal: 10,
       paddingTop: 8,
       borderTopWidth: StyleSheet.hairlineWidth,
-      borderColor: "rgba(244,240,230,0.1)",
+      borderColor: alpha(colors.bone, 0.1),
     },
     icon: {
       width: 36,

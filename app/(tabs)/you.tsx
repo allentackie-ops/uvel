@@ -21,7 +21,7 @@ import { pickAvatar, takeAvatar } from "../../lib/photo";
 import { seedFromStyles } from "../../lib/styleDna";
 import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
-import { useColors, type Colors } from "../../lib/theme";
+import { alpha, useColors, type Colors } from "../../lib/theme";
 import { semanticStatus, statusToneFor } from "../../lib/status";
 import { getPiece, likesOnMine, stampMine, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { draftProgress, useListingDraft, type ListingDraft } from "../../lib/listingDraft";
@@ -228,7 +228,7 @@ export default function You() {
       </View>
 
       {hub === "shop" ? (
-        <ShopPane listed={listed} draft={draft} styles={styles} />
+        <ShopPane listed={listed} draft={draft} styles={styles} colors={colors} />
       ) : hub === "sold" ? (
         <SoldPane
           rows={soldRows}
@@ -307,7 +307,7 @@ export default function You() {
   );
 }
 
-function ShopPane({ listed, draft, styles }: { listed: ClosetPiece[]; draft: ListingDraft | null; styles: ReturnType<typeof make> }) {
+function ShopPane({ listed, draft, styles, colors }: { listed: ClosetPiece[]; draft: ListingDraft | null; styles: ReturnType<typeof make>; colors: Colors }) {
   return (
     <View>
       {draft ? (
@@ -332,7 +332,7 @@ function ShopPane({ listed, draft, styles }: { listed: ClosetPiece[]; draft: Lis
         </View>
       ) : (
         <View style={styles.empty}>
-          <Rack />
+          <Rack colors={colors} />
           <Text style={styles.emptyH}>No active listings</Text>
           <Text style={styles.emptyP}>List an item so buyers can discover your shop.</Text>
           <Pressable onPress={() => router.push("/sell")} style={styles.start}>
@@ -412,7 +412,7 @@ function SoldPane({
         rows.map((r) => <OrderRow key={r.id} row={r} sold colors={colors} styles={styles} />)
       ) : (
         <View style={styles.empty}>
-          <Stack />
+          <Stack colors={colors} />
           <Text style={styles.emptyP}>Your sales will show up here</Text>
         </View>
       )}
@@ -454,7 +454,7 @@ function BuyPane({
         rows.map((r) => <OrderRow key={r.id} row={r} colors={colors} styles={styles} />)
       ) : (
         <View style={styles.empty}>
-          <Receipt />
+          <Receipt colors={colors} />
           <Text style={styles.emptyP}>Your orders will show up here</Text>
         </View>
       )}
@@ -586,7 +586,8 @@ function OrderRow({
   );
 }
 
-function Rack() {
+function Rack({ colors }: { colors: Colors }) {
+  const art = makeArt(colors);
   return (
     <View style={art.rackWrap}>
       <View style={art.bar} />
@@ -598,7 +599,8 @@ function Rack() {
   );
 }
 
-function Stack() {
+function Stack({ colors }: { colors: Colors }) {
+  const art = makeArt(colors);
   return (
     <View style={art.stack}>
       <View style={[art.fold, { backgroundColor: "#C45C3C", transform: [{ rotate: "-6deg" }] }]} />
@@ -608,7 +610,8 @@ function Stack() {
   );
 }
 
-function Receipt() {
+function Receipt({ colors }: { colors: Colors }) {
+  const art = makeArt(colors);
   return (
     <View style={art.receipt}>
       <View style={art.line} />
@@ -621,11 +624,12 @@ function Receipt() {
   );
 }
 
-const art = StyleSheet.create({
+function makeArt(colors: Colors) {
+  return StyleSheet.create({
   rackWrap: { width: 120, height: 110, marginBottom: 18 },
-  bar: { position: "absolute", top: 8, left: 8, right: 8, height: 6, borderRadius: 3, backgroundColor: "rgba(244,240,230,0.55)" },
-  legL: { position: "absolute", top: 8, left: 10, width: 6, height: 92, borderRadius: 3, backgroundColor: "rgba(244,240,230,0.45)" },
-  legR: { position: "absolute", top: 8, right: 10, width: 6, height: 92, borderRadius: 3, backgroundColor: "rgba(244,240,230,0.45)" },
+  bar: { position: "absolute", top: 8, left: 8, right: 8, height: 6, borderRadius: 3, backgroundColor: alpha(colors.bone, 0.55) },
+  legL: { position: "absolute", top: 8, left: 10, width: 6, height: 92, borderRadius: 3, backgroundColor: alpha(colors.bone, 0.45) },
+  legR: { position: "absolute", top: 8, right: 10, width: 6, height: 92, borderRadius: 3, backgroundColor: alpha(colors.bone, 0.45) },
   hangerHook: { position: "absolute", top: 22, left: 56, width: 8, height: 16, borderRadius: 4, backgroundColor: "#C45C3C" },
   hanger: { position: "absolute", top: 36, left: 28, width: 64, height: 8, borderRadius: 4, backgroundColor: "#C4A574" },
   stack: { width: 90, height: 70, alignItems: "center", justifyContent: "center", marginBottom: 18 },
@@ -633,62 +637,63 @@ const art = StyleSheet.create({
   receipt: {
     width: 72,
     height: 110,
-    backgroundColor: "#F4F0E6",
+    backgroundColor: colors.bone,
     borderRadius: 4,
     padding: 10,
     marginBottom: 18,
     alignItems: "center",
   },
-  line: { height: 3, width: 44, backgroundColor: "rgba(22,20,15,0.18)", borderRadius: 2, marginTop: 6 },
-  bars: { marginTop: 14, width: 40, height: 10, backgroundColor: "rgba(22,20,15,0.55)" },
-});
+  line: { height: 3, width: 44, backgroundColor: alpha(colors.ink, 0.18), borderRadius: 2, marginTop: 6 },
+  bars: { marginTop: 14, width: 40, height: 10, backgroundColor: alpha(colors.ink, 0.55) },
+  });
+}
 
 function make(colors: Colors) {
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: "#0B0A08" },
+    page: { flex: 1, backgroundColor: colors.ink },
     content: { paddingHorizontal: 20 },
-    kicker: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
-    title: { color: "#F4F0E6", fontWeight: "700", fontSize: 28, marginTop: 8, lineHeight: 34, flexShrink: 1 },
+    kicker: { color: alpha(colors.bone, 0.42), letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
+    title: { color: colors.bone, fontWeight: "700", fontSize: 28, marginTop: 8, lineHeight: 34, flexShrink: 1 },
     ownerBrandLogo: { width: 19, height: 19, borderRadius: 5, marginLeft: 1, transform: [{ translateY: 3 }] },
-    ownerLine: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 4 },
-    invite: { marginTop: 16, backgroundColor: "#161512", borderRadius: 18, padding: 16 },
-    inviteH: { color: "#F4F0E6", fontWeight: "700", fontSize: 16 },
-    inviteP: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 4 },
+    ownerLine: { color: alpha(colors.bone, 0.5), fontSize: 13, marginTop: 4 },
+    invite: { marginTop: 16, backgroundColor: colors.surface, borderRadius: 18, padding: 16 },
+    inviteH: { color: colors.bone, fontWeight: "700", fontSize: 16 },
+    inviteP: { color: alpha(colors.bone, 0.5), fontSize: 13, marginTop: 4 },
     inviteRow: { flexDirection: "row", gap: 8, marginTop: 12 },
-    inviteYes: { height: 34, paddingHorizontal: 16, borderRadius: 17, backgroundColor: "#F4F0E6", alignItems: "center", justifyContent: "center" },
-    inviteYesTxt: { color: "#16140F", fontWeight: "800", fontSize: 13 },
-    inviteNo: { height: 34, paddingHorizontal: 16, borderRadius: 17, borderWidth: 1, borderColor: "rgba(244,240,230,0.16)", alignItems: "center", justifyContent: "center" },
-    inviteNoTxt: { color: "#F4F0E6", fontWeight: "700", fontSize: 13 },
+    inviteYes: { height: 34, paddingHorizontal: 16, borderRadius: 17, backgroundColor: colors.bone, alignItems: "center", justifyContent: "center" },
+    inviteYesTxt: { color: colors.ink, fontWeight: "800", fontSize: 13 },
+    inviteNo: { height: 34, paddingHorizontal: 16, borderRadius: 17, borderWidth: 1, borderColor: alpha(colors.bone, 0.16), alignItems: "center", justifyContent: "center" },
+    inviteNoTxt: { color: colors.bone, fontWeight: "700", fontSize: 13 },
     brandArea: { marginBottom: 8 },
-    sectionLabel: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 22, marginBottom: 9 },
-    brandAreaLabel: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 10, marginBottom: 9 },
+    sectionLabel: { color: alpha(colors.bone, 0.42), letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 22, marginBottom: 9 },
+    brandAreaLabel: { color: alpha(colors.bone, 0.42), letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 10, marginBottom: 9 },
     brandCard: {
       marginTop: 16,
-      backgroundColor: "#161512",
+      backgroundColor: colors.surface,
       borderRadius: 20,
       padding: 16,
       flexDirection: "row",
       alignItems: "center",
     },
-    brandK: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.4, fontSize: 10, fontWeight: "700" },
-    brandName: { color: "#F4F0E6", fontWeight: "700", fontSize: 17 },
-    brandP: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 4 },
-    brandGo: { color: "#F4F0E6", fontWeight: "700", fontSize: 13 },
+    brandK: { color: alpha(colors.bone, 0.42), letterSpacing: 1.4, fontSize: 10, fontWeight: "700" },
+    brandName: { color: colors.bone, fontWeight: "700", fontSize: 17 },
+    brandP: { color: alpha(colors.bone, 0.5), fontSize: 13, marginTop: 4 },
+    brandGo: { color: colors.bone, fontWeight: "700", fontSize: 13 },
     brandCardMain: { flex: 1, flexDirection: "row", alignItems: "center", minWidth: 0 },
-    brandHQButton: { marginLeft: 12, minWidth: 44, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: "#F4F0E6", alignItems: "center", justifyContent: "center" },
-    brandHQText: { color: "#16140F", fontWeight: "800", fontSize: 12, letterSpacing: 0.4 },
+    brandHQButton: { marginLeft: 12, minWidth: 44, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: colors.bone, alignItems: "center", justifyContent: "center" },
+    brandHQText: { color: colors.ink, fontWeight: "800", fontSize: 12, letterSpacing: 0.4 },
     top: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
     faceBtn: { marginRight: 8, marginTop: 4 },
-    avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#1A1915" },
+    avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surface },
     initials: {
       width: 48,
       height: 48,
       borderRadius: 24,
-      backgroundColor: "#F4F0E6",
+      backgroundColor: colors.bone,
       alignItems: "center",
       justifyContent: "center",
     },
-    initialsTxt: { color: "#16140F", fontWeight: "800", fontSize: 15 },
+    initialsTxt: { color: colors.ink, fontWeight: "800", fontSize: 15 },
     faceDot: {
       position: "absolute",
       right: -2,
@@ -706,22 +711,22 @@ function make(colors: Colors) {
       height: 44,
       borderRadius: 22,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.16)",
+      borderColor: alpha(colors.bone, 0.16),
       alignItems: "center",
       justifyContent: "center",
       gap: 5,
       marginTop: 4,
     },
-    dash: { width: 16, height: 1.5, borderRadius: 1, backgroundColor: "#F4F0E6" },
-    h2: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 26, marginTop: 22 },
-    nextCard: { marginTop: 2, backgroundColor: "#F4F0E6", borderRadius: 20, padding: 16, flexDirection: "row", alignItems: "center", gap: 12 },
-    nextK: { color: "rgba(22,20,15,0.52)", letterSpacing: 1.4, fontSize: 10, fontWeight: "800" },
-    nextTitle: { color: "#16140F", fontWeight: "800", fontSize: 19, marginTop: 4 },
-    nextP: { color: "rgba(22,20,15,0.62)", fontSize: 13, marginTop: 4, lineHeight: 18 },
-    nextAction: { color: "#16140F", fontWeight: "800", fontSize: 13 },
+    dash: { width: 16, height: 1.5, borderRadius: 1, backgroundColor: colors.bone },
+    h2: { color: colors.bone, fontFamily: "Georgia", fontSize: 26, marginTop: 22 },
+    nextCard: { marginTop: 2, backgroundColor: colors.bone, borderRadius: 20, padding: 16, flexDirection: "row", alignItems: "center", gap: 12 },
+    nextK: { color: alpha(colors.ink, 0.52), letterSpacing: 1.4, fontSize: 10, fontWeight: "800" },
+    nextTitle: { color: colors.ink, fontWeight: "800", fontSize: 19, marginTop: 4 },
+    nextP: { color: alpha(colors.ink, 0.62), fontSize: 13, marginTop: 4, lineHeight: 18 },
+    nextAction: { color: colors.ink, fontWeight: "800", fontSize: 13 },
     dnaHead: {
       marginTop: 0,
-      backgroundColor: "#161512",
+      backgroundColor: colors.surface,
       borderRadius: 18,
       paddingHorizontal: 16,
       paddingVertical: 14,
@@ -729,52 +734,52 @@ function make(colors: Colors) {
       alignItems: "center",
       gap: 12,
     },
-    toolRow: { marginTop: 10, backgroundColor: "#161512", borderRadius: 18, padding: 16, flexDirection: "row", alignItems: "center", gap: 12 },
+    toolRow: { marginTop: 10, backgroundColor: colors.surface, borderRadius: 18, padding: 16, flexDirection: "row", alignItems: "center", gap: 12 },
     upgradeRow: { marginTop: 10, paddingHorizontal: 16, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     focused: { borderWidth: 2, borderColor: colors.success },
-    dnaTitle: { color: "#F4F0E6", fontWeight: "700", fontSize: 17 },
-    dnaSum: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 4 },
-    dnaChevron: { color: "rgba(244,240,230,0.55)", fontSize: 22, marginTop: -6 },
-    lede: { color: "rgba(244,240,230,0.58)", fontSize: 15, lineHeight: 22, marginTop: 12 },
-    foot: { color: "rgba(244,240,230,0.4)", fontSize: 13, lineHeight: 19, marginTop: 16 },
+    dnaTitle: { color: colors.bone, fontWeight: "700", fontSize: 17 },
+    dnaSum: { color: alpha(colors.bone, 0.5), fontSize: 13, marginTop: 4 },
+    dnaChevron: { color: alpha(colors.bone, 0.55), fontSize: 22, marginTop: -6 },
+    lede: { color: alpha(colors.bone, 0.58), fontSize: 15, lineHeight: 22, marginTop: 12 },
+    foot: { color: alpha(colors.bone, 0.4), fontSize: 13, lineHeight: 19, marginTop: 16 },
     plan: {
       marginTop: 10,
-      backgroundColor: "#161512",
+      backgroundColor: colors.surface,
       borderRadius: 20,
       padding: 16,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
     },
-    planH: { color: "#F4F0E6", fontWeight: "700", fontSize: 16 },
-    planP: { color: "rgba(244,240,230,0.5)", marginTop: 4, fontSize: 13 },
-    planGo: { color: "#F4F0E6", fontWeight: "700", fontSize: 13 },
+    planH: { color: colors.bone, fontWeight: "700", fontSize: 16 },
+    planP: { color: alpha(colors.bone, 0.5), marginTop: 4, fontSize: 13 },
+    planGo: { color: colors.bone, fontWeight: "700", fontSize: 13 },
     tabs: {
       flexDirection: "row",
       marginTop: 2,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: "rgba(244,240,230,0.12)",
+      borderBottomColor: alpha(colors.bone, 0.12),
     },
     tab: { flex: 1, alignItems: "center", paddingBottom: 12 },
-    tabTxt: { color: "rgba(244,240,230,0.42)", fontSize: 15, fontWeight: "600" },
-    tabOn: { color: "#F4F0E6" },
-    tabLine: { position: "absolute", bottom: 0, height: 2, left: 8, right: 8, backgroundColor: "#F4F0E6", borderRadius: 1 },
+    tabTxt: { color: alpha(colors.bone, 0.42), fontSize: 15, fontWeight: "600" },
+    tabOn: { color: colors.bone },
+    tabLine: { position: "absolute", bottom: 0, height: 2, left: 8, right: 8, backgroundColor: colors.bone, borderRadius: 1 },
     activeRow: { marginTop: 18, marginBottom: 8 },
-    active: { color: "#F4F0E6", fontSize: 16, fontWeight: "700", marginTop: 16, marginBottom: 8 },
+    active: { color: colors.bone, fontSize: 16, fontWeight: "700", marginTop: 16, marginBottom: 8 },
     draftSection: { marginTop: 14 },
     draftHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
     draftHint: { color: colors.warning, fontSize: 12, fontWeight: "600" },
-    draftCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 10, borderRadius: 18, backgroundColor: "#161512", marginTop: 2 },
-    draftImg: { width: 82, height: 104, borderRadius: 12, backgroundColor: "#1A1915" },
-    draftImgEmpty: { width: 82, height: 104, borderRadius: 12, backgroundColor: "#1A1915", borderWidth: 1, borderStyle: "dashed", borderColor: "rgba(244,240,230,0.24)", alignItems: "center", justifyContent: "center" },
-    draftImgPlus: { color: "#F4F0E6", fontSize: 28 },
+    draftCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 10, borderRadius: 18, backgroundColor: colors.surface, marginTop: 2 },
+    draftImg: { width: 82, height: 104, borderRadius: 12, backgroundColor: colors.surface },
+    draftImgEmpty: { width: 82, height: 104, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderStyle: "dashed", borderColor: alpha(colors.bone, 0.24), alignItems: "center", justifyContent: "center" },
+    draftImgPlus: { color: colors.bone, fontSize: 28 },
     draftMeta: { flex: 1, minWidth: 0 },
     draftTag: { alignSelf: "flex-start", paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: colors.warning, justifyContent: "center" },
     draftTagTxt: { color: colors.warningInk, fontSize: 10, fontWeight: "800", letterSpacing: 0.4 },
-    draftName: { color: "#F4F0E6", fontSize: 15, fontWeight: "700", marginTop: 7 },
-    draftDetails: { color: "rgba(244,240,230,0.55)", fontSize: 12, marginTop: 4 },
+    draftName: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 7 },
+    draftDetails: { color: alpha(colors.bone, 0.55), fontSize: 12, marginTop: 4 },
     draftProgress: { color: colors.warning, fontSize: 12, fontWeight: "700", marginTop: 8 },
-    draftArrow: { color: "#F4F0E6", fontSize: 30, marginRight: 4 },
+    draftArrow: { color: colors.bone, fontSize: 30, marginRight: 4 },
     liker: {
       flexDirection: "row",
       alignItems: "center",
@@ -785,69 +790,69 @@ function make(colors: Colors) {
       width: 44,
       height: 44,
       borderRadius: 22,
-      backgroundColor: "#2A2824",
+      backgroundColor: colors.surface,
       alignItems: "center",
       justifyContent: "center",
     },
-    likerInit: { color: "#F4F0E6", fontWeight: "700", fontSize: 16 },
-    likerName: { color: "#F4F0E6", fontWeight: "700", fontSize: 15 },
-    likerP: { color: "rgba(244,240,230,0.55)", fontSize: 13, marginTop: 2 },
-    likerT: { color: "rgba(244,240,230,0.38)", fontSize: 12, marginTop: 2 },
-    likerThumb: { width: 48, height: 64, borderRadius: 8, backgroundColor: "#1A1915" },
+    likerInit: { color: colors.bone, fontWeight: "700", fontSize: 16 },
+    likerName: { color: colors.bone, fontWeight: "700", fontSize: 15 },
+    likerP: { color: alpha(colors.bone, 0.55), fontSize: 13, marginTop: 2 },
+    likerT: { color: alpha(colors.bone, 0.38), fontSize: 12, marginTop: 2 },
+    likerThumb: { width: 48, height: 64, borderRadius: 8, backgroundColor: colors.surface },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 8 },
     empty: { alignItems: "center", paddingTop: 54, paddingBottom: 28, paddingHorizontal: 24 },
-    emptyH: { color: "#F4F0E6", fontSize: 20, fontWeight: "800", textAlign: "center" },
-    emptyP: { color: "rgba(244,240,230,0.55)", fontSize: 15, textAlign: "center", marginTop: 8, lineHeight: 21 },
+    emptyH: { color: colors.bone, fontSize: 20, fontWeight: "800", textAlign: "center" },
+    emptyP: { color: alpha(colors.bone, 0.55), fontSize: 15, textAlign: "center", marginTop: 8, lineHeight: 21 },
     start: {
       marginTop: 22,
       height: 48,
       paddingHorizontal: 28,
       borderRadius: 24,
-      backgroundColor: "#F4F0E6",
+      backgroundColor: colors.bone,
       alignItems: "center",
       justifyContent: "center",
     },
-    startTxt: { color: "#16140F", fontWeight: "800", fontSize: 16 },
+    startTxt: { color: colors.ink, fontWeight: "800", fontSize: 16 },
     chips: { gap: 8, paddingVertical: 16 },
     chip: {
       height: 36,
       paddingHorizontal: 14,
       borderRadius: 18,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.18)",
+      borderColor: alpha(colors.bone, 0.18),
       alignItems: "center",
       justifyContent: "center",
     },
-    chipOn: { backgroundColor: "#F4F0E6", borderColor: "#F4F0E6" },
-    chipTxt: { color: "#F4F0E6", fontWeight: "600", fontSize: 13 },
-    chipTxtOn: { color: "#16140F" },
+    chipOn: { backgroundColor: colors.bone, borderColor: colors.bone },
+    chipTxt: { color: colors.bone, fontWeight: "600", fontSize: 13 },
+    chipTxtOn: { color: colors.ink },
     earn: {
       alignSelf: "flex-start",
       marginTop: 16,
       height: 34,
       paddingHorizontal: 14,
       borderRadius: 17,
-      backgroundColor: "#161512",
+      backgroundColor: colors.surface,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.14)",
+      borderColor: alpha(colors.bone, 0.14),
       justifyContent: "center",
     },
-    earnTxt: { color: "#F4F0E6", fontWeight: "700", fontSize: 13 },
+    earnTxt: { color: colors.bone, fontWeight: "700", fontSize: 13 },
     order: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
-    orderImg: { width: 64, height: 80, borderRadius: 10, backgroundColor: "#1A1915" },
-    orderName: { color: "#F4F0E6", fontWeight: "600", fontSize: 15 },
-    orderPrice: { color: "#F4F0E6", fontWeight: "700", marginTop: 4 },
+    orderImg: { width: 64, height: 80, borderRadius: 10, backgroundColor: colors.surface },
+    orderName: { color: colors.bone, fontWeight: "600", fontSize: 15 },
+    orderPrice: { color: colors.bone, fontWeight: "700", marginTop: 4 },
     tag: {
       height: 26,
       paddingHorizontal: 10,
       borderRadius: 13,
-      backgroundColor: "#161512",
+      backgroundColor: colors.surface,
       justifyContent: "center",
     },
-    tagTxt: { color: "rgba(244,240,230,0.7)", fontSize: 11, fontWeight: "700" },
-    likeCard: { backgroundColor: "#161512", borderRadius: 18, overflow: "hidden" },
-    likeImg: { width: "100%", height: COL * 1.25, backgroundColor: "#1A1915" },
-    likeName: { color: "#F4F0E6", fontWeight: "600", fontSize: 13, paddingHorizontal: 10, paddingTop: 10 },
-    likePrice: { color: "#F4F0E6", fontWeight: "700", fontSize: 13, paddingHorizontal: 10, paddingBottom: 12, marginTop: 4 },
+    tagTxt: { color: alpha(colors.bone, 0.7), fontSize: 11, fontWeight: "700" },
+    likeCard: { backgroundColor: colors.surface, borderRadius: 18, overflow: "hidden" },
+    likeImg: { width: "100%", height: COL * 1.25, backgroundColor: colors.surface },
+    likeName: { color: colors.bone, fontWeight: "600", fontSize: 13, paddingHorizontal: 10, paddingTop: 10 },
+    likePrice: { color: colors.bone, fontWeight: "700", fontSize: 13, paddingHorizontal: 10, paddingBottom: 12, marginTop: 4 },
   });
 }

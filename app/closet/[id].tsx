@@ -12,7 +12,7 @@ import { getBrand, useBrands } from "../../lib/brands";
 import { listingVisibleIn, shipsToLine } from "../../lib/ships";
 import { shopLookOf, type ShopLook } from "../../lib/shopLook";
 import { useUvel } from "../../lib/store";
-import { useColors, type Colors } from "../../lib/theme";
+import { alpha, useColors, type Colors } from "../../lib/theme";
 import { VerifiedMark } from "../../components/VerifiedMark";
 import { getPiece, isRemoteListedPiece, likeCount, markSold, recordPieceView, unlistPiece, updatePiece, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
@@ -177,7 +177,7 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
 
   return (
     <View style={styles.page}>
-      <StatusBar style={colors.bone === "#F4F0E6" ? "light" : "dark"} />
+      <StatusBar style={app.appearance === "dark" ? "light" : "dark"} />
       <View style={styles.heroWrap}>
         <Image source={{ uri: gallery[0] }} style={StyleSheet.absoluteFill} contentFit="cover" />
         <Pressable onPress={() => router.back()} style={[styles.iconBtn, { top: insets.top + 6 }]} hitSlop={8}>
@@ -568,22 +568,22 @@ function ownerStyles(colors: Colors) {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: "rgba(18,17,14,0.5)",
+      backgroundColor: alpha(colors.ink, 0.5),
       alignItems: "center",
       justifyContent: "center",
     },
-    iconTxt: { color: "#F4F0E6", fontSize: 28, lineHeight: 30, marginTop: -2 },
+    iconTxt: { color: colors.bone, fontSize: 28, lineHeight: 30, marginTop: -2 },
     badge: {
       position: "absolute",
       right: 16,
-      backgroundColor: "#D6E27A",
+      backgroundColor: colors.success,
       borderRadius: 999,
       paddingHorizontal: 10,
       paddingVertical: 5,
     },
-    badgeTxt: { color: "#16140F", fontSize: 11, fontWeight: "700", letterSpacing: 0.4 },
-    stockBadge: { position: "absolute", left: 16, backgroundColor: "#D6E27A", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, zIndex: 4 },
-    stockBadgeTxt: { color: "#16140F", fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
+    badgeTxt: { color: colors.successInk, fontSize: 11, fontWeight: "700", letterSpacing: 0.4 },
+    stockBadge: { position: "absolute", left: 16, backgroundColor: colors.success, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, zIndex: 4 },
+    stockBadgeTxt: { color: colors.successInk, fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
     body: { paddingHorizontal: 22, paddingTop: 16, paddingBottom: 12 },
     kicker: { color: colors.subtle, fontSize: 11, letterSpacing: 1.8, textTransform: "uppercase" },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 28, lineHeight: 34, marginTop: 8 },
@@ -596,21 +596,21 @@ function ownerStyles(colors: Colors) {
       gap: 8,
       backgroundColor: colors.ink,
       borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: "rgba(244,240,230,0.12)",
+      borderTopColor: alpha(colors.bone, 0.12),
     },
     edit: {
       height: 52,
       borderRadius: 26,
-      backgroundColor: "#D6E27A",
+      backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
     },
-    editTxt: { color: "#16140F", fontWeight: "700", fontSize: 16 },
+    editTxt: { color: colors.successInk, fontWeight: "700", fontSize: 16 },
     preview: {
       height: 48,
       borderRadius: 24,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.28)",
+      borderColor: alpha(colors.bone, 0.28),
       alignItems: "center",
       justifyContent: "center",
     },

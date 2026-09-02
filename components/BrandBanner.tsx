@@ -1,7 +1,8 @@
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect } from "react";
-import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { StyleSheet, View, type ImageStyle, type StyleProp, type ViewStyle } from "react-native";
+import { useColors } from "../lib/theme";
 
 function LoopVideo({ uri, style }: { uri: string; style: StyleProp<ViewStyle> }) {
   const player = useVideoPlayer({ uri }, (p) => {
@@ -33,11 +34,12 @@ export function BrandBanner({
   kind?: "image" | "video";
   style: StyleProp<ViewStyle>;
 }) {
+  const colors = useColors();
   if (kind === "video" && uri) return <LoopVideo uri={uri} style={style} />;
-  if (uri) return <Image source={{ uri }} style={style} contentFit="cover" />;
-  return <View style={[style, styles.fallback]} />;
+  if (uri) return <Image source={{ uri }} style={style as StyleProp<ImageStyle>} contentFit="cover" />;
+  return <View style={[style, styles.fallback, { backgroundColor: colors.surface }]} />;
 }
 
 const styles = StyleSheet.create({
-  fallback: { backgroundColor: "#161512" },
+  fallback: {},
 });

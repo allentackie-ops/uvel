@@ -2,6 +2,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useRef } from "react";
 import { Dimensions, Image, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { useColors } from "../lib/theme";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -15,6 +16,7 @@ export function LaunchSplash({
   ready: boolean;
 }) {
   const { width, height } = Dimensions.get("window");
+  const colors = useColors();
   const started = useRef(false);
   const mountedAt = useRef(Date.now());
 
@@ -36,7 +38,7 @@ export function LaunchSplash({
   }, [ready, onDone]);
 
   return (
-    <View pointerEvents="auto" style={[styles.root, { width, height }]}>
+    <View pointerEvents="auto" style={[styles.root, { width, height, backgroundColor: colors.pulse }]}>
       <StatusBar style="light" />
       <Image
         source={require("../assets/splash.png")}

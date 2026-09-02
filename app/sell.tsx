@@ -31,7 +31,7 @@ import { SHOP_LOOKS } from "../lib/shopLook";
 import { takePendingListingSelection } from "../lib/listingOptions";
 import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
-import { palettes, type Colors } from "../lib/theme";
+import { alpha, useColors, type Colors } from "../lib/theme";
 import { addPiece, getPiece, listPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
 
 const MAX = 5;
@@ -43,12 +43,6 @@ const STAGES = [
   "Checking the listing…",
   "Looking for anything that shouldn’t be here…",
 ];
-
-const SELL_COLORS: Colors = {
-  ...palettes.dark,
-  ink: "#0B0A08",
-  surface: "#161512",
-};
 
 type Slot = {
   uri: string;
@@ -63,7 +57,7 @@ type Gate =
   | { phase: "pass" };
 
 export default function Sell({ embedded = false }: { embedded?: boolean }) {
-  const colors = SELL_COLORS;
+  const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { id, fits, draft: draftParam } = useLocalSearchParams<{ id?: string; fits?: string; draft?: string }>();
@@ -221,7 +215,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const progress = [hasPhoto, hasPrice, hasTitle, hasNotes, hasCat, hasSize, hasColor, hasMaterial, hasCond].filter(
     Boolean,
   ).length;
-  const ph = "rgba(244,240,230,0.28)";
+  const ph = alpha(colors.bone, 0.28);
   const ctaLabel = checking
     ? "Checking photos…"
     : !hasPhoto
@@ -474,7 +468,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 {p.status === "unverified" ? <View style={styles.unverifiedDot} /> : null}
                 {p.status === "checking" ? (
                   <View style={styles.photoCheck}>
-                    <ActivityIndicator color="#16140F" />
+                    <ActivityIndicator color={colors.successInk} />
                   </View>
                 ) : null}
                 <AccessiblePressable                  onPress={() => removePhoto(p.uri)}
@@ -765,7 +759,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           ) : null}
           {gate.phase === "review" ? (
             <>
-              <ActivityIndicator color="#D6E27A" />
+              <ActivityIndicator color={colors.success} />
               <Text style={styles.gateH}>{STAGES[stage]}</Text>
               <Text style={styles.gateP}>About 20 seconds. Nothing goes live until this is clean.</Text>
             </>
@@ -819,7 +813,7 @@ function make(colors: Colors) {
       backgroundColor: colors.surface,
       overflow: "hidden",
     },
-    progressFill: { height: 3, backgroundColor: "#D6E27A", borderRadius: 2 },
+    progressFill: { height: 3, backgroundColor: colors.success, borderRadius: 2 },
     progressLbl: { color: colors.subtle, fontSize: 11, marginTop: 6, marginBottom: 8, marginLeft: 20 },
     scrollContent: { flexGrow: 1 },
     photosLabel: { marginTop: 16, marginLeft: 20 },
@@ -830,9 +824,9 @@ function make(colors: Colors) {
     photoAddIcon: { color: colors.bone, fontSize: 34, lineHeight: 38 },
     photoAddTxt: { color: colors.bone, fontSize: 12, fontWeight: "600", marginTop: 4 },
     photoCount: { color: colors.subtle, fontSize: 11, marginTop: 4 },
-    mainPhotoPill: { position: "absolute", left: 10, bottom: 10, paddingHorizontal: 10, height: 28, borderRadius: 14, backgroundColor: "rgba(11,10,8,0.76)", alignItems: "center", justifyContent: "center" },
+    mainPhotoPill: { position: "absolute", left: 10, bottom: 10, paddingHorizontal: 10, height: 28, borderRadius: 14, backgroundColor: alpha(colors.ink, 0.76), alignItems: "center", justifyContent: "center" },
     mainPhotoTxt: { color: colors.bone, fontSize: 12, fontWeight: "600" },
-    photoCheck: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(214,226,122,0.52)", alignItems: "center", justifyContent: "center" },
+    photoCheck: { ...StyleSheet.absoluteFill, backgroundColor: alpha(colors.success, 0.52), alignItems: "center", justifyContent: "center" },
     focused: { borderWidth: 2, borderColor: colors.success },
     photoX: { position: "absolute", top: 4, right: 4, minWidth: 44, minHeight: 44, borderRadius: 22, backgroundColor: colors.bone, alignItems: "center", justifyContent: "center" },
     photoXTxt: { color: colors.ink, fontSize: 19, lineHeight: 21, fontWeight: "700", marginTop: -1 },
@@ -941,12 +935,12 @@ function make(colors: Colors) {
       paddingHorizontal: 12,
       paddingVertical: 8,
     },
-    chipOn: { backgroundColor: "#D6E27A", borderColor: "#D6E27A" },
+    chipOn: { backgroundColor: colors.success, borderColor: colors.success },
     chipTxt: { color: colors.muted, fontSize: 13 },
-    chipTxtOn: { color: "#16140F", fontWeight: "600" },
+    chipTxtOn: { color: colors.successInk, fontWeight: "600" },
     row: { flexDirection: "row", gap: 10 },
     lookHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginTop: 8 },
-    plusTag: { color: "#D6E27A", fontSize: 12, fontWeight: "700", letterSpacing: 0.6 },
+    plusTag: { color: colors.success, fontSize: 12, fontWeight: "700", letterSpacing: 0.6 },
     lookLede: { color: colors.muted, fontSize: 13, lineHeight: 18, marginBottom: 12 },
     lookGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     lookCard: {
@@ -958,7 +952,7 @@ function make(colors: Colors) {
       borderWidth: 1,
       borderColor: "transparent",
     },
-    lookCardOn: { borderColor: "#D6E27A" },
+    lookCardOn: { borderColor: colors.success },
     lookSwatch: { height: 52, borderRadius: 12, justifyContent: "flex-end", alignItems: "flex-end", padding: 8 },
     lookDot: { width: 14, height: 14, borderRadius: 7 },
     lookName: { color: colors.bone, fontWeight: "700", fontSize: 14, marginTop: 8 },
@@ -973,16 +967,16 @@ function make(colors: Colors) {
     cta: {
       height: 54,
       borderRadius: 27,
-      backgroundColor: "#D6E27A",
+      backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
     },
     ctaOff: { backgroundColor: colors.surface },
-    ctaTxt: { color: "#16140F", fontSize: 16, fontWeight: "600" },
+    ctaTxt: { color: colors.successInk, fontSize: 16, fontWeight: "600" },
     ctaTxtOff: { color: colors.muted },
     gate: {
       ...StyleSheet.absoluteFill,
-      backgroundColor: "#12140A",
+      backgroundColor: colors.ink,
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: 32,
@@ -990,22 +984,22 @@ function make(colors: Colors) {
     },
     gateImg: { width: 120, height: 160, borderRadius: 16, marginBottom: 16, opacity: 0.9 },
     gateH: {
-      color: "#F4F0E6",
+      color: colors.bone,
       fontFamily: "Georgia",
       fontSize: 28,
       textAlign: "center",
       lineHeight: 34,
     },
-    gateP: { color: "rgba(244,240,230,0.7)", textAlign: "center", lineHeight: 22, fontSize: 15 },
+    gateP: { color: alpha(colors.bone, 0.7), textAlign: "center", lineHeight: 22, fontSize: 15 },
     gateCta: {
       marginTop: 18,
       height: 50,
       paddingHorizontal: 28,
       borderRadius: 25,
-      backgroundColor: "#D6E27A",
+      backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
     },
-    green: { width: 14, height: 14, borderRadius: 7, backgroundColor: "#D6E27A", marginBottom: 6 },
+    green: { width: 14, height: 14, borderRadius: 7, backgroundColor: colors.success, marginBottom: 6 },
   });
 }

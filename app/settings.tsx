@@ -6,20 +6,14 @@ import { LANGS } from "../lib/i18n";
 import { getMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
-import { palettes, type Colors } from "../lib/theme";
+import { useColors, type Colors } from "../lib/theme";
 
 const HELP = "mailto:himforson@gmail.com?subject=Uvel%20help";
 const VERSION = Constants.expoConfig?.version ?? "1.0.0";
-const SETTINGS_COLORS: Colors = {
-  ...palettes.dark,
-  ink: "#0B0A08",
-  surface: "#161512",
-};
-
 export default function Settings() {
   const app = useUvel();
   const C = useCopy();
-  const colors = SETTINGS_COLORS;
+  const colors = useColors();
   const styles = make(colors);
   const [busy, setBusy] = useState(false);
   const localeLabel = LANGS.find((l) => l.id === app.locale)?.label ?? "English, US";
@@ -114,7 +108,7 @@ export default function Settings() {
             value={app.wantsUpdates}
             onValueChange={(v) => void toggleNotes(v)}
             trackColor={{ false: colors.surface, true: colors.success }}
-            thumbColor="#fff"
+            thumbColor={colors.surface}
             accessibilityLabel={C.notifications}
             accessibilityHint={C.notificationHint}
           />
@@ -128,7 +122,7 @@ export default function Settings() {
             value={app.accessibilityMode}
             onValueChange={(v) => void app.setAccessibilityMode(v)}
             trackColor={{ false: colors.surface, true: colors.success }}
-            thumbColor="#fff"
+            thumbColor={colors.surface}
             accessibilityLabel={C.accessibilityFeatures}
             accessibilityHint={C.accessibilityHint}
           />

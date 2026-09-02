@@ -12,7 +12,7 @@ import { listingVisibleIn, shipsToLine } from "../../lib/ships";
 import { loadAddress, placeOrder, type Address } from "../../lib/orders";
 import { createCheckoutSession, openHostedPay, processorFor, validatePromotion, type PromotionQuote } from "../../lib/pay";
 import { useUvel } from "../../lib/store";
-import { useColors, type Colors } from "../../lib/theme";
+import { alpha, useColors, type Colors } from "../../lib/theme";
 import { getPiece, isRemoteListedPiece, useMarketplaceSyncState, useWardrobe } from "../../lib/wardrobe";
 import { recordCampaignAttribution } from "../../lib/attribution";
 
@@ -189,7 +189,7 @@ export default function Checkout() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style="light" />
+      <StatusBar style={app.appearance === "dark" ? "light" : "dark"} />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
         <AccessiblePressable          onPress={() => router.back()}
           hitSlop={12}
@@ -295,7 +295,7 @@ export default function Checkout() {
             value={promotionCode}
             onChangeText={(value) => { setPromotionCode(value.toUpperCase()); if (promotionQuote) { setPromotionQuote(null); setPromotionMessage(""); } }}
             placeholder="Enter promotion code"
-            placeholderTextColor="rgba(244,240,230,0.4)"
+            placeholderTextColor={alpha(colors.bone, 0.4)}
             autoCapitalize="characters"
             autoCorrect={false}
             returnKeyType="done"
@@ -497,7 +497,7 @@ function make(colors: Colors) {
       minHeight: 54,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.18)",
+      borderColor: alpha(colors.bone, 0.18),
       paddingHorizontal: 14,
       flexDirection: "row",
       alignItems: "center",
@@ -522,7 +522,7 @@ function make(colors: Colors) {
       flexDirection: "row",
       alignItems: "center",
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.18)",
+      borderColor: alpha(colors.bone, 0.18),
       borderRadius: 12,
       paddingHorizontal: 14,
       paddingVertical: 14,
@@ -537,7 +537,7 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     payMarkTxt: { color: "#111", fontWeight: "800", fontSize: 11 },
-    tick: { color: "#D6E27A", fontWeight: "700" },
+    tick: { color: colors.success, fontWeight: "700" },
     pick: {
       minHeight: 48,
       flexDirection: "row",
@@ -545,7 +545,7 @@ function make(colors: Colors) {
       gap: 12,
       paddingVertical: 14,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: "rgba(244,240,230,0.1)",
+      borderBottomColor: alpha(colors.bone, 0.1),
     },
     sum: { paddingHorizontal: 20, paddingTop: 4 },
     item: { flexDirection: "row", gap: 12, alignItems: "flex-start", marginBottom: 12 },
@@ -578,7 +578,7 @@ function make(colors: Colors) {
       bottom: 0,
       backgroundColor: colors.ink,
       borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: "rgba(244,240,230,0.12)",
+      borderTopColor: alpha(colors.bone, 0.12),
       paddingHorizontal: 20,
       paddingTop: 12,
     },
@@ -607,10 +607,10 @@ function make(colors: Colors) {
       marginTop: 18,
       height: 48,
       borderRadius: 24,
-      backgroundColor: "#D6E27A",
+      backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
     },
-    sheetBtnT: { color: "#16140F", fontWeight: "700" },
+    sheetBtnT: { color: colors.successInk, fontWeight: "700" },
   });
 }

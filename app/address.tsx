@@ -6,13 +6,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMarket } from "../lib/markets";
 import { loadAddress, saveAddress } from "../lib/orders";
 import { useUvel } from "../lib/store";
-import { useColors, type Colors } from "../lib/theme";
+import { alpha, useColors, type Colors } from "../lib/theme";
 
 export default function Address() {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
-  const { country, displayName } = useUvel();
+  const { country, displayName, appearance } = useUvel();
   const market = getMarket(country);
   const [name, setName] = useState(displayName);
   const [phone, setPhone] = useState("");
@@ -21,7 +21,7 @@ export default function Address() {
   const [city, setCity] = useState("");
   const [region, setRegion] = useState("");
   const [postal, setPostal] = useState("");
-  const ph = "rgba(244,240,230,0.28)";
+  const ph = alpha(colors.bone, 0.28);
   const ok = name.trim() && line1.trim() && city.trim() && postal.trim();
 
   useEffect(() => {
@@ -53,7 +53,7 @@ export default function Address() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style="light" />
+      <StatusBar style={appearance === "dark" ? "light" : "dark"} />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>
           <Text style={styles.navBack}>‹</Text>
@@ -108,7 +108,7 @@ function Field({
           height: 48,
           borderRadius: 12,
           borderWidth: 1,
-          borderColor: "rgba(244,240,230,0.18)",
+          borderColor: alpha(colors.bone, 0.18),
           paddingHorizontal: 14,
           color: colors.bone,
           fontSize: 16,
@@ -135,10 +135,10 @@ function make(colors: Colors) {
     save: {
       height: 52,
       borderRadius: 26,
-      backgroundColor: "#D6E27A",
+      backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
     },
-    saveTxt: { color: "#16140F", fontWeight: "700", fontSize: 16 },
+    saveTxt: { color: colors.successInk, fontWeight: "700", fontSize: 16 },
   });
 }

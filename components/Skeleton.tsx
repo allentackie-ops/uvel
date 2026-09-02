@@ -1,4 +1,5 @@
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { alpha, useColors } from "../lib/theme";
 
 export function Skeleton({
   width,
@@ -11,7 +12,8 @@ export function Skeleton({
   radius?: number;
   style?: StyleProp<ViewStyle>;
 }) {
-  return <View accessibilityLabel="Loading" style={[styles.base, { width, height, borderRadius: radius }, style]} />;
+  const colors = useColors();
+  return <View accessibilityLabel="Loading" style={[styles.base, { width, height, borderRadius: radius, backgroundColor: alpha(colors.bone, 0.1) }, style]} />;
 }
 
 export const skeletonStyles = StyleSheet.create({
@@ -20,7 +22,5 @@ export const skeletonStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  base: {
-    backgroundColor: "rgba(244,240,230,0.12)",
-  },
+  base: {},
 });

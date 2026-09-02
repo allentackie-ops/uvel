@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, type PressableProps } from "react-native";
 import { useState } from "react";
 import { useUvel } from "../lib/store";
+import { useColors, type Colors } from "../lib/theme";
 
 /**
  * Pressable with an explicit focus ring for keyboard and accessibility focus.
@@ -9,6 +10,8 @@ import { useUvel } from "../lib/store";
 export function AccessiblePressable({ style, onFocus, onBlur, ...props }: PressableProps) {
   const [focused, setFocused] = useState(false);
   const { accessibilityMode } = useUvel();
+  const colors = useColors();
+  const styles = make(colors);
 
   return (
     <Pressable
@@ -26,13 +29,15 @@ export function AccessiblePressable({ style, onFocus, onBlur, ...props }: Pressa
   );
 }
 
-const styles = StyleSheet.create({
+function make(colors: Colors) {
+  return StyleSheet.create({
   focused: {
     borderWidth: 2,
-    borderColor: "#D6E27A",
+    borderColor: colors.success,
   },
   focusedEnhanced: {
     borderWidth: 3,
-    borderColor: "#D6E27A",
+    borderColor: colors.success,
   },
-});
+  });
+}

@@ -17,18 +17,11 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GARMENTS } from "../lib/catalog";
 import { useUvel } from "../lib/store";
+import { alpha, useColors, type Colors } from "../lib/theme";
 import { dressPerson } from "../lib/tryon";
 import { pickFromLibrary, takePhoto } from "../lib/photo";
 import { addPiece } from "../lib/wardrobe";
 
-const BG = "#FFFFFF";
-const INK = "#16140F";
-const MUTED = "rgba(22,20,15,0.5)";
-const LINE = "rgba(22,20,15,0.12)";
-const OLIVE = "#5E7018";
-const LIME = "#D6E27A";
-const WASH = "rgba(214,226,122,0.28)";
-const SOFT = "#F5F3EC";
 const STEPS = 5;
 
 const STYLES = [
@@ -60,6 +53,8 @@ const LOOKS = GARMENTS.filter((g) =>
 );
 
 function Name({ children }: { children: string }) {
+  const colors = useColors();
+  const styles = useMemo(() => make(colors), [colors]);
   return <Text style={styles.name}>{children}</Text>;
 }
 
@@ -84,6 +79,16 @@ function ageOf(dt: Date) {
 export default function ProfileSetup() {
   const insets = useSafeAreaInsets();
   const app = useUvel();
+  const colors = useColors();
+  const styles = useMemo(() => make(colors), [colors]);
+  const BG = colors.ink;
+  const INK = colors.bone;
+  const MUTED = colors.muted;
+  const LINE = alpha(colors.bone, 0.12);
+  const OLIVE = colors.pulse;
+  const LIME = colors.success;
+  const WASH = alpha(colors.success, 0.28);
+  const SOFT = colors.surface;
   const [step, setStep] = useState(0);
   const [name, setName] = useState(app.displayName);
   const [mm, setMm] = useState("");
@@ -225,7 +230,7 @@ export default function ProfileSetup() {
 
   return (
     <Animated.View entering={FadeIn.duration(380)} style={[styles.root, { paddingTop: insets.top + 8 }]}>
-      <StatusBar style="dark" />
+      <StatusBar style={colors.ink === "#F4F0E6" ? "dark" : "light"} />
       <View style={styles.head}>
         {step > 0 ? (
           <Pressable onPress={() => go(step - 1)} hitSlop={16} style={styles.back}>
@@ -541,7 +546,16 @@ export default function ProfileSetup() {
   );
 }
 
-const styles = StyleSheet.create({
+function make(colors: Colors) {
+  const BG = colors.ink;
+  const INK = colors.bone;
+  const MUTED = colors.muted;
+  const LINE = alpha(colors.bone, 0.12);
+  const OLIVE = colors.pulse;
+  const LIME = colors.success;
+  const WASH = alpha(colors.success, 0.28);
+  const SOFT = colors.surface;
+  return StyleSheet.create({
   root: { flex: 1, backgroundColor: BG },
   head: {
     flexDirection: "row",
@@ -728,4 +742,5 @@ const styles = StyleSheet.create({
   bullet: { color: INK, fontSize: 16, lineHeight: 22, flex: 1 },
   skipBtn: { alignItems: "center", paddingVertical: 14 },
   skipTxt: { color: MUTED, fontSize: 15 },
-});
+  });
+}

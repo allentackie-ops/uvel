@@ -2,6 +2,7 @@ import { GlassContainer, GlassView } from "expo-glass-effect";
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import type { ReactNode } from "react";
 import { useUvel } from "../lib/store";
+import { alpha, useColors, type Colors } from "../lib/theme";
 
 export function Glass({
   children,
@@ -15,6 +16,8 @@ export function Glass({
   interactive?: boolean;
 }) {
   const { appearance } = useUvel();
+  const colors = useColors();
+  const styles = make(colors);
   if (Platform.OS === "ios") {
     return (
       <GlassView
@@ -32,14 +35,16 @@ export function Glass({
 
 export { GlassContainer };
 
-const styles = StyleSheet.create({
+function make(colors: Colors) {
+  return StyleSheet.create({
   fallback: {
-    backgroundColor: "rgba(255,255,255,0.55)",
+    backgroundColor: alpha(colors.surface, 0.55),
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(22,20,15,0.12)",
+    borderColor: alpha(colors.bone, 0.12),
   },
   fallbackDark: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderColor: "rgba(244,240,230,0.14)",
+    backgroundColor: alpha(colors.bone, 0.08),
+    borderColor: alpha(colors.bone, 0.14),
   },
-});
+  });
+}

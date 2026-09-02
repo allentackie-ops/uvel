@@ -10,7 +10,7 @@ import Mirror from "./find";
 import Closet from "./closet";
 import Shop from "./shop";
 import You from "./you";
-import { useColors } from "../../lib/theme";
+import { alpha, useColors } from "../../lib/theme";
 import { useCopy } from "../../lib/useCopy";
 
 const ROUTES = ["/", "/find", "/closet", "/shop", "/you"] as const;
@@ -65,7 +65,8 @@ export default function TabsLayout() {
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: "#0B0A08" }]}>
+    <View style={[styles.root, { backgroundColor: colors.ink }]}>
+
       <PagerView
         ref={pagerRef}
         style={styles.pager}
@@ -77,26 +78,28 @@ export default function TabsLayout() {
         offscreenPageLimit={1}
       >
         {tabs.map(({ key, screen: Screen }) => (
-          <View key={key} style={styles.page}>
+          <View key={key} style={[styles.page, { backgroundColor: colors.ink }]}>
+
             <Screen />
           </View>
         ))}
       </PagerView>
-      <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-        <View style={styles.bar}>
+      <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink, borderTopColor: alpha(colors.bone, 0.1) }]}>
+        <View style={[styles.bar, { backgroundColor: colors.surface }]}>
+
           {tabs.map((tab, index) => {
             const active = selected === index;
             return (
               <Pressable
                 key={tab.key}
                 onPress={() => selectTab(index)}
-                style={({ pressed }) => [styles.tab, active && styles.tabActive, pressed && styles.tabPressed]}
+                style={({ pressed }) => [styles.tab, active && { backgroundColor: colors.success }, pressed && styles.tabPressed]}
                 accessibilityRole="tab"
                 accessibilityLabel={tab.label}
                 accessibilityState={{ selected: active }}
               >
-                <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={23} color={active ? "#16140F" : "#A9A398"} />
-                <Text style={[styles.label, active && styles.labelActive]}>{tab.label}</Text>
+                <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={23} color={active ? colors.successInk : colors.muted} />
+                <Text style={[styles.label, { color: active ? colors.successInk : colors.muted }]}>{tab.label}</Text>
               </Pressable>
             );
           })}
@@ -118,12 +121,10 @@ function routeIndex(pathname: string): number | null {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   pager: { flex: 1 },
-  page: { flex: 1, backgroundColor: "#0B0A08" },
-  barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 10, backgroundColor: "#000000", borderTopWidth: 1, borderTopColor: "#000000" },
-  bar: { minHeight: 68, borderRadius: 0, borderWidth: 0, backgroundColor: "#000000", flexDirection: "row", alignItems: "center", paddingHorizontal: 10 },
+  page: { flex: 1 },
+  barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 10, borderTopWidth: 1 },
+  bar: { minHeight: 68, borderRadius: 0, borderWidth: 0, flexDirection: "row", alignItems: "center", paddingHorizontal: 10 },
   tab: { flex: 1, minHeight: 58, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 3 },
-  tabActive: { backgroundColor: "#D6E27A" },
   tabPressed: { opacity: 0.76 },
-  label: { color: "#A9A398", fontSize: 11, fontWeight: "700" },
-  labelActive: { color: "#16140F" },
+  label: { fontSize: 11, fontWeight: "700" },
 });

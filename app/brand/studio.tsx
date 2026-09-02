@@ -8,11 +8,14 @@ import { BRAND_THEMES } from "../../lib/brandThemes";
 import { canStudio, getBrand, inquiryRecipients, memberRoleLabel, removeMember, themeFor, updateBrand, uploadBrandAsset, useBrands } from "../../lib/brands";
 import { pickBannerImage, pickBannerVideo, pickLogo } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
+import { useColors, type Colors } from "../../lib/theme";
 
 export default function BrandStudio() {
   const { id } = useLocalSearchParams<{ id: string }>();
   useBrands();
   const app = useUvel();
+  const colors = useColors();
+  const styles = make(colors);
   const insets = useSafeAreaInsets();
   const brand = getBrand(id);
   const [bg, setBg] = useState(brand?.custom?.bg ?? "");
@@ -192,8 +195,8 @@ export default function BrandStudio() {
               onValueChange={(v) => {
                 updateBrand(currentBrand.id, { analyticsShared: v });
               }}
-              trackColor={{ false: "#2A2824", true: "#D6E27A" }}
-              thumbColor="#F4F0E6"
+              trackColor={{ false: colors.surface, true: colors.success }}
+              thumbColor={colors.bone}
             />
           </View>
 
@@ -211,8 +214,8 @@ export default function BrandStudio() {
                   <Switch
                     value={selected}
                     onValueChange={() => toggleInquiryRecipient(m.uid)}
-                    trackColor={{ false: "#2A2824", true: theme.accent }}
-                    thumbColor="#F4F0E6"
+                    trackColor={{ false: colors.surface, true: theme.accent }}
+                    thumbColor={colors.bone}
                   />
                 </View>
               );
@@ -249,21 +252,22 @@ export default function BrandStudio() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#0B0A08" },
+function make(colors: Colors) {
+  return StyleSheet.create({
+  page: { flex: 1, backgroundColor: colors.ink },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8, paddingBottom: 8 },
   back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  backTxt: { color: "#F4F0E6", fontSize: 34, lineHeight: 36, marginTop: -4 },
+  backTxt: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
   topTitle: { fontSize: 16, fontWeight: "600" },
-  title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 26, marginTop: 24 },
-  banner: { width: "100%", height: 180, backgroundColor: "#161512", marginBottom: 12 },
+  title: { color: colors.bone, fontFamily: "Georgia", fontSize: 26, marginTop: 24 },
+  banner: { width: "100%", height: 180, backgroundColor: colors.surface, marginBottom: 12 },
   bannerRow: { flexDirection: "row", gap: 8, paddingHorizontal: 20, marginBottom: 8 },
   small: { flex: 1, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   smallTxt: { fontWeight: "700", fontSize: 13 },
   removeBanner: { alignSelf: "flex-start", paddingHorizontal: 20, paddingBottom: 4, paddingTop: 2 },
   removeBannerTxt: { fontSize: 14, textDecorationLine: "underline" },
   logoRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 12 },
-  logo: { width: 56, height: 56, borderRadius: 14, backgroundColor: "#161512" },
+  logo: { width: 56, height: 56, borderRadius: 14, backgroundColor: colors.surface },
   logoH: { fontWeight: "700", fontSize: 16 },
   label: { fontSize: 12, marginTop: 16, letterSpacing: 0.3 },
   field: {
@@ -291,4 +295,5 @@ const styles = StyleSheet.create({
   memberR: { fontSize: 13, marginTop: 2 },
   cta: { height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", marginTop: 12 },
   ctaTxt: { fontWeight: "800", fontSize: 15 },
-});
+  });
+}
