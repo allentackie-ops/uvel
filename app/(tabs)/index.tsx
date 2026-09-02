@@ -15,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
@@ -675,7 +676,7 @@ function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop
           accessibilityLabel={busy ? `Searching listings for ${look.title}` : `Shop listings for ${look.title}`}
           accessibilityHint="Double tap to find matching listings."
         >
-          <Text style={styles.searchFabTxt}>{busy ? "…" : "⌕"}</Text>
+          {busy ? <Text style={styles.searchFabTxt}>…</Text> : <Ionicons name="search" size={20} color={colors.successInk} />}
         </AccessiblePressable>
       </View>
       <Text style={styles.cardTitle} numberOfLines={2}>
@@ -917,11 +918,18 @@ function make(colors: Colors) {
       width: 46,
       height: 46,
       borderRadius: 23,
-      backgroundColor: "rgba(244,240,230,0.96)",
+      backgroundColor: colors.success,
+      borderWidth: 1,
+      borderColor: "rgba(22,20,15,0.18)",
       alignItems: "center",
       justifyContent: "center",
+      shadowColor: "#000000",
+      shadowOpacity: 0.24,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 4,
     },
-    searchFabTxt: { color: "#16140F", fontSize: 22, fontWeight: "700", marginTop: -1 },
+    searchFabTxt: { color: colors.successInk, fontSize: 20, fontWeight: "800", lineHeight: 22 },
     cardSrc: { color: "#F4F0E6", fontSize: 11, fontWeight: "700" },
     cardTitle: { color: "#F4F0E6", fontSize: 14, marginTop: 8, lineHeight: 18, fontWeight: "500" },
     todayLive: { color: "#16140F", backgroundColor: "#D6E27A", borderRadius: 11, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "800", letterSpacing: 1 },
