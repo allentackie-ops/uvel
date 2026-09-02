@@ -2,6 +2,7 @@ import { GlassContainer, GlassView } from "expo-glass-effect";
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import type { ReactNode } from "react";
 import { useUvel } from "../lib/store";
+import { useColors } from "../lib/theme";
 
 export function Glass({
   children,
@@ -15,6 +16,7 @@ export function Glass({
   interactive?: boolean;
 }) {
   const { appearance } = useUvel();
+  const colors = useColors();
   if (Platform.OS === "ios") {
     return (
       <GlassView
@@ -27,7 +29,7 @@ export function Glass({
       </GlassView>
     );
   }
-  return <View style={[styles.fallback, appearance === "dark" && styles.fallbackDark, style]}>{children}</View>;
+  return <View style={[styles.fallback, { backgroundColor: appearance === "dark" ? "rgba(255,255,255,0.08)" : colors.surface, borderColor: appearance === "dark" ? "rgba(244,240,230,0.14)" : colors.subtle }, style]}>{children}</View>;
 }
 
 export { GlassContainer };

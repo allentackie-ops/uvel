@@ -4,6 +4,8 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "./AccessiblePressable";
+import { useColors } from "../lib/theme";
+import { useUvel } from "../lib/store";
 
 export function Sheet({
   open,
@@ -15,6 +17,8 @@ export function Sheet({
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
+  const { appearance } = useUvel();
   const y = useSharedValue(420);
   const shown = useSharedValue(0);
 
@@ -59,10 +63,10 @@ export function Sheet({
       </AccessiblePressable>
       <GestureDetector gesture={pan}>
         <Animated.View
-          style={[styles.sheet, { paddingBottom: insets.bottom + 16 }, sheet]}
+          style={[styles.sheet, { paddingBottom: insets.bottom + 16, backgroundColor: colors.surface }, sheet]}
           accessibilityViewIsModal
         >
-          <View style={styles.grip} />
+          <View style={[styles.grip, { backgroundColor: appearance === "dark" ? "rgba(244,240,230,0.28)" : colors.subtle }]} />
           {children}
         </Animated.View>
       </GestureDetector>

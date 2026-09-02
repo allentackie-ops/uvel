@@ -8,6 +8,7 @@ import { usd } from "../../lib/catalog";
 import { readBrandAnalytics } from "../../lib/analytics";
 import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
+import { useColors, type Colors } from "../../lib/theme";
 import { useWardrobe } from "../../lib/wardrobe";
 
 export default function BrandAnalytics() {
@@ -15,6 +16,8 @@ export default function BrandAnalytics() {
   useBrands();
   useWardrobe();
   const app = useUvel();
+  const colors = useColors();
+  const styles = make(colors);
   const insets = useSafeAreaInsets();
   const brand = getBrand(id);
   const [data, setData] = useState<Awaited<ReturnType<typeof readBrandAnalytics>>>(null);
@@ -147,6 +150,7 @@ export default function BrandAnalytics() {
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
+  const styles = make(useColors());
   return (
     <View style={styles.stat}>
       <Text style={styles.statV}>{value}</Text>
@@ -160,27 +164,29 @@ function fmt(n: number) {
   return String(n);
 }
 
-const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#0B0A08" },
+function make(colors: Colors) {
+  return StyleSheet.create({
+  page: { flex: 1, backgroundColor: colors.ink },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   back: { width: 40, height: 40, alignItems: "center", justifyContent: "center", marginLeft: -8 },
-  backTxt: { color: "#F4F0E6", fontSize: 34, lineHeight: 36, marginTop: -4 },
-  topTitle: { color: "#F4F0E6", fontSize: 16, fontWeight: "600" },
-  kicker: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.6, fontSize: 11, fontWeight: "700", marginTop: 8 },
-  title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, marginTop: 8, lineHeight: 34 },
-  p: { color: "rgba(244,240,230,0.55)", fontSize: 14, marginTop: 8, lineHeight: 20 },
+  backTxt: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
+  topTitle: { color: colors.bone, fontSize: 16, fontWeight: "600" },
+  kicker: { color: colors.muted, letterSpacing: 1.6, fontSize: 11, fontWeight: "700", marginTop: 8 },
+  title: { color: colors.bone, fontFamily: "Georgia", fontSize: 28, marginTop: 8, lineHeight: 34 },
+  p: { color: colors.muted, fontSize: 14, marginTop: 8, lineHeight: 20 },
   grid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 22 },
-  stat: { width: "48%", backgroundColor: "#161512", borderRadius: 16, padding: 14 },
-  statV: { color: "#F4F0E6", fontWeight: "800", fontSize: 22, fontVariant: ["tabular-nums"] },
-  statL: { color: "rgba(244,240,230,0.5)", fontSize: 12, marginTop: 4 },
-  h2: { color: "#F4F0E6", fontWeight: "700", fontSize: 18, marginTop: 28, marginBottom: 12 },
+  stat: { width: "48%", backgroundColor: colors.surface, borderRadius: 16, padding: 14 },
+  statV: { color: colors.bone, fontWeight: "800", fontSize: 22, fontVariant: ["tabular-nums"] },
+  statL: { color: colors.muted, fontSize: 12, marginTop: 4 },
+  h2: { color: colors.bone, fontWeight: "700", fontSize: 18, marginTop: 28, marginBottom: 12 },
   chart: { flexDirection: "row", alignItems: "flex-end", gap: 4, height: 120 },
   col: { flex: 1, alignItems: "center", justifyContent: "flex-end" },
-  bar: { width: "70%", borderRadius: 4, backgroundColor: "#D6E27A", minHeight: 8 },
-  day: { color: "rgba(244,240,230,0.35)", fontSize: 8, marginTop: 6 },
-  legend: { color: "rgba(244,240,230,0.4)", fontSize: 12, marginTop: 8 },
+  bar: { width: "70%", borderRadius: 4, backgroundColor: colors.success, minHeight: 8 },
+  day: { color: colors.muted, fontSize: 8, marginTop: 6 },
+  legend: { color: colors.muted, fontSize: 12, marginTop: 8 },
   row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10 },
-  thumb: { width: 48, height: 60, borderRadius: 8, backgroundColor: "#161512" },
-  rowN: { color: "#F4F0E6", fontWeight: "700", fontSize: 15 },
-  rowP: { color: "rgba(244,240,230,0.5)", fontSize: 12, marginTop: 3 },
-});
+  thumb: { width: 48, height: 60, borderRadius: 8, backgroundColor: colors.surface },
+  rowN: { color: colors.bone, fontWeight: "700", fontSize: 15 },
+  rowP: { color: colors.muted, fontSize: 12, marginTop: 3 },
+  });
+}
