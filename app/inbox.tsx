@@ -8,7 +8,7 @@ import { VerifiedMark } from "../components/VerifiedMark";
 import { getBrand, useBrands } from "../lib/brands";
 import { unreadFor, useInbox, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
-import { useColors, type Colors } from "../lib/theme";
+import { alpha, useColors, type Colors } from "../lib/theme";
 
 type Filter = "All" | "Messages" | "Selling" | "Buying";
 const FILTERS: Filter[] = ["All", "Messages", "Selling", "Buying"];
@@ -25,7 +25,7 @@ export default function Inbox() {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
-  const { uid } = useUvel();
+  const { uid, appearance } = useUvel();
   useBrands();
   const me = uid || "me";
   const threads = useInbox(me);
@@ -51,7 +51,7 @@ export default function Inbox() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style="light" />
+      <StatusBar style={appearance === "dark" ? "light" : "dark"} />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>
           <Text style={styles.navBack}>‹</Text>
@@ -130,7 +130,7 @@ function Row({
           {!iAmSeller && (brand?.verified || t.brandVerified) ? <VerifiedMark size={16} /> : null}
           {t.lastAt ? <Text style={styles.time}>{when(t.lastAt)}</Text> : null}
         </View>
-        <Text style={[styles.prev, unread ? { color: "#F4F0E6" } : null]} numberOfLines={1}>
+        <Text style={[styles.prev, unread ? { color: colors.bone } : null]} numberOfLines={1}>
           {t.lastText ? `${you ? "You: " : ""}${t.lastText}` : t.pieceName}
         </Text>
       </View>
@@ -157,7 +157,7 @@ function make(colors: Colors) {
       height: 44,
       borderRadius: 22,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.18)",
+      borderColor: alpha(colors.bone, 0.18),
       alignItems: "center",
       justifyContent: "center",
       marginRight: 8,
@@ -171,13 +171,13 @@ function make(colors: Colors) {
       paddingHorizontal: 16,
       borderRadius: 18,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.28)",
+      borderColor: alpha(colors.bone, 0.28),
       alignItems: "center",
       justifyContent: "center",
     },
-    chipOn: { backgroundColor: "#F4F0E6", borderColor: "#F4F0E6" },
+    chipOn: { backgroundColor: colors.bone, borderColor: colors.bone },
     chipTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
-    chipTxtOn: { color: "#16140F" },
+    chipTxtOn: { color: colors.ink },
     empty: { color: colors.muted, padding: 24, lineHeight: 22, fontSize: 15 },
     list: { flex: 1 },
     row: {

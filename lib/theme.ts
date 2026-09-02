@@ -63,6 +63,12 @@ export const palettes: Record<"light" | "dark", Colors> = {
 
 export const colors = palettes.light;
 
+/** Return a palette color with a React Native-compatible alpha channel. */
+export function alpha(hex: string, opacity: number): string {
+  const clamped = Math.max(0, Math.min(1, opacity));
+  return `${hex}${Math.round(clamped * 255).toString(16).padStart(2, "0")}`;
+}
+
 export function useColors(): Colors {
   const { appearance } = useUvel();
   return palettes[appearance];

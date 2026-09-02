@@ -27,6 +27,7 @@ import { pickListingPhoto, takeListingPhoto } from "../../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../../lib/photoCheck";
 import { encodeShipsTo, type ShipsTo } from "../../lib/ships";
 import { useUvel } from "../../lib/store";
+import { alpha, useColors, type Colors } from "../../lib/theme";
 import { recordAuditEvent } from "../../lib/audit";
 import { addPiece, createBrandCatalogRemote } from "../../lib/wardrobe";
 import { firebaseReady } from "../../lib/firebase";
@@ -43,6 +44,8 @@ export default function BrandList() {
   useBrands();
   const brand = getBrand(id);
   const app = useUvel();
+  const colors = useColors();
+  const styles = make(colors);
   const insets = useSafeAreaInsets();
   const origin = brand?.country || app.country || "US";
   const market = getMarket(origin);
@@ -62,7 +65,7 @@ export default function BrandList() {
   const [condition, setCondition] = useState<(typeof BRAND_CONDITIONS)[number]>("New");
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
-  const ph = "rgba(244,240,230,0.32)";
+  const ph = alpha(colors.bone, 0.32);
   const cover = photos[0];
   const contactReady = hasBrandContact(brand || {});
 
@@ -291,7 +294,7 @@ export default function BrandList() {
             )}
             {cover?.status === "checking" ? (
               <View style={styles.heroMask}>
-                <ActivityIndicator color="#16140F" />
+                <ActivityIndicator color={colors.successInk} />
               </View>
             ) : null}
           </Pressable>
@@ -434,7 +437,7 @@ export default function BrandList() {
         <View style={[styles.gate, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 28 }]}>
           {gate.phase === "review" ? (
             <>
-              <ActivityIndicator color="#D6E27A" />
+              <ActivityIndicator color={colors.success} />
               <Text style={styles.gateH}>{STAGES[stage]}</Text>
             </>
           ) : null}
@@ -458,39 +461,40 @@ export default function BrandList() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#0B0A08" },
+function make(colors: Colors) {
+  return StyleSheet.create({
+  page: { flex: 1, backgroundColor: colors.ink },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8, paddingBottom: 8 },
   back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  backTxt: { color: "#F4F0E6", fontSize: 34, lineHeight: 36, marginTop: -4 },
-  topTitle: { color: "#F4F0E6", fontSize: 16, fontWeight: "600" },
-  contactGate: { marginHorizontal: 20, marginTop: 12, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: "#D6E27A66", backgroundColor: "#1A1C12" },
-  contactGateTitle: { color: "#F4F0E6", fontWeight: "700", fontSize: 16 },
-  contactGateText: { color: "rgba(244,240,230,0.6)", fontSize: 13, lineHeight: 18, marginTop: 6 },
-  contactGateBtn: { marginTop: 12, alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 12, borderRadius: 16, backgroundColor: "#D6E27A" },
-  contactGateBtnText: { color: "#16140F", fontSize: 13, fontWeight: "700" },
-  hero: { width: W, height: W * 1.15, backgroundColor: "#161512" },
+  backTxt: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
+  topTitle: { color: colors.bone, fontSize: 16, fontWeight: "600" },
+  contactGate: { marginHorizontal: 20, marginTop: 12, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: alpha(colors.success, 0.4), backgroundColor: colors.surface },
+  contactGateTitle: { color: colors.bone, fontWeight: "700", fontSize: 16 },
+  contactGateText: { color: alpha(colors.bone, 0.6), fontSize: 13, lineHeight: 18, marginTop: 6 },
+  contactGateBtn: { marginTop: 12, alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 12, borderRadius: 16, backgroundColor: colors.success },
+  contactGateBtnText: { color: colors.ink, fontSize: 13, fontWeight: "700" },
+  hero: { width: W, height: W * 1.15, backgroundColor: colors.surface },
   heroImg: { width: "100%", height: "100%" },
   heroEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
-  heroPlus: { color: "#F4F0E6", fontSize: 44 },
-  heroHint: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 22 },
-  heroMask: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(214,226,122,0.5)", alignItems: "center", justifyContent: "center" },
+  heroPlus: { color: colors.bone, fontSize: 44 },
+  heroHint: { color: colors.bone, fontFamily: "Georgia", fontSize: 22 },
+  heroMask: { ...StyleSheet.absoluteFill, backgroundColor: alpha(colors.success, 0.5), alignItems: "center", justifyContent: "center" },
   slotRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 12 },
-  mini: { width: 56, height: 70, borderRadius: 8, backgroundColor: "#161512" },
-  miniAdd: { width: 56, height: 70, borderRadius: 8, borderWidth: 1, borderColor: "rgba(244,240,230,0.16)", alignItems: "center", justifyContent: "center" },
-  miniPlus: { color: "#F4F0E6", fontSize: 22 },
+  mini: { width: 56, height: 70, borderRadius: 8, backgroundColor: colors.surface },
+  miniAdd: { width: 56, height: 70, borderRadius: 8, borderWidth: 1, borderColor: alpha(colors.bone, 0.16), alignItems: "center", justifyContent: "center" },
+  miniPlus: { color: colors.bone, fontSize: 22 },
   sheet: { paddingHorizontal: 20, paddingTop: 8 },
   marketSection: { marginTop: 8 },
-  label: { color: "rgba(244,240,230,0.45)", fontSize: 12, marginTop: 16, letterSpacing: 0.3 },
-  hint: { color: "rgba(244,240,230,0.4)", fontSize: 13, marginTop: 4 },
+  label: { color: alpha(colors.bone, 0.45), fontSize: 12, marginTop: 16, letterSpacing: 0.3 },
+  hint: { color: alpha(colors.bone, 0.4), fontSize: 13, marginTop: 4 },
   field: {
     marginTop: 8,
     height: 48,
     borderRadius: 14,
-    backgroundColor: "#161512",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "rgba(244,240,230,0.12)",
-    color: "#F4F0E6",
+    borderColor: alpha(colors.bone, 0.12),
+    color: colors.bone,
     paddingHorizontal: 14,
     fontSize: 16,
   },
@@ -498,45 +502,46 @@ const styles = StyleSheet.create({
     marginTop: 8,
     minHeight: 90,
     borderRadius: 14,
-    backgroundColor: "#161512",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "rgba(244,240,230,0.12)",
-    color: "#F4F0E6",
+    borderColor: alpha(colors.bone, 0.12),
+    color: colors.bone,
     paddingHorizontal: 14,
     paddingTop: 12,
     fontSize: 16,
     textAlignVertical: "top",
   },
   priceRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
-  dollar: { color: "#F4F0E6", fontSize: 28, fontWeight: "700" },
-  price: { flex: 1, color: "#F4F0E6", fontSize: 32, fontWeight: "700", height: 48 },
+  dollar: { color: colors.bone, fontSize: 28, fontWeight: "700" },
+  price: { flex: 1, color: colors.bone, fontSize: 32, fontWeight: "700", height: 48 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
   chip: {
     height: 36,
     paddingHorizontal: 14,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: "rgba(244,240,230,0.16)",
+    borderColor: alpha(colors.bone, 0.16),
     alignItems: "center",
     justifyContent: "center",
   },
-  chipOn: { backgroundColor: "#F4F0E6", borderColor: "#F4F0E6" },
-  chipTxt: { color: "#F4F0E6", fontSize: 13, fontWeight: "600" },
-  chipTxtOn: { color: "#16140F" },
+  chipOn: { backgroundColor: colors.bone, borderColor: colors.bone },
+  chipTxt: { color: colors.bone, fontSize: 13, fontWeight: "600" },
+  chipTxtOn: { color: colors.ink },
   row: { flexDirection: "row", gap: 10 },
   variantStockBlock: { marginTop: 2 },
   variantStockRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
-  variantStockSize: { color: "#F4F0E6", fontSize: 14, fontWeight: "700" },
-  variantStockInput: { width: 92, height: 42, borderRadius: 12, borderWidth: 1, borderColor: "rgba(244,240,230,0.22)", color: "#F4F0E6", paddingHorizontal: 12, textAlign: "right", fontSize: 15 },
-  foot: { paddingHorizontal: 20, paddingTop: 10, backgroundColor: "#0B0A08" },
-  cta: { height: 52, borderRadius: 26, backgroundColor: "#F4F0E6", alignItems: "center", justifyContent: "center" },
-  ctaOff: { backgroundColor: "#2A2824" },
-  ctaTxt: { color: "#16140F", fontWeight: "800", fontSize: 16 },
-  ctaTxtOff: { color: "rgba(244,240,230,0.35)" },
-  gate: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(11,10,8,0.96)", alignItems: "center", justifyContent: "center", paddingHorizontal: 28, gap: 12 },
-  gateH: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, textAlign: "center" },
-  gateP: { color: "rgba(244,240,230,0.6)", textAlign: "center" },
+  variantStockSize: { color: colors.bone, fontSize: 14, fontWeight: "700" },
+  variantStockInput: { width: 92, height: 42, borderRadius: 12, borderWidth: 1, borderColor: alpha(colors.bone, 0.22), color: colors.bone, paddingHorizontal: 12, textAlign: "right", fontSize: 15 },
+  foot: { paddingHorizontal: 20, paddingTop: 10, backgroundColor: colors.ink },
+  cta: { height: 52, borderRadius: 26, backgroundColor: colors.bone, alignItems: "center", justifyContent: "center" },
+  ctaOff: { backgroundColor: colors.surface },
+  ctaTxt: { color: colors.ink, fontWeight: "800", fontSize: 16 },
+  ctaTxtOff: { color: alpha(colors.bone, 0.35) },
+  gate: { ...StyleSheet.absoluteFill, backgroundColor: alpha(colors.ink, 0.96), alignItems: "center", justifyContent: "center", paddingHorizontal: 28, gap: 12 },
+  gateH: { color: colors.bone, fontFamily: "Georgia", fontSize: 28, textAlign: "center" },
+  gateP: { color: alpha(colors.bone, 0.6), textAlign: "center" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28 },
-  big: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, textAlign: "center" },
-  p: { color: "rgba(244,240,230,0.58)", textAlign: "center", marginTop: 10, lineHeight: 22 },
-});
+  big: { color: colors.bone, fontFamily: "Georgia", fontSize: 28, textAlign: "center" },
+  p: { color: alpha(colors.bone, 0.58), textAlign: "center", marginTop: 10, lineHeight: 22 },
+  });
+}

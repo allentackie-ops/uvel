@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
-import {  StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
+import { alpha, useColors } from "../lib/theme";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +16,7 @@ export function Sheet({
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
+  const colors = useColors();
   const y = useSharedValue(420);
   const shown = useSharedValue(0);
 
@@ -55,14 +57,14 @@ export function Sheet({
         accessibilityLabel="Close dialog"
         accessibilityHint="Double tap to dismiss this dialog."
       >
-        <Animated.View style={[styles.veil, veil]} />
+        <Animated.View style={[styles.veil, { backgroundColor: colors.bone }, veil]} />
       </AccessiblePressable>
       <GestureDetector gesture={pan}>
         <Animated.View
-          style={[styles.sheet, { paddingBottom: insets.bottom + 16 }, sheet]}
+          style={[styles.sheet, { paddingBottom: insets.bottom + 16, backgroundColor: colors.surface }, sheet]}
           accessibilityViewIsModal
         >
-          <View style={styles.grip} />
+          <View style={[styles.grip, { backgroundColor: alpha(colors.bone, 0.28) }]} />
           {children}
         </Animated.View>
       </GestureDetector>
@@ -71,13 +73,14 @@ export function Sheet({
 }
 
 const styles = StyleSheet.create({
-  veil: { flex: 1, backgroundColor: "#000" },
+  veil: { flex: 1 },
   sheet: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "#1A1916",
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: "transparent",
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     paddingHorizontal: 20,
@@ -88,7 +91,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 5,
     borderRadius: 3,
-    backgroundColor: "rgba(244,240,230,0.28)",
     marginBottom: 14,
   },
 });

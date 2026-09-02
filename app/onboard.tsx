@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
@@ -44,6 +44,7 @@ import {
   type Session,
 } from "../lib/auth";
 import { LANGS, isRtl, langLabel, t } from "../lib/i18n";
+import { alpha, useColors, type Colors } from "../lib/theme";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
@@ -142,6 +143,8 @@ function Catalog({
   copy: { marketTitle: string; signUp: string; logIn: string; continueAgreement: string; termsAndConditions: string; andWord: string; privacyPolicy: string };
   rtl?: boolean;
 }) {
+  const colors = useColors();
+  const styles = useMemo(() => make(colors), [colors]);
   const { gridH, gridTop } = gridMetrics(insets.top);
   const tileH = (gridH - 10) / 2;
 
@@ -168,14 +171,15 @@ function Catalog({
           ))}
         </View>
         <View style={{ flex: 1 }} />
-        <Text style={[styles.title, rtl && styles.rtl]}>{copy.marketTitle}</Text>
+        <Text style={[styles.title, { color: colors.bone }, rtl && styles.rtl]}>{copy.marketTitle}</Text>
         <Pressable onPress={onSignUp} style={[styles.cta, { marginTop: 22 }]}>
           <Text style={styles.ctaText}>{copy.signUp}</Text>
         </Pressable>
-        <Pressable onPress={onLogIn} style={styles.ctaLogin}>
-          <Text style={styles.ctaLoginText}>{copy.logIn}</Text>
+        <Pressable onPress={onLogIn} style={[styles.ctaLogin, { borderColor: colors.bone }]}>
+
+          <Text style={[styles.ctaLoginText, { color: colors.bone }]}>{copy.logIn}</Text>
         </Pressable>
-        <Text style={[styles.legalCopy, rtl && styles.rtl]}>
+        <Text style={[styles.legalCopy, { color: colors.muted }, rtl && styles.rtl]}>
           {copy.continueAgreement}{" "}
           <Text style={styles.legalLink} onPress={() => onLegal("terms")}>
             {copy.termsAndConditions}
@@ -255,6 +259,8 @@ function AuthBtn({
   busy?: boolean;
   disabled?: boolean;
 }) {
+  const colors = useColors();
+  const styles = make(colors);
   return (
     <Pressable
       onPress={onPress}
@@ -262,7 +268,7 @@ function AuthBtn({
       style={[styles.authBtn, filled ? styles.authFilled : styles.authOutline]}
     >
       {busy ? (
-        <ActivityIndicator color={filled ? "#111" : "#fff"} />
+        <ActivityIndicator color={filled ? colors.successInk : colors.bone} />
       ) : (
         <>
           <View style={styles.authIconWrap}>
@@ -283,6 +289,8 @@ function AuthBtn({
 
 export default function Onboard() {
   const { acceptSession, locale, setLocale, onboardVersion } = useUvel();
+  const colors = useColors();
+  const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const C = t(locale || "en-US");
   const rtl = isRtl(locale || "en-US");
@@ -741,7 +749,7 @@ export default function Onboard() {
                 value={name}
                 onChangeText={setName}
                 placeholder={C.fullName}
-                placeholderTextColor="rgba(255,255,255,0.38)"
+                placeholderTextColor={alpha(colors.bone, 0.38)}
                 autoCapitalize="words"
                 autoCorrect={false}
                 textContentType="name"
@@ -752,7 +760,7 @@ export default function Onboard() {
               value={email}
               onChangeText={setEmail}
               placeholder={C.email}
-              placeholderTextColor="rgba(255,255,255,0.38)"
+              placeholderTextColor={alpha(colors.bone, 0.38)}
               autoCapitalize="none"
               autoCorrect={false}
               keyboardType="email-address"
@@ -764,7 +772,7 @@ export default function Onboard() {
                 value={password}
                 onChangeText={setPassword}
                 placeholder={C.password}
-                placeholderTextColor="rgba(255,255,255,0.38)"
+                placeholderTextColor={alpha(colors.bone, 0.38)}
                 secureTextEntry={!showPass}
                 textContentType={isLogin ? "password" : "newPassword"}
                 style={[styles.field, { paddingRight: 72 }]}
@@ -809,7 +817,7 @@ export default function Onboard() {
               disabled={busy !== null}
             >
               {busy === "email" ? (
-                <ActivityIndicator color="#111" />
+                <ActivityIndicator color={colors.ink} />
               ) : (
                 <Text style={[styles.authLabel, styles.authLabelDark]}>
                   {isLogin ? C.logIn : C.continue}
@@ -860,7 +868,7 @@ export default function Onboard() {
                   value={langQuery}
                   onChangeText={setLangQuery}
                   placeholder={C.search}
-                  placeholderTextColor="rgba(255,255,255,0.38)"
+                  placeholderTextColor={alpha(colors.bone, 0.38)}
                   autoCorrect={false}
                   autoCapitalize="none"
                   style={styles.langSearch}
@@ -899,6 +907,8 @@ function LegalPopup({
   insets: { top: number; bottom: number };
   onClose: () => void;
 }) {
+  const colors = useColors();
+  const styles = useMemo(() => make(colors), [colors]);
   const doc = DOCS[id];
   const sheetY = useSharedValue(0);
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetY.value }] }));
@@ -951,9 +961,10 @@ function LegalPopup({
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#12140A" },
-  market: { flex: 1, backgroundColor: "#12140A" },
+function make(colors: Colors) {
+  return StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.ink },
+  market: { flex: 1, backgroundColor: colors.ink },
   grid: { overflow: "hidden" },
   marketCopy: { flex: 1, paddingHorizontal: 22, paddingTop: 22 },
   skip: { position: "absolute", right: 18, zIndex: 8 },
@@ -993,8 +1004,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1.2,
     borderColor: "rgba(255,255,255,0.92)",
   },
-  langLabel: { color: "#fff", fontSize: 14, fontWeight: "500" },
-  langChev: { color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 1 },
+  langLabel: { color: colors.bone, fontSize: 14, fontWeight: "500" },
+  langChev: { color: colors.muted, fontSize: 12, marginTop: 1 },
   langOverlay: {
     ...StyleSheet.absoluteFill,
     justifyContent: "flex-end",
@@ -1002,10 +1013,10 @@ const styles = StyleSheet.create({
   },
   langDim: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(18, 20, 10, 0.72)",
+    backgroundColor: alpha(colors.ink, 0.72),
   },
   langSheet: {
-    backgroundColor: "#16180F",
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 8,
@@ -1015,37 +1026,36 @@ const styles = StyleSheet.create({
   legalOverlay: {
     ...StyleSheet.absoluteFill,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(18, 20, 10, 0.72)",
+    backgroundColor: alpha(colors.ink, 0.72),
     zIndex: 60,
   },
   legalSheet: {
-    backgroundColor: "#16180F",
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingTop: 8,
     maxHeight: SCREEN_H * 0.82,
   },
   legalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 12, paddingTop: 4 },
-  legalHandle: { position: "absolute", top: 0, left: "50%", marginLeft: -20, width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.28)" },
-  legalTitle: { color: "#fff", fontSize: 20, fontWeight: "700", flex: 1, paddingRight: 12 },
+  legalHandle: { position: "absolute", top: 0, left: "50%", marginLeft: -20, width: 40, height: 4, borderRadius: 2, backgroundColor: alpha(colors.bone, 0.28) },
+  legalTitle: { color: colors.bone, fontSize: 20, fontWeight: "700", flex: 1, paddingRight: 12 },
   legalClose: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
-  legalCloseText: { color: "rgba(255,255,255,0.9)", fontSize: 18 },
+  legalCloseText: { color: colors.bone, fontSize: 18 },
   legalContent: { paddingHorizontal: 20, paddingBottom: 8 },
-  legalMeta: { color: "rgba(255,255,255,0.56)", fontSize: 12, marginBottom: 20 },
+  legalMeta: { color: colors.muted, fontSize: 12, marginBottom: 20 },
   legalBlock: { marginBottom: 20 },
-  legalHeading: { color: "#fff", fontSize: 17, fontWeight: "600", marginBottom: 8 },
-  legalParagraph: { color: "rgba(255,255,255,0.76)", fontSize: 15, lineHeight: 22, marginBottom: 8 },
+  legalHeading: { color: colors.bone, fontSize: 17, fontWeight: "600", marginBottom: 8 },
+  legalParagraph: { color: colors.muted, fontSize: 15, lineHeight: 22, marginBottom: 8 },
   langHandle: {
     alignSelf: "center",
     width: 40,
     height: 5,
     borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.28)",
+    backgroundColor: alpha(colors.bone, 0.28),
     marginBottom: 10,
     marginTop: 4,
   },
-  langSheetTitle: {
-    color: "#fff",
+  langSheetTitle: { color: colors.bone,
     fontSize: 18,
     fontWeight: "700",
     textAlign: "center",
@@ -1055,8 +1065,8 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
-    color: "#fff",
+    borderColor: alpha(colors.bone, 0.18),
+    color: colors.bone,
     paddingHorizontal: 14,
     marginHorizontal: 12,
     marginBottom: 8,
@@ -1069,14 +1079,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  langRowText: { color: "rgba(255,255,255,0.88)", fontSize: 16 },
-  langRowOn: { color: "#fff", fontWeight: "700" },
-  langTick: { color: "#C5D4A0", fontSize: 16, fontWeight: "700" },
+  langRowText: { color: colors.bone, fontSize: 16 },
+  langRowOn: { color: colors.success, fontWeight: "700" },
+  langTick: { color: colors.success, fontSize: 16, fontWeight: "700" },
   rtl: { writingDirection: "rtl", textAlign: "right", alignSelf: "stretch" },
   copy: { position: "absolute", left: 22, right: 22, bottom: 0 },
   dots: { flexDirection: "row", gap: 6, marginBottom: 14 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.28)" },
-  dotOn: { backgroundColor: "#fff", width: 16 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: alpha(colors.bone, 0.28) },
+  dotOn: { backgroundColor: colors.bone, width: 16 },
   kicker: { color: "rgba(255,255,255,0.7)", fontSize: 11, letterSpacing: 2.4, marginBottom: 8 },
   title: { color: "#fff", fontFamily: "Georgia", fontSize: 32, lineHeight: 34 },
   lede: {
@@ -1090,26 +1100,26 @@ const styles = StyleSheet.create({
   cta: {
     height: 50,
     borderRadius: 999,
-    backgroundColor: "#fff",
+    backgroundColor: colors.bone,
     alignItems: "center",
     justifyContent: "center",
   },
-  ctaText: { color: "#2A320E", fontSize: 15, fontWeight: "600" },
+  ctaText: { color: colors.ink, fontSize: 15, fontWeight: "600" },
   ctaLogin: {
     height: 50,
     borderRadius: 999,
     marginTop: 10,
     backgroundColor: "transparent",
     borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.82)",
+    borderColor: alpha(colors.bone, 0.82),
     alignItems: "center",
     justifyContent: "center",
   },
-  ctaLoginText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-  legalCopy: { color: "rgba(255,255,255,0.58)", fontSize: 11, lineHeight: 16, textAlign: "center", marginTop: 12, paddingHorizontal: 8 },
-  legalLink: { color: "#C5D4A0", textDecorationLine: "underline" },
+  ctaLoginText: { color: colors.bone, fontSize: 15, fontWeight: "600" },
+  legalCopy: { color: colors.muted, fontSize: 11, lineHeight: 16, textAlign: "center", marginTop: 12, paddingHorizontal: 8 },
+  legalLink: { color: colors.success, textDecorationLine: "underline" },
   email: { height: 44, alignItems: "center", justifyContent: "center", marginTop: 6 },
-  emailText: { color: "#C5D4A0", fontSize: 16, fontWeight: "600" },
+  emailText: { color: colors.success, fontSize: 16, fontWeight: "600" },
   overlay: {
     ...StyleSheet.absoluteFill,
     justifyContent: "flex-end",
@@ -1117,26 +1127,26 @@ const styles = StyleSheet.create({
   },
   dimFill: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(0,0,0,0.52)",
+    backgroundColor: alpha(colors.ink, 0.52),
   },
   sheet: {
-    backgroundColor: "#16180F",
+    backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 18,
   },
   close: { position: "absolute", right: 18, top: 16, zIndex: 2 },
-  closeX: { color: "rgba(255,255,255,0.88)", fontSize: 18, fontWeight: "400" },
+  closeX: { color: colors.bone, fontSize: 18, fontWeight: "400" },
   sheetTitle: {
-    color: "#fff",
+    color: colors.bone,
     fontSize: 22,
     fontWeight: "700",
     textAlign: "center",
     marginTop: 8,
   },
   sheetLede: {
-    color: "rgba(255,255,255,0.62)",
+    color: colors.muted,
     fontSize: 15,
     textAlign: "center",
     marginTop: 8,
@@ -1151,18 +1161,18 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 12,
   },
-  authFilled: { backgroundColor: "#fff" },
+  authFilled: { backgroundColor: colors.bone },
   authOutline: {
     backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.55)",
+    borderColor: alpha(colors.bone, 0.55),
   },
   authIconWrap: { width: 24, height: 24, alignItems: "center", justifyContent: "center" },
   authIcon: { width: 22, height: 22 },
   authMark: { width: 24, height: 24, borderRadius: 12 },
   authLabel: { fontSize: 16, fontWeight: "600" },
-  authLabelDark: { color: "#111" },
-  authLabelLight: { color: "#fff" },
+  authLabelDark: { color: colors.ink },
+  authLabelLight: { color: colors.bone },
   orRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1170,36 +1180,36 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     marginTop: 2,
   },
-  orLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.22)" },
-  orText: { color: "rgba(255,255,255,0.45)", fontSize: 13 },
+  orLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: alpha(colors.bone, 0.22) },
+  orText: { color: colors.muted, fontSize: 13 },
   field: {
     height: 52,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.22)",
-    color: "#fff",
+    borderColor: alpha(colors.bone, 0.22),
+    color: colors.bone,
     paddingHorizontal: 16,
     marginBottom: 12,
     fontSize: 16,
   },
   error: {
-    color: "#E8B4B4",
+    color: colors.danger,
     fontSize: 14,
     textAlign: "center",
     marginBottom: 10,
     marginTop: 2,
   },
   note: {
-    color: "#C5D4A0",
+    color: colors.success,
     fontSize: 14,
     textAlign: "center",
     marginBottom: 10,
   },
   back: { position: "absolute", left: 16, top: 14, zIndex: 2, padding: 4 },
-  backText: { color: "rgba(255,255,255,0.88)", fontSize: 28, lineHeight: 30, fontWeight: "300" },
+  backText: { color: colors.bone, fontSize: 28, lineHeight: 30, fontWeight: "300" },
   emailScreen: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: "#12140A",
+    backgroundColor: colors.ink,
     zIndex: 30,
   },
   emailHead: {
@@ -1211,7 +1221,7 @@ const styles = StyleSheet.create({
   },
   emailBack: { width: 36, alignItems: "center" },
   emailHeadTitle: {
-    color: "#fff",
+    color: colors.bone,
     fontSize: 17,
     fontWeight: "600",
   },
@@ -1222,7 +1232,7 @@ const styles = StyleSheet.create({
     height: 52,
     justifyContent: "center",
   },
-  eyeText: { color: "rgba(255,255,255,0.55)", fontSize: 14, fontWeight: "600" },
+  eyeText: { color: colors.muted, fontSize: 14, fontWeight: "600" },
   agreeRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -1235,21 +1245,22 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.45)",
+    borderColor: colors.subtle,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 2,
   },
   boxOn: {
-    backgroundColor: "#C5D4A0",
-    borderColor: "#C5D4A0",
+    backgroundColor: colors.success,
+    borderColor: colors.success,
   },
-  tick: { color: "#12140A", fontSize: 13, fontWeight: "700" },
+  tick: { color: colors.successInk, fontSize: 13, fontWeight: "700" },
   agreeText: {
     flex: 1,
-    color: "rgba(255,255,255,0.7)",
+    color: colors.muted,
     fontSize: 13,
     lineHeight: 19,
   },
-  agreeLink: { color: "#C5D4A0", textDecorationLine: "underline" },
-});
+  agreeLink: { color: colors.success, textDecorationLine: "underline" },
+  });
+}

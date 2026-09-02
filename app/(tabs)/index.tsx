@@ -33,7 +33,7 @@ import { AI_CONTENT_EXPLANATION, AI_CONTENT_LABEL } from "../../lib/contentLabel
 import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
 import { useFeedPersonalization } from "../../lib/feedPersonalization";
-import { useColors, type Colors } from "../../lib/theme";
+import { alpha, useColors, type Colors } from "../../lib/theme";
 import { lookImage, useLooks, type Look, type Source } from "../../lib/trends";
 import { getPiece, likeCount, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
 
@@ -55,7 +55,7 @@ const DOT: Record<Exclude<Source, "All">, string> = {
   TikTok: "#FE2C55",
   Instagram: "#E1306C",
   Snapchat: "#FFFC00",
-  X: "#F4F0E6",
+  X: "#2B2922",
 };
 
 type FrameGrab = {
@@ -77,6 +77,7 @@ function MutedLoop({
   handleRef?: MutableRefObject<FrameGrab | null>;
   onWait?: (v: boolean) => void;
 }) {
+  const colors = useColors();
   const held = useRef(false);
   const lastTime = useRef(0);
   const frozenAt = useRef(0);
@@ -163,7 +164,7 @@ function MutedLoop({
   }, [player, handleRef, uri]);
 
   return (
-    <View style={[style, { overflow: "hidden", backgroundColor: "#0B0A08" }]}>
+    <View style={[style, { overflow: "hidden", backgroundColor: colors.ink }]}>
       <VideoView
         player={player}
         style={[StyleSheet.absoluteFill, !on ? { opacity: 0 } : null]}
@@ -271,7 +272,7 @@ export default function Today() {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
-  const { uid, styles: taste, country } = useUvel();
+  const { uid, styles: taste, country, appearance } = useUvel();
   const C = useCopy();
   const { rank: rankForUser, track: trackFeed } = useFeedPersonalization(uid || "guest", country);
   const brandState = useBrands();
@@ -324,7 +325,7 @@ export default function Today() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style="light" />
+      <StatusBar style={appearance === "dark" ? "light" : "dark"} />
       <ScrollView
         style={styles.page}
         contentInsetAdjustmentBehavior="never"
@@ -769,42 +770,42 @@ function ShopLookCard({
 
 function make(colors: Colors) {
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: "#0B0A08" },
-    heroWrap: { width: W, backgroundColor: "#0B0A08", overflow: "hidden" },
+    page: { flex: 1, backgroundColor: colors.ink },
+    heroWrap: { width: W, backgroundColor: colors.ink, overflow: "hidden" },
     heroHeader: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 20, alignItems: "flex-end", paddingHorizontal: 16 },
-    chatHeaderButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(22,20,15,0.62)", borderWidth: 1, borderColor: "rgba(244,240,230,0.32)", alignItems: "center", justifyContent: "center" },
-    chatGlyph: { width: 25, height: 20, borderRadius: 7, borderWidth: 2, borderColor: "#F4F0E6", alignItems: "center", justifyContent: "center", position: "relative" },
+    chatHeaderButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: alpha(colors.ink, 0.62), borderWidth: 1, borderColor: alpha(colors.bone, 0.32), alignItems: "center", justifyContent: "center" },
+    chatGlyph: { width: 25, height: 20, borderRadius: 7, borderWidth: 2, borderColor: colors.bone, alignItems: "center", justifyContent: "center", position: "relative" },
     chatDots: { flexDirection: "row", gap: 3 },
-    chatDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: "#F4F0E6" },
-    chatUnreadBadge: { position: "absolute", top: -2, right: -2, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#16140F" },
-    chatUnreadText: { color: "#16140F", fontSize: 10, fontWeight: "900" },
+    chatDot: { width: 3, height: 3, borderRadius: 2, backgroundColor: colors.bone },
+    chatUnreadBadge: { position: "absolute", top: -2, right: -2, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.ink },
+    chatUnreadText: { color: colors.ink, fontSize: 10, fontWeight: "900" },
     heroLoad: { alignItems: "center", justifyContent: "center" },
     hero: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
     heroCopy: { position: "absolute", left: 16, right: 16, bottom: 18 },
-    emptyHero: { justifyContent: "center", paddingHorizontal: 24, backgroundColor: "#16140F" },
+    emptyHero: { justifyContent: "center", paddingHorizontal: 24, backgroundColor: colors.ink },
     emptyHeroCopy: { maxWidth: 420 },
-    emptyHeroTitle: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 34, lineHeight: 40, marginTop: 12 },
-    emptyHeroBody: { color: "rgba(244,240,230,0.68)", fontSize: 16, lineHeight: 24, marginTop: 10, maxWidth: 340 },
-    emptyHeroCta: { alignSelf: "flex-start", backgroundColor: "#F4F0E6", minHeight: 48, paddingHorizontal: 20, borderRadius: 24, alignItems: "center", justifyContent: "center", marginTop: 22 },
+    emptyHeroTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 40, marginTop: 12 },
+    emptyHeroBody: { color: alpha(colors.bone, 0.68), fontSize: 16, lineHeight: 24, marginTop: 10, maxWidth: 340 },
+    emptyHeroCta: { alignSelf: "flex-start", backgroundColor: colors.bone, minHeight: 48, paddingHorizontal: 20, borderRadius: 24, alignItems: "center", justifyContent: "center", marginTop: 22 },
     heroBar: { flexDirection: "row", gap: 10, marginBottom: 16 },
     srcRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
-    src: { color: "rgba(244,240,230,0.86)", fontSize: 13, fontWeight: "500" },
-    aiPill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7, minHeight: 44, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, borderColor: "#D6E27A", backgroundColor: "rgba(11,10,8,0.74)", marginBottom: 9 },
-    aiPillCompact: { marginBottom: 0, minHeight: 44, backgroundColor: "rgba(11,10,8,0.78)" },
-    focused: { borderWidth: 2, borderColor: "#D6E27A" },
-    aiDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: "#D6E27A" },
-    aiPillTxt: { color: "#F4F0E6", fontSize: 11, fontWeight: "700" },
-    title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 30, lineHeight: 34 },
-    hash: { color: "rgba(244,240,230,0.72)", fontSize: 15, marginTop: 6 },
+    src: { color: alpha(colors.bone, 0.86), fontSize: 13, fontWeight: "500" },
+    aiPill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7, minHeight: 44, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, borderColor: colors.success, backgroundColor: alpha(colors.ink, 0.74), marginBottom: 9 },
+    aiPillCompact: { marginBottom: 0, minHeight: 44, backgroundColor: alpha(colors.ink, 0.78) },
+    focused: { borderWidth: 2, borderColor: colors.success },
+    aiDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.success },
+    aiPillTxt: { color: colors.bone, fontSize: 11, fontWeight: "700" },
+    title: { color: colors.bone, fontFamily: "Georgia", fontSize: 30, lineHeight: 34 },
+    hash: { color: alpha(colors.bone, 0.72), fontSize: 15, marginTop: 6 },
     cta: {
       flex: 1.08,
-      backgroundColor: "#F4F0E6",
+      backgroundColor: colors.bone,
       height: 46,
       borderRadius: 23,
       alignItems: "center",
       justifyContent: "center",
     },
-    ctaTxt: { color: "#16140F", fontWeight: "700", fontSize: 15 },
+    ctaTxt: { color: colors.ink, fontWeight: "700", fontSize: 15 },
     ctaSolo: { flex: 1 },
     ghost: {
       flex: 1,
@@ -814,8 +815,8 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "center",
     },
-    ghostTxt: { color: "#F4F0E6", fontWeight: "600", fontSize: 15 },
-    todayIntro: { paddingHorizontal: 20, paddingTop: 30, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: "rgba(244,240,230,0.08)" },
+    ghostTxt: { color: colors.bone, fontWeight: "600", fontSize: 15 },
+    todayIntro: { paddingHorizontal: 20, paddingTop: 30, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: alpha(colors.bone, 0.08) },
     todayEyebrow: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.8 },
     todayIntroTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 30, lineHeight: 36, marginTop: 10 },
     todayIntroBody: { color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 8, maxWidth: 380 },
@@ -837,7 +838,7 @@ function make(colors: Colors) {
     localBody: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 12 },
     localAction: { color: colors.bone, fontSize: 12, fontWeight: "900", marginTop: 14 },
     localEmpty: { marginHorizontal: 16, marginTop: 12, padding: 16, borderRadius: 18, borderWidth: 1, borderColor: colors.subtle, backgroundColor: colors.surface },
-    body: { paddingTop: 14, backgroundColor: "#0B0A08" },
+    body: { paddingTop: 14, backgroundColor: colors.ink },
     chips: { paddingHorizontal: 20, gap: 8, paddingBottom: 14 },
     filter: {
       flexDirection: "row",
@@ -847,24 +848,24 @@ function make(colors: Colors) {
       paddingHorizontal: 12,
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.16)",
+      borderColor: alpha(colors.bone, 0.16),
     },
-    filterOn: { backgroundColor: "#F4F0E6", borderColor: "#F4F0E6" },
-    filterTxt: { color: "#F4F0E6", fontWeight: "600", fontSize: 13 },
-    filterTxtOn: { color: "#16140F" },
+    filterOn: { backgroundColor: colors.bone, borderColor: colors.bone },
+    filterTxt: { color: colors.bone, fontWeight: "600", fontSize: 13 },
+    filterTxtOn: { color: colors.ink },
     dot: { width: 8, height: 8, borderRadius: 4 },
     inbox: {
       marginHorizontal: 16,
       marginTop: 20,
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: "#1A1915",
+      backgroundColor: colors.surface,
       borderRadius: 16,
       paddingHorizontal: 16,
       paddingVertical: 12,
     },
-    inboxK: { color: "#F4F0E6", fontWeight: "700", fontSize: 15 },
-    inboxP: { color: "rgba(244,240,230,0.55)", marginTop: 2, fontSize: 13 },
+    inboxK: { color: colors.bone, fontWeight: "700", fontSize: 15 },
+    inboxP: { color: alpha(colors.bone, 0.55), marginTop: 2, fontSize: 13 },
     redBadge: {
       minWidth: 22,
       height: 22,
@@ -883,8 +884,8 @@ function make(colors: Colors) {
       marginTop: 30,
       marginBottom: 14,
     },
-    h2: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 26 },
-    seeAll: { color: "rgba(244,240,230,0.45)", fontSize: 15 },
+    h2: { color: colors.bone, fontFamily: "Georgia", fontSize: 26 },
+    seeAll: { color: alpha(colors.bone, 0.45), fontSize: 15 },
     strip: { paddingHorizontal: 16, gap: 10, paddingRight: 28 },
     card: { width: CARD_W },
     cardFrame: {
@@ -892,7 +893,7 @@ function make(colors: Colors) {
       height: CARD_H,
       borderRadius: 18,
       overflow: "hidden",
-      backgroundColor: "#1A1915",
+      backgroundColor: colors.surface,
     },
     cardFill: { width: CARD_W, height: CARD_H },
     cardSrcPill: {
@@ -902,7 +903,7 @@ function make(colors: Colors) {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      backgroundColor: "rgba(11,10,8,0.62)",
+      backgroundColor: alpha(colors.ink, 0.62),
       paddingHorizontal: 10,
       height: 24,
       borderRadius: 12,
@@ -917,49 +918,49 @@ function make(colors: Colors) {
       width: 46,
       height: 46,
       borderRadius: 23,
-      backgroundColor: "rgba(244,240,230,0.96)",
+      backgroundColor: colors.surface,
       alignItems: "center",
       justifyContent: "center",
     },
-    searchFabTxt: { color: "#16140F", fontSize: 22, fontWeight: "700", marginTop: -1 },
-    cardSrc: { color: "#F4F0E6", fontSize: 11, fontWeight: "700" },
-    cardTitle: { color: "#F4F0E6", fontSize: 14, marginTop: 8, lineHeight: 18, fontWeight: "500" },
-    todayLive: { color: "#16140F", backgroundColor: "#D6E27A", borderRadius: 11, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "800", letterSpacing: 1 },
+    searchFabTxt: { color: colors.ink, fontSize: 22, fontWeight: "700", marginTop: -1 },
+    cardSrc: { color: colors.bone, fontSize: 11, fontWeight: "700" },
+    cardTitle: { color: colors.bone, fontSize: 14, marginTop: 8, lineHeight: 18, fontWeight: "500" },
+    todayLive: { color: colors.ink, backgroundColor: colors.success, borderRadius: 11, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "800", letterSpacing: 1 },
     todayCampaignStrip: { paddingHorizontal: 16, gap: 10, paddingRight: 28 },
-    todayCampaignCard: { width: Math.min(W - 32, 360), minHeight: 172, borderRadius: 18, overflow: "hidden", backgroundColor: "#161512", flexDirection: "row" },
-    todayCampaignImg: { width: 122, height: "100%", minHeight: 172, backgroundColor: "#1A1915" },
+    todayCampaignCard: { width: Math.min(W - 32, 360), minHeight: 172, borderRadius: 18, overflow: "hidden", backgroundColor: colors.surface, flexDirection: "row" },
+    todayCampaignImg: { width: 122, height: "100%", minHeight: 172, backgroundColor: colors.surface },
     todayCampaignCopy: { flex: 1, paddingHorizontal: 13, paddingVertical: 12, justifyContent: "center" },
     todayCampaignBrandRow: { flexDirection: "row", alignItems: "center", gap: 5, minHeight: 18 },
-    todayCampaignLogo: { width: 18, height: 18, borderRadius: 5, backgroundColor: "#1A1915" },
-    todayCampaignBrand: { flexShrink: 1, color: "rgba(244,240,230,0.58)", fontSize: 11, fontWeight: "800", letterSpacing: 0.7 },
-    todayCampaignTitle: { color: "#F4F0E6", fontSize: 18, lineHeight: 21, fontWeight: "700", marginTop: 7 },
-    todayCampaignBody: { color: "rgba(244,240,230,0.58)", fontSize: 12, lineHeight: 16, marginTop: 4 },
-    todayCampaignGo: { color: "#D6E27A", fontSize: 12, fontWeight: "800", marginTop: 9 },
+    todayCampaignLogo: { width: 18, height: 18, borderRadius: 5, backgroundColor: colors.surface },
+    todayCampaignBrand: { flexShrink: 1, color: alpha(colors.bone, 0.58), fontSize: 11, fontWeight: "800", letterSpacing: 0.7 },
+    todayCampaignTitle: { color: colors.bone, fontSize: 18, lineHeight: 21, fontWeight: "700", marginTop: 7 },
+    todayCampaignBody: { color: alpha(colors.bone, 0.58), fontSize: 12, lineHeight: 16, marginTop: 4 },
+    todayCampaignGo: { color: colors.success, fontSize: 12, fontWeight: "800", marginTop: 9 },
     shopStrip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
     followedStrip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
     followedCell: { width: Math.round(W * 0.62) },
-    sectionSub: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 5 },
+    sectionSub: { color: alpha(colors.bone, 0.5), fontSize: 13, marginTop: 5 },
     shopCard: {
       width: W - 32,
       borderRadius: 20,
       overflow: "hidden",
-      backgroundColor: "#1A1915",
+      backgroundColor: colors.surface,
     },
     shopImg: { width: W - 32, height: Math.round((W - 32) * 1.05), backgroundColor: "#111" },
     shopNow: {
       position: "absolute",
       right: 14,
       bottom: 14,
-      backgroundColor: "#F4F0E6",
+      backgroundColor: colors.bone,
       paddingHorizontal: 16,
       height: 34,
       borderRadius: 17,
       alignItems: "center",
       justifyContent: "center",
     },
-    shopNowTxt: { color: "#16140F", fontWeight: "700", fontSize: 13 },
-    matchPill: { position: "absolute", left: 14, top: 14, backgroundColor: "rgba(11,10,8,0.82)", borderWidth: 1, borderColor: "rgba(244,240,230,0.26)", borderRadius: 12, paddingHorizontal: 9, paddingVertical: 6 },
-    matchPillTxt: { color: "#F4F0E6", fontSize: 9, fontWeight: "900", letterSpacing: 1.1 },
+    shopNowTxt: { color: colors.ink, fontWeight: "700", fontSize: 13 },
+    matchPill: { position: "absolute", left: 14, top: 14, backgroundColor: alpha(colors.ink, 0.82), borderWidth: 1, borderColor: alpha(colors.bone, 0.26), borderRadius: 12, paddingHorizontal: 9, paddingVertical: 6 },
+    matchPillTxt: { color: colors.bone, fontSize: 9, fontWeight: "900", letterSpacing: 1.1 },
     shopHearts: {
       position: "absolute",
       left: 14,
@@ -969,14 +970,14 @@ function make(colors: Colors) {
       gap: 4,
     },
     shopHeartsIco: {
-      color: "#D6E27A",
+      color: colors.success,
       fontSize: 13,
       textShadowColor: "rgba(0,0,0,0.45)",
       textShadowOffset: { width: 0, height: 1 },
       textShadowRadius: 3,
     },
     shopHeartsN: {
-      color: "#F4F0E6",
+      color: colors.bone,
       fontSize: 13,
       fontWeight: "800",
       textShadowColor: "rgba(0,0,0,0.45)",
@@ -984,9 +985,9 @@ function make(colors: Colors) {
       textShadowRadius: 3,
     },
     shopMeta: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16 },
-    shopBrand: { color: "rgba(244,240,230,0.45)", fontSize: 11, letterSpacing: 1.4, fontWeight: "700" },
-    shopName: { color: "#F4F0E6", fontSize: 18, fontWeight: "700", marginTop: 6, lineHeight: 22 },
-    shopPrice: { color: "#F4F0E6", fontSize: 17, fontWeight: "700", marginTop: 6 },
+    shopBrand: { color: alpha(colors.bone, 0.45), fontSize: 11, letterSpacing: 1.4, fontWeight: "700" },
+    shopName: { color: colors.bone, fontSize: 18, fontWeight: "700", marginTop: 6, lineHeight: 22 },
+    shopPrice: { color: colors.bone, fontSize: 17, fontWeight: "700", marginTop: 6 },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 16 },
     cell: { width: "47%", flexGrow: 1 },
   });

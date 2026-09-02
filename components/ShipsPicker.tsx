@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { getMarket, marketsIn, regions } from "../lib/markets";
 import { encodeShipsTo, shipsMode, shipsToLabel, type ShipsTo } from "../lib/ships";
-import { useColors, type Colors } from "../lib/theme";
+import { alpha, useColors, type Colors } from "../lib/theme";
 
 type Mode = "home" | "all" | "pick";
 
@@ -145,7 +145,7 @@ function make(colors: Colors) {
       marginBottom: 8,
       backgroundColor: colors.surface,
     },
-    choiceOn: { borderColor: "#D6E27A", backgroundColor: "rgba(214,226,122,0.1)" },
+    choiceOn: { borderColor: colors.success, backgroundColor: alpha(colors.success, 0.1) },
     choiceT: { color: colors.bone, fontSize: 16, fontWeight: "700" },
     choiceB: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 4 },
     radio: {
@@ -153,12 +153,12 @@ function make(colors: Colors) {
       height: 22,
       borderRadius: 11,
       borderWidth: 1.5,
-      borderColor: "rgba(244,240,230,0.28)",
+      borderColor: alpha(colors.bone, 0.28),
       alignItems: "center",
       justifyContent: "center",
     },
-    radioOn: { borderColor: "#D6E27A" },
-    dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#D6E27A" },
+    radioOn: { borderColor: colors.success },
+    dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.success },
     pick: { marginTop: 6, marginBottom: 8 },
     region: {
       color: colors.subtle,
@@ -173,21 +173,21 @@ function make(colors: Colors) {
       alignItems: "center",
       paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: "rgba(244,240,230,0.08)",
+      borderBottomColor: alpha(colors.bone, 0.08),
     },
     rowName: { color: colors.bone, fontSize: 15, fontWeight: "600" },
-    rowOn: { color: "#D6E27A" },
+    rowOn: { color: colors.success },
     rowMeta: { color: colors.muted, fontSize: 12, marginTop: 2 },
     box: {
       width: 22,
       height: 22,
       borderRadius: 6,
       borderWidth: 1.5,
-      borderColor: "rgba(244,240,230,0.28)",
+      borderColor: alpha(colors.bone, 0.28),
       alignItems: "center",
       justifyContent: "center",
     },
-    boxOn: { backgroundColor: "#D6E27A", borderColor: "#D6E27A" },
-    tick: { color: "#16140F", fontSize: 13, fontWeight: "800" },
+    boxOn: { backgroundColor: colors.success, borderColor: colors.success },
+    tick: { color: colors.successInk, fontSize: 13, fontWeight: "800" },
   });
 }

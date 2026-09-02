@@ -4,6 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { canManageTeam, findPeople, getBrand, memberRoleLabel, sendInvite, useBrands, type BrandPerson, type MemberRole } from "../../lib/brands";
 import { useUvel } from "../../lib/store";
+import { alpha, useColors, type Colors } from "../../lib/theme";
 
 const INVITE_ROLES: Array<{ id: Exclude<MemberRole, "owner">; detail: string }> = [
   { id: "admin", detail: "Manage the workspace and team" },
@@ -19,6 +20,8 @@ export default function BrandInvite() {
   const { id } = useLocalSearchParams<{ id: string }>();
   useBrands();
   const app = useUvel();
+  const colors = useColors();
+  const styles = make(colors);
   const insets = useSafeAreaInsets();
   const brand = getBrand(id);
   const [q, setQ] = useState("");
@@ -86,7 +89,7 @@ export default function BrandInvite() {
           value={q}
           onChangeText={(v) => void search(v)}
           placeholder="Name or email"
-          placeholderTextColor="rgba(244,240,230,0.32)"
+          placeholderTextColor={alpha(colors.bone, 0.32)}
           autoCapitalize="none"
           autoCorrect={false}
         />
@@ -113,29 +116,30 @@ export default function BrandInvite() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#0B0A08" },
+function make(colors: Colors) {
+  return StyleSheet.create({
+  page: { flex: 1, backgroundColor: colors.ink },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   back: { width: 40, height: 40, alignItems: "center", justifyContent: "center", marginLeft: -8 },
-  backTxt: { color: "#F4F0E6", fontSize: 34, lineHeight: 36, marginTop: -4 },
-  topTitle: { color: "#F4F0E6", fontSize: 16, fontWeight: "600" },
-  title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, marginTop: 12, lineHeight: 34 },
-  p: { color: "rgba(244,240,230,0.55)", fontSize: 15, lineHeight: 22, marginTop: 8 },
-  roleLabel: { color: "rgba(244,240,230,0.55)", fontSize: 12, fontWeight: "700", letterSpacing: 0.5, marginTop: 20 },
+  backTxt: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
+  topTitle: { color: colors.bone, fontSize: 16, fontWeight: "600" },
+  title: { color: colors.bone, fontFamily: "Georgia", fontSize: 28, marginTop: 12, lineHeight: 34 },
+  p: { color: alpha(colors.bone, 0.55), fontSize: 15, lineHeight: 22, marginTop: 8 },
+  roleLabel: { color: alpha(colors.bone, 0.55), fontSize: 12, fontWeight: "700", letterSpacing: 0.5, marginTop: 20 },
   roles: { gap: 8, paddingVertical: 10 },
-  roleChip: { height: 34, paddingHorizontal: 13, borderRadius: 17, borderWidth: 1, borderColor: "rgba(244,240,230,0.18)", justifyContent: "center" },
-  roleChipOn: { backgroundColor: "#D6E27A", borderColor: "#D6E27A" },
-  roleChipTxt: { color: "rgba(244,240,230,0.7)", fontSize: 12, fontWeight: "700" },
-  roleChipTxtOn: { color: "#16140F" },
-  roleDetail: { color: "rgba(244,240,230,0.45)", fontSize: 12, marginBottom: 2 },
+  roleChip: { height: 34, paddingHorizontal: 13, borderRadius: 17, borderWidth: 1, borderColor: alpha(colors.bone, 0.18), justifyContent: "center" },
+  roleChipOn: { backgroundColor: colors.success, borderColor: colors.success },
+  roleChipTxt: { color: alpha(colors.bone, 0.7), fontSize: 12, fontWeight: "700" },
+  roleChipTxtOn: { color: colors.ink },
+  roleDetail: { color: alpha(colors.bone, 0.45), fontSize: 12, marginBottom: 2 },
   field: {
     marginTop: 18,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#161512",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "rgba(244,240,230,0.12)",
-    color: "#F4F0E6",
+    borderColor: alpha(colors.bone, 0.12),
+    color: colors.bone,
     paddingHorizontal: 18,
     fontSize: 16,
   },
@@ -144,16 +148,17 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#F4F0E6",
+    backgroundColor: colors.bone,
     alignItems: "center",
     justifyContent: "center",
   },
-  init: { color: "#16140F", fontWeight: "800" },
-  name: { color: "#F4F0E6", fontWeight: "700", fontSize: 16 },
-  email: { color: "rgba(244,240,230,0.5)", fontSize: 13, marginTop: 2 },
-  btn: { height: 34, paddingHorizontal: 14, borderRadius: 17, backgroundColor: "#F4F0E6", alignItems: "center", justifyContent: "center" },
-  btnOff: { backgroundColor: "#2A2824" },
-  btnTxt: { color: "#16140F", fontWeight: "800", fontSize: 13 },
-  btnTxtOff: { color: "rgba(244,240,230,0.45)" },
-  empty: { color: "rgba(244,240,230,0.45)", marginTop: 24, textAlign: "center" },
-});
+  init: { color: colors.ink, fontWeight: "800" },
+  name: { color: colors.bone, fontWeight: "700", fontSize: 16 },
+  email: { color: alpha(colors.bone, 0.5), fontSize: 13, marginTop: 2 },
+  btn: { height: 34, paddingHorizontal: 14, borderRadius: 17, backgroundColor: colors.bone, alignItems: "center", justifyContent: "center" },
+  btnOff: { backgroundColor: colors.surface },
+  btnTxt: { color: colors.ink, fontWeight: "800", fontSize: 13 },
+  btnTxtOff: { color: alpha(colors.bone, 0.45) },
+  empty: { color: alpha(colors.bone, 0.45), marginTop: 24, textAlign: "center" },
+  });
+}
