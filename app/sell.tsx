@@ -824,7 +824,7 @@ function make(colors: Colors) {
     mainPhotoTxt: { color: colors.bone, fontSize: 12, fontWeight: "600" },
     photoCheck: { ...StyleSheet.absoluteFill, backgroundColor: `${colors.success}85`, alignItems: "center", justifyContent: "center" },
     focused: { borderWidth: 2, borderColor: colors.success },
-    photoX: { position: "absolute", top: 4, right: 4, minWidth: 44, minHeight: 44, borderRadius: 22, backgroundColor: colors.bone, alignItems: "center", justifyContent: "center" },
+    photoX: { position: "absolute", top: 4, right: 4, minWidth: 44, minHeight: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
     photoXTxt: { color: colors.ink, fontSize: 19, lineHeight: 21, fontWeight: "700", marginTop: -1 },
     unverifiedDot: {
       position: "absolute",

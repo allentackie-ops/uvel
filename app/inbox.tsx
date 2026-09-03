@@ -175,7 +175,7 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "center",
     },
-    chipOn: { backgroundColor: colors.bone, borderColor: colors.bone },
+    chipOn: { backgroundColor: colors.success, borderColor: colors.success },
     chipTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
     chipTxtOn: { color: colors.successInk },
     empty: { color: colors.muted, padding: 24, lineHeight: 22, fontSize: 15 },

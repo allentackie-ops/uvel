@@ -248,7 +248,8 @@ export default function ClosetPiece() {
       listingPhoto: piece.photo,
     }).catch(() => undefined);
   }, [piece?.id, piece?.brandId, piece?.name, piece?.photo, app.uid, preview]);
-  const styles = useMemo(() => make(look), [look]);
+  const colors = useColors();
+  const styles = useMemo(() => make(look, colors), [look, colors]);
   const liked =
     !!piece &&
     Boolean(app.uid) &&
@@ -611,7 +612,7 @@ function ownerStyles(colors: Colors) {
   });
 }
 
-function make(look: ShopLook) {
+function make(look: ShopLook, colors: Colors) {
   const lightBar = look.status === "dark";
   const line = look.status === "dark" ? `${colors.bone}24` : `${colors.bone}29`;
   return StyleSheet.create({
@@ -629,7 +630,7 @@ function make(look: ShopLook) {
       fontSize: 11,
       letterSpacing: 1.6,
       fontWeight: "600",
-      backgroundColor: lightBar ? `${colors.bone}B2` : `${colors.ink}73`,
+      backgroundColor: lightBar ? `${colors.surface}E6` : `${colors.ink}73`,
       overflow: "hidden",
       paddingHorizontal: 10,
       paddingVertical: 4,
@@ -640,7 +641,7 @@ function make(look: ShopLook) {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: lightBar ? `${colors.bone}C7` : `${colors.surface}80`,
+      backgroundColor: lightBar ? `${colors.surface}E6` : `${colors.surface}80`,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -654,7 +655,7 @@ function make(look: ShopLook) {
       height: 40,
       paddingHorizontal: 12,
       borderRadius: 20,
-      backgroundColor: lightBar ? `${colors.bone}C7` : `${colors.surface}80`,
+      backgroundColor: lightBar ? `${colors.surface}E6` : `${colors.surface}80`,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",

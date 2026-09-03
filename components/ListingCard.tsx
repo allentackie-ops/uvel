@@ -120,7 +120,7 @@ function make(colors: ReturnType<typeof useColors>) {
     heartsIco: { color: colors.bone, fontSize: 16, textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
     heartsOn: { color: colors.success },
     heartsN: { color: colors.bone, fontSize: 14, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-    badge: { position: "absolute", left: 10, bottom: 10, backgroundColor: `${colors.bone}F0`, paddingHorizontal: 12, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+    badge: { position: "absolute", left: 10, bottom: 10, backgroundColor: `${colors.surface}F0`, paddingHorizontal: 12, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
     badgeTxt: { color: colors.ink, fontWeight: "700", fontSize: 12 },
     stockBadge: { position: "absolute", left: 10, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", zIndex: 9 },
     stockBadgeTxt: { color: colors.ink, fontSize: 11, fontWeight: "800" },
