@@ -31,7 +31,7 @@ import { SHOP_LOOKS } from "../lib/shopLook";
 import { takePendingListingSelection } from "../lib/listingOptions";
 import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
-import { palettes, type Colors } from "../lib/theme";
+import { useColors, type Colors } from "../lib/theme";
 import { addPiece, getPiece, listPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
 
 const MAX = 5;
@@ -43,12 +43,6 @@ const STAGES = [
   "Checking the listing…",
   "Looking for anything that shouldn’t be here…",
 ];
-
-const SELL_COLORS: Colors = {
-  ...palettes.dark,
-  ink: "#000000",
-  surface: "#161512",
-};
 
 type Slot = {
   uri: string;
@@ -63,7 +57,7 @@ type Gate =
   | { phase: "pass" };
 
 export default function Sell({ embedded = false }: { embedded?: boolean }) {
-  const colors = SELL_COLORS;
+  const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { id, fits, draft: draftParam } = useLocalSearchParams<{ id?: string; fits?: string; draft?: string }>();
@@ -815,7 +809,7 @@ function make(colors: Colors) {
       backgroundColor: colors.surface,
       overflow: "hidden",
     },
-    progressFill: { height: 3, backgroundColor: "#D6E27A", borderRadius: 2 },
+    progressFill: { height: 3, backgroundColor: colors.success, borderRadius: 2 },
     progressLbl: { color: colors.subtle, fontSize: 11, marginTop: 6, marginBottom: 8, marginLeft: 20 },
     scrollContent: { flexGrow: 1 },
     photosLabel: { marginTop: 16, marginLeft: 20 },
@@ -937,12 +931,12 @@ function make(colors: Colors) {
       paddingHorizontal: 12,
       paddingVertical: 8,
     },
-    chipOn: { backgroundColor: "#D6E27A", borderColor: "#D6E27A" },
+    chipOn: { backgroundColor: colors.success, borderColor: colors.success },
     chipTxt: { color: colors.muted, fontSize: 13 },
-    chipTxtOn: { color: "#16140F", fontWeight: "600" },
+    chipTxtOn: { color: colors.successInk, fontWeight: "600" },
     row: { flexDirection: "row", gap: 10 },
     lookHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginTop: 8 },
-    plusTag: { color: "#D6E27A", fontSize: 12, fontWeight: "700", letterSpacing: 0.6 },
+    plusTag: { color: colors.success, fontSize: 12, fontWeight: "700", letterSpacing: 0.6 },
     lookLede: { color: colors.muted, fontSize: 13, lineHeight: 18, marginBottom: 12 },
     lookGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     lookCard: {
@@ -954,7 +948,7 @@ function make(colors: Colors) {
       borderWidth: 1,
       borderColor: "transparent",
     },
-    lookCardOn: { borderColor: "#D6E27A" },
+    lookCardOn: { borderColor: colors.success },
     lookSwatch: { height: 52, borderRadius: 12, justifyContent: "flex-end", alignItems: "flex-end", padding: 8 },
     lookDot: { width: 14, height: 14, borderRadius: 7 },
     lookName: { color: colors.bone, fontWeight: "700", fontSize: 14, marginTop: 8 },
@@ -969,12 +963,12 @@ function make(colors: Colors) {
     cta: {
       height: 54,
       borderRadius: 27,
-      backgroundColor: "#D6E27A",
+      backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
     },
     ctaOff: { backgroundColor: colors.surface },
-    ctaTxt: { color: "#16140F", fontSize: 16, fontWeight: "600" },
+    ctaTxt: { color: colors.successInk, fontSize: 16, fontWeight: "600" },
     ctaTxtOff: { color: colors.muted },
     gate: {
       ...StyleSheet.absoluteFill,
@@ -986,7 +980,7 @@ function make(colors: Colors) {
     },
     gateImg: { width: 120, height: 160, borderRadius: 16, marginBottom: 16, opacity: 0.9 },
     gateH: {
-      color: "#F4F0E6",
+      color: colors.bone,
       fontFamily: "Georgia",
       fontSize: 28,
       textAlign: "center",
@@ -998,10 +992,10 @@ function make(colors: Colors) {
       height: 50,
       paddingHorizontal: 28,
       borderRadius: 25,
-      backgroundColor: "#D6E27A",
+      backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
     },
-    green: { width: 14, height: 14, borderRadius: 7, backgroundColor: "#D6E27A", marginBottom: 6 },
+    green: { width: 14, height: 14, borderRadius: 7, backgroundColor: colors.success, marginBottom: 6 },
   });
 }

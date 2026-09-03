@@ -189,7 +189,7 @@ export default function Checkout() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style="light" />
+      <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
         <AccessiblePressable          onPress={() => router.back()}
           hitSlop={12}
@@ -537,7 +537,7 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     payMarkTxt: { color: "#111", fontWeight: "800", fontSize: 11 },
-    tick: { color: "#D6E27A", fontWeight: "700" },
+    tick: { color: colors.success, fontWeight: "700" },
     pick: {
       minHeight: 48,
       flexDirection: "row",
@@ -607,10 +607,10 @@ function make(colors: Colors) {
       marginTop: 18,
       height: 48,
       borderRadius: 24,
-      backgroundColor: "#D6E27A",
+      backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
     },
-    sheetBtnT: { color: "#16140F", fontWeight: "700" },
+    sheetBtnT: { color: colors.successInk, fontWeight: "700" },
   });
 }

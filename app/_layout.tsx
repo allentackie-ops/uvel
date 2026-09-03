@@ -89,12 +89,13 @@ function PushSync() {
 }
 
 function AppStack() {
+  const { appearance } = useUvel();
   const colors = useColors();
   const C = useCopy();
   const navTheme = useMemo(
     () => ({
       ...DarkTheme,
-      dark: true,
+      dark: appearance === "dark",
       colors: {
         ...DarkTheme.colors,
         background: colors.ink,
@@ -105,7 +106,7 @@ function AppStack() {
         notification: colors.pulse,
       },
     }),
-    [colors],
+    [appearance, colors],
   );
   return (
     <ThemeProvider value={navTheme}>
@@ -113,7 +114,7 @@ function AppStack() {
         <PushSync />
         <AlertSync />
         <LikesSync />
-        <StatusBar style="light" />
+        <StatusBar style={appearance === "dark" ? "light" : "dark"} />
         <Stack
           screenOptions={{
             headerTintColor: colors.bone,
@@ -179,7 +180,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -196,7 +197,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -204,7 +205,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -212,7 +213,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -220,7 +221,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -228,7 +229,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -236,7 +237,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -244,7 +245,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -252,7 +253,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -260,7 +261,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -268,7 +269,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -276,7 +277,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -284,7 +285,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -292,7 +293,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -300,7 +301,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -308,7 +309,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -316,7 +317,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -324,7 +325,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -334,11 +335,11 @@ function AppStack() {
               title: "Founder Studio",
               headerBackTitle: "",
               headerTransparent: false,
-              headerStyle: { backgroundColor: "#000000" },
-              headerTintColor: "#F4F0E6",
+              headerStyle: { backgroundColor: colors.ink },
+              headerTintColor: colors.bone,
               headerShadowVisible: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -346,7 +347,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -354,7 +355,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
           <Stack.Screen
@@ -362,7 +363,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#000000" },
+              contentStyle: { backgroundColor: colors.ink },
             }}
           />
         </Stack>
@@ -408,7 +409,8 @@ function DraftResumeNotice() {
 }
 
 export default function Root() {
-  const { onboarded, hydrated, uid, profileDone, profileChecked } = useUvel();
+  const { onboarded, hydrated, uid, profileDone, profileChecked, appearance } = useUvel();
+  const colors = useColors();
   useOtaReady();
   const [intro, setIntro] = useState(true);
   const dismiss = useCallback(() => setIntro(false), []);
@@ -423,8 +425,8 @@ export default function Root() {
 
   return (
     <SafeAreaProvider>
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: intro ? "#2A320E" : "#000000" }}>
-        <StatusBar style="light" />
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: intro ? colors.pulse : colors.ink }}>
+        <StatusBar style={appearance === "dark" ? "light" : "dark"} />
         {gateReady ? (
           !onboarded && !signedIn ? (
             <Onboard />

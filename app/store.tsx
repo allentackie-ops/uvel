@@ -37,7 +37,7 @@ export default function StorePicker() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style="light" />
+      <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>
           <Text style={styles.navBack}>‹</Text>
@@ -115,8 +115,8 @@ function make(colors: Colors) {
       borderBottomColor: "rgba(244,240,230,0.08)",
     },
     name: { color: colors.bone, fontSize: 16, fontWeight: "600" },
-    on: { color: "#D6E27A" },
+    on: { color: colors.success },
     meta: { color: colors.muted, marginTop: 2, fontSize: 13 },
-    check: { color: "#D6E27A", fontSize: 18, fontWeight: "700" },
+    check: { color: colors.success, fontSize: 18, fontWeight: "700" },
   });
 }

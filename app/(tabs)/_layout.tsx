@@ -11,6 +11,7 @@ import Closet from "./closet";
 import Shop from "./shop";
 import You from "./you";
 import { useColors } from "../../lib/theme";
+import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
 
 const ROUTES = ["/", "/find", "/closet", "/shop", "/you"] as const;
@@ -20,8 +21,10 @@ const ACTIVE_ICONS = ["compass", "body", "add", "bag", "person"] as const;
 type TabScreen = { key: string; label: string; screen: React.ComponentType };
 
 export default function TabsLayout() {
+  const { appearance } = useUvel();
   const colors = useColors();
   const C = useCopy();
+  const inactiveIcon = appearance === "dark" ? "#A9A398" : colors.muted;
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const pagerRef = useRef<PagerView>(null);
@@ -65,7 +68,7 @@ export default function TabsLayout() {
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: "#000000" }]}>
+    <View style={[styles.root, { backgroundColor: colors.ink }]}>
       <PagerView
         ref={pagerRef}
         style={styles.pager}
@@ -77,13 +80,15 @@ export default function TabsLayout() {
         offscreenPageLimit={1}
       >
         {tabs.map(({ key, screen: Screen }) => (
-          <View key={key} style={styles.page}>
+          <View key={key} style={[styles.page, { backgroundColor: colors.ink }]}>
+
             <Screen />
           </View>
         ))}
       </PagerView>
-      <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8) }]}>
-        <View style={styles.bar}>
+      <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]}>
+        <View style={[styles.bar, { backgroundColor: colors.ink }]}>
+
           {tabs.map((tab, index) => {
             const active = selected === index;
             return (
@@ -97,13 +102,13 @@ export default function TabsLayout() {
               >
                 {index === 2 ? (
                   <View style={styles.sellPlus} accessibilityElementsHidden>
-                    <View style={[styles.sellPlusBar, styles.sellPlusHorizontal, { backgroundColor: active ? "#D6E27A" : "#A9A398" }]} />
-                    <View style={[styles.sellPlusBar, styles.sellPlusVertical, { backgroundColor: active ? "#D6E27A" : "#A9A398" }]} />
+                    <View style={[styles.sellPlusBar, styles.sellPlusHorizontal, { backgroundColor: active ? colors.success : inactiveIcon }]} />
+                    <View style={[styles.sellPlusBar, styles.sellPlusVertical, { backgroundColor: active ? colors.success : inactiveIcon }]} />
                   </View>
                 ) : (
-                  <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={23} color={active ? "#D6E27A" : "#A9A398"} />
+                  <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={23} color={active ? colors.success : inactiveIcon} />
                 )}
-                <Text style={[styles.label, active && styles.labelActive]}>{tab.label}</Text>
+                <Text style={[styles.label, { color: active ? colors.success : inactiveIcon }]}>{tab.label}</Text>
               </Pressable>
             );
           })}

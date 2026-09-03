@@ -115,7 +115,7 @@ export default function TryOn() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style="light" />
+      <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
       <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
         <Pressable onPress={() => router.back()} hitSlop={16} style={styles.back}>
           <Text style={styles.backTxt}>‹</Text>

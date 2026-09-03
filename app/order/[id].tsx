@@ -110,7 +110,7 @@ export default function OrderDone() {
 
   return (
     <View style={[styles.page, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 24 }]}>
-      <StatusBar style="light" />
+      <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
       <Text style={styles.kicker}>ORDER</Text>
       <Text style={styles.title}>{confirmed ? (fulfillment === "delivered" ? "It arrived." : "You’re covered.") : "Payment submitted."}</Text>
       <Text style={styles.p}>

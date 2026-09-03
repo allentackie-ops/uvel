@@ -13,7 +13,7 @@ type State = {
   silhouette: string;
   personUri: string | null;
   avatarUri: string | null;
-  appearance: "dark";
+  appearance: "dark" | "light";
   onboarded: boolean;
   onboardVersion: number;
   signedInWith: string;
@@ -292,6 +292,7 @@ export function useUvel() {
     consumeFind: () => true,
     consumeTryOn: () => true,
     setStyle: (patch: Partial<State>) => save(patch),
+    setAppearance: (appearance: "dark" | "light") => save({ appearance }),
     setPerson: (uri: string | null) => save({ personUri: uri }),
     setAvatar: (uri: string | null) => save({ avatarUri: uri }).then(() => stashProfile()),
     setAccessibilityMode: (accessibilityMode: boolean) => {

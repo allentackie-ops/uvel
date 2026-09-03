@@ -53,7 +53,7 @@ export default function Address() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style="light" />
+      <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>
           <Text style={styles.navBack}>‹</Text>
@@ -135,10 +135,10 @@ function make(colors: Colors) {
     save: {
       height: 52,
       borderRadius: 26,
-      backgroundColor: "#D6E27A",
+      backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
     },
-    saveTxt: { color: "#16140F", fontWeight: "700", fontSize: 16 },
+    saveTxt: { color: colors.successInk, fontWeight: "700", fontSize: 16 },
   });
 }
