@@ -178,13 +178,11 @@ export default function Mirror() {
       </View>
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 108 }} showsVerticalScrollIndicator={false}>
-        <Text style={styles.lede}>Try any piece before you decide. Use a Uvel listing, a photo, or a product link.</Text>
-
         <View style={[styles.hero, !person && styles.heroNeed]}>
           {result ? (
-            <Image source={{ uri: result }} style={styles.fill} contentFit="cover" />
+            <Image source={{ uri: result }} style={styles.fill} contentFit="contain" />
           ) : person ? (
-            <Image source={{ uri: person }} style={styles.fill} contentFit="cover" />
+            <Image source={{ uri: person }} style={styles.fill} contentFit="contain" />
           ) : (
             <View style={styles.need}>
               <Text style={styles.needH}>Add your full-length photo</Text>
@@ -358,17 +356,9 @@ function make(_colors: Colors) {
       marginTop: 4,
     },
     searchTxt: { color: "#F4F0E6", fontSize: 18, fontWeight: "500" },
-    lede: {
-      color: "rgba(244,240,230,0.62)",
-      fontSize: 16,
-      lineHeight: 23,
-      paddingHorizontal: 20,
-      marginTop: 8,
-      marginBottom: 18,
-    },
     hero: {
       marginHorizontal: 16,
-      height: 480,
+      height: 560,
       borderRadius: 22,
       overflow: "hidden",
       backgroundColor: "#1A1915",
