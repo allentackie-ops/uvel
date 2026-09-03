@@ -130,7 +130,7 @@ function Row({
           {!iAmSeller && (brand?.verified || t.brandVerified) ? <VerifiedMark size={16} /> : null}
           {t.lastAt ? <Text style={styles.time}>{when(t.lastAt)}</Text> : null}
         </View>
-        <Text style={[styles.prev, unread ? { color: "#F4F0E6" } : null]} numberOfLines={1}>
+        <Text style={[styles.prev, unread ? { color: colors.bone } : null]} numberOfLines={1}>
           {t.lastText ? `${you ? "You: " : ""}${t.lastText}` : t.pieceName}
         </Text>
       </View>
@@ -157,7 +157,7 @@ function make(colors: Colors) {
       height: 44,
       borderRadius: 22,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.18)",
+      borderColor: `${colors.bone}2E`,
       alignItems: "center",
       justifyContent: "center",
       marginRight: 8,
@@ -171,7 +171,7 @@ function make(colors: Colors) {
       paddingHorizontal: 16,
       borderRadius: 18,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.28)",
+      borderColor: `${colors.bone}47`,
       alignItems: "center",
       justifyContent: "center",
     },

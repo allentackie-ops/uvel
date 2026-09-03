@@ -467,7 +467,7 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     buyTxt: { color: colors.successInk, fontWeight: "700", fontSize: 15 },
-    rule: { height: StyleSheet.hairlineWidth, backgroundColor: "rgba(244,240,230,0.12)" },
+    rule: { height: StyleSheet.hairlineWidth, backgroundColor: `${colors.bone}1F` },
     hello: { flexDirection: "row", gap: 10, marginBottom: 18, alignItems: "flex-start" },
     avatar: {
       width: 40,
@@ -524,7 +524,7 @@ function make(colors: Colors) {
       paddingHorizontal: 10,
       paddingTop: 8,
       borderTopWidth: StyleSheet.hairlineWidth,
-      borderColor: "rgba(244,240,230,0.1)",
+      borderColor: `${colors.bone}1A`,
     },
     icon: {
       width: 36,

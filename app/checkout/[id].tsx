@@ -295,7 +295,7 @@ export default function Checkout() {
             value={promotionCode}
             onChangeText={(value) => { setPromotionCode(value.toUpperCase()); if (promotionQuote) { setPromotionQuote(null); setPromotionMessage(""); } }}
             placeholder="Enter promotion code"
-            placeholderTextColor="rgba(244,240,230,0.4)"
+            placeholderTextColor={`66`}
             autoCapitalize="characters"
             autoCorrect={false}
             returnKeyType="done"
@@ -497,7 +497,7 @@ function make(colors: Colors) {
       minHeight: 54,
       borderRadius: 12,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.18)",
+      borderColor: `${colors.bone}2E`,
       paddingHorizontal: 14,
       flexDirection: "row",
       alignItems: "center",
@@ -522,7 +522,7 @@ function make(colors: Colors) {
       flexDirection: "row",
       alignItems: "center",
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.18)",
+      borderColor: `${colors.bone}2E`,
       borderRadius: 12,
       paddingHorizontal: 14,
       paddingVertical: 14,
@@ -545,7 +545,7 @@ function make(colors: Colors) {
       gap: 12,
       paddingVertical: 14,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: "rgba(244,240,230,0.1)",
+      borderBottomColor: `${colors.bone}1A`,
     },
     sum: { paddingHorizontal: 20, paddingTop: 4 },
     item: { flexDirection: "row", gap: 12, alignItems: "flex-start", marginBottom: 12 },
@@ -578,7 +578,7 @@ function make(colors: Colors) {
       bottom: 0,
       backgroundColor: colors.ink,
       borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: "rgba(244,240,230,0.12)",
+      borderTopColor: `${colors.bone}1F`,
       paddingHorizontal: 20,
       paddingTop: 12,
     },

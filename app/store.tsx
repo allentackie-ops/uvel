@@ -112,7 +112,7 @@ function make(colors: Colors) {
       paddingHorizontal: 20,
       paddingVertical: 12,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: "rgba(244,240,230,0.08)",
+      borderBottomColor: `${colors.bone}14`,
     },
     name: { color: colors.bone, fontSize: 16, fontWeight: "600" },
     on: { color: colors.success },

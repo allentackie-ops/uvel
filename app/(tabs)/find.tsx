@@ -235,7 +235,7 @@ export default function Mirror() {
             <View style={styles.linkRow}>
               <TextInput
                 placeholder="Paste an image or product link"
-                placeholderTextColor="rgba(244,240,230,0.35)"
+                placeholderTextColor={`59`}
                 value={link}
                 onChangeText={setLink}
                 autoCapitalize="none"
@@ -326,15 +326,15 @@ export default function Mirror() {
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    syncNotice: { color: "rgba(244,240,230,0.62)", fontSize: 12, lineHeight: 18, marginHorizontal: 20, marginTop: 10, marginBottom: 4 },
-    lede: { color: "rgba(244,240,230,0.64)", fontSize: 16, lineHeight: 23, paddingHorizontal: 20, marginTop: 8, marginBottom: 18 },
+    syncNotice: { color: `${colors.bone}9E`, fontSize: 12, lineHeight: 18, marginHorizontal: 20, marginTop: 10, marginBottom: 4 },
+    lede: { color: `${colors.bone}A3`, fontSize: 16, lineHeight: 23, paddingHorizontal: 20, marginTop: 8, marginBottom: 18 },
     heroNeed: { height: 360 },
-    sourceCard: { marginTop: 24, marginHorizontal: 16, padding: 16, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: "rgba(244,240,230,0.12)" },
+    sourceCard: { marginTop: 24, marginHorizontal: 16, padding: 16, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}1F` },
     sourceHead: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
     sourceKicker: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
     sourceTitle: { color: colors.bone, fontSize: 19, fontWeight: "800", marginTop: 5 },
-    sourceCopy: { color: "rgba(244,240,230,0.58)", fontSize: 13, lineHeight: 19, marginTop: 4 },
-    step: { color: "rgba(244,240,230,0.42)", fontSize: 11, fontWeight: "800" },
+    sourceCopy: { color: `${colors.bone}94`, fontSize: 13, lineHeight: 19, marginTop: 4 },
+    step: { color: `${colors.bone}6B`, fontSize: 11, fontWeight: "800" },
 
     top: {
       flexDirection: "row",
@@ -343,14 +343,14 @@ function make(colors: Colors) {
       paddingHorizontal: 20,
       paddingBottom: 4,
     },
-    kicker: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
+    kicker: { color: `${colors.bone}6B`, letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
     head: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, marginTop: 4, lineHeight: 38 },
     search: {
       width: 40,
       height: 40,
       borderRadius: 20,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.28)",
+      borderColor: `${colors.bone}47`,
       alignItems: "center",
       justifyContent: "center",
       marginTop: 4,
@@ -366,7 +366,7 @@ function make(colors: Colors) {
     fill: { width: "100%", height: "100%" },
     need: { flex: 1, alignItems: "center", justifyContent: "center", padding: 28, gap: 8 },
     needH: { color: colors.bone, fontFamily: "Georgia", fontSize: 26 },
-    needP: { color: "rgba(244,240,230,0.62)", textAlign: "center", marginBottom: 8 },
+    needP: { color: `${colors.bone}9E`, textAlign: "center", marginBottom: 8 },
     needRow: { flexDirection: "row", gap: 10, marginTop: 8 },
     needBtn: {
       height: 44,
@@ -381,14 +381,14 @@ function make(colors: Colors) {
       height: 44,
       paddingHorizontal: 20,
       borderRadius: 22,
-      backgroundColor: "rgba(255,255,255,0.12)",
+      backgroundColor: `${colors.bone}1F`,
       alignItems: "center",
       justifyContent: "center",
     },
     needBtnGhostTxt: { color: colors.bone, fontWeight: "600" },
     spin: {
       ...StyleSheet.absoluteFill,
-      backgroundColor: "rgba(11,10,8,0.5)",
+      backgroundColor: `${colors.ink}80`,
       alignItems: "center",
       justifyContent: "center",
       gap: 8,
@@ -405,9 +405,9 @@ function make(colors: Colors) {
       gap: 8,
     },
     change: {
-      backgroundColor: "rgba(18,17,14,0.82)",
+      backgroundColor: `${colors.surface}D1`,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.18)",
+      borderColor: `${colors.bone}2E`,
       height: 36,
       paddingHorizontal: 16,
       borderRadius: 18,
@@ -415,8 +415,8 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     changeTxt: { color: colors.bone, fontSize: 13, fontWeight: "600" },
-    removePhoto: { backgroundColor: "rgba(18,17,14,0.82)", borderWidth: 1, borderColor: "rgba(244,240,230,0.18)", height: 36, paddingHorizontal: 16, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-    removePhotoTxt: { color: "rgba(244,240,230,0.72)", fontSize: 13, fontWeight: "600" },
+    removePhoto: { backgroundColor: `${colors.surface}D1`, borderWidth: 1, borderColor: `${colors.bone}2E`, height: 36, paddingHorizontal: 16, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+    removePhotoTxt: { color: `${colors.bone}B8`, fontSize: 13, fontWeight: "600" },
     headRow: {
       flexDirection: "row",
       alignItems: "baseline",
@@ -426,7 +426,7 @@ function make(colors: Colors) {
       marginBottom: 14,
     },
     h2: { color: colors.bone, fontFamily: "Georgia", fontSize: 26 },
-    seeAll: { color: "rgba(244,240,230,0.42)", fontSize: 15 },
+    seeAll: { color: `${colors.bone}6B`, fontSize: 15 },
     strip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
     uvelCard: {
       width: 168,
@@ -436,7 +436,7 @@ function make(colors: Colors) {
       borderWidth: 1,
       borderColor: "transparent",
     },
-    uvelOn: { borderColor: "rgba(244,240,230,0.28)" },
+    uvelOn: { borderColor: `${colors.bone}47` },
     uvelImg: { width: 168, height: 210, backgroundColor: colors.surface },
     trying: {
       position: "absolute",
@@ -453,23 +453,23 @@ function make(colors: Colors) {
     uvelMeta: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12 },
     uvelName: { color: colors.bone, fontSize: 14, fontWeight: "600", lineHeight: 18 },
     uvelPrice: { color: colors.bone, fontSize: 14, fontWeight: "700", marginTop: 4 },
-    empty: { color: "rgba(244,240,230,0.58)", fontSize: 13, lineHeight: 19 },
+    empty: { color: `${colors.bone}94`, fontSize: 13, lineHeight: 19 },
     emptySource: { marginHorizontal: 20, marginTop: 12, padding: 16, borderRadius: 16, backgroundColor: colors.surface },
     emptyLink: { marginTop: 10 },
     emptyLinkTxt: { color: colors.success, fontSize: 13, fontWeight: "800" },
     anywhere: { flexDirection: "row", gap: 8, marginTop: 14, flexWrap: "wrap" },
-    selected: { marginHorizontal: 20, marginTop: 24, padding: 16, borderRadius: 18, borderWidth: 1, borderColor: "rgba(214,226,122,0.28)", backgroundColor: "rgba(214,226,122,0.06)" },
+    selected: { marginHorizontal: 20, marginTop: 24, padding: 16, borderRadius: 18, borderWidth: 1, borderColor: `${colors.success}47`, backgroundColor: `${colors.success}0F` },
     selectedKicker: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
     selectedTitle: { color: colors.bone, fontSize: 18, fontWeight: "800", marginTop: 5 },
-    selectedCopy: { color: "rgba(244,240,230,0.58)", fontSize: 13, marginTop: 4 },
-    allowance: { color: "rgba(244,240,230,0.48)", textAlign: "center", fontSize: 12, marginTop: 10 },
-    trust: { color: "rgba(244,240,230,0.34)", textAlign: "center", fontSize: 11, lineHeight: 16, paddingHorizontal: 28, marginTop: 10 },
+    selectedCopy: { color: `${colors.bone}94`, fontSize: 13, marginTop: 4 },
+    allowance: { color: `${colors.bone}7A`, textAlign: "center", fontSize: 12, marginTop: 10 },
+    trust: { color: `${colors.bone}57`, textAlign: "center", fontSize: 11, lineHeight: 16, paddingHorizontal: 28, marginTop: 10 },
     chip: {
       height: 42,
       paddingHorizontal: 16,
       borderRadius: 21,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.16)",
+      borderColor: `${colors.bone}29`,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: "#141310",
@@ -508,14 +508,14 @@ function make(colors: Colors) {
       height: 54,
       borderRadius: 27,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.14)",
+      borderColor: `${colors.bone}24`,
       backgroundColor: "#141310",
       alignItems: "center",
       justifyContent: "center",
     },
     ghostCtaTxt: { color: colors.bone, fontWeight: "600", fontSize: 16 },
     foot: {
-      color: "rgba(244,240,230,0.38)",
+      color: `${colors.bone}61`,
       textAlign: "center",
       fontSize: 13,
       lineHeight: 19,

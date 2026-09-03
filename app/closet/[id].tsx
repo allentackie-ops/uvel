@@ -613,7 +613,7 @@ function ownerStyles(colors: Colors) {
 
 function make(look: ShopLook) {
   const lightBar = look.status === "dark";
-  const line = look.status === "dark" ? "rgba(22,20,15,0.14)" : "rgba(244,240,230,0.16)";
+  const line = look.status === "dark" ? `${colors.bone}24` : `${colors.bone}29`;
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: look.page },
     hero: { backgroundColor: look.surface },
@@ -629,7 +629,7 @@ function make(look: ShopLook) {
       fontSize: 11,
       letterSpacing: 1.6,
       fontWeight: "600",
-      backgroundColor: lightBar ? "rgba(244,240,230,0.7)" : "rgba(11,10,8,0.45)",
+      backgroundColor: lightBar ? `${colors.bone}B2` : `${colors.ink}73`,
       overflow: "hidden",
       paddingHorizontal: 10,
       paddingVertical: 4,
@@ -640,7 +640,7 @@ function make(look: ShopLook) {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: lightBar ? "rgba(244,240,230,0.78)" : "rgba(18,17,14,0.5)",
+      backgroundColor: lightBar ? `${colors.bone}C7` : `${colors.surface}80`,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -654,7 +654,7 @@ function make(look: ShopLook) {
       height: 40,
       paddingHorizontal: 12,
       borderRadius: 20,
-      backgroundColor: lightBar ? "rgba(244,240,230,0.78)" : "rgba(18,17,14,0.5)",
+      backgroundColor: lightBar ? `${colors.bone}C7` : `${colors.surface}80`,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
@@ -819,7 +819,7 @@ function make(look: ShopLook) {
       paddingHorizontal: 22,
       paddingBottom: 28,
       paddingTop: 64,
-      backgroundColor: "rgba(11,10,8,0.42)",
+      backgroundColor: `${colors.ink}6B`,
     },
   });
 }

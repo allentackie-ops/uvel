@@ -215,7 +215,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const progress = [hasPhoto, hasPrice, hasTitle, hasNotes, hasCat, hasSize, hasColor, hasMaterial, hasCond].filter(
     Boolean,
   ).length;
-  const ph = "rgba(244,240,230,0.28)";
+  const ph = `47`;
   const ctaLabel = checking
     ? "Checking photos…"
     : !hasPhoto
@@ -820,9 +820,9 @@ function make(colors: Colors) {
     photoAddIcon: { color: colors.bone, fontSize: 34, lineHeight: 38 },
     photoAddTxt: { color: colors.bone, fontSize: 12, fontWeight: "600", marginTop: 4 },
     photoCount: { color: colors.subtle, fontSize: 11, marginTop: 4 },
-    mainPhotoPill: { position: "absolute", left: 10, bottom: 10, paddingHorizontal: 10, height: 28, borderRadius: 14, backgroundColor: "rgba(11,10,8,0.76)", alignItems: "center", justifyContent: "center" },
+    mainPhotoPill: { position: "absolute", left: 10, bottom: 10, paddingHorizontal: 10, height: 28, borderRadius: 14, backgroundColor: `${colors.ink}C2`, alignItems: "center", justifyContent: "center" },
     mainPhotoTxt: { color: colors.bone, fontSize: 12, fontWeight: "600" },
-    photoCheck: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(214,226,122,0.52)", alignItems: "center", justifyContent: "center" },
+    photoCheck: { ...StyleSheet.absoluteFill, backgroundColor: `${colors.success}85`, alignItems: "center", justifyContent: "center" },
     focused: { borderWidth: 2, borderColor: colors.success },
     photoX: { position: "absolute", top: 4, right: 4, minWidth: 44, minHeight: 44, borderRadius: 22, backgroundColor: colors.bone, alignItems: "center", justifyContent: "center" },
     photoXTxt: { color: colors.ink, fontSize: 19, lineHeight: 21, fontWeight: "700", marginTop: -1 },
@@ -986,7 +986,7 @@ function make(colors: Colors) {
       textAlign: "center",
       lineHeight: 34,
     },
-    gateP: { color: "rgba(244,240,230,0.7)", textAlign: "center", lineHeight: 22, fontSize: 15 },
+    gateP: { color: `${colors.bone}B2`, textAlign: "center", lineHeight: 22, fontSize: 15 },
     gateCta: {
       marginTop: 18,
       height: 50,

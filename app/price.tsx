@@ -263,7 +263,7 @@ function make(colors: ReturnType<typeof useColors>) {
     more: { color: colors.success, fontSize: 15, paddingTop: 3 },
     recommendations: { flexDirection: "row", gap: 10, marginHorizontal: 20, marginTop: 16 },
     recommendation: { flex: 1, minHeight: 86, borderWidth: 1, borderColor: colors.subtle + "55", borderRadius: 12, padding: 12, justifyContent: "space-between" },
-    recommendationSelected: { borderColor: colors.success, backgroundColor: "rgba(214,226,122,0.08)" },
+    recommendationSelected: { borderColor: colors.success, backgroundColor: `${colors.success}14` },
     selectionDot: { position: "absolute", top: 8, right: 8, width: 20, height: 20, borderRadius: 10, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     selectionDotTxt: { color: colors.successInk, fontSize: 12, fontWeight: "900" },
     recPrice: { color: colors.bone, fontSize: 18, fontWeight: "700" },

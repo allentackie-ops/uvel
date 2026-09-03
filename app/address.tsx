@@ -21,7 +21,7 @@ export default function Address() {
   const [city, setCity] = useState("");
   const [region, setRegion] = useState("");
   const [postal, setPostal] = useState("");
-  const ph = "rgba(244,240,230,0.28)";
+  const ph = `${colors.bone}47`;
   const ok = name.trim() && line1.trim() && city.trim() && postal.trim();
 
   useEffect(() => {
@@ -108,7 +108,7 @@ function Field({
           height: 48,
           borderRadius: 12,
           borderWidth: 1,
-          borderColor: "rgba(244,240,230,0.18)",
+          borderColor: `${colors.bone}2E`,
           paddingHorizontal: 14,
           color: colors.bone,
           fontSize: 16,
