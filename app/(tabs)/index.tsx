@@ -811,6 +811,8 @@ function make(colors: Colors) {
       height: 46,
       borderRadius: 23,
       backgroundColor: `${colors.bone}47`,
+      borderWidth: 1,
+      borderColor: `${colors.bone}66`,
       alignItems: "center",
       justifyContent: "center",
     },
