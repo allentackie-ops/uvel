@@ -815,7 +815,7 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     ghostTxt: { color: "#F4F0E6", fontWeight: "600", fontSize: 15 },
-    todayIntro: { paddingHorizontal: 20, paddingTop: 30, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: "rgba(244,240,230,0.08)" },
+    todayIntro: { paddingHorizontal: 20, paddingTop: 30, paddingBottom: 18 },
     todayEyebrow: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.8 },
     todayIntroTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 30, lineHeight: 36, marginTop: 10 },
     todayIntroBody: { color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 8, maxWidth: 380 },
