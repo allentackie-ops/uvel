@@ -12,7 +12,7 @@ const HELP = "mailto:himforson@gmail.com?subject=Uvel%20help";
 const VERSION = Constants.expoConfig?.version ?? "1.0.0";
 const SETTINGS_COLORS: Colors = {
   ...palettes.dark,
-  ink: "#0B0A08",
+  ink: "#000000",
   surface: "#161512",
 };
 

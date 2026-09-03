@@ -639,7 +639,7 @@ const art = StyleSheet.create({
 
 function make(colors: Colors) {
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: "#0B0A08" },
+    page: { flex: 1, backgroundColor: "#000000" },
     content: { paddingHorizontal: 20 },
     kicker: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
     title: { color: "#F4F0E6", fontWeight: "700", fontSize: 28, marginTop: 8, lineHeight: 34, flexShrink: 1 },

@@ -163,7 +163,7 @@ function MutedLoop({
   }, [player, handleRef, uri]);
 
   return (
-    <View style={[style, { overflow: "hidden", backgroundColor: "#0B0A08" }]}>
+    <View style={[style, { overflow: "hidden", backgroundColor: "#000000" }]}>
       <VideoView
         player={player}
         style={[StyleSheet.absoluteFill, !on ? { opacity: 0 } : null]}
@@ -769,8 +769,8 @@ function ShopLookCard({
 
 function make(colors: Colors) {
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: "#0B0A08" },
-    heroWrap: { width: W, backgroundColor: "#0B0A08", overflow: "hidden" },
+    page: { flex: 1, backgroundColor: "#000000" },
+    heroWrap: { width: W, backgroundColor: "#000000", overflow: "hidden" },
     heroHeader: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 20, alignItems: "flex-end", paddingHorizontal: 16 },
     chatHeaderButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: "rgba(22,20,15,0.62)", borderWidth: 1, borderColor: "rgba(244,240,230,0.32)", alignItems: "center", justifyContent: "center" },
     chatGlyph: { width: 25, height: 20, borderRadius: 7, borderWidth: 2, borderColor: "#F4F0E6", alignItems: "center", justifyContent: "center", position: "relative" },
@@ -837,7 +837,7 @@ function make(colors: Colors) {
     localBody: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 12 },
     localAction: { color: colors.bone, fontSize: 12, fontWeight: "900", marginTop: 14 },
     localEmpty: { marginHorizontal: 16, marginTop: 12, padding: 16, borderRadius: 18, borderWidth: 1, borderColor: colors.subtle, backgroundColor: colors.surface },
-    body: { paddingTop: 14, backgroundColor: "#0B0A08" },
+    body: { paddingTop: 14, backgroundColor: "#000000" },
     chips: { paddingHorizontal: 20, gap: 8, paddingBottom: 14 },
     filter: {
       flexDirection: "row",

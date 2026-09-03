@@ -329,7 +329,7 @@ export default function BrandApply() {
 
 function make(colors: Colors) {
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: "#0B0A08" },
+    page: { flex: 1, backgroundColor: "#000000" },
     top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8, paddingBottom: 8 },
     back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
     backTxt: { color: "#F4F0E6", fontSize: 34, lineHeight: 36, marginTop: -4 },
@@ -393,7 +393,7 @@ function make(colors: Colors) {
     chipOn: { backgroundColor: "#F4F0E6", borderColor: "#F4F0E6" },
     chipTxt: { color: "#F4F0E6", fontSize: 13, fontWeight: "600" },
     chipTxtOn: { color: "#16140F" },
-    foot: { paddingHorizontal: 20, paddingTop: 10, backgroundColor: "#0B0A08" },
+    foot: { paddingHorizontal: 20, paddingTop: 10, backgroundColor: "#000000" },
     cta: { height: 52, borderRadius: 26, backgroundColor: "#F4F0E6", alignItems: "center", justifyContent: "center" },
     ctaOff: { backgroundColor: "#2A2824" },
     ctaTxt: { color: "#16140F", fontWeight: "800", fontSize: 16 },

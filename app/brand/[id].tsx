@@ -347,7 +347,7 @@ export default function BrandPage() {
 }
 
 const styles = StyleSheet.create({
-  missing: { flex: 1, backgroundColor: "#0B0A08", paddingHorizontal: 20 },
+  missing: { flex: 1, backgroundColor: "#000000", paddingHorizontal: 20 },
   missingH: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, marginTop: 24 },
   banner: { width: W, height: 280, backgroundColor: "#161512" },
   nav: {

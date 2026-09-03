@@ -135,7 +135,7 @@ export function PhotoCrop({ uri, onCancel, onDone }: Props) {
 }
 
 const styles = StyleSheet.create({
-  page: { ...StyleSheet.absoluteFill, backgroundColor: "#0E0D0B", zIndex: 40 },
+  page: { ...StyleSheet.absoluteFill, backgroundColor: "#000000", zIndex: 40 },
   bar: {
     flexDirection: "row",
     alignItems: "center",

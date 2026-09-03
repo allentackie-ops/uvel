@@ -158,7 +158,7 @@ export default function BrandStudio() {
             autoCapitalize="none"
             onChangeText={setBg}
             onEndEditing={applyCustom}
-            placeholder="#0B0A08"
+            placeholder="#000000"
             placeholderTextColor={theme.muted}
           />
           <Text style={[styles.label, { color: theme.muted }]}>Custom hex — type</Text>
@@ -250,7 +250,7 @@ export default function BrandStudio() {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#0B0A08" },
+  page: { flex: 1, backgroundColor: "#000000" },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8, paddingBottom: 8 },
   back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   backTxt: { color: "#F4F0E6", fontSize: 34, lineHeight: 36, marginTop: -4 },

@@ -114,7 +114,7 @@ export default function BrandInvite() {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#0B0A08" },
+  page: { flex: 1, backgroundColor: "#000000" },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   back: { width: 40, height: 40, alignItems: "center", justifyContent: "center", marginLeft: -8 },
   backTxt: { color: "#F4F0E6", fontSize: 34, lineHeight: 36, marginTop: -4 },

@@ -442,7 +442,7 @@ export default function Shop() {
 
 function make(colors: Colors) {
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: "#0B0A08" },
+    page: { flex: 1, backgroundColor: "#000000" },
     content: { paddingHorizontal: 16, paddingBottom: 108 },
     title: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
     titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -500,7 +500,7 @@ function make(colors: Colors) {
       marginTop: 16,
       height: 420,
       borderRadius: 16,
-      backgroundColor: "#0B0A08",
+      backgroundColor: "#000000",
     },
     orbitBox: { paddingVertical: 48, alignItems: "center" },
     store: { flexDirection: "row", alignItems: "center", marginTop: 8, gap: 6 },

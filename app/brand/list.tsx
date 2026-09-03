@@ -459,7 +459,7 @@ export default function BrandList() {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#0B0A08" },
+  page: { flex: 1, backgroundColor: "#000000" },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8, paddingBottom: 8 },
   back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   backTxt: { color: "#F4F0E6", fontSize: 34, lineHeight: 36, marginTop: -4 },
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
   variantStockRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
   variantStockSize: { color: "#F4F0E6", fontSize: 14, fontWeight: "700" },
   variantStockInput: { width: 92, height: 42, borderRadius: 12, borderWidth: 1, borderColor: "rgba(244,240,230,0.22)", color: "#F4F0E6", paddingHorizontal: 12, textAlign: "right", fontSize: 15 },
-  foot: { paddingHorizontal: 20, paddingTop: 10, backgroundColor: "#0B0A08" },
+  foot: { paddingHorizontal: 20, paddingTop: 10, backgroundColor: "#000000" },
   cta: { height: 52, borderRadius: 26, backgroundColor: "#F4F0E6", alignItems: "center", justifyContent: "center" },
   ctaOff: { backgroundColor: "#2A2824" },
   ctaTxt: { color: "#16140F", fontWeight: "800", fontSize: 16 },

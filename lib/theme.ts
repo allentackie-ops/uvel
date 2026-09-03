@@ -22,7 +22,7 @@ export type Colors = {
 
 export const palettes: Record<"dark", Colors> = {
   dark: {
-    ink: "#12110E",
+    ink: "#000000",
     surface: "#1C1A16",
     bone: "#F4F0E6",
     muted: "#C4BBB1",

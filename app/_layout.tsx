@@ -179,7 +179,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#12110E" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -196,7 +196,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#12110E" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -204,7 +204,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#12110E" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -212,7 +212,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#12110E" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -220,7 +220,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#12110E" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -228,7 +228,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#12110E" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -236,7 +236,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#12110E" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -244,7 +244,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#12110E" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -252,7 +252,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#12110E" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -260,7 +260,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#12110E" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -268,7 +268,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#12110E" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -276,7 +276,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#12110E" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -284,7 +284,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#12110E" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -292,7 +292,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#0B0A08" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -300,7 +300,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#0B0A08" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -308,7 +308,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#0B0A08" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -316,7 +316,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#0B0A08" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -324,7 +324,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#0B0A08" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -334,11 +334,11 @@ function AppStack() {
               title: "Founder Studio",
               headerBackTitle: "",
               headerTransparent: false,
-              headerStyle: { backgroundColor: "#0B0A08" },
+              headerStyle: { backgroundColor: "#000000" },
               headerTintColor: "#F4F0E6",
               headerShadowVisible: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#0B0A08" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -346,7 +346,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#0B0A08" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -354,7 +354,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#0B0A08" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
           <Stack.Screen
@@ -362,7 +362,7 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
-              contentStyle: { backgroundColor: "#0B0A08" },
+              contentStyle: { backgroundColor: "#000000" },
             }}
           />
         </Stack>
@@ -423,7 +423,7 @@ export default function Root() {
 
   return (
     <SafeAreaProvider>
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: intro ? "#2A320E" : "#0B0A08" }}>
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: intro ? "#2A320E" : "#000000" }}>
         <StatusBar style="light" />
         {gateReady ? (
           !onboarded && !signedIn ? (

@@ -46,7 +46,7 @@ const STAGES = [
 
 const SELL_COLORS: Colors = {
   ...palettes.dark,
-  ink: "#0B0A08",
+  ink: "#000000",
   surface: "#161512",
 };
 

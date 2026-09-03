@@ -325,7 +325,7 @@ export default function Mirror() {
 
 function make(_colors: Colors) {
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: "#0B0A08" },
+    page: { flex: 1, backgroundColor: "#000000" },
     syncNotice: { color: "rgba(244,240,230,0.62)", fontSize: 12, lineHeight: 18, marginHorizontal: 20, marginTop: 10, marginBottom: 4 },
     lede: { color: "rgba(244,240,230,0.64)", fontSize: 16, lineHeight: 23, paddingHorizontal: 20, marginTop: 8, marginBottom: 18 },
     heroNeed: { height: 360 },

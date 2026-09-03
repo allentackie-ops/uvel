@@ -65,7 +65,7 @@ export default function TabsLayout() {
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: "#0B0A08" }]}>
+    <View style={[styles.root, { backgroundColor: "#000000" }]}>
       <PagerView
         ref={pagerRef}
         style={styles.pager}
@@ -118,7 +118,7 @@ function routeIndex(pathname: string): number | null {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   pager: { flex: 1 },
-  page: { flex: 1, backgroundColor: "#0B0A08" },
+  page: { flex: 1, backgroundColor: "#000000" },
   barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 10, backgroundColor: "#000000" },
   bar: { minHeight: 68, borderRadius: 0, borderWidth: 0, backgroundColor: "#000000", flexDirection: "row", alignItems: "center", paddingHorizontal: 10 },
   tab: { flex: 1, minHeight: 58, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 3 },
