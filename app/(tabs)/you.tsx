@@ -297,7 +297,6 @@ export default function You() {
           <View style={{ flex: 1 }}><Text style={styles.brandK}>TEAM</Text><Text style={styles.brandName}>{b.name}</Text><Text style={styles.brandP}>You post on this house</Text></View><Text style={styles.brandGo}>Open</Text>
         </Pressable>
       ))}
-      <View style={styles.upgradeRow}><Text style={styles.planH}>Free plan</Text></View>
     </ScrollView>
   );
 }
