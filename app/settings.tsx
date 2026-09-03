@@ -90,22 +90,6 @@ export default function Settings() {
       <Text style={styles.section}>{C.preferences}</Text>
       <View style={styles.group}>
         <View style={styles.row}>
-          <View>
-            <Text style={styles.rowLabel}>{C.appearance}</Text>
-            <Text style={styles.hint}>{app.appearance === "dark" ? C.dark : C.light}</Text>
-          </View>
-          <View style={styles.seg}>
-            {(["light", "dark"] as const).map((mode) => {
-              const on = app.appearance === mode;
-              return (
-                <Pressable key={mode} onPress={() => app.setAppearance(mode)} style={[styles.segBtn, on && styles.segOn]}>
-                  <Text style={[styles.segTxt, on && styles.segTxtOn]}>{mode === "light" ? C.light : C.dark}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-        <View style={styles.row}>
           <View style={{ flex: 1, paddingRight: 12 }}>
             <Text style={styles.rowLabel}>{C.notifications}</Text>
             <Text style={styles.hint}>{C.notificationHint}</Text>

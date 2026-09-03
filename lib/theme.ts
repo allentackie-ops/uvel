@@ -20,26 +20,7 @@ export type Colors = {
   neutralInk: string;
 };
 
-export const palettes: Record<"light" | "dark", Colors> = {
-  light: {
-    ink: "#F4F0E6",
-    surface: "#FFFFFF",
-    bone: "#16140F",
-    muted: "#6B6560",
-    subtle: "#8E887E",
-    pulse: "#2A320E",
-    pulseInk: "#FFFFFF",
-    success: "#D6E27A",
-    successInk: "#16140F",
-    warning: "#B99A56",
-    warningInk: "#16140F",
-    danger: "#B96565",
-    dangerInk: "#F4F0E6",
-    info: "#3A382F",
-    infoInk: "#F4F0E6",
-    neutral: "#24221C",
-    neutralInk: "#F4F0E6",
-  },
+export const palettes: Record<"dark", Colors> = {
   dark: {
     ink: "#12110E",
     surface: "#1C1A16",
@@ -61,9 +42,8 @@ export const palettes: Record<"light" | "dark", Colors> = {
   },
 };
 
-export const colors = palettes.light;
+export const colors = palettes.dark;
 
 export function useColors(): Colors {
-  const { appearance } = useUvel();
-  return palettes[appearance];
+  return palettes.dark;
 }

@@ -43,9 +43,6 @@ export type Copy = {
   guest: string;
   notSignedIn: string;
   preferences: string;
-  appearance: string;
-  light: string;
-  dark: string;
   notifications: string;
   notificationHint: string;
   accessibilityFeatures: string;
@@ -207,9 +204,6 @@ const en: Copy = {
   guest: "Guest",
   notSignedIn: "Not signed in",
   preferences: "Preferences",
-  appearance: "Appearance",
-  light: "Light",
-  dark: "Dark",
   notifications: "Notifications",
   notificationHint: "Drops, price cuts, messages",
   accessibilityFeatures: "Accessibility features",

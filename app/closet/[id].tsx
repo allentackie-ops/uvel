@@ -61,7 +61,6 @@ function isMine(piece: ClosetPiece, uid: string) {
 function AlertPanel({
   piece,
   uid,
-  isPlus,
   saved,
   preference,
   onSave,
@@ -69,7 +68,6 @@ function AlertPanel({
 }: {
   piece: ClosetPiece;
   uid: string;
-  isPlus: boolean;
   saved: boolean;
   preference: ReturnType<typeof useAlertPreference>;
   onSave: (id: string) => Promise<void>;
@@ -77,17 +75,6 @@ function AlertPanel({
 }) {
   const [busy, setBusy] = useState(false);
 
-  if (!isPlus) {
-    return (
-      <View style={styles.alertCard}>
-        <Text style={styles.alertTitle}>Want a price or restock alert?</Text>
-        <Text style={styles.alertCopy}>Uvel+ can watch saved items and notify you when a recorded price drops or inventory returns.</Text>
-        <Pressable onPress={() => router.push("/plus")} style={styles.alertOption} accessibilityRole="button" accessibilityLabel="Unlock price and restock alerts with Uvel Plus">
-          <Text style={styles.alertOptionText}>Unlock with Uvel+</Text>
-        </Pressable>
-      </View>
-    );
-  }
 
   async function choose(kind: AlertKind) {
     if (!uid || busy) return;
@@ -316,10 +303,6 @@ export default function ClosetPiece() {
   const canBuy = availabilityConfirmed && onFloor && onThisFloor && inStock && (!inventoryTracked || sizeOptions.length === 0 || Boolean(selectedSize));
 
   function tryOnMe() {
-    if (!app.isPlus && app.remainingTryOns <= 0) {
-      router.push("/plus");
-      return;
-    }
     router.push({ pathname: "/try-on", params: { piece: pieceId } });
   }
 
@@ -488,7 +471,7 @@ export default function ClosetPiece() {
             </View>
           ) : null}
 
-          {!mine ? <AlertPanel piece={piece} uid={app.uid} isPlus={app.isPlus} saved={app.saved.includes(piece.id)} preference={alertPreference} onSave={app.toggleSaved} styles={styles} /> : null}
+          {!mine ? <AlertPanel piece={piece} uid={app.uid} saved={app.saved.includes(piece.id)} preference={alertPreference} onSave={app.toggleSaved} styles={styles} /> : null}
 
           <Pressable
             onPress={owningBrand ? () => router.push({ pathname: "/brand/[id]", params: { id: owningBrand.id } }) : undefined}

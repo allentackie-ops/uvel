@@ -40,22 +40,6 @@ export default function Alerts() {
     );
   }
 
-  if (!app.isPlus) {
-    return (
-      <View style={[styles.page, { paddingTop: insets.top + 16 }]}>
-        <Header styles={styles} />
-        <View style={styles.empty}>
-          <Text style={styles.kicker}>UVEL+</Text>
-          <Text style={styles.emptyTitle}>Price and restock alerts are part of Uvel+</Text>
-          <Text style={styles.emptyCopy}>Choose what to watch from any listing, then see your active subscriptions and alert history here.</Text>
-          <Pressable onPress={() => router.push("/plus")} style={styles.primary} accessibilityRole="button" accessibilityLabel="See Uvel Plus plans">
-            <Text style={styles.primaryText}>See Uvel+</Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.page}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>

@@ -143,10 +143,6 @@ export default function Mirror() {
 
   async function run() {
     if (!person || !garmentUri) return;
-    if (!app.isPlus && app.remainingTryOns <= 0) {
-      router.push("/plus");
-      return;
-    }
     setErr("");
     setBusy(true);
     try {
@@ -319,7 +315,7 @@ export default function Mirror() {
             {busy ? "Dressing you…" : !person ? "Add your photo" : !picked ? "Choose a piece" : "Try this look"}
           </Text>
         </Pressable>
-        <Text style={styles.allowance}>{app.isPlus ? "Unlimited try-ons with Uvel+" : `${app.remainingTryOns} free try-on${app.remainingTryOns === 1 ? "" : "s"} remaining`}</Text>
+        <Text style={styles.allowance}>Unlimited try-ons</Text>
         {picked ? (
           <Pressable onPress={clearPick} style={styles.ghostCta}>
             <Text style={styles.ghostCtaTxt}>Pick something else</Text>

@@ -7,17 +7,13 @@ import { skipSetup } from "./sessionPath";
 import { getPiece, syncSavedLikes, toggleLiker } from "./wardrobe";
 
 type State = {
-  isPlus: boolean;
-  plusPlan: string;
   saved: string[];
   archetype: string;
   palette: string;
   silhouette: string;
   personUri: string | null;
   avatarUri: string | null;
-  findsUsed: number;
-  tryOnsUsed: number;
-  appearance: "light" | "dark";
+  appearance: "dark";
   onboarded: boolean;
   onboardVersion: number;
   signedInWith: string;
@@ -39,17 +35,13 @@ type State = {
 const KEY = "uvel-state-v1";
 const PROFILES = "uvel-profiles-v1";
 const defaults: State = {
-  isPlus: false,
-  plusPlan: "",
   saved: [],
   archetype: "",
   palette: "",
   silhouette: "",
   personUri: null,
   avatarUri: null,
-  findsUsed: 0,
-  tryOnsUsed: 0,
-  appearance: "light",
+  appearance: "dark",
   onboarded: false,
   onboardVersion: 0,
   signedInWith: "",
@@ -257,8 +249,6 @@ export function useUvel() {
   return {
     ...memory,
     hydrated,
-    remainingFinds: memory.isPlus ? 99 : Math.max(0, 2 - memory.findsUsed),
-    remainingTryOns: memory.isPlus ? 99 : Math.max(0, 1 - memory.tryOnsUsed),
     toggleSaved: (id: string) =>
       save({
         saved: memory.saved.includes(id)
@@ -299,23 +289,11 @@ export function useUvel() {
         at: Date.now(),
       });
     },
-    consumeFind: () => {
-      if (memory.isPlus) return true;
-      if (memory.findsUsed >= 2) return false;
-      void save({ findsUsed: memory.findsUsed + 1 });
-      return true;
-    },
-    consumeTryOn: () => {
-      if (memory.isPlus) return true;
-      if (memory.tryOnsUsed >= 1) return false;
-      void save({ tryOnsUsed: memory.tryOnsUsed + 1 });
-      return true;
-    },
-    activatePlus: (plan: string) => save({ isPlus: true, plusPlan: plan }),
+    consumeFind: () => true,
+    consumeTryOn: () => true,
     setStyle: (patch: Partial<State>) => save(patch),
     setPerson: (uri: string | null) => save({ personUri: uri }),
     setAvatar: (uri: string | null) => save({ avatarUri: uri }).then(() => stashProfile()),
-    setAppearance: (appearance: "light" | "dark") => save({ appearance }),
     setAccessibilityMode: (accessibilityMode: boolean) => {
       if (memory.uid) {
         void import("./auth").then(({ writeUserProfile }) =>
@@ -413,7 +391,7 @@ export function useUvel() {
         profileChecked: true,
         locale: memory.locale,
         country: memory.country,
-        appearance: memory.appearance,
+        appearance: "dark",
       });
     },
   };

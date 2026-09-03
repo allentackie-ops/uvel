@@ -74,22 +74,6 @@ export default function SellerAnalytics() {
     );
   }
 
-  if (!app.isPlus) {
-    return (
-      <View style={[styles.page, { paddingTop: insets.top + 18 }]}>
-        <Header styles={styles} />
-        <View style={styles.centerEmpty}>
-          <View style={styles.lockBadge}><Text style={styles.lockText}>UVEL+</Text></View>
-          <Text style={styles.emptyTitle}>Seller analytics belong in Uvel+</Text>
-          <Text style={styles.emptyCopy}>See recorded listing views, buyer saves, order records, and the next actions for your shop.</Text>
-          <Pressable onPress={() => router.push("/plus")} style={styles.primaryButton} accessibilityRole="button" accessibilityLabel="Unlock seller analytics with Uvel Plus">
-            <Text style={styles.primaryButtonText}>See Uvel+</Text>
-          </Pressable>
-        </View>
-      </View>
-    );
-  }
-
   const hasLocalActivity = recordedViews > 0 || receivedLikes.length > 0 || paidOrders.length > 0 || sold.length > 0;
   const syncCopy = marketplaceState === "confirmed"
     ? "Listing connection is active. Workspace signals below are still labeled by source."

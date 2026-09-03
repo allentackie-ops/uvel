@@ -2,7 +2,7 @@ import { DarkTheme, Stack, ThemeProvider, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Appearance, Pressable, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { LaunchSplash } from "../components/LaunchSplash";
@@ -19,14 +19,6 @@ import Onboard from "./onboard";
 import ProfileSetup from "./setup";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
-
-function ThemeSync() {
-  const { appearance } = useUvel();
-  useEffect(() => {
-    if (typeof Appearance.setColorScheme === "function") Appearance.setColorScheme(appearance);
-  }, [appearance]);
-  return null;
-}
 
 function LikesSync() {
   const app = useUvel();
@@ -99,11 +91,10 @@ function PushSync() {
 function AppStack() {
   const colors = useColors();
   const C = useCopy();
-  const { appearance } = useUvel();
   const navTheme = useMemo(
     () => ({
       ...DarkTheme,
-      dark: appearance === "dark",
+      dark: true,
       colors: {
         ...DarkTheme.colors,
         background: colors.ink,
@@ -114,16 +105,15 @@ function AppStack() {
         notification: colors.pulse,
       },
     }),
-    [appearance, colors],
+    [colors],
   );
   return (
     <ThemeProvider value={navTheme}>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
-        <ThemeSync />
         <PushSync />
         <AlertSync />
         <LikesSync />
-        <StatusBar style={appearance === "dark" ? "light" : "dark"} />
+        <StatusBar style="light" />
         <Stack
           screenOptions={{
             headerTintColor: colors.bone,
@@ -143,14 +133,6 @@ function AppStack() {
               headerTransparent: true,
               headerTitle: "",
               headerBackButtonDisplayMode: "minimal",
-            }}
-          />
-          <Stack.Screen
-            name="plus"
-            options={{
-              presentation: "modal",
-              headerTitle: "Uvel+",
-              headerTransparent: true,
             }}
           />
           <Stack.Screen

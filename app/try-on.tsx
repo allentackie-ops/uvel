@@ -95,10 +95,6 @@ export default function TryOn() {
 
   async function run() {
     if (!person || !pieceImage) return;
-    if (!app.isPlus && app.remainingTryOns <= 0) {
-      router.push("/plus");
-      return;
-    }
     setErr("");
     setBusy(true);
     try {

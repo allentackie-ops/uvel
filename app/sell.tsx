@@ -69,7 +69,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const { id, fits, draft: draftParam } = useLocalSearchParams<{ id?: string; fits?: string; draft?: string }>();
   useWardrobe();
   const existing = id ? getPiece(id) : undefined;
-  const { wardrobeUris, uid, displayName, country, isPlus, personUri, avatarUri } = useUvel();
+  const { wardrobeUris, uid, displayName, country, personUri, avatarUri } = useUvel();
   const C = useCopy();
   const market = getMarket(country);
   const [draftOrigin, setDraftOrigin] = useState<string | undefined>();
@@ -419,7 +419,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       country: origin,
       currency: listingCurrency,
       shipsTo,
-      shopLook: isPlus ? shopLook : "uvel",
+      shopLook,
     };
     const face = avatarUri || personUri || existing?.ownerPhoto;
     const listed = {
@@ -697,26 +697,22 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               <Text style={styles.label}>Shop look</Text>
             </View>
             <Text style={styles.lookLede}>
-              How buyers see this listing. Looks marked “Requires Uvel+” are available with a Plus plan.
+              How buyers see this listing. Choose the presentation that best fits the piece.
             </Text>
             <View style={styles.lookGrid}>
               {SHOP_LOOKS.map((look) => {
                 const on = shopLook === look.id;
-                const locked = look.plus && !isPlus;
+                const locked = false;
                 return (
                   <AccessiblePressable                    key={look.id}
                     onPress={() => {
-                      if (locked) {
-                        router.push("/plus");
-                        return;
-                      }
                       setShopLook(look.id);
                       if (existing) updatePiece(existing.id, { shopLook: look.id });
                     }}
                     style={({ pressed }) => [styles.lookCard, on && styles.lookCardOn, locked && { opacity: 0.55 }, pressed && { opacity: 0.92 }]}
                     accessibilityRole="radio"
-                    accessibilityLabel={`${look.name}${locked ? ", requires Uvel Plus" : ""}`}
-                    accessibilityHint={locked ? "Double tap to view Uvel Plus." : "Double tap to choose this Shop the look style."}
+                    accessibilityLabel={look.name}
+                    accessibilityHint="Double tap to choose this Shop the look style."
                     accessibilityState={{ selected: on, disabled: locked }}
                   >
                     <View style={[styles.lookSwatch, { backgroundColor: look.page }]}>
@@ -724,7 +720,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                     </View>
                     <Text style={styles.lookName}>{look.name}</Text>
                     <Text style={styles.lookLine} numberOfLines={1}>
-                      {locked ? "Requires Uvel+" : look.line}
+                      {look.line}
                     </Text>
                   </AccessiblePressable>
                 );
