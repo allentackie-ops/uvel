@@ -95,7 +95,14 @@ export default function TabsLayout() {
                 accessibilityLabel={tab.label}
                 accessibilityState={{ selected: active }}
               >
-                <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={23} color={active ? "#16140F" : "#A9A398"} />
+                {index === 2 ? (
+                  <View style={styles.sellPlus} accessibilityElementsHidden>
+                    <View style={[styles.sellPlusBar, styles.sellPlusHorizontal, { backgroundColor: active ? "#16140F" : "#A9A398" }]} />
+                    <View style={[styles.sellPlusBar, styles.sellPlusVertical, { backgroundColor: active ? "#16140F" : "#A9A398" }]} />
+                  </View>
+                ) : (
+                  <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={23} color={active ? "#16140F" : "#A9A398"} />
+                )}
                 <Text style={[styles.label, active && styles.labelActive]}>{tab.label}</Text>
               </Pressable>
             );
@@ -124,6 +131,10 @@ const styles = StyleSheet.create({
   tab: { flex: 1, minHeight: 58, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 3 },
   tabActive: { backgroundColor: "#D6E27A" },
   tabPressed: { opacity: 0.76 },
+  sellPlus: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
+  sellPlusBar: { position: "absolute", borderRadius: 2 },
+  sellPlusHorizontal: { width: 25, height: 3 },
+  sellPlusVertical: { width: 3, height: 25 },
   label: { color: "#A9A398", fontSize: 11, fontWeight: "700" },
   labelActive: { color: "#16140F" },
 });
