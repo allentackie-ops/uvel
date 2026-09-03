@@ -26,7 +26,7 @@ export const privacy: LegalDoc = {
         "Wardrobe and listings: items you scan, save, or list to sell.",
         "Style and try-on: preferences and virtual try-on results.",
         "Device: app version, device type, and crash logs.",
-        "Purchases: Uvel+ subscription status. We do not store your full card number.",
+        "Orders: purchase and fulfillment details needed to complete transactions. We do not store your full card number.",
       ],
     },
     {
@@ -45,7 +45,7 @@ export const privacy: LegalDoc = {
     {
       heading: "Who we share with",
       body: [
-        "Only what is needed to run Uvel: Firebase (accounts and files), Apple / Google / Meta if you sign in with them, Expo for app updates, and Apple or Google for in-app purchases.",
+        "Only what is needed to run Uvel: Firebase (accounts and files), Apple / Google / Meta if you sign in with them, and Expo for app updates.",
       ],
     },
     {
@@ -77,12 +77,9 @@ export const terms: LegalDoc = {
       ],
     },
     {
-      heading: "Uvel+",
+      heading: "Access",
       body: [
-        "Uvel+ is an auto-renewing subscription. It unlocks unlimited virtual try-on and custom shop looks on listings you sell.",
-        "Monthly is $7.99 per month. Yearly is $68.99 per year (about $5.75 per month).",
-        "Payment is charged to your Apple ID at confirmation of purchase. The subscription renews automatically unless you turn off auto-renew at least 24 hours before the end of the current period.",
-        "Your account will be charged for renewal within 24 hours prior to the end of the current period. You can manage or cancel in iOS Settings → Apple ID → Subscriptions.",
+        "All current Uvel features are available without a subscription or paid plan.",
       ],
     },
     {

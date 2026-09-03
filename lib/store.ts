@@ -39,8 +39,8 @@ type State = {
 const KEY = "uvel-state-v1";
 const PROFILES = "uvel-profiles-v1";
 const defaults: State = {
-  isPlus: false,
-  plusPlan: "",
+  isPlus: true,
+  plusPlan: "free",
   saved: [],
   archetype: "",
   palette: "",
@@ -75,6 +75,8 @@ const listeners = new Set<() => void>();
 async function load() {
   const raw = await AsyncStorage.getItem(KEY);
   if (raw) memory = { ...defaults, ...JSON.parse(raw) };
+  // Uvel is free while the subscription flow is paused.
+  memory = { ...memory, isPlus: true, plusPlan: "free" };
   if (!memory.locale) memory.locale = guessLocale();
   if (!memory.country) memory.country = detectCountry();
   setActiveMarket(memory.country);
@@ -311,7 +313,7 @@ export function useUvel() {
       void save({ tryOnsUsed: memory.tryOnsUsed + 1 });
       return true;
     },
-    activatePlus: (plan: string) => save({ isPlus: true, plusPlan: plan }),
+    activatePlus: (_plan: string) => save({ isPlus: true, plusPlan: "free" }),
     setStyle: (patch: Partial<State>) => save(patch),
     setPerson: (uri: string | null) => save({ personUri: uri }),
     setAvatar: (uri: string | null) => save({ avatarUri: uri }).then(() => stashProfile()),

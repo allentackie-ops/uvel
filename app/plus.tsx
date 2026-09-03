@@ -44,96 +44,17 @@ export default function Plus() {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
-  const app = useUvel();
-  const [plan, setPlan] = useState<"monthly" | "yearly">(app.plusPlan === "monthly" ? "monthly" : "yearly");
-
-  function start() {
-    void app.activatePlus(plan);
-    router.back();
-  }
-
-  function openLegal(id: "privacy" | "terms") {
-    router.push({ pathname: "/legal/[id]", params: { id } });
-  }
 
   return (
     <View style={styles.page}>
-      <ScrollView
-        contentContainerStyle={[styles.body, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 32 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.hero}>
-          <Text style={styles.title}>More intention.{"\n"}Less second-guessing.</Text>
-          <View style={styles.heroStamp}>
-            <Text style={styles.heroStampText}>U+</Text>
-          </View>
-        </View>
-
-        <View style={styles.benefits}>
-          {BENEFITS.map((benefit) => (
-            <View key={benefit.mark} style={styles.benefit}>
-              <View style={styles.mark}><Text style={styles.markText}>{benefit.mark}</Text></View>
-              <View style={styles.benefitCopy}>
-                <Text style={styles.benefitTitle}>{benefit.title}</Text>
-                <Text style={styles.benefitDetail}>{benefit.detail}</Text>
-                {app.isPlus && benefit.action && benefit.route ? (
-                  <Pressable onPress={() => router.push(benefit.route as never)} hitSlop={8} accessibilityRole="button" accessibilityLabel={benefit.action}>
-                    <Text style={styles.benefitAction}>{benefit.action} <Text style={styles.benefitArrow}>↗</Text></Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.planHeading}>
-          <Text style={styles.planHint}>Change or cancel anytime in iOS Settings.</Text>
-        </View>
-
-        <View style={styles.planGroup}>
-          <Pressable
-            onPress={() => setPlan("yearly")}
-            style={({ pressed }) => [styles.planCard, plan === "yearly" && styles.planCardOn, pressed && styles.pressed]}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: plan === "yearly" }}
-            accessibilityLabel="Yearly Uvel Plus plan, 68 dollars and 99 cents per year"
-          >
-            <View style={[styles.radio, plan === "yearly" && styles.radioOn]}>{plan === "yearly" ? <View style={styles.radioDot} /> : null}</View>
-            <View style={styles.planInfo}>
-              <View style={styles.planNameRow}>
-                <Text style={styles.planName}>Yearly</Text>
-                <View style={styles.valueBadge}><Text style={styles.valueBadgeText}>BEST VALUE</Text></View>
-              </View>
-              <Text style={styles.planSub}>$5.75/mo · save versus monthly</Text>
-            </View>
-            <Text style={styles.planPrice}>$68.99<Text style={styles.planUnit}>/yr</Text></Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => setPlan("monthly")}
-            style={({ pressed }) => [styles.planCard, plan === "monthly" && styles.planCardOn, pressed && styles.pressed]}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: plan === "monthly" }}
-            accessibilityLabel="Monthly Uvel Plus plan, 7 dollars and 99 cents per month"
-          >
-            <View style={[styles.radio, plan === "monthly" && styles.radioOn]}>{plan === "monthly" ? <View style={styles.radioDot} /> : null}</View>
-            <View style={styles.planInfo}><Text style={styles.planName}>Monthly</Text></View>
-            <Text style={styles.planPrice}>$7.99<Text style={styles.planUnit}>/mo</Text></Text>
-          </Pressable>
-        </View>
-
-        <Pressable onPress={start} style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]} accessibilityRole="button" accessibilityLabel={app.isPlus ? "Manage Uvel Plus subscription" : "Start Uvel Plus subscription"}>
-          <Text style={styles.ctaText}>{app.isPlus ? "Manage Uvel+" : "Start Uvel+"}</Text>
+      <View style={[styles.body, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 }]}>
+        <Text style={styles.title}>Everything is free for now.</Text>
+        <Text style={styles.freeCopy}>Uvel’s try-on, discovery, selling, analytics, alerts, and shop-look features are available without a subscription.</Text>
+        <Pressable onPress={() => router.back()} style={styles.cta} accessibilityRole="button" accessibilityLabel="Return to Uvel">
+          <Text style={styles.ctaText}>Continue</Text>
           <Text style={styles.ctaArrow}>→</Text>
         </Pressable>
-
-        <Text style={styles.legal}>Auto-renews unless you cancel at least 24 hours before the period ends.</Text>
-        <View style={styles.links}>
-          <Pressable onPress={() => openLegal("privacy")} hitSlop={8} accessibilityRole="link"><Text style={styles.link}>Privacy Policy</Text></Pressable>
-          <View style={styles.linkDot} />
-          <Pressable onPress={() => openLegal("terms")} hitSlop={8} accessibilityRole="link"><Text style={styles.link}>Terms and Conditions</Text></Pressable>
-        </View>
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -144,6 +65,7 @@ function make(colors: Colors) {
     body: { paddingHorizontal: 22 },
     hero: { marginTop: 18, paddingBottom: 28, position: "relative" },
     title: { color: colors.bone, fontSize: 34, fontWeight: "800", lineHeight: 40, letterSpacing: -0.5 },
+    freeCopy: { color: colors.muted, fontSize: 16, lineHeight: 24, marginTop: 14 },
     heroStamp: { position: "absolute", right: 2, bottom: 4, width: 54, height: 54, borderRadius: 27, borderWidth: 1, borderColor: colors.success, alignItems: "center", justifyContent: "center", transform: [{ rotate: "-12deg" }] },
     heroStampText: { color: colors.success, fontSize: 16, fontWeight: "800" },
     benefits: { marginTop: 2, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.neutral },
