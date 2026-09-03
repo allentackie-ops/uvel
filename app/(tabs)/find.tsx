@@ -315,7 +315,6 @@ export default function Mirror() {
             {busy ? "Dressing you…" : !person ? "Add your photo" : !picked ? "Choose a piece" : "Try this look"}
           </Text>
         </Pressable>
-        <Text style={styles.allowance}>Unlimited try-ons</Text>
         {picked ? (
           <Pressable onPress={clearPick} style={styles.ghostCta}>
             <Text style={styles.ghostCtaTxt}>Pick something else</Text>
