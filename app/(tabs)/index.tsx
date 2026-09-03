@@ -798,13 +798,13 @@ function make(colors: Colors) {
     hash: { color: `${colors.bone}B8`, fontSize: 15, marginTop: 6 },
     cta: {
       flex: 1.08,
-      backgroundColor: colors.bone,
+      backgroundColor: colors.surface,
       height: 46,
       borderRadius: 23,
       alignItems: "center",
       justifyContent: "center",
     },
-    ctaTxt: { color: colors.successInk, fontWeight: "700", fontSize: 15 },
+    ctaTxt: { color: colors.bone, fontWeight: "700", fontSize: 15 },
     ctaSolo: { flex: 1 },
     ghost: {
       flex: 1,

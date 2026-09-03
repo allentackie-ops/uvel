@@ -111,6 +111,9 @@ export type Copy = {
   todayEmptyTitle: string;
   todayEmptyBody: string;
   todayEmptyAction: string;
+  appearance: string;
+  dark: string;
+  light: string;
 };
 
 export const LANGS: { id: string; label: string }[] = [
@@ -272,6 +275,9 @@ const en: Copy = {
   todayEmptyTitle: "Teach Uvel your taste.",
   todayEmptyBody: "Save a few looks or set your Style DNA. Your next edit will feel more like you.",
   todayEmptyAction: "Shape your edit",
+  appearance: "Appearance",
+  dark: "Dark",
+  light: "Light",
 };
 
 function pack(p: Partial<Copy>): Copy {
@@ -490,6 +496,9 @@ export const COPY: Record<string, Copy> = {
     todayEmptyTitle: "Enséñale a Uvel tu estilo.",
     todayEmptyBody: "Guarda algunos looks o define tu ADN de estilo. Tu próxima selección se parecerá más a ti.",
     todayEmptyAction: "Moldea tu selección",
+    appearance: "Apariencia",
+    dark: "Oscuro",
+    light: "Claro",
   }),
   "pt-BR": pack({
     skip: "Pular",
