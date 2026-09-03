@@ -31,7 +31,7 @@ import { SHOP_LOOKS } from "../lib/shopLook";
 import { takePendingListingSelection } from "../lib/listingOptions";
 import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
-import { palettes, type Colors } from "../lib/theme";
+import { useColors, type Colors } from "../lib/theme";
 import { addPiece, getPiece, listPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
 
 const MAX = 5;
@@ -43,12 +43,6 @@ const STAGES = [
   "Checking the listing…",
   "Looking for anything that shouldn’t be here…",
 ];
-
-const SELL_COLORS: Colors = {
-  ...palettes.dark,
-  ink: "#0B0A08",
-  surface: "#161512",
-};
 
 type Slot = {
   uri: string;
@@ -63,13 +57,13 @@ type Gate =
   | { phase: "pass" };
 
 export default function Sell({ embedded = false }: { embedded?: boolean }) {
-  const colors = SELL_COLORS;
+  const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { id, fits, draft: draftParam } = useLocalSearchParams<{ id?: string; fits?: string; draft?: string }>();
   useWardrobe();
   const existing = id ? getPiece(id) : undefined;
-  const { wardrobeUris, uid, displayName, country, isPlus, personUri, avatarUri } = useUvel();
+  const { wardrobeUris, uid, displayName, country, isPlus, personUri, avatarUri, appearance } = useUvel();
   const C = useCopy();
   const market = getMarket(country);
   const [draftOrigin, setDraftOrigin] = useState<string | undefined>();
@@ -309,7 +303,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         {
           options,
           cancelButtonIndex: options.length - 1,
-          userInterfaceStyle: "dark",
+          userInterfaceStyle: appearance,
         },
         (i) => {
           if (i === 0) void fromCamera();
