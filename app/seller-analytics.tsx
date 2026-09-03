@@ -143,7 +143,6 @@ export default function SellerAnalytics() {
         showsVerticalScrollIndicator={false}
       >
         <Header styles={styles} />
-        <Text style={styles.kicker}>UVEL+ SELLER ANALYTICS</Text>
         <Text style={styles.title}>Know what to improve next.</Text>
         <Text style={styles.lede}>A private view of your seller workspace, with confirmed records separated from signals recorded on this device.</Text>
 
