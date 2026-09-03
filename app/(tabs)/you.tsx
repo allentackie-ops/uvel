@@ -149,8 +149,8 @@ export default function You() {
 
   return (
     <ScrollView
-      style={styles.page}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 108 }]}
+      style={[styles.page, { backgroundColor: colors.ink }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 108, backgroundColor: colors.ink }]}
     >
       <View style={styles.top}>
         <View style={{ flex: 1, paddingRight: 12 }}>
@@ -785,7 +785,7 @@ function make(colors: Colors) {
       width: 44,
       height: 44,
       borderRadius: 22,
-      backgroundColor: "#2A2824",
+      backgroundColor: colors.surface,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -844,7 +844,7 @@ function make(colors: Colors) {
       backgroundColor: colors.surface,
       justifyContent: "center",
     },
-    tagTxt: { color: "rgba(244,240,230,0.7)", fontSize: 11, fontWeight: "700" },
+    tagTxt: { color: colors.muted, fontSize: 11, fontWeight: "700" },
     likeCard: { backgroundColor: colors.surface, borderRadius: 18, overflow: "hidden" },
     likeImg: { width: "100%", height: COL * 1.25, backgroundColor: colors.surface },
     likeName: { color: colors.bone, fontWeight: "600", fontSize: 13, paddingHorizontal: 10, paddingTop: 10 },

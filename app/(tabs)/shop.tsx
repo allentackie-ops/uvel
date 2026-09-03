@@ -220,10 +220,10 @@ export default function Shop() {
   if (!wardrobeReady && !scanningLook) return <ShopSkeleton colors={colors} />;
 
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, { backgroundColor: colors.ink }]}>
       <ScrollView
-        style={styles.page}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
+        style={[styles.page, { backgroundColor: colors.ink }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 8, backgroundColor: colors.ink }]}
         alwaysBounceVertical
         bounces
         keyboardShouldPersistTaps="handled"
@@ -449,7 +449,7 @@ function make(colors: Colors) {
     syncCard: { marginTop: 18, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.subtle },
     syncKicker: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.4 },
     syncTitle: { color: colors.bone, fontSize: 17, fontWeight: "800", marginTop: 5 },
-    syncNotice: { color: "rgba(244,240,230,0.6)", fontSize: 13, lineHeight: 18, marginTop: 5 },
+    syncNotice: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 5 },
     syncActions: { flexDirection: "row", gap: 8, marginTop: 14 },
     syncPrimary: { minHeight: 40, paddingHorizontal: 16, borderRadius: 20, backgroundColor: colors.bone, alignItems: "center", justifyContent: "center" },
     syncPrimaryTxt: { color: colors.ink, fontSize: 13, fontWeight: "800" },
@@ -464,7 +464,7 @@ function make(colors: Colors) {
     campaignSection: { marginTop: 22 },
     campaignHead: { flexDirection: "row", alignItems: "flex-end", gap: 10, marginBottom: 10 },
     campaignKicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.5 },
-    campaignSub: { color: "rgba(244,240,230,0.52)", fontSize: 13, marginTop: 3 },
+    campaignSub: { color: colors.muted, fontSize: 13, marginTop: 3 },
     campaignLive: { color: colors.ink, backgroundColor: colors.success, borderRadius: 11, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "800", letterSpacing: 1 },
     campaignRail: { gap: 10, paddingBottom: 4 },
     campaignCard: { width: 292, minHeight: 148, borderRadius: 16, overflow: "hidden", backgroundColor: colors.surface, flexDirection: "row" },
@@ -505,7 +505,7 @@ function make(colors: Colors) {
     orbitBox: { paddingVertical: 48, alignItems: "center" },
     store: { flexDirection: "row", alignItems: "center", marginTop: 8, gap: 6 },
     storeTxt: { color: colors.muted, fontSize: 15 },
-    storeGo: { color: "rgba(244,240,230,0.72)", fontSize: 15, textDecorationLine: "underline" },
+    storeGo: { color: colors.muted, fontSize: 15, textDecorationLine: "underline" },
     search: {
       marginTop: 18,
       height: 46,
@@ -521,7 +521,7 @@ function make(colors: Colors) {
     searchIcon: { color: colors.muted, fontSize: 16, marginTop: -1 },
     input: { flex: 1, color: colors.bone, fontSize: 16, height: 46 },
     clearBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
-    clear: { color: "rgba(244,240,230,0.82)", fontSize: 22, paddingHorizontal: 4 },
+    clear: { color: colors.muted, fontSize: 22, paddingHorizontal: 4 },
     chips: { gap: 8, paddingVertical: 16 },
     chip: {
       minHeight: 44,
