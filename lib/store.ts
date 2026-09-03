@@ -257,8 +257,8 @@ export function useUvel() {
   return {
     ...memory,
     hydrated,
-    remainingFinds: 99,
-    remainingTryOns: 99,
+    remainingFinds: memory.isPlus ? 99 : Math.max(0, 2 - memory.findsUsed),
+    remainingTryOns: memory.isPlus ? 99 : Math.max(0, 1 - memory.tryOnsUsed),
     toggleSaved: (id: string) =>
       save({
         saved: memory.saved.includes(id)
@@ -299,8 +299,18 @@ export function useUvel() {
         at: Date.now(),
       });
     },
-    consumeFind: () => true,
-    consumeTryOn: () => true,
+    consumeFind: () => {
+      if (memory.isPlus) return true;
+      if (memory.findsUsed >= 2) return false;
+      void save({ findsUsed: memory.findsUsed + 1 });
+      return true;
+    },
+    consumeTryOn: () => {
+      if (memory.isPlus) return true;
+      if (memory.tryOnsUsed >= 1) return false;
+      void save({ tryOnsUsed: memory.tryOnsUsed + 1 });
+      return true;
+    },
     activatePlus: (plan: string) => save({ isPlus: true, plusPlan: plan }),
     setStyle: (patch: Partial<State>) => save(patch),
     setPerson: (uri: string | null) => save({ personUri: uri }),

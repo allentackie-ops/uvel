@@ -232,7 +232,7 @@ export default function Ask() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style={colors.ink === "#FFFFFF" ? "dark" : "light"} />
+      <StatusBar style="light" />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
         <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>
@@ -498,7 +498,7 @@ function make(colors: Colors) {
     bubbleMine: { alignSelf: "flex-end", backgroundColor: "#2A320E" },
     bubbleThem: { alignSelf: "flex-start", backgroundColor: colors.surface },
     bubbleTxt: { color: colors.bone, fontSize: 15, lineHeight: 21 },
-    bubbleTxtMine: { color: colors.legacyText },
+    bubbleTxtMine: { color: "#F4F0E6" },
     offerTag: { color: colors.success, fontSize: 11, fontWeight: "700", letterSpacing: 1, marginBottom: 4 },
     msgPhoto: { width: 180, height: 180, borderRadius: 12, marginBottom: 8 },
     day: { color: colors.subtle, textAlign: "center", fontSize: 12, marginVertical: 10 },

@@ -189,7 +189,7 @@ export default function Checkout() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style={colors.ink === "#FFFFFF" ? "dark" : "light"} />
+      <StatusBar style="light" />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
         <AccessiblePressable          onPress={() => router.back()}
           hitSlop={12}
@@ -611,6 +611,6 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "center",
     },
-    sheetBtnT: { color: colors.legacyInk, fontWeight: "700" },
+    sheetBtnT: { color: "#16140F", fontWeight: "700" },
   });
 }

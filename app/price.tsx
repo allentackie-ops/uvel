@@ -242,7 +242,7 @@ function make(colors: ReturnType<typeof useColors>) {
     analysisGateTitle: { color: colors.bone, fontSize: 22, fontWeight: "700" },
     analysisGateCopy: { color: colors.muted, fontSize: 15, lineHeight: 22, marginTop: 10 },
     analysisGateButton: { marginTop: 20, minHeight: 50, borderRadius: 25, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center", paddingHorizontal: 18 },
-    analysisGateButtonText: { color: colors.legacyInk, fontSize: 15, fontWeight: "700" },
+    analysisGateButtonText: { color: "#16140F", fontSize: 15, fontWeight: "700" },
     nav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingBottom: 10 },
     back: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
     backTxt: { color: colors.bone, fontSize: 36, lineHeight: 38, marginTop: -4 },
@@ -265,7 +265,7 @@ function make(colors: ReturnType<typeof useColors>) {
     recommendation: { flex: 1, minHeight: 86, borderWidth: 1, borderColor: colors.subtle + "55", borderRadius: 12, padding: 12, justifyContent: "space-between" },
     recommendationSelected: { borderColor: "#D6E27A", backgroundColor: "rgba(214,226,122,0.08)" },
     selectionDot: { position: "absolute", top: 8, right: 8, width: 20, height: 20, borderRadius: 10, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center" },
-    selectionDotTxt: { color: colors.legacyInk, fontSize: 12, fontWeight: "900" },
+    selectionDotTxt: { color: "#16140F", fontSize: 12, fontWeight: "900" },
     recPrice: { color: colors.bone, fontSize: 18, fontWeight: "700" },
     recLabel: { color: colors.muted, fontSize: 14, marginTop: 8 },
     similarHead: { marginHorizontal: 20, marginTop: 30, marginBottom: 12, flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
@@ -281,6 +281,6 @@ function make(colors: ReturnType<typeof useColors>) {
     comparablePrice: { color: colors.bone, fontSize: 16, fontWeight: "700", marginHorizontal: 10, marginTop: 6, marginBottom: 12 },
     footer: { paddingHorizontal: 20, paddingTop: 8 },
     done: { height: 54, borderRadius: 27, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center" },
-    doneTxt: { color: colors.legacyInk, fontSize: 16, fontWeight: "700" },
+    doneTxt: { color: "#16140F", fontSize: 16, fontWeight: "700" },
   });
 }

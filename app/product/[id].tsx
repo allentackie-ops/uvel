@@ -80,10 +80,13 @@ export default function Product() {
           </Glass>
         </AccessiblePressable>
         <AccessiblePressable
-          onPress={() => router.push({ pathname: "/try-on", params: { g: garment.id } })}
+          onPress={() => {
+            if (!app.isPlus && app.remainingTryOns <= 0) router.push("/plus");
+            else router.push({ pathname: "/try-on", params: { g: garment.id } });
+          }}
           accessibilityRole="button"
           accessibilityLabel="Try this item on"
-          accessibilityHint="Double tap to open the free try-on experience."
+          accessibilityHint={!app.isPlus && app.remainingTryOns <= 0 ? "Double tap to view Uvel Plus." : "Double tap to open the try-on experience."}
         >
           <Glass interactive style={styles.cta}>
             <Text style={styles.ctaText}>Try on me</Text>

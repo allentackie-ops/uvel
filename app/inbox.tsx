@@ -51,7 +51,7 @@ export default function Inbox() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style={colors.ink === "#FFFFFF" ? "dark" : "light"} />
+      <StatusBar style="light" />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>
           <Text style={styles.navBack}>‹</Text>
@@ -130,7 +130,7 @@ function Row({
           {!iAmSeller && (brand?.verified || t.brandVerified) ? <VerifiedMark size={16} /> : null}
           {t.lastAt ? <Text style={styles.time}>{when(t.lastAt)}</Text> : null}
         </View>
-        <Text style={[styles.prev, unread ? { color: colors.legacyText } : null]} numberOfLines={1}>
+        <Text style={[styles.prev, unread ? { color: "#F4F0E6" } : null]} numberOfLines={1}>
           {t.lastText ? `${you ? "You: " : ""}${t.lastText}` : t.pieceName}
         </Text>
       </View>
@@ -175,9 +175,9 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "center",
     },
-    chipOn: { backgroundColor: colors.legacyText, borderColor: colors.legacyText },
+    chipOn: { backgroundColor: "#F4F0E6", borderColor: "#F4F0E6" },
     chipTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
-    chipTxtOn: { color: colors.legacyInk },
+    chipTxtOn: { color: "#16140F" },
     empty: { color: colors.muted, padding: 24, lineHeight: 22, fontSize: 15 },
     list: { flex: 1 },
     row: {

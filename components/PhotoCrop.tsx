@@ -4,7 +4,6 @@ import { ActivityIndicator, Dimensions, Image as RNImage, Pressable, StyleSheet,
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useColors, type Colors } from "../lib/theme";
 
 const { width: SW, height: SH } = Dimensions.get("window");
 export const LISTING_RATIO = 4 / 5;
@@ -17,8 +16,6 @@ type Props = {
 
 export function PhotoCrop({ uri, onCancel, onDone }: Props) {
   const insets = useSafeAreaInsets();
-  const colors = useColors();
-  const styles = useMemo(() => make(colors), [colors]);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const tx = useSharedValue(0);
@@ -124,22 +121,21 @@ export function PhotoCrop({ uri, onCancel, onDone }: Props) {
               </Animated.View>
             </GestureDetector>
           ) : (
-            <ActivityIndicator color={colors.success} />
+            <ActivityIndicator color="#D6E27A" />
           )}
         </View>
       </View>
       {busy ? (
         <View style={styles.busy}>
-          <ActivityIndicator color={colors.legacyInk} />
+          <ActivityIndicator color="#16140F" />
         </View>
       ) : null}
     </View>
   );
 }
 
-function make(colors: Colors) {
-  return StyleSheet.create({
-  page: { ...StyleSheet.absoluteFill, backgroundColor: colors.ink, zIndex: 40 },
+const styles = StyleSheet.create({
+  page: { ...StyleSheet.absoluteFill, backgroundColor: "#0E0D0B", zIndex: 40 },
   bar: {
     flexDirection: "row",
     alignItems: "center",
@@ -147,18 +143,17 @@ function make(colors: Colors) {
     paddingHorizontal: 18,
     height: 48,
   },
-  link: { color: colors.muted, fontSize: 16 },
-  title: { color: colors.bone, fontWeight: "600", fontSize: 16 },
-  use: { color: colors.successInk, fontWeight: "700", fontSize: 16 },
-  hint: { color: colors.subtle, textAlign: "center", fontSize: 13, marginBottom: 12 },
+  link: { color: "rgba(244,240,230,0.7)", fontSize: 16 },
+  title: { color: "#F4F0E6", fontWeight: "600", fontSize: 16 },
+  use: { color: "#D6E27A", fontWeight: "700", fontSize: 16 },
+  hint: { color: "rgba(244,240,230,0.5)", textAlign: "center", fontSize: 13, marginBottom: 12 },
   stage: { flex: 1, alignItems: "center", justifyContent: "center" },
-  frame: { overflow: "hidden", backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
+  frame: { overflow: "hidden", backgroundColor: "#1A1814", alignItems: "center", justifyContent: "center" },
   imgWrap: { alignItems: "center", justifyContent: "center" },
   busy: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: `${colors.success}59`,
+    backgroundColor: "rgba(214,226,122,0.35)",
     alignItems: "center",
     justifyContent: "center",
   },
-  });
-}
+});

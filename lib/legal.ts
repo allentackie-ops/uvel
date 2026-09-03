@@ -26,7 +26,7 @@ export const privacy: LegalDoc = {
         "Wardrobe and listings: items you scan, save, or list to sell.",
         "Style and try-on: preferences and virtual try-on results.",
         "Device: app version, device type, and crash logs.",
-        "Purchases: transaction details needed to complete orders. We do not store your full card number.",
+        "Purchases: Uvel+ subscription status. We do not store your full card number.",
       ],
     },
     {
@@ -74,6 +74,15 @@ export const terms: LegalDoc = {
       body: [
         "Uvel is a dress-and-shop app from Fitza. By using it you agree to these terms and the Privacy Policy.",
         "You must be 18 or older to create an account, buy, or sell.",
+      ],
+    },
+    {
+      heading: "Uvel+",
+      body: [
+        "Uvel+ is an auto-renewing subscription. It unlocks unlimited virtual try-on and custom shop looks on listings you sell.",
+        "Monthly is $7.99 per month. Yearly is $68.99 per year (about $5.75 per month).",
+        "Payment is charged to your Apple ID at confirmation of purchase. The subscription renews automatically unless you turn off auto-renew at least 24 hours before the end of the current period.",
+        "Your account will be charged for renewal within 24 hours prior to the end of the current period. You can manage or cancel in iOS Settings → Apple ID → Subscriptions.",
       ],
     },
     {

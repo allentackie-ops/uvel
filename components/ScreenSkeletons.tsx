@@ -19,7 +19,7 @@ export function ShopSkeleton({ colors }: { colors: Colors }) {
     <ScrollView style={[styles.page, { backgroundColor: colors.ink }]} contentContainerStyle={styles.shopContent} scrollEnabled={false}>
       <View style={styles.rowBetween}><Line width={92} height={22} /><Line width={110} height={34} radius={17} /></View>
       <Line width="62%" height={15} />
-      <View style={[styles.search, { borderColor: colors.neutral }]}><Line width="100%" height={18} radius={8} /></View>
+      <View style={styles.search}><Line width="100%" height={18} radius={8} /></View>
       <View style={skeletonStyles.rail}><Line width={54} height={32} radius={16} /><Line width={72} height={32} radius={16} /><Line width={64} height={32} radius={16} /><Line width={82} height={32} radius={16} /></View>
       <Line width={82} height={18} />
       <CardRail count={3} width={178} height={72} />
@@ -38,7 +38,7 @@ export function TodaySkeleton({ colors }: { colors: Colors }) {
       <Skeleton width="100%" height={330} radius={0} />
       <View style={styles.todayBody}>
         <View style={skeletonStyles.rail}><Line width={52} height={30} radius={15} /><Line width={68} height={30} radius={15} /><Line width={74} height={30} radius={15} /><Line width={55} height={30} radius={15} /></View>
-        <View style={[styles.inbox, { borderColor: colors.neutral }]}><View style={{ flex: 1, gap: 8 }}><Line width={52} height={12} /><Line width="72%" height={14} /></View><Line width={26} height={26} radius={13} /></View>
+        <View style={styles.inbox}><View style={{ flex: 1, gap: 8 }}><Line width={52} height={12} /><Line width="72%" height={14} /></View><Line width={26} height={26} radius={13} /></View>
         <Line width={112} height={18} />
         <CardRail count={3} width={142} height={184} />
         <Line width={140} height={18} />
@@ -69,11 +69,11 @@ export function BrandHQSkeleton({ colors }: { colors: Colors }) {
   return (
     <ScrollView style={[styles.page, { backgroundColor: colors.ink }]} contentContainerStyle={styles.hqContent} scrollEnabled={false}>
       <View style={styles.rowBetween}><View style={{ gap: 9 }}><Line width={150} height={22} /><Line width={208} height={13} /></View><Line width={42} height={42} radius={21} /></View>
-      <View style={styles.hqStats}>{Array.from({ length: 3 }, (_, index) => <View key={index} style={[styles.stat, { borderColor: colors.neutral }]}><Line width="54%" height={12} /><Line width="72%" height={22} /></View>)}</View>
-      <View style={[styles.hqPanel, { borderColor: colors.neutral }]}><Line width="38%" height={17} /><Line width="92%" height={12} /><Line width="76%" height={12} /><Line width="84%" height={12} /></View>
+      <View style={styles.hqStats}>{Array.from({ length: 3 }, (_, index) => <View key={index} style={styles.stat}><Line width="54%" height={12} /><Line width="72%" height={22} /></View>)}</View>
+      <View style={styles.hqPanel}><Line width="38%" height={17} /><Line width="92%" height={12} /><Line width="76%" height={12} /><Line width="84%" height={12} /></View>
       <Line width={132} height={18} />
-      <View style={[styles.hqPanel, { borderColor: colors.neutral }]}><Line width="48%" height={17} /><Line width="96%" height={12} /><Line width="88%" height={12} /><Line width="72%" height={12} /></View>
-      <View style={[styles.hqPanel, { borderColor: colors.neutral }]}><Line width="42%" height={17} /><Line width="90%" height={12} /><Line width="64%" height={12} /><Line width="82%" height={12} /></View>
+      <View style={styles.hqPanel}><Line width="48%" height={17} /><Line width="96%" height={12} /><Line width="88%" height={12} /><Line width="72%" height={12} /></View>
+      <View style={styles.hqPanel}><Line width="42%" height={17} /><Line width="90%" height={12} /><Line width="64%" height={12} /><Line width="82%" height={12} /></View>
     </ScrollView>
   );
 }

@@ -31,7 +31,7 @@ import { SHOP_LOOKS } from "../lib/shopLook";
 import { takePendingListingSelection } from "../lib/listingOptions";
 import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
-import { useColors } from "../lib/theme";
+import { palettes, type Colors } from "../lib/theme";
 import { addPiece, getPiece, listPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
 
 const MAX = 5;
@@ -44,6 +44,11 @@ const STAGES = [
   "Looking for anything that shouldn’t be here…",
 ];
 
+const SELL_COLORS: Colors = {
+  ...palettes.dark,
+  ink: "#0B0A08",
+  surface: "#161512",
+};
 
 type Slot = {
   uri: string;
@@ -58,13 +63,13 @@ type Gate =
   | { phase: "pass" };
 
 export default function Sell({ embedded = false }: { embedded?: boolean }) {
-  const colors = useColors();
+  const colors = SELL_COLORS;
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { id, fits, draft: draftParam } = useLocalSearchParams<{ id?: string; fits?: string; draft?: string }>();
   useWardrobe();
   const existing = id ? getPiece(id) : undefined;
-  const { wardrobeUris, uid, displayName, country, personUri, avatarUri } = useUvel();
+  const { wardrobeUris, uid, displayName, country, isPlus, personUri, avatarUri } = useUvel();
   const C = useCopy();
   const market = getMarket(country);
   const [draftOrigin, setDraftOrigin] = useState<string | undefined>();
@@ -414,7 +419,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       country: origin,
       currency: listingCurrency,
       shipsTo,
-      shopLook,
+      shopLook: isPlus ? shopLook : "uvel",
     };
     const face = avatarUri || personUri || existing?.ownerPhoto;
     const listed = {
@@ -469,7 +474,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 {p.status === "unverified" ? <View style={styles.unverifiedDot} /> : null}
                 {p.status === "checking" ? (
                   <View style={styles.photoCheck}>
-                    <ActivityIndicator color={colors.legacyInk} />
+                    <ActivityIndicator color="#16140F" />
                   </View>
                 ) : null}
                 <AccessiblePressable                  onPress={() => removePhoto(p.uri)}
@@ -692,29 +697,34 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               <Text style={styles.label}>Shop look</Text>
             </View>
             <Text style={styles.lookLede}>
-              How buyers see this listing. Choose the presentation that fits the piece.
+              How buyers see this listing. Looks marked “Requires Uvel+” are available with a Plus plan.
             </Text>
             <View style={styles.lookGrid}>
               {SHOP_LOOKS.map((look) => {
                 const on = shopLook === look.id;
+                const locked = look.plus && !isPlus;
                 return (
                   <AccessiblePressable                    key={look.id}
                     onPress={() => {
+                      if (locked) {
+                        router.push("/plus");
+                        return;
+                      }
                       setShopLook(look.id);
                       if (existing) updatePiece(existing.id, { shopLook: look.id });
                     }}
-                    style={({ pressed }) => [styles.lookCard, on && styles.lookCardOn, pressed && { opacity: 0.92 }]}
+                    style={({ pressed }) => [styles.lookCard, on && styles.lookCardOn, locked && { opacity: 0.55 }, pressed && { opacity: 0.92 }]}
                     accessibilityRole="radio"
-                    accessibilityLabel={look.name}
-                    accessibilityHint="Double tap to choose this Shop the look style."
-                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={`${look.name}${locked ? ", requires Uvel Plus" : ""}`}
+                    accessibilityHint={locked ? "Double tap to view Uvel Plus." : "Double tap to choose this Shop the look style."}
+                    accessibilityState={{ selected: on, disabled: locked }}
                   >
                     <View style={[styles.lookSwatch, { backgroundColor: look.page }]}>
                       <View style={[styles.lookDot, { backgroundColor: look.accent }]} />
                     </View>
                     <Text style={styles.lookName}>{look.name}</Text>
                     <Text style={styles.lookLine} numberOfLines={1}>
-                      {look.line}
+                      {locked ? "Requires Uvel+" : look.line}
                     </Text>
                   </AccessiblePressable>
                 );
@@ -933,7 +943,7 @@ function make(colors: Colors) {
     },
     chipOn: { backgroundColor: "#D6E27A", borderColor: "#D6E27A" },
     chipTxt: { color: colors.muted, fontSize: 13 },
-    chipTxtOn: { color: colors.legacyInk, fontWeight: "600" },
+    chipTxtOn: { color: "#16140F", fontWeight: "600" },
     row: { flexDirection: "row", gap: 10 },
     lookHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginTop: 8 },
     plusTag: { color: "#D6E27A", fontSize: 12, fontWeight: "700", letterSpacing: 0.6 },
@@ -968,7 +978,7 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     ctaOff: { backgroundColor: colors.surface },
-    ctaTxt: { color: colors.legacyInk, fontSize: 16, fontWeight: "600" },
+    ctaTxt: { color: "#16140F", fontSize: 16, fontWeight: "600" },
     ctaTxtOff: { color: colors.muted },
     gate: {
       ...StyleSheet.absoluteFill,
@@ -980,7 +990,7 @@ function make(colors: Colors) {
     },
     gateImg: { width: 120, height: 160, borderRadius: 16, marginBottom: 16, opacity: 0.9 },
     gateH: {
-      color: colors.legacyText,
+      color: "#F4F0E6",
       fontFamily: "Georgia",
       fontSize: 28,
       textAlign: "center",

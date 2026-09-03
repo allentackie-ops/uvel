@@ -53,7 +53,7 @@ export default function Address() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style={colors.ink === "#FFFFFF" ? "dark" : "light"} />
+      <StatusBar style="light" />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>
           <Text style={styles.navBack}>‹</Text>
@@ -139,6 +139,6 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "center",
     },
-    saveTxt: { color: colors.legacyInk, fontWeight: "700", fontSize: 16 },
+    saveTxt: { color: "#16140F", fontWeight: "700", fontSize: 16 },
   });
 }

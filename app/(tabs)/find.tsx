@@ -17,7 +17,7 @@ import { OrbitLoader } from "../../components/OrbitLoader";
 import { usd } from "../../lib/catalog";
 import { pickFromLibrary, takePhoto } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
-import { alpha, useColors, type Colors } from "../../lib/theme";
+import { useColors, type Colors } from "../../lib/theme";
 import { dressPerson } from "../../lib/tryon";
 import { shopFloor, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
@@ -143,6 +143,10 @@ export default function Mirror() {
 
   async function run() {
     if (!person || !garmentUri) return;
+    if (!app.isPlus && app.remainingTryOns <= 0) {
+      router.push("/plus");
+      return;
+    }
     setErr("");
     setBusy(true);
     try {
@@ -237,7 +241,7 @@ export default function Mirror() {
             <View style={styles.linkRow}>
               <TextInput
                 placeholder="Paste an image or product link"
-                placeholderTextColor={alpha(colors.legacyText, 0.35)}
+                placeholderTextColor="rgba(244,240,230,0.35)"
                 value={link}
                 onChangeText={setLink}
                 autoCapitalize="none"
@@ -315,7 +319,7 @@ export default function Mirror() {
             {busy ? "Dressing you…" : !person ? "Add your photo" : !picked ? "Choose a piece" : "Try this look"}
           </Text>
         </Pressable>
-        <Text style={styles.allowance}>Try-ons are free</Text>
+        <Text style={styles.allowance}>{app.isPlus ? "Unlimited try-ons with Uvel+" : `${app.remainingTryOns} free try-on${app.remainingTryOns === 1 ? "" : "s"} remaining`}</Text>
         {picked ? (
           <Pressable onPress={clearPick} style={styles.ghostCta}>
             <Text style={styles.ghostCtaTxt}>Pick something else</Text>
@@ -326,18 +330,18 @@ export default function Mirror() {
   );
 }
 
-function make(colors: Colors) {
+function make(_colors: Colors) {
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: colors.legacyPage },
-    syncNotice: { color: alpha(colors.legacyText, 0.62), fontSize: 12, lineHeight: 18, marginHorizontal: 20, marginTop: 10, marginBottom: 4 },
-    lede: { color: alpha(colors.legacyText, 0.64), fontSize: 16, lineHeight: 23, paddingHorizontal: 20, marginTop: 8, marginBottom: 18 },
+    page: { flex: 1, backgroundColor: "#0B0A08" },
+    syncNotice: { color: "rgba(244,240,230,0.62)", fontSize: 12, lineHeight: 18, marginHorizontal: 20, marginTop: 10, marginBottom: 4 },
+    lede: { color: "rgba(244,240,230,0.64)", fontSize: 16, lineHeight: 23, paddingHorizontal: 20, marginTop: 8, marginBottom: 18 },
     heroNeed: { height: 360 },
-    sourceCard: { marginTop: 24, marginHorizontal: 16, padding: 16, borderRadius: 20, backgroundColor: colors.legacySurface, borderWidth: 1, borderColor: alpha(colors.legacyText, 0.12) },
+    sourceCard: { marginTop: 24, marginHorizontal: 16, padding: 16, borderRadius: 20, backgroundColor: "#161512", borderWidth: 1, borderColor: "rgba(244,240,230,0.12)" },
     sourceHead: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
     sourceKicker: { color: "#D6E27A", fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
-    sourceTitle: { color: colors.legacyText, fontSize: 19, fontWeight: "800", marginTop: 5 },
-    sourceCopy: { color: alpha(colors.legacyText, 0.58), fontSize: 13, lineHeight: 19, marginTop: 4 },
-    step: { color: alpha(colors.legacyText, 0.42), fontSize: 11, fontWeight: "800" },
+    sourceTitle: { color: "#F4F0E6", fontSize: 19, fontWeight: "800", marginTop: 5 },
+    sourceCopy: { color: "rgba(244,240,230,0.58)", fontSize: 13, lineHeight: 19, marginTop: 4 },
+    step: { color: "rgba(244,240,230,0.42)", fontSize: 11, fontWeight: "800" },
 
     top: {
       flexDirection: "row",
@@ -346,21 +350,21 @@ function make(colors: Colors) {
       paddingHorizontal: 20,
       paddingBottom: 4,
     },
-    kicker: { color: alpha(colors.legacyText, 0.42), letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
-    head: { color: colors.legacyText, fontFamily: "Georgia", fontSize: 34, marginTop: 4, lineHeight: 38 },
+    kicker: { color: "rgba(244,240,230,0.42)", letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
+    head: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 34, marginTop: 4, lineHeight: 38 },
     search: {
       width: 40,
       height: 40,
       borderRadius: 20,
       borderWidth: 1,
-      borderColor: alpha(colors.legacyText, 0.28),
+      borderColor: "rgba(244,240,230,0.28)",
       alignItems: "center",
       justifyContent: "center",
       marginTop: 4,
     },
-    searchTxt: { color: colors.legacyText, fontSize: 18, fontWeight: "500" },
+    searchTxt: { color: "#F4F0E6", fontSize: 18, fontWeight: "500" },
     lede: {
-      color: alpha(colors.legacyText, 0.62),
+      color: "rgba(244,240,230,0.62)",
       fontSize: 16,
       lineHeight: 23,
       paddingHorizontal: 20,
@@ -372,22 +376,22 @@ function make(colors: Colors) {
       height: 480,
       borderRadius: 22,
       overflow: "hidden",
-      backgroundColor: colors.legacySurfaceAlt,
+      backgroundColor: "#1A1915",
     },
     fill: { width: "100%", height: "100%" },
     need: { flex: 1, alignItems: "center", justifyContent: "center", padding: 28, gap: 8 },
-    needH: { color: colors.legacyText, fontFamily: "Georgia", fontSize: 26 },
-    needP: { color: alpha(colors.legacyText, 0.62), textAlign: "center", marginBottom: 8 },
+    needH: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 26 },
+    needP: { color: "rgba(244,240,230,0.62)", textAlign: "center", marginBottom: 8 },
     needRow: { flexDirection: "row", gap: 10, marginTop: 8 },
     needBtn: {
       height: 44,
       paddingHorizontal: 20,
       borderRadius: 22,
-      backgroundColor: colors.legacyText,
+      backgroundColor: "#F4F0E6",
       alignItems: "center",
       justifyContent: "center",
     },
-    needBtnTxt: { color: colors.legacyInk, fontWeight: "700" },
+    needBtnTxt: { color: "#16140F", fontWeight: "700" },
     needBtnGhost: {
       height: 44,
       paddingHorizontal: 20,
@@ -396,7 +400,7 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "center",
     },
-    needBtnGhostTxt: { color: colors.legacyText, fontWeight: "600" },
+    needBtnGhostTxt: { color: "#F4F0E6", fontWeight: "600" },
     spin: {
       ...StyleSheet.absoluteFill,
       backgroundColor: "rgba(11,10,8,0.5)",
@@ -404,7 +408,7 @@ function make(colors: Colors) {
       justifyContent: "center",
       gap: 8,
     },
-    spinTxt: { color: colors.legacyText, letterSpacing: 1.2, textTransform: "uppercase", fontSize: 12 },
+    spinTxt: { color: "#F4F0E6", letterSpacing: 1.2, textTransform: "uppercase", fontSize: 12 },
     changeWrap: {
       position: "absolute",
       left: 0,
@@ -418,16 +422,16 @@ function make(colors: Colors) {
     change: {
       backgroundColor: "rgba(18,17,14,0.82)",
       borderWidth: 1,
-      borderColor: alpha(colors.legacyText, 0.18),
+      borderColor: "rgba(244,240,230,0.18)",
       height: 36,
       paddingHorizontal: 16,
       borderRadius: 18,
       alignItems: "center",
       justifyContent: "center",
     },
-    changeTxt: { color: colors.legacyText, fontSize: 13, fontWeight: "600" },
-    removePhoto: { backgroundColor: "rgba(18,17,14,0.82)", borderWidth: 1, borderColor: alpha(colors.legacyText, 0.18), height: 36, paddingHorizontal: 16, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-    removePhotoTxt: { color: alpha(colors.legacyText, 0.72), fontSize: 13, fontWeight: "600" },
+    changeTxt: { color: "#F4F0E6", fontSize: 13, fontWeight: "600" },
+    removePhoto: { backgroundColor: "rgba(18,17,14,0.82)", borderWidth: 1, borderColor: "rgba(244,240,230,0.18)", height: 36, paddingHorizontal: 16, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+    removePhotoTxt: { color: "rgba(244,240,230,0.72)", fontSize: 13, fontWeight: "600" },
     headRow: {
       flexDirection: "row",
       alignItems: "baseline",
@@ -436,68 +440,68 @@ function make(colors: Colors) {
       marginTop: 26,
       marginBottom: 14,
     },
-    h2: { color: colors.legacyText, fontFamily: "Georgia", fontSize: 26 },
-    seeAll: { color: alpha(colors.legacyText, 0.42), fontSize: 15 },
+    h2: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 26 },
+    seeAll: { color: "rgba(244,240,230,0.42)", fontSize: 15 },
     strip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
     uvelCard: {
       width: 168,
       borderRadius: 18,
       overflow: "hidden",
-      backgroundColor: colors.legacySurface,
+      backgroundColor: "#161512",
       borderWidth: 1,
       borderColor: "transparent",
     },
-    uvelOn: { borderColor: alpha(colors.legacyText, 0.28) },
-    uvelImg: { width: 168, height: 210, backgroundColor: colors.legacySurfaceAlt },
+    uvelOn: { borderColor: "rgba(244,240,230,0.28)" },
+    uvelImg: { width: 168, height: 210, backgroundColor: "#1A1915" },
     trying: {
       position: "absolute",
       top: 10,
       left: 10,
-      backgroundColor: colors.legacyText,
+      backgroundColor: "#F4F0E6",
       paddingHorizontal: 10,
       height: 24,
       borderRadius: 12,
       alignItems: "center",
       justifyContent: "center",
     },
-    tryingTxt: { color: colors.legacyInk, fontSize: 11, fontWeight: "700" },
+    tryingTxt: { color: "#16140F", fontSize: 11, fontWeight: "700" },
     uvelMeta: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12 },
-    uvelName: { color: colors.legacyText, fontSize: 14, fontWeight: "600", lineHeight: 18 },
-    uvelPrice: { color: colors.legacyText, fontSize: 14, fontWeight: "700", marginTop: 4 },
-    empty: { color: alpha(colors.legacyText, 0.58), fontSize: 13, lineHeight: 19 },
-    emptySource: { marginHorizontal: 20, marginTop: 12, padding: 16, borderRadius: 16, backgroundColor: colors.legacySurface },
+    uvelName: { color: "#F4F0E6", fontSize: 14, fontWeight: "600", lineHeight: 18 },
+    uvelPrice: { color: "#F4F0E6", fontSize: 14, fontWeight: "700", marginTop: 4 },
+    empty: { color: "rgba(244,240,230,0.58)", fontSize: 13, lineHeight: 19 },
+    emptySource: { marginHorizontal: 20, marginTop: 12, padding: 16, borderRadius: 16, backgroundColor: "#161512" },
     emptyLink: { marginTop: 10 },
     emptyLinkTxt: { color: "#D6E27A", fontSize: 13, fontWeight: "800" },
     anywhere: { flexDirection: "row", gap: 8, marginTop: 14, flexWrap: "wrap" },
     selected: { marginHorizontal: 20, marginTop: 24, padding: 16, borderRadius: 18, borderWidth: 1, borderColor: "rgba(214,226,122,0.28)", backgroundColor: "rgba(214,226,122,0.06)" },
     selectedKicker: { color: "#D6E27A", fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
-    selectedTitle: { color: colors.legacyText, fontSize: 18, fontWeight: "800", marginTop: 5 },
-    selectedCopy: { color: alpha(colors.legacyText, 0.58), fontSize: 13, marginTop: 4 },
-    allowance: { color: alpha(colors.legacyText, 0.48), textAlign: "center", fontSize: 12, marginTop: 10 },
-    trust: { color: alpha(colors.legacyText, 0.34), textAlign: "center", fontSize: 11, lineHeight: 16, paddingHorizontal: 28, marginTop: 10 },
+    selectedTitle: { color: "#F4F0E6", fontSize: 18, fontWeight: "800", marginTop: 5 },
+    selectedCopy: { color: "rgba(244,240,230,0.58)", fontSize: 13, marginTop: 4 },
+    allowance: { color: "rgba(244,240,230,0.48)", textAlign: "center", fontSize: 12, marginTop: 10 },
+    trust: { color: "rgba(244,240,230,0.34)", textAlign: "center", fontSize: 11, lineHeight: 16, paddingHorizontal: 28, marginTop: 10 },
     chip: {
       height: 42,
       paddingHorizontal: 16,
       borderRadius: 21,
       borderWidth: 1,
-      borderColor: alpha(colors.legacyText, 0.16),
+      borderColor: "rgba(244,240,230,0.16)",
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: "#141310",
     },
-    chipOn: { backgroundColor: colors.legacyText, borderColor: colors.legacyText },
-    chipTxt: { color: colors.legacyText, fontWeight: "600", fontSize: 14 },
-    chipTxtOn: { color: colors.legacyInk },
+    chipOn: { backgroundColor: "#F4F0E6", borderColor: "#F4F0E6" },
+    chipTxt: { color: "#F4F0E6", fontWeight: "600", fontSize: 14 },
+    chipTxtOn: { color: "#16140F" },
     linkRow: {
       marginHorizontal: 16,
       marginTop: 10,
       flexDirection: "row",
       alignItems: "center",
-      backgroundColor: colors.legacySurfaceAlt,
+      backgroundColor: "#1A1915",
       borderRadius: 16,
       paddingLeft: 14,
     },
-    input: { flex: 1, color: colors.legacyText, height: 46, fontSize: 15 },
+    input: { flex: 1, color: "#F4F0E6", height: 46, fontSize: 15 },
     linkGo: { paddingHorizontal: 16, height: 46, alignItems: "center", justifyContent: "center" },
     linkGoTxt: { color: "#D6E27A", fontWeight: "700" },
     err: { color: "#C45C5C", marginTop: 14, marginHorizontal: 20, fontSize: 14, lineHeight: 20 },
@@ -506,27 +510,27 @@ function make(colors: Colors) {
       marginTop: 22,
       height: 54,
       borderRadius: 27,
-      backgroundColor: colors.legacyText,
+      backgroundColor: "#F4F0E6",
       alignItems: "center",
       justifyContent: "center",
     },
     ctaOff: { opacity: 0.45 },
-    ctaTxt: { color: colors.legacyInk, fontWeight: "700", fontSize: 16 },
-    ctaTxtOff: { color: colors.legacyInk },
+    ctaTxt: { color: "#16140F", fontWeight: "700", fontSize: 16 },
+    ctaTxtOff: { color: "#16140F" },
     ghostCta: {
       marginHorizontal: 16,
       marginTop: 10,
       height: 54,
       borderRadius: 27,
       borderWidth: 1,
-      borderColor: alpha(colors.legacyText, 0.14),
+      borderColor: "rgba(244,240,230,0.14)",
       backgroundColor: "#141310",
       alignItems: "center",
       justifyContent: "center",
     },
-    ghostCtaTxt: { color: colors.legacyText, fontWeight: "600", fontSize: 16 },
+    ghostCtaTxt: { color: "#F4F0E6", fontWeight: "600", fontSize: 16 },
     foot: {
-      color: alpha(colors.legacyText, 0.38),
+      color: "rgba(244,240,230,0.38)",
       textAlign: "center",
       fontSize: 13,
       lineHeight: 19,

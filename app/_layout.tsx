@@ -149,7 +149,7 @@ function AppStack() {
             name="plus"
             options={{
               presentation: "modal",
-              headerTitle: "",
+              headerTitle: "Uvel+",
               headerTransparent: true,
             }}
           />
@@ -427,7 +427,6 @@ function DraftResumeNotice() {
 
 export default function Root() {
   const { onboarded, hydrated, uid, profileDone, profileChecked } = useUvel();
-  const colors = useColors();
   useOtaReady();
   const [intro, setIntro] = useState(true);
   const dismiss = useCallback(() => setIntro(false), []);
@@ -442,8 +441,8 @@ export default function Root() {
 
   return (
     <SafeAreaProvider>
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: intro ? colors.pulse : colors.legacyPage }}>
-        <StatusBar style={colors.ink === "#FFFFFF" ? "dark" : "light"} />
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: intro ? "#2A320E" : "#0B0A08" }}>
+        <StatusBar style="light" />
         {gateReady ? (
           !onboarded && !signedIn ? (
             <Onboard />

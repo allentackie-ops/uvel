@@ -40,13 +40,27 @@ export default function Alerts() {
     );
   }
 
-
+  if (!app.isPlus) {
+    return (
+      <View style={[styles.page, { paddingTop: insets.top + 16 }]}>
+        <Header styles={styles} />
+        <View style={styles.empty}>
+          <Text style={styles.kicker}>UVEL+</Text>
+          <Text style={styles.emptyTitle}>Price and restock alerts are part of Uvel+</Text>
+          <Text style={styles.emptyCopy}>Choose what to watch from any listing, then see your active subscriptions and alert history here.</Text>
+          <Pressable onPress={() => router.push("/plus")} style={styles.primary} accessibilityRole="button" accessibilityLabel="See Uvel Plus plans">
+            <Text style={styles.primaryText}>See Uvel+</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.page}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
         <Header styles={styles} />
-        <Text style={styles.kicker}>YOUR ALERTS</Text>
+        <Text style={styles.kicker}>UVEL+ ALERTS</Text>
         <Text style={styles.title}>Keep an eye on the right pieces.</Text>
         <Text style={styles.lede}>Alerts are created from your saved items. Local changes are shown in the app; device notifications require notification permission, and remote alerts need the marketplace backend to be connected.</Text>
 
