@@ -149,7 +149,7 @@ function AppStack() {
             name="plus"
             options={{
               presentation: "modal",
-              headerTitle: "Uvel+",
+              headerTitle: "",
               headerTransparent: true,
             }}
           />

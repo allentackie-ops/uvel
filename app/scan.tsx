@@ -41,10 +41,6 @@ export default function ScanLook() {
 
   async function scan() {
     if (!preview && !url.trim()) return;
-    if (!app.consumeFind()) {
-      router.push("/plus");
-      return;
-    }
     setBusy(true);
     const live = shopFloor(app.country);
     const image = preview || url.trim();

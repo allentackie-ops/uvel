@@ -288,21 +288,15 @@ export default function You() {
           <View><Text style={styles.planH}>Brand analysis</Text><Text style={styles.planP}>Earnings, views, likes</Text></View><Text style={styles.planGo}>View</Text>
         </Pressable>
       ) : null}
-      {app.isPlus ? (
-        <>
-          <Pressable onPress={() => router.push("/seller-analytics")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Open seller analytics"><View><Text style={styles.planH}>Seller analytics</Text><Text style={styles.planP}>Listing signals and order records</Text></View><Text style={styles.planGo}>View</Text></Pressable>
-          <Pressable onPress={() => router.push("/alerts")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Open price and restock alerts"><View><Text style={styles.planH}>Price & restock alerts</Text><Text style={styles.planP}>Watch the saved pieces you care about</Text></View><Text style={styles.planGo}>View</Text></Pressable>
-        </>
-      ) : null}
+      <>
+        <Pressable onPress={() => router.push("/seller-analytics")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Open seller analytics"><View><Text style={styles.planH}>Seller analytics</Text><Text style={styles.planP}>Listing signals and order records</Text></View><Text style={styles.planGo}>View</Text></Pressable>
+        <Pressable onPress={() => router.push("/alerts")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Open price and restock alerts"><View><Text style={styles.planH}>Price & restock alerts</Text><Text style={styles.planP}>Watch the saved pieces you care about</Text></View><Text style={styles.planGo}>View</Text></Pressable>
+      </>
       {teams.map((b) => (
         <Pressable key={b.id} onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })} style={styles.toolRow}>
           <View style={{ flex: 1 }}><Text style={styles.brandK}>TEAM</Text><Text style={styles.brandName}>{b.name}</Text><Text style={styles.brandP}>You post on this house</Text></View><Text style={styles.brandGo}>Open</Text>
         </Pressable>
       ))}
-      <Pressable onPress={() => router.push("/plus")} style={styles.upgradeRow} accessibilityRole="button" accessibilityLabel="Manage Uvel plan">
-        <Text style={styles.planH}>{app.isPlus ? "Uvel+" : "Free plan"}</Text>
-        {!app.isPlus ? <Text style={styles.planGo}>Upgrade</Text> : <Text style={styles.planP}>{`${app.plusPlan === "yearly" ? "Yearly" : "Monthly"} · unlimited try-on`}</Text>}
-      </Pressable>
     </ScrollView>
   );
 }
