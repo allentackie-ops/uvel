@@ -44,7 +44,6 @@ export default function Alerts() {
     <View style={styles.page}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
         <Header styles={styles} />
-        <Text style={styles.kicker}>UVEL+ ALERTS</Text>
         <Text style={styles.title}>Keep an eye on the right pieces.</Text>
         <Text style={styles.lede}>Alerts are created from your saved items. Local changes are shown in the app; device notifications require notification permission, and remote alerts need the marketplace backend to be connected.</Text>
 
