@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { getMarket, marketsIn, regions } from "../lib/markets";
 import { encodeShipsTo, shipsMode, shipsToLabel, type ShipsTo } from "../lib/ships";
-import { useColors, type Colors } from "../lib/theme";
+import { alpha, useColors, type Colors } from "../lib/theme";
 
 type Mode = "home" | "all" | "pick";
 
@@ -153,7 +153,7 @@ function make(colors: Colors) {
       height: 22,
       borderRadius: 11,
       borderWidth: 1.5,
-      borderColor: "rgba(244,240,230,0.28)",
+      borderColor: alpha(colors.legacyText, 0.28),
       alignItems: "center",
       justifyContent: "center",
     },
@@ -173,7 +173,7 @@ function make(colors: Colors) {
       alignItems: "center",
       paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: "rgba(244,240,230,0.08)",
+      borderBottomColor: alpha(colors.legacyText, 0.08),
     },
     rowName: { color: colors.bone, fontSize: 15, fontWeight: "600" },
     rowOn: { color: "#D6E27A" },
@@ -183,11 +183,11 @@ function make(colors: Colors) {
       height: 22,
       borderRadius: 6,
       borderWidth: 1.5,
-      borderColor: "rgba(244,240,230,0.28)",
+      borderColor: alpha(colors.legacyText, 0.28),
       alignItems: "center",
       justifyContent: "center",
     },
     boxOn: { backgroundColor: "#D6E27A", borderColor: "#D6E27A" },
-    tick: { color: "#16140F", fontSize: 13, fontWeight: "800" },
+    tick: { color: colors.legacyInk, fontSize: 13, fontWeight: "800" },
   });
 }

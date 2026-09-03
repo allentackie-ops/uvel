@@ -116,7 +116,7 @@ export default function TryOn() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style="light" />
+      <StatusBar style={colors.ink === "#FFFFFF" ? "dark" : "light"} />
       <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
         <Pressable onPress={() => router.back()} hitSlop={16} style={styles.back}>
           <Text style={styles.backTxt}>‹</Text>
@@ -220,7 +220,7 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     ctaOff: { backgroundColor: colors.surface },
-    ctaTxt: { color: "#16140F", fontWeight: "700", fontSize: 16 },
+    ctaTxt: { color: colors.legacyInk, fontWeight: "700", fontSize: 16 },
     ctaTxtOff: { color: colors.muted },
     err: { color: "#C45C5C", marginTop: 14, fontSize: 14, lineHeight: 20 },
     spin: {
@@ -230,7 +230,7 @@ function make(colors: Colors) {
       justifyContent: "center",
       gap: 8,
     },
-    spinTxt: { color: "#F4F0E6", letterSpacing: 1.2, textTransform: "uppercase", fontSize: 12 },
+    spinTxt: { color: colors.legacyText, letterSpacing: 1.2, textTransform: "uppercase", fontSize: 12 },
     need: {
       ...StyleSheet.absoluteFill,
       backgroundColor: "rgba(18,17,14,0.72)",
@@ -239,7 +239,7 @@ function make(colors: Colors) {
       padding: 24,
       gap: 8,
     },
-    needH: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 24 },
+    needH: { color: colors.legacyText, fontFamily: "Georgia", fontSize: 24 },
     needP: { color: "rgba(244,240,230,0.7)", textAlign: "center", marginBottom: 8 },
     needRow: { flexDirection: "row", gap: 10, marginTop: 8 },
     needBtn: {
@@ -250,6 +250,6 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "center",
     },
-    needBtnTxt: { color: "#16140F", fontWeight: "700" },
+    needBtnTxt: { color: colors.legacyInk, fontWeight: "700" },
   });
 }

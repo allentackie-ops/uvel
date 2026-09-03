@@ -37,7 +37,7 @@ export default function StorePicker() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style="light" />
+      <StatusBar style={colors.ink === "#FFFFFF" ? "dark" : "light"} />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>
           <Text style={styles.navBack}>‹</Text>

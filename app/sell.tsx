@@ -31,7 +31,7 @@ import { SHOP_LOOKS } from "../lib/shopLook";
 import { takePendingListingSelection } from "../lib/listingOptions";
 import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
-import { palettes, type Colors } from "../lib/theme";
+import { useColors } from "../lib/theme";
 import { addPiece, getPiece, listPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
 
 const MAX = 5;
@@ -44,11 +44,6 @@ const STAGES = [
   "Looking for anything that shouldn’t be here…",
 ];
 
-const SELL_COLORS: Colors = {
-  ...palettes.dark,
-  ink: "#0B0A08",
-  surface: "#161512",
-};
 
 type Slot = {
   uri: string;
@@ -63,7 +58,7 @@ type Gate =
   | { phase: "pass" };
 
 export default function Sell({ embedded = false }: { embedded?: boolean }) {
-  const colors = SELL_COLORS;
+  const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { id, fits, draft: draftParam } = useLocalSearchParams<{ id?: string; fits?: string; draft?: string }>();
@@ -474,7 +469,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 {p.status === "unverified" ? <View style={styles.unverifiedDot} /> : null}
                 {p.status === "checking" ? (
                   <View style={styles.photoCheck}>
-                    <ActivityIndicator color="#16140F" />
+                    <ActivityIndicator color={colors.legacyInk} />
                   </View>
                 ) : null}
                 <AccessiblePressable                  onPress={() => removePhoto(p.uri)}
@@ -938,7 +933,7 @@ function make(colors: Colors) {
     },
     chipOn: { backgroundColor: "#D6E27A", borderColor: "#D6E27A" },
     chipTxt: { color: colors.muted, fontSize: 13 },
-    chipTxtOn: { color: "#16140F", fontWeight: "600" },
+    chipTxtOn: { color: colors.legacyInk, fontWeight: "600" },
     row: { flexDirection: "row", gap: 10 },
     lookHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginTop: 8 },
     plusTag: { color: "#D6E27A", fontSize: 12, fontWeight: "700", letterSpacing: 0.6 },
@@ -973,7 +968,7 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     ctaOff: { backgroundColor: colors.surface },
-    ctaTxt: { color: "#16140F", fontSize: 16, fontWeight: "600" },
+    ctaTxt: { color: colors.legacyInk, fontSize: 16, fontWeight: "600" },
     ctaTxtOff: { color: colors.muted },
     gate: {
       ...StyleSheet.absoluteFill,
@@ -985,7 +980,7 @@ function make(colors: Colors) {
     },
     gateImg: { width: 120, height: 160, borderRadius: 16, marginBottom: 16, opacity: 0.9 },
     gateH: {
-      color: "#F4F0E6",
+      color: colors.legacyText,
       fontFamily: "Georgia",
       fontSize: 28,
       textAlign: "center",
