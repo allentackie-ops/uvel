@@ -32,7 +32,7 @@ jobs:
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
-          token: ${{ secrets.Ota_publish }}
+          token: ${{ secrets.EXPO_TOKEN }}
           packager: npm
 
       - name: Run EAS build
