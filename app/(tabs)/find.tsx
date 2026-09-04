@@ -173,7 +173,6 @@ export default function Mirror() {
       <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
         <View style={{ flex: 1 }}>
           <Text style={styles.kicker}>ON YOU</Text>
-          <Text style={styles.head}>See it on you.</Text>
         </View>
       </View>
 
