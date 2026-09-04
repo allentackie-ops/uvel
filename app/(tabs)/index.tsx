@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
+import { Glass } from "../../components/Glass";
 import { ListingCard, ListingEmpty } from "../../components/ListingCard";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { TodaySkeleton } from "../../components/ScreenSkeletons";
@@ -547,16 +548,19 @@ function Hero({
             <Text style={styles.ctaTxt}>{busy ? C.searching : C.shopTheLook}</Text>
           </AccessiblePressable>
           {look.postUrl ? (
-            <AccessiblePressable              onPress={() => {
-                onSource?.();
-                void Linking.openURL(look.postUrl!);
-              }}
-              style={({ pressed }) => [styles.ghost, pressed && { opacity: 0.92 }]}
-              accessibilityRole="link"
-              accessibilityLabel={`See this look on ${seen}`}
-            >
-              <Text style={styles.ghostTxt}>See on {seen}</Text>
-            </AccessiblePressable>
+            <Glass style={styles.instagramGlass} effect="clear" interactive>
+              <AccessiblePressable
+                onPress={() => {
+                  onSource?.();
+                  void Linking.openURL(look.postUrl!);
+                }}
+                style={({ pressed }) => [styles.instagramPress, pressed && { opacity: 0.92 }]}
+                accessibilityRole="link"
+                accessibilityLabel={`See this look on ${seen}`}
+              >
+                <Text style={styles.ghostTxt}>See on {seen}</Text>
+              </AccessiblePressable>
+            </Glass>
           ) : null}
         </View>
         <View style={styles.srcRow}>
@@ -817,6 +821,19 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "center",
     },
+    instagramGlass: {
+      flex: 1,
+      height: 46,
+      borderRadius: 23,
+      overflow: "hidden",
+      borderWidth: darkMode ? 1 : 0,
+      borderColor: darkMode ? `${colors.bone}A6` : "transparent",
+    },
+    instagramPress: {
+      flex: 1,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     ghostTxt: { color: colors.bone, fontWeight: "600", fontSize: 15 },
     todayIntro: { paddingHorizontal: 20, paddingTop: 30, paddingBottom: 18 },
     todayEyebrow: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.8 },
@@ -920,11 +937,11 @@ function make(colors: Colors) {
       width: 46,
       height: 46,
       borderRadius: 23,
-      backgroundColor: `${colors.surface}F5`,
+      backgroundColor: darkMode ? colors.bone : `${colors.surface}F5`,
       alignItems: "center",
       justifyContent: "center",
     },
-    searchFabTxt: { color: colors.successInk, fontSize: 22, fontWeight: "700", marginTop: -1 },
+    searchFabTxt: { color: darkMode ? colors.ink : colors.successInk, fontSize: 22, fontWeight: "700", marginTop: -1 },
     cardSrc: { color: colors.bone, fontSize: 11, fontWeight: "700" },
     cardTitle: { color: colors.bone, fontSize: 14, marginTop: 8, lineHeight: 18, fontWeight: "500" },
     todayLive: { color: colors.successInk, backgroundColor: colors.success, borderRadius: 11, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "800", letterSpacing: 1 },
