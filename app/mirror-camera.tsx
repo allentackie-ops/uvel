@@ -1,4 +1,5 @@
 import { CameraView, useCameraPermissions, type CameraType } from "expo-camera";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS, useSharedValue } from "react-native-reanimated";
@@ -12,6 +13,7 @@ const BG = "#0B0A08";
 const INK = "#F4F0E6";
 const MUTED = "rgba(244,240,230,0.68)";
 const ACCENT = "#D6E27A";
+const DIAL_WIDTH = 240;
 
 export default function MirrorCamera() {
   const insets = useSafeAreaInsets();
@@ -29,12 +31,20 @@ export default function MirrorCamera() {
     setZoom(Math.max(0, Math.min(1, value)));
   }
 
+  function setDialZoom(position: number) {
+    setCameraZoom(Math.max(0, Math.min(0.5, position / DIAL_WIDTH * 0.5)));
+  }
+
   const pinch = Gesture.Pinch()
     .onBegin(() => {
       zoomStart.value = zoom;
     })
     .onUpdate((event) => {
       runOnJS(setCameraZoom)(zoomStart.value + (event.scale - 1) * 0.5);
+    });
+  const dialSwipe = Gesture.Pan()
+    .onUpdate((event) => {
+      runOnJS(setDialZoom)(event.x);
     });
 
   async function capture() {
@@ -122,25 +132,12 @@ export default function MirrorCamera() {
             accessibilityRole="button"
             accessibilityLabel={flash === "on" ? "Turn flash off" : "Turn flash on"}
           >
-            <Text style={[styles.flashText, flash === "on" && styles.flashTextOn]}>ϟ</Text>
+            <Ionicons name={flash === "on" ? "flash" : "flash-outline"} size={20} color={flash === "on" ? BG : INK} />
           </Pressable>
           <Pressable onPress={() => setFacing((current) => current === "front" ? "back" : "front")} hitSlop={12}>
             <Text style={styles.flip}>↻</Text>
           </Pressable>
         </View>
-      </View>
-      <View style={styles.zoomControls}>
-        {[{ label: "1×", value: 0 }, { label: "2×", value: 0.5 }].map((option) => (
-          <Pressable
-            key={option.label}
-            onPress={() => setCameraZoom(option.value)}
-            style={({ pressed }) => [styles.zoomButton, zoom === option.value && styles.zoomButtonOn, pressed && { opacity: 0.75 }]}
-            accessibilityRole="button"
-            accessibilityLabel={`Set zoom to ${option.label}`}
-          >
-            <Text style={[styles.zoomText, zoom === option.value && styles.zoomTextOn]}>{option.label}</Text>
-          </Pressable>
-        ))}
       </View>
       <View pointerEvents="none" style={styles.guideWrap}>
         <Text style={styles.guideTitle}>Stand where we can see the whole look</Text>
@@ -152,7 +149,30 @@ export default function MirrorCamera() {
         </View>
       </View>
       <View style={[styles.cameraBottom, { paddingBottom: insets.bottom + 22 }]}>
-        <Text style={styles.bottomHint}>Portrait · head to shoes · pinch to zoom</Text>
+        <Text style={styles.bottomHint}>Portrait · head to shoes · pinch or swipe to zoom</Text>
+        <GestureDetector gesture={dialSwipe}>
+          <View style={styles.zoomDial}>
+            <View style={styles.zoomArc} />
+            {[{ label: "0.5×", value: 0, position: "left" }, { label: "1×", value: 0.25, position: "middle" }, { label: "2×", value: 0.5, position: "right" }].map((option) => (
+              <Pressable
+                key={option.label}
+                onPress={() => setCameraZoom(option.value)}
+                style={({ pressed }) => [
+                  styles.zoomStop,
+                  option.position === "left" && styles.zoomStopLeft,
+                  option.position === "middle" && styles.zoomStopMiddle,
+                  option.position === "right" && styles.zoomStopRight,
+                  Math.abs(zoom - option.value) < 0.03 && styles.zoomStopOn,
+                  pressed && { opacity: 0.75 },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Set zoom to ${option.label}`}
+              >
+                <Text style={[styles.zoomText, Math.abs(zoom - option.value) < 0.03 && styles.zoomTextOn]}>{option.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </GestureDetector>
         <Pressable accessibilityRole="button" accessibilityLabel="Take full-length photo" onPress={() => void capture()} style={styles.shutterOuter}>
           <View style={styles.shutterInner}>{busy ? <ActivityIndicator color={BG} /> : null}</View>
         </Pressable>
@@ -180,12 +200,15 @@ const styles = StyleSheet.create({
   flip: { color: INK, fontSize: 32, lineHeight: 32 },
   flashButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(11,10,8,0.42)", alignItems: "center", justifyContent: "center" },
   flashButtonOn: { backgroundColor: ACCENT },
-  flashText: { color: INK, fontSize: 22, lineHeight: 24, fontWeight: "800" },
-  flashTextOn: { color: BG },
+  flashText: { color: INK },
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.18)" },
-  zoomControls: { position: "absolute", top: 278, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 8 },
-  zoomButton: { minWidth: 48, height: 34, borderRadius: 17, backgroundColor: "rgba(11,10,8,0.58)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(244,240,230,0.28)" },
-  zoomButtonOn: { backgroundColor: ACCENT, borderColor: ACCENT },
+  zoomDial: { width: DIAL_WIDTH, height: 76, marginBottom: 4, position: "relative", alignItems: "center" },
+  zoomArc: { position: "absolute", top: 18, left: 8, width: DIAL_WIDTH - 16, height: 54, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: "rgba(244,240,230,0.38)", borderTopLeftRadius: 120, borderTopRightRadius: 120 },
+  zoomStop: { position: "absolute", top: 28, minWidth: 52, height: 32, paddingHorizontal: 10, borderRadius: 16, backgroundColor: "rgba(11,10,8,0.62)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(244,240,230,0.28)" },
+  zoomStopLeft: { left: 0, top: 40 },
+  zoomStopMiddle: { left: (DIAL_WIDTH - 52) / 2, top: 20 },
+  zoomStopRight: { right: 0, top: 40 },
+  zoomStopOn: { backgroundColor: ACCENT, borderColor: ACCENT },
   zoomText: { color: INK, fontSize: 13, fontWeight: "800" },
   zoomTextOn: { color: BG },
   guideWrap: { flex: 1, alignItems: "center", paddingTop: 132 },

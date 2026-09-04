@@ -162,7 +162,11 @@ export default function Mirror() {
 
   return (
     <View style={styles.page}>
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 108 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: insets.bottom + 152, flexGrow: 1 }}
+        showsVerticalScrollIndicator={false}
+        nestedScrollEnabled
+      >
         <View style={[styles.hero, !person && styles.heroNeed]}>
           {result ? (
             <Image source={{ uri: result }} style={styles.fill} contentFit="contain" />
