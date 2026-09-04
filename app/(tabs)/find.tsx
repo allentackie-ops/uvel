@@ -162,13 +162,6 @@ export default function Mirror() {
 
   return (
     <View style={styles.page}>
-      <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.kicker}>ON YOU</Text>
-          <Text style={styles.head}>See it on you.</Text>
-        </View>
-      </View>
-
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 108 }} showsVerticalScrollIndicator={false}>
         <View style={[styles.hero, !person && styles.heroNeed]}>
           {result ? (
@@ -328,15 +321,6 @@ function make(colors: Colors) {
     sourceCopy: { color: `${colors.bone}94`, fontSize: 13, lineHeight: 19, marginTop: 4 },
     step: { color: `${colors.bone}6B`, fontSize: 11, fontWeight: "800" },
 
-    top: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-      justifyContent: "space-between",
-      paddingHorizontal: 20,
-      paddingBottom: 4,
-    },
-    kicker: { color: `${colors.bone}6B`, letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
-    head: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, marginTop: 4, lineHeight: 38 },
     search: {
       width: 40,
       height: 40,

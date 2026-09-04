@@ -872,13 +872,14 @@ function make(colors: Colors) {
     warnCta: { color: colors.bone, fontWeight: "700", textDecorationLine: "underline", marginTop: 6 },
     sheet: { paddingHorizontal: 20, paddingTop: 8 },
     priceLabel: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 12, marginBottom: 6 },
-    priceRow: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 10 },
+    priceRow: { minHeight: 48, flexDirection: "row", alignItems: "baseline", gap: 4, borderRadius: 10 },
     feeNote: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 10 },
     dollar: {
       color: colors.bone,
       fontWeight: "700",
       fontSize: 34,
       lineHeight: 40,
+      height: 40,
       includeFontPadding: false,
     },
     price: {
@@ -887,7 +888,6 @@ function make(colors: Colors) {
       fontWeight: "700",
       fontSize: 34,
       lineHeight: 40,
-      height: 40,
       padding: 0,
       includeFontPadding: false,
     },

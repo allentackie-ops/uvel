@@ -1,5 +1,7 @@
 import { CameraView, useCameraPermissions, type CameraType } from "expo-camera";
 import { router } from "expo-router";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { runOnJS, useSharedValue } from "react-native-reanimated";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,6 +21,21 @@ export default function MirrorCamera() {
   const [facing, setFacing] = useState<CameraType>("front");
   const [photo, setPhoto] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [zoom, setZoom] = useState(0);
+  const [flash, setFlash] = useState<"off" | "on">("off");
+  const zoomStart = useSharedValue(0);
+
+  function setCameraZoom(value: number) {
+    setZoom(Math.max(0, Math.min(1, value)));
+  }
+
+  const pinch = Gesture.Pinch()
+    .onBegin(() => {
+      zoomStart.value = zoom;
+    })
+    .onUpdate((event) => {
+      runOnJS(setCameraZoom)(zoomStart.value + (event.scale - 1) * 0.5);
+    });
 
   async function capture() {
     if (!cameraRef.current || busy) return;
@@ -88,7 +105,9 @@ export default function MirrorCamera() {
 
   return (
     <View style={styles.screen}>
-      <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} mode="picture" />
+      <GestureDetector gesture={pinch}>
+        <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} mode="picture" zoom={zoom} flash={flash} />
+      </GestureDetector>
       <View pointerEvents="none" style={styles.scrim} />
       <View style={[styles.cameraTop, { paddingTop: insets.top + 10 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12}><Text style={styles.close}>×</Text></Pressable>
@@ -96,9 +115,32 @@ export default function MirrorCamera() {
           <Text style={styles.kicker}>ON YOU</Text>
           <Text style={styles.title}>Full-length photo</Text>
         </View>
-        <Pressable onPress={() => setFacing((current) => current === "front" ? "back" : "front")} hitSlop={12}>
-          <Text style={styles.flip}>↻</Text>
-        </Pressable>
+        <View style={styles.topActions}>
+          <Pressable
+            onPress={() => setFlash((current) => current === "on" ? "off" : "on")}
+            style={({ pressed }) => [styles.flashButton, flash === "on" && styles.flashButtonOn, pressed && { opacity: 0.75 }]}
+            accessibilityRole="button"
+            accessibilityLabel={flash === "on" ? "Turn flash off" : "Turn flash on"}
+          >
+            <Text style={[styles.flashText, flash === "on" && styles.flashTextOn]}>ϟ</Text>
+          </Pressable>
+          <Pressable onPress={() => setFacing((current) => current === "front" ? "back" : "front")} hitSlop={12}>
+            <Text style={styles.flip}>↻</Text>
+          </Pressable>
+        </View>
+      </View>
+      <View style={styles.zoomControls}>
+        {[{ label: "1×", value: 0 }, { label: "2×", value: 0.5 }].map((option) => (
+          <Pressable
+            key={option.label}
+            onPress={() => setCameraZoom(option.value)}
+            style={({ pressed }) => [styles.zoomButton, zoom === option.value && styles.zoomButtonOn, pressed && { opacity: 0.75 }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Set zoom to ${option.label}`}
+          >
+            <Text style={[styles.zoomText, zoom === option.value && styles.zoomTextOn]}>{option.label}</Text>
+          </Pressable>
+        ))}
       </View>
       <View pointerEvents="none" style={styles.guideWrap}>
         <Text style={styles.guideTitle}>Stand where we can see the whole look</Text>
@@ -110,7 +152,7 @@ export default function MirrorCamera() {
         </View>
       </View>
       <View style={[styles.cameraBottom, { paddingBottom: insets.bottom + 22 }]}>
-        <Text style={styles.bottomHint}>Portrait · head to shoes</Text>
+        <Text style={styles.bottomHint}>Portrait · head to shoes · pinch to zoom</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Take full-length photo" onPress={() => void capture()} style={styles.shutterOuter}>
           <View style={styles.shutterInner}>{busy ? <ActivityIndicator color={BG} /> : null}</View>
         </Pressable>
@@ -133,9 +175,19 @@ const styles = StyleSheet.create({
   cancelText: { color: MUTED, fontWeight: "700", fontSize: 14 },
   cameraTop: { position: "absolute", top: 0, left: 0, right: 0, paddingHorizontal: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   topCopy: { alignItems: "center" },
+  topActions: { alignItems: "center", gap: 12 },
   close: { color: INK, fontSize: 36, lineHeight: 34, fontWeight: "300" },
   flip: { color: INK, fontSize: 32, lineHeight: 32 },
+  flashButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(11,10,8,0.42)", alignItems: "center", justifyContent: "center" },
+  flashButtonOn: { backgroundColor: ACCENT },
+  flashText: { color: INK, fontSize: 22, lineHeight: 24, fontWeight: "800" },
+  flashTextOn: { color: BG },
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.18)" },
+  zoomControls: { position: "absolute", top: 278, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 8 },
+  zoomButton: { minWidth: 48, height: 34, borderRadius: 17, backgroundColor: "rgba(11,10,8,0.58)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(244,240,230,0.28)" },
+  zoomButtonOn: { backgroundColor: ACCENT, borderColor: ACCENT },
+  zoomText: { color: INK, fontSize: 13, fontWeight: "800" },
+  zoomTextOn: { color: BG },
   guideWrap: { flex: 1, alignItems: "center", paddingTop: 132 },
   guideTitle: { color: INK, fontSize: 17, fontWeight: "800", textAlign: "center" },
   guideCopy: { color: MUTED, fontSize: 13, marginTop: 6, textAlign: "center" },

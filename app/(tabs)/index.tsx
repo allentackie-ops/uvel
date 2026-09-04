@@ -563,12 +563,11 @@ function Hero({
             </Glass>
           ) : null}
         </View>
-        <View style={styles.srcRow}>
-          <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
-          <Text style={styles.src}>
-            {look.handle ? `${look.source}  ·  ${look.handle}` : look.source}
-          </Text>
-        </View>
+        {look.handle ? (
+          <View style={styles.srcRow}>
+            <Text style={styles.src}>{look.handle}</Text>
+          </View>
+        ) : null}
         {look.aiGenerated ? <AiGeneratedPill colors={colors} /> : null}
         <Text style={styles.title}>{look.title}</Text>
         {tag ? <Text style={styles.hash}>{tag}</Text> : null}
@@ -663,10 +662,23 @@ function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop
     <View style={styles.card}>
       <View style={styles.cardFrame}>
         <LookMedia look={look} style={styles.cardFill} handleRef={grab} />
-        <View style={styles.cardSrcPill}>
-          <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
-          <Text style={styles.cardSrc}>{look.source}</Text>
-        </View>
+        {look.postUrl ? (
+          <AccessiblePressable
+            onPress={() => void Linking.openURL(look.postUrl!)}
+            style={({ pressed }) => [styles.cardSrcPill, pressed && { opacity: 0.82 }]}
+            accessibilityRole="link"
+            accessibilityLabel={`Open this ${look.source} video`}
+            accessibilityHint="Double tap to open the original video."
+          >
+            <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
+            <Text style={styles.cardSrc}>{look.source}</Text>
+          </AccessiblePressable>
+        ) : (
+          <View style={styles.cardSrcPill}>
+            <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
+            <Text style={styles.cardSrc}>{look.source}</Text>
+          </View>
+        )}
         {look.aiGenerated ? (
           <View style={styles.cardAiWrap}>
             <AiGeneratedPill colors={colors} compact />
