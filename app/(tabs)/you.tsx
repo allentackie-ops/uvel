@@ -25,6 +25,7 @@ import { useColors, type Colors } from "../../lib/theme";
 import { semanticStatus, statusToneFor } from "../../lib/status";
 import { getPiece, likesOnMine, stampMine, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { draftProgress, useListingDraft, type ListingDraft } from "../../lib/listingDraft";
+import { savedLookImage, useSavedLooks } from "../../lib/savedLooks";
 
 const W = Dimensions.get("window").width;
 const COL = (W - 52) / 2;
@@ -50,6 +51,7 @@ function orderStatusLabel(order: Order) {
 
 export default function You() {
   const app = useUvel();
+  const savedLooks = useSavedLooks();
   const C = useCopy();
   const colors = useColors();
   const styles = make(colors);
@@ -247,6 +249,26 @@ export default function You() {
           garments={likedGarments}
           styles={styles}
         />
+      )}
+
+      <Text style={[styles.sectionLabel, { marginTop: 30 }]}>SAVED LOOKS ({savedLooks.length})</Text>
+      {savedLooks.length ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedStrip}>
+          {savedLooks.map((look) => (
+            <Pressable key={look.id} onPress={() => router.push("/")} style={styles.savedCard} accessibilityRole="button" accessibilityLabel={`Open saved look ${look.title}`}>
+              {savedLookImage(look) ? <Image source={savedLookImage(look)} style={styles.savedImage} contentFit="cover" /> : <View style={styles.savedImageFallback}><Text style={styles.savedImageFallbackTxt}>UVEL</Text></View>}
+              <View style={styles.savedMeta}>
+                <Text style={styles.savedTitle} numberOfLines={2}>{look.title}</Text>
+                <Text style={styles.savedSource}>{look.source} · saved</Text>
+              </View>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : (
+        <View style={styles.savedEmpty}>
+          <Text style={styles.savedEmptyTitle}>Your saved looks will live here.</Text>
+          <Text style={styles.savedEmptyBody}>Tap the bookmark on any Today look to keep its poster and details, even if the original video disappears.</Text>
+        </View>
       )}
 
       <Text style={[styles.sectionLabel, { marginTop: 30 }]}>TOOLS & PREFERENCES</Text>
@@ -657,6 +679,17 @@ function make(colors: Colors) {
     inviteNoTxt: { color: colors.bone, fontWeight: "700", fontSize: 13 },
     brandArea: { marginBottom: 8 },
     sectionLabel: { color: `${colors.bone}6B`, letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 22, marginBottom: 9 },
+    savedStrip: { gap: 10, paddingBottom: 2 },
+    savedCard: { width: 154, borderRadius: 16, overflow: "hidden", backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}14` },
+    savedImage: { width: 154, height: 190, backgroundColor: colors.surface },
+    savedImageFallback: { width: 154, height: 190, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
+    savedImageFallbackTxt: { color: `${colors.bone}6B`, fontSize: 11, fontWeight: "800", letterSpacing: 2 },
+    savedMeta: { padding: 10 },
+    savedTitle: { color: colors.bone, fontSize: 13, lineHeight: 17, fontWeight: "700" },
+    savedSource: { color: `${colors.bone}73`, fontSize: 11, marginTop: 5 },
+    savedEmpty: { padding: 16, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}14` },
+    savedEmptyTitle: { color: colors.bone, fontSize: 15, fontWeight: "700" },
+    savedEmptyBody: { color: `${colors.bone}80`, fontSize: 13, lineHeight: 19, marginTop: 5 },
     brandAreaLabel: { color: `${colors.bone}6B`, letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 10, marginBottom: 9 },
     brandCard: {
       marginTop: 16,

@@ -1,10 +1,12 @@
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import {
   Alert,
+  Animated,
   AppState,
   Dimensions,
   Linking,
@@ -36,6 +38,7 @@ import { useCopy } from "../../lib/useCopy";
 import { useFeedPersonalization } from "../../lib/feedPersonalization";
 import { useColors, type Colors } from "../../lib/theme";
 import { lookImage, useLooks, type Look, type Source } from "../../lib/trends";
+import { toggleSavedLook, useSavedLooks } from "../../lib/savedLooks";
 import { getPiece, likeCount, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
 
 const { width: W, height: H } = Dimensions.get("screen");
@@ -59,6 +62,15 @@ const DOT: Record<Exclude<Source, "All">, string> = {
   X: "#F4F0E6",
 };
 
+const videoStyles = StyleSheet.create({
+  videoLoading: { ...StyleSheet.absoluteFillObject, overflow: "hidden", backgroundColor: "rgba(244,240,230,0.08)" },
+  videoShimmer: { position: "absolute", top: 0, bottom: 0, width: 120, backgroundColor: "rgba(244,240,230,0.12)", transform: [{ skewX: "-18deg" }] },
+  videoError: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(11,10,8,0.5)", gap: 10 },
+  videoErrorText: { color: "#F4F0E6", fontSize: 13, fontWeight: "700" },
+  videoRetry: { minWidth: 72, height: 34, paddingHorizontal: 14, borderRadius: 17, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center" },
+  videoRetryText: { color: "#0B0A08", fontSize: 12, fontWeight: "800" },
+});
+
 type FrameGrab = {
   freeze: () => number;
   frame: () => Promise<string | null>;
@@ -81,8 +93,10 @@ function MutedLoop({
   const held = useRef(false);
   const lastTime = useRef(0);
   const frozenAt = useRef(0);
+  const shimmer = useRef(new Animated.Value(0)).current;
   const src = playableLookVideo(uri);
   const [on, setOn] = useState(false);
+  const [failed, setFailed] = useState(false);
   const player = useVideoPlayer({ uri: src }, (p) => {
     p.loop = true;
     p.muted = true;
@@ -99,6 +113,7 @@ function MutedLoop({
 
   useEffect(() => {
     setOn(false);
+    setFailed(false);
     onWait?.(true);
     player.timeUpdateEventInterval = 0.03;
     prefetchLookVideo(uri);
@@ -110,6 +125,7 @@ function MutedLoop({
       } else if (status === "loading") {
         onWait?.(true);
       } else if (status === "error") {
+        setFailed(true);
         onWait?.(false);
       }
     });
@@ -133,6 +149,26 @@ function MutedLoop({
       app.remove();
     };
   }, [player, uri, playIfFree, onWait]);
+
+  useEffect(() => {
+    if (on || failed) return;
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(shimmer, { toValue: 0, duration: 0, useNativeDriver: true }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [failed, on, shimmer]);
+
+  function retry() {
+    setFailed(false);
+    setOn(false);
+    onWait?.(true);
+    player.replace({ uri: src });
+    playIfFree();
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -173,6 +209,19 @@ function MutedLoop({
       />
       {cover && !on ? (
         <Image source={{ uri: cover }} style={StyleSheet.absoluteFill} contentFit="cover" />
+      ) : null}
+      {!on && !failed ? (
+        <View pointerEvents="none" style={videoStyles.videoLoading}>
+          <Animated.View style={[videoStyles.videoShimmer, { transform: [{ translateX: shimmer.interpolate({ inputRange: [0, 1], outputRange: [-220, 220] }) }] }]} />
+        </View>
+      ) : null}
+      {failed ? (
+        <View style={videoStyles.videoError}>
+          <Text style={videoStyles.videoErrorText}>Video unavailable</Text>
+          <AccessiblePressable onPress={retry} style={({ pressed }) => [videoStyles.videoRetry, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel="Retry video">
+            <Text style={videoStyles.videoRetryText}>Retry</Text>
+          </AccessiblePressable>
+        </View>
       ) : null}
     </View>
   );
@@ -219,6 +268,18 @@ function where(url?: string): Exclude<Source, "All"> | null {
   if (u.includes("snapchat.com")) return "Snapchat";
   if (u.includes("x.com") || u.includes("twitter.com")) return "X";
   return null;
+}
+
+async function openOriginalPost(url: string | undefined, source: string) {
+  if (!url) {
+    Alert.alert("Original post unavailable", `The ${source} post is no longer available to open.`);
+    return;
+  }
+  try {
+    await Linking.openURL(url);
+  } catch {
+    Alert.alert("Couldn’t open original post", `The ${source} link is unavailable right now. Try again later.`);
+  }
 }
 
 function showAiExplanation() {
@@ -275,6 +336,8 @@ export default function Today() {
   const { uid, styles: taste, country } = useUvel();
   const C = useCopy();
   const { rank: rankForUser, track: trackFeed } = useFeedPersonalization(uid || "guest", country);
+  const savedLooks = useSavedLooks();
+  const savedIds = useMemo(() => new Set(savedLooks.map((look) => look.id)), [savedLooks]);
   const brandState = useBrands();
   const chats = useInbox(uid || "me");
   const unread = chats.reduce((n, t) => n + unreadFor(t, uid || "me"), 0);
@@ -374,9 +437,11 @@ export default function Today() {
               onBusy={setShopWait}
               onShop={() => trackFeed(featured, "shop")}
               onSource={() => trackFeed(featured, "source")}
+              saved={savedIds.has(featured.id)}
+              onToggleSaved={() => { void toggleSavedLook(featured); trackFeed(featured, "save"); }}
             />
           ) : (
-            <TodayEmptyHero mode={todayMode} height={heroH} colors={colors} />
+            <TodayEmptyHero mode={todayMode} height={heroH} colors={colors} onRetry={todayMode === "forYou" ? () => void refresh() : undefined} />
           )
         ) : modeListings[0] ? (
           <ListingHero piece={modeListings[0]} mode={todayMode} height={heroH} colors={colors} />
@@ -401,7 +466,7 @@ export default function Today() {
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
                 {personalizedLooks.map((look) => (
-                  <LookCard key={look.id} look={look} colors={colors} onShop={() => trackFeed(look, "shop")} />
+                  <LookCard key={look.id} look={look} colors={colors} onShop={() => trackFeed(look, "shop")} onMoreLike={() => trackFeed(look, "like")} onNotInterested={() => trackFeed(look, "skip")} saved={savedIds.has(look.id)} onToggleSaved={() => { void toggleSavedLook(look); trackFeed(look, "save"); }} />
                 ))}
               </ScrollView>
               {todayCampaignRows.length ? (
@@ -506,6 +571,8 @@ function Hero({
   onBusy,
   onShop,
   onSource,
+  saved,
+  onToggleSaved,
 }: {
   look: Look;
   colors: Colors;
@@ -514,6 +581,8 @@ function Hero({
   onBusy?: (v: boolean) => void;
   onShop?: () => void;
   onSource?: () => void;
+  saved: boolean;
+  onToggleSaved: () => void;
 }) {
   const styles = make(colors);
   const C = useCopy();
@@ -552,16 +621,27 @@ function Hero({
               <AccessiblePressable
                 onPress={() => {
                   onSource?.();
-                  void Linking.openURL(look.postUrl!);
+                  void openOriginalPost(look.postUrl, seen);
                 }}
                 style={({ pressed }) => [styles.instagramPress, pressed && { opacity: 0.92 }]}
                 accessibilityRole="link"
                 accessibilityLabel={`See this look on ${seen}`}
               >
-                <Text style={styles.ghostTxt}>See on {seen}</Text>
+                <View style={styles.externalLinkContent}>
+                  <Text style={styles.ghostTxt}>See on {seen}</Text>
+                  <Ionicons name="open-outline" size={15} color={colors.bone} />
+                </View>
               </AccessiblePressable>
             </Glass>
-          ) : null}
+          ) : (
+            <View style={styles.unavailableLink} accessibilityLabel={`Original ${seen} post unavailable`}>
+              <Ionicons name="link-outline" size={14} color={`${colors.bone}8C`} />
+              <Text style={styles.unavailableLinkTxt}>Original unavailable</Text>
+            </View>
+          )}
+          <AccessiblePressable onPress={onToggleSaved} style={({ pressed }) => [styles.saveLookButton, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel={saved ? "Remove look from saved looks" : "Save look"} accessibilityState={{ selected: saved }}>
+            <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={18} color={colors.bone} />
+          </AccessiblePressable>
         </View>
         {look.handle ? (
           <View style={styles.srcRow}>
@@ -622,7 +702,7 @@ function ListingHero({
     </View>
   );
 }
-function TodayEmptyHero({ mode, colors, height }: { mode: TodayMode; colors: Colors; height: number }) {
+function TodayEmptyHero({ mode, colors, height, onRetry }: { mode: TodayMode; colors: Colors; height: number; onRetry?: () => void }) {
   const styles = make(colors);
   const C = useCopy();
   const browse = mode === "following" || mode === "nearby";
@@ -634,18 +714,18 @@ function TodayEmptyHero({ mode, colors, height }: { mode: TodayMode; colors: Col
         <Text style={styles.todayEyebrow}>{mode === "forYou" ? C.todayEmptyKicker : mode === "following" ? C.following : C.nearby}</Text>
         <Text style={styles.emptyHeroTitle}>{title}</Text>
         <AccessiblePressable
-          onPress={() => router.push(browse ? "/(tabs)/shop" : "/style-dna")}
+          onPress={onRetry || (() => router.push(browse ? "/(tabs)/shop" : "/style-dna"))}
           style={({ pressed }) => [styles.emptyHeroCta, pressed && { opacity: 0.92 }]}
           accessibilityRole="button"
-          accessibilityLabel={browse ? C.shop : C.todayEmptyAction}
+          accessibilityLabel={onRetry ? "Retry loading Today" : browse ? C.shop : C.todayEmptyAction}
         >
-          <Text style={styles.ctaTxt}>{browse ? C.shop : C.todayEmptyAction}</Text>
+          <Text style={styles.ctaTxt}>{onRetry ? "Retry" : browse ? C.shop : C.todayEmptyAction}</Text>
         </AccessiblePressable>
       </View>
     </View>
   );
 }
-function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop?: () => void }) {
+function LookCard({ look, colors, onShop, onMoreLike, onNotInterested, saved, onToggleSaved }: { look: Look; colors: Colors; onShop?: () => void; onMoreLike: () => void; onNotInterested: () => void; saved: boolean; onToggleSaved: () => void }) {
   const styles = make(colors);
   const grab = useRef<FrameGrab | null>(null);
   const [busy, setBusy] = useState(false);
@@ -662,9 +742,12 @@ function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop
     <View style={styles.card}>
       <View style={styles.cardFrame}>
         <LookMedia look={look} style={styles.cardFill} handleRef={grab} />
+        <AccessiblePressable onPress={onToggleSaved} style={({ pressed }) => [styles.cardSaveButton, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel={saved ? "Remove look from saved looks" : "Save look"} accessibilityState={{ selected: saved }}>
+          <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={16} color={colors.bone} />
+        </AccessiblePressable>
         {look.postUrl ? (
           <AccessiblePressable
-            onPress={() => void Linking.openURL(look.postUrl!)}
+            onPress={() => void openOriginalPost(look.postUrl, look.source)}
             style={({ pressed }) => [styles.cardSrcPill, pressed && { opacity: 0.82 }]}
             accessibilityRole="link"
             accessibilityLabel={`Open this ${look.source} video`}
@@ -672,11 +755,12 @@ function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop
           >
             <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
             <Text style={styles.cardSrc}>{look.source}</Text>
+            <Ionicons name="open-outline" size={13} color={colors.bone} />
           </AccessiblePressable>
         ) : (
           <View style={styles.cardSrcPill}>
             <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
-            <Text style={styles.cardSrc}>{look.source}</Text>
+            <Text style={styles.cardSrc}>{look.source} · unavailable</Text>
           </View>
         )}
         {look.aiGenerated ? (
@@ -697,6 +781,14 @@ function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop
       <Text style={styles.cardTitle} numberOfLines={2}>
         {look.title}
       </Text>
+      <View style={styles.preferenceRow}>
+        <AccessiblePressable onPress={onMoreLike} accessibilityRole="button" accessibilityLabel="More like this">
+          <Text style={styles.preferenceText}>More like this</Text>
+        </AccessiblePressable>
+        <AccessiblePressable onPress={onNotInterested} accessibilityRole="button" accessibilityLabel="Not interested">
+          <Text style={styles.preferenceText}>Not interested</Text>
+        </AccessiblePressable>
+      </View>
     </View>
   );
 }
@@ -804,6 +896,7 @@ function make(colors: Colors) {
     emptyHeroBody: { color: `${colors.bone}AD`, fontSize: 16, lineHeight: 24, marginTop: 10, maxWidth: 340 },
     emptyHeroCta: { alignSelf: "flex-start", backgroundColor: colors.success, minHeight: 48, paddingHorizontal: 20, borderRadius: 24, alignItems: "center", justifyContent: "center", marginTop: 22 },
     heroBar: { flexDirection: "row", gap: 10, marginBottom: 16 },
+    saveLookButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: "rgba(11,10,8,0.58)", borderWidth: 1, borderColor: `${colors.bone}47`, alignItems: "center", justifyContent: "center" },
     srcRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
     src: { color: `${colors.bone}DB`, fontSize: 13, fontWeight: "500" },
     aiPill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7, minHeight: 44, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, borderColor: colors.success, backgroundColor: `${colors.ink}BD`, marginBottom: 9 },
@@ -846,6 +939,9 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "center",
     },
+    externalLinkContent: { flexDirection: "row", alignItems: "center", gap: 7 },
+    unavailableLink: { flex: 1, height: 46, borderRadius: 23, backgroundColor: "rgba(11,10,8,0.48)", borderWidth: 1, borderColor: `${colors.bone}47`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
+    unavailableLinkTxt: { color: `${colors.bone}8C`, fontWeight: "600", fontSize: 13 },
     ghostTxt: { color: colors.bone, fontWeight: "600", fontSize: 15 },
     todayIntro: { paddingHorizontal: 20, paddingTop: 30, paddingBottom: 18 },
     todayEyebrow: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.8 },
@@ -926,6 +1022,7 @@ function make(colors: Colors) {
       overflow: "hidden",
       backgroundColor: colors.surface,
     },
+    cardSaveButton: { position: "absolute", top: 10, right: 10, zIndex: 10, width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(11,10,8,0.62)", borderWidth: 1, borderColor: `${colors.bone}47`, alignItems: "center", justifyContent: "center" },
     cardFill: { width: CARD_W, height: CARD_H },
     cardSrcPill: {
       position: "absolute",
@@ -956,6 +1053,8 @@ function make(colors: Colors) {
     searchFabTxt: { color: darkMode ? colors.ink : colors.successInk, fontSize: 22, fontWeight: "700", marginTop: -1 },
     cardSrc: { color: colors.bone, fontSize: 11, fontWeight: "700" },
     cardTitle: { color: colors.bone, fontSize: 14, marginTop: 8, lineHeight: 18, fontWeight: "500" },
+    preferenceRow: { flexDirection: "row", justifyContent: "space-between", gap: 8, marginTop: 7 },
+    preferenceText: { color: `${colors.bone}73`, fontSize: 10, fontWeight: "700" },
     todayLive: { color: colors.successInk, backgroundColor: colors.success, borderRadius: 11, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "800", letterSpacing: 1 },
     todayCampaignStrip: { paddingHorizontal: 16, gap: 10, paddingRight: 28 },
     todayCampaignCard: { width: Math.min(W - 32, 360), minHeight: 172, borderRadius: 18, overflow: "hidden", backgroundColor: colors.surface, flexDirection: "row" },

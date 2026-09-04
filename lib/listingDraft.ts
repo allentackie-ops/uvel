@@ -75,10 +75,16 @@ export async function saveListingDraft(draft: ListingDraft) {
   current = { ...draft, updatedAt: Date.now() };
   loaded = true;
   emit();
-  await AsyncStorage.multiSet([
+  const entries: [string, string][] = [
     [KEY, JSON.stringify(current)],
     [`${KEY}:notice`, "1"],
-  ]);
+  ];
+  try {
+    await AsyncStorage.multiSet(entries);
+  } catch {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    await AsyncStorage.multiSet(entries);
+  }
 }
 
 export async function clearListingDraft() {

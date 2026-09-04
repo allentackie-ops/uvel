@@ -339,10 +339,14 @@ export default function Checkout() {
               accessibilityLabel="Uvel fee information"
               accessibilityHint="Double tap to learn how the buyer protection fee is calculated."
             >
-              <Text style={styles.lineL}>Uvel fee</Text>
+              <Text style={styles.lineL}>Buyer protection fee</Text>
               <Text style={styles.info}>i</Text>
             </AccessiblePressable>
             <Text style={styles.lineV}>{moneyExact(fee, market.currency)}</Text>
+          </View>
+          <View style={styles.line}>
+            <Text style={styles.lineL}>Seller receives</Text>
+            <Text style={styles.lineV}>{moneyExact(itemLocal, market.currency)}</Text>
           </View>
           <View style={styles.line}>
             <Text style={styles.lineL}>Shipping</Text>
@@ -556,7 +560,7 @@ function make(colors: Colors) {
     line: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 10 },
     feeL: { flexDirection: "row", alignItems: "center", gap: 8 },
     lineL: { color: colors.bone, fontSize: 15 },
-    lineV: { color: colors.bone, fontSize: 15 },
+    lineV: { color: colors.bone, fontSize: 15, fontVariant: ["tabular-nums"] },
     info: {
       width: 16,
       height: 16,

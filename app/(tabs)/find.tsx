@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ActionSheetIOS,
   Alert,
@@ -19,7 +20,7 @@ import { pickFromLibrary, takePhoto } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { dressPerson } from "../../lib/tryon";
-import { shopFloor, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 type GarmentPick =
   | { kind: "uvel"; piece: ClosetPiece }
@@ -40,6 +41,9 @@ export default function Mirror() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [showLink, setShowLink] = useState(false);
+  const [retryingMarketplace, setRetryingMarketplace] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const sourceY = useRef(0);
 
   const garmentUri = picked?.kind === "uvel" ? picked.piece.photo : picked?.uri;
   const garmentName = picked?.kind === "uvel" ? picked.piece.name : picked?.name ?? "this look";
@@ -133,6 +137,16 @@ export default function Mirror() {
     setErr("");
   }
 
+  async function retryMarketplace() {
+    if (retryingMarketplace) return;
+    setRetryingMarketplace(true);
+    try {
+      await refreshMarketplaceListings();
+    } finally {
+      setRetryingMarketplace(false);
+    }
+  }
+
   async function run() {
     if (!person || !garmentUri) return;
     setErr("");
@@ -163,10 +177,22 @@ export default function Mirror() {
   return (
     <View style={styles.page}>
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: insets.bottom + 152, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
       >
+        <View style={styles.progress} accessibilityLabel="Mirror setup progress">
+          {[{ label: "Add photo", done: Boolean(person) }, { label: "Choose clothing", done: Boolean(picked) }, { label: "Try look", done: Boolean(result) }].map((step, index) => (
+            <View key={step.label} style={styles.progressStep}>
+              <View style={[styles.progressDot, step.done && styles.progressDotDone]}>
+                {step.done ? <Ionicons name="checkmark" size={12} color={colors.successInk} /> : <Text style={styles.progressNumber}>{index + 1}</Text>}
+              </View>
+              <Text style={[styles.progressText, step.done && styles.progressTextDone]}>{step.label}</Text>
+              {index < 2 ? <View style={[styles.progressLine, step.done && styles.progressLineDone]} /> : null}
+            </View>
+          ))}
+        </View>
         <View style={[styles.hero, !person && styles.heroNeed]}>
           {result ? (
             <Image source={{ uri: result }} style={styles.fill} contentFit="contain" />
@@ -174,14 +200,18 @@ export default function Mirror() {
             <Image source={{ uri: person }} style={styles.fill} contentFit="contain" />
           ) : (
             <View style={styles.need}>
+              <View style={styles.cameraPlaceholder}>
+                <Ionicons name="camera-outline" size={34} color={colors.success} />
+                <View style={styles.cameraPlaceholderCorner} />
+              </View>
               <Text style={styles.needH}>Add your full-length photo</Text>
               <Text style={styles.needP}>Then see how a look works on you before you buy.</Text>
               <View style={styles.needRow}>
                 <Pressable onPress={() => void fromCamera()} style={styles.needBtn}>
-                  <Text style={styles.needBtnTxt}>Take my photo</Text>
+                  <Text style={styles.needBtnTxt}>Add your photo</Text>
                 </Pressable>
                 <Pressable onPress={() => void fromLibrary()} style={styles.needBtnGhost}>
-                  <Text style={styles.needBtnGhostTxt}>Choose my photo</Text>
+                  <Text style={styles.needBtnGhostTxt}>Choose from library</Text>
                 </Pressable>
               </View>
             </View>
@@ -203,7 +233,7 @@ export default function Mirror() {
           ) : null}
         </View>
 
-        <View style={styles.sourceCard}>
+        <View style={styles.sourceCard} onLayout={(event) => { sourceY.current = event.nativeEvent.layout.y; }}>
           <View style={styles.sourceHead}>
             <View style={{ flex: 1 }}>
               <Text style={styles.sourceKicker}>START HERE</Text>
@@ -281,6 +311,11 @@ export default function Mirror() {
         ) : (
           <View style={styles.emptySource}>
             <Text style={styles.empty}>{marketplaceSync === "confirmed" ? "No Uvel pieces are live yet. Bring in a look from anywhere and try it here." : "Uvel pieces are temporarily unavailable. You can still bring in a look from anywhere and try it here."}</Text>
+            {marketplaceSync === "unavailable" ? (
+              <Pressable onPress={() => void retryMarketplace()} style={styles.emptyLink} accessibilityRole="button" accessibilityLabel="Retry loading Uvel pieces">
+                <Text style={styles.emptyLinkTxt}>{retryingMarketplace ? "Reconnecting…" : "Retry connection"}</Text>
+              </Pressable>
+            ) : null}
             <Pressable onPress={() => router.push("/")} style={styles.emptyLink}>
               <Text style={styles.emptyLinkTxt}>Explore Today’s edit</Text>
             </Pressable>
@@ -297,17 +332,25 @@ export default function Mirror() {
 
         {err ? <Text style={styles.err}>{err}</Text> : null}
 
-        <Pressable onPress={() => void run()} disabled={!canTry} style={[styles.cta, !canTry && styles.ctaOff]}>
-          <Text style={[styles.ctaTxt, !canTry && styles.ctaTxtOff]}>
-            {busy ? "Dressing you…" : !person ? "Add your photo" : !picked ? "Choose a piece" : "Try this look"}
+      </ScrollView>
+      <View style={[styles.stickyAction, { paddingBottom: insets.bottom + 12 }]}>
+        <Pressable
+          onPress={() => {
+            if (!person) void fromCamera();
+            else if (!picked) scrollRef.current?.scrollTo({ y: Math.max(0, sourceY.current - 24), animated: true });
+            else void run();
+          }}
+          disabled={busy}
+          style={[styles.cta, busy && styles.ctaOff]}
+          accessibilityRole="button"
+          accessibilityLabel={!person ? "Add your photo" : !picked ? "Choose clothing" : "Try this look"}
+        >
+          <Text style={[styles.ctaTxt, busy && styles.ctaTxtOff]}>
+            {busy ? "Dressing you…" : !person ? "Add your photo" : !picked ? "Choose clothing" : "Try this look"}
           </Text>
         </Pressable>
-        {picked ? (
-          <Pressable onPress={clearPick} style={styles.ghostCta}>
-            <Text style={styles.ghostCtaTxt}>Pick something else</Text>
-          </Pressable>
-        ) : null}
-      </ScrollView>
+        {picked ? <Pressable onPress={clearPick} style={styles.ghostCta}><Text style={styles.ghostCtaTxt}>Pick something else</Text></Pressable> : null}
+      </View>
     </View>
   );
 }
@@ -315,6 +358,15 @@ export default function Mirror() {
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
+    progress: { marginHorizontal: 20, marginBottom: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    progressStep: { flexDirection: "row", alignItems: "center", gap: 6 },
+    progressDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: `${colors.bone}47`, alignItems: "center", justifyContent: "center" },
+    progressDotDone: { backgroundColor: colors.success, borderColor: colors.success },
+    progressNumber: { color: `${colors.bone}A3`, fontSize: 11, fontWeight: "800" },
+    progressText: { color: `${colors.bone}8C`, fontSize: 11, fontWeight: "700" },
+    progressTextDone: { color: colors.bone },
+    progressLine: { width: 14, height: 1, backgroundColor: `${colors.bone}29`, marginHorizontal: 2 },
+    progressLineDone: { backgroundColor: colors.success },
     syncNotice: { color: `${colors.bone}9E`, fontSize: 12, lineHeight: 18, marginHorizontal: 20, marginTop: 10, marginBottom: 4 },
     lede: { color: `${colors.bone}A3`, fontSize: 16, lineHeight: 23, paddingHorizontal: 20, marginTop: 8, marginBottom: 18 },
     heroNeed: { height: 360 },
@@ -345,6 +397,8 @@ function make(colors: Colors) {
     },
     fill: { width: "100%", height: "100%" },
     need: { flex: 1, alignItems: "center", justifyContent: "center", padding: 28, gap: 8 },
+    cameraPlaceholder: { width: 84, height: 84, borderRadius: 24, borderWidth: 1, borderColor: `${colors.success}80`, backgroundColor: `${colors.success}12`, alignItems: "center", justifyContent: "center", marginBottom: 8, position: "relative" },
+    cameraPlaceholderCorner: { position: "absolute", width: 16, height: 16, right: 12, top: 12, borderTopWidth: 2, borderRightWidth: 2, borderColor: colors.success },
     needH: { color: colors.bone, fontFamily: "Georgia", fontSize: 26 },
     needP: { color: `${colors.bone}9E`, textAlign: "center", marginBottom: 8 },
     needRow: { flexDirection: "row", gap: 10, marginTop: 8 },
@@ -494,6 +548,7 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     ghostCtaTxt: { color: colors.bone, fontWeight: "600", fontSize: 16 },
+    stickyAction: { backgroundColor: colors.ink, borderTopWidth: 1, borderTopColor: `${colors.bone}14`, paddingTop: 8 },
     foot: {
       color: `${colors.bone}61`,
       textAlign: "center",

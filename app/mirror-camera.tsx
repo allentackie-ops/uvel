@@ -24,7 +24,12 @@ export default function MirrorCamera() {
   const [photo, setPhoto] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [zoom, setZoom] = useState(0);
-  const [flash, setFlash] = useState<"off" | "on">("off");
+  const [flash, setFlash] = useState<"off" | "auto" | "on">("auto");
+  const [screenFlash, setScreenFlash] = useState(false);
+  const [focusPoint, setFocusPoint] = useState<{ x: number; y: number } | null>(null);
+  const [availableLenses, setAvailableLenses] = useState<string[] | null>(null);
+  const [selectedLens, setSelectedLens] = useState("builtInWideAngleCamera");
+  const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const zoomStart = useSharedValue(0);
 
   function setCameraZoom(value: number) {
@@ -46,14 +51,46 @@ export default function MirrorCamera() {
     .onUpdate((event) => {
       runOnJS(setDialZoom)(event.x);
     });
+  function focusAt(x: number, y: number) {
+    setFocusPoint({ x, y });
+    if (focusTimer.current) clearTimeout(focusTimer.current);
+    focusTimer.current = setTimeout(() => setFocusPoint(null), 900);
+  }
+  const focusTap = Gesture.Tap().onEnd((event, success) => {
+    if (success) runOnJS(focusAt)(event.x, event.y);
+  });
+  const cameraGestures = Gesture.Simultaneous(pinch, focusTap);
+  const hasUltraWide = Boolean(availableLenses?.includes("builtInUltraWideCamera"));
+  const hasTelephoto = Boolean(availableLenses?.includes("builtInTelephotoCamera"));
+  const zoomOptions = [
+    ...(hasUltraWide ? [{ label: "0.5×", value: 0, lens: "builtInUltraWideCamera", position: "left" }] : []),
+    { label: "1×", value: 0, lens: "builtInWideAngleCamera", position: hasUltraWide ? "middle" : "left" },
+    ...(hasTelephoto ? [{ label: "2×", value: 0, lens: "builtInTelephotoCamera", position: "right" }] : []),
+  ];
+  function chooseLens(option: (typeof zoomOptions)[number]) {
+    setSelectedLens(option.lens);
+    setCameraZoom(option.value);
+  }
+  function switchFacing() {
+    setFacing((current) => current === "front" ? "back" : "front");
+    setAvailableLenses(null);
+    setSelectedLens("builtInWideAngleCamera");
+    setCameraZoom(0);
+  }
 
   async function capture() {
     if (!cameraRef.current || busy) return;
     setBusy(true);
+    const useScreenFlash = facing === "front" && flash !== "off";
     try {
+      if (useScreenFlash) {
+        setScreenFlash(true);
+        await new Promise((resolve) => setTimeout(resolve, 140));
+      }
       const result = await cameraRef.current.takePictureAsync({ quality: 0.78, skipProcessing: false });
       if (result?.uri) setPhoto(result.uri);
     } finally {
+      setScreenFlash(false);
       setBusy(false);
     }
   }
@@ -115,10 +152,33 @@ export default function MirrorCamera() {
 
   return (
     <View style={styles.screen}>
-      <GestureDetector gesture={pinch}>
-        <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} mode="picture" zoom={zoom} flash={flash} />
+      <GestureDetector gesture={cameraGestures}>
+        <CameraView
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          facing={facing}
+          mode="picture"
+          autofocus="on"
+          selectedLens={selectedLens}
+          onAvailableLensesChanged={(event) => {
+            setAvailableLenses(event.lenses);
+            setSelectedLens((current) => event.lenses.includes(current) ? current : "builtInWideAngleCamera");
+          }}
+          zoom={zoom}
+          flash={flash}
+          enableTorch={facing === "back" && flash === "on"}
+        />
       </GestureDetector>
+      {screenFlash ? <View pointerEvents="none" style={styles.screenFlash} /> : null}
       <View pointerEvents="none" style={styles.scrim} />
+      {focusPoint ? (
+        <View pointerEvents="none" style={[styles.focusIndicator, { left: focusPoint.x - 28, top: focusPoint.y - 28 }]}>
+          <View style={styles.focusCornerTopLeft} />
+          <View style={styles.focusCornerTopRight} />
+          <View style={styles.focusCornerBottomLeft} />
+          <View style={styles.focusCornerBottomRight} />
+        </View>
+      ) : null}
       <View style={[styles.cameraTop, { paddingTop: insets.top + 10 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12}><Text style={styles.close}>×</Text></Pressable>
         <View style={styles.topCopy}>
@@ -126,15 +186,29 @@ export default function MirrorCamera() {
           <Text style={styles.title}>Full-length photo</Text>
         </View>
         <View style={styles.topActions}>
-          <Pressable
-            onPress={() => setFlash((current) => current === "on" ? "off" : "on")}
-            style={({ pressed }) => [styles.flashButton, flash === "on" && styles.flashButtonOn, pressed && { opacity: 0.75 }]}
-            accessibilityRole="button"
-            accessibilityLabel={flash === "on" ? "Turn flash off" : "Turn flash on"}
-          >
-            <Ionicons name={flash === "on" ? "flash" : "flash-outline"} size={20} color={flash === "on" ? BG : INK} />
-          </Pressable>
-          <Pressable onPress={() => setFacing((current) => current === "front" ? "back" : "front")} hitSlop={12}>
+          {facing === "back" ? (
+            <View style={styles.flashControls} accessibilityRole="radiogroup" accessibilityLabel="Flash mode">
+              {(["auto", "off", "on"] as const).map((mode) => (
+                <Pressable
+                  key={mode}
+                  onPress={() => setFlash(mode)}
+                  style={({ pressed }) => [styles.flashMode, flash === mode && styles.flashModeOn, pressed && { opacity: 0.75 }]}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`Flash ${mode}`}
+                  accessibilityState={{ selected: flash === mode }}
+                >
+                  {mode === "on" ? <Ionicons name="flash" size={14} color={flash === mode ? BG : INK} /> : null}
+                  <Text style={[styles.flashModeText, flash === mode && styles.flashModeTextOn]}>{mode === "auto" ? "Auto" : mode === "off" ? "Off" : "On"}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.screenFlashBadge}>
+              <Ionicons name="phone-portrait-outline" size={14} color={INK} />
+              <Text style={styles.screenFlashBadgeText}>{flash === "off" ? "No flash" : "Screen flash"}</Text>
+            </View>
+          )}
+          <Pressable onPress={switchFacing} hitSlop={12}>
             <Text style={styles.flip}>↻</Text>
           </Pressable>
         </View>
@@ -149,26 +223,26 @@ export default function MirrorCamera() {
         </View>
       </View>
       <View style={[styles.cameraBottom, { paddingBottom: insets.bottom + 22 }]}>
-        <Text style={styles.bottomHint}>Portrait · head to shoes · pinch or swipe to zoom</Text>
+        <Text style={styles.bottomHint}>Tap to focus · pinch or swipe to zoom</Text>
         <GestureDetector gesture={dialSwipe}>
           <View style={styles.zoomDial}>
             <View style={styles.zoomArc} />
-            {[{ label: "0.5×", value: 0, position: "left" }, { label: "1×", value: 0.25, position: "middle" }, { label: "2×", value: 0.5, position: "right" }].map((option) => (
+            {zoomOptions.map((option) => (
               <Pressable
                 key={option.label}
-                onPress={() => setCameraZoom(option.value)}
+                onPress={() => chooseLens(option)}
                 style={({ pressed }) => [
                   styles.zoomStop,
                   option.position === "left" && styles.zoomStopLeft,
                   option.position === "middle" && styles.zoomStopMiddle,
                   option.position === "right" && styles.zoomStopRight,
-                  Math.abs(zoom - option.value) < 0.03 && styles.zoomStopOn,
+                  selectedLens === option.lens && Math.abs(zoom - option.value) < 0.03 && styles.zoomStopOn,
                   pressed && { opacity: 0.75 },
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={`Set zoom to ${option.label}`}
               >
-                <Text style={[styles.zoomText, Math.abs(zoom - option.value) < 0.03 && styles.zoomTextOn]}>{option.label}</Text>
+                <Text style={[styles.zoomText, selectedLens === option.lens && Math.abs(zoom - option.value) < 0.03 && styles.zoomTextOn]}>{option.label}</Text>
               </Pressable>
             ))}
           </View>
@@ -198,9 +272,19 @@ const styles = StyleSheet.create({
   topActions: { alignItems: "center", gap: 12 },
   close: { color: INK, fontSize: 36, lineHeight: 34, fontWeight: "300" },
   flip: { color: INK, fontSize: 32, lineHeight: 32 },
-  flashButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(11,10,8,0.42)", alignItems: "center", justifyContent: "center" },
-  flashButtonOn: { backgroundColor: ACCENT },
-  flashText: { color: INK },
+  flashControls: { flexDirection: "row", alignItems: "center", gap: 4, padding: 3, borderRadius: 18, backgroundColor: "rgba(11,10,8,0.58)", borderWidth: 1, borderColor: "rgba(244,240,230,0.28)" },
+  flashMode: { minWidth: 38, height: 28, paddingHorizontal: 7, borderRadius: 14, flexDirection: "row", gap: 3, alignItems: "center", justifyContent: "center" },
+  flashModeOn: { backgroundColor: ACCENT },
+  flashModeText: { color: INK, fontSize: 11, fontWeight: "800" },
+  flashModeTextOn: { color: BG },
+  screenFlashBadge: { height: 32, paddingHorizontal: 10, borderRadius: 16, flexDirection: "row", gap: 5, alignItems: "center", backgroundColor: "rgba(11,10,8,0.58)", borderWidth: 1, borderColor: "rgba(244,240,230,0.28)" },
+  screenFlashBadgeText: { color: INK, fontSize: 11, fontWeight: "800" },
+  screenFlash: { ...StyleSheet.absoluteFill, zIndex: 30, backgroundColor: INK },
+  focusIndicator: { position: "absolute", zIndex: 20, width: 56, height: 56, borderColor: ACCENT },
+  focusCornerTopLeft: { position: "absolute", top: 0, left: 0, width: 14, height: 14, borderTopWidth: 2, borderLeftWidth: 2, borderColor: ACCENT },
+  focusCornerTopRight: { position: "absolute", top: 0, right: 0, width: 14, height: 14, borderTopWidth: 2, borderRightWidth: 2, borderColor: ACCENT },
+  focusCornerBottomLeft: { position: "absolute", bottom: 0, left: 0, width: 14, height: 14, borderBottomWidth: 2, borderLeftWidth: 2, borderColor: ACCENT },
+  focusCornerBottomRight: { position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderBottomWidth: 2, borderRightWidth: 2, borderColor: ACCENT },
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.18)" },
   zoomDial: { width: DIAL_WIDTH, height: 76, marginBottom: 4, position: "relative", alignItems: "center" },
   zoomArc: { position: "absolute", top: 18, left: 8, width: DIAL_WIDTH - 16, height: 54, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: "rgba(244,240,230,0.38)", borderTopLeftRadius: 120, borderTopRightRadius: 120 },
