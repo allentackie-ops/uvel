@@ -341,11 +341,22 @@ export default function Today() {
   const savedIds = useMemo(() => new Set(savedLooks.map((look) => look.id)), [savedLooks]);
   const activity = useActivityNotifications(uid || "guest");
   const unreadActivity = activity.filter((item) => !item.read).length;
+  const [toast, setToast] = useState<{ title: string; body: string } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((title: string, body: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast({ title, body });
+    toastTimer.current = setTimeout(() => setToast(null), 3200);
+  }, []);
+  useEffect(() => () => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+  }, []);
   const notifyActivity = useCallback((look: Look, kind: "more_like" | "not_interested" | "bookmark") => {
     const title = kind === "bookmark" ? "Look bookmarked" : kind === "more_like" ? "We’ll show you more like this" : "We’ll show you fewer like this";
-    const body = kind === "bookmark" ? `${look.title} was bookmarked. Tap the notification to open your saved looks.` : `${look.title} was recorded for your Today feed.`;
+    const body = kind === "bookmark" ? `${look.title} was bookmarked. Tap Notifications anytime to find it again.` : `${look.title} was recorded for your Today feed.`;
+    showToast(title, body);
     void addActivityNotification(uid || "guest", { kind, title, body, lookId: look.id, imageUrl: look.imageUrl, target: kind === "bookmark" ? "saved" : "none" });
-  }, [uid]);
+  }, [showToast, uid]);
   const saveLook = useCallback(async (look: Look) => {
     const saved = await toggleSavedLook(look);
     trackFeed(look, "save");
@@ -402,6 +413,17 @@ export default function Today() {
   return (
     <View style={styles.page}>
       <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
+      {toast ? (
+        <View pointerEvents="none" style={[styles.toastHost, { top: insets.top + 76 }]}>
+          <View style={styles.toastCard}>
+            <View style={styles.toastIcon}><Ionicons name="checkmark" size={16} color={colors.successInk} /></View>
+            <View style={styles.toastCopy}>
+              <Text style={styles.toastTitle} numberOfLines={1}>{toast.title}</Text>
+              <Text style={styles.toastBody} numberOfLines={2}>{toast.body}</Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
       <ScrollView
         style={styles.page}
         contentInsetAdjustmentBehavior="never"
@@ -906,6 +928,12 @@ function make(colors: Colors) {
   const darkMode = colors.ink === "#000000";
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
+    toastHost: { position: "absolute", left: 16, right: 16, zIndex: 100, alignItems: "center" },
+    toastCard: { width: "100%", maxWidth: 420, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 16, backgroundColor: `${colors.surface}F2`, borderWidth: 1, borderColor: `${colors.success}80`, shadowColor: "#000000", shadowOpacity: 0.3, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 10 },
+    toastIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    toastCopy: { flex: 1, minWidth: 0 },
+    toastTitle: { color: colors.bone, fontSize: 13, lineHeight: 17, fontWeight: "800" },
+    toastBody: { color: `${colors.bone}A6`, fontSize: 11, lineHeight: 15, marginTop: 2 },
     heroWrap: { width: W, backgroundColor: colors.ink, overflow: "hidden" },
     heroHeader: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 20, alignItems: "flex-end", paddingHorizontal: 16 },
     heroHeaderActions: { flexDirection: "row", gap: 10 },
