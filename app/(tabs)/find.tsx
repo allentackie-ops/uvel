@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActionSheetIOS,
   Alert,
@@ -30,6 +30,7 @@ export default function Mirror() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const { capturedUri, capturedAt } = useLocalSearchParams<{ capturedUri?: string; capturedAt?: string }>();
   const app = useUvel();
   useWardrobe();
   const marketplaceSync = useMarketplaceSyncState();
@@ -41,6 +42,13 @@ export default function Mirror() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [showLink, setShowLink] = useState(false);
+
+  useEffect(() => {
+    if (typeof capturedUri !== "string" || !capturedUri) return;
+    app.setPerson(capturedUri);
+    setResult(null);
+    setErr("");
+  }, [app.setPerson, capturedAt, capturedUri]);
 
   const garmentUri = picked?.kind === "uvel" ? picked.piece.photo : picked?.uri;
   const garmentName = picked?.kind === "uvel" ? picked.piece.name : picked?.name ?? "this look";
@@ -65,16 +73,8 @@ export default function Mirror() {
     ]);
   }
 
-  async function fromCamera() {
-    try {
-      const uri = await takePhoto(false);
-      if (uri) {
-        app.setPerson(uri);
-        setResult(null);
-      }
-    } catch (e) {
-      Alert.alert("Camera", e instanceof Error ? e.message : "Couldn’t open camera.");
-    }
+  function fromCamera() {
+    router.push("/mirror-camera");
   }
 
   async function fromLibrary() {

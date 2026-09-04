@@ -64,6 +64,12 @@
     "plugins": [
       "expo-router",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Uvel uses your camera for portrait Mirror photos."
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Uvel reads photos and screenshots so it can find the clothes.",

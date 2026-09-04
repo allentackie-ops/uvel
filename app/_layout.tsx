@@ -233,6 +233,16 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="mirror-camera"
+            options={{
+              headerShown: false,
+              animation: "slide_from_bottom",
+              presentation: "fullScreenModal",
+              contentStyle: { backgroundColor: colors.ink },
+              gestureEnabled: false,
+            }}
+          />
+          <Stack.Screen
             name="scan"
             options={{
               headerShown: false,
