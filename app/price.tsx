@@ -15,8 +15,20 @@ import { useColors } from "../lib/theme";
 import { getPiece, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { setPendingListingPrice } from "../lib/listingPriceDraft";
 
+const MAX_PRICE_DIGITS = 9;
+const MAX_PRICE_LENGTH = MAX_PRICE_DIGITS + Math.floor((MAX_PRICE_DIGITS - 1) / 3);
+
 function param(value?: string | string[]) {
   return Array.isArray(value) ? value[0] || "" : value || "";
+}
+
+function normalizePriceInput(value: string) {
+  return value.replace(/[^0-9]/g, "").replace(/^0+(?=\d)/, "").slice(0, MAX_PRICE_DIGITS);
+}
+
+function formatPriceInput(value: string) {
+  const digits = normalizePriceInput(value);
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
 function ComparableCard({ piece, currency }: { piece: ClosetPiece; currency: string }) {
@@ -83,8 +95,9 @@ export default function Price() {
     [pieceId, params.name, params.brand, params.category, params.color, params.material, params.size, params.condition, existing?.id],
   );
   const guide = useMemo(() => buildPriceGuide(target, pieces, currency), [target, pieces, currency]);
-  const initialCents = centsFromMajor(param(params.price));
-  const [priceText, setPriceText] = useState(() => param(params.price));
+  const initialPrice = formatPriceInput(param(params.price));
+  const initialCents = centsFromMajor(initialPrice);
+  const [priceText, setPriceText] = useState(() => initialPrice);
   const [selectedTier, setSelectedTier] = useState<"bargain" | "optimal" | "premium" | "custom">(() => {
     if (initialCents === guide.bargainCents) return "bargain";
     if (initialCents === guide.premiumCents) return "premium";
@@ -119,7 +132,7 @@ export default function Price() {
 
   function choose(tier: "bargain" | "optimal" | "premium", cents: number) {
     setSelectedTier(tier);
-    setPriceText(majorFromCents(cents));
+    setPriceText(formatPriceInput(majorFromCents(cents)));
   }
 
   function done() {
@@ -154,8 +167,9 @@ export default function Price() {
                 value={priceText}
                 onChangeText={(value) => {
                   setSelectedTier("custom");
-                  setPriceText(value.replace(/[^0-9]/g, ""));
+                  setPriceText(formatPriceInput(value));
                 }}
+                maxLength={MAX_PRICE_LENGTH}
                 placeholder="0"
                 placeholderTextColor={colors.muted}
                 keyboardType="number-pad"
