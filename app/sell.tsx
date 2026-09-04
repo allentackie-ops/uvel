@@ -18,7 +18,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
-import { PricePreview } from "../components/PricePreview";
 import type { Category } from "../lib/catalog";
 import { usd } from "../lib/catalog";
 import { uvelFeeCents } from "../lib/fees";
@@ -202,14 +201,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const hasMaterial = Boolean(material.trim());
   const hasCond = Boolean(condition);
   const photoQualityReady = Boolean(hasPhoto && (existing || (cover?.status === "ok" && photoReadyForPricing)));
-  const qualityChecks = [
-    { label: "Clear front photo", done: photoQualityReady },
-    { label: "Full item visible", done: photoQualityReady },
-    { label: "Size entered", done: hasSize },
-    { label: "Condition entered", done: hasCond },
-    { label: "Material entered", done: hasMaterial },
-  ];
-  const qualityScore = Math.round((qualityChecks.filter((check) => check.done).length / qualityChecks.length) * 100);
   const canList =
     hasPhoto &&
     hasTitle &&
@@ -555,23 +546,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             </View>
           ) : null}
 
-          <View style={styles.qualityBox} accessibilityLiveRegion="polite" accessibilityLabel={`Listing quality ${qualityScore} percent complete`}>
-            <View style={styles.qualityHead}>
-              <View>
-                <Text style={styles.qualityTitle}>Listing quality</Text>
-                <Text style={styles.qualitySub}>A stronger listing is easier to trust.</Text>
-              </View>
-              <Text style={styles.qualityScore}>{qualityScore}%</Text>
-            </View>
-            <View style={styles.qualityTrack}><View style={[styles.qualityFill, { width: `${qualityScore}%` }]} /></View>
-            {qualityChecks.map((check) => (
-              <View key={check.label} style={styles.qualityRow}>
-                <View style={[styles.qualityMark, check.done && styles.qualityMarkDone]}><Text style={styles.qualityMarkTxt}>{check.done ? "✓" : ""}</Text></View>
-                <Text style={[styles.qualityLabel, check.done && styles.qualityLabelDone]}>{check.label}</Text>
-              </View>
-            ))}
-          </View>
-
           <View style={styles.sheet}>
             <Text style={styles.priceLabel}>{C.price} *</Text>
             <AccessiblePressable              onPress={openPrice}
@@ -589,8 +563,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 Uvel fee at checkout. You receive the full {usd(Number(price) * 100, listingCurrency)}.
               </Text>
             ) : null}
-            <PricePreview listingCents={Number(price || 0) * 100} currency={listingCurrency} market={listingMarket} />
-
             <Text style={styles.label}>{C.title} *</Text>
             <TextInput
               style={styles.titleIn}
@@ -874,19 +846,6 @@ function make(colors: Colors) {
     },
     analysisTitle: { color: colors.bone, fontWeight: "700" },
     analysisCopy: { color: colors.muted, lineHeight: 20 },
-    qualityBox: { marginHorizontal: 16, marginBottom: 8, padding: 14, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.success}44` },
-    qualityHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    qualityTitle: { color: colors.bone, fontSize: 15, fontWeight: "800" },
-    qualitySub: { color: colors.muted, fontSize: 12, marginTop: 3 },
-    qualityScore: { color: colors.success, fontSize: 20, fontWeight: "900", fontVariant: ["tabular-nums"] },
-    qualityTrack: { height: 5, borderRadius: 3, backgroundColor: `${colors.bone}1F`, overflow: "hidden", marginTop: 12, marginBottom: 8 },
-    qualityFill: { height: 5, borderRadius: 3, backgroundColor: colors.success },
-    qualityRow: { flexDirection: "row", alignItems: "center", gap: 9, minHeight: 28 },
-    qualityMark: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: `${colors.bone}47`, alignItems: "center", justifyContent: "center" },
-    qualityMarkDone: { backgroundColor: colors.success, borderColor: colors.success },
-    qualityMarkTxt: { color: colors.successInk, fontSize: 12, fontWeight: "900" },
-    qualityLabel: { color: `${colors.bone}80`, fontSize: 13 },
-    qualityLabelDone: { color: colors.bone },
     warnDot: {
       position: "absolute",
       right: 4,
