@@ -2,9 +2,10 @@ import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import {
   Alert,
+  Animated,
   AppState,
   Dimensions,
   Linking,
@@ -13,6 +14,8 @@ import {
   StyleSheet,
   Text,
   View,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
@@ -226,6 +229,37 @@ function openLookSource(look: Pick<Look, "postUrl">) {
   void Linking.openURL(look.postUrl).catch(() => undefined);
 }
 
+function RefreshTransition({
+  refreshKey,
+  children,
+  style,
+}: {
+  refreshKey: string;
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const opacity = useRef(new Animated.Value(1)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+  const firstRender = useRef(true);
+
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    opacity.stopAnimation();
+    translateY.stopAnimation();
+    opacity.setValue(0.62);
+    translateY.setValue(7);
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 280, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: 0, duration: 280, useNativeDriver: true }),
+    ]).start();
+  }, [refreshKey, opacity, translateY]);
+
+  return <Animated.View style={[style, { opacity, transform: [{ translateY }] }]}>{children}</Animated.View>;
+}
+
 function showAiExplanation() {
   Alert.alert("AI-generated content", AI_CONTENT_EXPLANATION, [{ text: "Got it" }]);
 }
@@ -373,20 +407,22 @@ export default function Today() {
           </AccessiblePressable>
         </View>
         {todayMode === "forYou" ? (
-          featured ? (
-            <Hero
-              key={featured.id}
-              look={featured}
-              colors={colors}
-              height={heroH}
-              onWait={setVideoWait}
-              onBusy={setShopWait}
-              onShop={() => trackFeed(featured, "shop")}
-              onSource={() => trackFeed(featured, "source")}
-            />
-          ) : (
-            <TodayEmptyHero mode={todayMode} height={heroH} colors={colors} />
-          )
+          <RefreshTransition refreshKey={featured?.id ?? "empty"}>
+            {featured ? (
+              <Hero
+                key={featured.id}
+                look={featured}
+                colors={colors}
+                height={heroH}
+                onWait={setVideoWait}
+                onBusy={setShopWait}
+                onShop={() => trackFeed(featured, "shop")}
+                onSource={() => trackFeed(featured, "source")}
+              />
+            ) : (
+              <TodayEmptyHero mode={todayMode} height={heroH} colors={colors} />
+            )}
+          </RefreshTransition>
         ) : modeListings[0] ? (
           <ListingHero piece={modeListings[0]} mode={todayMode} height={heroH} colors={colors} />
         ) : (
@@ -408,17 +444,19 @@ export default function Today() {
               <View style={styles.head}>
                 <Text style={styles.h2}>{C.movingNow}</Text>
               </View>
-              {movingLooks.length ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
-                  {movingLooks.map((look) => (
-                    <LookCard key={look.id} look={look} colors={colors} onShop={() => trackFeed(look, "shop")} />
-                  ))}
-                </ScrollView>
-              ) : (
-                <View style={{ paddingHorizontal: 16 }}>
-                  <ListingEmpty copy="More looks will appear here as the feed refreshes." />
-                </View>
-              )}
+              <RefreshTransition refreshKey={featured?.id ?? "empty"}>
+                {movingLooks.length ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
+                    {movingLooks.map((look) => (
+                      <LookCard key={look.id} look={look} colors={colors} onShop={() => trackFeed(look, "shop")} />
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <View style={{ paddingHorizontal: 16 }}>
+                    <ListingEmpty copy="More looks will appear here as the feed refreshes." />
+                  </View>
+                )}
+              </RefreshTransition>
               {todayCampaignRows.length ? (
                 <View>
                   <View style={styles.head}>
