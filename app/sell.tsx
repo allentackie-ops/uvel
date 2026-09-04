@@ -553,8 +553,14 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               accessibilityLabel={`Listing price: ${price ? `${listingMarket.symbol}${price}` : "not set"}`}
               accessibilityHint="Double tap to set the listing price."
             >
-              <Text style={[styles.dollar, !price && { color: ph }]}>{listingMarket.symbol}</Text>
-              <Text style={[styles.price, !price && { color: ph }]}>{price || "0"}</Text>
+              <Text
+                style={[styles.priceFigure, !price && { color: ph }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.78}
+              >
+                {listingMarket.symbol} {price || "0"}
+              </Text>
             </AccessiblePressable>
             {Number(price) > 0 ? (
               <Text style={styles.feeNote}>
@@ -874,15 +880,10 @@ function make(colors: Colors) {
     priceLabel: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 12, marginBottom: 6 },
     priceRow: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 10 },
     feeNote: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 10 },
-    dollar: {
-      color: colors.bone,
-      fontWeight: "700",
-      fontSize: 34,
-      lineHeight: 40,
-      includeFontPadding: false,
-    },
-    price: {
+    priceFigure: {
       flex: 1,
+      minWidth: 0,
+      flexShrink: 1,
       color: colors.bone,
       fontWeight: "700",
       fontSize: 34,
