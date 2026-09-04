@@ -768,6 +768,7 @@ function ShopLookCard({
 }
 
 function make(colors: Colors) {
+  const darkMode = colors.ink === "#000000";
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     heroWrap: { width: W, backgroundColor: colors.ink, overflow: "hidden" },
@@ -798,21 +799,21 @@ function make(colors: Colors) {
     hash: { color: `${colors.bone}B8`, fontSize: 15, marginTop: 6 },
     cta: {
       flex: 1.08,
-      backgroundColor: colors.surface,
+      backgroundColor: darkMode ? "#FFFFFF" : colors.surface,
       height: 46,
       borderRadius: 23,
       alignItems: "center",
       justifyContent: "center",
     },
-    ctaTxt: { color: colors.bone, fontWeight: "700", fontSize: 15 },
+    ctaTxt: { color: darkMode ? colors.ink : colors.bone, fontWeight: "700", fontSize: 15 },
     ctaSolo: { flex: 1 },
     ghost: {
       flex: 1,
       height: 46,
       borderRadius: 23,
-      backgroundColor: `${colors.surface}B8`,
+      backgroundColor: darkMode ? "transparent" : `${colors.surface}B8`,
       borderWidth: 1,
-      borderColor: `${colors.bone}66`,
+      borderColor: darkMode ? `${colors.bone}A6` : `${colors.bone}66`,
       alignItems: "center",
       justifyContent: "center",
     },
