@@ -289,8 +289,8 @@ export default function You() {
         </Pressable>
       ) : null}
       <>
-        <Pressable onPress={() => router.push("/seller-analytics")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Open seller analytics"><View><Text style={styles.planH}>Seller analytics</Text><Text style={styles.planP}>Listing signals and order records</Text></View><Text style={styles.planGo}>View</Text></Pressable>
-        <Pressable onPress={() => router.push("/alerts")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Open price and restock alerts"><View><Text style={styles.planH}>Price & restock alerts</Text><Text style={styles.planP}>Watch the saved pieces you care about</Text></View><Text style={styles.planGo}>View</Text></Pressable>
+        <Pressable onPress={() => router.push("/seller-analytics")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Open seller analytics"><View><Text style={styles.planH}>Seller analytics</Text><Text style={styles.planP}>Listing signals and order records</Text></View></Pressable>
+        <Pressable onPress={() => router.push("/alerts")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Open price and restock alerts"><View><Text style={styles.planH}>Price & restock alerts</Text><Text style={styles.planP}>Watch the saved pieces you care about</Text></View></Pressable>
       </>
       {teams.map((b) => (
         <Pressable key={b.id} onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })} style={styles.toolRow}>
