@@ -64,16 +64,8 @@ export default function Mirror() {
     ]);
   }
 
-  async function fromCamera() {
-    try {
-      const uri = await takePhoto(false);
-      if (uri) {
-        app.setPerson(uri);
-        setResult(null);
-      }
-    } catch (e) {
-      Alert.alert("Camera", e instanceof Error ? e.message : "Couldn’t open camera.");
-    }
+  function fromCamera() {
+    router.push("/mirror-camera");
   }
 
   async function fromLibrary() {
