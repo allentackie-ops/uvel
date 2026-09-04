@@ -181,10 +181,6 @@ export default function MirrorCamera() {
       ) : null}
       <View style={[styles.cameraTop, { paddingTop: insets.top + 10 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12}><Text style={styles.close}>×</Text></Pressable>
-        <View style={styles.topCopy}>
-          <Text style={styles.kicker}>ON YOU</Text>
-          <Text style={styles.title}>Full-length photo</Text>
-        </View>
         <View style={styles.topActions}>
           {facing === "back" ? (
             <View style={styles.flashControls} accessibilityRole="radiogroup" accessibilityLabel="Flash mode">
@@ -221,8 +217,6 @@ export default function MirrorCamera() {
         </View>
       </View>
       <View pointerEvents="none" style={styles.guideWrap}>
-        <Text style={styles.guideTitle}>Stand where we can see the whole look</Text>
-        <Text style={styles.guideCopy}>Keep your head and shoes inside the frame.</Text>
         <View style={styles.frame}>
           <View style={[styles.corner, styles.cornerTL]} /><View style={[styles.corner, styles.cornerTR]} />
           <View style={[styles.corner, styles.cornerBL]} /><View style={[styles.corner, styles.cornerBR]} />
@@ -273,7 +267,6 @@ const styles = StyleSheet.create({
   cancelButton: { padding: 16, marginTop: 6 },
   cancelText: { color: MUTED, fontWeight: "700", fontSize: 14 },
   cameraTop: { position: "absolute", top: 0, left: 0, right: 0, paddingHorizontal: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-  topCopy: { alignItems: "center" },
   topActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   close: { color: INK, fontSize: 36, lineHeight: 34, fontWeight: "300" },
   topActionButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(11,10,8,0.58)", borderWidth: 1, borderColor: "rgba(244,240,230,0.28)", alignItems: "center", justifyContent: "center" },
@@ -298,8 +291,6 @@ const styles = StyleSheet.create({
   zoomText: { color: INK, fontSize: 13, fontWeight: "800" },
   zoomTextOn: { color: BG },
   guideWrap: { flex: 1, alignItems: "center", paddingTop: 132 },
-  guideTitle: { color: INK, fontSize: 17, fontWeight: "800", textAlign: "center" },
-  guideCopy: { color: MUTED, fontSize: 13, marginTop: 6, textAlign: "center" },
   frame: { width: "70%", height: "61%", marginTop: 22, borderColor: "rgba(244,240,230,0.28)", borderWidth: 1, position: "relative" },
   corner: { position: "absolute", width: 28, height: 28, borderColor: ACCENT },
   cornerTL: { top: -2, left: -2, borderTopWidth: 3, borderLeftWidth: 3 },
