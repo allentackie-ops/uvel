@@ -320,6 +320,10 @@ export default function Today() {
   );
   const modeListings = todayMode === "following" ? followedListings : todayMode === "nearby" ? nearbyListings : [];
   const featured = personalizedLooks[0] ?? looks[0];
+  const movingLooks = useMemo(
+    () => personalizedLooks.filter((look) => look.id !== featured?.id),
+    [personalizedLooks, featured?.id],
+  );
   const hits = featured ? matchListings(featured, live, taste, followedIds).slice(0, 6) : [];
   const intro = todayMode === "following"
     ? { eyebrow: C.following, title: C.following, body: "" }
@@ -405,7 +409,7 @@ export default function Today() {
                 <Text style={styles.h2}>{C.movingNow}</Text>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
-                {personalizedLooks.map((look) => (
+                {movingLooks.map((look) => (
                   <LookCard key={look.id} look={look} colors={colors} onShop={() => trackFeed(look, "shop")} />
                 ))}
               </ScrollView>
