@@ -553,8 +553,14 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               accessibilityLabel={`Listing price: ${price ? `${listingMarket.symbol}${price}` : "not set"}`}
               accessibilityHint="Double tap to set the listing price."
             >
-              <Text style={[styles.dollar, !price && { color: ph }]}>{listingMarket.symbol}</Text>
-              <Text style={[styles.price, !price && { color: ph }]}>{price || "0"}</Text>
+              <Text
+                style={[styles.priceFigure, !price && { color: ph }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.78}
+              >
+                {listingMarket.symbol} {price || "0"}
+              </Text>
             </AccessiblePressable>
             {Number(price) > 0 ? (
               <Text style={styles.feeNote}>
@@ -812,7 +818,7 @@ function make(colors: Colors) {
     progressFill: { height: 3, backgroundColor: colors.success, borderRadius: 2 },
     progressLbl: { color: colors.subtle, fontSize: 11, marginTop: 6, marginBottom: 8, marginLeft: 20 },
     scrollContent: { flexGrow: 1 },
-    photosLabel: { marginTop: 16, marginLeft: 20 },
+    photosLabel: { marginTop: 20, marginLeft: 20 },
     photoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 20, paddingTop: 10 },
     photoTile: { width: Math.round((W - 50) / 2), height: Math.round(((W - 50) / 2) * 1.25), borderRadius: 14, overflow: "hidden", backgroundColor: colors.surface, position: "relative" },
     photoImage: { width: "100%", height: "100%" },
@@ -871,18 +877,13 @@ function make(colors: Colors) {
     warnTip: { color: colors.bone, fontStyle: "italic" },
     warnCta: { color: colors.bone, fontWeight: "700", textDecorationLine: "underline", marginTop: 6 },
     sheet: { paddingHorizontal: 20, paddingTop: 8 },
-    priceLabel: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 12, marginBottom: 6 },
-    priceRow: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 10 },
+    priceLabel: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 20, marginBottom: 8 },
+    priceRow: { height: 48, flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 14 },
     feeNote: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 10 },
-    dollar: {
-      color: colors.bone,
-      fontWeight: "700",
-      fontSize: 34,
-      lineHeight: 40,
-      includeFontPadding: false,
-    },
-    price: {
+    priceFigure: {
       flex: 1,
+      minWidth: 0,
+      flexShrink: 1,
       color: colors.bone,
       fontWeight: "700",
       fontSize: 34,
@@ -910,7 +911,7 @@ function make(colors: Colors) {
       fontSize: 16,
     },
     choiceRow: {
-      minHeight: 54,
+      height: 54,
       borderRadius: 14,
       paddingHorizontal: 14,
       backgroundColor: colors.surface,
@@ -924,10 +925,10 @@ function make(colors: Colors) {
     choiceArrow: { color: colors.subtle, fontSize: 28, lineHeight: 30, marginTop: -3 },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     chip: {
-      minHeight: 44,
+      height: 44,
       borderWidth: 1,
       borderColor: colors.subtle + "40",
-      borderRadius: 20,
+      borderRadius: 22,
       paddingHorizontal: 12,
       paddingVertical: 8,
     },
@@ -989,9 +990,9 @@ function make(colors: Colors) {
     gateP: { color: `${colors.bone}B2`, textAlign: "center", lineHeight: 22, fontSize: 15 },
     gateCta: {
       marginTop: 18,
-      height: 50,
+      height: 54,
       paddingHorizontal: 28,
-      borderRadius: 25,
+      borderRadius: 27,
       backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",

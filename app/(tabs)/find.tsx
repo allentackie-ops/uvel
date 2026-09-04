@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
-import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActionSheetIOS,
   Alert,
@@ -29,6 +30,7 @@ export default function Mirror() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const { capturedUri, capturedAt } = useLocalSearchParams<{ capturedUri?: string; capturedAt?: string }>();
   const app = useUvel();
   useWardrobe();
   const marketplaceSync = useMarketplaceSyncState();
@@ -40,6 +42,13 @@ export default function Mirror() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [showLink, setShowLink] = useState(false);
+
+  useEffect(() => {
+    if (typeof capturedUri !== "string" || !capturedUri) return;
+    app.setPerson(capturedUri);
+    setResult(null);
+    setErr("");
+  }, [app.setPerson, capturedAt, capturedUri]);
 
   const garmentUri = picked?.kind === "uvel" ? picked.piece.photo : picked?.uri;
   const garmentName = picked?.kind === "uvel" ? picked.piece.name : picked?.name ?? "this look";
@@ -64,16 +73,8 @@ export default function Mirror() {
     ]);
   }
 
-  async function fromCamera() {
-    try {
-      const uri = await takePhoto(false);
-      if (uri) {
-        app.setPerson(uri);
-        setResult(null);
-      }
-    } catch (e) {
-      Alert.alert("Camera", e instanceof Error ? e.message : "Couldn’t open camera.");
-    }
+  function fromCamera() {
+    router.push("/mirror-camera");
   }
 
   async function fromLibrary() {
@@ -170,12 +171,7 @@ export default function Mirror() {
 
   return (
     <View style={styles.page}>
-      <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.kicker}>ON YOU</Text>
-          <Text style={styles.head}>See it on you.</Text>
-        </View>
-      </View>
+      <View style={[styles.top, { paddingTop: insets.top + 6 }]} />
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 108 }} showsVerticalScrollIndicator={false}>
         <View style={[styles.hero, !person && styles.heroNeed]}>
@@ -188,10 +184,12 @@ export default function Mirror() {
               <Text style={styles.needH}>Add your full-length photo</Text>
               <Text style={styles.needP}>Then see how a look works on you before you buy.</Text>
               <View style={styles.needRow}>
-                <Pressable onPress={() => void fromCamera()} style={styles.needBtn}>
+                <Pressable onPress={() => void fromCamera()} style={({ pressed }) => [styles.needBtn, pressed && styles.badgePressed]}>
+                  <Ionicons name="camera-outline" size={17} color={colors.successInk} />
                   <Text style={styles.needBtnTxt}>Take my photo</Text>
                 </Pressable>
-                <Pressable onPress={() => void fromLibrary()} style={styles.needBtnGhost}>
+                <Pressable onPress={() => void fromLibrary()} style={({ pressed }) => [styles.needBtnGhost, pressed && styles.badgePressed]}>
+                  <Ionicons name="images-outline" size={17} color={colors.bone} />
                   <Text style={styles.needBtnGhostTxt}>Choose my photo</Text>
                 </Pressable>
               </View>
@@ -199,10 +197,11 @@ export default function Mirror() {
           )}
           {person && !busy ? (
             <View style={styles.changeWrap} pointerEvents="box-none">
-              <Pressable onPress={askPerson} style={styles.change}>
-                <Text style={styles.changeTxt}>📷  Change photo</Text>
+              <Pressable onPress={askPerson} style={({ pressed }) => [styles.change, pressed && styles.badgePressed]}>
+                <Ionicons name="camera-outline" size={16} color={colors.bone} />
+                <Text style={styles.changeTxt}>Change photo</Text>
               </Pressable>
-              <Pressable onPress={clearPerson} style={styles.removePhoto} accessibilityRole="button" accessibilityLabel="Remove photo" accessibilityHint="Double tap to remove your saved Mirror photo.">
+              <Pressable onPress={clearPerson} style={({ pressed }) => [styles.removePhoto, pressed && styles.badgePressed]} accessibilityRole="button" accessibilityLabel="Remove photo" accessibilityHint="Double tap to remove your saved Mirror photo.">
                 <Text style={styles.removePhotoTxt}>Remove</Text>
               </Pressable>
             </View>
@@ -224,10 +223,10 @@ export default function Mirror() {
             {person ? <Text style={styles.step}>1 of 2</Text> : null}
           </View>
           <View style={styles.anywhere}>
-            <Pressable onPress={chooseGarmentPhoto} style={[styles.chip, picked?.kind === "photo" && styles.chipOn]}>
+            <Pressable onPress={chooseGarmentPhoto} style={({ pressed }) => [styles.chip, picked?.kind === "photo" && styles.chipOn, pressed && styles.badgePressed]}>
               <Text style={[styles.chipTxt, picked?.kind === "photo" && styles.chipTxtOn]}>Add clothing photo</Text>
             </Pressable>
-            <Pressable onPress={() => setShowLink((v) => !v)} style={[styles.chip, showLink && styles.chipOn]}>
+            <Pressable onPress={() => setShowLink((v) => !v)} style={({ pressed }) => [styles.chip, showLink && styles.chipOn, pressed && styles.badgePressed]}>
               <Text style={[styles.chipTxt, showLink && styles.chipTxtOn]}>Paste product link</Text>
             </Pressable>
           </View>
@@ -242,7 +241,7 @@ export default function Mirror() {
                 keyboardType="url"
                 style={styles.input}
               />
-              <Pressable onPress={useLink} style={styles.linkGo}>
+              <Pressable onPress={useLink} style={({ pressed }) => [styles.linkGo, pressed && styles.badgePressed]}>
                 <Text style={styles.linkGoTxt}>Use</Text>
               </Pressable>
             </View>
@@ -252,7 +251,7 @@ export default function Mirror() {
         {live.length ? (
           <View style={styles.headRow}>
             <Text style={styles.h2}>From Uvel</Text>
-            <Pressable onPress={() => router.push("/(tabs)/shop")}>
+            <Pressable onPress={() => router.push("/(tabs)/shop")} style={({ pressed }) => [styles.seeAllPress, pressed && styles.badgePressed]}>
               <Text style={styles.seeAll}>See all</Text>
             </Pressable>
           </View>
@@ -269,7 +268,7 @@ export default function Mirror() {
                     setResult(null);
                     setErr("");
                   }}
-                  style={[styles.uvelCard, on && styles.uvelOn]}
+                  style={({ pressed }) => [styles.uvelCard, on && styles.uvelOn, pressed && styles.badgePressed]}
                 >
                   <View>
                     <Image source={{ uri: p.photo }} style={styles.uvelImg} contentFit="cover" />
@@ -343,8 +342,10 @@ function make(colors: Colors) {
       paddingHorizontal: 20,
       paddingBottom: 4,
     },
-    kicker: { color: `${colors.bone}6B`, letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
+    kicker: { color: colors.muted, letterSpacing: 1.8, fontSize: 11, fontWeight: "700" },
     head: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, marginTop: 4, lineHeight: 38 },
+    seeAllPress: { borderRadius: 8, paddingHorizontal: 4, paddingVertical: 3 },
+    badgePressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
     search: {
       width: 40,
       height: 40,
@@ -369,21 +370,27 @@ function make(colors: Colors) {
     needP: { color: `${colors.bone}9E`, textAlign: "center", marginBottom: 8 },
     needRow: { flexDirection: "row", gap: 10, marginTop: 8 },
     needBtn: {
-      height: 44,
-      paddingHorizontal: 20,
-      borderRadius: 22,
+      flex: 1,
+      height: 48,
+      paddingHorizontal: 12,
+      borderRadius: 24,
       backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
+      flexDirection: "row",
+      gap: 7,
     },
     needBtnTxt: { color: colors.successInk, fontWeight: "700" },
     needBtnGhost: {
-      height: 44,
-      paddingHorizontal: 20,
-      borderRadius: 22,
+      flex: 1,
+      height: 48,
+      paddingHorizontal: 12,
+      borderRadius: 24,
       backgroundColor: `${colors.surface}F2`,
       alignItems: "center",
       justifyContent: "center",
+      flexDirection: "row",
+      gap: 7,
     },
     needBtnGhostTxt: { color: colors.bone, fontWeight: "600" },
     spin: {
@@ -408,25 +415,27 @@ function make(colors: Colors) {
       backgroundColor: `${colors.surface}D1`,
       borderWidth: 1,
       borderColor: `${colors.bone}2E`,
-      height: 36,
+      height: 44,
       paddingHorizontal: 16,
-      borderRadius: 18,
+      borderRadius: 22,
       alignItems: "center",
       justifyContent: "center",
+      flexDirection: "row",
+      gap: 7,
     },
     changeTxt: { color: colors.bone, fontSize: 13, fontWeight: "600" },
-    removePhoto: { backgroundColor: `${colors.surface}D1`, borderWidth: 1, borderColor: `${colors.bone}2E`, height: 36, paddingHorizontal: 16, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+    removePhoto: { backgroundColor: `${colors.surface}D1`, borderWidth: 1, borderColor: `${colors.bone}2E`, height: 44, paddingHorizontal: 16, borderRadius: 22, alignItems: "center", justifyContent: "center" },
     removePhotoTxt: { color: `${colors.bone}B8`, fontSize: 13, fontWeight: "600" },
     headRow: {
       flexDirection: "row",
       alignItems: "baseline",
       justifyContent: "space-between",
       paddingHorizontal: 20,
-      marginTop: 26,
-      marginBottom: 14,
+      marginTop: 30,
+      marginBottom: 16,
     },
     h2: { color: colors.bone, fontFamily: "Georgia", fontSize: 26 },
-    seeAll: { color: `${colors.bone}6B`, fontSize: 15 },
+    seeAll: { color: colors.muted, fontSize: 15, fontWeight: "600" },
     strip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
     uvelCard: {
       width: 168,
@@ -475,7 +484,7 @@ function make(colors: Colors) {
       backgroundColor: `${colors.surface}F2`,
     },
     chipOn: { backgroundColor: colors.success, borderColor: colors.success },
-    chipTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
+    chipTxt: { color: colors.bone, fontWeight: "700", fontSize: 14 },
     chipTxtOn: { color: colors.successInk },
     linkRow: {
       marginHorizontal: 16,
@@ -486,8 +495,8 @@ function make(colors: Colors) {
       borderRadius: 16,
       paddingLeft: 14,
     },
-    input: { flex: 1, color: colors.bone, height: 46, fontSize: 15 },
-    linkGo: { paddingHorizontal: 16, height: 46, alignItems: "center", justifyContent: "center" },
+    input: { flex: 1, color: colors.bone, height: 48, fontSize: 15 },
+    linkGo: { paddingHorizontal: 16, height: 48, alignItems: "center", justifyContent: "center" },
     linkGoTxt: { color: colors.success, fontWeight: "700" },
     err: { color: colors.danger, marginTop: 14, marginHorizontal: 20, fontSize: 14, lineHeight: 20 },
     cta: {

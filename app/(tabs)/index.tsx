@@ -2,9 +2,10 @@ import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import {
   Alert,
+  Animated,
   AppState,
   Dimensions,
   Linking,
@@ -13,6 +14,8 @@ import {
   StyleSheet,
   Text,
   View,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
@@ -221,6 +224,53 @@ function where(url?: string): Exclude<Source, "All"> | null {
   return null;
 }
 
+function openExternalLink(url: string) {
+  const platform = where(url) || "social platform";
+  void Linking.openURL(url).catch(() => {
+    Alert.alert(
+      `Couldn’t open ${platform}`,
+      `This ${platform} link isn’t available on your device. Try opening it in a browser instead.`,
+      [{ text: "OK" }],
+    );
+  });
+}
+
+function openLookSource(look: Pick<Look, "postUrl">) {
+  if (!look.postUrl) return;
+  openExternalLink(look.postUrl);
+}
+
+function RefreshTransition({
+  refreshKey,
+  children,
+  style,
+}: {
+  refreshKey: string;
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const opacity = useRef(new Animated.Value(1)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+  const firstRender = useRef(true);
+
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    opacity.stopAnimation();
+    translateY.stopAnimation();
+    opacity.setValue(0.62);
+    translateY.setValue(7);
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 280, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: 0, duration: 280, useNativeDriver: true }),
+    ]).start();
+  }, [refreshKey, opacity, translateY]);
+
+  return <Animated.View style={[style, { opacity, transform: [{ translateY }] }]}>{children}</Animated.View>;
+}
+
 function showAiExplanation() {
   Alert.alert("AI-generated content", AI_CONTENT_EXPLANATION, [{ text: "Got it" }]);
 }
@@ -229,7 +279,7 @@ function AiGeneratedPill({ colors, compact = false }: { colors: Colors; compact?
   const styles = make(colors);
   return (
     <AccessiblePressable      onPress={showAiExplanation}
-      style={({ pressed }) => [styles.aiPill, compact && styles.aiPillCompact, pressed && { opacity: 0.92 }]}
+      style={({ pressed }) => [styles.aiPill, compact && styles.aiPillCompact, pressed && styles.badgePressed]}
       hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel="AI-generated content"
@@ -315,6 +365,10 @@ export default function Today() {
   );
   const modeListings = todayMode === "following" ? followedListings : todayMode === "nearby" ? nearbyListings : [];
   const featured = personalizedLooks[0] ?? looks[0];
+  const movingLooks = useMemo(
+    () => personalizedLooks.filter((look) => look.id !== featured?.id),
+    [personalizedLooks, featured?.id],
+  );
   const hits = featured ? matchListings(featured, live, taste, followedIds).slice(0, 6) : [];
   const intro = todayMode === "following"
     ? { eyebrow: C.following, title: C.following, body: "" }
@@ -364,20 +418,22 @@ export default function Today() {
           </AccessiblePressable>
         </View>
         {todayMode === "forYou" ? (
-          featured ? (
-            <Hero
-              key={featured.id}
-              look={featured}
-              colors={colors}
-              height={heroH}
-              onWait={setVideoWait}
-              onBusy={setShopWait}
-              onShop={() => trackFeed(featured, "shop")}
-              onSource={() => trackFeed(featured, "source")}
-            />
-          ) : (
-            <TodayEmptyHero mode={todayMode} height={heroH} colors={colors} />
-          )
+          <RefreshTransition refreshKey={featured?.id ?? "empty"}>
+            {featured ? (
+              <Hero
+                key={featured.id}
+                look={featured}
+                colors={colors}
+                height={heroH}
+                onWait={setVideoWait}
+                onBusy={setShopWait}
+                onShop={() => trackFeed(featured, "shop")}
+                onSource={() => trackFeed(featured, "source")}
+              />
+            ) : (
+              <TodayEmptyHero mode={todayMode} height={heroH} colors={colors} />
+            )}
+          </RefreshTransition>
         ) : modeListings[0] ? (
           <ListingHero piece={modeListings[0]} mode={todayMode} height={heroH} colors={colors} />
         ) : (
@@ -399,11 +455,19 @@ export default function Today() {
               <View style={styles.head}>
                 <Text style={styles.h2}>{C.movingNow}</Text>
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
-                {personalizedLooks.map((look) => (
-                  <LookCard key={look.id} look={look} colors={colors} onShop={() => trackFeed(look, "shop")} />
-                ))}
-              </ScrollView>
+              <RefreshTransition refreshKey={featured?.id ?? "empty"}>
+                {movingLooks.length ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
+                    {movingLooks.map((look) => (
+                      <LookCard key={look.id} look={look} colors={colors} onShop={() => trackFeed(look, "shop")} />
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <View style={{ paddingHorizontal: 16 }}>
+                    <ListingEmpty copy="More looks will appear here as the feed refreshes." />
+                  </View>
+                )}
+              </RefreshTransition>
               {todayCampaignRows.length ? (
                 <View>
                   <View style={styles.head}>
@@ -465,7 +529,7 @@ export default function Today() {
                 <Text style={styles.h2}>{C.forYou}</Text>
                 <AccessiblePressable
                   onPress={() => router.push("/(tabs)/shop")}
-                  style={({ pressed }) => [pressed && { opacity: 0.92 }]}
+                  style={({ pressed }) => [styles.seeAllPress, pressed && styles.badgePressed]}
                   accessibilityRole="button"
                   accessibilityLabel="See all shop listings"
                 >
@@ -552,7 +616,7 @@ function Hero({
               <AccessiblePressable
                 onPress={() => {
                   onSource?.();
-                  void Linking.openURL(look.postUrl!);
+                  openExternalLink(look.postUrl!);
                 }}
                 style={({ pressed }) => [styles.instagramPress, pressed && { opacity: 0.92 }]}
                 accessibilityRole="link"
@@ -566,7 +630,7 @@ function Hero({
         <View style={styles.srcRow}>
           <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
           <Text style={styles.src}>
-            {look.handle ? `${look.source}  ·  ${look.handle}` : look.source}
+            {look.handle || look.source}
           </Text>
         </View>
         {look.aiGenerated ? <AiGeneratedPill colors={colors} /> : null}
@@ -663,10 +727,18 @@ function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop
     <View style={styles.card}>
       <View style={styles.cardFrame}>
         <LookMedia look={look} style={styles.cardFill} handleRef={grab} />
-        <View style={styles.cardSrcPill}>
+        <AccessiblePressable
+          onPress={() => openLookSource(look)}
+          disabled={!look.postUrl}
+          style={({ pressed }) => [styles.cardSrcPill, pressed && styles.badgePressed, !look.postUrl && styles.cardSrcPillDisabled]}
+          hitSlop={6}
+          accessibilityRole={look.postUrl ? "link" : "text"}
+          accessibilityLabel={look.postUrl ? `Open this look on ${look.source}` : `${look.source} source unavailable`}
+          accessibilityHint={look.postUrl ? `Double tap to open the original ${look.source} post.` : undefined}
+        >
           <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
           <Text style={styles.cardSrc}>{look.source}</Text>
-        </View>
+        </AccessiblePressable>
         {look.aiGenerated ? (
           <View style={styles.cardAiWrap}>
             <AiGeneratedPill colors={colors} compact />
@@ -790,7 +862,7 @@ function make(colors: Colors) {
     emptyHeroCopy: { maxWidth: 420 },
     emptyHeroTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 40, marginTop: 12 },
     emptyHeroBody: { color: `${colors.bone}AD`, fontSize: 16, lineHeight: 24, marginTop: 10, maxWidth: 340 },
-    emptyHeroCta: { alignSelf: "flex-start", backgroundColor: colors.success, minHeight: 48, paddingHorizontal: 20, borderRadius: 24, alignItems: "center", justifyContent: "center", marginTop: 22 },
+    emptyHeroCta: { alignSelf: "flex-start", backgroundColor: colors.success, height: 54, paddingHorizontal: 20, borderRadius: 27, alignItems: "center", justifyContent: "center", marginTop: 22 },
     heroBar: { flexDirection: "row", gap: 10, marginBottom: 16 },
     srcRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
     src: { color: `${colors.bone}DB`, fontSize: 13, fontWeight: "500" },
@@ -804,8 +876,8 @@ function make(colors: Colors) {
     cta: {
       flex: 1.08,
       backgroundColor: darkMode ? "#FFFFFF" : colors.surface,
-      height: 46,
-      borderRadius: 23,
+      height: 48,
+      borderRadius: 24,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -813,8 +885,8 @@ function make(colors: Colors) {
     ctaSolo: { flex: 1 },
     ghost: {
       flex: 1,
-      height: 46,
-      borderRadius: 23,
+      height: 48,
+      borderRadius: 24,
       backgroundColor: darkMode ? "transparent" : `${colors.surface}B8`,
       borderWidth: 1,
       borderColor: darkMode ? `${colors.bone}A6` : `${colors.bone}66`,
@@ -823,8 +895,8 @@ function make(colors: Colors) {
     },
     instagramGlass: {
       flex: 1,
-      height: 46,
-      borderRadius: 23,
+      height: 48,
+      borderRadius: 24,
       overflow: "hidden",
       borderWidth: darkMode ? 1 : 0,
       borderColor: darkMode ? `${colors.bone}A6` : "transparent",
@@ -844,7 +916,7 @@ function make(colors: Colors) {
     modeButtonOn: { borderBottomColor: colors.success },
     modeText: { color: colors.muted, fontSize: 13, fontWeight: "800" },
     modeTextOn: { color: colors.bone },
-    sourceLabel: { color: colors.subtle, fontSize: 10, fontWeight: "900", letterSpacing: 1.5, paddingHorizontal: 20, marginTop: 2, marginBottom: 8 },
+    sourceLabel: { color: colors.muted, fontSize: 11, fontWeight: "900", letterSpacing: 1.5, paddingHorizontal: 20, marginTop: 2, marginBottom: 8 },
     featureIntro: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
     localCard: { marginHorizontal: 16, marginTop: 12, marginBottom: 8, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.subtle, overflow: "hidden", flexDirection: "row" },
     localImage: { width: 132, minHeight: 190, backgroundColor: colors.surface },
@@ -863,9 +935,9 @@ function make(colors: Colors) {
       flexDirection: "row",
       alignItems: "center",
       gap: 7,
-      minHeight: 38,
+      minHeight: 44,
       paddingHorizontal: 12,
-      borderRadius: 16,
+      borderRadius: 22,
       borderWidth: 1,
       borderColor: `${colors.bone}29`,
     },
@@ -884,7 +956,7 @@ function make(colors: Colors) {
       paddingVertical: 12,
     },
     inboxK: { color: colors.bone, fontWeight: "700", fontSize: 15 },
-    inboxP: { color: `${colors.bone}8C`, marginTop: 2, fontSize: 13 },
+    inboxP: { color: colors.muted, marginTop: 2, fontSize: 13 },
     redBadge: {
       minWidth: 22,
       height: 22,
@@ -904,7 +976,8 @@ function make(colors: Colors) {
       marginBottom: 14,
     },
     h2: { color: colors.bone, fontFamily: "Georgia", fontSize: 26 },
-    seeAll: { color: `${colors.bone}73`, fontSize: 15 },
+    seeAllPress: { borderRadius: 8, paddingHorizontal: 4, paddingVertical: 3 },
+    seeAll: { color: colors.muted, fontSize: 15, fontWeight: "600" },
     strip: { paddingHorizontal: 16, gap: 10, paddingRight: 28 },
     card: { width: CARD_W },
     cardFrame: {
@@ -922,27 +995,33 @@ function make(colors: Colors) {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      backgroundColor: `${colors.ink}9E`,
+      backgroundColor: `${colors.ink}D1`,
+      borderWidth: 1,
+      borderColor: `${colors.bone}52`,
       paddingHorizontal: 10,
-      height: 24,
-      borderRadius: 12,
+      minHeight: 32,
+      height: 32,
+      borderRadius: 16,
+      zIndex: 6,
     },
+    badgePressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
+    cardSrcPillDisabled: { opacity: 0.6 },
     cardAiWrap: { position: "absolute", left: 10, bottom: 10, zIndex: 8 },
     searchFab: {
       position: "absolute",
       minWidth: 46,
-      minHeight: 46,
+      minHeight: 48,
       right: 10,
       bottom: 10,
-      width: 46,
-      height: 46,
-      borderRadius: 23,
+      width: 48,
+      height: 48,
+      borderRadius: 24,
       backgroundColor: darkMode ? colors.bone : `${colors.surface}F5`,
       alignItems: "center",
       justifyContent: "center",
     },
     searchFabTxt: { color: darkMode ? colors.ink : colors.successInk, fontSize: 22, fontWeight: "700", marginTop: -1 },
-    cardSrc: { color: colors.bone, fontSize: 11, fontWeight: "700" },
+    cardSrc: { color: colors.bone, fontSize: 12, fontWeight: "800" },
     cardTitle: { color: colors.bone, fontSize: 14, marginTop: 8, lineHeight: 18, fontWeight: "500" },
     todayLive: { color: colors.successInk, backgroundColor: colors.success, borderRadius: 11, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "800", letterSpacing: 1 },
     todayCampaignStrip: { paddingHorizontal: 16, gap: 10, paddingRight: 28 },
