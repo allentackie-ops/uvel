@@ -221,6 +221,11 @@ function where(url?: string): Exclude<Source, "All"> | null {
   return null;
 }
 
+function openLookSource(look: Pick<Look, "postUrl">) {
+  if (!look.postUrl) return;
+  void Linking.openURL(look.postUrl).catch(() => undefined);
+}
+
 function showAiExplanation() {
   Alert.alert("AI-generated content", AI_CONTENT_EXPLANATION, [{ text: "Got it" }]);
 }
@@ -566,7 +571,7 @@ function Hero({
         <View style={styles.srcRow}>
           <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
           <Text style={styles.src}>
-            {look.handle ? `${look.source}  ·  ${look.handle}` : look.source}
+            {look.handle || look.source}
           </Text>
         </View>
         {look.aiGenerated ? <AiGeneratedPill colors={colors} /> : null}
@@ -663,10 +668,18 @@ function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop
     <View style={styles.card}>
       <View style={styles.cardFrame}>
         <LookMedia look={look} style={styles.cardFill} handleRef={grab} />
-        <View style={styles.cardSrcPill}>
+        <AccessiblePressable
+          onPress={() => openLookSource(look)}
+          disabled={!look.postUrl}
+          style={({ pressed }) => [styles.cardSrcPill, pressed && { opacity: 0.82 }, !look.postUrl && styles.cardSrcPillDisabled]}
+          hitSlop={6}
+          accessibilityRole={look.postUrl ? "link" : "text"}
+          accessibilityLabel={look.postUrl ? `Open this look on ${look.source}` : `${look.source} source unavailable`}
+          accessibilityHint={look.postUrl ? `Double tap to open the original ${look.source} post.` : undefined}
+        >
           <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
           <Text style={styles.cardSrc}>{look.source}</Text>
-        </View>
+        </AccessiblePressable>
         {look.aiGenerated ? (
           <View style={styles.cardAiWrap}>
             <AiGeneratedPill colors={colors} compact />
@@ -924,9 +937,12 @@ function make(colors: Colors) {
       gap: 6,
       backgroundColor: `${colors.ink}9E`,
       paddingHorizontal: 10,
-      height: 24,
-      borderRadius: 12,
+      minHeight: 32,
+      height: 32,
+      borderRadius: 16,
+      zIndex: 6,
     },
+    cardSrcPillDisabled: { opacity: 0.6 },
     cardAiWrap: { position: "absolute", left: 10, bottom: 10, zIndex: 8 },
     searchFab: {
       position: "absolute",
