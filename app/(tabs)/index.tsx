@@ -221,6 +221,17 @@ function where(url?: string): Exclude<Source, "All"> | null {
   return null;
 }
 
+function openExternalLink(url: string) {
+  void Linking.openURL(url).catch(() => {
+    Alert.alert("Couldn’t open link", "This social link isn’t available on your device.");
+  });
+}
+
+function openLookSource(look: Pick<Look, "postUrl">) {
+  if (!look.postUrl) return;
+  openExternalLink(look.postUrl);
+}
+
 function showAiExplanation() {
   Alert.alert("AI-generated content", AI_CONTENT_EXPLANATION, [{ text: "Got it" }]);
 }
@@ -548,10 +559,11 @@ function Hero({
             <Text style={styles.ctaTxt}>{busy ? C.searching : C.shopTheLook}</Text>
           </AccessiblePressable>
           {look.postUrl ? (
-            <AccessiblePressable              onPress={() => {
+            <AccessiblePressable                              onPress={() => {
                 onSource?.();
-                void Linking.openURL(look.postUrl!);
+                openExternalLink(look.postUrl!);
               }}
+
               style={({ pressed }) => [styles.ghost, pressed && { opacity: 0.92 }]}
               accessibilityRole="link"
               accessibilityLabel={`See this look on ${seen}`}
@@ -563,7 +575,7 @@ function Hero({
         <View style={styles.srcRow}>
           <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
           <Text style={styles.src}>
-            {look.handle ? `${look.source}  ·  ${look.handle}` : look.source}
+            {look.handle || look.source}
           </Text>
         </View>
         {look.aiGenerated ? <AiGeneratedPill colors={colors} /> : null}
@@ -660,10 +672,18 @@ function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop
     <View style={styles.card}>
       <View style={styles.cardFrame}>
         <LookMedia look={look} style={styles.cardFill} handleRef={grab} />
-        <View style={styles.cardSrcPill}>
+        <AccessiblePressable
+          onPress={() => openLookSource(look)}
+          disabled={!look.postUrl}
+          style={({ pressed }) => [styles.cardSrcPill, pressed && styles.badgePressed, !look.postUrl && styles.cardSrcPillDisabled]}
+          hitSlop={6}
+          accessibilityRole={look.postUrl ? "link" : "text"}
+          accessibilityLabel={look.postUrl ? `Open this look on ${look.source}` : `${look.source} source unavailable`}
+          accessibilityHint={look.postUrl ? `Double tap to open the original ${look.source} post.` : undefined}
+        >
           <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
           <Text style={styles.cardSrc}>{look.source}</Text>
-        </View>
+        </AccessiblePressable>
         {look.aiGenerated ? (
           <View style={styles.cardAiWrap}>
             <AiGeneratedPill colors={colors} compact />
@@ -903,11 +923,17 @@ function make(colors: Colors) {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      backgroundColor: colors.ink,
+      backgroundColor: `${colors.ink}D1`,
+      borderWidth: 1,
+      borderColor: `${colors.bone}52`,
       paddingHorizontal: 10,
-      height: 24,
-      borderRadius: 12,
+      minHeight: 32,
+      height: 32,
+      borderRadius: 16,
+      zIndex: 6,
     },
+    badgePressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
+    cardSrcPillDisabled: { opacity: 0.6 },
     cardAiWrap: { position: "absolute", left: 10, bottom: 10, zIndex: 8 },
     searchFab: {
       position: "absolute",
@@ -930,7 +956,7 @@ function make(colors: Colors) {
       elevation: 4,
     },
     searchFabTxt: { color: colors.successInk, fontSize: 20, fontWeight: "800", lineHeight: 22 },
-    cardSrc: { color: colors.bone, fontSize: 11, fontWeight: "700" },
+    cardSrc: { color: colors.bone, fontSize: 12, fontWeight: "800" },
     cardTitle: { color: colors.bone, fontSize: 14, marginTop: 8, lineHeight: 18, fontWeight: "500" },
     todayLive: { color: "#16140F", backgroundColor: "#D6E27A", borderRadius: 11, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "800", letterSpacing: 1 },
     todayCampaignStrip: { paddingHorizontal: 16, gap: 10, paddingRight: 28 },
