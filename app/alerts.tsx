@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { alertKindLabel, markAlertRead, useAlertCenter } from "../lib/alerts";
+import { markActivityNotificationRead, useActivityNotifications } from "../lib/activityNotifications";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { getPiece, useWardrobe } from "../lib/wardrobe";
@@ -22,30 +23,49 @@ export default function Alerts() {
   const app = useUvel();
   const pieces = useWardrobe();
   const { preferences, events } = useAlertCenter(app.uid);
+  const activity = useActivityNotifications(app.uid || "guest");
 
   function openListing(id: string, eventId?: string) {
     if (eventId) void markAlertRead(app.uid, eventId);
     router.push({ pathname: "/closet/[id]", params: { id } });
   }
 
-  if (!app.uid) {
-    return (
-      <View style={[styles.page, { paddingTop: insets.top + 16 }]}>
-        <Header styles={styles} />
-        <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>Sign in to manage alerts</Text>
-          <Text style={styles.emptyCopy}>Your saved-item alerts belong to your account.</Text>
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.page}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
         <Header styles={styles} />
-        <Text style={styles.title}>Keep an eye on the right pieces.</Text>
-        <Text style={styles.lede}>Alerts are created from your saved items. Local changes are shown in the app; device notifications require notification permission, and remote alerts need the marketplace backend to be connected.</Text>
+        <Text style={styles.title}>Your Uvel notifications.</Text>
+        <Text style={styles.lede}>Activity from Today and alerts for your saved marketplace items appear here.</Text>
+
+        <Text style={styles.sectionTitle}>Recent activity</Text>
+        {activity.length ? activity.slice(0, 20).map((item) => (
+          <Pressable
+            key={item.id}
+            onPress={() => {
+              void markActivityNotificationRead(app.uid || "guest", item.id);
+              if (item.target === "saved") router.push("/(tabs)/you");
+            }}
+            style={[styles.event, !item.read && styles.eventUnread]}
+            accessibilityRole="button"
+            accessibilityLabel={item.target === "saved" ? `${item.title}. Open saved looks.` : item.title}
+          >
+            {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.eventThumb} contentFit="cover" /> : <View style={styles.eventThumb} />}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={styles.eventTop}>
+                <Text style={styles.eventTitle} numberOfLines={1}>{item.title}</Text>
+                {!item.read ? <View style={styles.unread} /> : null}
+              </View>
+              <Text style={styles.eventBody} numberOfLines={2}>{item.body}</Text>
+              <Text style={styles.eventTime}>{ago(item.at)}</Text>
+            </View>
+          </Pressable>
+        )) : (
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>No activity yet</Text>
+            <Text style={styles.panelCopy}>Your Today feedback and bookmarked looks will appear here.</Text>
+          </View>
+        )}
 
         <Text style={styles.sectionTitle}>Watching</Text>
         {preferences.length ? preferences.map((preference) => {
@@ -67,7 +87,7 @@ export default function Alerts() {
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Recent alerts</Text>
+        <Text style={styles.sectionTitle}>Saved-item alerts</Text>
         {events.length ? events.slice(0, 20).map((event) => (
           <Pressable key={event.id} onPress={() => openListing(event.listingId, event.id)} style={[styles.event, !event.read && styles.eventUnread]} accessibilityRole="button" accessibilityLabel={`Open ${event.title} for ${event.listingName}`}>
             {event.photo ? <Image source={{ uri: event.photo }} style={styles.eventThumb} contentFit="cover" /> : <View style={styles.eventThumb} />}
@@ -101,7 +121,7 @@ function Header({ styles }: { styles: ReturnType<typeof make> }) {
       <Pressable onPress={() => router.back()} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel="Back">
         <Text style={styles.backText}>‹</Text>
       </Pressable>
-      <Text style={styles.headerTitle}>Alerts</Text>
+      <Text style={styles.headerTitle}>Notifications</Text>
       <View style={{ width: 40 }} />
     </View>
   );

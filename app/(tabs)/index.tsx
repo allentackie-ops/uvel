@@ -36,6 +36,7 @@ import { AI_CONTENT_EXPLANATION, AI_CONTENT_LABEL } from "../../lib/contentLabel
 import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
 import { useFeedPersonalization } from "../../lib/feedPersonalization";
+import { addActivityNotification, useActivityNotifications } from "../../lib/activityNotifications";
 import { useColors, type Colors } from "../../lib/theme";
 import { lookImage, useLooks, type Look, type Source } from "../../lib/trends";
 import { toggleSavedLook, useSavedLooks } from "../../lib/savedLooks";
@@ -338,6 +339,18 @@ export default function Today() {
   const { rank: rankForUser, track: trackFeed } = useFeedPersonalization(uid || "guest", country);
   const savedLooks = useSavedLooks();
   const savedIds = useMemo(() => new Set(savedLooks.map((look) => look.id)), [savedLooks]);
+  const activity = useActivityNotifications(uid || "guest");
+  const unreadActivity = activity.filter((item) => !item.read).length;
+  const notifyActivity = useCallback((look: Look, kind: "more_like" | "not_interested" | "bookmark") => {
+    const title = kind === "bookmark" ? "Look bookmarked" : kind === "more_like" ? "We’ll show you more like this" : "We’ll show you fewer like this";
+    const body = kind === "bookmark" ? `${look.title} was bookmarked. Tap the notification to open your saved looks.` : `${look.title} was recorded for your Today feed.`;
+    void addActivityNotification(uid || "guest", { kind, title, body, lookId: look.id, imageUrl: look.imageUrl, target: kind === "bookmark" ? "saved" : "none" });
+  }, [uid]);
+  const saveLook = useCallback(async (look: Look) => {
+    const saved = await toggleSavedLook(look);
+    trackFeed(look, "save");
+    if (saved) notifyActivity(look, "bookmark");
+  }, [notifyActivity, trackFeed]);
   const brandState = useBrands();
   const chats = useInbox(uid || "me");
   const unread = chats.reduce((n, t) => n + unreadFor(t, uid || "me"), 0);
@@ -405,7 +418,18 @@ export default function Today() {
         }
       >
         <View style={[styles.heroHeader, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
-          <AccessiblePressable
+          <View style={styles.heroHeaderActions}>
+            <AccessiblePressable
+              onPress={() => router.push("/alerts")}
+              style={({ pressed }) => [styles.chatHeaderButton, pressed && { opacity: 0.9 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Notifications${unreadActivity > 0 ? `, ${unreadActivity} unread` : ""}`}
+              accessibilityHint="Double tap to open your notifications."
+            >
+              <Ionicons name="notifications-outline" size={22} color={colors.bone} />
+              {unreadActivity > 0 ? <View style={styles.chatUnreadBadge}><Text style={styles.chatUnreadText}>{unreadActivity > 9 ? "9+" : String(unreadActivity)}</Text></View> : null}
+            </AccessiblePressable>
+            <AccessiblePressable
             onPress={() => router.push("/inbox")}
             style={({ pressed }) => [styles.chatHeaderButton, pressed && { opacity: 0.9 }]}
             accessibilityRole="button"
@@ -425,6 +449,7 @@ export default function Today() {
               </View>
             ) : null}
           </AccessiblePressable>
+          </View>
         </View>
         {todayMode === "forYou" ? (
           featured ? (
@@ -438,7 +463,7 @@ export default function Today() {
               onShop={() => trackFeed(featured, "shop")}
               onSource={() => trackFeed(featured, "source")}
               saved={savedIds.has(featured.id)}
-              onToggleSaved={() => { void toggleSavedLook(featured); trackFeed(featured, "save"); }}
+              onToggleSaved={() => { void saveLook(featured); }}
             />
           ) : (
             <TodayEmptyHero mode={todayMode} height={heroH} colors={colors} onRetry={todayMode === "forYou" ? () => void refresh() : undefined} />
@@ -466,7 +491,7 @@ export default function Today() {
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
                 {personalizedLooks.map((look) => (
-                  <LookCard key={look.id} look={look} colors={colors} onShop={() => trackFeed(look, "shop")} onMoreLike={() => trackFeed(look, "like")} onNotInterested={() => trackFeed(look, "skip")} saved={savedIds.has(look.id)} onToggleSaved={() => { void toggleSavedLook(look); trackFeed(look, "save"); }} />
+                  <LookCard key={look.id} look={look} colors={colors} onShop={() => trackFeed(look, "shop")} onMoreLike={() => { trackFeed(look, "like"); notifyActivity(look, "more_like"); }} onNotInterested={() => { trackFeed(look, "skip"); notifyActivity(look, "not_interested"); }} saved={savedIds.has(look.id)} onToggleSaved={() => { void saveLook(look); }} />
                 ))}
               </ScrollView>
               {todayCampaignRows.length ? (
@@ -881,6 +906,7 @@ function make(colors: Colors) {
     page: { flex: 1, backgroundColor: colors.ink },
     heroWrap: { width: W, backgroundColor: colors.ink, overflow: "hidden" },
     heroHeader: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 20, alignItems: "flex-end", paddingHorizontal: 16 },
+    heroHeaderActions: { flexDirection: "row", gap: 10 },
     chatHeaderButton: { width: 48, height: 48, borderRadius: 24, backgroundColor: `${colors.surface}E6`, borderWidth: 1, borderColor: `${colors.bone}52`, alignItems: "center", justifyContent: "center" },
     chatGlyph: { width: 25, height: 20, borderRadius: 7, borderWidth: 2, borderColor: colors.bone, alignItems: "center", justifyContent: "center", position: "relative" },
     chatDots: { flexDirection: "row", gap: 3 },
