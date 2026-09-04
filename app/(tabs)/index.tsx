@@ -36,7 +36,7 @@ import { AI_CONTENT_EXPLANATION, AI_CONTENT_LABEL } from "../../lib/contentLabel
 import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
 import { useFeedPersonalization } from "../../lib/feedPersonalization";
-import { addActivityNotification, useActivityNotifications } from "../../lib/activityNotifications";
+import { addActivityNotification } from "../../lib/activityNotifications";
 import { useColors, type Colors } from "../../lib/theme";
 import { lookImage, useLooks, type Look, type Source } from "../../lib/trends";
 import { toggleSavedLook, useSavedLooks } from "../../lib/savedLooks";
@@ -339,8 +339,6 @@ export default function Today() {
   const { rank: rankForUser, track: trackFeed } = useFeedPersonalization(uid || "guest", country);
   const savedLooks = useSavedLooks();
   const savedIds = useMemo(() => new Set(savedLooks.map((look) => look.id)), [savedLooks]);
-  const activity = useActivityNotifications(uid || "guest");
-  const unreadActivity = activity.filter((item) => !item.read).length;
   const [toast, setToast] = useState<{ title: string; body: string } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = useCallback((title: string, body: string) => {
@@ -441,16 +439,6 @@ export default function Today() {
       >
         <View style={[styles.heroHeader, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
           <View style={styles.heroHeaderActions}>
-            <AccessiblePressable
-              onPress={() => router.push("/alerts")}
-              style={({ pressed }) => [styles.chatHeaderButton, pressed && { opacity: 0.9 }]}
-              accessibilityRole="button"
-              accessibilityLabel={`Notifications${unreadActivity > 0 ? `, ${unreadActivity} unread` : ""}`}
-              accessibilityHint="Double tap to open your notifications."
-            >
-              <Ionicons name="notifications-outline" size={22} color={colors.bone} />
-              {unreadActivity > 0 ? <View style={styles.chatUnreadBadge}><Text style={styles.chatUnreadText}>{unreadActivity > 9 ? "9+" : String(unreadActivity)}</Text></View> : null}
-            </AccessiblePressable>
             <AccessiblePressable
             onPress={() => router.push("/inbox")}
             style={({ pressed }) => [styles.chatHeaderButton, pressed && { opacity: 0.9 }]}
