@@ -408,11 +408,17 @@ export default function Today() {
               <View style={styles.head}>
                 <Text style={styles.h2}>{C.movingNow}</Text>
               </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
-                {movingLooks.map((look) => (
-                  <LookCard key={look.id} look={look} colors={colors} onShop={() => trackFeed(look, "shop")} />
-                ))}
-              </ScrollView>
+              {movingLooks.length ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
+                  {movingLooks.map((look) => (
+                    <LookCard key={look.id} look={look} colors={colors} onShop={() => trackFeed(look, "shop")} />
+                  ))}
+                </ScrollView>
+              ) : (
+                <View style={{ paddingHorizontal: 16 }}>
+                  <ListingEmpty copy="More looks will appear here as the feed refreshes." />
+                </View>
+              )}
               {todayCampaignRows.length ? (
                 <View>
                   <View style={styles.head}>
