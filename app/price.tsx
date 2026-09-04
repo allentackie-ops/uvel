@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
-import { Alert, FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { convertCents, getMarketByCurrency } from "../lib/markets";
 import {
@@ -98,6 +98,7 @@ export default function Price() {
   const initialPrice = formatPriceInput(param(params.price));
   const initialCents = centsFromMajor(initialPrice);
   const [priceText, setPriceText] = useState(() => initialPrice);
+  const listRef = useRef<FlatList<ClosetPiece>>(null);
   const [selectedTier, setSelectedTier] = useState<"bargain" | "optimal" | "premium" | "custom">(() => {
     if (initialCents === guide.bargainCents) return "bargain";
     if (initialCents === guide.premiumCents) return "premium";
@@ -130,6 +131,12 @@ export default function Price() {
     );
   }
 
+  function keepPriceVisible() {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    });
+  }
+
   function choose(tier: "bargain" | "optimal" | "premium", cents: number) {
     setSelectedTier(tier);
     setPriceText(formatPriceInput(majorFromCents(cents)));
@@ -143,14 +150,20 @@ export default function Price() {
 
   return (
     <View style={styles.page}>
-      <FlatList
-        data={guide.comparables}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        columnWrapperStyle={styles.columns}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 110 }}
-        ListHeaderComponent={
+      <KeyboardAvoidingView
+        style={styles.keyboardFrame}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={insets.top}
+      >
+        <FlatList
+          ref={listRef}
+          data={guide.comparables}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          columnWrapperStyle={styles.columns}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 110 }}
+          ListHeaderComponent={
           <View>
             <View style={[styles.nav, { paddingTop: insets.top + 6 }]}> 
               <Pressable onPress={() => router.back()} hitSlop={12} style={styles.back}>
@@ -165,6 +178,7 @@ export default function Price() {
               <TextInput
                 style={styles.priceInput}
                 value={priceText}
+                onFocus={keepPriceVisible}
                 onChangeText={(value) => {
                   setSelectedTier("custom");
                   setPriceText(formatPriceInput(value));
@@ -211,16 +225,19 @@ export default function Price() {
               <Text style={styles.emptyCopy}>There aren’t enough close comparisons yet, so this guide starts with your item category and condition.</Text>
             ) : null}
           </View>
-        }
-        renderItem={({ item }) => <ComparableCard piece={item} currency={currency} />}
-        ListFooterComponent={
-          <View style={styles.footer}>
-            <Pressable onPress={done} style={({ pressed }) => [styles.done, pressed && { opacity: 0.8 }]}>
-              <Text style={styles.doneTxt}>{currentCents ? "Done" : `Use optimal ${formatPriceCents(guide.optimalCents, currency)}`}</Text>
-            </Pressable>
-          </View>
-        }
-      />
+          }
+          renderItem={({ item }) => <ComparableCard piece={item} currency={currency} />}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          ListFooterComponent={
+            <View style={styles.footer}>
+              <Pressable onPress={done} style={({ pressed }) => [styles.done, pressed && { opacity: 0.8 }]}>
+                <Text style={styles.doneTxt}>{currentCents ? "Done" : `Use optimal ${formatPriceCents(guide.optimalCents, currency)}`}</Text>
+              </Pressable>
+            </View>
+          }
+        />
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -252,6 +269,7 @@ function Recommendation({
 function make(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
+    keyboardFrame: { flex: 1 },
     analysisGate: { margin: 20, marginTop: 44, padding: 20, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.subtle + "44" },
     analysisGateTitle: { color: colors.bone, fontSize: 22, fontWeight: "700" },
     analysisGateCopy: { color: colors.muted, fontSize: 15, lineHeight: 22, marginTop: 10 },
