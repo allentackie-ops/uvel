@@ -767,27 +767,29 @@ function LookCard({ look, colors, onShop, onMoreLike, onNotInterested, saved, on
     <View style={styles.card}>
       <View style={styles.cardFrame}>
         <LookMedia look={look} style={styles.cardFill} handleRef={grab} />
-        <AccessiblePressable onPress={onToggleSaved} style={({ pressed }) => [styles.cardSaveButton, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel={saved ? "Remove look from saved looks" : "Save look"} accessibilityState={{ selected: saved }}>
-          <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={16} color={colors.bone} />
-        </AccessiblePressable>
-        {look.postUrl ? (
-          <AccessiblePressable
-            onPress={() => void openOriginalPost(look.postUrl, look.source)}
-            style={({ pressed }) => [styles.cardSrcPill, pressed && { opacity: 0.82 }]}
-            accessibilityRole="link"
-            accessibilityLabel={`Open this ${look.source} video`}
-            accessibilityHint="Double tap to open the original video."
-          >
-            <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
-            <Text style={styles.cardSrc}>{look.source}</Text>
-            <Ionicons name="open-outline" size={13} color={colors.bone} />
+        <View style={styles.cardTopRow}>
+          {look.postUrl ? (
+            <AccessiblePressable
+              onPress={() => void openOriginalPost(look.postUrl, look.source)}
+              style={({ pressed }) => [styles.cardSrcPill, pressed && { opacity: 0.82 }]}
+              accessibilityRole="link"
+              accessibilityLabel={`Open this ${look.source} video`}
+              accessibilityHint="Double tap to open the original video."
+            >
+              <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
+              <Text style={styles.cardSrc}>{look.source}</Text>
+              <Ionicons name="open-outline" size={13} color={colors.bone} />
+            </AccessiblePressable>
+          ) : (
+            <View style={styles.cardSrcPill}>
+              <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
+              <Text style={styles.cardSrc}>{look.source} · unavailable</Text>
+            </View>
+          )}
+          <AccessiblePressable onPress={onToggleSaved} style={({ pressed }) => [styles.cardSaveButton, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel={saved ? "Remove look from saved looks" : "Save look"} accessibilityState={{ selected: saved }}>
+            <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={16} color={colors.bone} />
           </AccessiblePressable>
-        ) : (
-          <View style={styles.cardSrcPill}>
-            <View style={[styles.dot, { backgroundColor: DOT[look.source] }]} />
-            <Text style={styles.cardSrc}>{look.source} · unavailable</Text>
-          </View>
-        )}
+        </View>
         {look.aiGenerated ? (
           <View style={styles.cardAiWrap}>
             <AiGeneratedPill colors={colors} compact />
@@ -1048,19 +1050,19 @@ function make(colors: Colors) {
       overflow: "hidden",
       backgroundColor: colors.surface,
     },
-    cardSaveButton: { position: "absolute", top: 10, right: 10, zIndex: 10, width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(11,10,8,0.62)", borderWidth: 1, borderColor: `${colors.bone}47`, alignItems: "center", justifyContent: "center" },
+    cardTopRow: { position: "absolute", top: 10, left: 10, right: 10, zIndex: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    cardSaveButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(11,10,8,0.62)", borderWidth: 1, borderColor: `${colors.bone}47`, alignItems: "center", justifyContent: "center" },
     cardFill: { width: CARD_W, height: CARD_H },
     cardSrcPill: {
-      position: "absolute",
-      top: 10,
-      left: 10,
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      backgroundColor: `${colors.ink}9E`,
-      paddingHorizontal: 10,
-      height: 24,
-      borderRadius: 12,
+      backgroundColor: `${colors.ink}B8`,
+      borderWidth: 1,
+      borderColor: `${colors.bone}33`,
+      paddingHorizontal: 11,
+      height: 34,
+      borderRadius: 17,
     },
     cardAiWrap: { position: "absolute", left: 10, bottom: 10, zIndex: 8 },
     searchFab: {
