@@ -184,11 +184,11 @@ export default function Mirror() {
               <Text style={styles.needH}>Add your full-length photo</Text>
               <Text style={styles.needP}>Then see how a look works on you before you buy.</Text>
               <View style={styles.needRow}>
-                <Pressable onPress={() => void fromCamera()} style={styles.needBtn}>
+                <Pressable onPress={() => void fromCamera()} style={({ pressed }) => [styles.needBtn, pressed && styles.badgePressed]}>
                   <Ionicons name="camera-outline" size={17} color={colors.successInk} />
                   <Text style={styles.needBtnTxt}>Take my photo</Text>
                 </Pressable>
-                <Pressable onPress={() => void fromLibrary()} style={styles.needBtnGhost}>
+                <Pressable onPress={() => void fromLibrary()} style={({ pressed }) => [styles.needBtnGhost, pressed && styles.badgePressed]}>
                   <Ionicons name="images-outline" size={17} color={colors.bone} />
                   <Text style={styles.needBtnGhostTxt}>Choose my photo</Text>
                 </Pressable>
@@ -197,11 +197,11 @@ export default function Mirror() {
           )}
           {person && !busy ? (
             <View style={styles.changeWrap} pointerEvents="box-none">
-              <Pressable onPress={askPerson} style={styles.change}>
+              <Pressable onPress={askPerson} style={({ pressed }) => [styles.change, pressed && styles.badgePressed]}>
                 <Ionicons name="camera-outline" size={16} color={colors.bone} />
                 <Text style={styles.changeTxt}>Change photo</Text>
               </Pressable>
-              <Pressable onPress={clearPerson} style={styles.removePhoto} accessibilityRole="button" accessibilityLabel="Remove photo" accessibilityHint="Double tap to remove your saved Mirror photo.">
+              <Pressable onPress={clearPerson} style={({ pressed }) => [styles.removePhoto, pressed && styles.badgePressed]} accessibilityRole="button" accessibilityLabel="Remove photo" accessibilityHint="Double tap to remove your saved Mirror photo.">
                 <Text style={styles.removePhotoTxt}>Remove</Text>
               </Pressable>
             </View>
@@ -223,10 +223,10 @@ export default function Mirror() {
             {person ? <Text style={styles.step}>1 of 2</Text> : null}
           </View>
           <View style={styles.anywhere}>
-            <Pressable onPress={chooseGarmentPhoto} style={[styles.chip, picked?.kind === "photo" && styles.chipOn]}>
+            <Pressable onPress={chooseGarmentPhoto} style={({ pressed }) => [styles.chip, picked?.kind === "photo" && styles.chipOn, pressed && styles.badgePressed]}>
               <Text style={[styles.chipTxt, picked?.kind === "photo" && styles.chipTxtOn]}>Add clothing photo</Text>
             </Pressable>
-            <Pressable onPress={() => setShowLink((v) => !v)} style={[styles.chip, showLink && styles.chipOn]}>
+            <Pressable onPress={() => setShowLink((v) => !v)} style={({ pressed }) => [styles.chip, showLink && styles.chipOn, pressed && styles.badgePressed]}>
               <Text style={[styles.chipTxt, showLink && styles.chipTxtOn]}>Paste product link</Text>
             </Pressable>
           </View>
@@ -241,7 +241,7 @@ export default function Mirror() {
                 keyboardType="url"
                 style={styles.input}
               />
-              <Pressable onPress={useLink} style={styles.linkGo}>
+              <Pressable onPress={useLink} style={({ pressed }) => [styles.linkGo, pressed && styles.badgePressed]}>
                 <Text style={styles.linkGoTxt}>Use</Text>
               </Pressable>
             </View>
@@ -251,7 +251,7 @@ export default function Mirror() {
         {live.length ? (
           <View style={styles.headRow}>
             <Text style={styles.h2}>From Uvel</Text>
-            <Pressable onPress={() => router.push("/(tabs)/shop")}>
+            <Pressable onPress={() => router.push("/(tabs)/shop")} style={({ pressed }) => [styles.seeAllPress, pressed && styles.badgePressed]}>
               <Text style={styles.seeAll}>See all</Text>
             </Pressable>
           </View>
@@ -268,7 +268,7 @@ export default function Mirror() {
                     setResult(null);
                     setErr("");
                   }}
-                  style={[styles.uvelCard, on && styles.uvelOn]}
+                  style={({ pressed }) => [styles.uvelCard, on && styles.uvelOn, pressed && styles.badgePressed]}
                 >
                   <View>
                     <Image source={{ uri: p.photo }} style={styles.uvelImg} contentFit="cover" />
@@ -342,8 +342,10 @@ function make(colors: Colors) {
       paddingHorizontal: 20,
       paddingBottom: 4,
     },
-    kicker: { color: `${colors.bone}6B`, letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
+    kicker: { color: colors.muted, letterSpacing: 1.8, fontSize: 11, fontWeight: "700" },
     head: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, marginTop: 4, lineHeight: 38 },
+    seeAllPress: { borderRadius: 8, paddingHorizontal: 4, paddingVertical: 3 },
+    badgePressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
     search: {
       width: 40,
       height: 40,
@@ -431,7 +433,7 @@ function make(colors: Colors) {
       marginBottom: 14,
     },
     h2: { color: colors.bone, fontFamily: "Georgia", fontSize: 26 },
-    seeAll: { color: `${colors.bone}6B`, fontSize: 15 },
+    seeAll: { color: colors.muted, fontSize: 15, fontWeight: "600" },
     strip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
     uvelCard: {
       width: 168,
@@ -480,7 +482,7 @@ function make(colors: Colors) {
       backgroundColor: `${colors.surface}F2`,
     },
     chipOn: { backgroundColor: colors.success, borderColor: colors.success },
-    chipTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
+    chipTxt: { color: colors.bone, fontWeight: "700", fontSize: 14 },
     chipTxtOn: { color: colors.successInk },
     linkRow: {
       marginHorizontal: 16,

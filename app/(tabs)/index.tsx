@@ -268,7 +268,7 @@ function AiGeneratedPill({ colors, compact = false }: { colors: Colors; compact?
   const styles = make(colors);
   return (
     <AccessiblePressable      onPress={showAiExplanation}
-      style={({ pressed }) => [styles.aiPill, compact && styles.aiPillCompact, pressed && { opacity: 0.92 }]}
+      style={({ pressed }) => [styles.aiPill, compact && styles.aiPillCompact, pressed && styles.badgePressed]}
       hitSlop={6}
       accessibilityRole="button"
       accessibilityLabel="AI-generated content"
@@ -518,7 +518,7 @@ export default function Today() {
                 <Text style={styles.h2}>{C.forYou}</Text>
                 <AccessiblePressable
                   onPress={() => router.push("/(tabs)/shop")}
-                  style={({ pressed }) => [pressed && { opacity: 0.92 }]}
+                  style={({ pressed }) => [styles.seeAllPress, pressed && styles.badgePressed]}
                   accessibilityRole="button"
                   accessibilityLabel="See all shop listings"
                 >
@@ -719,7 +719,7 @@ function LookCard({ look, colors, onShop }: { look: Look; colors: Colors; onShop
         <AccessiblePressable
           onPress={() => openLookSource(look)}
           disabled={!look.postUrl}
-          style={({ pressed }) => [styles.cardSrcPill, pressed && { opacity: 0.82 }, !look.postUrl && styles.cardSrcPillDisabled]}
+          style={({ pressed }) => [styles.cardSrcPill, pressed && styles.badgePressed, !look.postUrl && styles.cardSrcPillDisabled]}
           hitSlop={6}
           accessibilityRole={look.postUrl ? "link" : "text"}
           accessibilityLabel={look.postUrl ? `Open this look on ${look.source}` : `${look.source} source unavailable`}
@@ -905,7 +905,7 @@ function make(colors: Colors) {
     modeButtonOn: { borderBottomColor: colors.success },
     modeText: { color: colors.muted, fontSize: 13, fontWeight: "800" },
     modeTextOn: { color: colors.bone },
-    sourceLabel: { color: colors.subtle, fontSize: 10, fontWeight: "900", letterSpacing: 1.5, paddingHorizontal: 20, marginTop: 2, marginBottom: 8 },
+    sourceLabel: { color: colors.muted, fontSize: 11, fontWeight: "900", letterSpacing: 1.5, paddingHorizontal: 20, marginTop: 2, marginBottom: 8 },
     featureIntro: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 },
     localCard: { marginHorizontal: 16, marginTop: 12, marginBottom: 8, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.subtle, overflow: "hidden", flexDirection: "row" },
     localImage: { width: 132, minHeight: 190, backgroundColor: colors.surface },
@@ -945,7 +945,7 @@ function make(colors: Colors) {
       paddingVertical: 12,
     },
     inboxK: { color: colors.bone, fontWeight: "700", fontSize: 15 },
-    inboxP: { color: `${colors.bone}8C`, marginTop: 2, fontSize: 13 },
+    inboxP: { color: colors.muted, marginTop: 2, fontSize: 13 },
     redBadge: {
       minWidth: 22,
       height: 22,
@@ -965,7 +965,8 @@ function make(colors: Colors) {
       marginBottom: 14,
     },
     h2: { color: colors.bone, fontFamily: "Georgia", fontSize: 26 },
-    seeAll: { color: `${colors.bone}73`, fontSize: 15 },
+    seeAllPress: { borderRadius: 8, paddingHorizontal: 4, paddingVertical: 3 },
+    seeAll: { color: colors.muted, fontSize: 15, fontWeight: "600" },
     strip: { paddingHorizontal: 16, gap: 10, paddingRight: 28 },
     card: { width: CARD_W },
     cardFrame: {
@@ -983,13 +984,16 @@ function make(colors: Colors) {
       flexDirection: "row",
       alignItems: "center",
       gap: 6,
-      backgroundColor: `${colors.ink}9E`,
+      backgroundColor: `${colors.ink}D1`,
+      borderWidth: 1,
+      borderColor: `${colors.bone}52`,
       paddingHorizontal: 10,
       minHeight: 32,
       height: 32,
       borderRadius: 16,
       zIndex: 6,
     },
+    badgePressed: { opacity: 0.72, transform: [{ scale: 0.97 }] },
     cardSrcPillDisabled: { opacity: 0.6 },
     cardAiWrap: { position: "absolute", left: 10, bottom: 10, zIndex: 8 },
     searchFab: {
@@ -1006,7 +1010,7 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     searchFabTxt: { color: darkMode ? colors.ink : colors.successInk, fontSize: 22, fontWeight: "700", marginTop: -1 },
-    cardSrc: { color: colors.bone, fontSize: 11, fontWeight: "700" },
+    cardSrc: { color: colors.bone, fontSize: 12, fontWeight: "800" },
     cardTitle: { color: colors.bone, fontSize: 14, marginTop: 8, lineHeight: 18, fontWeight: "500" },
     todayLive: { color: colors.successInk, backgroundColor: colors.success, borderRadius: 11, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "800", letterSpacing: 1 },
     todayCampaignStrip: { paddingHorizontal: 16, gap: 10, paddingRight: 28 },
