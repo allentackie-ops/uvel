@@ -224,9 +224,20 @@ function where(url?: string): Exclude<Source, "All"> | null {
   return null;
 }
 
+function openExternalLink(url: string) {
+  const platform = where(url) || "social platform";
+  void Linking.openURL(url).catch(() => {
+    Alert.alert(
+      `Couldn’t open ${platform}`,
+      `This ${platform} link isn’t available on your device. Try opening it in a browser instead.`,
+      [{ text: "OK" }],
+    );
+  });
+}
+
 function openLookSource(look: Pick<Look, "postUrl">) {
   if (!look.postUrl) return;
-  void Linking.openURL(look.postUrl).catch(() => undefined);
+  openExternalLink(look.postUrl);
 }
 
 function RefreshTransition({
@@ -605,7 +616,7 @@ function Hero({
               <AccessiblePressable
                 onPress={() => {
                   onSource?.();
-                  void Linking.openURL(look.postUrl!);
+                  openExternalLink(look.postUrl!);
                 }}
                 style={({ pressed }) => [styles.instagramPress, pressed && { opacity: 0.92 }]}
                 accessibilityRole="link"
