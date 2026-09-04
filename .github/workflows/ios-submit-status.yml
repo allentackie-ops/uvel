@@ -22,5 +22,7 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
           packager: npm
+      - name: Install JS dependencies
+        run: npm ci
       - name: Check EAS submission status
         run: npx eas-cli submit:view "${{ github.event.inputs.submission_id }}" --json
