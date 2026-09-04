@@ -208,8 +208,15 @@ export default function MirrorCamera() {
               <Text style={styles.screenFlashBadgeText}>{flash === "off" ? "No flash" : "Screen flash"}</Text>
             </View>
           )}
-          <Pressable onPress={switchFacing} hitSlop={12}>
-            <Text style={styles.flip}>↻</Text>
+          <Pressable
+            onPress={switchFacing}
+            hitSlop={8}
+            style={({ pressed }) => [styles.topActionButton, pressed && { opacity: 0.72, transform: [{ scale: 0.96 }] }]}
+            accessibilityRole="button"
+            accessibilityLabel="Switch camera"
+            accessibilityHint="Double tap to switch between the front and back camera."
+          >
+            <Ionicons name="camera-reverse-outline" size={21} color={INK} />
           </Pressable>
         </View>
       </View>
@@ -225,26 +232,24 @@ export default function MirrorCamera() {
       <View style={[styles.cameraBottom, { paddingBottom: insets.bottom + 22 }]}>
         <Text style={styles.bottomHint}>Tap to focus · pinch or swipe to zoom</Text>
         <GestureDetector gesture={dialSwipe}>
-          <View style={styles.zoomDial}>
-            <View style={styles.zoomArc} />
-            {zoomOptions.map((option) => (
-              <Pressable
-                key={option.label}
-                onPress={() => chooseLens(option)}
-                style={({ pressed }) => [
-                  styles.zoomStop,
-                  option.position === "left" && styles.zoomStopLeft,
-                  option.position === "middle" && styles.zoomStopMiddle,
-                  option.position === "right" && styles.zoomStopRight,
-                  selectedLens === option.lens && Math.abs(zoom - option.value) < 0.03 && styles.zoomStopOn,
-                  pressed && { opacity: 0.75 },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={`Set zoom to ${option.label}`}
-              >
-                <Text style={[styles.zoomText, selectedLens === option.lens && Math.abs(zoom - option.value) < 0.03 && styles.zoomTextOn]}>{option.label}</Text>
-              </Pressable>
-            ))}
+          <View style={styles.zoomControl}>
+            <View style={styles.zoomTrack}>
+              {zoomOptions.map((option) => {
+                const active = selectedLens === option.lens && Math.abs(zoom - option.value) < 0.03;
+                return (
+                  <Pressable
+                    key={option.label}
+                    onPress={() => chooseLens(option)}
+                    style={({ pressed }) => [styles.zoomStop, active && styles.zoomStopOn, pressed && { opacity: 0.72 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Set zoom to ${option.label}`}
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text style={[styles.zoomText, active && styles.zoomTextOn]}>{option.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </GestureDetector>
         <Pressable accessibilityRole="button" accessibilityLabel="Take full-length photo" onPress={() => void capture()} style={styles.shutterOuter}>
@@ -269,9 +274,9 @@ const styles = StyleSheet.create({
   cancelText: { color: MUTED, fontWeight: "700", fontSize: 14 },
   cameraTop: { position: "absolute", top: 0, left: 0, right: 0, paddingHorizontal: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   topCopy: { alignItems: "center" },
-  topActions: { alignItems: "center", gap: 12 },
+  topActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   close: { color: INK, fontSize: 36, lineHeight: 34, fontWeight: "300" },
-  flip: { color: INK, fontSize: 32, lineHeight: 32 },
+  topActionButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(11,10,8,0.58)", borderWidth: 1, borderColor: "rgba(244,240,230,0.28)", alignItems: "center", justifyContent: "center" },
   flashControls: { flexDirection: "row", alignItems: "center", gap: 4, padding: 3, borderRadius: 18, backgroundColor: "rgba(11,10,8,0.58)", borderWidth: 1, borderColor: "rgba(244,240,230,0.28)" },
   flashMode: { minWidth: 38, height: 28, paddingHorizontal: 7, borderRadius: 14, flexDirection: "row", gap: 3, alignItems: "center", justifyContent: "center" },
   flashModeOn: { backgroundColor: ACCENT },
@@ -286,12 +291,9 @@ const styles = StyleSheet.create({
   focusCornerBottomLeft: { position: "absolute", bottom: 0, left: 0, width: 14, height: 14, borderBottomWidth: 2, borderLeftWidth: 2, borderColor: ACCENT },
   focusCornerBottomRight: { position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderBottomWidth: 2, borderRightWidth: 2, borderColor: ACCENT },
   scrim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.18)" },
-  zoomDial: { width: DIAL_WIDTH, height: 76, marginBottom: 4, position: "relative", alignItems: "center" },
-  zoomArc: { position: "absolute", top: 18, left: 8, width: DIAL_WIDTH - 16, height: 54, borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: "rgba(244,240,230,0.38)", borderTopLeftRadius: 120, borderTopRightRadius: 120 },
-  zoomStop: { position: "absolute", top: 28, minWidth: 52, height: 32, paddingHorizontal: 10, borderRadius: 16, backgroundColor: "rgba(11,10,8,0.62)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(244,240,230,0.28)" },
-  zoomStopLeft: { left: 0, top: 40 },
-  zoomStopMiddle: { left: (DIAL_WIDTH - 52) / 2, top: 20 },
-  zoomStopRight: { right: 0, top: 40 },
+  zoomControl: { width: DIAL_WIDTH, height: 50, marginBottom: 8, padding: 4, borderRadius: 25, backgroundColor: "rgba(11,10,8,0.62)", borderWidth: 1, borderColor: "rgba(244,240,230,0.28)" },
+  zoomTrack: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "space-around" },
+  zoomStop: { minWidth: 58, height: 40, paddingHorizontal: 12, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   zoomStopOn: { backgroundColor: ACCENT, borderColor: ACCENT },
   zoomText: { color: INK, fontSize: 13, fontWeight: "800" },
   zoomTextOn: { color: BG },
