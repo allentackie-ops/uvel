@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
@@ -170,11 +171,7 @@ export default function Mirror() {
 
   return (
     <View style={styles.page}>
-      <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.kicker}>ON YOU</Text>
-        </View>
-      </View>
+      <View style={[styles.top, { paddingTop: insets.top + 6 }]} />
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 108 }} showsVerticalScrollIndicator={false}>
         <View style={[styles.hero, !person && styles.heroNeed]}>
@@ -188,9 +185,11 @@ export default function Mirror() {
               <Text style={styles.needP}>Then see how a look works on you before you buy.</Text>
               <View style={styles.needRow}>
                 <Pressable onPress={() => void fromCamera()} style={styles.needBtn}>
+                  <Ionicons name="camera-outline" size={17} color={colors.successInk} />
                   <Text style={styles.needBtnTxt}>Take my photo</Text>
                 </Pressable>
                 <Pressable onPress={() => void fromLibrary()} style={styles.needBtnGhost}>
+                  <Ionicons name="images-outline" size={17} color={colors.bone} />
                   <Text style={styles.needBtnGhostTxt}>Choose my photo</Text>
                 </Pressable>
               </View>
@@ -199,7 +198,8 @@ export default function Mirror() {
           {person && !busy ? (
             <View style={styles.changeWrap} pointerEvents="box-none">
               <Pressable onPress={askPerson} style={styles.change}>
-                <Text style={styles.changeTxt}>📷  Change photo</Text>
+                <Ionicons name="camera-outline" size={16} color={colors.bone} />
+                <Text style={styles.changeTxt}>Change photo</Text>
               </Pressable>
               <Pressable onPress={clearPerson} style={styles.removePhoto} accessibilityRole="button" accessibilityLabel="Remove photo" accessibilityHint="Double tap to remove your saved Mirror photo.">
                 <Text style={styles.removePhotoTxt}>Remove</Text>
@@ -374,6 +374,8 @@ function make(colors: Colors) {
       backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
+      flexDirection: "row",
+      gap: 7,
     },
     needBtnTxt: { color: colors.successInk, fontWeight: "700" },
     needBtnGhost: {
@@ -383,6 +385,8 @@ function make(colors: Colors) {
       backgroundColor: `${colors.surface}F2`,
       alignItems: "center",
       justifyContent: "center",
+      flexDirection: "row",
+      gap: 7,
     },
     needBtnGhostTxt: { color: colors.bone, fontWeight: "600" },
     spin: {
@@ -412,6 +416,8 @@ function make(colors: Colors) {
       borderRadius: 18,
       alignItems: "center",
       justifyContent: "center",
+      flexDirection: "row",
+      gap: 7,
     },
     changeTxt: { color: colors.bone, fontSize: 13, fontWeight: "600" },
     removePhoto: { backgroundColor: `${colors.surface}D1`, borderWidth: 1, borderColor: `${colors.bone}2E`, height: 36, paddingHorizontal: 16, borderRadius: 18, alignItems: "center", justifyContent: "center" },
