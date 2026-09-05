@@ -66,9 +66,9 @@ const DOT: Record<Exclude<Source, "All">, string> = {
 const videoStyles = StyleSheet.create({
   videoLoading: { ...StyleSheet.absoluteFillObject, overflow: "hidden", backgroundColor: "rgba(244,240,230,0.08)" },
   videoShimmer: { position: "absolute", top: 0, bottom: 0, width: 120, backgroundColor: "rgba(244,240,230,0.12)", transform: [{ skewX: "-18deg" }] },
-  videoError: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(11,10,8,0.5)", gap: 10 },
-  videoErrorText: { color: "#F4F0E6", fontSize: 13, fontWeight: "700" },
-  videoRetry: { minWidth: 72, height: 34, paddingHorizontal: 14, borderRadius: 17, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center" },
+  videoError: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", paddingHorizontal: 16, gap: 8 },
+  videoErrorText: { color: "#F4F0E6", fontSize: 13, fontWeight: "700", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 },
+  videoRetry: { minWidth: 72, height: 34, paddingHorizontal: 14, borderRadius: 17, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
   videoRetryText: { color: "#0B0A08", fontSize: 12, fontWeight: "800" },
 });
 
