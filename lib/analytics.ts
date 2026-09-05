@@ -27,6 +27,26 @@ export async function recordAnalyticsEvent(input: AnalyticsEventInput) {
   });
 }
 
+export type SharedFeedAction = "like" | "skip";
+
+export type SharedFeedSignal = {
+  like: number;
+  skip: number;
+};
+
+export async function recordSharedFeedSignal(input: { lookId: string; action: SharedFeedAction; actorId: string }) {
+  if (!firebaseReady() || !input.lookId || !input.actorId) return;
+  const call = httpsCallable(firebaseFunctions(), "recordFeedFeedback");
+  await call(input);
+}
+
+export async function readSharedFeedSignals(lookIds: string[]) {
+  if (!firebaseReady() || !lookIds.length) return {} as Record<string, SharedFeedSignal>;
+  const call = httpsCallable<{ lookIds: string[] }, { signals: Record<string, SharedFeedSignal> }>(firebaseFunctions(), "readFeedFeedback");
+  const result = await call({ lookIds: [...new Set(lookIds)].slice(0, 100) });
+  return result.data.signals || {};
+}
+
 export async function readBrandAnalytics(brandId: string, currency = "USD") {
   if (!firebaseReady()) return null;
   const call = httpsCallable<{ brandId: string; currency: string }, { data: unknown }>(firebaseFunctions(), "getBrandAnalytics");

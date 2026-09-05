@@ -388,6 +388,52 @@ async function recordEvent(req) {
 
 exports.recordAnalyticsEvent = onCall(recordEvent);
 
+exports.recordFeedFeedback = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before sending feed feedback.");
+  const input = req.data || {};
+  const lookId = String(input.lookId || "").trim();
+  const action = String(input.action || "").trim();
+  if (!/^[a-zA-Z0-9._:-]{1,160}$/.test(lookId) || !["like", "skip"].includes(action)) {
+    throw new HttpsError("invalid-argument", "Invalid feed feedback.");
+  }
+
+  const db = admin.firestore();
+  const summaryRef = db.collection("feedFeedback").doc(fieldId(lookId));
+  const actorRef = summaryRef.collection("actors").doc(fieldId(req.auth.uid));
+  await db.runTransaction(async (tx) => {
+    const [summarySnap, actorSnap] = await Promise.all([tx.get(summaryRef), tx.get(actorRef)]);
+    const previous = actorSnap.exists ? String(actorSnap.data()?.action || "") : "";
+    if (previous === action) return;
+    const patch = {
+      lookId,
+      likeCount: increment(action === "like" ? 1 : previous === "like" ? -1 : 0),
+      skipCount: increment(action === "skip" ? 1 : previous === "skip" ? -1 : 0),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    tx.set(summaryRef, patch, { merge: true });
+    tx.set(actorRef, { action, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  });
+  return { ok: true };
+});
+
+exports.readFeedFeedback = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before reading feed feedback.");
+  const ids = Array.isArray(req.data?.lookIds) ? req.data.lookIds : [];
+  const lookIds = [...new Set(ids.map((id) => String(id || "").trim()).filter((id) => /^[a-zA-Z0-9._:-]{1,160}$/.test(id)))].slice(0, 100);
+  if (!lookIds.length) return { signals: {} };
+  const db = admin.firestore();
+  const snaps = await Promise.all(lookIds.map((id) => db.collection("feedFeedback").doc(fieldId(id)).get()));
+  const signals = {};
+  snaps.forEach((snap, index) => {
+    const data = snap.data() || {};
+    signals[lookIds[index]] = {
+      like: Math.max(0, Math.floor(Number(data.likeCount) || 0)),
+      skip: Math.max(0, Math.floor(Number(data.skipCount) || 0)),
+    };
+  });
+  return { signals };
+});
+
 function attributionField(type) {
   return type === "impression" ? "impressions" : type === "engagement" ? "engagements" : type === "checkout_started" ? "checkoutStarted" : "purchases";
 }

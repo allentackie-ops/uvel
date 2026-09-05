@@ -336,7 +336,7 @@ export default function Today() {
   const insets = useSafeAreaInsets();
   const { uid, styles: taste, country } = useUvel();
   const C = useCopy();
-  const { rank: rankForUser, track: trackFeed } = useFeedPersonalization(uid || "guest", country);
+  const { rank: rankForUser, track: trackFeed, refreshShared: refreshSharedFeed } = useFeedPersonalization(uid || "guest", country);
   const savedLooks = useSavedLooks();
   const savedIds = useMemo(() => new Set(savedLooks.map((look) => look.id)), [savedLooks]);
   const [toast, setToast] = useState<{ title: string; body: string } | null>(null);
@@ -364,6 +364,9 @@ export default function Today() {
   const chats = useInbox(uid || "me");
   const unread = chats.reduce((n, t) => n + unreadFor(t, uid || "me"), 0);
   const { looks, refreshing, refresh, loading } = useLooks();
+  useEffect(() => {
+    void refreshSharedFeed(looks);
+  }, [looks, refreshSharedFeed]);
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const live = shopFloor(country);

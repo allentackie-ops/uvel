@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GARMENTS } from "./catalog";
+import { readSharedFeedSignals, recordSharedFeedSignal, type SharedFeedSignal } from "./analytics";
 import type { Look, Source } from "./trends";
 
 export type FeedInteraction = "shop" | "source" | "save" | "like" | "skip";
@@ -20,6 +21,8 @@ type FeedProfile = {
 const PROFILE_PREFIX = "uvel-feed-profile-v1:";
 const EMPTY_PROFILE: FeedProfile = { source: {}, country: {}, topics: {}, colors: {}, categories: {}, silhouettes: {}, priceBands: {}, dismissed: {}, events: 0 };
 const ACTION_WEIGHT: Record<FeedInteraction, number> = { shop: 5, source: 4, save: 4, like: 5, skip: -6 };
+
+export type SharedFeedSignals = Record<string, SharedFeedSignal>;
 
 function profileKey(uid: string) {
   return `${PROFILE_PREFIX}${uid || "guest"}`;
@@ -66,7 +69,7 @@ function traits(look: Look) {
   return { colors, categories, silhouettes, priceBand: average ? priceBand(average) : null };
 }
 
-function score(look: Look, country: string, profile: FeedProfile) {
+function score(look: Look, country: string, profile: FeedProfile, shared: SharedFeedSignals = {}) {
   const sourceInterest = profile.source[look.source] || 0;
   const countryInterest = look.country ? profile.country[look.country] || 0 : 0;
   const topicInterest = words(look).reduce((sum, word) => sum + (profile.topics[word] || 0), 0);
@@ -80,25 +83,28 @@ function score(look: Look, country: string, profile: FeedProfile) {
   const usBoost = look.country === "US" && countryCode !== "US" ? 6 : 0;
   const globalPenalty = look.country && look.country !== countryCode && look.country !== "US" ? -2 : 0;
   const dismissed = profile.dismissed[look.id] ? -1000 : 0;
-  return sourceInterest * 1.4 + countryInterest * 1.2 + Math.min(18, topicInterest) + colorInterest * 1.5 + categoryInterest * 1.3 + silhouetteInterest * 1.2 + priceInterest + localBoost + usBoost + globalPenalty + dismissed;
+  const feedback = shared[look.id];
+  const sharedLikeBoost = feedback ? Math.min(24, Math.log1p(feedback.like) * 7) : 0;
+  const sharedSkipPenalty = feedback ? Math.min(36, Math.log1p(feedback.skip) * 10) : 0;
+  return sourceInterest * 1.4 + countryInterest * 1.2 + Math.min(18, topicInterest) + colorInterest * 1.5 + categoryInterest * 1.3 + silhouetteInterest * 1.2 + priceInterest + localBoost + usBoost + globalPenalty + dismissed + sharedLikeBoost - sharedSkipPenalty;
 }
 
-function orderGroup(group: Look[], country: string, profile: FeedProfile) {
-  return [...group].sort((a, b) => score(b, country, profile) - score(a, country, profile));
+function orderGroup(group: Look[], country: string, profile: FeedProfile, shared: SharedFeedSignals) {
+  return [...group].sort((a, b) => score(b, country, profile, shared) - score(a, country, profile, shared));
 }
 
-export function rankForUser(looks: Look[], country: string, profile: FeedProfile): Look[] {
+export function rankForUser(looks: Look[], country: string, profile: FeedProfile, shared: SharedFeedSignals = {}): Look[] {
   if (!looks.length) return [];
   const visible = looks.filter((look) => !profile.dismissed[look.id]);
-  if (visible.length !== looks.length) return rankForUser(visible, country, { ...profile, dismissed: {} });
+  if (visible.length !== looks.length) return rankForUser(visible, country, { ...profile, dismissed: {} }, shared);
   const code = country.toUpperCase();
-  const ranked = looks.map((look) => ({ look, value: score(look, code, profile) })).sort((a, b) => b.value - a.value).map(({ look }) => look);
+  const ranked = looks.map((look) => ({ look, value: score(look, code, profile, shared) })).sort((a, b) => b.value - a.value).map(({ look }) => look);
   if (code === "US") return ranked;
 
-  const local = orderGroup(looks.filter((look) => look.country === code), code, profile);
-  const us = orderGroup(looks.filter((look) => look.country === "US"), code, profile);
-  const global = orderGroup(looks.filter((look) => look.country !== code && look.country !== "US"), code, profile);
-  const unknown = orderGroup(looks.filter((look) => !look.country), code, profile);
+  const local = orderGroup(looks.filter((look) => look.country === code), code, profile, shared);
+  const us = orderGroup(looks.filter((look) => look.country === "US"), code, profile, shared);
+  const global = orderGroup(looks.filter((look) => look.country !== code && look.country !== "US"), code, profile, shared);
+  const unknown = orderGroup(looks.filter((look) => !look.country), code, profile, shared);
   const used = new Set<string>();
   const out: Look[] = [];
   const take = (row?: Look) => {
@@ -134,6 +140,7 @@ export function rankForUser(looks: Look[], country: string, profile: FeedProfile
 export function useFeedPersonalization(uid: string, country: string) {
   const key = useMemo(() => profileKey(uid), [uid]);
   const [profile, setProfile] = useState<FeedProfile>(EMPTY_PROFILE);
+  const [shared, setShared] = useState<SharedFeedSignals>({});
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -168,6 +175,16 @@ export function useFeedPersonalization(uid: string, country: string) {
     };
   }, [key]);
 
+  const refreshShared = useCallback(async (looks: Look[]) => {
+    if (!uid || !looks.length) return;
+    try {
+      const next = await readSharedFeedSignals(looks.map((look) => look.id));
+      setShared((current) => ({ ...current, ...next }));
+    } catch {
+      // Shared feedback is an enhancement; local personalization remains available offline.
+    }
+  }, [uid]);
+
   const track = useCallback((look: Look, action: FeedInteraction) => {
     setProfile((current) => {
       const next = copyProfile(current);
@@ -183,10 +200,13 @@ export function useFeedPersonalization(uid: string, country: string) {
       if (lookTraits.priceBand) next.priceBands[lookTraits.priceBand] = (next.priceBands[lookTraits.priceBand] || 0) + delta;
       if (action === "skip") next.dismissed[look.id] = Date.now();
       void AsyncStorage.setItem(key, JSON.stringify(next)).catch(() => undefined);
+      if (uid && (action === "like" || action === "skip")) {
+        void recordSharedFeedSignal({ lookId: look.id, action, actorId: uid }).catch(() => undefined);
+      }
       return next;
     });
-  }, [key]);
+  }, [key, uid]);
 
-  const rank = useCallback((looks: Look[]) => rankForUser(looks, country, profile), [country, profile]);
-  return { profile, ready, rank, track };
+  const rank = useCallback((looks: Look[]) => rankForUser(looks, country, profile, shared), [country, profile, shared]);
+  return { profile, ready, rank, track, refreshShared };
 }
