@@ -3,11 +3,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS, useSharedValue } from "react-native-reanimated";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useUvel } from "../lib/store";
+import { LightSensor, type LightSensorMeasurement } from "expo-sensors";
 
 const BG = "#0B0A08";
 const INK = "#F4F0E6";
@@ -29,12 +30,29 @@ export default function MirrorCamera() {
   const [timerSeconds, setTimerSeconds] = useState<0 | 3 | 6 | 10>(0);
   const [timerMenuOpen, setTimerMenuOpen] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [lowLight, setLowLight] = useState(false);
   const [focusPoint, setFocusPoint] = useState<{ x: number; y: number } | null>(null);
   const [availableLenses, setAvailableLenses] = useState<string[] | null>(null);
   const [selectedLens, setSelectedLens] = useState("builtInWideAngleCamera");
   const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelCaptureRef = useRef(false);
   const zoomStart = useSharedValue(0);
+
+  useEffect(() => {
+    let active = true;
+    let subscription: { remove: () => void } | null = null;
+    void LightSensor.isAvailableAsync().then((available) => {
+      if (!active || !available) return;
+      LightSensor.setUpdateInterval(1000);
+      subscription = LightSensor.addListener(({ illuminance }: LightSensorMeasurement) => {
+        setLowLight((previous) => previous ? illuminance < 70 : illuminance < 35);
+      });
+    }).catch(() => undefined);
+    return () => {
+      active = false;
+      subscription?.remove();
+    };
+  }, []);
 
   function setCameraZoom(value: number) {
     setZoom(Math.max(0, Math.min(1, value)));
@@ -244,6 +262,12 @@ export default function MirrorCamera() {
           </Pressable>
         </View>
       </View>
+      {lowLight ? (
+        <View pointerEvents="none" style={[styles.lowLightBadge, { top: insets.top + 62 }]}>
+          <Ionicons name="sunny-outline" size={16} color={BG} />
+          <Text style={styles.lowLightText}>{facing === "back" && flash === "off" ? "Low light · turn on flash or move brighter" : "Low light · move somewhere brighter"}</Text>
+        </View>
+      ) : null}
       <View pointerEvents="none" style={styles.guideWrap}>
         <View style={styles.frame}>
           <View style={[styles.corner, styles.cornerTL]} /><View style={[styles.corner, styles.cornerTR]} />
@@ -337,6 +361,8 @@ const styles = StyleSheet.create({
   flashModeTextOn: { color: BG },
   screenFlashBadge: { height: 32, paddingHorizontal: 10, borderRadius: 16, flexDirection: "row", gap: 5, alignItems: "center", backgroundColor: "rgba(11,10,8,0.58)", borderWidth: 1, borderColor: "rgba(244,240,230,0.28)" },
   screenFlashBadgeText: { color: INK, fontSize: 11, fontWeight: "800" },
+  lowLightBadge: { position: "absolute", left: 24, right: 24, zIndex: 15, minHeight: 34, paddingHorizontal: 12, borderRadius: 17, flexDirection: "row", gap: 7, alignItems: "center", justifyContent: "center", backgroundColor: ACCENT, borderWidth: 1, borderColor: "rgba(11,10,8,0.18)" },
+  lowLightText: { color: BG, fontSize: 11, fontWeight: "900", textAlign: "center" },
   screenFlash: { ...StyleSheet.absoluteFill, zIndex: 30, backgroundColor: INK },
   countdownOverlay: { ...StyleSheet.absoluteFill, zIndex: 25, backgroundColor: "rgba(11,10,8,0.22)", alignItems: "center", justifyContent: "center" },
   countdownNumber: { color: INK, fontSize: 112, lineHeight: 124, fontWeight: "200", textShadowColor: "rgba(0,0,0,0.32)", textShadowRadius: 12 },
