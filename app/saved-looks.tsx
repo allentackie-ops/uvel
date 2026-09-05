@@ -29,6 +29,15 @@ export default function SavedLooks() {
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={10}
+          style={styles.backButton}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Ionicons name="chevron-back" size={22} color={colors.bone} />
+        </Pressable>
         <View style={styles.headerCopy}>
 
           <Text style={styles.kicker}>YOUR COLLECTION</Text>
@@ -60,7 +69,7 @@ export default function SavedLooks() {
                         accessibilityLabel={`Search listings for ${look.title}`}
                         accessibilityHint="Double tap to find the clothes in this saved look."
                       >
-                        <Ionicons name="search" size={19} color={colors.successInk} />
+                        <Ionicons name="search" size={19} color={colors.ink === "#000000" ? colors.ink : colors.successInk} />
                       </AccessiblePressable>
                       <AccessiblePressable
                         onPress={() => void removeSavedLook(look.id)}
@@ -107,10 +116,11 @@ export default function SavedLooks() {
 }
 
 function make(colors: Colors) {
+  const darkMode = colors.ink === "#000000";
   return StyleSheet.create({
     screen: { flex: 1, backgroundColor: colors.ink },
     header: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, minHeight: 82, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", backgroundColor: `${colors.ink}F2` },
-    backButton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}18` },
+    backButton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}30` },
     backGlyph: { color: colors.bone, fontSize: 32, lineHeight: 32, fontWeight: "300", marginTop: -3 },
     headerCopy: { flex: 1, alignItems: "center", marginLeft: 8 },
     kicker: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.8 },
@@ -123,8 +133,8 @@ function make(colors: Colors) {
     card: { width: "48.2%", overflow: "hidden", borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}16` },
     imageWrap: { position: "relative" },
     image: { width: "100%", aspectRatio: 0.78, backgroundColor: colors.surface },
-    actionButton: { position: "absolute", right: 10, bottom: 10, width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: colors.success, borderWidth: 1, borderColor: `${colors.successInk}33`, shadowColor: "#000", shadowOpacity: 0.24, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
-    bookmarkButton: { position: "absolute", left: 10, bottom: 10, width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: `${colors.ink}D9`, borderWidth: 1, borderColor: `${colors.bone}52` },
+    actionButton: { position: "absolute", right: 10, bottom: 10, width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: darkMode ? colors.bone : `${colors.surface}F5`, borderWidth: 1, borderColor: `${colors.ink}22`, shadowColor: "#000", shadowOpacity: 0.24, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
+    bookmarkButton: { position: "absolute", left: 10, bottom: 10, width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.ink, borderWidth: 1, borderColor: colors.bone, shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 7, shadowOffset: { width: 0, height: 2 }, elevation: 4 },
     imageFallback: { width: "100%", aspectRatio: 0.78, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
     imageFallbackText: { color: `${colors.bone}6B`, fontSize: 12, fontWeight: "900", letterSpacing: 2 },
     cardMeta: { padding: 11 },
