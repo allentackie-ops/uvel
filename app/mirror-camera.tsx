@@ -8,7 +8,7 @@ import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from "r
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useUvel } from "../lib/store";
-import { LightSensor, type LightSensorMeasurement } from "expo-sensors";
+import type { LightSensorMeasurement } from "expo-sensors";
 
 const BG = "#0B0A08";
 const INK = "#F4F0E6";
@@ -41,13 +41,18 @@ export default function MirrorCamera() {
   useEffect(() => {
     let active = true;
     let subscription: { remove: () => void } | null = null;
-    void LightSensor.isAvailableAsync().then((available) => {
-      if (!active || !available) return;
-      LightSensor.setUpdateInterval(1000);
-      subscription = LightSensor.addListener(({ illuminance }: LightSensorMeasurement) => {
-        setLowLight((previous) => previous ? illuminance < 70 : illuminance < 35);
-      });
-    }).catch(() => undefined);
+    try {
+      const { LightSensor } = require("expo-sensors") as typeof import("expo-sensors");
+      void LightSensor.isAvailableAsync().then((available) => {
+        if (!active || !available) return;
+        LightSensor.setUpdateInterval(1000);
+        subscription = LightSensor.addListener(({ illuminance }: LightSensorMeasurement) => {
+          setLowLight((previous) => previous ? illuminance < 70 : illuminance < 35);
+        });
+      }).catch(() => undefined);
+    } catch {
+      // The current installed binary may predate the optional native sensor module.
+    }
     return () => {
       active = false;
       subscription?.remove();
