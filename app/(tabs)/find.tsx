@@ -331,25 +331,25 @@ export default function Mirror() {
 
         {err ? <Text style={styles.err}>{err}</Text> : null}
 
+        <View style={[styles.stickyAction, { paddingBottom: insets.bottom + 12 }]}>
+          <Pressable
+            onPress={() => {
+              if (!person) void fromCamera();
+              else if (!picked) scrollRef.current?.scrollTo({ y: Math.max(0, sourceY.current - 24), animated: true });
+              else void run();
+            }}
+            disabled={busy}
+            style={[styles.cta, busy && styles.ctaOff]}
+            accessibilityRole="button"
+            accessibilityLabel={!person ? "Add your photo" : !picked ? "Choose clothing" : "Try this look"}
+          >
+            <Text style={[styles.ctaTxt, busy && styles.ctaTxtOff]}>
+              {busy ? "Dressing you…" : !person ? "Add your photo" : !picked ? "Choose clothing" : "Try this look"}
+            </Text>
+          </Pressable>
+          {picked ? <Pressable onPress={clearPick} style={styles.ghostCta}><Text style={styles.ghostCtaTxt}>Pick something else</Text></Pressable> : null}
+        </View>
       </ScrollView>
-      <View style={[styles.stickyAction, { paddingBottom: insets.bottom + 12 }]}>
-        <Pressable
-          onPress={() => {
-            if (!person) void fromCamera();
-            else if (!picked) scrollRef.current?.scrollTo({ y: Math.max(0, sourceY.current - 24), animated: true });
-            else void run();
-          }}
-          disabled={busy}
-          style={[styles.cta, busy && styles.ctaOff]}
-          accessibilityRole="button"
-          accessibilityLabel={!person ? "Add your photo" : !picked ? "Choose clothing" : "Try this look"}
-        >
-          <Text style={[styles.ctaTxt, busy && styles.ctaTxtOff]}>
-            {busy ? "Dressing you…" : !person ? "Add your photo" : !picked ? "Choose clothing" : "Try this look"}
-          </Text>
-        </Pressable>
-        {picked ? <Pressable onPress={clearPick} style={styles.ghostCta}><Text style={styles.ghostCtaTxt}>Pick something else</Text></Pressable> : null}
-      </View>
     </View>
   );
 }
@@ -546,7 +546,7 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     ghostCtaTxt: { color: colors.bone, fontWeight: "600", fontSize: 16 },
-    stickyAction: { backgroundColor: colors.ink, borderTopWidth: 1, borderTopColor: `${colors.bone}14`, paddingTop: 8 },
+    stickyAction: { backgroundColor: colors.ink, paddingTop: 8 },
     foot: {
       color: `${colors.bone}61`,
       textAlign: "center",
