@@ -107,12 +107,16 @@ export default function Mirror() {
     try {
       const uri = fromCamera ? await takePhoto(false) : await pickFromLibrary();
       if (!uri) return;
-      setPicked({ kind: "photo", uri, name: "this look" });
+      setPicked({ kind: "photo", uri, name: "Selected clothing" });
       setResult(null);
       setErr("");
     } catch (e) {
       Alert.alert("Photo", e instanceof Error ? e.message : "Couldn’t open that.");
     }
+  }
+
+  async function pickGarmentFromLibrary() {
+    await pickGarment(false);
   }
 
   function useLink() {
@@ -122,13 +126,6 @@ export default function Mirror() {
     setShowLink(false);
     setResult(null);
     setErr("");
-  }
-
-  function clearPick() {
-    setPicked(null);
-    setResult(null);
-    setErr("");
-    setShowLink(false);
   }
 
   function clearPerson() {
@@ -323,32 +320,36 @@ export default function Mirror() {
 
         {picked ? (
           <View style={styles.selected}>
-            <Text style={styles.selectedKicker}>READY TO TRY</Text>
-            <Text style={styles.selectedTitle}>{garmentName}</Text>
-            <Text style={styles.selectedCopy}>Your photo and this piece are ready for a preview.</Text>
+            {picked.kind === "photo" ? <Image source={{ uri: picked.uri }} style={styles.selectedImage} contentFit="cover" /> : null}
+            <View style={styles.selectedCopyWrap}>
+              <Text style={styles.selectedKicker}>READY TO TRY</Text>
+              <Text style={styles.selectedTitle}>{garmentName}</Text>
+              <Text style={styles.selectedCopy}>Your photo and this piece are ready for a preview.</Text>
+            </View>
           </View>
         ) : null}
 
         {err ? <Text style={styles.err}>{err}</Text> : null}
 
-        <View style={[styles.stickyAction, { paddingBottom: insets.bottom + 12 }]}>
-          <Pressable
-            onPress={() => {
-              if (!person) void fromCamera();
-              else if (!picked) scrollRef.current?.scrollTo({ y: Math.max(0, sourceY.current - 24), animated: true });
-              else void run();
-            }}
-            disabled={busy}
-            style={[styles.cta, busy && styles.ctaOff]}
-            accessibilityRole="button"
-            accessibilityLabel={!person ? "Add your photo" : !picked ? "Choose clothing" : "Try this look"}
-          >
-            <Text style={[styles.ctaTxt, busy && styles.ctaTxtOff]}>
-              {busy ? "Dressing you…" : !person ? "Add your photo" : !picked ? "Choose clothing" : "Try this look"}
-            </Text>
-          </Pressable>
-          {picked ? <Pressable onPress={clearPick} style={styles.ghostCta}><Text style={styles.ghostCtaTxt}>Pick something else</Text></Pressable> : null}
-        </View>
+        {person ? (
+          <View style={[styles.stickyAction, { paddingBottom: insets.bottom + 12 }]}>
+            <Pressable
+              onPress={() => {
+                if (!picked) void pickGarmentFromLibrary();
+                else void run();
+              }}
+              disabled={busy}
+              style={[styles.cta, busy && styles.ctaOff]}
+              accessibilityRole="button"
+              accessibilityLabel={!picked ? "Choose clothing from your photos" : "Try this look"}
+            >
+              <Text style={[styles.ctaTxt, busy && styles.ctaTxtOff]}>
+                {busy ? "Dressing you…" : !picked ? "Choose clothing" : "Try this look"}
+              </Text>
+            </Pressable>
+            {picked ? <Pressable onPress={() => void pickGarmentFromLibrary()} style={styles.ghostCta}><Text style={styles.ghostCtaTxt}>Pick something else</Text></Pressable> : null}
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -490,7 +491,9 @@ function make(colors: Colors) {
     emptyLink: { marginTop: 10 },
     emptyLinkTxt: { color: colors.success, fontSize: 13, fontWeight: "800" },
     anywhere: { flexDirection: "row", gap: 8, marginTop: 14, flexWrap: "wrap" },
-    selected: { marginHorizontal: 20, marginTop: 24, padding: 16, borderRadius: 18, borderWidth: 1, borderColor: `${colors.success}47`, backgroundColor: `${colors.success}0F` },
+    selected: { marginHorizontal: 20, marginTop: 24, borderRadius: 18, borderWidth: 1, borderColor: `${colors.success}47`, backgroundColor: `${colors.success}0F`, overflow: "hidden" },
+    selectedImage: { width: "100%", height: 190, backgroundColor: colors.surface },
+    selectedCopyWrap: { padding: 16 },
     selectedKicker: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
     selectedTitle: { color: colors.bone, fontSize: 18, fontWeight: "800", marginTop: 5 },
     selectedCopy: { color: `${colors.bone}94`, fontSize: 13, marginTop: 4 },
