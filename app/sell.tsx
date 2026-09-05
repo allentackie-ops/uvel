@@ -216,7 +216,10 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const progress = [hasPhoto, hasPrice, hasTitle, hasNotes, hasCat, hasSize, hasColor, hasMaterial, hasCond].filter(
     Boolean,
   ).length;
-  const ph = `47`;
+  // Keep empty fields and placeholders readable in both themes. The previous
+  // literal "47" was not a valid React Native color, so light-mode hints
+  // disappeared instead of using the palette's muted text color.
+  const ph = colors.muted;
   const ctaLabel = checking
     ? "Checking photos…"
     : !hasPhoto
