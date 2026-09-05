@@ -77,7 +77,7 @@ export default function SavedLooks() {
                         accessibilityRole="button"
                         accessibilityLabel={`Remove ${look.title} from saved looks`}
                       >
-                        <Ionicons name="bookmark" size={18} color={colors.successInk} />
+                        <Ionicons name="bookmark" size={19} color={colors.successInk} />
                       </AccessiblePressable>
                     </View>
                     <View style={styles.cardMeta}>
@@ -134,7 +134,7 @@ function make(colors: Colors) {
     imageWrap: { position: "relative" },
     image: { width: "100%", aspectRatio: 0.78, backgroundColor: colors.surface },
     actionButton: { position: "absolute", right: 10, bottom: 10, width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: darkMode ? colors.bone : `${colors.surface}F5`, borderWidth: 1, borderColor: `${colors.ink}22`, shadowColor: "#000", shadowOpacity: 0.24, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
-    bookmarkButton: { position: "absolute", left: 10, bottom: 10, width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.ink, borderWidth: 1, borderColor: colors.bone, shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 7, shadowOffset: { width: 0, height: 2 }, elevation: 4 },
+    bookmarkButton: { position: "absolute", left: 10, bottom: 10, width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: darkMode ? colors.success : colors.ink, borderWidth: 1, borderColor: darkMode ? colors.success : colors.bone, shadowColor: "#000", shadowOpacity: 0.32, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 5 },
     imageFallback: { width: "100%", aspectRatio: 0.78, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
     imageFallbackText: { color: `${colors.bone}6B`, fontSize: 12, fontWeight: "900", letterSpacing: 2 },
     cardMeta: { padding: 11 },
