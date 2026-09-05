@@ -26,10 +26,14 @@ export default function MirrorCamera() {
   const [zoom, setZoom] = useState(0);
   const [flash, setFlash] = useState<"off" | "auto" | "on">("auto");
   const [screenFlash, setScreenFlash] = useState(false);
+  const [timerSeconds, setTimerSeconds] = useState<0 | 3 | 6 | 10>(0);
+  const [timerMenuOpen, setTimerMenuOpen] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [focusPoint, setFocusPoint] = useState<{ x: number; y: number } | null>(null);
   const [availableLenses, setAvailableLenses] = useState<string[] | null>(null);
   const [selectedLens, setSelectedLens] = useState("builtInWideAngleCamera");
   const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelCaptureRef = useRef(false);
   const zoomStart = useSharedValue(0);
 
   function setCameraZoom(value: number) {
@@ -79,10 +83,21 @@ export default function MirrorCamera() {
   }
 
   async function capture() {
-    if (!cameraRef.current || busy) return;
+    if (!cameraRef.current || busy || countdown !== null) return;
     setBusy(true);
+    setTimerMenuOpen(false);
+    cancelCaptureRef.current = false;
     const useScreenFlash = facing === "front" && flash !== "off";
     try {
+      if (timerSeconds > 0) {
+        for (let remaining = timerSeconds; remaining > 0; remaining -= 1) {
+          if (cancelCaptureRef.current) return;
+          setCountdown(remaining);
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+        setCountdown(null);
+      }
+      if (cancelCaptureRef.current) return;
       if (useScreenFlash) {
         setScreenFlash(true);
         await new Promise((resolve) => setTimeout(resolve, 140));
@@ -90,9 +105,16 @@ export default function MirrorCamera() {
       const result = await cameraRef.current.takePictureAsync({ quality: 0.78, skipProcessing: false });
       if (result?.uri) setPhoto(result.uri);
     } finally {
+      setCountdown(null);
       setScreenFlash(false);
       setBusy(false);
     }
+  }
+
+  function cancelCapture() {
+    cancelCaptureRef.current = true;
+    setCountdown(null);
+    setBusy(false);
   }
 
   function usePhoto() {
@@ -171,6 +193,12 @@ export default function MirrorCamera() {
       </GestureDetector>
       {screenFlash ? <View pointerEvents="none" style={styles.screenFlash} /> : null}
       <View pointerEvents="none" style={styles.scrim} />
+      {countdown !== null ? (
+        <Pressable style={styles.countdownOverlay} onPress={cancelCapture} accessibilityRole="button" accessibilityLabel="Cancel countdown">
+          <Text style={styles.countdownNumber}>{countdown}</Text>
+          <Text style={styles.countdownHint}>Tap to cancel</Text>
+        </Pressable>
+      ) : null}
       {focusPoint ? (
         <View pointerEvents="none" style={[styles.focusIndicator, { left: focusPoint.x - 28, top: focusPoint.y - 28 }]}>
           <View style={styles.focusCornerTopLeft} />
@@ -246,9 +274,41 @@ export default function MirrorCamera() {
             </View>
           </View>
         </GestureDetector>
-        <Pressable accessibilityRole="button" accessibilityLabel="Take full-length photo" onPress={() => void capture()} style={styles.shutterOuter}>
-          <View style={styles.shutterInner}>{busy ? <ActivityIndicator color={BG} /> : null}</View>
-        </Pressable>
+        <View style={styles.captureRow}>
+          <View style={styles.captureSide}>
+            <Pressable
+              onPress={() => setTimerMenuOpen((open) => !open)}
+              style={({ pressed }) => [styles.timerButton, timerSeconds > 0 && styles.timerButtonOn, pressed && { opacity: 0.75 }]}
+              accessibilityRole="button"
+              accessibilityLabel={timerSeconds > 0 ? `Timer ${timerSeconds} seconds` : "Timer off"}
+              accessibilityHint="Choose a 3, 6, or 10 second countdown."
+              accessibilityState={{ expanded: timerMenuOpen }}
+            >
+              <Ionicons name="timer-outline" size={18} color={timerSeconds > 0 ? BG : INK} />
+              <Text style={[styles.timerButtonText, timerSeconds > 0 && styles.timerButtonTextOn]}>{timerSeconds > 0 ? `${timerSeconds}s` : "Off"}</Text>
+            </Pressable>
+            {timerMenuOpen ? (
+              <View style={styles.timerMenu}>
+                {[0, 3, 6, 10].map((seconds) => (
+                  <Pressable
+                    key={seconds}
+                    onPress={() => { setTimerSeconds(seconds as 0 | 3 | 6 | 10); setTimerMenuOpen(false); }}
+                    style={[styles.timerOption, timerSeconds === seconds && styles.timerOptionOn]}
+                    accessibilityRole="radio"
+                    accessibilityLabel={seconds === 0 ? "Timer off" : `${seconds} second timer`}
+                    accessibilityState={{ selected: timerSeconds === seconds }}
+                  >
+                    <Text style={[styles.timerOptionText, timerSeconds === seconds && styles.timerOptionTextOn]}>{seconds === 0 ? "Off" : `${seconds}s`}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel="Take full-length photo" onPress={() => void capture()} style={styles.shutterOuter}>
+            <View style={styles.shutterInner}>{busy && countdown === null ? <ActivityIndicator color={BG} /> : null}</View>
+          </Pressable>
+          <View style={styles.captureSide} />
+        </View>
       </View>
     </View>
   );
@@ -278,6 +338,9 @@ const styles = StyleSheet.create({
   screenFlashBadge: { height: 32, paddingHorizontal: 10, borderRadius: 16, flexDirection: "row", gap: 5, alignItems: "center", backgroundColor: "rgba(11,10,8,0.58)", borderWidth: 1, borderColor: "rgba(244,240,230,0.28)" },
   screenFlashBadgeText: { color: INK, fontSize: 11, fontWeight: "800" },
   screenFlash: { ...StyleSheet.absoluteFill, zIndex: 30, backgroundColor: INK },
+  countdownOverlay: { ...StyleSheet.absoluteFill, zIndex: 25, backgroundColor: "rgba(11,10,8,0.22)", alignItems: "center", justifyContent: "center" },
+  countdownNumber: { color: INK, fontSize: 112, lineHeight: 124, fontWeight: "200", textShadowColor: "rgba(0,0,0,0.32)", textShadowRadius: 12 },
+  countdownHint: { color: INK, fontSize: 13, fontWeight: "800", marginTop: 8, textShadowColor: "rgba(0,0,0,0.32)", textShadowRadius: 8 },
   focusIndicator: { position: "absolute", zIndex: 20, width: 56, height: 56, borderColor: ACCENT },
   focusCornerTopLeft: { position: "absolute", top: 0, left: 0, width: 14, height: 14, borderTopWidth: 2, borderLeftWidth: 2, borderColor: ACCENT },
   focusCornerTopRight: { position: "absolute", top: 0, right: 0, width: 14, height: 14, borderTopWidth: 2, borderRightWidth: 2, borderColor: ACCENT },
@@ -301,6 +364,17 @@ const styles = StyleSheet.create({
   gridH: { position: "absolute", left: 0, right: 0, top: "50%", height: 1, backgroundColor: "rgba(244,240,230,0.16)" },
   cameraBottom: { position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center" },
   bottomHint: { color: MUTED, fontSize: 13, marginBottom: 14 },
+  captureRow: { width: 260, flexDirection: "row", alignItems: "center", justifyContent: "center" },
+  captureSide: { width: 78, height: 78, alignItems: "center", justifyContent: "center" },
+  timerButton: { width: 54, height: 38, borderRadius: 19, flexDirection: "row", gap: 4, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(11,10,8,0.62)", borderWidth: 1, borderColor: "rgba(244,240,230,0.28)" },
+  timerButtonOn: { backgroundColor: ACCENT, borderColor: ACCENT },
+  timerButtonText: { color: INK, fontSize: 11, fontWeight: "900" },
+  timerButtonTextOn: { color: BG },
+  timerMenu: { position: "absolute", zIndex: 12, bottom: 48, left: -10, width: 74, padding: 4, borderRadius: 16, backgroundColor: "rgba(11,10,8,0.88)", borderWidth: 1, borderColor: "rgba(244,240,230,0.28)", gap: 2 },
+  timerOption: { height: 32, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  timerOptionOn: { backgroundColor: ACCENT },
+  timerOptionText: { color: INK, fontSize: 12, fontWeight: "800" },
+  timerOptionTextOn: { color: BG },
   shutterOuter: { width: 78, height: 78, borderRadius: 39, borderWidth: 4, borderColor: INK, alignItems: "center", justifyContent: "center" },
   shutterInner: { width: 62, height: 62, borderRadius: 31, backgroundColor: INK, alignItems: "center", justifyContent: "center" },
   reviewTop: { position: "absolute", zIndex: 2, top: 0, left: 0, right: 0, paddingHorizontal: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
