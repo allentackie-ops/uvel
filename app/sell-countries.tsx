@@ -50,14 +50,7 @@ export default function SellCountries() {
   return (
     <View style={styles.page}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <AccessiblePressable
-          onPress={() => router.back()}
-          style={({ pressed }) => [styles.headerButton, pressed && { opacity: 0.92 }]}
-          accessibilityRole="button"
-          accessibilityLabel="Back to new listing"
-        >
-          <Text style={styles.backText}>‹</Text>
-        </AccessiblePressable>
+        <View style={styles.headerSpacer} />
         <Text style={styles.title}>Where it sells</Text>
         <AccessiblePressable
           onPress={finish}
@@ -125,8 +118,7 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 12 },
-    headerButton: { width: 54, height: 44, alignItems: "flex-start", justifyContent: "center", borderRadius: 22 },
-    backText: { color: colors.bone, fontSize: 34, lineHeight: 38, marginTop: -4 },
+    headerSpacer: { width: 54, height: 44 },
     title: { color: colors.bone, fontSize: 16, fontWeight: "600" },
     doneButton: { minWidth: 54, height: 44, alignItems: "flex-end", justifyContent: "center", borderRadius: 22 },
     doneText: { color: colors.pulse, fontSize: 15, fontWeight: "800" },

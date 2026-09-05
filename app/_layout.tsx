@@ -218,6 +218,18 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="sell-countries"
+            options={{
+              title: "",
+              headerBackTitle: "",
+              headerStyle: { backgroundColor: colors.ink },
+              headerTintColor: colors.bone,
+              headerShadowVisible: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="closet/[id]"
             options={{
               headerShown: false,
