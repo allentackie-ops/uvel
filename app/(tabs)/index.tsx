@@ -796,8 +796,8 @@ function LookCard({ look, colors, onShop, onMoreLike, onNotInterested, saved, on
               <Text style={styles.cardSrc}>{look.source} · unavailable</Text>
             </View>
           )}
-          <AccessiblePressable onPress={onToggleSaved} style={({ pressed }) => [styles.cardSaveButton, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel={saved ? "Remove look from saved looks" : "Save look"} accessibilityState={{ selected: saved }}>
-            <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={16} color={colors.bone} />
+          <AccessiblePressable onPress={onToggleSaved} style={({ pressed }) => [styles.cardSaveButton, saved && styles.cardSaveButtonOn, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel={saved ? "Remove look from saved looks" : "Save look"} accessibilityState={{ selected: saved }}>
+            <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={16} color={saved ? colors.successInk : colors.bone} />
           </AccessiblePressable>
         </View>
         {look.aiGenerated ? (
@@ -1068,6 +1068,7 @@ function make(colors: Colors) {
     },
     cardTopRow: { position: "absolute", top: 10, left: 10, right: 10, zIndex: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     cardSaveButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: darkMode ? "rgba(11,10,8,0.62)" : colors.surface, borderWidth: 1, borderColor: darkMode ? `${colors.bone}47` : `${colors.bone}33`, alignItems: "center", justifyContent: "center" },
+    cardSaveButtonOn: { backgroundColor: colors.success, borderColor: colors.success },
     cardFill: { width: CARD_W, height: CARD_H },
     cardSrcPill: {
       flexDirection: "row",
