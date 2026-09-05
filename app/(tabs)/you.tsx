@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -260,7 +261,7 @@ export default function You() {
         accessibilityHint="Double tap to open your saved fits."
       >
         <View style={styles.savedEntryIcon}>
-          <Text style={styles.savedEntryGlyph}>⌑</Text>
+          <Ionicons name="bookmark" size={25} color={colors.successInk} />
         </View>
         <View style={styles.savedEntryCopy}>
           <Text style={styles.savedEntryTitle}>Saved Fits</Text>
@@ -300,7 +301,6 @@ export default function You() {
           <Text style={styles.brandName}>Founder Studio</Text>
           <Text style={styles.brandP}>{mine ? "Building another brand? Plan it privately before applying." : "Sketch, plan, source, and prepare before applying publicly."}</Text>
         </View>
-        <Text style={styles.brandGo}>Open</Text>
       </Pressable>
 
       {mine?.verified && canSeeAnalytics(mine, app.uid) ? (
