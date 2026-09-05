@@ -748,7 +748,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           </View>
         </ScrollView>
 
-        <View style={[styles.foot, { paddingBottom: insets.bottom + (embedded ? 96 : 12) }]}>
+        <View style={[styles.foot, { paddingBottom: insets.bottom + (embedded ? 60 : 12) }]}>
           <AccessiblePressable            onPress={() => void publish()}
             disabled={!canList}
             style={({ pressed }) => [styles.cta, !canList && styles.ctaOff, pressed && { opacity: 0.92 }]}
