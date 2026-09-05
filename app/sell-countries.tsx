@@ -49,7 +49,7 @@ export default function SellCountries() {
   const summary: ShipsTo = allCountries ? "all" : [...selected];
   return (
     <View style={styles.page}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+      <View style={[styles.header, { paddingTop: 8 }]}>
         <View style={styles.headerSpacer} />
         <Text style={styles.title}>Where it sells</Text>
         <AccessiblePressable
