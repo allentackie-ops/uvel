@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -449,13 +450,49 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     setTimeout(() => router.replace(embedded ? "/(tabs)/index" : "/(tabs)/closet"), 1100);
   }
 
+  function confirmDeleteDraft() {
+    Alert.alert(
+      "Delete draft?",
+      "Are you sure you want to delete this draft? This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            setDraftDisabled(true);
+            void clearListingDraft().then(() => router.back());
+          },
+        },
+      ],
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
-          <View style={styles.backPlaceholder} />
+          {draftParam === "1" ? (
+            <AccessiblePressable
+              onPress={() => router.back()}
+              style={({ pressed }) => [styles.topButton, pressed && { opacity: 0.78 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Back to drafts"
+            >
+              <Ionicons name="chevron-back" size={25} color={colors.bone} />
+            </AccessiblePressable>
+          ) : <View style={styles.backPlaceholder} />}
           <Text style={styles.topTitle}>{C.newListing}</Text>
-          <View style={{ width: 40 }} />
+          {draftParam === "1" ? (
+            <AccessiblePressable
+              onPress={confirmDeleteDraft}
+              style={({ pressed }) => [styles.deleteButton, pressed && { opacity: 0.78 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Delete draft"
+            >
+              <Text style={styles.deleteText}>Delete</Text>
+            </AccessiblePressable>
+          ) : <View style={{ width: 40 }} />}
         </View>
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${(progress / 9) * 100}%` }]} />
@@ -823,8 +860,11 @@ function make(colors: Colors) {
     },
     back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
     backPlaceholder: { width: 40, height: 40 },
+    topButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20 },
     backTxt: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
     topTitle: { color: colors.bone, fontSize: 16, fontWeight: "600" },
+    deleteButton: { minWidth: 56, height: 40, alignItems: "flex-end", justifyContent: "center", borderRadius: 20 },
+    deleteText: { color: colors.danger, fontSize: 14, fontWeight: "800" },
     progressTrack: {
       height: 3,
       marginHorizontal: 20,
