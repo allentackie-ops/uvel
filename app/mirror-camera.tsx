@@ -183,10 +183,10 @@ export default function MirrorCamera() {
         <View style={[styles.reviewBottom, { paddingBottom: insets.bottom + 18 }]}>
           <Text style={styles.reviewHint}>Make sure your full body is visible, from head to shoes.</Text>
           <View style={styles.reviewActions}>
-            <Pressable onPress={() => setPhoto(null)} style={styles.secondaryButton}>
+            <Pressable onPress={() => setPhoto(null)} style={[styles.reviewAction, styles.reviewSecondary]}>
               <Text style={styles.secondaryText}>Retake</Text>
             </Pressable>
-            <Pressable onPress={usePhoto} style={styles.primaryButton}>
+            <Pressable onPress={usePhoto} style={[styles.reviewAction, styles.reviewPrimary]}>
               <Text style={styles.primaryText}>Use this photo</Text>
             </Pressable>
           </View>
@@ -412,5 +412,8 @@ const styles = StyleSheet.create({
   reviewTitle: { color: INK, fontSize: 16, fontWeight: "800" },
   reviewBottom: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 20, backgroundColor: "rgba(11,10,8,0.76)", paddingTop: 18 },
   reviewHint: { color: MUTED, fontSize: 13, textAlign: "center", marginBottom: 14 },
-  reviewActions: { flexDirection: "row", gap: 12, justifyContent: "center" },
+  reviewActions: { flexDirection: "row", alignItems: "center", gap: 12 },
+  reviewAction: { flex: 1, height: 56, borderRadius: 28, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
+  reviewSecondary: { backgroundColor: "rgba(11,10,8,0.64)", borderColor: "rgba(244,240,230,0.5)", borderWidth: 1 },
+  reviewPrimary: { backgroundColor: ACCENT },
 });
