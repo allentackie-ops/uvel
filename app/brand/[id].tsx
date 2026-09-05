@@ -51,7 +51,10 @@ export default function BrandPage() {
     void recordAnalyticsEvent({ type: "brand_view", brandId: id }).catch(() => undefined);
   }, [id, app.uid]);
 
-  const theme = brand ? themeFor(brand) : null;
+  const brandTheme = brand ? themeFor(brand) : null;
+  const theme = brandTheme && colors.ink === "#F7F6F2"
+    ? { ...brandTheme, bg: colors.ink, ink: colors.bone, muted: colors.muted, card: colors.surface, accent: colors.success, accentInk: colors.successInk, lineColor: "rgba(24,23,20,0.12)" }
+    : brandTheme;
   const listings = useMemo(() => (id ? brandListings(id) : []), [id, tick, brand?.id]);
   const collections = useMemo(() => {
     const map = new Map<string, typeof listings>();
