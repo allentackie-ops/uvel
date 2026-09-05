@@ -1,9 +1,12 @@
-import { router } from "expo-router";
+import { router, Stack } from "expo-router";
 import { Image } from "expo-image";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { AccessiblePressable } from "../components/AccessiblePressable";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, type Colors } from "../lib/theme";
-import { savedLookImage, useSavedLooks } from "../lib/savedLooks";
+import { removeSavedLook, savedLookImage, useSavedLooks, type SavedLook } from "../lib/savedLooks";
+import { beginLookScan } from "../lib/lookSearch";
 
 const GAP = 12;
 
@@ -11,21 +14,23 @@ export default function SavedLooks() {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
-  const looks = useSavedLooks();
+    const looks = useSavedLooks();
+
+  function scanLook(look: SavedLook) {
+    beginLookScan({ title: look.title, imageUrl: look.imageUrl, time: 0 });
+    router.push({ pathname: "/(tabs)/shop", params: { look: look.id, scan: "1" } });
+  }
+
+  function openSource(look: SavedLook) {
+    if (look.postUrl) void Linking.openURL(look.postUrl);
+  }
 
   return (
     <View style={styles.screen}>
+      <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={10}
-          style={styles.backButton}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Text style={styles.backGlyph}>‹</Text>
-        </Pressable>
         <View style={styles.headerCopy}>
+
           <Text style={styles.kicker}>YOUR COLLECTION</Text>
           <Text style={styles.title}>Saved Fits</Text>
         </View>
@@ -45,24 +50,43 @@ export default function SavedLooks() {
               {looks.map((look) => {
                 const image = savedLookImage(look);
                 return (
-                  <Pressable
-                    key={look.id}
-                    onPress={() => look.postUrl ? void Linking.openURL(look.postUrl) : undefined}
-                    style={({ pressed }) => [styles.card, pressed && { opacity: 0.84 }]}
-                    accessibilityRole={look.postUrl ? "link" : "button"}
-                    accessibilityLabel={`${look.title}, ${look.source} saved`}
-                    accessibilityHint={look.postUrl ? "Double tap to open the original post." : undefined}
-                  >
-                    {image ? <Image source={image} style={styles.image} contentFit="cover" /> : <View style={styles.imageFallback}><Text style={styles.imageFallbackText}>UVEL</Text></View>}
+                  <View key={look.id} style={styles.card}>
+                    <View style={styles.imageWrap}>
+                      {image ? <Image source={image} style={styles.image} contentFit="cover" /> : <View style={styles.imageFallback}><Text style={styles.imageFallbackText}>UVEL</Text></View>}
+                      <AccessiblePressable
+                        onPress={() => scanLook(look)}
+                        style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.8 }]}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Search listings for ${look.title}`}
+                        accessibilityHint="Double tap to find the clothes in this saved look."
+                      >
+                        <Ionicons name="search" size={19} color={colors.successInk} />
+                      </AccessiblePressable>
+                      <AccessiblePressable
+                        onPress={() => void removeSavedLook(look.id)}
+                        style={({ pressed }) => [styles.bookmarkButton, pressed && { opacity: 0.8 }]}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Remove ${look.title} from saved looks`}
+                      >
+                        <Ionicons name="bookmark" size={18} color={colors.successInk} />
+                      </AccessiblePressable>
+                    </View>
                     <View style={styles.cardMeta}>
-                      <View style={styles.sourceRow}>
+                      <AccessiblePressable
+                        onPress={() => openSource(look)}
+                        disabled={!look.postUrl}
+                        style={({ pressed }) => [styles.sourceRow, pressed && { opacity: 0.75 }]}
+                        accessibilityRole={look.postUrl ? "link" : "text"}
+                        accessibilityLabel={look.postUrl ? `Open original ${look.source} post` : `${look.source} source unavailable`}
+                      >
                         <View style={styles.sourceDot} />
                         <Text style={styles.source} numberOfLines={1}>{look.source}</Text>
-                      </View>
+                        {look.postUrl ? <Ionicons name="open-outline" size={13} color={colors.bone} /> : null}
+                      </AccessiblePressable>
                       <Text style={styles.cardTitle} numberOfLines={2}>{look.title}</Text>
                       <Text style={styles.savedAt}>Saved fit</Text>
                     </View>
-                  </Pressable>
+                  </View>
                 );
               })}
             </View>
@@ -97,7 +121,10 @@ function make(colors: Colors) {
     lede: { color: `${colors.bone}9C`, fontSize: 14, lineHeight: 20, marginBottom: 16 },
     grid: { flexDirection: "row", flexWrap: "wrap", columnGap: GAP, rowGap: 16 },
     card: { width: "48.2%", overflow: "hidden", borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}16` },
+    imageWrap: { position: "relative" },
     image: { width: "100%", aspectRatio: 0.78, backgroundColor: colors.surface },
+    actionButton: { position: "absolute", right: 10, bottom: 10, width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: colors.success, borderWidth: 1, borderColor: `${colors.successInk}33`, shadowColor: "#000", shadowOpacity: 0.24, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
+    bookmarkButton: { position: "absolute", left: 10, bottom: 10, width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: `${colors.ink}D9`, borderWidth: 1, borderColor: `${colors.bone}52` },
     imageFallback: { width: "100%", aspectRatio: 0.78, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
     imageFallbackText: { color: `${colors.bone}6B`, fontSize: 12, fontWeight: "900", letterSpacing: 2 },
     cardMeta: { padding: 11 },
