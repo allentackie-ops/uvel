@@ -102,6 +102,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const [stage, setStage] = useState(0);
   const [draftReady, setDraftReady] = useState(draftParam !== "1");
   const [draftDisabled, setDraftDisabled] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const priceKey = existing?.id || "new";
   const leaveSell = useCallback(() => {
     if (embedded) router.replace("/(tabs)/index");
@@ -186,6 +187,15 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     });
     return () => subscription.remove();
   }, [persistDraft]);
+
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardWillShow", () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener("keyboardWillHide", () => setKeyboardVisible(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const cover = photos[0];
   const warn = photos.find((p) => p.status === "warn");
@@ -748,7 +758,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           </View>
         </ScrollView>
 
-        <View style={[styles.foot, { paddingBottom: insets.bottom + (embedded ? 60 : 12) }]}>
+        <View style={[styles.foot, { paddingBottom: keyboardVisible ? 8 : insets.bottom + (embedded ? 60 : 12) }]}>
           <AccessiblePressable            onPress={() => void publish()}
             disabled={!canList}
             style={({ pressed }) => [styles.cta, !canList && styles.ctaOff, pressed && { opacity: 0.92 }]}
