@@ -940,7 +940,7 @@ function make(colors: Colors) {
     emptyHeroBody: { color: `${colors.bone}AD`, fontSize: 16, lineHeight: 24, marginTop: 10, maxWidth: 340 },
     emptyHeroCta: { alignSelf: "flex-start", backgroundColor: colors.success, minHeight: 48, paddingHorizontal: 20, borderRadius: 24, alignItems: "center", justifyContent: "center", marginTop: 22 },
     heroBar: { flexDirection: "row", gap: 10, marginBottom: 16 },
-    saveLookButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: "rgba(11,10,8,0.58)", borderWidth: 1, borderColor: `${colors.bone}47`, alignItems: "center", justifyContent: "center" },
+    saveLookButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: darkMode ? "rgba(11,10,8,0.58)" : colors.surface, borderWidth: 1, borderColor: darkMode ? `${colors.bone}47` : `${colors.bone}33`, alignItems: "center", justifyContent: "center" },
     srcRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
     src: { color: `${colors.bone}DB`, fontSize: 13, fontWeight: "500" },
     aiPill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7, minHeight: 44, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, borderColor: colors.success, backgroundColor: `${colors.ink}BD`, marginBottom: 9 },
@@ -1067,7 +1067,7 @@ function make(colors: Colors) {
       backgroundColor: colors.surface,
     },
     cardTopRow: { position: "absolute", top: 10, left: 10, right: 10, zIndex: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    cardSaveButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: "rgba(11,10,8,0.62)", borderWidth: 1, borderColor: `${colors.bone}47`, alignItems: "center", justifyContent: "center" },
+    cardSaveButton: { width: 34, height: 34, borderRadius: 17, backgroundColor: darkMode ? "rgba(11,10,8,0.62)" : colors.surface, borderWidth: 1, borderColor: darkMode ? `${colors.bone}47` : `${colors.bone}33`, alignItems: "center", justifyContent: "center" },
     cardFill: { width: CARD_W, height: CARD_H },
     cardSrcPill: {
       flexDirection: "row",
