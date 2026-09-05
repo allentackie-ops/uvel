@@ -992,7 +992,7 @@ function make(colors: Colors) {
     todayEyebrow: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.8 },
     todayIntroTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 30, lineHeight: 36, marginTop: 10 },
     todayIntroBody: { color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 8, maxWidth: 380 },
-    modeRow: { gap: 24, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 14 },
+    modeRow: { gap: 24, paddingHorizontal: 20, paddingTop: 18, paddingBottom: 14 },
     modeButton: { borderBottomWidth: 2, borderBottomColor: "transparent", paddingBottom: 9 },
     modeButtonOn: { borderBottomColor: colors.success },
     modeText: { color: colors.muted, fontSize: 13, fontWeight: "800" },
