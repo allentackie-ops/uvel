@@ -674,8 +674,8 @@ function Hero({
               <Text style={styles.unavailableLinkTxt}>Original unavailable</Text>
             </View>
           )}
-          <AccessiblePressable onPress={onToggleSaved} style={({ pressed }) => [styles.saveLookButton, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel={saved ? "Remove look from saved looks" : "Save look"} accessibilityState={{ selected: saved }}>
-            <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={18} color={colors.bone} />
+          <AccessiblePressable onPress={onToggleSaved} style={({ pressed }) => [styles.saveLookButton, saved && styles.saveLookButtonOn, pressed && { opacity: 0.8 }]} accessibilityRole="button" accessibilityLabel={saved ? "Remove look from saved looks" : "Save look"} accessibilityState={{ selected: saved }}>
+            <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={18} color={saved ? colors.successInk : colors.bone} />
           </AccessiblePressable>
         </View>
         {look.handle ? (
@@ -941,6 +941,7 @@ function make(colors: Colors) {
     emptyHeroCta: { alignSelf: "flex-start", backgroundColor: colors.success, minHeight: 48, paddingHorizontal: 20, borderRadius: 24, alignItems: "center", justifyContent: "center", marginTop: 22 },
     heroBar: { flexDirection: "row", gap: 10, marginBottom: 16 },
     saveLookButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: darkMode ? "rgba(11,10,8,0.58)" : colors.surface, borderWidth: 1, borderColor: darkMode ? `${colors.bone}47` : `${colors.bone}33`, alignItems: "center", justifyContent: "center" },
+    saveLookButtonOn: { backgroundColor: colors.success, borderColor: colors.success },
     srcRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
     src: { color: `${colors.bone}DB`, fontSize: 13, fontWeight: "500" },
     aiPill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7, minHeight: 44, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, borderColor: colors.success, backgroundColor: `${colors.ink}BD`, marginBottom: 9 },
