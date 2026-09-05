@@ -44,11 +44,11 @@ export default function Alerts() {
             key={item.id}
             onPress={() => {
               void markActivityNotificationRead(app.uid || "guest", item.id);
-              if (item.target === "saved") router.push("/(tabs)/you");
+              if (item.target === "saved") router.push("/saved-looks");
             }}
             style={[styles.event, !item.read && styles.eventUnread]}
             accessibilityRole="button"
-            accessibilityLabel={item.target === "saved" ? `${item.title}. Open saved looks.` : item.title}
+            accessibilityLabel={item.target === "saved" ? `${item.title}. Open Saved Fits.` : item.title}
           >
             {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.eventThumb} contentFit="cover" /> : <View style={styles.eventThumb} />}
             <View style={{ flex: 1, minWidth: 0 }}>
