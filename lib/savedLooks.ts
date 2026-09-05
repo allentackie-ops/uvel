@@ -80,6 +80,13 @@ export async function toggleSavedLook(look: Look) {
   return isLookSaved(look.id);
 }
 
+export async function removeSavedLook(id: string) {
+  await hydrate();
+  saved = saved.filter((look) => look.id !== id);
+  emit();
+  persist();
+}
+
 export function useSavedLooks() {
   const [looks, setLooks] = useState<SavedLook[]>(saved);
   useEffect(() => {
