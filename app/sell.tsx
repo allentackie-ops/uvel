@@ -703,17 +703,27 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                       setShopLook(look.id);
                       if (existing) updatePiece(existing.id, { shopLook: look.id });
                     }}
-                    style={({ pressed }) => [styles.lookCard, on && styles.lookCardOn, locked && { opacity: 0.55 }, pressed && { opacity: 0.92 }]}
+                    style={({ pressed }) => [
+                      styles.lookCard,
+                      { backgroundColor: look.surface, borderColor: on ? look.accent : look.page },
+                      on && styles.lookCardOn,
+                      locked && { opacity: 0.55 },
+                      pressed && { opacity: 0.92 },
+                    ]}
                     accessibilityRole="radio"
                     accessibilityLabel={look.name}
                     accessibilityHint="Double tap to choose this Shop the look style."
                     accessibilityState={{ selected: on, disabled: locked }}
                   >
-                    <View style={[styles.lookSwatch, { backgroundColor: look.page }]}>
-                      <View style={[styles.lookDot, { backgroundColor: look.accent }]} />
+                    <View style={[styles.lookSwatch, { backgroundColor: look.page, borderColor: look.accent }]}>
+                      <View style={[styles.lookSwatchSurface, { backgroundColor: look.surface }]} />
+                      <View style={styles.lookDots}>
+                        <View style={[styles.lookDot, { backgroundColor: look.bone }]} />
+                        <View style={[styles.lookDot, { backgroundColor: look.accent }]} />
+                      </View>
                     </View>
-                    <Text style={styles.lookName}>{look.name}</Text>
-                    <Text style={styles.lookLine} numberOfLines={1}>
+                    <Text style={[styles.lookName, { color: look.bone }]}>{look.name}</Text>
+                    <Text style={[styles.lookLine, { color: look.muted }]} numberOfLines={1}>
                       {look.line}
                     </Text>
                   </AccessiblePressable>
@@ -948,8 +958,10 @@ function make(colors: Colors) {
       borderWidth: 1,
       borderColor: "transparent",
     },
-    lookCardOn: { borderColor: colors.success },
-    lookSwatch: { height: 52, borderRadius: 12, justifyContent: "flex-end", alignItems: "flex-end", padding: 8 },
+    lookCardOn: { borderWidth: 2 },
+    lookSwatch: { height: 52, borderRadius: 12, borderWidth: 1, overflow: "hidden", justifyContent: "flex-end", padding: 8 },
+    lookSwatchSurface: { position: "absolute", left: 0, right: 0, bottom: 0, height: 8, opacity: 0.9 },
+    lookDots: { flexDirection: "row", gap: 6, alignItems: "center" },
     lookDot: { width: 14, height: 14, borderRadius: 7 },
     lookName: { color: colors.bone, fontWeight: "700", fontSize: 14, marginTop: 8 },
     lookLine: { color: colors.muted, fontSize: 12, marginTop: 2 },
