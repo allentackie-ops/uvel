@@ -220,6 +220,7 @@ function AppStack() {
           <Stack.Screen
             name="sell-countries"
             options={{
+              headerShown: false,
               title: "",
               headerBackTitle: "",
               headerStyle: { backgroundColor: colors.ink },

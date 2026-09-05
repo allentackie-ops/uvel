@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -49,8 +50,15 @@ export default function SellCountries() {
   const summary: ShipsTo = allCountries ? "all" : [...selected];
   return (
     <View style={styles.page}>
-      <View style={[styles.header, { paddingTop: 8 }]}>
-        <View style={styles.headerSpacer} />
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
+        <AccessiblePressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.78 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Ionicons name="chevron-back" size={25} color={colors.bone} />
+        </AccessiblePressable>
         <Text style={styles.title}>Where it sells</Text>
         <AccessiblePressable
           onPress={finish}
@@ -118,7 +126,7 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingBottom: 12 },
-    headerSpacer: { width: 54, height: 44 },
+    backButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 22 },
     title: { color: colors.bone, fontSize: 16, fontWeight: "600" },
     doneButton: { minWidth: 54, height: 44, alignItems: "flex-end", justifyContent: "center", borderRadius: 22 },
     doneText: { color: colors.pulse, fontSize: 15, fontWeight: "800" },
