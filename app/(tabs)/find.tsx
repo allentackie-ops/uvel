@@ -202,7 +202,6 @@ export default function Mirror() {
             <View style={styles.need}>
               <View style={styles.cameraPlaceholder}>
                 <Ionicons name="camera-outline" size={34} color={colors.success} />
-                <View style={styles.cameraPlaceholderCorner} />
               </View>
               <Text style={styles.needH}>Add your full-length photo</Text>
               <Text style={styles.needP}>Then see how a look works on you before you buy.</Text>
@@ -397,8 +396,7 @@ function make(colors: Colors) {
     },
     fill: { width: "100%", height: "100%" },
     need: { flex: 1, alignItems: "center", justifyContent: "center", padding: 28, gap: 8 },
-    cameraPlaceholder: { width: 84, height: 84, borderRadius: 24, borderWidth: 1, borderColor: `${colors.success}80`, backgroundColor: `${colors.success}12`, alignItems: "center", justifyContent: "center", marginBottom: 8, position: "relative" },
-    cameraPlaceholderCorner: { position: "absolute", width: 16, height: 16, right: 12, top: 12, borderTopWidth: 2, borderRightWidth: 2, borderColor: colors.success },
+    cameraPlaceholder: { width: 84, height: 84, borderRadius: 24, borderWidth: 1, borderColor: `${colors.success}80`, backgroundColor: `${colors.success}12`, alignItems: "center", justifyContent: "center", marginBottom: 8 },
     needH: { color: colors.bone, fontFamily: "Georgia", fontSize: 26 },
     needP: { color: `${colors.bone}9E`, textAlign: "center", marginBottom: 8 },
     needRow: { flexDirection: "row", gap: 10, marginTop: 8 },
