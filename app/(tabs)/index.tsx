@@ -390,7 +390,7 @@ export default function Today() {
   const [todayMode, setTodayMode] = useState<TodayMode>("forYou");
   const [videoWait, setVideoWait] = useState(false);
   const [shopWait, setShopWait] = useState(false);
-  const heroH = Math.round(H - insets.bottom - 196);
+  const heroH = Math.round(H - insets.bottom - 232);
   const orbitOn = useMinHold(refreshing || loading || videoWait || shopWait, 1200);
   const personalizedLooks = useMemo(() => rankForUser(looks), [looks, rankForUser]);
   const localMarket = getMarket(country).code;
