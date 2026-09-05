@@ -282,14 +282,13 @@ export default function You() {
       <Text style={[styles.sectionLabel, { marginTop: 24 }]}>BRAND WORKSPACE</Text>
       {mine ? (
         <View style={styles.brandCard}>
-          <Pressable onPress={() => router.push({ pathname: "/brand/[id]", params: { id: mine.id } })} style={styles.brandCardMain} accessibilityRole="button" accessibilityLabel={`View ${mine.name} brand page`}>
+          <View style={styles.brandCardMain}>
             <View style={{ flex: 1 }}>
               <Text style={styles.brandK}>PUBLIC PAGE</Text>
               <Text style={styles.brandName}>{mine.name}</Text>
               <Text style={styles.brandP}>View the public brand page.</Text>
             </View>
-            <Text style={styles.brandGo}>View</Text>
-          </Pressable>
+          </View>
           <Pressable onPress={() => router.push({ pathname: "/brand/hq", params: { id: mine.id } })} style={styles.brandHQButton} accessibilityRole="button" accessibilityLabel={`Manage ${mine.name} brand`}>
             <Text style={styles.brandHQText}>Manage</Text>
           </Pressable>
