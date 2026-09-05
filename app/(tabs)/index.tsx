@@ -582,7 +582,7 @@ export default function Today() {
                 </View>
               ) : (
                 <View style={{ paddingHorizontal: 16 }}>
-                  <ListingEmpty copy="This country’s floor is empty. Sell from Closet — it stays on this store unless you open it to others." />
+                  <ListingEmpty copy="This country’s floor is empty. Sell from Closet. It stays on this store unless you open it to others." />
                 </View>
               )}
             </>
