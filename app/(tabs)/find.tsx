@@ -134,6 +134,12 @@ export default function Mirror() {
     setErr("");
   }
 
+  function clearGarment() {
+    setPicked(null);
+    setResult(null);
+    setErr("");
+  }
+
   async function retryMarketplace() {
     if (retryingMarketplace) return;
     setRetryingMarketplace(true);
@@ -320,7 +326,14 @@ export default function Mirror() {
 
         {picked ? (
           <View style={styles.selected}>
-            {picked.kind === "photo" ? <Image source={{ uri: picked.uri }} style={styles.selectedImage} contentFit="cover" /> : null}
+            {picked.kind === "photo" ? (
+              <View>
+                <Image source={{ uri: picked.uri }} style={styles.selectedImage} contentFit="cover" />
+                <Pressable onPress={clearGarment} style={styles.selectedRemove} accessibilityRole="button" accessibilityLabel="Remove selected clothing photo">
+                  <Ionicons name="close" size={18} color={colors.bone} />
+                </Pressable>
+              </View>
+            ) : null}
             <View style={styles.selectedCopyWrap}>
               <Text style={styles.selectedKicker}>READY TO TRY</Text>
               <Text style={styles.selectedTitle}>{garmentName}</Text>
@@ -493,6 +506,7 @@ function make(colors: Colors) {
     anywhere: { flexDirection: "row", gap: 8, marginTop: 14, flexWrap: "wrap" },
     selected: { marginHorizontal: 20, marginTop: 24, borderRadius: 18, borderWidth: 1, borderColor: `${colors.success}47`, backgroundColor: `${colors.success}0F`, overflow: "hidden" },
     selectedImage: { width: "100%", height: 190, backgroundColor: colors.surface },
+    selectedRemove: { position: "absolute", top: 12, right: 12, width: 34, height: 34, borderRadius: 17, backgroundColor: `${colors.ink}D9`, borderWidth: 1, borderColor: `${colors.bone}52`, alignItems: "center", justifyContent: "center" },
     selectedCopyWrap: { padding: 16 },
     selectedKicker: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
     selectedTitle: { color: colors.bone, fontSize: 18, fontWeight: "800", marginTop: 5 },
