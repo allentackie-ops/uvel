@@ -741,7 +741,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           </View>
         </ScrollView>
 
-        <View style={[styles.foot, { paddingBottom: insets.bottom + (embedded ? 96 : 12) }]}>
+        <View style={[styles.foot, { paddingBottom: insets.bottom + (embedded ? 136 : 12), zIndex: 2 }]}>
           <AccessiblePressable            onPress={() => void publish()}
             disabled={!canList}
             style={({ pressed }) => [styles.cta, !canList && styles.ctaOff, pressed && { opacity: 0.92 }]}
@@ -958,12 +958,15 @@ function make(colors: Colors) {
     previewTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
     foot: {
       paddingHorizontal: 16,
-      paddingTop: 10,
+      paddingTop: 14,
       backgroundColor: colors.ink,
+      overflow: "visible",
     },
     cta: {
       height: 54,
+      minHeight: 54,
       borderRadius: 27,
+      overflow: "visible",
       backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
