@@ -1,8 +1,8 @@
-# Uvel App Store screenshot
+# Uvel App Store screenshot assets
 
-## Saved Fits — 6.7-inch iPhone
+## Saved Fits — polished promotional artwork
 
-`uvel-saved-fits-6.7.png` is the App Store-ready portrait screenshot for the Saved Fits page.
+`uvel-saved-fits-app-store-1290x2796.png` is the finished App Store promotional visual for the Saved Fits experience. It uses the supplied screen as the reference and presents the Uvel experience with a polished editorial treatment.
 
 | Property | Value |
 |---|---:|
@@ -10,10 +10,14 @@
 | Orientation | Portrait |
 | Color space | RGB |
 | Format | PNG |
-| Target | iPhone 6.7-inch display screenshot |
+| Target | iPhone 6.7-inch App Store screenshot slot |
 
-The artwork follows the supplied Uvel concept: a black canvas, centered editorial title, lime collection count, warm ivory typography, two-column saved-look cards, and search/bookmark actions. The screenshot is kept at the native required pixel dimensions rather than being padded inside a mock device frame.
+The visual follows the Uvel concept: black canvas, warm ivory typography, chartreuse collection count and bookmark controls, charcoal saved-look cards, and a fashion-editorial grid. The final artwork is already fitted to the required App Store canvas without cropping the content.
 
-### Export notes
+## Raw reference
 
-Use the PNG as-is for the 6.7-inch iPhone screenshot slot. Do not add a second device frame, browser chrome, or marketing copy over the screenshot. If additional listing screenshots are created, keep the same 1290 × 2796 canvas and the existing Uvel dark palette (`#000000`, `#1C1A16`, `#F4F0E6`, `#D6E27A`).
+`uvel-saved-fits-6.7.png` is the original supplied reference screen, preserved at the same 1290 × 2796 px dimensions for comparison and future UI capture work.
+
+## Export notes
+
+Use `uvel-saved-fits-app-store-1290x2796.png` for the polished listing image. Keep the raw reference separate; do not upload both as duplicate listing screenshots. The included `fit-app-store-canvas.py` script documents the non-cropping canvas-fit operation used to produce the exact-size final asset.
