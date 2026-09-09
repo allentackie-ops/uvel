@@ -1,10 +1,11 @@
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
@@ -154,6 +155,30 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
       setRefreshing(false);
       setRetrying(false);
     }
+  }, []);
+
+  const openVisualSearch = useCallback(() => {
+    Alert.alert("Search with a photo", "Take a picture or choose a fit from your camera roll.", [
+      {
+        text: "Take a photo",
+        onPress: () => {
+          void ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.85, allowsEditing: false }).then((result) => {
+            const image = result.canceled ? undefined : result.assets[0];
+            if (image?.uri) router.push({ pathname: "/visual-search", params: { uri: image.uri } });
+          }).catch(() => undefined);
+        },
+      },
+      {
+        text: "Choose from camera roll",
+        onPress: () => {
+          void ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.85, allowsEditing: false }).then((result) => {
+            const image = result.canceled ? undefined : result.assets[0];
+            if (image?.uri) router.push({ pathname: "/visual-search", params: { uri: image.uri } });
+          }).catch(() => undefined);
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
   }, []);
 
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
@@ -336,6 +361,16 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
             <Text style={styles.clear}>×</Text>
           </AccessiblePressable>
         ) : null}
+        <AccessiblePressable
+          onPress={openVisualSearch}
+          hitSlop={8}
+          style={({ pressed }) => [styles.cameraBtn, pressed && { opacity: 0.65, transform: [{ scale: 0.94 }] }]}
+          accessibilityRole="button"
+          accessibilityLabel="Search with a photo"
+          accessibilityHint="Take a photo or choose one from your camera roll."
+        >
+          <Ionicons name="camera-outline" size={21} color={colors.bone} />
+        </AccessiblePressable>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
@@ -559,6 +594,7 @@ function make(colors: Colors) {
     input: { flex: 1, color: colors.bone, fontSize: 16, height: 46 },
     clearBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
     clear: { color: `${colors.bone}D1`, fontSize: 22, paddingHorizontal: 4 },
+    cameraBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: `${colors.bone}12` },
     chips: { gap: 8, paddingVertical: 16 },
     chip: {
       minHeight: 44,

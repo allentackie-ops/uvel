@@ -26,39 +26,29 @@ export function PhotoCrop({ uri, onCancel, onDone }: Props) {
   const startS = useSharedValue(1);
 
   const frame = useMemo(() => {
-    const avail = SH - insets.top - insets.bottom - 108;
-    const h = Math.min(SW / LISTING_RATIO, avail);
+    const avail = SH - insets.top - insets.bottom - 250;
+    const h = Math.min(SW / LISTING_RATIO, Math.max(240, avail));
     const w = h * LISTING_RATIO;
     return { w, h };
   }, [insets.bottom, insets.top]);
 
   useEffect(() => {
-    RNImage.getSize(
-      uri,
-      (w, h) => setNatural({ w, h }),
-      () => setNatural({ w: 1200, h: 1500 }),
-    );
+    RNImage.getSize(uri, (w, h) => setNatural({ w, h }), () => setNatural({ w: 1200, h: 1500 }));
   }, [uri]);
 
   const minScale = natural ? Math.max(frame.w / natural.w, frame.h / natural.h) : 1;
-
-  const pan = Gesture.Pan()
-    .onStart(() => {
-      startX.value = tx.value;
-      startY.value = ty.value;
-    })
-    .onUpdate((e) => {
-      tx.value = startX.value + e.translationX;
-      ty.value = startY.value + e.translationY;
-    });
-
-  const pinch = Gesture.Pinch()
-    .onStart(() => {
-      startS.value = scale.value;
-    })
-    .onUpdate((e) => {
-      scale.value = Math.max(1, startS.value * e.scale);
-    });
+  const pan = Gesture.Pan().onStart(() => {
+    startX.value = tx.value;
+    startY.value = ty.value;
+  }).onUpdate((e) => {
+    tx.value = startX.value + e.translationX;
+    ty.value = startY.value + e.translationY;
+  });
+  const pinch = Gesture.Pinch().onStart(() => {
+    startS.value = scale.value;
+  }).onUpdate((e) => {
+    scale.value = Math.max(1, startS.value * e.scale);
+  });
 
   const imgStyle = useAnimatedStyle(() => {
     const s = minScale * scale.value;
@@ -71,7 +61,7 @@ export function PhotoCrop({ uri, onCancel, onDone }: Props) {
     return { width: w, height: h, transform: [{ translateX: x }, { translateY: y }] };
   });
 
-  async function useIt() {
+  async function search() {
     if (!natural || busy) return;
     setBusy(true);
     const s = minScale * scale.value;
@@ -87,11 +77,7 @@ export function PhotoCrop({ uri, onCancel, onDone }: Props) {
     const cropH = Math.min(natural.h - originY, Math.max(1, Math.round(frame.h / s)));
     try {
       const ImageManipulator = await import("expo-image-manipulator");
-      const out = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ crop: { originX, originY, width: cropW, height: cropH } }],
-        { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG },
-      );
+      const out = await ImageManipulator.manipulateAsync(uri, [{ crop: { originX, originY, width: cropW, height: cropH } }], { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG });
       onDone(out.uri);
     } catch {
       onDone(uri);
@@ -103,15 +89,10 @@ export function PhotoCrop({ uri, onCancel, onDone }: Props) {
   return (
     <View style={[styles.page, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.bar}>
-        <Pressable onPress={onCancel} hitSlop={12}>
-          <Text style={styles.link}>Cancel</Text>
-        </Pressable>
-        <Text style={styles.title}>Crop</Text>
-        <Pressable onPress={() => void useIt()} hitSlop={12}>
-          <Text style={styles.use}>{busy ? "…" : "Use"}</Text>
-        </Pressable>
+        <Pressable onPress={onCancel} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back"><Text style={styles.back}>‹</Text></Pressable>
+        <Text style={styles.title}>Focus your search</Text>
+        <View style={styles.barSpacer} />
       </View>
-      <Text style={styles.hint}>This is the listing frame. Drag to fill it. Pinch to zoom.</Text>
       <View style={styles.stage}>
         <View style={[styles.frame, { width: frame.w, height: frame.h }]}>
           {natural ? (
@@ -120,40 +101,40 @@ export function PhotoCrop({ uri, onCancel, onDone }: Props) {
                 <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="fill" />
               </Animated.View>
             </GestureDetector>
-          ) : (
-            <ActivityIndicator color="#D6E27A" />
-          )}
+          ) : <ActivityIndicator color="#D6E27A" />}
+          <View pointerEvents="none" style={styles.cropOverlay}>
+            <View style={[styles.corner, styles.tl]} /><View style={[styles.corner, styles.tr]} />
+            <View style={[styles.corner, styles.bl]} /><View style={[styles.corner, styles.br]} />
+          </View>
         </View>
       </View>
-      {busy ? (
-        <View style={styles.busy}>
-          <ActivityIndicator color="#16140F" />
-        </View>
-      ) : null}
+      <View style={styles.footer}>
+        <Text style={styles.hint}>For best results, focus on one item and drag the corners to adjust</Text>
+        <Pressable onPress={() => void search()} disabled={busy || !natural} style={({ pressed }) => [styles.searchButton, pressed && { opacity: 0.86 }, (busy || !natural) && { opacity: 0.55 }]} accessibilityRole="button" accessibilityLabel="Search Uvel with this crop">
+          {busy ? <ActivityIndicator color="#16140F" /> : <Text style={styles.searchText}>Search</Text>}
+        </Pressable>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { ...StyleSheet.absoluteFill, backgroundColor: "#000000", zIndex: 40 },
-  bar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 18,
-    height: 48,
-  },
-  link: { color: "rgba(244,240,230,0.7)", fontSize: 16 },
-  title: { color: "#F4F0E6", fontWeight: "600", fontSize: 16 },
-  use: { color: "#D6E27A", fontWeight: "700", fontSize: 16 },
-  hint: { color: "rgba(244,240,230,0.5)", textAlign: "center", fontSize: 13, marginBottom: 12 },
+  page: { ...StyleSheet.absoluteFill, backgroundColor: "#0B0A08", zIndex: 40 },
+  bar: { height: 66, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 28 },
+  back: { color: "#F4F0E6", fontSize: 46, fontWeight: "200", lineHeight: 46 },
+  title: { color: "#F4F0E6", fontWeight: "700", fontSize: 23 },
+  barSpacer: { width: 30 },
   stage: { flex: 1, alignItems: "center", justifyContent: "center" },
   frame: { overflow: "hidden", backgroundColor: "#1A1814", alignItems: "center", justifyContent: "center" },
   imgWrap: { alignItems: "center", justifyContent: "center" },
-  busy: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(214,226,122,0.35)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  cropOverlay: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
+  corner: { position: "absolute", width: 32, height: 32, borderColor: "#F4F0E6", borderWidth: 4 },
+  tl: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0 },
+  tr: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0 },
+  bl: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0 },
+  br: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0 },
+  footer: { borderTopWidth: 1, borderTopColor: "#514D47", paddingHorizontal: 26, paddingTop: 28 },
+  hint: { color: "#F4F0E6", fontSize: 16, lineHeight: 23, textAlign: "center", marginBottom: 24 },
+  searchButton: { height: 68, borderRadius: 34, backgroundColor: "#F4F0E6", alignItems: "center", justifyContent: "center", marginBottom: 16 },
+  searchText: { color: "#16140F", fontSize: 20, fontWeight: "700" },
 });
