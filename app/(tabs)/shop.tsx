@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -259,7 +260,7 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
             accessibilityRole="button"
             accessibilityLabel={`Messages${unread ? `, ${unread} unread` : ""}`}
           >
-            <Text style={styles.messageGlyph}>⌁</Text>
+            <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.bone} />
             {unread ? <View style={styles.messageBadge}><Text style={styles.messageBadgeText}>{unread > 9 ? "9+" : unread}</Text></View> : null}
           </AccessiblePressable>
         </View>
@@ -270,7 +271,7 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
       )}
       {scanningLook ? (
         <Text style={styles.look}>{job?.title || look?.title || "This frame"}</Text>
-      ) : (
+      ) : !todayHome ? (
         <AccessiblePressable          onPress={() => router.push("/store")}
           style={({ pressed }) => [styles.store, pressed && { opacity: 0.92 }]}
           accessibilityRole="button"
@@ -282,7 +283,7 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
           </Text>
           <Text style={styles.storeGo}>Change</Text>
         </AccessiblePressable>
-      )}
+      ) : null}
 
       {videoUrl ? (
         <FrozenClip uri={videoUrl} time={freezeAt} style={styles.frame} />
@@ -479,8 +480,7 @@ function make(colors: Colors) {
     wordmarkButton: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 10, gap: 4 },
     wordmark: { color: colors.bone, fontFamily: "Georgia", fontSize: 36, fontStyle: "italic", fontWeight: "700", letterSpacing: -2.2, lineHeight: 42 },
     wordmarkChevron: { color: `${colors.bone}B8`, fontSize: 21, fontWeight: "700", marginTop: 7 },
-    messageButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: `${colors.bone}38`, alignItems: "center", justifyContent: "center" },
-    messageGlyph: { color: colors.bone, fontSize: 29, lineHeight: 30, transform: [{ rotate: "-28deg" }] },
+    messageButton: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: `${colors.bone}55`, backgroundColor: `${colors.bone}14`, alignItems: "center", justifyContent: "center" },
     messageBadge: { position: "absolute", right: -2, top: -3, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     messageBadgeText: { color: colors.successInk, fontSize: 9, fontWeight: "900" },
     syncCard: { marginTop: 18, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}1F` },
