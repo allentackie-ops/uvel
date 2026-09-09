@@ -61,6 +61,8 @@ export function useShakeDetector(onShake: () => void, active = true) {
     if (!active || !enabledPreference || Platform.OS === "web") return;
     let previous: { x: number; y: number; z: number } | undefined;
     let lastShake = 0;
+    let shakeWindowStart = 0;
+    let shakeHits = 0;
     Accelerometer.setUpdateInterval(80);
     const subscription = Accelerometer.addListener(({ x, y, z }) => {
       if (!previous) {
@@ -70,8 +72,16 @@ export function useShakeDetector(onShake: () => void, active = true) {
       const delta = Math.abs(x - previous.x) + Math.abs(y - previous.y) + Math.abs(z - previous.z);
       previous = { x, y, z };
       const now = Date.now();
-      if (delta > 2.4 && now - lastShake > 1800) {
+      if (delta > 1.0 && now - lastShake > 1800) {
+        if (now - (shakeWindowStart || now) > 700) {
+          shakeWindowStart = now;
+          shakeHits = 0;
+        }
+        shakeHits += 1;
+      }
+      if (shakeHits >= 2 && now - lastShake > 1800) {
         lastShake = now;
+        shakeHits = 0;
         onShake();
       }
     });
