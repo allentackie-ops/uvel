@@ -29,7 +29,7 @@ import { frameAtTime, playableLookVideo, prefetchLookVideo } from "../../lib/loo
 import { forYou, matchListings } from "../../lib/lookMatch";
 import { beginLookScan, finishLookScan } from "../../lib/lookSearch";
 import { getMarket } from "../../lib/markets";
-import { followedBrandIds, getBrand, useBrands } from "../../lib/brands";
+import { followedBrandIds, getBrand, isFollowing, toggleFollow, useBrands } from "../../lib/brands";
 import { recordCampaignAttribution } from "../../lib/attribution";
 import { useLiveShopCampaigns, type BrandCampaign } from "../../lib/marketing";
 import { AI_CONTENT_EXPLANATION, AI_CONTENT_LABEL } from "../../lib/contentLabels";
@@ -404,6 +404,25 @@ export default function Today() {
   const modeListings = todayMode === "following" ? followedListings : todayMode === "nearby" ? nearbyListings : [];
   const featured = personalizedLooks[0] ?? looks[0];
   const hits = featured ? matchListings(featured, live, taste, followedIds).slice(0, 6) : [];
+  const discoveryRows = useMemo(() => {
+    const seen = new Set<string>();
+    return live
+      .filter((piece) => piece.brandId || piece.ownerName)
+      .sort((a, b) => {
+        const aLocal = a.country?.toUpperCase() === localMarket ? 1 : 0;
+        const bLocal = b.country?.toUpperCase() === localMarket ? 1 : 0;
+        const aFollowed = a.brandId && followedIds.includes(a.brandId) ? 1 : 0;
+        const bFollowed = b.brandId && followedIds.includes(b.brandId) ? 1 : 0;
+        return (bFollowed - aFollowed) || (bLocal - aLocal) || (b.createdAt - a.createdAt);
+      })
+      .filter((piece) => {
+        const key = piece.brandId || piece.ownerId || piece.id;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 6);
+  }, [live, localMarket, followedKey]);
   const intro = todayMode === "following"
     ? { eyebrow: C.following, title: C.following, body: "" }
     : todayMode === "nearby"
@@ -477,6 +496,7 @@ export default function Today() {
               onSource={() => trackFeed(featured, "source")}
               saved={savedIds.has(featured.id)}
               onToggleSaved={() => { void saveLook(featured); }}
+              reason={taste.length ? "Because it fits your style edit" : "A starting point for your style edit"}
             />
           ) : (
             <TodayEmptyHero mode={todayMode} height={heroH} colors={colors} onRetry={todayMode === "forYou" ? () => void refresh() : undefined} />
@@ -526,6 +546,7 @@ export default function Today() {
               <View style={styles.head}>
                 <View>
                   <Text style={styles.h2}>{C.shopTheLook}</Text>
+                  <Text style={styles.sectionSub}>Exact matches first, then close alternatives.</Text>
                 </View>
               </View>
               {hits.length ? (
@@ -537,6 +558,23 @@ export default function Today() {
               ) : (
                 <View style={{ paddingHorizontal: 16 }}>
                   <ListingEmpty copy="No pieces on this floor match this look yet. A close match will appear here when it does." />
+                </View>
+              )}
+              <View style={styles.head}>
+                <View>
+                  <Text style={styles.h2}>From the Uvel community</Text>
+                  <Text style={styles.sectionSub}>Brands and sellers connected to this edit.</Text>
+                </View>
+              </View>
+              {discoveryRows.length ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.discoveryStrip}>
+                  {discoveryRows.map((piece) => (
+                    <DiscoveryCard key={piece.brandId || piece.ownerId || piece.id} piece={piece} country={country} uid={uid} colors={colors} />
+                  ))}
+                </ScrollView>
+              ) : (
+                <View style={styles.localEmpty}>
+                  <Text style={styles.localBody}>Discovering brands and sellers connected to this look.</Text>
                 </View>
               )}
             </>
@@ -611,6 +649,7 @@ function Hero({
   onSource,
   saved,
   onToggleSaved,
+  reason,
 }: {
   look: Look;
   colors: Colors;
@@ -621,6 +660,7 @@ function Hero({
   onSource?: () => void;
   saved: boolean;
   onToggleSaved: () => void;
+  reason: string;
 }) {
   const styles = make(colors);
   const C = useCopy();
@@ -686,6 +726,7 @@ function Hero({
             <Text style={styles.src}>{look.handle}</Text>
           </View>
         ) : null}
+        <Text style={styles.heroReason}>{reason}</Text>
         {look.aiGenerated ? <AiGeneratedPill colors={colors} /> : null}
         <Text style={styles.title}>{look.title}</Text>
         {tag ? <Text style={styles.hash}>{tag}</Text> : null}
@@ -861,6 +902,51 @@ function TodayCampaignCard({ campaign, lead, uid, colors }: { campaign: BrandCam
   );
 }
 
+function DiscoveryCard({ piece, country, uid, colors }: { piece: ClosetPiece; country: string; uid: string; colors: Colors }) {
+  const styles = make(colors);
+  const house = piece.brandId ? getBrand(piece.brandId) : undefined;
+  const market = getMarket(country);
+  const local = piece.country?.toUpperCase() === market.code;
+  const name = house?.name || piece.ownerName || (piece.brand === "Unlabeled" ? "Uvel seller" : piece.brand);
+  const followed = Boolean(house && uid && isFollowing(house.id, uid));
+  const label = house?.verified ? "Uvel-reviewed brand" : house ? "Brand" : "Seller";
+  return (
+    <AccessiblePressable
+      onPress={() => router.push(house ? { pathname: "/brand/[id]", params: { id: house.id } } : { pathname: "/closet/[id]", params: { id: piece.id } })}
+      style={({ pressed }) => [styles.discoveryCard, pressed && { opacity: 0.92 }]}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${name}, ${label}`}
+      accessibilityHint="Double tap to view this brand or seller."
+    >
+      <Image source={{ uri: piece.photo }} style={styles.discoveryImage} contentFit="cover" accessible={false} />
+      <View style={styles.discoveryCopy}>
+        <Text style={styles.localK}>{local ? "NEAR YOU" : label.toUpperCase()}</Text>
+        <View style={styles.discoveryNameRow}>
+          <Text style={styles.localTitle} numberOfLines={2}>{name}</Text>
+          {house?.verified ? <VerifiedMark size={14} /> : null}
+        </View>
+        <Text style={styles.localMeta} numberOfLines={1}>{house?.tagline || `${piece.name} · ${market.name}`}</Text>
+        <Text style={styles.localBody} numberOfLines={3}>
+          {house?.verified ? "A reviewed brand connected to the look you are exploring." : "A seller with a piece that fits this edit."}
+        </Text>
+        <View style={styles.discoveryActions}>
+          <Text style={styles.localAction}>{house ? "Open profile" : "View piece"}</Text>
+          {house ? (
+            <AccessiblePressable
+              onPress={() => toggleFollow(house.id, uid || "guest")}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={followed ? `Unfollow ${name}` : `Follow ${name}`}
+            >
+              <Text style={styles.discoveryFollow}>{followed ? "Following" : "Follow"}</Text>
+            </AccessiblePressable>
+          ) : null}
+        </View>
+      </View>
+    </AccessiblePressable>
+  );
+}
+
 function ShopLookCard({
   piece,
   country,
@@ -882,6 +968,7 @@ function ShopLookCard({
   const { saved, uid } = useUvel();
   const C = useCopy();
   const hearts = likeCount(live, saved, uid);
+  const sync = useMarketplaceSyncState();
   return (
     <AccessiblePressable      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
       style={({ pressed }) => [styles.shopCard, pressed && { opacity: 0.92 }]}
@@ -910,6 +997,8 @@ function ShopLookCard({
           {live.name}
         </Text>
         <Text style={styles.shopPrice}>{usd(live.listPriceCents, live.currency || "USD")}</Text>
+        <Text style={styles.shopReason} numberOfLines={1}>{matchKind === "exact" ? "Matches the original look" : "Close silhouette alternative"}</Text>
+        {sync !== "confirmed" ? <Text style={styles.shopAvailability}>Availability not confirmed</Text> : null}
       </View>
     </AccessiblePressable>
   );
@@ -946,6 +1035,7 @@ function make(colors: Colors) {
     saveLookButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: darkMode ? "rgba(11,10,8,0.58)" : colors.surface, borderWidth: 1, borderColor: darkMode ? `${colors.bone}47` : `${colors.bone}33`, alignItems: "center", justifyContent: "center" },
     saveLookButtonOn: { backgroundColor: colors.success, borderColor: colors.success },
     srcRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+    heroReason: { color: `${colors.bone}A6`, fontSize: 12, marginBottom: 8 },
     src: { color: `${colors.bone}DB`, fontSize: 13, fontWeight: "500" },
     aiPill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7, minHeight: 44, paddingHorizontal: 10, borderRadius: 13, borderWidth: 1, borderColor: colors.success, backgroundColor: `${colors.ink}BD`, marginBottom: 9 },
     aiPillCompact: { marginBottom: 0, minHeight: 44, backgroundColor: `${colors.ink}C7` },
@@ -1117,6 +1207,13 @@ function make(colors: Colors) {
     todayCampaignGo: { color: colors.success, fontSize: 12, fontWeight: "800", marginTop: 9 },
     shopStrip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
     followedStrip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
+    discoveryStrip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
+    discoveryCard: { width: Math.min(W - 32, 360), minHeight: 190, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}1F`, overflow: "hidden", flexDirection: "row" },
+    discoveryImage: { width: 132, minHeight: 190, backgroundColor: colors.surface },
+    discoveryCopy: { flex: 1, padding: 14 },
+    discoveryNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    discoveryActions: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 12 },
+    discoveryFollow: { color: colors.success, fontSize: 12, fontWeight: "900" },
     followedCell: { width: Math.round(W * 0.62) },
     sectionSub: { color: `${colors.bone}80`, fontSize: 13, marginTop: 5 },
     shopCard: {
@@ -1167,6 +1264,8 @@ function make(colors: Colors) {
     shopBrand: { color: `${colors.bone}73`, fontSize: 11, letterSpacing: 1.4, fontWeight: "700" },
     shopName: { color: colors.bone, fontSize: 18, fontWeight: "700", marginTop: 6, lineHeight: 22 },
     shopPrice: { color: colors.bone, fontSize: 17, fontWeight: "700", marginTop: 6 },
+    shopReason: { color: colors.muted, fontSize: 11, marginTop: 6 },
+    shopAvailability: { color: colors.warning, fontSize: 11, fontWeight: "700", marginTop: 4 },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 12, paddingHorizontal: 16 },
     cell: { width: "47%", flexGrow: 1 },
   });
