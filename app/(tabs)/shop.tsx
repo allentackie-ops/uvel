@@ -22,6 +22,7 @@ import { useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
 import { useLiveShopCampaigns } from "../../lib/marketing";
 import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated } from "../../lib/wardrobe";
+import { unreadFor, useInbox } from "../../lib/chat";
 
 const MIN_REFRESH_MS = 1200;
 
@@ -86,7 +87,7 @@ function FrozenClip({
   );
 }
 
-export default function Shop() {
+export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
@@ -95,6 +96,8 @@ export default function Shop() {
   const { country, styles: taste } = app;
   const market = getMarket(country);
   const { q: qParam, look: lookParam, scan } = useLocalSearchParams<{ q?: string; look?: string; scan?: string }>();
+  const chats = useInbox(app.uid || "me");
+  const unread = chats.reduce((count, thread) => count + unreadFor(thread, app.uid || "me"), 0);
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("All");
   const [aiIds, setAiIds] = useState<string[] | null>(null);
@@ -237,9 +240,24 @@ export default function Shop() {
           />
         }
       >
-      <View style={styles.titleRow}>
-        <Text style={styles.title}>{scanningLook ? C.shopTheLook : C.shop}</Text>
-      </View>
+      {todayHome ? (
+        <View style={styles.todayHeader}>
+          <Text style={styles.wordmark}>uvel</Text>
+          <AccessiblePressable
+            onPress={() => router.push("/inbox")}
+            style={({ pressed }) => [styles.messageButton, pressed && { opacity: 0.84 }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Messages${unread ? `, ${unread} unread` : ""}`}
+          >
+            <Text style={styles.messageGlyph}>⌁</Text>
+            {unread ? <View style={styles.messageBadge}><Text style={styles.messageBadgeText}>{unread > 9 ? "9+" : unread}</Text></View> : null}
+          </AccessiblePressable>
+        </View>
+      ) : (
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{scanningLook ? C.shopTheLook : C.shop}</Text>
+        </View>
+      )}
       {scanningLook ? (
         <Text style={styles.look}>{job?.title || look?.title || "This frame"}</Text>
       ) : (
@@ -446,6 +464,12 @@ function make(colors: Colors) {
     content: { paddingHorizontal: 16, paddingBottom: 108 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
     titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    todayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 52, marginBottom: 6 },
+    wordmark: { color: colors.bone, fontFamily: "Georgia", fontSize: 38, fontStyle: "italic", letterSpacing: -2, lineHeight: 44 },
+    messageButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: `${colors.bone}38`, alignItems: "center", justifyContent: "center" },
+    messageGlyph: { color: colors.bone, fontSize: 29, lineHeight: 30, transform: [{ rotate: "-28deg" }] },
+    messageBadge: { position: "absolute", right: -2, top: -3, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    messageBadgeText: { color: colors.successInk, fontSize: 9, fontWeight: "900" },
     syncCard: { marginTop: 18, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}1F` },
     syncKicker: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.4 },
     syncTitle: { color: colors.bone, fontSize: 17, fontWeight: "800", marginTop: 5 },
