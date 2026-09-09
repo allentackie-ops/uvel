@@ -26,7 +26,6 @@ import { useColors, type Colors } from "../../lib/theme";
 import { semanticStatus, statusToneFor } from "../../lib/status";
 import { getPiece, likesOnMine, stampMine, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { draftProgress, useListingDraft, type ListingDraft } from "../../lib/listingDraft";
-import { useSavedLooks } from "../../lib/savedLooks";
 
 const W = Dimensions.get("window").width;
 const COL = (W - 52) / 2;
@@ -52,7 +51,6 @@ function orderStatusLabel(order: Order) {
 
 export default function You() {
   const app = useUvel();
-  const savedLooks = useSavedLooks();
   const C = useCopy();
   const colors = useColors();
   const styles = make(colors);
@@ -266,23 +264,6 @@ export default function You() {
         />
       )}
 
-      <Text style={[styles.sectionLabel, { marginTop: 30 }]}>SAVED FITS</Text>
-      <Pressable
-        onPress={() => router.push("/saved-looks")}
-        style={({ pressed }) => [styles.savedEntry, pressed && { opacity: 0.82 }]}
-        accessibilityRole="button"
-        accessibilityLabel={`Saved Fits${savedLooks.length ? `, ${savedLooks.length} saved` : ""}`}
-        accessibilityHint="Double tap to open your saved fits."
-      >
-        <View style={styles.savedEntryIcon}>
-          <Ionicons name="bookmark" size={25} color={colors.successInk} />
-        </View>
-        <View style={styles.savedEntryCopy}>
-          <Text style={styles.savedEntryTitle}>Saved Fits</Text>
-          <Text style={styles.savedEntryBody}>{savedLooks.length ? `${savedLooks.length} ${savedLooks.length === 1 ? "fit" : "fits"} saved from Today` : "Your bookmarked fits will appear here"}</Text>
-        </View>
-        <Text style={styles.savedEntryChevron}>›</Text>
-      </Pressable>
 
       <Text style={[styles.sectionLabel, { marginTop: 30 }]}>TOOLS & PREFERENCES</Text>
       <Pressable onPress={() => router.push("/style-dna")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel={`Style DNA${dnaReady ? `: ${[app.archetype, app.palette, app.silhouette].filter(Boolean).join(", ")}` : ": not set"}`}>
@@ -682,13 +663,6 @@ function make(colors: Colors) {
     inviteNoTxt: { color: colors.bone, fontWeight: "700", fontSize: 13 },
     brandArea: { marginBottom: 8 },
     sectionLabel: { color: `${colors.bone}6B`, letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 22, marginBottom: 9 },
-    savedEntry: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}18` },
-    savedEntryIcon: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: colors.success },
-    savedEntryGlyph: { color: colors.successInk, fontSize: 26, lineHeight: 28, fontWeight: "800" },
-    savedEntryCopy: { flex: 1, minWidth: 0 },
-    savedEntryTitle: { color: colors.bone, fontSize: 15, fontWeight: "800" },
-    savedEntryBody: { color: `${colors.bone}80`, fontSize: 12, marginTop: 4 },
-    savedEntryChevron: { color: `${colors.bone}8F`, fontSize: 28, lineHeight: 28, fontWeight: "300" },
     brandAreaLabel: { color: `${colors.bone}6B`, letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 10, marginBottom: 9 },
     brandCard: {
       marginTop: 16,
