@@ -241,8 +241,18 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
         }
       >
       {todayHome ? (
-        <View style={styles.todayHeader}>
-          <Text style={styles.wordmark}>uvel</Text>
+        <View style={[styles.todayHeader, { paddingTop: 2 }]}>
+          <View style={styles.headerSide} />
+          <AccessiblePressable
+            onPress={() => router.push("/store")}
+            style={({ pressed }) => [styles.wordmarkButton, pressed && { opacity: 0.78 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Uvel marketplace"
+            accessibilityHint="Double tap to view marketplace settings."
+          >
+            <Text style={styles.wordmark}>uvel</Text>
+            <Text style={styles.wordmarkChevron}>⌄</Text>
+          </AccessiblePressable>
           <AccessiblePressable
             onPress={() => router.push("/inbox")}
             style={({ pressed }) => [styles.messageButton, pressed && { opacity: 0.84 }]}
@@ -464,8 +474,11 @@ function make(colors: Colors) {
     content: { paddingHorizontal: 16, paddingBottom: 108 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
     titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-    todayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 52, marginBottom: 6 },
-    wordmark: { color: colors.bone, fontFamily: "Georgia", fontSize: 38, fontStyle: "italic", letterSpacing: -2, lineHeight: 44 },
+    todayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 56, marginBottom: 4 },
+    headerSide: { width: 44, height: 44 },
+    wordmarkButton: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 10, gap: 4 },
+    wordmark: { color: colors.bone, fontFamily: "Georgia", fontSize: 36, fontStyle: "italic", fontWeight: "700", letterSpacing: -2.2, lineHeight: 42 },
+    wordmarkChevron: { color: `${colors.bone}B8`, fontSize: 21, fontWeight: "700", marginTop: 7 },
     messageButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: `${colors.bone}38`, alignItems: "center", justifyContent: "center" },
     messageGlyph: { color: colors.bone, fontSize: 29, lineHeight: 30, transform: [{ rotate: "-28deg" }] },
     messageBadge: { position: "absolute", right: -2, top: -3, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
