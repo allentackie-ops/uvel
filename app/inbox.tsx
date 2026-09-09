@@ -195,7 +195,7 @@ function make(colors: Colors) {
     chipWrap: { flexGrow: 0, flexShrink: 0 },
     chipScroll: { flexGrow: 0 },
     chips: { paddingHorizontal: 16, paddingBottom: 8, gap: 8, alignItems: "center" },
-    loaderSlot: { height: 48, alignItems: "center", justifyContent: "center" },
+    loaderSlot: { height: 72, paddingTop: 18, alignItems: "center", justifyContent: "center" },
     chip: {
       height: 36,
       paddingHorizontal: 16,

@@ -88,14 +88,14 @@ export function useShakeDetector(onShake: () => void, active = true) {
           );
           previous = { x, y, z };
           const now = Date.now();
-          if (delta > 0.42 && now - lastShake > 1800) {
-            if (now - (shakeWindowStart || now) > 900) {
+          if (delta > 0.2 && now - lastShake > 1600) {
+            if (now - (shakeWindowStart || now) > 1200) {
               shakeWindowStart = now;
               shakeHits = 0;
             }
             shakeHits += 1;
           }
-          if (shakeHits >= 3 && now - lastShake > 1800) {
+          if (shakeHits >= 2 && now - lastShake > 1600) {
             lastShake = now;
             shakeHits = 0;
             onShake();
