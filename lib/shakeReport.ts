@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Accelerometer } from "expo-sensors";
 import { useEffect, useState } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 
 const STORAGE_KEY = "@uvel/shake-report-enabled";
 const DEFAULT_ENABLED = true;
@@ -75,23 +75,27 @@ export function useShakeDetector(onShake: () => void, active = true) {
         }
         if (cancelled || !permission.granted) return;
 
-        Accelerometer.setUpdateInterval(80);
+        Accelerometer.setUpdateInterval(60);
         subscription = Accelerometer.addListener(({ x, y, z }) => {
           if (!previous) {
             previous = { x, y, z };
             return;
           }
-          const delta = Math.abs(x - previous.x) + Math.abs(y - previous.y) + Math.abs(z - previous.z);
+          const delta = Math.sqrt(
+            (x - previous.x) ** 2 +
+              (y - previous.y) ** 2 +
+              (z - previous.z) ** 2,
+          );
           previous = { x, y, z };
           const now = Date.now();
-          if (delta > 1.0 && now - lastShake > 1800) {
-            if (now - (shakeWindowStart || now) > 700) {
+          if (delta > 0.42 && now - lastShake > 1800) {
+            if (now - (shakeWindowStart || now) > 900) {
               shakeWindowStart = now;
               shakeHits = 0;
             }
             shakeHits += 1;
           }
-          if (shakeHits >= 2 && now - lastShake > 1800) {
+          if (shakeHits >= 3 && now - lastShake > 1800) {
             lastShake = now;
             shakeHits = 0;
             onShake();
@@ -103,8 +107,19 @@ export function useShakeDetector(onShake: () => void, active = true) {
     };
 
     void start();
+    const appState = AppState.addEventListener("change", (state) => {
+      if (state === "active" && !cancelled) {
+        subscription?.remove();
+        subscription = undefined;
+        previous = undefined;
+        shakeWindowStart = 0;
+        shakeHits = 0;
+        void start();
+      }
+    });
     return () => {
       cancelled = true;
+      appState.remove();
       subscription?.remove();
     };
   }, [active, enabledPreference, onShake]);
