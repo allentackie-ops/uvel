@@ -125,6 +125,46 @@ let listingsSettled: Promise<void> = Promise.resolve();
 let wardrobeHydrated = false;
 const remoteListingIds = new Set<string>();
 export type MarketplaceSyncState = "loading" | "confirmed" | "unavailable";
+export type ListingAvailabilityState = "checking" | "unavailable" | "shipping_unavailable" | "sold_out" | "choose_variant" | "low_stock" | "live";
+
+export type ListingAvailability = {
+  state: ListingAvailabilityState;
+  label: string;
+  detail: string;
+  purchasable: boolean;
+};
+
+export function listingAvailability(
+  piece: ClosetPiece,
+  opts: {
+    sync: MarketplaceSyncState;
+    remoteConfirmed: boolean;
+    buyerCountry?: string;
+    selectedVariant?: string;
+  },
+): ListingAvailability {
+  if (opts.sync === "loading" && !opts.remoteConfirmed) {
+    return { state: "checking", label: "Checking availability", detail: "Uvel is checking the live listing.", purchasable: false };
+  }
+  if (opts.sync === "unavailable" || !opts.remoteConfirmed) {
+    return { state: "unavailable", label: "Availability unavailable", detail: "Live listing availability could not be confirmed.", purchasable: false };
+  }
+  if (opts.buyerCountry && !listingVisibleIn({ origin: piece.country, shipsTo: piece.shipsTo, buyer: opts.buyerCountry })) {
+    return { state: "shipping_unavailable", label: "Doesn’t ship here", detail: "This seller does not ship this piece to your store.", purchasable: false };
+  }
+  const variantTracked = Boolean(piece.brandId && piece.sizeStock);
+  const selectedStock = opts.selectedVariant && piece.sizeStock ? piece.sizeStock[opts.selectedVariant] : piece.stockQuantity;
+  if (piece.status === "sold" || (variantTracked && typeof selectedStock === "number" && selectedStock <= 0) || (!variantTracked && typeof piece.stockQuantity === "number" && piece.stockQuantity <= 0)) {
+    return { state: "sold_out", label: "Sold out", detail: opts.selectedVariant ? `Size ${opts.selectedVariant} is sold out.` : "This listing is no longer available.", purchasable: false };
+  }
+  if (variantTracked && (piece.sizes?.length || piece.size) && !opts.selectedVariant) {
+    return { state: "choose_variant", label: "Choose a size", detail: "Select an available size to continue.", purchasable: false };
+  }
+  if (typeof selectedStock === "number" && selectedStock > 0 && selectedStock <= 10) {
+    return { state: "low_stock", label: `${selectedStock} remaining`, detail: `Only ${selectedStock} left${opts.selectedVariant ? ` in ${opts.selectedVariant}` : ""}.`, purchasable: true };
+  }
+  return { state: "live", label: "Live listing", detail: "Availability confirmed.", purchasable: true };
+}
 let marketplaceSyncState: MarketplaceSyncState = "loading";
 
 function timestampMillis(value: unknown) {
