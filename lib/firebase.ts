@@ -33,6 +33,17 @@ export function firebaseReady() {
   return Boolean(firebaseExtra.apiKey && firebaseExtra.projectId && firebaseExtra.appId);
 }
 
+export type FounderCloudCapability = "unavailable" | "sign-in-required" | "ready-to-connect";
+
+export function founderCloudCapability(): FounderCloudCapability {
+  if (!firebaseReady()) return "unavailable";
+  try {
+    return firebaseAuth().currentUser ? "ready-to-connect" : "sign-in-required";
+  } catch {
+    return "unavailable";
+  }
+}
+
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;

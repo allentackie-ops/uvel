@@ -1,4 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { Linking } from "react-native";
 
 async function need(kind: "camera" | "library") {
@@ -36,6 +38,29 @@ export async function pickFromLibrary() {
   });
   if (res.canceled) return null;
   return res.assets[0]?.uri ?? null;
+}
+
+async function copyFounderImport(uri: string, name?: string) {
+  const root = `${FileSystem.documentDirectory || FileSystem.cacheDirectory || ""}founder-imports/`;
+  await FileSystem.makeDirectoryAsync(root, { intermediates: true }).catch(() => undefined);
+  const safeName = (name || `canvas-work-${Date.now()}.jpg`).replace(/[^a-zA-Z0-9._-]/g, "-");
+  const destination = `${root}${Date.now()}-${safeName}`;
+  await FileSystem.copyAsync({ from: uri, to: destination });
+  return destination;
+}
+
+export async function importFounderWork() {
+  const result = await DocumentPicker.getDocumentAsync({ type: ["image/*", "application/pdf"], copyToCacheDirectory: true, multiple: false });
+  if (result.canceled) return null;
+  const asset = result.assets[0];
+  if (!asset?.uri) return null;
+  if (asset.mimeType === "application/pdf" || asset.name?.toLowerCase().endsWith(".pdf")) return { uri: await copyFounderImport(asset.uri, asset.name || "reference.pdf"), name: asset.name || "Imported reference.pdf", kind: "document" as const };
+  return { uri: await copyFounderImport(asset.uri, asset.name), name: asset.name || "Imported canvas work", kind: "image" as const };
+}
+
+export async function saveFounderPhotoReference(uri: string) {
+  if (uri.startsWith("file://") && uri.includes("founder-imports/")) return uri;
+  return copyFounderImport(uri);
 }
 
 export async function takeListingPhoto() {
@@ -136,4 +161,3 @@ export async function pickBannerVideo() {
   const asset = res.assets[0];
   return asset?.uri ?? null;
 }
-

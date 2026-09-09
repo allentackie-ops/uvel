@@ -5,6 +5,8 @@ export type FounderStage = "idea" | "identity" | "design" | "product" | "source"
 export type FounderBoardKind = "moodboard" | "sketch";
 export type FounderPoint = { x: number; y: number };
 export type FounderStroke = { id: string; color: string; width: number; points: FounderPoint[] };
+export type FounderCanvasTool = "draw" | "line" | "rectangle";
+export type FounderImportedWork = { id: string; uri: string; name: string; kind: "image" | "document"; createdAt: number };
 
 export type FounderBoard = {
   id: string;
@@ -14,6 +16,8 @@ export type FounderBoard = {
   colors: string[];
   references: string[];
   strokes: FounderStroke[];
+  annotation: string;
+  imports: FounderImportedWork[];
   createdAt: number;
   updatedAt: number;
 };
@@ -29,25 +33,49 @@ export type FounderBrief = {
 };
 
 export type FounderIdentity = {
+  workingName: string;
+  handleIdeas: string;
+  tone: string;
+  story: string;
   colors: string[];
   typography: string;
   logoDirection: string;
+  photographyDirection: string;
+  packagingNotes: string;
 };
 
 export type FounderProductBrief = {
   name: string;
+  category: string;
   silhouette: string;
+  fit: string;
   materials: string;
+  trims: string;
+  colorway: string;
   sizes: string;
+  measurements: string;
+  construction: string;
+  care: string;
+  targetUnitCost: string;
   targetPrice: string;
+  sampleQuantity: string;
+  sampleStatus: "not-started" | "requested" | "received" | "changes-needed" | "approved";
   productionQuestions: string;
   boardId: string;
 };
 
+export type FounderProductSnapshot = FounderProductBrief & { version: number; savedAt: number };
+export type FounderAuditEvent = { id: string; action: string; fields: string[]; createdAt: number };
+
 export type FounderSetup = {
   completedTaskIds: string[];
   notes: string;
+  launchDate: string;
+  integrations: FounderIntegration[];
 };
+
+export type FounderIntegrationStatus = "not-started" | "preparing" | "connected" | "needs-attention" | "unavailable";
+export type FounderIntegration = { id: string; label: string; outcome: string; status: FounderIntegrationStatus; notes: string };
 
 export type FounderSupplierStatus = "researching" | "contacted" | "sample" | "shortlisted" | "passed";
 export type FounderSampleStatus = "not-requested" | "requested" | "received" | "approved" | "changes-needed";
@@ -58,10 +86,15 @@ export type FounderSupplier = {
   name: string;
   location: string;
   specialty: string;
+  contact: string;
   minimumOrder: string;
   leadTime: string;
+  quote: string;
+  quoteCurrency: string;
+  qualityNotes: string;
   status: FounderSupplierStatus;
   notes: string;
+  attachments: FounderImportedWork[];
   createdAt: number;
   updatedAt: number;
 };
@@ -88,14 +121,34 @@ export type FounderProduction = {
   milestones: { id: string; title: string; status: FounderProductionMilestoneStatus }[];
 };
 
+export type FounderTaskStatus = "todo" | "in-progress" | "done";
+export type FounderTask = {
+  id: string;
+  title: string;
+  body: string;
+  stage: FounderStage;
+  status: FounderTaskStatus;
+};
+
 export type FounderProject = {
   id: string;
   name: string;
   description: string;
+  /** Founder projects are private planning records until explicitly handed off. */
+  visibility: "private";
+  /** Archived projects remain recoverable and never become public brand records. */
+  archived: boolean;
+  country: string;
   stage: FounderStage;
+  tasks: FounderTask[];
   brief: FounderBrief;
   identity: FounderIdentity;
   product: FounderProductBrief;
+  productVersions: FounderProductSnapshot[];
+  handoffStatus: "not-started" | "in-review" | "submitted";
+  cloudSyncStatus: "local-only" | "ready" | "synced" | "needs-auth" | "unavailable";
+  lastSyncedAt?: number;
+  auditLog: FounderAuditEvent[];
   setup: FounderSetup;
   production: FounderProduction;
   boards: FounderBoard[];
@@ -104,9 +157,18 @@ export type FounderProject = {
 };
 
 export const emptyFounderBrief = (): FounderBrief => ({ audience: "", category: "", pricePosition: "not-set", promise: "", values: "", tone: "", story: "" });
-export const defaultFounderIdentity = (): FounderIdentity => ({ colors: ["#D6E27A", "#F4F0E6", "#161512"], typography: "Warm editorial sans", logoDirection: "" });
-export const emptyFounderProduct = (): FounderProductBrief => ({ name: "", silhouette: "", materials: "", sizes: "", targetPrice: "", productionQuestions: "", boardId: "" });
-export const emptyFounderSetup = (): FounderSetup => ({ completedTaskIds: [], notes: "" });
+export const defaultFounderIdentity = (): FounderIdentity => ({ workingName: "", handleIdeas: "", tone: "", story: "", colors: ["#D6E27A", "#F4F0E6", "#161512"], typography: "Warm editorial sans", logoDirection: "", photographyDirection: "", packagingNotes: "" });
+export const emptyFounderProduct = (): FounderProductBrief => ({ name: "", category: "", silhouette: "", fit: "", materials: "", trims: "", colorway: "", sizes: "", measurements: "", construction: "", care: "", targetUnitCost: "", targetPrice: "", sampleQuantity: "", sampleStatus: "not-started", productionQuestions: "", boardId: "" });
+export const defaultFounderIntegrations = (): FounderIntegration[] => [
+  { id: "domain-email", label: "Domain & email", outcome: "A recognizable web address and professional inbox", status: "not-started", notes: "" },
+  { id: "storefront", label: "Storefront", outcome: "A place where products can be sold", status: "not-started", notes: "" },
+  { id: "payments", label: "Payments", outcome: "A safe way to accept money", status: "not-started", notes: "" },
+  { id: "shipping", label: "Shipping & returns", outcome: "Rates, delivery, tracking, and returns", status: "not-started", notes: "" },
+  { id: "social", label: "Social profiles", outcome: "A consistent public identity", status: "not-started", notes: "" },
+  { id: "analytics", label: "Analytics", outcome: "Confirmed visits and purchases", status: "unavailable", notes: "Live analytics is unavailable until a real data connection exists." },
+  { id: "support", label: "Customer support", outcome: "A reliable buyer contact route", status: "not-started", notes: "" },
+];
+export const emptyFounderSetup = (): FounderSetup => ({ completedTaskIds: [], notes: "", launchDate: "", integrations: defaultFounderIntegrations() });
 export const emptyFounderProduction = (): FounderProduction => ({
   targetUnits: "",
   targetCost: "",
@@ -122,8 +184,15 @@ export const emptyFounderProduction = (): FounderProduction => ({
   ],
 });
 
+export const defaultFounderTasks = (): FounderTask[] => [
+  { id: "idea-brief", title: "Write the idea brief", body: "Name the person, promise, and point of view behind the label.", stage: "idea", status: "todo" },
+  { id: "first-board", title: "Make the first board", body: "Collect references or sketch the first silhouette.", stage: "design", status: "todo" },
+  { id: "product-brief", title: "Describe the first product", body: "Turn the direction into one clear product brief.", stage: "product", status: "todo" },
+  { id: "launch-checklist", title: "Review launch setup", body: "See what still needs to happen before a public application.", stage: "launch", status: "todo" },
+];
+
 function normalizeProject(project: FounderProject): FounderProject {
-  return { ...project, brief: { ...emptyFounderBrief(), ...(project.brief || {}) }, identity: { ...defaultFounderIdentity(), ...(project.identity || {}) }, product: { ...emptyFounderProduct(), ...(project.product || {}) }, setup: { ...emptyFounderSetup(), ...(project.setup || {}) }, production: { ...emptyFounderProduction(), ...(project.production || {}), suppliers: project.production?.suppliers || [], samples: project.production?.samples || [], milestones: project.production?.milestones?.length ? project.production.milestones : emptyFounderProduction().milestones }, boards: project.boards || [] };
+  return { ...project, visibility: "private", archived: Boolean(project.archived), country: project.country || "", tasks: project.tasks?.length ? project.tasks : defaultFounderTasks(), brief: { ...emptyFounderBrief(), ...(project.brief || {}) }, identity: { ...defaultFounderIdentity(), ...(project.identity || {}) }, product: { ...emptyFounderProduct(), ...(project.product || {}) }, productVersions: project.productVersions || [], handoffStatus: project.handoffStatus || "not-started", cloudSyncStatus: project.cloudSyncStatus || "local-only", lastSyncedAt: project.lastSyncedAt, auditLog: project.auditLog || [], setup: { ...emptyFounderSetup(), ...(project.setup || {}), integrations: project.setup?.integrations?.length ? project.setup.integrations : defaultFounderIntegrations() }, production: { ...emptyFounderProduction(), ...(project.production || {}), suppliers: (project.production?.suppliers || []).map((supplier) => ({ ...supplier, contact: supplier.contact || "", quote: supplier.quote || "", quoteCurrency: supplier.quoteCurrency || "USD", qualityNotes: supplier.qualityNotes || "", attachments: supplier.attachments || [] })), samples: project.production?.samples || [], milestones: project.production?.milestones?.length ? project.production.milestones : emptyFounderProduction().milestones }, boards: (project.boards || []).map((board) => ({ ...board, annotation: board.annotation || "", imports: board.imports || [] })) };
 }
 
 const KEY = "uvel-founder-projects-v1";
@@ -166,10 +235,18 @@ export function createFounderProject(name: string, description = "") {
     id: uid("founder"),
     name: name.trim() || "Untitled label",
     description: description.trim(),
+    visibility: "private",
+    archived: false,
+    country: "",
     stage: "idea",
+    tasks: defaultFounderTasks(),
     brief: emptyFounderBrief(),
     identity: defaultFounderIdentity(),
     product: emptyFounderProduct(),
+    productVersions: [],
+    handoffStatus: "not-started",
+    cloudSyncStatus: "local-only",
+    auditLog: [],
     setup: emptyFounderSetup(),
     production: emptyFounderProduction(),
     boards: [],
@@ -185,8 +262,27 @@ export function getFounderProject(id?: string) {
   return id ? projects.find((project) => project.id === id) : projects[0];
 }
 
+export function archiveFounderProject(id: string, archived: boolean) {
+  updateFounderProject(id, { archived });
+}
+
+export function updateFounderTask(projectId: string, taskId: string, status: FounderTaskStatus) {
+  const project = getFounderProject(projectId);
+  if (!project) return;
+  updateFounderProject(projectId, { tasks: project.tasks.map((task) => task.id === taskId ? { ...task, status } : task) });
+}
+
+export function saveFounderProduct(projectId: string, product: FounderProductBrief) {
+  const project = getFounderProject(projectId);
+  if (!project) return;
+  const changed = JSON.stringify(project.product) !== JSON.stringify(product);
+  const nextVersion = project.productVersions.length ? Math.max(...project.productVersions.map((item) => item.version)) + 1 : 1;
+  updateFounderProject(projectId, { product, stage: "product", productVersions: changed ? [...project.productVersions, { ...product, version: nextVersion, savedAt: Date.now() }].slice(-10) : project.productVersions });
+}
+
 export function updateFounderProject(id: string, patch: Partial<FounderProject>) {
-  projects = projects.map((project) => project.id === id ? { ...project, ...patch, updatedAt: Date.now() } : project);
+  const now = Date.now();
+  projects = projects.map((project) => project.id === id ? { ...project, ...patch, updatedAt: now, auditLog: [...project.auditLog, { id: `audit-${now}-${Math.random().toString(36).slice(2, 6)}`, action: "project-update", fields: Object.keys(patch).filter((field) => field !== "auditLog"), createdAt: now }].slice(-100) } : project);
   void persist();
 }
 
@@ -200,6 +296,8 @@ export function createFounderBoard(projectId: string, kind: FounderBoardKind, na
     colors: ["#D6E27A", "#F4F0E6", "#161512"],
     references: [],
     strokes: [],
+    annotation: "",
+    imports: [],
     createdAt: now,
     updatedAt: now,
   };

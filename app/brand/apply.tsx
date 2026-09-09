@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -22,6 +22,7 @@ import { pickLogo, takeLogo } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { OrbitLoader } from "../../components/OrbitLoader";
+import { getFounderProject, updateFounderProject, useFounderProjects } from "../../lib/founder";
 
 type Gate = { phase: "idle" } | { phase: "review" } | { phase: "block"; decision: "needs_information" | "human_review" | "rejected"; headline: string; reasons: string[] } | { phase: "pass" };
 
@@ -31,6 +32,9 @@ export default function BrandApply() {
   const insets = useSafeAreaInsets();
   const app = useUvel();
   useBrands();
+  const { founderProjectId } = useLocalSearchParams<{ founderProjectId?: string }>();
+  const { projects: founderProjects, hydrated: founderHydrated } = useFounderProjects();
+  const founderProject = founderProjects.find((project) => project.id === founderProjectId) || getFounderProject(founderProjectId);
   const mine = ownedBrand(app.uid);
   const ph = "rgba(244,240,230,0.32)";
 
@@ -47,8 +51,22 @@ export default function BrandApply() {
   const [story, setStory] = useState(mine?.story ?? "");
   const [tagline, setTagline] = useState(mine?.tagline ?? "");
   const [logoUri, setLogoUri] = useState(mine?.logoUri ?? "");
+  const [handoffApplied, setHandoffApplied] = useState(false);
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
+
+  useEffect(() => {
+    if (!founderProjectId || !founderHydrated || !founderProject || handoffApplied || mine) return;
+    const candidateHandle = founderProject.identity.handleIdeas.split(/[\s,]+/).map((value) => value.replace(/^@/, "").replace(/[^a-zA-Z0-9]/g, "")).find(Boolean) || founderProject.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const candidateVertical = VERTICALS.find((value) => value.toLowerCase() === founderProject.brief.category.toLowerCase()) || "Unisex";
+    setName(founderProject.identity.workingName || founderProject.name);
+    setHandle(candidateHandle);
+    setVertical(candidateVertical);
+    setStory(founderProject.identity.story || founderProject.brief.story);
+    setTagline(founderProject.brief.promise);
+    updateFounderProject(founderProject.id, { handoffStatus: "in-review" });
+    setHandoffApplied(true);
+  }, [founderProjectId, founderHydrated, founderProject?.id, handoffApplied, mine?.id]);
 
   useEffect(() => {
     if (gate.phase !== "review") return;
@@ -149,6 +167,7 @@ export default function BrandApply() {
         return;
       }
       setGate({ phase: "pass" });
+      if (founderProject) updateFounderProject(founderProject.id, { handoffStatus: "submitted" });
       setTimeout(() => router.replace({ pathname: "/brand/[id]", params: { id: brand!.id } }), 1200);
     } catch (err) {
       setGate({
@@ -189,7 +208,8 @@ export default function BrandApply() {
           <View style={{ width: 40 }} />
         </View>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 240, paddingHorizontal: 20 }} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}>
-          <Text style={styles.lede}>
+            {founderProjectId && founderProject ? <View style={styles.handoffBanner}><Text style={styles.handoffTitle}>FOUNDER STUDIO HANDOFF</Text><Text style={styles.handoffText}>We prefilled this review from “{founderProject.name}”. Review every field, add the legal/contact details and logo yourself, then decide whether to submit.</Text><Text style={styles.handoffText}>Uvel will not submit, publish, register, or verify anything automatically.</Text></View> : null}
+            <Text style={styles.lede}>
             Brands are not personal closets. We check the required fields for a real fashion house — Instagram, site, and tax id can wait.
           </Text>
 
@@ -334,7 +354,7 @@ function make(colors: Colors) {
     back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
     backTxt: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
     topTitle: { color: colors.bone, fontSize: 16, fontWeight: "600" },
-    lede: { color: `${colors.bone}94`, fontSize: 15, lineHeight: 22, marginTop: 8, marginBottom: 18 },
+    handoffBanner: { backgroundColor: `${colors.success}18`, borderColor: `${colors.success}80`, borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 18 }, handoffTitle: { color: colors.success, fontSize: 10, letterSpacing: 1.6, fontWeight: "900" }, handoffText: { color: `${colors.bone}C2`, fontSize: 13, lineHeight: 18, marginTop: 6 }, lede: { color: `${colors.bone}94`, fontSize: 15, lineHeight: 22, marginTop: 8, marginBottom: 18 },
     logoBtn: { flexDirection: "row", gap: 14, alignItems: "center", marginBottom: 8 },
     logo: { width: 72, height: 72, borderRadius: 18, backgroundColor: colors.surface },
     logoEmpty: {

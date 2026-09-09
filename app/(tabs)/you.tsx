@@ -216,6 +216,20 @@ export default function You() {
         <Text style={styles.nextAction}>{mine ? (mine.reviewStatus === "needs_information" ? "Fix" : "Open") : "Start"}</Text>
       </Pressable>
 
+      <Pressable
+        onPress={() => router.push("/brand/founder")}
+        style={styles.nextCard}
+        accessibilityRole="button"
+        accessibilityLabel="Build privately in Founder Studio"
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={styles.nextK}>BUILD PRIVATELY FIRST</Text>
+          <Text style={styles.nextTitle}>Founder Studio</Text>
+          <Text style={styles.nextP}>Shape an idea, sketch a first product, and prepare before you apply publicly.</Text>
+        </View>
+        <Text style={styles.nextAction}>Open</Text>
+      </Pressable>
+
       <Text style={styles.sectionLabel}>YOUR ACTIVITY</Text>
       <View style={styles.tabs}>
         {(["shop", "sold", "purchases", "likes"] as const).map((id) => {
@@ -294,14 +308,6 @@ export default function You() {
           </Pressable>
         </View>
       ) : null}
-      <Pressable onPress={() => router.push("/brand/founder")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Open private Founder Studio">
-        <View style={{ flex: 1 }}>
-          <Text style={styles.brandK}>OPTIONAL WORKSPACE</Text>
-          <Text style={styles.brandName}>Founder Studio</Text>
-          <Text style={styles.brandP}>{mine ? "Building another brand? Plan it privately before applying." : "Sketch, plan, source, and prepare before applying publicly."}</Text>
-        </View>
-      </Pressable>
-
       {mine?.verified && canSeeAnalytics(mine, app.uid) ? (
         <Pressable onPress={() => router.push({ pathname: "/brand/analytics", params: { id: mine.id } })} style={styles.toolRow}>
           <View><Text style={styles.planH}>Brand analysis</Text><Text style={styles.planP}>Earnings, views, likes</Text></View><Text style={styles.planGo}>View</Text>
