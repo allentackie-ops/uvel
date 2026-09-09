@@ -572,11 +572,7 @@ export default function Today() {
                     <DiscoveryCard key={piece.brandId || piece.ownerId || piece.id} piece={piece} country={country} uid={uid} colors={colors} />
                   ))}
                 </ScrollView>
-              ) : (
-                <View style={styles.localEmpty}>
-                  <Text style={styles.localBody}>Discovering brands and sellers connected to this look.</Text>
-                </View>
-              )}
+              ) : null}
             </>
           ) : (
             <>
