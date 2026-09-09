@@ -852,7 +852,7 @@ function LookCard({ look, colors, onShop, onMoreLike, onNotInterested, saved, on
           accessibilityLabel={busy ? `Searching listings for ${look.title}` : `Shop listings for ${look.title}`}
           accessibilityHint="Double tap to find matching listings."
         >
-          {busy ? <Text style={styles.searchFabTxt}>…</Text> : <Ionicons name="search-outline" size={22} color={colors.ink === "#000000" ? colors.ink : colors.successInk} />}
+          {busy ? <Text style={styles.searchFabTxt}>…</Text> : <Ionicons name="search" size={19} color={colors.ink === "#000000" ? colors.ink : colors.successInk} />}
         </AccessiblePressable>
       </View>
       <Text style={styles.cardTitle} numberOfLines={2}>
@@ -1184,6 +1184,13 @@ function make(colors: Colors) {
       height: 46,
       borderRadius: 23,
       backgroundColor: darkMode ? colors.bone : `${colors.surface}F5`,
+      borderWidth: 1,
+      borderColor: `${colors.ink}22`,
+      shadowColor: "#000",
+      shadowOpacity: 0.24,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 4,
       alignItems: "center",
       justifyContent: "center",
     },
