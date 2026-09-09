@@ -30,4 +30,7 @@ jobs:
       - name: Publish to Expo production channel
         env:
           EXPO_TOKEN: ${{ secrets.ota_publish }}
-        run: npx eas-cli@latest update --channel production --message "${{ inputs.message }}" --non-interactive
+          CI: "1"
+        run: |
+          npx eas-cli@latest update --channel production --platform ios --message "${{ inputs.message }}"
+          npx eas-cli@latest update --channel production --platform android --message "${{ inputs.message }}"
