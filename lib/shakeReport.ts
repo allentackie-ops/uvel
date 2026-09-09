@@ -63,29 +63,50 @@ export function useShakeDetector(onShake: () => void, active = true) {
     let lastShake = 0;
     let shakeWindowStart = 0;
     let shakeHits = 0;
-    Accelerometer.setUpdateInterval(80);
-    const subscription = Accelerometer.addListener(({ x, y, z }) => {
-      if (!previous) {
-        previous = { x, y, z };
-        return;
-      }
-      const delta = Math.abs(x - previous.x) + Math.abs(y - previous.y) + Math.abs(z - previous.z);
-      previous = { x, y, z };
-      const now = Date.now();
-      if (delta > 1.0 && now - lastShake > 1800) {
-        if (now - (shakeWindowStart || now) > 700) {
-          shakeWindowStart = now;
-          shakeHits = 0;
+    let cancelled = false;
+    let subscription: { remove: () => void } | undefined;
+
+    const start = async () => {
+      try {
+        if (!(await Accelerometer.isAvailableAsync())) return;
+        let permission = await Accelerometer.getPermissionsAsync();
+        if (!permission.granted && permission.canAskAgain) {
+          permission = await Accelerometer.requestPermissionsAsync();
         }
-        shakeHits += 1;
+        if (cancelled || !permission.granted) return;
+
+        Accelerometer.setUpdateInterval(80);
+        subscription = Accelerometer.addListener(({ x, y, z }) => {
+          if (!previous) {
+            previous = { x, y, z };
+            return;
+          }
+          const delta = Math.abs(x - previous.x) + Math.abs(y - previous.y) + Math.abs(z - previous.z);
+          previous = { x, y, z };
+          const now = Date.now();
+          if (delta > 1.0 && now - lastShake > 1800) {
+            if (now - (shakeWindowStart || now) > 700) {
+              shakeWindowStart = now;
+              shakeHits = 0;
+            }
+            shakeHits += 1;
+          }
+          if (shakeHits >= 2 && now - lastShake > 1800) {
+            lastShake = now;
+            shakeHits = 0;
+            onShake();
+          }
+        });
+      } catch {
+        // Sensors may be unavailable or denied on a particular device/build.
       }
-      if (shakeHits >= 2 && now - lastShake > 1800) {
-        lastShake = now;
-        shakeHits = 0;
-        onShake();
-      }
-    });
-    return () => subscription.remove();
+    };
+
+    void start();
+    return () => {
+      cancelled = true;
+      subscription?.remove();
+    };
   }, [active, enabledPreference, onShake]);
   return enabledPreference;
 }
