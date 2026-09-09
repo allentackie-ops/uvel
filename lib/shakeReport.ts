@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Accelerometer } from "expo-sensors";
 import { useEffect, useState } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 
 const STORAGE_KEY = "@uvel/shake-report-enabled";
 const DEFAULT_ENABLED = true;
@@ -61,21 +61,67 @@ export function useShakeDetector(onShake: () => void, active = true) {
     if (!active || !enabledPreference || Platform.OS === "web") return;
     let previous: { x: number; y: number; z: number } | undefined;
     let lastShake = 0;
-    Accelerometer.setUpdateInterval(80);
-    const subscription = Accelerometer.addListener(({ x, y, z }) => {
-      if (!previous) {
-        previous = { x, y, z };
-        return;
+    let shakeWindowStart = 0;
+    let shakeHits = 0;
+    let cancelled = false;
+    let subscription: { remove: () => void } | undefined;
+
+    const start = async () => {
+      try {
+        if (!(await Accelerometer.isAvailableAsync())) return;
+        let permission = await Accelerometer.getPermissionsAsync();
+        if (!permission.granted && permission.canAskAgain) {
+          permission = await Accelerometer.requestPermissionsAsync();
+        }
+        if (cancelled || !permission.granted) return;
+
+        Accelerometer.setUpdateInterval(60);
+        subscription = Accelerometer.addListener(({ x, y, z }) => {
+          if (!previous) {
+            previous = { x, y, z };
+            return;
+          }
+          const delta = Math.sqrt(
+            (x - previous.x) ** 2 +
+              (y - previous.y) ** 2 +
+              (z - previous.z) ** 2,
+          );
+          previous = { x, y, z };
+          const now = Date.now();
+          if (delta > 0.2 && now - lastShake > 1600) {
+            if (now - (shakeWindowStart || now) > 1200) {
+              shakeWindowStart = now;
+              shakeHits = 0;
+            }
+            shakeHits += 1;
+          }
+          if (shakeHits >= 2 && now - lastShake > 1600) {
+            lastShake = now;
+            shakeHits = 0;
+            onShake();
+          }
+        });
+      } catch {
+        // Sensors may be unavailable or denied on a particular device/build.
       }
-      const delta = Math.abs(x - previous.x) + Math.abs(y - previous.y) + Math.abs(z - previous.z);
-      previous = { x, y, z };
-      const now = Date.now();
-      if (delta > 2.4 && now - lastShake > 1800) {
-        lastShake = now;
-        onShake();
+    };
+
+    void start();
+    const appState = AppState.addEventListener("change", (state) => {
+      if (state === "active" && !cancelled) {
+        subscription?.remove();
+        subscription = undefined;
+        previous = undefined;
+        shakeWindowStart = 0;
+        shakeHits = 0;
+        void start();
       }
     });
-    return () => subscription.remove();
+    return () => {
+      cancelled = true;
+      appState.remove();
+      subscription?.remove();
+    };
   }, [active, enabledPreference, onShake]);
   return enabledPreference;
 }

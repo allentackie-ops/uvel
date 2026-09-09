@@ -3,6 +3,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDocs,
   getDoc,
   onSnapshot,
   orderBy,
@@ -313,6 +314,45 @@ export function inboxFor(uid: string): ChatThread[] {
   return Object.values(memory.threads)
     .filter((t) => t.buyerId === uid || t.sellerId === uid || (t.recipientIds || []).includes(uid) || t.buyerId === "me" || t.sellerId === "seller")
     .sort((a, b) => b.lastAt - a.lastAt);
+}
+
+export async function refreshInbox(uid: string) {
+  await hydrate();
+  if (!firebaseReady() || !uid || uid === "me") {
+    emitInbox();
+    return;
+  }
+
+  const queries = [
+    query(collection(firebaseDb(), "chats"), where("buyerId", "==", uid)),
+    query(collection(firebaseDb(), "chats"), where("sellerId", "==", uid)),
+    query(collection(firebaseDb(), "chats"), where("recipientIds", "array-contains", uid)),
+  ];
+  const snapshots = await Promise.all(queries.map((q) => getDocs(q)));
+  snapshots.flatMap((snap) => snap.docs).forEach((docSnap) => {
+    const v = (docSnap.data() || {}) as Partial<ChatThread>;
+    const current = memory.threads[docSnap.id];
+    const next: ChatThread = current || {
+      id: docSnap.id,
+      pieceId: String(v.pieceId || ""),
+      buyerId: String(v.buyerId || ""),
+      sellerId: String(v.sellerId || ""),
+      pieceName: String(v.pieceName || "Listing"),
+      piecePhoto: String(v.piecePhoto || ""),
+      piecePriceCents: typeof v.piecePriceCents === "number" ? v.piecePriceCents : 0,
+      sellerName: String(v.sellerName || "Seller"),
+      buyerName: String(v.buyerName || "Buyer"),
+      lastText: String(v.lastText || ""),
+      lastAt: typeof v.lastAt === "number" ? v.lastAt : Date.now(),
+      lastFrom: String(v.lastFrom || ""),
+      unreadBuyer: typeof v.unreadBuyer === "number" ? v.unreadBuyer : 0,
+      unreadSeller: typeof v.unreadSeller === "number" ? v.unreadSeller : 0,
+      typingBy: String(v.typingBy || ""),
+      typingAt: typeof v.typingAt === "number" ? v.typingAt : 0,
+    };
+    memory.threads[docSnap.id] = { ...next, ...v, id: docSnap.id } as ChatThread;
+  });
+  emitInbox();
 }
 
 export function useInbox(uid: string) {

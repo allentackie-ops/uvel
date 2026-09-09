@@ -2,11 +2,12 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useMemo, useState } from "react";
-import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
 import { VerifiedMark } from "../components/VerifiedMark";
 import { getBrand, useBrands } from "../lib/brands";
-import { unreadFor, useInbox, type ChatThread } from "../lib/chat";
+import { refreshInbox, unreadFor, useInbox, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 
@@ -30,6 +31,19 @@ export default function Inbox() {
   const me = uid || "me";
   const threads = useInbox(me);
   const [filter, setFilter] = useState<Filter>("All");
+  const [refreshing, setRefreshing] = useState(false);
+  const orbitOn = useMinHold(refreshing, 1200);
+
+  async function onRefresh() {
+    setRefreshing(true);
+    try {
+      await refreshInbox(me);
+    } catch {
+      // The live listeners remain active; the loader still exits cleanly.
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   const visible = useMemo(() => {
     return threads.filter((t) => {
@@ -84,6 +98,12 @@ export default function Inbox() {
         </ScrollView>
       </View>
 
+      {orbitOn ? (
+        <View style={styles.loaderSlot} pointerEvents="none">
+          <OrbitLoader />
+        </View>
+      ) : null}
+
       <FlatList
         data={visible}
         keyExtractor={(t) => t.id}
@@ -91,6 +111,15 @@ export default function Inbox() {
         ListEmptyComponent={<Text style={styles.empty}>{empty}</Text>}
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         style={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void onRefresh()}
+            tintColor="transparent"
+            colors={["transparent"]}
+            progressViewOffset={insets.top}
+          />
+        }
       />
     </View>
   );
@@ -166,6 +195,7 @@ function make(colors: Colors) {
     chipWrap: { flexGrow: 0, flexShrink: 0 },
     chipScroll: { flexGrow: 0 },
     chips: { paddingHorizontal: 16, paddingBottom: 8, gap: 8, alignItems: "center" },
+    loaderSlot: { height: 72, paddingTop: 18, alignItems: "center", justifyContent: "center" },
     chip: {
       height: 36,
       paddingHorizontal: 16,
