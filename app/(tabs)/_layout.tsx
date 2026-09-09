@@ -8,14 +8,15 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Today from "./index";
 import Mirror from "./find";
 import Closet from "./closet";
+import Shop from "./shop";
 import You from "./you";
 import { useColors } from "../../lib/theme";
 import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
 
-const ROUTES = ["/", "/find", "/closet", "/you"] as const;
-const ICONS = ["compass-outline", "body-outline", "add-outline", "person-outline"] as const;
-const ACTIVE_ICONS = ["compass", "body", "add", "person"] as const;
+const ROUTES = ["/", "/find", "/closet", "/shop", "/you"] as const;
+const ICONS = ["compass-outline", "body-outline", "add-outline", "bag-outline", "person-outline"] as const;
+const ACTIVE_ICONS = ["compass", "body", "add", "bag", "person"] as const;
 
 type TabScreen = { key: string; label: string; screen: React.ComponentType };
 
@@ -34,9 +35,10 @@ export default function TabsLayout() {
       { key: "today", label: C.today, screen: Today },
       { key: "mirror", label: C.mirror, screen: Mirror },
       { key: "sell", label: C.sell, screen: Closet },
+      { key: "shop", label: C.shop, screen: Shop },
       { key: "you", label: C.you, screen: You },
     ],
-    [C.today, C.mirror, C.sell, C.you],
+    [C.today, C.mirror, C.sell, C.shop, C.you],
   );
 
   useEffect(() => {
@@ -120,7 +122,8 @@ function routeIndex(pathname: string): number | null {
   if (pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/")) return 0;
   if (pathname.includes("/find")) return 1;
   if (pathname.includes("/closet")) return 2;
-  if (pathname.includes("/you")) return 3;
+  if (pathname.includes("/shop")) return 3;
+  if (pathname.includes("/you")) return 4;
   return null;
 }
 
