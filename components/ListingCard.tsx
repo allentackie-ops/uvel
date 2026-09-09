@@ -7,7 +7,7 @@ import { uvelFeeCents } from "../lib/fees";
 import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
-import { getPiece, isRemoteListedPiece, likeCount, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
+import { getPiece, isRemoteListedPiece, likeCount, listingAvailability, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { VerifiedMark } from "./VerifiedMark";
 
 export function ListingCard({
@@ -40,11 +40,12 @@ export function ListingCard({
   const sync = useMarketplaceSyncState();
   const remote = isRemoteListedPiece(live.id);
   const confirmed = sync === "confirmed" && remote;
+  const availability = listingAvailability(live, { sync, remoteConfirmed: confirmed, buyerCountry: app.country });
   return (
     <AccessiblePressable      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
       style={({ pressed }) => [styles.wrap, wide ? { width: wide, flex: undefined } : null, framed && styles.framed, pressed && styles.focused]}
       accessibilityRole="button"
-      accessibilityLabel={`${brand} ${live.name}, ${moneyInMarket(live.listPriceCents, itemCurrency, here)}${typeof live.stockQuantity === "number" ? live.stockQuantity === 0 ? ", sold out" : live.stockQuantity <= 10 ? `, ${live.stockQuantity} remaining` : "" : ""}${!confirmed ? ", availability not confirmed" : ""}`}
+      accessibilityLabel={`${brand} ${live.name}, ${moneyInMarket(live.listPriceCents, itemCurrency, here)}, ${availability.label}`}
       accessibilityHint="Double tap to view this listing."
     >
       <View>
@@ -59,11 +60,12 @@ export function ListingCard({
             <Text style={styles.newBadgeTxt}>New</Text>
           </View>
         ) : null}
-        {live.brandId && typeof live.stockQuantity === "number" && live.stockQuantity > 0 && live.stockQuantity <= 10 ? (
+        {availability.state === "low_stock" ? (
           <View style={[styles.stockBadge, { top: framed && fresh ? 38 : 10 }]}>
-            <Text style={styles.stockBadgeTxt}>{live.stockQuantity} remaining</Text>
+            <Text style={styles.stockBadgeTxt}>{availability.label}</Text>
           </View>
         ) : null}
+        {availability.state === "sold_out" ? <View style={[styles.soldBadge, { top: framed && fresh ? 38 : 10 }]}><Text style={styles.soldBadgeTxt}>Sold out</Text></View> : null}
         {badge ? (
           <View style={styles.badge}>
             <Text style={styles.badgeTxt}>{badge}</Text>
@@ -97,8 +99,11 @@ export function ListingCard({
           {[live.size || live.sizes?.[0] || "One size", live.condition || "Condition not listed"].join(" · ")}
         </Text>
         <Text style={[styles.total, framed && styles.totalFramed]} numberOfLines={1}>
-          {moneyInMarket(total, here.currency, here)} {confirmed ? "incl. buyer protection" : "availability pending"}
+          {moneyInMarket(total, here.currency, here)} {availability.state === "live" || availability.state === "low_stock" ? "incl. buyer protection" : availability.label}
         </Text>
+        {availability.state === "unavailable" || availability.state === "shipping_unavailable" ? (
+          <Text style={styles.availabilityLine} numberOfLines={1}>{availability.detail}</Text>
+        ) : null}
         {!confirmed && sync !== "loading" ? (
           <View style={styles.syncDot} />
         ) : null}
@@ -124,6 +129,8 @@ function make(colors: ReturnType<typeof useColors>) {
     badgeTxt: { color: colors.ink, fontWeight: "700", fontSize: 12 },
     stockBadge: { position: "absolute", left: 10, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", zIndex: 9 },
     stockBadgeTxt: { color: colors.ink, fontSize: 11, fontWeight: "800" },
+    soldBadge: { position: "absolute", left: 10, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: colors.danger, alignItems: "center", justifyContent: "center", zIndex: 9 },
+    soldBadgeTxt: { color: colors.dangerInk, fontSize: 11, fontWeight: "800" },
     syncDot: { position: "absolute", top: 10, right: 10, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.muted, opacity: 0.5 },
     framedMeta: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12 },
     brand: { color: colors.subtle, fontSize: 11, marginTop: 8, letterSpacing: 0.4 },
@@ -135,6 +142,7 @@ function make(colors: ReturnType<typeof useColors>) {
     sizeLine: { color: `${colors.bone}6B`, fontSize: 11, marginTop: 4, letterSpacing: 0.4 },
     total: { color: colors.success, fontSize: 12, marginTop: 5, fontWeight: "700", fontVariant: ["tabular-nums"] },
     totalFramed: { color: colors.success },
+    availabilityLine: { color: colors.warning, fontSize: 11, marginTop: 4 },
   });
 }
 

@@ -40,7 +40,7 @@ import { addActivityNotification } from "../../lib/activityNotifications";
 import { useColors, type Colors } from "../../lib/theme";
 import { lookImage, useLooks, type Look, type Source } from "../../lib/trends";
 import { toggleSavedLook, useSavedLooks } from "../../lib/savedLooks";
-import { getPiece, likeCount, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
+import { getPiece, isRemoteListedPiece, likeCount, listingAvailability, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
 
 const { width: W, height: H } = Dimensions.get("screen");
 
@@ -969,6 +969,7 @@ function ShopLookCard({
   const C = useCopy();
   const hearts = likeCount(live, saved, uid);
   const sync = useMarketplaceSyncState();
+  const availability = listingAvailability(live, { sync, remoteConfirmed: sync === "confirmed" && isRemoteListedPiece(live.id), buyerCountry: country });
   return (
     <AccessiblePressable      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
       style={({ pressed }) => [styles.shopCard, pressed && { opacity: 0.92 }]}
@@ -978,8 +979,8 @@ function ShopLookCard({
     >
       <View>
         <Image source={{ uri: live.photo }} style={styles.shopImg} contentFit="cover" accessible={false} />
-        <View style={styles.shopNow}>
-          <Text style={styles.shopNowTxt}>Shop now</Text>
+        <View style={[styles.shopNow, !availability.purchasable && styles.shopNowOff]}>
+          <Text style={[styles.shopNowTxt, !availability.purchasable && styles.shopNowTxtOff]}>{availability.purchasable ? "Shop now" : availability.label}</Text>
         </View>
         <View style={styles.matchPill}>
           <Text style={styles.matchPillTxt}>{matchKind === "exact" ? C.exactMatch.toUpperCase() : C.similarPiece.toUpperCase()}</Text>
@@ -998,7 +999,8 @@ function ShopLookCard({
         </Text>
         <Text style={styles.shopPrice}>{usd(live.listPriceCents, live.currency || "USD")}</Text>
         <Text style={styles.shopReason} numberOfLines={1}>{matchKind === "exact" ? "Matches the original look" : "Close silhouette alternative"}</Text>
-        {sync !== "confirmed" ? <Text style={styles.shopAvailability}>Availability not confirmed</Text> : null}
+        {availability.state !== "live" && availability.state !== "low_stock" ? <Text style={styles.shopAvailability}>{availability.detail}</Text> : null}
+        {availability.state === "low_stock" ? <Text style={styles.shopAvailability}>{availability.detail}</Text> : null}
       </View>
     </AccessiblePressable>
   );
@@ -1235,6 +1237,8 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     shopNowTxt: { color: colors.successInk, fontWeight: "700", fontSize: 13 },
+    shopNowOff: { backgroundColor: colors.neutral },
+    shopNowTxtOff: { color: colors.neutralInk },
     matchPill: { position: "absolute", left: 14, top: 14, backgroundColor: `${colors.ink}D1`, borderWidth: 1, borderColor: `${colors.bone}42`, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 6 },
     matchPillTxt: { color: colors.bone, fontSize: 9, fontWeight: "900", letterSpacing: 1.1 },
     shopHearts: {
