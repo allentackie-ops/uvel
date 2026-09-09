@@ -103,6 +103,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const [stage, setStage] = useState(0);
   const [draftReady, setDraftReady] = useState(draftParam !== "1");
   const [draftDisabled, setDraftDisabled] = useState(false);
+  const [previewId, setPreviewId] = useState<string | null>(existing?.id || null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const priceKey = existing?.id || "new";
   const leaveSell = useCallback(() => {
@@ -381,6 +382,47 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     });
   }
 
+  function listingValues() {
+    const uris = photos.map((p) => p.uri);
+    const face = avatarUri || personUri || existing?.ownerPhoto;
+    return {
+      photo: uris[0],
+      photos: uris,
+      name: name.trim(),
+      brand: brand.trim() || "Unlabeled",
+      category: category as Category,
+      color: color.trim(),
+      size: size.trim(),
+      condition,
+      material: material.trim(),
+      notes: notes.trim(),
+      listPriceCents: Math.max(1, Number(price) || 0) * 100,
+      originalPriceCents: Math.max(0, Number(was) || 0) * 100,
+      ownerId: uid,
+      ownerName: displayName,
+      ownerPhoto: face || undefined,
+      country: origin,
+      currency: listingCurrency,
+      shipsTo,
+      shopLook,
+    };
+  }
+
+  function previewListing() {
+    if (!canList) return;
+    const values = listingValues();
+    const id = previewId || existing?.id;
+    if (id) {
+      updatePiece(id, values);
+      setPreviewId(id);
+      router.push({ pathname: "/closet/[id]", params: { id, v: "buy" } });
+      return;
+    }
+    const preview = addPiece({ ...values, status: "draft" });
+    setPreviewId(preview.id);
+    router.push({ pathname: "/closet/[id]", params: { id: preview.id, v: "buy" } });
+  }
+
   async function publish() {
     if (!canList) return;
     setGate({ phase: "review", line: STAGES[0] });
@@ -411,36 +453,9 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       setGate({ phase: "block", headline: result.headline, reasons: result.reasons });
       return;
     }
-    const uris = photos.map((p) => p.uri);
-    const draft = {
-      photo: uris[0],
-      photos: uris,
-      name: name.trim(),
-      brand: brand.trim() || "Unlabeled",
-      category: category as Category,
-      color: color.trim(),
-      size: size.trim(),
-      condition,
-      material: material.trim(),
-      notes: notes.trim(),
-      listPriceCents: Math.max(1, Number(price) || 0) * 100,
-      originalPriceCents: Math.max(0, Number(was) || 0) * 100,
-      country: origin,
-      currency: listingCurrency,
-      shipsTo,
-      shopLook,
-    };
-    const face = avatarUri || personUri || existing?.ownerPhoto;
-    const listed = {
-      ...draft,
-      ownerId: uid,
-      ownerName: displayName,
-      ownerPhoto: face || undefined,
-      country: origin,
-      currency: listingCurrency,
-      shipsTo,
-    };
+    const listed = listingValues();
     if (existing) listPiece(existing.id, listed);
+    else if (previewId) listPiece(previewId, listed);
     else {
       setDraftDisabled(true);
       void clearListingDraft();
@@ -780,14 +795,14 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 );
               })}
             </View>
-            {existing ? (
+            {canList ? (
               <AccessiblePressable                onPress={() =>
-                  router.push({
-                    pathname: "/closet/[id]",
-                    params: { id: existing.id, v: "buy" },
-                  })
+                  previewListing()
                 }
                 style={styles.preview}
+                accessibilityRole="button"
+                accessibilityLabel="Preview listing as a buyer"
+                accessibilityHint="Double tap to see how this listing will look to other people before publishing."
               >
                 <Text style={styles.previewTxt}>Preview as a buyer →</Text>
               </AccessiblePressable>
@@ -1018,8 +1033,8 @@ function make(colors: Colors) {
     lookDot: { width: 14, height: 14, borderRadius: 7 },
     lookName: { color: colors.bone, fontWeight: "700", fontSize: 14, marginTop: 8 },
     lookLine: { color: colors.muted, fontSize: 12, marginTop: 2 },
-    preview: { marginTop: 14, marginBottom: 8 },
-    previewTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
+    preview: { minHeight: 48, marginTop: 14, marginBottom: 8, borderRadius: 24, borderWidth: 1, borderColor: `${colors.bone}52`, alignItems: "center", justifyContent: "center" },
+    previewTxt: { color: colors.bone, fontWeight: "700", fontSize: 14 },
     foot: {
       paddingHorizontal: 16,
       paddingTop: 10,
