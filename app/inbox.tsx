@@ -13,15 +13,6 @@ import { useColors, type Colors } from "../lib/theme";
 
 type Filter = "All" | "Messages" | "Selling" | "Buying";
 const FILTERS: Filter[] = ["All", "Messages", "Selling", "Buying"];
-const orbitTop = {
-  position: "absolute" as const,
-  top: 0,
-  left: 0,
-  right: 0,
-  alignItems: "center" as const,
-  zIndex: 40,
-  elevation: 40,
-};
 
 function when(ms: number) {
   const min = Math.max(1, Math.round((Date.now() - ms) / 60000));
@@ -107,6 +98,12 @@ export default function Inbox() {
         </ScrollView>
       </View>
 
+      {orbitOn ? (
+        <View style={styles.loaderSlot} pointerEvents="none">
+          <OrbitLoader />
+        </View>
+      ) : null}
+
       <FlatList
         data={visible}
         keyExtractor={(t) => t.id}
@@ -124,11 +121,6 @@ export default function Inbox() {
           />
         }
       />
-      {orbitOn ? (
-        <View style={[orbitTop, { paddingTop: insets.top + 10 }]} pointerEvents="none">
-          <OrbitLoader />
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -203,6 +195,7 @@ function make(colors: Colors) {
     chipWrap: { flexGrow: 0, flexShrink: 0 },
     chipScroll: { flexGrow: 0 },
     chips: { paddingHorizontal: 16, paddingBottom: 8, gap: 8, alignItems: "center" },
+    loaderSlot: { height: 48, alignItems: "center", justifyContent: "center" },
     chip: {
       height: 36,
       paddingHorizontal: 16,
