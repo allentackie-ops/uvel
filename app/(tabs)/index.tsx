@@ -852,7 +852,7 @@ function LookCard({ look, colors, onShop, onMoreLike, onNotInterested, saved, on
           accessibilityLabel={busy ? `Searching listings for ${look.title}` : `Shop listings for ${look.title}`}
           accessibilityHint="Double tap to find matching listings."
         >
-          <Text style={styles.searchFabTxt}>{busy ? "…" : "⌕"}</Text>
+          {busy ? <Text style={styles.searchFabTxt}>…</Text> : <Ionicons name="search-outline" size={22} color={colors.ink === "#000000" ? colors.ink : colors.successInk} />}
         </AccessiblePressable>
       </View>
       <Text style={styles.cardTitle} numberOfLines={2}>
