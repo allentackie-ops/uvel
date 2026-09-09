@@ -7,6 +7,7 @@ import { getMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
 import { useColors, type Colors } from "../lib/theme";
+import { setShakeReportEnabled, useShakeReportEnabled } from "../lib/shakeReport";
 
 const HELP = "mailto:himforson@gmail.com?subject=Uvel%20help";
 const VERSION = Constants.expoConfig?.version ?? "1.0.0";
@@ -17,6 +18,7 @@ export default function Settings() {
   const colors = useColors();
   const styles = make(colors);
   const [busy, setBusy] = useState(false);
+  const shakeReportEnabled = useShakeReportEnabled();
   const localeLabel = LANGS.find((l) => l.id === app.locale)?.label ?? "English, US";
   const market = getMarket(app.country);
 
@@ -124,6 +126,20 @@ export default function Settings() {
             thumbColor="#fff"
             accessibilityLabel={C.accessibilityFeatures}
             accessibilityHint={C.accessibilityHint}
+          />
+        </View>
+        <View style={styles.row}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={styles.rowLabel}>Shake to report a problem</Text>
+            <Text style={styles.hint}>Shake your phone to open Uvel’s technical report sheet.</Text>
+          </View>
+          <Switch
+            value={shakeReportEnabled}
+            onValueChange={(v) => void setShakeReportEnabled(v)}
+            trackColor={{ false: colors.surface, true: colors.success }}
+            thumbColor="#fff"
+            accessibilityLabel="Shake to report a problem"
+            accessibilityHint="When enabled, shaking your phone opens the technical report sheet."
           />
         </View>
         <Row
