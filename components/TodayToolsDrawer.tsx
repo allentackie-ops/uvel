@@ -37,7 +37,6 @@ export function TodayToolsDrawer({ onClose }: TodayToolsDrawerProps) {
     <View style={[styles.page, { paddingTop: insets.top + 18, paddingBottom: insets.bottom }]}>
       <View style={styles.header}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.eyebrow}>TODAY</Text>
           <Text style={styles.title}>Your workspace</Text>
           <Text style={styles.subtitle}>Build, launch, and run your place on Uvel.</Text>
         </View>
@@ -50,7 +49,6 @@ export function TodayToolsDrawer({ onClose }: TodayToolsDrawerProps) {
         {buildTools.map((tool) => <ToolRow key={tool.label} tool={tool} colors={colors} styles={styles} onClose={onClose} />)}
         <Text style={[styles.section, { marginTop: 26 }]}>RUN YOUR BUSINESS</Text>
         {businessTools.map((tool) => <ToolRow key={tool.label} tool={tool} colors={colors} styles={styles} onClose={onClose} />)}
-        <Text style={styles.note}>These tools live here so your You page can stay focused on you.</Text>
       </ScrollView>
     </View>
   );
@@ -70,7 +68,6 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink, paddingHorizontal: 22 },
     header: { flexDirection: "row", alignItems: "flex-start", paddingBottom: 26, gap: 12 },
-    eyebrow: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 2 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 30, lineHeight: 36, marginTop: 5 },
     subtitle: { color: `${colors.bone}91`, fontSize: 13, lineHeight: 19, marginTop: 7, maxWidth: 250 },
     close: { width: 38, height: 38, borderRadius: 19, backgroundColor: `${colors.bone}12`, borderWidth: 1, borderColor: `${colors.bone}28`, alignItems: "center", justifyContent: "center" },
@@ -80,7 +77,6 @@ function make(colors: Colors) {
     icon: { width: 38, height: 38, borderRadius: 19, backgroundColor: `${colors.success}24`, alignItems: "center", justifyContent: "center" },
     label: { color: colors.bone, fontSize: 15, fontWeight: "800" },
     detail: { color: `${colors.bone}80`, fontSize: 11, marginTop: 3 },
-    note: { color: `${colors.bone}66`, fontSize: 12, lineHeight: 18, marginTop: 28 },
   });
 }
 
