@@ -21,14 +21,18 @@ import {
   clock,
   dayLabel,
   lastSeenLabel,
+  blockUser,
   getThread,
+  loadOlderMessages,
   listenMessages,
   listenThread,
   markSeen,
   openThread,
+  reportConversation,
   readUserLite,
   sendChat,
   setTyping,
+  updateOfferStatus,
   type ChatMsg,
   type ChatThread,
 } from "../../lib/chat";
@@ -89,6 +93,8 @@ export default function Ask() {
   const [sellerHandle, setSellerHandle] = useState("Seller");
   const [safety, setSafety] = useState(true);
   const [typing, setTypingOn] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasOlder, setHasOlder] = useState(false);
   const [boxKey, setBoxKey] = useState(0);
   const scroller = useRef<ScrollView>(null);
   const typeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -164,7 +170,7 @@ export default function Ask() {
     };
   }, [piece?.id, mine, routeThreadId, routeOrderId, routeSupportCaseId, routePieceName, routePiecePhoto, routePiecePriceCents, routeBrandId, activeThread?.id, activeThread?.buyerId, activeThread?.buyerName, activeThread?.recipientIds?.join(","), brand?.id, brand?.name, brand?.logoUri, brand?.verified, brand?.status, isSellerSide, sellerId, brandRecipients.join(",")]);
 
-  async function send(text: string, kind: ChatMsg["kind"] = "text", offerCents?: number, photoUrl?: string) {
+  async function send(text: string, kind: ChatMsg["kind"] = "text", offerCents?: number, photoUrl?: string, offerStatus?: ChatMsg["offerStatus"]) {
     if (!piece) return;
     const body = text.trim();
     if (!body || sending) return;
@@ -212,6 +218,7 @@ export default function Ask() {
         text: body,
         kind,
         offerCents,
+        offerStatus,
         photoUrl,
         fromName: brand?.name || (isSellerSide ? app.displayName || "Uvel team" : "Uvel"),
         pieceId: piece?.id ?? "",
@@ -243,6 +250,28 @@ export default function Ask() {
     } catch (e) {
       Alert.alert("Photo", e instanceof Error ? e.message : "Couldn’t add that.");
     }
+  }
+
+  async function loadOlder() {
+    if (loadingOlder || !thread || !msgs.length) return;
+    setLoadingOlder(true);
+    const older = await loadOlderMessages(thread, msgs[0]);
+    if (older.length) setMsgs((current) => [...older, ...current]);
+    setHasOlder(older.length >= 80);
+    setLoadingOlder(false);
+  }
+
+  function retryMessage(message: ChatMsg) {
+    if (message.from !== mine || message.status !== "failed") return;
+    void send(message.text, message.kind, message.offerCents, message.photoUrl, message.offerStatus);
+  }
+
+  function showConversationActions() {
+    Alert.alert("Conversation options", "Choose an action for this conversation.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Report conversation", style: "destructive", onPress: () => void reportConversation(thread, mine).then((ok) => Alert.alert(ok ? "Report sent" : "Couldn’t send report", ok ? "Thanks. We’ll review this conversation." : "Try again when you’re online.")) },
+      { text: "Block user", style: "destructive", onPress: () => void blockUser(otherId).then(() => Alert.alert("User blocked", "You won’t receive new messages from this user.")) },
+    ]);
   }
 
   if (!piece) {
@@ -290,16 +319,7 @@ export default function Ask() {
             </Text>
             {brandIsVerified ? <VerifiedMark size={16} /> : null}
           </View>
-          <Pressable
-            onPress={() =>
-              Alert.alert(
-                piece.name,
-                `${usd(piece.listPriceCents, piece.currency || "USD")} · ${[piece.size, piece.condition, piece.brand].filter(Boolean).join(" · ")}\n\nStay on Uvel. Don’t share phone numbers, emails, or payment off the app.`,
-              )
-            }
-            hitSlop={12}
-            style={styles.navBtn}
-          >
+          <Pressable onPress={showConversationActions} hitSlop={12} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Conversation options">
             <Text style={styles.info}>i</Text>
           </Pressable>
         </View>
@@ -326,6 +346,7 @@ export default function Ask() {
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
         >
+          {hasOlder || msgs.length >= 80 ? <Pressable onPress={() => void loadOlder()} style={styles.loadOlder} accessibilityRole="button" accessibilityLabel="Load older messages"><Text style={styles.loadOlderTxt}>{loadingOlder ? "Loading…" : "Load older messages"}</Text></Pressable> : null}
           <View style={styles.hello}>
             {conversationBrand?.logoUri ? (
               <Image source={{ uri: conversationBrand.logoUri }} style={styles.avatarImg} contentFit="cover" />
@@ -350,14 +371,15 @@ export default function Ask() {
             const prev = msgs[i - 1];
             const newDay = !prev || dayLabel(prev.createdAt) !== dayLabel(m.createdAt);
             const status =
-              m.status === "seen" ? "Seen" : m.status === "delivered" ? "Delivered" : m.status === "sending" ? "Sending" : "Sent";
+              m.status === "seen" ? "Seen" : m.status === "delivered" ? "Delivered" : m.status === "sending" ? "Sending" : m.status === "failed" ? "Failed · try sending again" : "Sent";
             return (
               <View key={m.id}>
                 {newDay ? <Text style={styles.day}>{dayLabel(m.createdAt)}</Text> : null}
                 {m.kind === "offer" ? (
                   <View style={[styles.bubble, mineMsg ? styles.bubbleMine : styles.bubbleThem]}>
-                    <Text style={styles.offerTag}>Offer</Text>
+                    <Text style={styles.offerTag}>Offer · {m.offerStatus || "pending"}</Text>
                     <Text style={[styles.bubbleTxt, mineMsg && styles.bubbleTxtMine]}>{m.text}</Text>
+                    {!mineMsg && (m.offerStatus || "pending") === "pending" ? <View style={styles.offerActions}><Pressable onPress={() => void updateOfferStatus(thread, m.id, "declined")} accessibilityRole="button"><Text style={styles.offerActionText}>Decline</Text></Pressable><Pressable onPress={() => void updateOfferStatus(thread, m.id, "accepted")} accessibilityRole="button"><Text style={styles.offerActionText}>Accept</Text></Pressable></View> : null}
                   </View>
                 ) : (
                   <View style={[styles.bubble, mineMsg ? styles.bubbleMine : styles.bubbleThem]}>
@@ -366,7 +388,7 @@ export default function Ask() {
                   </View>
                 )}
                 {lastMine ? (
-                  <Text style={styles.meta}>{status} · {clock(m.createdAt)}</Text>
+                  m.status === "failed" ? <Pressable onPress={() => retryMessage(m)} accessibilityRole="button" accessibilityLabel="Retry failed message"><Text style={styles.meta}>{status} · {clock(m.createdAt)}</Text></Pressable> : <Text style={styles.meta}>{status} · {clock(m.createdAt)}</Text>
                 ) : !mineMsg ? (
                   <Text style={styles.metaThem}>{clock(m.createdAt)}</Text>
                 ) : null}
@@ -392,10 +414,10 @@ export default function Ask() {
         ) : null}
 
         <View style={[styles.composer, { paddingBottom: insets.bottom + 8 }]}>
-          <Pressable onPress={() => void attach(false)} style={styles.icon}>
+          <Pressable onPress={() => void attach(false)} style={styles.icon} accessibilityRole="button" accessibilityLabel="Attach photo from library">
             <Text style={styles.iconTxt}>+</Text>
           </Pressable>
-          <Pressable onPress={() => void attach(true)} style={styles.icon}>
+          <Pressable onPress={() => void attach(true)} style={styles.icon} accessibilityRole="button" accessibilityLabel="Take a photo">
             <Text style={styles.cam}>◉</Text>
           </Pressable>
           <TextInput
@@ -409,8 +431,10 @@ export default function Ask() {
             enablesReturnKeyAutomatically
             onSubmitEditing={() => void send(draft)}
             blurOnSubmit
+            accessibilityLabel="Message text"
+            maxLength={2000}
           />
-          <Pressable onPress={() => void send(draft)} disabled={sending || !draft.trim()} style={styles.send}>
+          <Pressable onPress={() => void send(draft)} disabled={sending || !draft.trim()} style={styles.send} accessibilityRole="button" accessibilityLabel="Send message">
             <Text style={[styles.sendTxt, (!draft.trim() || sending) && { opacity: 0.35 }]}>Send</Text>
           </Pressable>
         </View>
@@ -438,7 +462,7 @@ export default function Ask() {
               onPress={() => {
                 const n = Number(offer);
                 if (!n) return;
-                void send(`Offered ${usd(n * 100, piece.currency || "USD")}`, "offer", n * 100);
+                void send(`Offered ${usd(n * 100, piece.currency || "USD")}`, "offer", n * 100, undefined, "pending");
               }}
               style={[styles.buyBtn, { marginTop: 16, opacity: Number(offer) > 0 ? 1 : 0.4 }]}
             >
@@ -518,6 +542,8 @@ function make(colors: Colors) {
     buyTxt: { color: colors.successInk, fontWeight: "700", fontSize: 15 },
     rule: { height: StyleSheet.hairlineWidth, backgroundColor: `${colors.bone}1F` },
     hello: { flexDirection: "row", gap: 10, marginBottom: 18, alignItems: "flex-start" },
+    loadOlder: { alignSelf: "center", paddingVertical: 8, paddingHorizontal: 14, marginBottom: 10, borderRadius: 14, backgroundColor: colors.surface },
+    loadOlderTxt: { color: colors.success, fontSize: 13, fontWeight: "700" },
     avatar: {
       width: 40,
       height: 40,
@@ -549,6 +575,8 @@ function make(colors: Colors) {
     bubbleTxt: { color: colors.bone, fontSize: 15, lineHeight: 21 },
     bubbleTxtMine: { color: colors.bone },
     offerTag: { color: colors.success, fontSize: 11, fontWeight: "700", letterSpacing: 1, marginBottom: 4 },
+    offerActions: { flexDirection: "row", gap: 18, marginTop: 10 },
+    offerActionText: { color: colors.success, fontSize: 13, fontWeight: "800" },
     msgPhoto: { width: 180, height: 180, borderRadius: 12, marginBottom: 8 },
     day: { color: colors.subtle, textAlign: "center", fontSize: 12, marginVertical: 10 },
     meta: { color: colors.subtle, fontSize: 11, alignSelf: "flex-end", marginBottom: 10, marginRight: 4 },

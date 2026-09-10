@@ -4,17 +4,22 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
+  startAfter,
   setDoc,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { firebaseDb, firebaseReady } from "./firebase";
 import { sendPush } from "./push";
 
-export type MsgStatus = "sending" | "sent" | "delivered" | "seen";
+export type MsgStatus = "sending" | "sent" | "delivered" | "seen" | "failed";
+export type OfferStatus = "pending" | "accepted" | "declined" | "expired";
 
 export type ChatMsg = {
   id: string;
@@ -24,6 +29,7 @@ export type ChatMsg = {
   createdAt: number;
   photoUrl?: string;
   offerCents?: number;
+  offerStatus?: OfferStatus;
   status?: MsgStatus;
 };
 
@@ -54,6 +60,7 @@ export type ChatThread = {
 };
 
 const KEY = "uvel-chat-v1";
+const BLOCK_KEY = "uvel-chat-blocks-v1";
 const memory = {
   threads: {} as Record<string, ChatThread>,
   messages: {} as Record<string, ChatMsg[]>,
@@ -62,6 +69,7 @@ const msgSubs = new Map<string, Set<(m: ChatMsg[]) => void>>();
 const threadSubs = new Map<string, Set<(t: ChatThread) => void>>();
 const inboxSubs = new Set<() => void>();
 let hydrated = false;
+let blockedUsers = new Set<string>();
 
 async function persist() {
   await AsyncStorage.setItem(KEY, JSON.stringify(memory));
@@ -80,9 +88,35 @@ async function hydrate() {
   } catch {
     /* empty */
   }
+  try {
+    const blocks = await AsyncStorage.getItem(BLOCK_KEY);
+    if (blocks) blockedUsers = new Set(JSON.parse(blocks) as string[]);
+  } catch {
+    blockedUsers = new Set();
+  }
   inboxSubs.forEach((fn) => fn());
 }
 void hydrate();
+
+export function isBlocked(uid: string) {
+  return Boolean(uid && blockedUsers.has(uid));
+}
+
+export async function blockUser(uid: string) {
+  if (!uid) return;
+  blockedUsers.add(uid);
+  await AsyncStorage.setItem(BLOCK_KEY, JSON.stringify(Array.from(blockedUsers)));
+}
+
+export async function reportConversation(threadId: string, reporterId: string, reason = "User reported a conversation") {
+  if (!firebaseReady()) return false;
+  try {
+    await addDoc(collection(firebaseDb(), "chatReports"), { threadId, reporterId, reason, createdAt: Date.now() });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function emitMsgs(id: string) {
   const list = memory.messages[id] ?? [];
@@ -219,7 +253,7 @@ export function listenMessages(id: string, onMsgs: (msgs: ChatMsg[]) => void) {
   let unsubFs = () => undefined as void;
   if (firebaseReady()) {
     try {
-      const q = query(collection(firebaseDb(), "chats", id, "messages"), orderBy("createdAt", "asc"));
+      const q = query(collection(firebaseDb(), "chats", id, "messages"), orderBy("createdAt", "desc"), limit(80));
       unsubFs = onSnapshot(
         q,
         (snap) => {
@@ -233,6 +267,7 @@ export function listenMessages(id: string, onMsgs: (msgs: ChatMsg[]) => void) {
               createdAt: typeof v.createdAt === "number" ? v.createdAt : Date.now(),
               photoUrl: v.photoUrl,
               offerCents: v.offerCents,
+              offerStatus: v.offerStatus,
               status: v.status ?? "delivered",
             };
           });
@@ -242,7 +277,7 @@ export function listenMessages(id: string, onMsgs: (msgs: ChatMsg[]) => void) {
           const merged = [...remote, ...extra].sort((a, b) => a.createdAt - b.createdAt);
           memory.messages[id] = merged.map((m) => {
             const old = local.find((x) => x.id === m.id || (x.from === m.from && x.createdAt === m.createdAt && x.text === m.text));
-            const rank = { sending: 0, sent: 1, delivered: 2, seen: 3 };
+            const rank = { failed: -1, sending: 0, sent: 1, delivered: 2, seen: 3 };
             const a = old?.status ?? "sent";
             const b = m.status ?? "delivered";
             return { ...m, status: (rank[b] > rank[a] ? b : a) as MsgStatus };
@@ -259,6 +294,31 @@ export function listenMessages(id: string, onMsgs: (msgs: ChatMsg[]) => void) {
     set!.delete(onMsgs);
     unsubFs();
   };
+}
+
+export async function loadOlderMessages(id: string, before?: ChatMsg) {
+  if (!firebaseReady() || !before) return [];
+  try {
+    const q = query(collection(firebaseDb(), "chats", id, "messages"), orderBy("createdAt", "desc"), startAfter(before.createdAt), limit(80));
+    const snap = await getDocs(q);
+    return snap.docs.map((item) => ({ id: item.id, ...(item.data() as Omit<ChatMsg, "id">) })).reverse();
+  } catch {
+    return [];
+  }
+}
+
+export async function updateOfferStatus(threadId: string, messageId: string, status: OfferStatus) {
+  const list = memory.messages[threadId] ?? [];
+  memory.messages[threadId] = list.map((message) => message.id === messageId ? { ...message, offerStatus: status } : message);
+  emitMsgs(threadId);
+  void persist();
+  if (firebaseReady()) {
+    try {
+      await updateDoc(doc(firebaseDb(), "chats", threadId, "messages", messageId), { offerStatus: status });
+    } catch {
+      // Preserve the local state and reconcile it on the next remote snapshot.
+    }
+  }
 }
 
 export function listenThread(id: string, onThread: (t: ChatThread) => void) {
@@ -436,6 +496,7 @@ export async function sendChat(opts: {
   text: string;
   kind?: ChatMsg["kind"];
   offerCents?: number;
+  offerStatus?: OfferStatus;
   photoUrl?: string;
   fromName: string;
   pieceId: string;
@@ -449,7 +510,8 @@ export async function sendChat(opts: {
     createdAt: Date.now(),
     photoUrl: opts.photoUrl,
     offerCents: opts.offerCents,
-    status: "sent",
+    offerStatus: opts.offerStatus,
+    status: "sending",
   };
   memory.messages[opts.threadId] = [...(memory.messages[opts.threadId] ?? []), msg];
   const thread = memory.threads[opts.threadId];
@@ -468,41 +530,49 @@ export async function sendChat(opts: {
   emitInbox();
   void persist();
 
-  const delivered = { ...msg, status: "delivered" as const };
-  const bump = () => {
+  const markDelivered = () => {
     memory.messages[opts.threadId] = (memory.messages[opts.threadId] ?? []).map((m) =>
       m.id === msg.id && m.status !== "seen" ? { ...m, status: "delivered" as const } : m,
     );
     emitMsgs(opts.threadId);
     void persist();
   };
-  setTimeout(bump, 400);
+  const markFailed = () => {
+    memory.messages[opts.threadId] = (memory.messages[opts.threadId] ?? []).map((m) =>
+      m.id === msg.id ? { ...m, status: "failed" as const } : m,
+    );
+    emitMsgs(opts.threadId);
+    void persist();
+  };
 
   if (firebaseReady()) {
-    void addDoc(collection(firebaseDb(), "chats", opts.threadId, "messages"), {
-      text: msg.text,
-      from: msg.from,
-      kind: msg.kind,
-      createdAt: msg.createdAt,
-      offerCents: msg.offerCents ?? null,
-      photoUrl: msg.photoUrl ?? null,
-      status: "delivered",
-    })
-      .then(bump)
-      .catch(() => undefined);
-    void setDoc(
-      doc(firebaseDb(), "chats", opts.threadId),
-      {
-        lastText: msg.text,
-        lastAt: msg.createdAt,
-        lastFrom: msg.from,
-        unreadBuyer: thread?.unreadBuyer ?? 0,
-        unreadSeller: thread?.unreadSeller ?? 0,
-        typingBy: "",
-        typingAt: 0,
-      },
-      { merge: true },
-    ).catch(() => undefined);
+    try {
+      void addDoc(collection(firebaseDb(), "chats", opts.threadId, "messages"), {
+        text: msg.text,
+        from: msg.from,
+        kind: msg.kind,
+        createdAt: msg.createdAt,
+        offerCents: msg.offerCents ?? null,
+        offerStatus: msg.offerStatus ?? null,
+        photoUrl: msg.photoUrl ?? null,
+        status: "delivered",
+      }).then(markDelivered).catch(markFailed);
+      void setDoc(
+        doc(firebaseDb(), "chats", opts.threadId),
+        {
+          lastText: msg.text,
+          lastAt: msg.createdAt,
+          lastFrom: msg.from,
+          unreadBuyer: thread?.unreadBuyer ?? 0,
+          unreadSeller: thread?.unreadSeller ?? 0,
+          typingBy: "",
+          typingAt: 0,
+        },
+        { merge: true },
+      ).catch(markFailed);
+    } catch {
+      markFailed();
+    }
   }
 
   const recipients = Array.from(new Set((opts.toIds?.length ? opts.toIds : [opts.to]).filter((uid) => uid && uid !== opts.from)));
@@ -519,5 +589,5 @@ export async function sendChat(opts: {
       }
     }),
   );
-  return delivered;
+  return msg;
 }
