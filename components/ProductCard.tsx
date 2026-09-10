@@ -10,13 +10,13 @@ import { useColors } from "../lib/theme";
 export function ProductCard({ garment }: { garment: Garment }) {
   const colors = useColors();
   const styles = make(colors);
-  const { country } = useUvel();
+  const { country, accessibilityMode } = useUvel();
   const here = getMarket(country);
   const from = getMarket(garment.country);
   const local = from.code === here.code;
   return (
     <AccessiblePressable      onPress={() => router.push(`/product/${garment.id}`)}
-      style={({ pressed }) => [styles.wrap, pressed && styles.focused]}
+      style={({ pressed }) => [styles.wrap, pressed && accessibilityMode && styles.focused]}
       accessibilityRole="button"
       accessibilityLabel={`Open ${garment.name} by ${local ? garment.brand : from.name}, ${usd(garment.priceCents)}`}
       accessibilityHint="Double tap to view this listing."
