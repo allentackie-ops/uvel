@@ -30,6 +30,8 @@ export type ClosetPiece = {
   condition: string;
   material: string;
   notes: string;
+  /** Optional seller-provided measurements, such as chest, sleeve, and length. */
+  measurements?: Record<string, string>;
   listPriceCents: number;
   originalPriceCents: number;
   status: ClosetStatus;
