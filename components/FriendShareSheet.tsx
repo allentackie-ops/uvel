@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import * as FileSystem from "expo-file-system";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, Linking, Modal, PanResponder, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Animated, KeyboardAvoidingView, Linking, Modal, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { createFriendChat, listFriends, sendFriendMessage, uploadFriendAttachment } from "../lib/friendChat";
 import { searchUsers, sendFriendRequest, type PublicUser } from "../lib/friends";
 import { useColors } from "../lib/theme";
@@ -129,11 +129,11 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
       </Animated.View>
     </Animated.View>
     <View pointerEvents={finderVisible ? "auto" : "none"} style={[styles.finderOverlay, { opacity: finderVisible ? 1 : 0 }]}>
-      <View style={styles.finderScrim}><View style={[styles.finder, { backgroundColor: colors.surface }]}>
+      <KeyboardAvoidingView style={styles.finderKeyboard} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={10}><View style={styles.finderScrim}><View style={[styles.finder, { backgroundColor: colors.surface }]}>
         <View style={styles.head}><View><Text style={[styles.title, { color: colors.bone }]}>Find friends</Text><Text style={[styles.preview, { color: colors.muted }]}>Search by name or username</Text></View><Pressable onPress={() => setFinderVisible(false)} hitSlop={12}><Ionicons name="close" size={26} color={colors.muted} /></Pressable></View>
-        <View style={[styles.searchBox, { backgroundColor: colors.ink }]}><Ionicons name="search" size={20} color={colors.muted} /><TextInput autoFocus value={query} onChangeText={setQuery} onSubmitEditing={() => void findFriends()} placeholder="Search people" placeholderTextColor={colors.subtle} style={[styles.searchInput, { color: colors.bone }]} returnKeyType="search" /><Pressable onPress={() => void findFriends()}><Text style={[styles.searchButton, { color: colors.success }]}>Search</Text></Pressable></View>
-        <ScrollView style={styles.results}>{searching ? <Text style={[styles.empty, { color: colors.muted }]}>Searching…</Text> : results.length ? results.map((user) => <View key={user.uid} style={styles.resultRow}>{user.avatarUri ? <Image source={{ uri: user.avatarUri }} style={styles.resultAvatar} /> : <View style={[styles.resultAvatar, styles.fallback]}><Text style={{ color: colors.successInk, fontWeight: "800" }}>{(user.displayName || user.username || "U").slice(0, 1).toUpperCase()}</Text></View>}<View style={styles.resultCopy}><Text style={[styles.findTitle, { color: colors.bone }]}>{user.displayName || user.username}</Text><Text style={[styles.findSubtitle, { color: colors.muted }]}>@{user.username}</Text></View><Pressable onPress={() => void requestFriend(user)} disabled={requested[user.uid]} style={[styles.addButton, { backgroundColor: requested[user.uid] ? `${colors.bone}18` : colors.success }]}><Text style={{ color: requested[user.uid] ? colors.muted : colors.successInk, fontWeight: "800" }}>{requested[user.uid] ? "Sent" : "Add"}</Text></Pressable></View>) : <Text style={[styles.empty, { color: colors.muted }]}>{query ? "No people found yet." : "Search for someone to add."}</Text>}</ScrollView>
-      </View></View>
+        <View style={[styles.searchBox, { backgroundColor: colors.ink }]}><Ionicons name="search" size={20} color={colors.muted} /><TextInput value={query} onChangeText={setQuery} onSubmitEditing={() => void findFriends()} placeholder="Search people" placeholderTextColor={colors.subtle} style={[styles.searchInput, { color: colors.bone }]} returnKeyType="search" /><Pressable onPress={() => void findFriends()}><Text style={[styles.searchButton, { color: colors.success }]}>Search</Text></Pressable></View>
+        <ScrollView style={styles.results} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.resultsContent}>{searching ? <Text style={[styles.empty, { color: colors.muted }]}>Searching…</Text> : results.length ? results.map((user) => <View key={user.uid} style={styles.resultRow}>{user.avatarUri ? <Image source={{ uri: user.avatarUri }} style={styles.resultAvatar} /> : <View style={[styles.resultAvatar, styles.fallback]}><Text style={{ color: colors.successInk, fontWeight: "800" }}>{(user.displayName || user.username || "U").slice(0, 1).toUpperCase()}</Text></View>}<View style={styles.resultCopy}><Text style={[styles.findTitle, { color: colors.bone }]}>{user.displayName || user.username}</Text><Text style={[styles.findSubtitle, { color: colors.muted }]}>@{user.username}</Text></View><Pressable onPress={() => void requestFriend(user)} disabled={requested[user.uid]} style={[styles.addButton, { backgroundColor: requested[user.uid] ? `${colors.bone}18` : colors.success }]}><Text style={{ color: requested[user.uid] ? colors.muted : colors.successInk, fontWeight: "800" }}>{requested[user.uid] ? "Sent" : "Add"}</Text></Pressable></View>) : <Text style={[styles.empty, { color: colors.muted }]}>{query ? "No people found yet." : "Search for someone to add."}</Text>}</ScrollView>
+      </View></View></KeyboardAvoidingView>
     </View>
   </Modal>;
 }
@@ -167,12 +167,14 @@ const styles = StyleSheet.create({
   externalIcon: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
   externalLabel: { fontSize: 10, textAlign: "center" },
   finderOverlay: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 10 },
+  finderKeyboard: { flex: 1 },
   finderScrim: { flex: 1, justifyContent: "center", padding: 18, backgroundColor: "rgba(0,0,0,0.7)" },
-  finder: { borderRadius: 24, padding: 20, maxHeight: "76%" },
+  finder: { borderRadius: 24, padding: 20, maxHeight: "88%" },
   searchBox: { marginTop: 18, minHeight: 48, borderRadius: 14, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 8 },
   searchInput: { flex: 1, minHeight: 44, fontSize: 15 },
   searchButton: { fontWeight: "800", paddingLeft: 5 },
   results: { marginTop: 12 },
+  resultsContent: { paddingBottom: 8 },
   resultRow: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 11 },
   resultAvatar: { width: 44, height: 44, borderRadius: 22 },
   resultCopy: { flex: 1, gap: 3 },
