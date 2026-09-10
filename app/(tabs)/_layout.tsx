@@ -28,7 +28,7 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const pagerRef = useRef<PagerView>(null);
-  const [pageIndex, setPageIndex] = useState(() => routeIndex(pathname));
+  const [pageIndex, setPageIndex] = useState(() => routeIndex(pathname) ?? 1);
 
   const tabs = useMemo<TabScreen[]>(
     () => [
@@ -44,6 +44,9 @@ export default function TabsLayout() {
   useEffect(() => {
     if (pageIndex === 0) return;
     const next = routeIndex(pathname);
+    // Keep the current tab mounted underneath stack screens such as Settings.
+    // Resetting unknown routes to Today makes the wrong tab flash during pop.
+    if (next === null) return;
     if (next === pageIndex) return;
     setPageIndex(next);
     pagerRef.current?.setPageWithoutAnimation(next);
@@ -115,12 +118,12 @@ export default function TabsLayout() {
   );
 }
 
-function routeIndex(pathname: string): number {
+function routeIndex(pathname: string): number | null {
   if (pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/")) return 1;
   if (pathname.includes("/find")) return 2;
   if (pathname.includes("/closet")) return 3;
   if (pathname.includes("/you")) return 4;
-  return 1;
+  return null;
 }
 
 const styles = StyleSheet.create({
