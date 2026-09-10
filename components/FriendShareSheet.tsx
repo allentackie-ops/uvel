@@ -1,7 +1,8 @@
 import { Image } from "expo-image";
+import * as FileSystem from "expo-file-system";
 import { useEffect, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { createFriendChat, listFriends, sendFriendMessage } from "../lib/friendChat";
+import { createFriendChat, listFriends, sendFriendMessage, uploadFriendAttachment } from "../lib/friendChat";
 import type { PublicUser } from "../lib/friends";
 import { useColors } from "../lib/theme";
 
@@ -16,7 +17,7 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
   async function shareTo(friend: PublicUser) {
     if (!payload) return;
     setBusy(friend.uid);
-    try { const id = await createFriendChat(friend.uid); await sendFriendMessage(id, `${message.trim() ? `${message.trim()}\n\n` : ""}${payload.previewText || `Check this out: ${payload.title}`}\n${payload.deepLink}`); setMessage(""); Alert.alert("Shared", `Sent to ${friend.displayName || `@${friend.username}`}.`); onClose(); }
+    try { const id = await createFriendChat(friend.uid); let photoUrl = ""; if (payload.imageUri) { const base64 = await FileSystem.readAsStringAsync(payload.imageUri, { encoding: FileSystem.EncodingType.Base64 }); photoUrl = await uploadFriendAttachment(base64, "image/jpeg"); } await sendFriendMessage(id, `${message.trim() ? `${message.trim()}\n\n` : ""}${payload.previewText || `Check this out: ${payload.title}`}\n${payload.deepLink}`, photoUrl); setMessage(""); Alert.alert("Shared", `Sent to ${friend.displayName || `@${friend.username}`}.`); onClose(); }
     catch (e) { Alert.alert("Couldn’t share", e instanceof Error ? e.message : "Try again."); }
     finally { setBusy(null); }
   }

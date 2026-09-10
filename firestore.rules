@@ -68,6 +68,14 @@ service cloud.firestore {
       }
     }
 
+    match /blocks/{blockId} {
+      allow read, write: if false;
+    }
+
+    match /friendReports/{reportId} {
+      allow read, write: if false;
+    }
+
     match /brands/{brandId} {
       allow read: if resource.data.verified == true || isBrandOwner(resource.data) || isAdmin();
 

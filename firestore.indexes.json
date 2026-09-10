@@ -7,6 +7,22 @@
         { "fieldPath": "brandId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "kind", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "friendChats",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "participantIds", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

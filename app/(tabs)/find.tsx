@@ -8,6 +8,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share as NativeShare,
   StyleSheet,
   Text,
   TextInput,
@@ -21,6 +22,7 @@ import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { dressPerson } from "../../lib/tryon";
 import { refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { FriendShareSheet, type FriendSharePayload } from "../../components/FriendShareSheet";
 
 type GarmentPick =
   | { kind: "uvel"; piece: ClosetPiece }
@@ -42,6 +44,7 @@ export default function Mirror() {
   const [err, setErr] = useState("");
   const [showLink, setShowLink] = useState(false);
   const [retryingMarketplace, setRetryingMarketplace] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const sourceY = useRef(0);
 
@@ -176,6 +179,7 @@ export default function Mirror() {
   }
 
   const canTry = Boolean(person && picked && !busy);
+  const mirrorShare: FriendSharePayload | null = result ? { kind: "mirror", title: `${garmentName} on me`, deepLink: "uvel://mirror", imageUri: result, previewText: `I tried ${garmentName} in Mirror on Uvel.` } : null;
 
   return (
     <View style={styles.page}>
@@ -233,6 +237,7 @@ export default function Mirror() {
               <OrbitLoader />
             </View>
           ) : null}
+          {result ? <Pressable onPress={() => setShareOpen(true)} style={styles.shareResult} accessibilityRole="button" accessibilityLabel="Share this Mirror fit with friends"><Ionicons name="share-outline" size={18} color={colors.successInk} /><Text style={styles.shareResultTxt}>Share with friends</Text></Pressable> : null}
         </View>
 
         <View style={styles.sourceCard} onLayout={(event) => { sourceY.current = event.nativeEvent.layout.y; }}>
@@ -364,6 +369,7 @@ export default function Mirror() {
           </View>
         ) : null}
       </ScrollView>
+      <FriendShareSheet visible={shareOpen} payload={mirrorShare} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: mirrorShare?.title || "Mirror fit", message: `${mirrorShare?.previewText || "Check out my Mirror fit on Uvel."}` }); }} />
     </View>
   );
 }
@@ -409,6 +415,8 @@ function make(colors: Colors) {
       backgroundColor: colors.surface,
     },
     fill: { width: "100%", height: "100%" },
+    shareResult: { position: "absolute", bottom: 14, alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 15, paddingVertical: 10, borderRadius: 18, backgroundColor: colors.success },
+    shareResultTxt: { color: colors.successInk, fontWeight: "800", fontSize: 13 },
     need: { flex: 1, alignItems: "center", justifyContent: "center", padding: 28, gap: 8 },
     cameraPlaceholder: { width: 84, height: 84, borderRadius: 24, borderWidth: 1, borderColor: `${colors.success}80`, backgroundColor: `${colors.success}12`, alignItems: "center", justifyContent: "center", marginBottom: 8 },
     needH: { color: colors.bone, fontFamily: "Georgia", fontSize: 26 },

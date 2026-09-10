@@ -61,10 +61,18 @@ function PushSync() {
     void registerPushToken(uid);
     const stop = watchLastSeen(uid);
     let sub: { remove: () => void } | undefined;
-    void import("expo-notifications")
+      void import("expo-notifications")
       .then((N) => {
-        sub = N.addNotificationResponseReceivedListener((res) => {
+        const handle = (res: { notification: { request: { content: { data?: Record<string, unknown> } } } }) => {
           const data = res.notification.request.content.data || {};
+          if (data.kind === "friend_request" || data.kind === "friend_accepted") {
+            router.push("/inbox");
+            return;
+          }
+          if (data.kind === "friend_message" && typeof data.conversationId === "string") {
+            router.push({ pathname: "/friends/chat/[id]", params: { id: data.conversationId } });
+            return;
+          }
           const pieceId = data.pieceId;
           const alertId = data.alertId;
           const threadId = data.threadId;
@@ -78,7 +86,9 @@ function PushSync() {
               params: { id: pieceId, ...(typeof threadId === "string" && threadId ? { threadId } : {}) },
             });
           }
-        });
+        };
+        sub = N.addNotificationResponseReceivedListener(handle);
+        void N.getLastNotificationResponseAsync().then((res) => { if (res) handle(res as never); }).catch(() => undefined);
       })
       .catch(() => undefined);
     return () => {

@@ -11,7 +11,7 @@ import { unreadFor, useInbox, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { respondFriendRequest, searchUsers, sendFriendRequest, subscribeFriendNotifications, type FriendNotification, type PublicUser } from "../lib/friends";
-import { createFriendChat, listFriends } from "../lib/friendChat";
+import { createFriendChat, listFriendChats, listFriends, type FriendChatPreview } from "../lib/friendChat";
 
 type Filter = "All" | "Messages" | "Selling" | "Buying";
 const FILTERS: Filter[] = ["All", "Messages", "Selling", "Buying"];
@@ -42,8 +42,9 @@ export default function Inbox() {
   const [friendBusy, setFriendBusy] = useState(false);
   const [friendError, setFriendError] = useState("");
   const [friends, setFriends] = useState<PublicUser[]>([]);
+  const [friendChats, setFriendChats] = useState<FriendChatPreview[]>([]);
   useEffect(() => subscribeFriendNotifications(uid, setFriendNotifications), [uid]);
-  useEffect(() => { if (friendSearchOpen) void listFriends().then(setFriends).catch(() => undefined); }, [friendSearchOpen]);
+  useEffect(() => { if (friendSearchOpen) { void listFriends().then(setFriends).catch(() => undefined); void listFriendChats().then(setFriendChats).catch(() => undefined); } }, [friendSearchOpen]);
 
   async function runFriendSearch() {
     if (friendTerm.trim().length < 2) return;
@@ -116,6 +117,8 @@ export default function Inbox() {
         {friendNotifications.filter((item) => item.kind === "friend_request" && !item.readAt).map((item) => <View key={item.id} style={styles.requestRow}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.actor.displayName || `@${item.actor.username}`} added you</Text><View style={styles.requestActions}><Pressable onPress={() => void respondFriendRequest(item.requestId, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable onPress={() => void respondFriendRequest(item.requestId, "accepted")}><Text style={styles.acceptTxt}>Add back</Text></Pressable></View></View></View>)}
         {friends.length ? <Text style={styles.sectionLabel}>YOUR FRIENDS</Text> : null}
         {friends.map((user) => <Pressable key={user.uid} onPress={() => void openFriendChat(user)} style={styles.requestRow} accessibilityRole="button" accessibilityLabel={`Chat with ${user.displayName || user.username}`}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Text style={styles.chatArrow}>›</Text></Pressable>)}
+        {friendChats.length ? <Text style={styles.sectionLabel}>FRIEND CHATS</Text> : null}
+        {friendChats.map((chat) => { const other = chat.participantIds.find((id) => id !== me) || ""; const user = friends.find((item) => item.uid === other); const unread = Number(chat.unreadBy?.[me] || 0); return <Pressable key={chat.id} onPress={() => router.push({ pathname: "/friends/chat/[id]", params: { id: chat.id, name: user?.displayName || user?.username || "Friend" } })} style={styles.requestRow} accessibilityRole="button"><Avatar user={user || { uid: other, username: "friend", displayName: "Friend" }} /><View style={{ flex: 1 }}><Text style={[styles.requestText, unread ? { fontWeight: "900" } : null]}>{user?.displayName || user?.username || "Friend"}</Text><Text style={styles.usernameTxt} numberOfLines={1}>{chat.lastText || "Start chatting"}</Text></View>{unread ? <View style={styles.chatUnread}><Text style={styles.chatUnreadTxt}>{unread}</Text></View> : <Text style={styles.chatArrow}>›</Text>}</Pressable>; })}
         {friendResults.map((user) => <View key={user.uid} style={styles.requestRow}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Pressable onPress={() => void addFriend(user)} style={styles.addBtn}><Text style={styles.addTxt}>Add</Text></Pressable></View>)}
         {!friendResults.length && !friendNotifications.some((item) => item.kind === "friend_request" && !item.readAt) && friendTerm.length >= 2 && !friendBusy ? <Text style={styles.noFriends}>No users found.</Text> : null}
       </View> : null}
@@ -249,6 +252,8 @@ function make(colors: Colors) {
     noFriends: { color: colors.muted, paddingVertical: 12 },
     sectionLabel: { color: colors.subtle, fontSize: 11, letterSpacing: 1.4, fontWeight: "800", marginTop: 12, marginBottom: 2 },
     chatArrow: { color: colors.success, fontSize: 26 },
+    chatUnread: { minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    chatUnreadTxt: { color: colors.successInk, fontSize: 11, fontWeight: "900" },
     chipWrap: { flexGrow: 0, flexShrink: 0 },
     chipScroll: { flexGrow: 0 },
     chips: { paddingHorizontal: 16, paddingBottom: 8, gap: 8, alignItems: "center" },

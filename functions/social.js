@@ -32,6 +32,13 @@ function publicUser(uid, data) {
   return { uid, username: data.username || "", displayName: data.name || data.displayName || "", avatarUri: data.avatarUri || data.personUri || "" };
 }
 
+function blockKey(fromUid, toUid) { return `${fromUid}_${toUid}`; }
+
+async function isBlocked(db, fromUid, toUid) {
+  const [a, b] = await Promise.all([db.collection("blocks").doc(blockKey(fromUid, toUid)).get(), db.collection("blocks").doc(blockKey(toUid, fromUid)).get()]);
+  return a.exists || b.exists;
+}
+
 async function sendExpoPush(token, title, body, data) {
   if (!token) return;
   try {
@@ -64,6 +71,7 @@ exports.sendFriendRequest = onCall(async (req) => {
   const toUid = String(req.data && req.data.toUid || "").trim();
   if (!toUid || toUid === req.auth.uid) throw new HttpsError("invalid-argument", "That friend request is not valid.");
   const db = admin.firestore();
+  if (await isBlocked(db, req.auth.uid, toUid)) throw new HttpsError("permission-denied", "You can’t add this user.");
   const [fromSnap, toSnap] = await Promise.all([db.collection("users").doc(req.auth.uid).get(), db.collection("users").doc(toUid).get()]);
   if (!toSnap.exists) throw new HttpsError("not-found", "User not found.");
   const from = publicUser(req.auth.uid, fromSnap.data() || {});
@@ -121,6 +129,7 @@ exports.createFriendChat = onCall(async (req) => {
   if (!otherUid || otherUid === req.auth.uid) throw new HttpsError("invalid-argument", "That friend is not valid.");
   const pair = [req.auth.uid, otherUid].sort();
   const db = admin.firestore();
+  if (await isBlocked(db, req.auth.uid, otherUid)) throw new HttpsError("permission-denied", "You can’t message this user.");
   const friendship = await db.collection("friendships").doc(pair.join("_")).get();
   if (!friendship.exists) throw new HttpsError("permission-denied", "You can only message friends.");
   const id = pair.join("_");
@@ -132,16 +141,58 @@ exports.sendFriendMessage = onCall(async (req) => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before sending a message.");
   const conversationId = String(req.data && req.data.conversationId || "").trim();
   const text = String(req.data && req.data.text || "").trim().slice(0, 2000);
-  if (!conversationId || !text) throw new HttpsError("invalid-argument", "Message text is required.");
+  const photoUrl = String(req.data && req.data.photoUrl || "").trim().slice(0, 2000);
+  if (!conversationId || (!text && !photoUrl)) throw new HttpsError("invalid-argument", "Message text or photo is required.");
   const db = admin.firestore();
   const threadRef = db.collection("friendChats").doc(conversationId);
   const thread = await threadRef.get();
   if (!thread.exists || !(thread.data().participantIds || []).includes(req.auth.uid)) throw new HttpsError("permission-denied", "You are not in this conversation.");
+  const participants = thread.data().participantIds || [];
+  const recipient = participants.find((uid) => uid !== req.auth.uid);
+  if (recipient && await isBlocked(db, req.auth.uid, recipient)) throw new HttpsError("permission-denied", "Messaging is unavailable for this user.");
   const messageRef = threadRef.collection("messages").doc();
   const now = admin.firestore.FieldValue.serverTimestamp();
   await db.runTransaction(async (tx) => {
-    tx.set(messageRef, { text, from: req.auth.uid, createdAt: now, status: "sent", kind: "text" });
-    tx.update(threadRef, { lastText: text, lastFrom: req.auth.uid, lastAt: now, updatedAt: now });
+    tx.set(messageRef, { text, photoUrl: photoUrl || null, from: req.auth.uid, createdAt: now, status: "sent", kind: photoUrl ? "photo" : "text" });
+    tx.update(threadRef, { lastText: text || "Sent a photo", lastFrom: req.auth.uid, lastAt: now, updatedAt: now, [`unreadBy.${recipient}`]: admin.firestore.FieldValue.increment(1) });
   });
+  const recipientSnap = recipient ? await db.collection("users").doc(recipient).get() : null;
+  await sendExpoPush(recipientSnap && recipientSnap.data().expoPushToken, "New friend message", text || "Sent a photo", { kind: "friend_message", conversationId });
   return { messageId: messageRef.id };
+});
+
+exports.listFriendChats = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before loading chats.");
+  const snap = await admin.firestore().collection("friendChats").where("participantIds", "array-contains", req.auth.uid).orderBy("updatedAt", "desc").limit(50).get();
+  return { chats: snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) };
+});
+
+exports.uploadFriendAttachment = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before uploading.");
+  const base64 = String(req.data && req.data.base64 || "");
+  const contentType = String(req.data && req.data.contentType || "image/jpeg");
+  if (!base64 || !/^image\/(jpeg|png|webp)$/.test(contentType) || base64.length > 3500000) throw new HttpsError("invalid-argument", "That image is too large or unsupported.");
+  const bucket = admin.storage().bucket();
+  const path = `friend-attachments/${req.auth.uid}/${crypto.randomUUID()}.${contentType.split("/")[1]}`;
+  const file = bucket.file(path);
+  await file.save(Buffer.from(base64, "base64"), { metadata: { contentType, metadata: { ownerId: req.auth.uid } } });
+  const [url] = await file.getSignedUrl({ action: "read", expires: Date.now() + 1000 * 60 * 60 * 24 * 30 });
+  return { url };
+});
+
+exports.blockFriend = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before blocking a user.");
+  const blockedUid = String(req.data && req.data.blockedUid || "").trim();
+  if (!blockedUid || blockedUid === req.auth.uid) throw new HttpsError("invalid-argument", "That user is not valid.");
+  await admin.firestore().collection("blocks").doc(blockKey(req.auth.uid, blockedUid)).set({ blockerUid: req.auth.uid, blockedUid, createdAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  return { blockedUid };
+});
+
+exports.reportFriendConversation = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before reporting.");
+  const conversationId = String(req.data && req.data.conversationId || "").trim();
+  const reason = String(req.data && req.data.reason || "").trim().slice(0, 300);
+  if (!conversationId || !reason) throw new HttpsError("invalid-argument", "A conversation and reason are required.");
+  await admin.firestore().collection("friendReports").add({ conversationId, reporterUid: req.auth.uid, reason, createdAt: admin.firestore.FieldValue.serverTimestamp(), status: "open" });
+  return { reported: true };
 });
