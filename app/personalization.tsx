@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import { usePersonalization, clearPersonalization } from "../lib/personalization";
+import { clearPersonalization } from "../lib/personalization";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 
@@ -11,7 +11,6 @@ export default function Personalization() {
   const colors = useColors();
   const styles = make(colors);
   const uid = app.uid || "guest";
-  const personalization = usePersonalization(uid);
   const [crossApp, setCrossApp] = useState(false);
 
   useEffect(() => {
@@ -46,24 +45,9 @@ export default function Personalization() {
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
       <View style={styles.heroIcon}><Ionicons name="sparkles-outline" size={24} color={colors.successInk} /></View>
       <Text style={styles.title}>Make Today yours</Text>
-      <Text style={styles.intro}>Uvel learns from the signals you choose to share so your marketplace edit gets sharper over time.</Text>
+      <Text style={styles.intro}>Uvel learns from how you use the app from day one—what you view, save, search, share, try on, like, and read closely—so your marketplace edit gets sharper over time.</Text>
 
       <View style={styles.card}>
-        <View style={styles.row}>
-          <View style={styles.rowIcon}><Ionicons name="heart-outline" size={20} color={colors.bone} /></View>
-          <View style={styles.copy}>
-            <Text style={styles.rowTitle}>Activity in Uvel</Text>
-            <Text style={styles.rowHint}>Use views, repeat views, searches, saves, shares, try-ons, and double-tap likes to personalize Today.</Text>
-          </View>
-          <Switch
-            value={personalization.consent !== "declined"}
-            onValueChange={(enabled) => void personalization.setActivityConsent(enabled ? "allowed" : "declined")}
-            trackColor={{ false: colors.neutral, true: colors.success }}
-            thumbColor={personalization.consent !== "declined" ? colors.successInk : "#FFFFFF"}
-            accessibilityLabel="Activity in Uvel"
-          />
-        </View>
-        <View style={styles.divider} />
         <Pressable onPress={() => { void clearPersonalization(uid); Alert.alert("Your edit was cleared", "Uvel will start learning your Today preferences again from now on."); }} style={styles.clearRow} accessibilityRole="button">
           <Text style={styles.clearText}>Clear my Today activity</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
@@ -88,7 +72,7 @@ export default function Personalization() {
         <Text style={styles.boundary}>{Platform.OS === "ios" ? "Optional. You can change this any time in iPhone Settings." : "Not available on Android. Uvel keeps personalization inside the app."}</Text>
       </View>
 
-      <Text style={styles.privacy}>Your Today profile is stored on this device and is used to rank listings. You can turn it off or clear it whenever you want.</Text>
+      <Text style={styles.privacy}>Your Today profile is stored on this device and is used to rank listings. You can clear it whenever you want.</Text>
       <Pressable onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "privacy" } })} style={styles.privacyLink} accessibilityRole="button">
         <Text style={styles.privacyLinkText}>Read Uvel’s Privacy Policy</Text>
         <Ionicons name="arrow-forward" size={16} color={colors.success} />

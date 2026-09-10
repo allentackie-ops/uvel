@@ -36,7 +36,7 @@ export function TodayListingOverlay({
   piece: ClosetPiece;
   origin: ListingOrigin;
   onClose: () => void;
-  onInteraction?: (action: PersonalizationAction, piece: ClosetPiece) => void;
+    onInteraction?: (action: PersonalizationAction, piece: ClosetPiece, query?: string, dwellSeconds?: number) => void;
 }) {
   const colors = useColors();
   const styles = make(colors);
@@ -56,6 +56,8 @@ export function TodayListingOverlay({
   const [shippingOpen, setShippingOpen] = useState(false);
   const lastImageTap = useRef(0);
   const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openedAt = useRef(Date.now());
+  const dwellRecorded = useRef(false);
 
   useEffect(() => {
     top.value = withSpring(0, SPRING);
@@ -69,6 +71,11 @@ export function TodayListingOverlay({
   }, [boxHeight, boxWidth, chromeOpacity, detailOpacity, left, progress, radius, screenHeight, screenWidth, top]);
 
   const animateToOrigin = () => {
+    if (!dwellRecorded.current) {
+      const dwellSeconds = Math.round((Date.now() - openedAt.current) / 1000);
+      if (dwellSeconds >= 10) onInteraction?.("dwell", piece, undefined, dwellSeconds);
+      dwellRecorded.current = true;
+    }
     top.value = withTiming(origin.y, { duration: 260 });
     left.value = withTiming(origin.x, { duration: 260 });
     boxWidth.value = withTiming(origin.width, { duration: 260 });

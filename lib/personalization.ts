@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ClosetPiece } from "./wardrobe";
 
-export type PersonalizationAction = "view" | "save" | "share" | "search" | "double_view" | "double_tap_like" | "try_on";
+export type PersonalizationAction = "view" | "save" | "share" | "search" | "double_view" | "double_tap_like" | "try_on" | "dwell";
 export type PersonalizationConsent = "unset" | "allowed" | "declined";
 
 type ListingSignal = {
@@ -11,6 +11,8 @@ type ListingSignal = {
   saves: number;
   shares: number;
   doubleTapLikes: number;
+  dwellSeconds: number;
+  engagedViews: number;
   lastViewedAt: number;
 };
 
@@ -38,7 +40,6 @@ const EMPTY: PersonalizationProfile = {
   priceBands: {},
 };
 const PROFILE_PREFIX = "uvel-personalization-v1:";
-const CONSENT_KEY = "uvel-personalization-consent-v1";
 const MAX_TERM_LENGTH = 36;
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -81,7 +82,16 @@ function normalize(raw: unknown): PersonalizationProfile {
   return {
     version: 1,
     events: Number(parsed.events) || 0,
-    listings: parsed.listings || {},
+    listings: Object.fromEntries(Object.entries(parsed.listings || {}).map(([id, value]) => [id, {
+      views: Number(value?.views) || 0,
+      repeatViews: Number(value?.repeatViews) || 0,
+      saves: Number(value?.saves) || 0,
+      shares: Number(value?.shares) || 0,
+      doubleTapLikes: Number(value?.doubleTapLikes) || 0,
+      dwellSeconds: Number(value?.dwellSeconds) || 0,
+      engagedViews: Number(value?.engagedViews) || 0,
+      lastViewedAt: Number(value?.lastViewedAt) || 0,
+    }])),
     terms: parsed.terms || {},
     categories: parsed.categories || {},
     colors: parsed.colors || {},
@@ -94,20 +104,18 @@ function normalize(raw: unknown): PersonalizationProfile {
 export function usePersonalization(uid: string) {
   const storageKey = useMemo(() => key(uid), [uid]);
   const [profile, setProfile] = useState<PersonalizationProfile>(EMPTY);
-  const [consent, setConsent] = useState<PersonalizationConsent>("unset");
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let active = true;
     setReady(false);
-    void Promise.all([AsyncStorage.getItem(storageKey), AsyncStorage.getItem(CONSENT_KEY)]).then(([raw, rawConsent]) => {
+    void AsyncStorage.getItem(storageKey).then((raw) => {
       if (!active) return;
       try {
         setProfile(normalize(raw ? JSON.parse(raw) : null));
       } catch {
         setProfile({ ...EMPTY });
       }
-      setConsent(rawConsent === "allowed" || rawConsent === "declined" ? rawConsent : "unset");
       setReady(true);
     }).catch(() => {
       if (active) setReady(true);
@@ -117,17 +125,12 @@ export function usePersonalization(uid: string) {
     };
   }, [storageKey]);
 
-  const setActivityConsent = useCallback(async (next: Exclude<PersonalizationConsent, "unset">) => {
-    setConsent(next);
-    await AsyncStorage.setItem(CONSENT_KEY, next);
-  }, []);
-
-  const record = useCallback((action: PersonalizationAction, piece?: ClosetPiece, query?: string) => {
-    if (consent === "declined") return;
+  const record = useCallback((action: PersonalizationAction, piece?: ClosetPiece, query?: string, dwellSeconds = 0) => {
     setProfile((current) => {
       const next = copyProfile(current);
       next.events += 1;
-      const delta = action === "view" ? 1 : action === "double_view" ? 3 : action === "save" ? 5 : action === "share" ? 6 : action === "double_tap_like" ? 7 : action === "try_on" ? 4 : 2;
+      const dwellDelta = action === "dwell" ? Math.min(12, Math.max(1, Math.floor(dwellSeconds / 10))) : 0;
+      const delta = action === "view" ? 1 : action === "double_view" ? 3 : action === "save" ? 5 : action === "share" ? 6 : action === "double_tap_like" ? 7 : action === "try_on" ? 4 : action === "dwell" ? dwellDelta : 2;
       const add = (bucket: Record<string, number>, value?: string) => {
         if (!value) return;
         bucket[value.toLowerCase()] = (bucket[value.toLowerCase()] || 0) + delta;
@@ -137,7 +140,7 @@ export function usePersonalization(uid: string) {
         void AsyncStorage.setItem(storageKey, JSON.stringify(next)).catch(() => undefined);
         return next;
       }
-      const existing = next.listings[piece.id] || { views: 0, repeatViews: 0, saves: 0, shares: 0, doubleTapLikes: 0, lastViewedAt: 0 };
+      const existing = next.listings[piece.id] || { views: 0, repeatViews: 0, saves: 0, shares: 0, doubleTapLikes: 0, dwellSeconds: 0, engagedViews: 0, lastViewedAt: 0 };
       const now = Date.now();
       if (action === "view") {
         existing.views += 1;
@@ -148,6 +151,10 @@ export function usePersonalization(uid: string) {
       if (action === "save") existing.saves += 1;
       if (action === "share") existing.shares += 1;
       if (action === "double_tap_like") existing.doubleTapLikes += 1;
+      if (action === "dwell") {
+        existing.dwellSeconds += Math.max(0, Math.round(dwellSeconds));
+        existing.engagedViews += 1;
+      }
       next.listings[piece.id] = existing;
       add(next.categories, piece.category);
       add(next.colors, piece.color);
@@ -158,14 +165,14 @@ export function usePersonalization(uid: string) {
       void AsyncStorage.setItem(storageKey, JSON.stringify(next)).catch(() => undefined);
       return next;
     });
-  }, [consent, storageKey]);
+  }, [storageKey]);
 
   const rank = useCallback((pieces: ClosetPiece[], country: string) => {
     const code = country.toLowerCase();
     return [...pieces].sort((a, b) => score(b, code, profile) - score(a, code, profile));
   }, [profile]);
 
-  return { profile, consent, ready, record, rank, setActivityConsent };
+  return { profile, consent: "allowed" as const, ready, record, rank };
 }
 
 function score(piece: ClosetPiece, country: string, profile: PersonalizationProfile) {
@@ -173,7 +180,7 @@ function score(piece: ClosetPiece, country: string, profile: PersonalizationProf
   const text = words(`${piece.name} ${piece.notes} ${piece.category} ${piece.color} ${piece.brand} ${piece.material}`);
   const termScore = text.reduce((sum, word) => sum + Math.min(profile.terms[word] || 0, 30), 0);
   const affinity = (profile.categories[piece.category?.toLowerCase()] || 0) + (profile.colors[piece.color?.toLowerCase()] || 0) + (profile.brands[piece.brand?.toLowerCase()] || 0) + (profile.materials[piece.material?.toLowerCase()] || 0) + (profile.priceBands[priceBand(piece.listPriceCents)] || 0);
-  const repeatInterest = signal ? signal.views * 2 + signal.repeatViews * 8 + signal.saves * 7 + signal.shares * 8 + signal.doubleTapLikes * 10 : 0;
+  const repeatInterest = signal ? signal.views * 2 + signal.repeatViews * 8 + signal.saves * 7 + signal.shares * 8 + signal.doubleTapLikes * 10 + Math.min(36, signal.dwellSeconds / 10) + signal.engagedViews * 4 : 0;
   const local = piece.country?.toLowerCase() === country ? 3 : 0;
   const fresh = Math.max(0, 3 - Math.floor(Math.max(0, Date.now() - (piece.createdAt || 0)) / (14 * DAY)));
   return termScore + affinity + repeatInterest + local + fresh;
