@@ -248,6 +248,25 @@ export default function Ask() {
   const handle = conversationBrand?.name || sellerHandle.trim() || "Seller";
   const brandIsVerified = Boolean(conversationBrand?.verified && conversationBrand.status === "verified");
 
+  if (!piece) {
+    return (
+      <View style={styles.page}>
+        <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
+        <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
+          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Go back">
+            <Text style={styles.navBack}>‹</Text>
+          </Pressable>
+          <Text style={styles.navTitle}>Message seller</Text>
+          <View style={styles.navBtn} />
+        </View>
+        <View style={styles.missingListing}>
+          <Text style={styles.missingTitle}>Listing unavailable</Text>
+          <Text style={styles.missingCopy}>This listing is still loading or is no longer available.</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.page}>
       <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
@@ -437,6 +456,9 @@ function make(colors: Colors) {
     navBack: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
     navTitleRow: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
     navTitle: { color: colors.bone, fontSize: 16, fontWeight: "600", maxWidth: "88%" },
+    missingListing: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28 },
+    missingTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 25, textAlign: "center" },
+    missingCopy: { color: colors.muted, fontSize: 14, lineHeight: 21, textAlign: "center", marginTop: 10 },
     info: {
       width: 22,
       height: 22,

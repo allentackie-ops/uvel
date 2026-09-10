@@ -101,7 +101,6 @@ export function TodayListingOverlay({
   const sellerName = brandRecord?.name || piece.ownerName || piece.listedByName || "Uvel seller";
   const sellerPhoto = brandRecord?.logoUri || piece.ownerPhoto || null;
   const sellerLocation = piece.country ? getMarket(piece.country).name : getMarket(app.country).name;
-  const sellerProfileId = brandRecord?.id || piece.ownerId || piece.listedByUid || "";
   const market = getMarket(app.country);
   const liked = app.saved.includes(piece.id);
   const gallery = piece.photos?.length ? piece.photos : [piece.photo];
@@ -168,15 +167,7 @@ export function TodayListingOverlay({
                   ))}
                 </ScrollView>
               ) : null}
-              <Pressable
-                onPress={() => {
-                  if (!sellerProfileId) return;
-                  router.push(brandRecord ? { pathname: "/brand/[id]", params: { id: sellerProfileId } } : { pathname: "/seller/[id]", params: { id: sellerProfileId } });
-                }}
-                style={styles.sellerCard}
-                accessibilityRole="button"
-                accessibilityLabel={`View ${sellerName} profile`}
-              >
+              <View style={styles.sellerCard}>
                 {sellerPhoto ? (
                   <Image source={{ uri: sellerPhoto }} style={styles.avatarImage} contentFit="cover" />
                 ) : (
@@ -201,8 +192,7 @@ export function TodayListingOverlay({
                   <Ionicons name="chatbubble-outline" size={16} color={colors.bone} />
                   <Text style={styles.messageText}>Message</Text>
                 </Pressable>
-                <Ionicons name="chevron-forward" size={16} color={colors.subtle} />
-              </Pressable>
+              </View>
               {piece.notes ? (
                 <View style={styles.conditionBlock}>
                   <Text style={styles.conditionLabel}>Condition notes</Text>
