@@ -128,13 +128,13 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
         </ScrollView>
       </Animated.View>
     </Animated.View>
-    <Modal visible={finderVisible} transparent animationType="fade" onRequestClose={() => setFinderVisible(false)}>
+    <View pointerEvents={finderVisible ? "auto" : "none"} style={[styles.finderOverlay, { opacity: finderVisible ? 1 : 0 }]}>
       <View style={styles.finderScrim}><View style={[styles.finder, { backgroundColor: colors.surface }]}>
         <View style={styles.head}><View><Text style={[styles.title, { color: colors.bone }]}>Find friends</Text><Text style={[styles.preview, { color: colors.muted }]}>Search by name or username</Text></View><Pressable onPress={() => setFinderVisible(false)} hitSlop={12}><Ionicons name="close" size={26} color={colors.muted} /></Pressable></View>
         <View style={[styles.searchBox, { backgroundColor: colors.ink }]}><Ionicons name="search" size={20} color={colors.muted} /><TextInput autoFocus value={query} onChangeText={setQuery} onSubmitEditing={() => void findFriends()} placeholder="Search people" placeholderTextColor={colors.subtle} style={[styles.searchInput, { color: colors.bone }]} returnKeyType="search" /><Pressable onPress={() => void findFriends()}><Text style={[styles.searchButton, { color: colors.success }]}>Search</Text></Pressable></View>
         <ScrollView style={styles.results}>{searching ? <Text style={[styles.empty, { color: colors.muted }]}>Searching…</Text> : results.length ? results.map((user) => <View key={user.uid} style={styles.resultRow}>{user.avatarUri ? <Image source={{ uri: user.avatarUri }} style={styles.resultAvatar} /> : <View style={[styles.resultAvatar, styles.fallback]}><Text style={{ color: colors.successInk, fontWeight: "800" }}>{(user.displayName || user.username || "U").slice(0, 1).toUpperCase()}</Text></View>}<View style={styles.resultCopy}><Text style={[styles.findTitle, { color: colors.bone }]}>{user.displayName || user.username}</Text><Text style={[styles.findSubtitle, { color: colors.muted }]}>@{user.username}</Text></View><Pressable onPress={() => void requestFriend(user)} disabled={requested[user.uid]} style={[styles.addButton, { backgroundColor: requested[user.uid] ? `${colors.bone}18` : colors.success }]}><Text style={{ color: requested[user.uid] ? colors.muted : colors.successInk, fontWeight: "800" }}>{requested[user.uid] ? "Sent" : "Add"}</Text></Pressable></View>) : <Text style={[styles.empty, { color: colors.muted }]}>{query ? "No people found yet." : "Search for someone to add."}</Text>}</ScrollView>
       </View></View>
-    </Modal>
+    </View>
   </Modal>;
 }
 
@@ -166,6 +166,7 @@ const styles = StyleSheet.create({
   externalAction: { width: 60, alignItems: "center", gap: 6 },
   externalIcon: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
   externalLabel: { fontSize: 10, textAlign: "center" },
+  finderOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 10 },
   finderScrim: { flex: 1, justifyContent: "center", padding: 18, backgroundColor: "rgba(0,0,0,0.7)" },
   finder: { borderRadius: 24, padding: 20, maxHeight: "76%" },
   searchBox: { marginTop: 18, minHeight: 48, borderRadius: 14, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 8 },
