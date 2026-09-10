@@ -3,6 +3,7 @@ import { addDoc, collection } from "firebase/firestore";
 import { firebaseDb, firebaseReady } from "./firebase";
 
 const KEY = "uvel-feedback-v1";
+const SHAKE_KEY = "uvel-shake-to-report-enabled-v1";
 
 export type FeedbackReport = {
   id: string;
@@ -16,17 +17,35 @@ export type FeedbackReport = {
   syncStatus: "pending" | "synced";
 };
 
-const openListeners = new Set<() => void>();
+export type FeedbackEntry = "prompt" | "compose";
+const openListeners = new Set<(entry: FeedbackEntry) => void>();
 
-export function requestFeedback() {
-  openListeners.forEach((listener) => listener());
+export function requestFeedback(entry: FeedbackEntry) {
+  openListeners.forEach((listener) => listener(entry));
 }
 
-export function subscribeToFeedbackRequest(listener: () => void) {
+export function subscribeToFeedbackRequest(listener: (entry: FeedbackEntry) => void) {
   openListeners.add(listener);
   return () => {
     openListeners.delete(listener);
   };
+}
+
+export async function loadShakeToReportEnabled() {
+  try {
+    const value = await AsyncStorage.getItem(SHAKE_KEY);
+    return value === null ? true : value === "1";
+  } catch {
+    return true;
+  }
+}
+
+export async function saveShakeToReportEnabled(enabled: boolean) {
+  try {
+    await AsyncStorage.setItem(SHAKE_KEY, enabled ? "1" : "0");
+  } catch {
+    // The in-memory setting remains active for the current session.
+  }
 }
 
 async function persist(reports: FeedbackReport[]) {

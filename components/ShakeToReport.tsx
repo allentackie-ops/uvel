@@ -15,7 +15,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { requestFeedback, submitFeedback, subscribeToFeedbackRequest } from "../lib/feedback";
+import { loadShakeToReportEnabled, requestFeedback, saveShakeToReportEnabled, submitFeedback, subscribeToFeedbackRequest } from "../lib/feedback";
 import { pickFromLibrary } from "../lib/photo";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
@@ -46,15 +46,19 @@ export function ShakeToReport() {
     openRef.current = open;
   }, [open]);
 
-  useEffect(() => subscribeToFeedbackRequest(() => {
+  useEffect(() => subscribeToFeedbackRequest((entry) => {
     openRef.current = true;
-    setCompose(true);
+    setCompose(entry === "compose");
     setSent(false);
     setBody("");
     setScreenshotUri(undefined);
     setIncludeScreenshot(false);
     setOpen(true);
   }), []);
+
+  useEffect(() => {
+    void loadShakeToReportEnabled().then(setShakeEnabled);
+  }, []);
 
   useEffect(() => {
     activeRef.current = true;
@@ -72,7 +76,7 @@ export function ShakeToReport() {
           const now = Date.now();
           if (magnitude >= SHAKE_THRESHOLD && now - lastShake.current >= SHAKE_COOLDOWN_MS) {
             lastShake.current = now;
-            requestFeedback();
+            requestFeedback("prompt");
           }
         });
       }).catch(() => undefined);
@@ -176,6 +180,13 @@ export function ShakeToReport() {
                 <View style={[styles.toggle, includeScreenshot && styles.toggleOn]}><View style={[styles.knob, includeScreenshot && styles.knobOn]} /></View>
               </Pressable>
               {screenshotUri ? <Image source={{ uri: screenshotUri }} style={styles.preview} contentFit="cover" /> : null}
+              <Pressable onPress={() => { const next = !shakeEnabled; setShakeEnabled(next); void saveShakeToReportEnabled(next); }} style={styles.optionRow} accessibilityRole="switch" accessibilityState={{ checked: shakeEnabled }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.optionTitle}>Shake phone to report a problem</Text>
+                  <Text style={styles.optionHint}>{shakeEnabled ? "Shake your phone anywhere in Uvel" : "Toggle on to enable"}</Text>
+                </View>
+                <View style={[styles.toggle, shakeEnabled && styles.toggleOn]}><View style={[styles.knob, shakeEnabled && styles.knobOn]} /></View>
+              </Pressable>
               <Pressable onPress={() => void send()} disabled={!body.trim() || submitting} style={[styles.primary, (!body.trim() || submitting) && styles.primaryDisabled]} accessibilityRole="button" accessibilityState={{ disabled: !body.trim() || submitting }}>
                 {submitting ? <ActivityIndicator color={colors.successInk} /> : <Text style={styles.primaryText}>Send report</Text>}
               </Pressable>
@@ -188,7 +199,7 @@ export function ShakeToReport() {
               <Pressable onPress={() => setCompose(true)} style={styles.primary} accessibilityRole="button">
                 <Text style={styles.primaryText}>Report a problem</Text>
               </Pressable>
-              <Pressable onPress={() => setShakeEnabled((enabled) => !enabled)} style={styles.toggleRow} accessibilityRole="switch" accessibilityState={{ checked: shakeEnabled }}>
+              <Pressable onPress={() => { const next = !shakeEnabled; setShakeEnabled(next); void saveShakeToReportEnabled(next); }} style={styles.toggleRow} accessibilityRole="switch" accessibilityState={{ checked: shakeEnabled }}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.toggleTitle}>Shake phone to report a problem</Text>
                   <Text style={styles.toggleHint}>{shakeEnabled ? "Shake your phone anywhere in Uvel" : "Toggle on to enable"}</Text>
