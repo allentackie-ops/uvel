@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, KeyboardAvoidingView, Linking, Modal, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Animated, Keyboard, KeyboardAvoidingView, Linking, Modal, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createFriendChat, listFriends, sendFriendMessage, uploadFriendAttachment } from "../lib/friendChat";
 import { searchUsers, sendFriendRequest, type PublicUser } from "../lib/friends";
@@ -98,6 +98,7 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
 
   async function openExternal(kind: "copy" | "message" | "whatsapp" | "email" | "more") {
     if (!payload) return;
+    Keyboard.dismiss();
     const text = `${payload.previewText || `Check this out: ${payload.title}`}\n${payload.deepLink}`;
     if (kind === "more") { await Share.share({ message: text, title: payload.title }); return; }
     const urls: Record<Exclude<typeof kind, "copy" | "more">, string> = {
@@ -134,6 +135,12 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
         <View {...pan.panHandlers} style={styles.dragArea} accessibilityRole="adjustable" accessibilityLabel="Drag down to close">
           <View style={[styles.handle, { backgroundColor: colors.subtle }]} />
         </View>
+        <ScrollView
+          keyboardShouldPersistTaps="always"
+          keyboardDismissMode="none"
+          bounces={false}
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.head}>
           <Text style={[styles.title, { color: colors.bone }]}>Share with friends</Text>
           <Pressable onPress={dismiss} accessibilityRole="button" accessibilityLabel="Close share sheet" hitSlop={12}><Ionicons name="close" size={26} color={colors.muted} /></Pressable>
@@ -141,19 +148,20 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
         <Text style={[styles.preview, { color: colors.muted }]} numberOfLines={2}>{payload.title}</Text>
         <TextInput value={message} onChangeText={setMessage} placeholder="Add a message (optional)" placeholderTextColor={colors.subtle} style={[styles.input, { backgroundColor: colors.ink, color: colors.bone }]} maxLength={300} />
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>FRIENDS</Text>
-        {friends.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>{friends.map((friend) => <Pressable key={friend.uid} onPress={() => void shareTo(friend)} disabled={Boolean(busy)} style={styles.friend} accessibilityRole="button" accessibilityLabel={`Share with ${friend.displayName || friend.username}`}>
+        {friends.length ? <ScrollView horizontal keyboardShouldPersistTaps="always" keyboardDismissMode="none" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>{friends.map((friend) => <Pressable key={friend.uid} onPress={() => void shareTo(friend)} disabled={Boolean(busy)} style={styles.friend} accessibilityRole="button" accessibilityLabel={`Share with ${friend.displayName || friend.username}`}>
           {friend.avatarUri ? <Image source={{ uri: friend.avatarUri }} style={styles.avatar} contentFit="cover" /> : <View style={[styles.avatar, styles.fallback]}><Text style={{ color: colors.successInk, fontWeight: "800" }}>{(friend.displayName || friend.username || "U").slice(0, 1).toUpperCase()}</Text></View>}
           <Text style={[styles.name, { color: colors.bone }]} numberOfLines={1}>{busy === friend.uid ? "…" : friend.displayName || `@${friend.username}`}</Text>
         </Pressable>)}</ScrollView> : <Pressable onPress={() => setFinderVisible(true)} style={[styles.findFriends, { borderColor: `${colors.bone}35`, backgroundColor: `${colors.ink}88` }]} accessibilityRole="button" accessibilityLabel="Find friends">
           <View style={[styles.findIcon, { backgroundColor: colors.success }]}><Ionicons name="person-add" size={19} color={colors.successInk} /></View><View style={styles.findCopy}><Text style={[styles.findTitle, { color: colors.bone }]}>Find friends</Text><Text style={[styles.findSubtitle, { color: colors.muted }]}>Search people to share with</Text></View><Ionicons name="chevron-forward" size={20} color={colors.muted} />
         </Pressable>}
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>SHARE TO</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.externalRail}>
+        <ScrollView horizontal keyboardShouldPersistTaps="always" keyboardDismissMode="none" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.externalRail}>
           <ExternalAction icon={copied ? "checkmark" : "copy-outline"} label={copied ? "Copied" : "Copy link"} onPress={() => void openExternal("copy")} colors={colors} />
           <ExternalAction icon={Platform.OS === "ios" ? "chatbubble-ellipses-outline" : "message-outline"} label="Messages" onPress={() => void openExternal("message")} colors={colors} family={Platform.OS === "ios" ? "ion" : "material"} />
           <ExternalAction icon="whatsapp" label="WhatsApp" onPress={() => void openExternal("whatsapp")} colors={colors} family="material" />
           <ExternalAction icon="mail-outline" label="Email" onPress={() => void openExternal("email")} colors={colors} />
           <ExternalAction icon="ellipsis-horizontal" label="More" onPress={() => void openExternal("more")} colors={colors} />
+        </ScrollView>
         </ScrollView>
       </Animated.View>
     </Animated.View>
@@ -179,7 +187,7 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
 }
 
 function ExternalAction({ icon, label, onPress, colors, family = "ion" }: { icon: keyof typeof Ionicons.glyphMap | keyof typeof MaterialCommunityIcons.glyphMap; label: string; onPress: () => void; colors: ReturnType<typeof useColors>; family?: "ion" | "material" }) {
-  return <Pressable onPress={onPress} style={styles.externalAction} accessibilityRole="button" accessibilityLabel={label}><View style={[styles.externalIcon, { backgroundColor: `${colors.bone}16` }]}>{family === "material" ? <MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={23} color={colors.bone} /> : <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={22} color={colors.bone} />}</View><Text style={[styles.externalLabel, { color: colors.muted }]}>{label}</Text></Pressable>;
+  return <Pressable delayPressIn={0} onPress={onPress} style={styles.externalAction} accessibilityRole="button" accessibilityLabel={label}><View style={[styles.externalIcon, { backgroundColor: `${colors.bone}16` }]}>{family === "material" ? <MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={23} color={colors.bone} /> : <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={22} color={colors.bone} />}</View><Text style={[styles.externalLabel, { color: colors.muted }]}>{label}</Text></Pressable>;
 }
 
 const styles = StyleSheet.create({
