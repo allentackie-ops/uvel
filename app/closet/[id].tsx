@@ -262,6 +262,7 @@ export default function ClosetPiece() {
   const heartPopScale = useRef(new Animated.Value(0.55)).current;
   const heartPopX = useRef(new Animated.Value(0)).current;
   const heartPopY = useRef(new Animated.Value(0)).current;
+  const [saveTarget, setSaveTarget] = useState({ x: W - 36, y: insets.top + 26 });
 
   function recordLike() {
     if (!piece || liked) return;
@@ -278,15 +279,13 @@ export default function ClosetPiece() {
   }
 
   function showHeartPop(x: number, y: number) {
-    const targetX = W - 36;
-    const targetY = insets.top + 26;
     heartPopX.setValue(x);
     heartPopY.setValue(y);
     heartPopScale.setValue(0.55);
     heartPopOpacity.setValue(1);
     Animated.parallel([
-      Animated.timing(heartPopX, { toValue: targetX - x, duration: 520, useNativeDriver: true }),
-      Animated.timing(heartPopY, { toValue: targetY - y, duration: 520, useNativeDriver: true }),
+      Animated.timing(heartPopX, { toValue: saveTarget.x, duration: 520, useNativeDriver: true }),
+      Animated.timing(heartPopY, { toValue: saveTarget.y, duration: 520, useNativeDriver: true }),
       Animated.sequence([
         Animated.spring(heartPopScale, { toValue: 1.15, speed: 28, bounciness: 8, useNativeDriver: true }),
         Animated.timing(heartPopScale, { toValue: 0.7, duration: 300, useNativeDriver: true }),
@@ -384,11 +383,14 @@ export default function ClosetPiece() {
                     if (success) runOnJS(onImageDoubleTap)(event.x, event.y);
                   })}
               >
-                <Image
-                  source={{ uri }}
-                  style={[styles.hero, { width: imgW, height: imgH, borderRadius: framed ? 4 : 0 }]}
-                  contentFit="cover"
-                />
+                <View style={[styles.imageGesture, { width: imgW, height: imgH }]}>
+                  <Image
+                    source={{ uri }}
+                    style={[styles.hero, { width: imgW, height: imgH, borderRadius: framed ? 4 : 0 }]}
+                    contentFit="cover"
+                    pointerEvents="none"
+                  />
+                </View>
               </GestureDetector>
             ))}
           </ScrollView>
@@ -437,6 +439,10 @@ export default function ClosetPiece() {
                   listingPhoto: piece.photo,
                 }).catch(() => undefined);
               }
+            }}
+            onLayout={(event) => {
+              const { x, y, width, height } = event.nativeEvent.layout;
+              setSaveTarget({ x: x + width / 2, y: y + height / 2 });
             }}
             style={[styles.heartBtn, { top: insets.top + 6, right: 16 }]}
             hitSlop={8}
@@ -686,6 +692,7 @@ function make(look: ShopLook, colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: look.page },
     hero: { backgroundColor: look.surface },
+    imageGesture: { overflow: "hidden" },
     count: {
       position: "absolute",
       alignSelf: "center",
