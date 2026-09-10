@@ -23,7 +23,7 @@ export function TodayToolsDrawer({ onClose }: TodayToolsDrawerProps) {
   useBrands();
   const mine = ownedBrand(app.uid);
   const buildTools: Tool[] = [
-    { icon: "sparkles-outline", label: "Founder Studio", detail: "Shape an idea before you apply", onPress: () => router.push("/brand/founder") },
+    { icon: "color-palette-outline", label: "Founder Studio", detail: "Shape an idea before you apply", onPress: () => router.push("/brand/founder") },
     { icon: "briefcase-outline", label: mine ? "Brand HQ" : "Start a brand", detail: mine ? `Manage ${mine.name}` : "Apply when your brand is ready", onPress: () => router.push(mine ? { pathname: "/brand/hq", params: { id: mine.id } } : "/brand/apply") },
     ...(mine?.verified && canSeeAnalytics(mine, app.uid) ? [{ icon: "bar-chart-outline" as const, label: "Brand analytics", detail: "Earnings, views, and likes", onPress: () => router.push({ pathname: "/brand/analytics", params: { id: mine.id } }) }] : []),
   ];
