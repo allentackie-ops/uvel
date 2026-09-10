@@ -29,6 +29,7 @@ import { unreadFor, useInbox } from "../../lib/chat";
 import { usePersonalization } from "../../lib/personalization";
 
 const MIN_REFRESH_MS = 1200;
+const ORBIT_SLOT = 96;
 
 const orbitTop = {
   position: "absolute" as const,
@@ -267,7 +268,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     <View style={styles.page}>
       <ScrollView
         style={styles.page}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 + (orbitOn ? ORBIT_SLOT : 0) }]}
         alwaysBounceVertical
         bounces
         keyboardShouldPersistTaps="handled"
@@ -501,7 +502,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       ) : null}
       </ScrollView>
       {orbitOn ? (
-        <View style={[orbitTop, { paddingTop: insets.top + 10 }]} pointerEvents="none">
+        <View style={[orbitTop, { paddingTop: insets.top + 8 }]} pointerEvents="none">
           <OrbitLoader />
         </View>
       ) : null}
