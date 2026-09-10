@@ -26,6 +26,7 @@ import { bundledLooks } from "../../lib/trends";
 import { useLiveShopCampaigns } from "../../lib/marketing";
 import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
 import { unreadFor, useInbox } from "../../lib/chat";
+import { usePersonalization } from "../../lib/personalization";
 
 const MIN_REFRESH_MS = 1200;
 
@@ -114,6 +115,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const brandState = useBrands();
   const followedIds = useMemo(() => followedBrandIds(app.uid), [brandState, app.uid]);
   const followedKey = followedIds.join("|");
+  const personalization = usePersonalization(app.uid || "guest");
   const openTodayListing = useCallback((piece: ClosetPiece, origin: ListingOrigin) => {
     setOpenOrigin(origin);
     setOpenPiece(piece);
@@ -190,6 +192,14 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const live = shopFloor(country);
   const liveCampaigns = useLiveShopCampaigns();
   const scanningLook = Boolean(scan === "1" || look || frame || videoUrl);
+
+  useEffect(() => {
+    const query = q.trim();
+    if (query.length < 3 || scanningLook) return;
+    const timer = setTimeout(() => personalization.record("search", undefined, query), 700);
+    return () => clearTimeout(timer);
+  }, [q, scanningLook, personalization.record]);
+
   const shopCampaignRows = useMemo(() => liveCampaigns
     .filter((campaign) => campaign.channel === "shop" && (!campaign.startAt || campaign.startAt <= Date.now()) && (!campaign.endAt || campaign.endAt >= Date.now()))
     .map((campaign) => ({ campaign, lead: campaign.productIds.map((productId) => live.find((piece) => piece.id === productId) || getPiece(productId)).find(Boolean) }))
@@ -248,8 +258,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     }
 
     const rows = look ? matchListings(look, live, taste, followedIds) : forYou(live, taste, country, followedIds);
-    return rows.filter(passQ);
-  }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey]);
+    return personalization.rank(rows.filter(passQ), country);
+  }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey, personalization.rank]);
 
   if (!wardrobeReady && !scanningLook) return <ShopSkeleton colors={colors} />;
 
@@ -472,7 +482,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           ? null
           : ranked.map((p) => (
               <View key={p.id} style={styles.cell}>
-                <ListingCard piece={p} framed onOpen={todayHome ? openTodayListing : undefined} />
+                <ListingCard piece={p} framed onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />
               </View>
             ))}
       </View>
@@ -503,6 +513,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
             setOpenPiece(null);
             setOpenOrigin(null);
           }}
+          onInteraction={personalization.record}
         />
       ) : null}
     </View>

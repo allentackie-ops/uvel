@@ -90,6 +90,12 @@ export default function Settings() {
           onPress={() => router.push("/appearance")}
           colors={colors}
         />
+        <Row
+          label="Today personalization"
+          hint="Shape your edit with activity controls"
+          onPress={() => router.push("/personalization")}
+          colors={colors}
+        />
         <View style={styles.row}>
           <View style={{ flex: 1, paddingRight: 12 }}>
             <Text style={styles.rowLabel}>{C.notifications}</Text>

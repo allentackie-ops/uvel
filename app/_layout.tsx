@@ -178,6 +178,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="personalization"
+            options={{
+              headerTitle: "Today personalization",
+              headerTransparent: false,
+              headerShadowVisible: false,
+            }}
+          />
+          <Stack.Screen
             name="language"
             options={{
               headerTitle: C.language,

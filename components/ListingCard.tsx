@@ -10,6 +10,7 @@ import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 import { getPiece, isRemoteListedPiece, likeCount, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { VerifiedMark } from "./VerifiedMark";
+import type { PersonalizationAction } from "../lib/personalization";
 
 export function ListingCard({
   piece,
@@ -17,12 +18,14 @@ export function ListingCard({
   badge,
   framed,
   onOpen,
+  onInteraction,
 }: {
   piece: ClosetPiece;
   wide?: number;
   badge?: string;
   framed?: boolean;
   onOpen?: (piece: ClosetPiece, origin: { x: number; y: number; width: number; height: number }) => void;
+  onInteraction?: (action: PersonalizationAction, piece: ClosetPiece) => void;
 }) {
   const colors = useColors();
   const styles = make(colors);
@@ -46,6 +49,7 @@ export function ListingCard({
   const confirmed = sync === "confirmed" && remote;
   return (
     <AccessiblePressable      onPress={() => {
+      onInteraction?.("view", live);
       if (!onOpen) {
         router.push({ pathname: "/closet/[id]", params: { id: live.id } });
         return;
@@ -79,7 +83,7 @@ export function ListingCard({
             <Text style={styles.badgeTxt}>{badge}</Text>
           </View>
         ) : null}
-        <AccessiblePressable onPress={() => { if (!isMine) app.likePiece(live.id); }}
+        <AccessiblePressable onPress={() => { if (!isMine) { onInteraction?.("save", live); app.likePiece(live.id); } }}
           disabled={isMine}
           hitSlop={8}
           style={styles.hearts}

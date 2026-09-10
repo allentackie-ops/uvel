@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, ScrollView, Share as NativeShare, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated, {
   interpolate,
   runOnJS,
@@ -20,6 +20,7 @@ import { shipsToLabel } from "../lib/ships";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { type ClosetPiece } from "../lib/wardrobe";
+import type { PersonalizationAction } from "../lib/personalization";
 import { VerifiedMark } from "./VerifiedMark";
 
 export type ListingOrigin = { x: number; y: number; width: number; height: number };
@@ -30,10 +31,12 @@ export function TodayListingOverlay({
   piece,
   origin,
   onClose,
+  onInteraction,
 }: {
   piece: ClosetPiece;
   origin: ListingOrigin;
   onClose: () => void;
+  onInteraction?: (action: PersonalizationAction, piece: ClosetPiece) => void;
 }) {
   const colors = useColors();
   const styles = make(colors);
@@ -129,7 +132,11 @@ export function TodayListingOverlay({
 
   function doubleTapLike(x: number, y: number) {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
-    if (!liked) void app.toggleSaved(piece.id);
+    onInteraction?.("double_tap_like", piece);
+    if (!liked) {
+      onInteraction?.("save", piece);
+      void app.toggleSaved(piece.id);
+    }
     heartPopX.value = withSequence(withTiming(x, { duration: 1 }), withTiming(screenWidth - 38, { duration: 520 }));
     heartPopY.value = withSequence(withTiming(y, { duration: 1 }), withTiming(-38, { duration: 520 }));
     heartPopScale.value = withSequence(withSpring(1.12, { damping: 10, stiffness: 260 }), withTiming(0.55, { duration: 520 }));
@@ -172,7 +179,10 @@ export function TodayListingOverlay({
                 <Ionicons name="chevron-down" size={28} color={colors.ink} />
               </Pressable>
               <Pressable
-                onPress={() => app.toggleSaved(piece.id)}
+                onPress={() => {
+                  onInteraction?.("save", piece);
+                  void app.toggleSaved(piece.id);
+                }}
                 hitSlop={10}
                 style={styles.save}
                 accessibilityRole="button"
@@ -180,6 +190,18 @@ export function TodayListingOverlay({
               >
                 <Ionicons name={liked ? "heart" : "heart-outline"} size={21} color={liked ? colors.success : colors.ink} />
                 <Text style={styles.saveText}>{liked ? "Saved" : "Save"}</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  onInteraction?.("share", piece);
+                  void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel.` });
+                }}
+                hitSlop={10}
+                style={styles.share}
+                accessibilityRole="button"
+                accessibilityLabel={`Share ${piece.name}`}
+              >
+                <Ionicons name="share-outline" size={20} color={colors.ink} />
               </Pressable>
             </Animated.View>
             <Pressable
@@ -290,7 +312,7 @@ export function TodayListingOverlay({
                 <TrustItem icon="checkmark-circle-outline" label="Buyer protection" styles={styles} />
               </View>
               <View style={styles.actions}>
-                <Pressable onPress={() => router.push({ pathname: "/try-on", params: { piece: piece.id } })} style={styles.tryAction} accessibilityRole="button" accessibilityLabel="Try this listing on">
+                <Pressable onPress={() => { onInteraction?.("try_on", piece); router.push({ pathname: "/try-on", params: { piece: piece.id } }); }} style={styles.tryAction} accessibilityRole="button" accessibilityLabel="Try this listing on">
                   <Ionicons name="body-outline" size={18} color={colors.bone} />
                   <Text style={styles.tryText}>Try it on</Text>
                 </Pressable>
@@ -336,6 +358,7 @@ function make(colors: Colors) {
     topBar: { paddingHorizontal: 18, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.ink },
     back: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone },
     save: { minHeight: 42, paddingHorizontal: 14, borderRadius: 22, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.bone },
+    share: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone, marginLeft: 8 },
     saveText: { color: colors.ink, fontSize: 13, fontWeight: "800" },
     photoCount: { position: "absolute", right: 18, bottom: 18, minWidth: 48, height: 28, paddingHorizontal: 9, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.58)", alignItems: "center", justifyContent: "center" },
     photoCountText: { color: colors.bone, fontSize: 11, fontWeight: "800", fontVariant: ["tabular-nums"] },
