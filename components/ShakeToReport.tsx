@@ -21,8 +21,6 @@ import { useColors } from "../lib/theme";
 const SHAKE_THRESHOLD = 2.35;
 const SHAKE_COOLDOWN_MS = 1800;
 const SAMPLE_MS = 80;
-const REPORT_BLUE = "#5368FF";
-
 export function ShakeToReport() {
   const colors = useColors();
   const styles = make(colors);
@@ -145,7 +143,7 @@ export function ShakeToReport() {
               />
               <Text style={styles.counter}>{body.length}/2000</Text>
               <Pressable onPress={() => void send()} disabled={!body.trim() || submitting} style={[styles.primary, (!body.trim() || submitting) && styles.primaryDisabled]} accessibilityRole="button" accessibilityState={{ disabled: !body.trim() || submitting }}>
-                {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>Send report</Text>}
+                {submitting ? <ActivityIndicator color={colors.successInk} /> : <Text style={styles.primaryText}>Send report</Text>}
               </Pressable>
               <Pressable onPress={() => setCompose(false)} disabled={submitting} style={styles.cancel} accessibilityRole="button">
                 <Text style={styles.cancelText}>Back</Text>
@@ -183,37 +181,37 @@ export function ShakeToReport() {
 function make(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     modalRoot: { flex: 1, justifyContent: "flex-end" },
-    scrim: { ...StyleSheet.absoluteFill, backgroundColor: "#00000099" },
-    sheet: { backgroundColor: "#171B1F", borderTopLeftRadius: 27, borderTopRightRadius: 27, paddingHorizontal: 26, paddingTop: 10, borderWidth: 1, borderColor: "#FFFFFF12" },
-    grabber: { alignSelf: "center", width: 42, height: 4, borderRadius: 3, backgroundColor: "#FFFFFF55", marginBottom: 22 },
+    scrim: { ...StyleSheet.absoluteFill, backgroundColor: `${colors.ink}CC` },
+    sheet: { backgroundColor: colors.ink, borderTopLeftRadius: 27, borderTopRightRadius: 27, paddingHorizontal: 26, paddingTop: 10, borderWidth: 1, borderColor: `${colors.bone}1F` },
+    grabber: { alignSelf: "center", width: 42, height: 4, borderRadius: 3, backgroundColor: `${colors.bone}55`, marginBottom: 22 },
     header: { flexDirection: "row", alignItems: "flex-start", gap: 14, marginBottom: 18 },
-    title: { color: "#FFFFFF", fontSize: 24, lineHeight: 29, fontWeight: "800", textAlign: "center" },
-    subtitle: { color: "#FFFFFFE0", fontSize: 14, lineHeight: 20, marginTop: 10, textAlign: "center" },
-    close: { position: "absolute", right: -4, top: -4, width: 32, height: 32, borderRadius: 16, backgroundColor: "#FFFFFF14", alignItems: "center", justifyContent: "center" },
-    closeText: { color: "#FFFFFF", fontSize: 24, lineHeight: 26, marginTop: -2 },
-    primary: { minHeight: 57, borderRadius: 15, backgroundColor: REPORT_BLUE, alignItems: "center", justifyContent: "center", marginTop: 2 },
+    title: { color: colors.bone, fontSize: 24, lineHeight: 29, fontWeight: "800", textAlign: "center" },
+    subtitle: { color: `${colors.bone}E0`, fontSize: 14, lineHeight: 20, marginTop: 10, textAlign: "center" },
+    close: { position: "absolute", right: -4, top: -4, width: 32, height: 32, borderRadius: 16, backgroundColor: `${colors.bone}14`, alignItems: "center", justifyContent: "center" },
+    closeText: { color: colors.bone, fontSize: 24, lineHeight: 26, marginTop: -2 },
+    primary: { minHeight: 57, borderRadius: 15, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", marginTop: 2 },
     primaryDisabled: { opacity: 0.42 },
-    primaryText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
+    primaryText: { color: colors.successInk, fontSize: 16, fontWeight: "800" },
     infoRow: { flexDirection: "row", alignItems: "flex-start", gap: 14, paddingVertical: 22 },
-    infoIcon: { width: 30, height: 30, borderWidth: 2, borderColor: "#FFFFFF", borderRadius: 15, alignItems: "center", justifyContent: "center", marginTop: 2 },
-    infoIconText: { color: "#FFFFFF", fontSize: 19, fontWeight: "800", lineHeight: 22 },
-    infoTitle: { color: "#FFFFFF", fontSize: 16, lineHeight: 21, fontWeight: "600" },
-    infoText: { color: "#FFFFFFB8", fontSize: 14, lineHeight: 19, marginTop: 6 },
-    chevron: { color: "#FFFFFFB8", fontSize: 31, lineHeight: 34, marginTop: 20 },
-    divider: { height: 1, backgroundColor: "#FFFFFF15", marginHorizontal: -26 },
+    infoIcon: { width: 30, height: 30, borderWidth: 2, borderColor: colors.bone, borderRadius: 15, alignItems: "center", justifyContent: "center", marginTop: 2 },
+    infoIconText: { color: colors.bone, fontSize: 19, fontWeight: "800", lineHeight: 22 },
+    infoTitle: { color: colors.bone, fontSize: 16, lineHeight: 21, fontWeight: "600" },
+    infoText: { color: `${colors.bone}B8`, fontSize: 14, lineHeight: 19, marginTop: 6 },
+    chevron: { color: `${colors.bone}B8`, fontSize: 31, lineHeight: 34, marginTop: 20 },
+    divider: { height: 1, backgroundColor: `${colors.bone}15`, marginHorizontal: -26 },
     toggleRow: { flexDirection: "row", alignItems: "center", gap: 16, paddingVertical: 21 },
-    toggleTitle: { color: "#FFFFFF", fontSize: 16, lineHeight: 21 },
-    toggleHint: { color: "#FFFFFF85", fontSize: 13, lineHeight: 18, marginTop: 4 },
-    toggle: { width: 62, height: 36, borderRadius: 19, backgroundColor: "#FFFFFF", padding: 3, justifyContent: "center" },
-    toggleOn: { backgroundColor: REPORT_BLUE },
-    knob: { width: 30, height: 30, borderRadius: 15, backgroundColor: "#1B1E22", transform: [{ translateX: 0 }] },
-    knobOn: { backgroundColor: "#FFFFFF", transform: [{ translateX: 26 }] },
-    input: { minHeight: 142, maxHeight: 220, borderRadius: 16, borderWidth: 1, borderColor: "#FFFFFF32", backgroundColor: "#FFFFFF0C", color: "#FFFFFF", padding: 15, fontSize: 15, lineHeight: 21 },
-    counter: { alignSelf: "flex-end", color: "#FFFFFF60", fontSize: 11, marginTop: 7 },
+    toggleTitle: { color: colors.bone, fontSize: 16, lineHeight: 21 },
+    toggleHint: { color: `${colors.bone}85`, fontSize: 13, lineHeight: 18, marginTop: 4 },
+    toggle: { width: 62, height: 36, borderRadius: 19, backgroundColor: `${colors.bone}55`, padding: 3, justifyContent: "center" },
+    toggleOn: { backgroundColor: colors.success },
+    knob: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.ink, transform: [{ translateX: 0 }] },
+    knobOn: { backgroundColor: colors.successInk, transform: [{ translateX: 26 }] },
+    input: { minHeight: 142, maxHeight: 220, borderRadius: 16, borderWidth: 1, borderColor: `${colors.bone}32`, backgroundColor: `${colors.bone}0C`, color: colors.bone, padding: 15, fontSize: 15, lineHeight: 21 },
+    counter: { alignSelf: "flex-end", color: `${colors.bone}60`, fontSize: 11, marginTop: 7 },
     cancel: { minHeight: 48, alignItems: "center", justifyContent: "center" },
-    cancelText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700" },
+    cancelText: { color: colors.bone, fontSize: 14, fontWeight: "700" },
     success: { paddingVertical: 12 },
-    successTitle: { color: "#FFFFFF", fontSize: 18, fontWeight: "800" },
-    successText: { color: "#FFFFFF99", fontSize: 14, lineHeight: 20, marginTop: 8 },
+    successTitle: { color: colors.bone, fontSize: 18, fontWeight: "800" },
+    successText: { color: `${colors.bone}99`, fontSize: 14, lineHeight: 20, marginTop: 8 },
   });
 }
