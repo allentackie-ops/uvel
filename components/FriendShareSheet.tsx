@@ -3,6 +3,7 @@ import * as FileSystem from "expo-file-system";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, KeyboardAvoidingView, Linking, Modal, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { createFriendChat, listFriends, sendFriendMessage, uploadFriendAttachment } from "../lib/friendChat";
 import { searchUsers, sendFriendRequest, type PublicUser } from "../lib/friends";
 import { useColors } from "../lib/theme";
@@ -31,19 +32,24 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
 
   useEffect(() => {
     if (!visible) return;
-    translateY.setValue(0);
+    translateY.setValue(620);
     setFinderVisible(false);
     setQuery("");
     setResults([]);
     void listFriends().then(setFriends).catch(() => setFriends([]));
+    Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 24, stiffness: 220, mass: 0.85 }).start();
   }, [visible, translateY]);
+
+  function dismiss() {
+    Animated.timing(translateY, { toValue: 620, duration: 220, useNativeDriver: true }).start(() => onClose());
+  }
 
   const pan = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 4 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
     onPanResponderMove: (_, gesture) => { if (gesture.dy > 0) translateY.setValue(gesture.dy); },
     onPanResponderRelease: (_, gesture) => {
       if (gesture.dy > 120 || gesture.vy > 1.2) {
-        Animated.timing(translateY, { toValue: 640, duration: 180, useNativeDriver: true }).start(onClose);
+        dismiss();
       } else {
         Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
       }
@@ -93,22 +99,29 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
     };
     if (kind === "copy") { await Share.share({ message: text, title: payload.title }); return; }
     const url = urls[kind];
-    if (await Linking.canOpenURL(url)) await Linking.openURL(url);
-    else await Share.share({ message: text, title: payload.title });
+    try {
+      if (await Linking.canOpenURL(url)) {
+        await Linking.openURL(url);
+        return;
+      }
+    } catch {
+      // Fall through to the native share sheet when the app or URL scheme is unavailable.
+    }
+    await Share.share({ message: text, title: payload.title });
   }
 
   if (!payload) return null;
-  return <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-    <KeyboardAvoidingView style={styles.keyboardRoot} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={10}>
+  return <Modal visible={visible} transparent animationType="none" onRequestClose={dismiss}>
+    <KeyboardAvoidingView style={styles.keyboardRoot} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
     <Animated.View style={[styles.scrim, { opacity: backdropOpacity }] }>
-      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close share sheet" />
+      <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} accessibilityLabel="Close share sheet" />
       <Animated.View style={[styles.sheet, { backgroundColor: colors.surface, transform: [{ translateY }] }]}>
         <View {...pan.panHandlers} style={styles.dragArea} accessibilityRole="adjustable" accessibilityLabel="Drag down to close">
           <View style={[styles.handle, { backgroundColor: colors.subtle }]} />
         </View>
         <View style={styles.head}>
           <Text style={[styles.title, { color: colors.bone }]}>Share with friends</Text>
-          <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close share sheet" hitSlop={12}><Ionicons name="close" size={26} color={colors.muted} /></Pressable>
+          <Pressable onPress={dismiss} accessibilityRole="button" accessibilityLabel="Close share sheet" hitSlop={12}><Ionicons name="close" size={26} color={colors.muted} /></Pressable>
         </View>
         <Text style={[styles.preview, { color: colors.muted }]} numberOfLines={2}>{payload.title}</Text>
         <TextInput value={message} onChangeText={setMessage} placeholder="Add a message (optional)" placeholderTextColor={colors.subtle} style={[styles.input, { backgroundColor: colors.ink, color: colors.bone }]} maxLength={300} />
@@ -122,8 +135,8 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>SHARE TO</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.externalRail}>
           <ExternalAction icon="copy-outline" label="Copy link" onPress={() => void openExternal("copy")} colors={colors} />
-          <ExternalAction icon="chatbubble-ellipses-outline" label="Messages" onPress={() => void openExternal("message")} colors={colors} />
-          <ExternalAction icon="logo-whatsapp" label="WhatsApp" onPress={() => void openExternal("whatsapp")} colors={colors} />
+          <ExternalAction icon={Platform.OS === "ios" ? "message-text-outline" : "message-outline"} label="Messages" onPress={() => void openExternal("message")} colors={colors} />
+          <ExternalAction icon="whatsapp" label="WhatsApp" onPress={() => void openExternal("whatsapp")} colors={colors} family="material" />
           <ExternalAction icon="mail-outline" label="Email" onPress={() => void openExternal("email")} colors={colors} />
           <ExternalAction icon="ellipsis-horizontal" label="More" onPress={() => void openExternal("more")} colors={colors} />
         </ScrollView>
@@ -131,7 +144,7 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
     </Animated.View>
     </KeyboardAvoidingView>
     <View pointerEvents={finderVisible ? "auto" : "none"} style={[styles.finderOverlay, { opacity: finderVisible ? 1 : 0 }]}>
-      <KeyboardAvoidingView style={styles.finderKeyboard} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={10}><View style={styles.finderScrim}><View style={[styles.finder, { backgroundColor: colors.surface }]}>
+      <KeyboardAvoidingView style={styles.finderKeyboard} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}><View style={styles.finderScrim}><View style={[styles.finder, { backgroundColor: colors.surface }]}>
         <View style={styles.head}><View><Text style={[styles.title, { color: colors.bone }]}>Find friends</Text><Text style={[styles.preview, { color: colors.muted }]}>Search by name or username</Text></View><Pressable onPress={() => setFinderVisible(false)} hitSlop={12}><Ionicons name="close" size={26} color={colors.muted} /></Pressable></View>
         <View style={[styles.searchBox, { backgroundColor: colors.ink }]}><Ionicons name="search" size={20} color={colors.muted} /><TextInput value={query} onChangeText={setQuery} onSubmitEditing={() => void findFriends()} placeholder="Search people" placeholderTextColor={colors.subtle} style={[styles.searchInput, { color: colors.bone }]} returnKeyType="search" /><Pressable onPress={() => void findFriends()}><Text style={[styles.searchButton, { color: colors.success }]}>Search</Text></Pressable></View>
         <ScrollView style={styles.results} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.resultsContent}>{searching ? <Text style={[styles.empty, { color: colors.muted }]}>Searching…</Text> : results.length ? results.map((user) => <View key={user.uid} style={styles.resultRow}>{user.avatarUri ? <Image source={{ uri: user.avatarUri }} style={styles.resultAvatar} /> : <View style={[styles.resultAvatar, styles.fallback]}><Text style={{ color: colors.successInk, fontWeight: "800" }}>{(user.displayName || user.username || "U").slice(0, 1).toUpperCase()}</Text></View>}<View style={styles.resultCopy}><Text style={[styles.findTitle, { color: colors.bone }]}>{user.displayName || user.username}</Text><Text style={[styles.findSubtitle, { color: colors.muted }]}>@{user.username}</Text></View><Pressable onPress={() => void requestFriend(user)} disabled={requested[user.uid]} style={[styles.addButton, { backgroundColor: requested[user.uid] ? `${colors.bone}18` : colors.success }]}><Text style={{ color: requested[user.uid] ? colors.muted : colors.successInk, fontWeight: "800" }}>{requested[user.uid] ? "Sent" : "Add"}</Text></Pressable></View>) : <Text style={[styles.empty, { color: colors.muted }]}>{query ? "No people found yet." : "Search for someone to add."}</Text>}</ScrollView>
@@ -140,8 +153,8 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
   </Modal>;
 }
 
-function ExternalAction({ icon, label, onPress, colors }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; colors: ReturnType<typeof useColors> }) {
-  return <Pressable onPress={onPress} style={styles.externalAction} accessibilityRole="button" accessibilityLabel={label}><View style={[styles.externalIcon, { backgroundColor: `${colors.bone}16` }]}><Ionicons name={icon} size={22} color={colors.bone} /></View><Text style={[styles.externalLabel, { color: colors.muted }]}>{label}</Text></Pressable>;
+function ExternalAction({ icon, label, onPress, colors, family = "ion" }: { icon: keyof typeof Ionicons.glyphMap | keyof typeof MaterialCommunityIcons.glyphMap; label: string; onPress: () => void; colors: ReturnType<typeof useColors>; family?: "ion" | "material" }) {
+  return <Pressable onPress={onPress} style={styles.externalAction} accessibilityRole="button" accessibilityLabel={label}><View style={[styles.externalIcon, { backgroundColor: `${colors.bone}16` }]}>{family === "material" ? <MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={23} color={colors.bone} /> : <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={22} color={colors.bone} />}</View><Text style={[styles.externalLabel, { color: colors.muted }]}>{label}</Text></Pressable>;
 }
 
 const styles = StyleSheet.create({
