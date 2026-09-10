@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated, {
   interpolate,
@@ -9,6 +10,7 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  withSequence,
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -49,6 +51,8 @@ export function TodayListingOverlay({
   const [activePhoto, setActivePhoto] = useState(0);
   const [measurementsOpen, setMeasurementsOpen] = useState(false);
   const [shippingOpen, setShippingOpen] = useState(false);
+  const lastImageTap = useRef(0);
+  const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     top.value = withSpring(0, SPRING);
@@ -107,6 +111,46 @@ export function TodayListingOverlay({
   const measurementEntries = Object.entries(piece.measurements || {}).filter(([, value]) => Boolean(value));
   const currentPhoto = gallery[Math.min(activePhoto, gallery.length - 1)] || piece.photo;
   const heroHeight = Math.min(Math.max(screenHeight * 0.5, 320), 480);
+  const heartPopX = useSharedValue(screenWidth / 2);
+  const heartPopY = useSharedValue(heroHeight / 2);
+  const heartPopScale = useSharedValue(0);
+  const heartPopOpacity = useSharedValue(0);
+
+  const heartPopStyle = useAnimatedStyle(() => ({
+    opacity: heartPopOpacity.value,
+    transform: [
+      { translateX: heartPopX.value },
+      { translateY: heartPopY.value },
+      { translateX: -34 },
+      { translateY: -34 },
+      { scale: heartPopScale.value },
+    ],
+  }));
+
+  function doubleTapLike(x: number, y: number) {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    if (!liked) void app.toggleSaved(piece.id);
+    heartPopX.value = withSequence(withTiming(x, { duration: 1 }), withTiming(screenWidth - 38, { duration: 520 }));
+    heartPopY.value = withSequence(withTiming(y, { duration: 1 }), withTiming(-38, { duration: 520 }));
+    heartPopScale.value = withSequence(withSpring(1.12, { damping: 10, stiffness: 260 }), withTiming(0.55, { duration: 520 }));
+    heartPopOpacity.value = withSequence(withTiming(1, { duration: 1 }), withTiming(0, { duration: 520 }));
+  }
+
+  function onHeroPress(x: number, y: number) {
+    const now = Date.now();
+    if (now - lastImageTap.current <= 450) {
+      if (imageTapTimer.current) clearTimeout(imageTapTimer.current);
+      lastImageTap.current = 0;
+      doubleTapLike(x, y);
+      return;
+    }
+    lastImageTap.current = now;
+    if (imageTapTimer.current) clearTimeout(imageTapTimer.current);
+    imageTapTimer.current = setTimeout(() => {
+      lastImageTap.current = 0;
+      imageTapTimer.current = null;
+    }, 450);
+  }
 
   return (
     <View style={styles.root} pointerEvents="box-none">
@@ -138,14 +182,20 @@ export function TodayListingOverlay({
                 <Text style={styles.saveText}>{liked ? "Saved" : "Save"}</Text>
               </Pressable>
             </Animated.View>
-            <View style={[styles.heroGesture, { height: heroHeight }]}>
+            <Pressable
+              style={[styles.heroGesture, { height: heroHeight }]}
+              onPress={(event) => onHeroPress(event.nativeEvent.locationX, event.nativeEvent.locationY)}
+              accessibilityRole="image"
+              accessibilityLabel={`Double tap to save ${piece.name}`}
+            >
               <Image source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
+              <Animated.Text pointerEvents="none" style={[styles.heartPop, heartPopStyle]}>♥</Animated.Text>
               {gallery.length > 1 ? (
                 <View style={styles.photoCount} pointerEvents="none">
                   <Text style={styles.photoCountText}>{Math.min(activePhoto + 1, gallery.length)} / {gallery.length}</Text>
                 </View>
               ) : null}
-            </View>
+            </Pressable>
             <Animated.View style={[styles.detail, detailStyle]}>
               <Text style={styles.kicker}>{(brand || "UVEL").toUpperCase()}</Text>
               <Text style={styles.title}>{piece.name}</Text>
@@ -281,6 +331,7 @@ function make(colors: Colors) {
     surface: { position: "absolute", overflow: "hidden", backgroundColor: colors.ink },
     heroGesture: { width: "100%", height: "54%" },
     hero: { width: "100%", height: "100%", backgroundColor: colors.surface },
+    heartPop: { position: "absolute", left: 0, top: 0, zIndex: 5, color: colors.success, fontSize: 68, lineHeight: 72, textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
     chrome: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     topBar: { paddingHorizontal: 18, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.ink },
     back: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone },
