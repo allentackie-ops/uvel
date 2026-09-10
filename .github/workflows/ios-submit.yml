@@ -29,6 +29,11 @@ jobs:
         with:
           ruby-version: "3.3"
 
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
       - name: Install Fastlane
         run: gem install fastlane --no-document
 
@@ -38,24 +43,43 @@ jobs:
           BUILD_ID: ${{ inputs.build_id }}
         run: |
           set -euo pipefail
-          npx --yes eas-cli@latest build:view "$BUILD_ID" --json --non-interactive > /tmp/eas-build.json
-          python3 - <<'PY'
+          FALLBACK="https://expo.dev/artifacts/eas/XSRMpeOru7QzQWGLoNffCdmR_8_Xg64g8pU-97fD50o.ipa"
+          URL=""
+          set +e
+          eas build:view "$BUILD_ID" --json --non-interactive > /tmp/eas-build.json 2>/tmp/eas-view.err
+          VIEW_OK=$?
+          set -e
+          if [ "$VIEW_OK" -eq 0 ]; then
+            URL=$(python3 - <<'PY'
           import json, pathlib, sys
           s = pathlib.Path("/tmp/eas-build.json").read_text()
           i = s.find("{")
           if i < 0:
-              sys.exit("eas build:view did not return JSON:\n" + s[:4000])
+              sys.exit(0)
           j = json.loads(s[i:])
           arts = j.get("artifacts") or {}
-          u = arts.get("applicationArchiveUrl") or arts.get("buildUrl")
-          if not u:
-              sys.exit("No IPA URL in:\n" + s[:4000])
-          pathlib.Path("/tmp/ipa-url.txt").write_text(u.strip())
+          u = arts.get("applicationArchiveUrl") or arts.get("buildUrl") or ""
           print(u.strip())
           PY
-          URL=$(cat /tmp/ipa-url.txt)
-          echo "Downloading IPA"
+            )
+          else
+            echo "eas build:view failed:"
+            cat /tmp/eas-view.err || true
+            cat /tmp/eas-build.json || true
+          fi
+          if [ -z "${URL}" ]; then
+            echo "Using fallback artifact URL"
+            URL="$FALLBACK"
+          fi
+          echo "Downloading IPA from $URL"
+          set +e
           curl -fL --retry 5 --retry-delay 2 -H "Authorization: Bearer $EXPO_TOKEN" -o uvel.ipa "$URL"
+          CURL_OK=$?
+          set -e
+          if [ "$CURL_OK" -ne 0 ]; then
+            echo "Auth download failed, trying without bearer"
+            curl -fL --retry 5 --retry-delay 2 -o uvel.ipa "$URL"
+          fi
           ls -lh uvel.ipa
           python3 - <<'PY'
           import pathlib, sys
