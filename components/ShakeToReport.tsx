@@ -182,8 +182,9 @@ export function ShakeToReport() {
               </View>
             ) : compose ? (
               <ScrollView
-                keyboardShouldPersistTaps="handled"
-                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="always"
+                keyboardDismissMode="none"
+                nestedScrollEnabled
                 showsVerticalScrollIndicator={false}
                 style={{ maxHeight: formMaxHeight }}
                 contentContainerStyle={styles.formContent}
