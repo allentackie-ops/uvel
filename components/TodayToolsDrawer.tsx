@@ -6,7 +6,7 @@ import { canSeeAnalytics, ownedBrand, useBrands } from "../lib/brands";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 
-export type TodayToolsDrawerProps = { onClose: () => void };
+export type TodayToolsDrawerProps = { onClose: () => void; onOpenSell: () => void };
 
 type Tool = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -15,7 +15,7 @@ type Tool = {
   onPress: () => void;
 };
 
-export function TodayToolsDrawer({ onClose }: TodayToolsDrawerProps) {
+export function TodayToolsDrawer({ onClose, onOpenSell }: TodayToolsDrawerProps) {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
@@ -29,7 +29,7 @@ export function TodayToolsDrawer({ onClose }: TodayToolsDrawerProps) {
   ];
   const businessTools: Tool[] = [
     { icon: "stats-chart-outline", label: "Seller analytics", detail: "Listing signals and order records", onPress: () => router.push("/seller-analytics") },
-    { icon: "add-circle-outline", label: "List an item", detail: "Put something new on Uvel", onPress: () => router.navigate("/closet") },
+    { icon: "add-circle-outline", label: "List an item", detail: "Put something new on Uvel", onPress: onOpenSell },
     { icon: "notifications-outline", label: "Price & restock alerts", detail: "Keep watch on saved pieces", onPress: () => router.push("/alerts") },
   ];
 

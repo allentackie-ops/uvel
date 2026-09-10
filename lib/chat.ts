@@ -195,11 +195,15 @@ export function openThread(input: {
   emitInbox();
   emitThread(id);
   if (firebaseReady()) {
-    void setDoc(
-      doc(firebaseDb(), "chats", id),
-      { ...memory.threads[id], updatedAt: Date.now() },
-      { merge: true },
-    ).catch(() => undefined);
+    try {
+      void setDoc(
+        doc(firebaseDb(), "chats", id),
+        { ...memory.threads[id], updatedAt: Date.now() },
+        { merge: true },
+      ).catch(() => undefined);
+    } catch {
+      /* Chat remains available locally if Firebase is unavailable on this device. */
+    }
   }
   return id;
 }
@@ -214,38 +218,42 @@ export function listenMessages(id: string, onMsgs: (msgs: ChatMsg[]) => void) {
   onMsgs(memory.messages[id] ?? []);
   let unsubFs = () => undefined as void;
   if (firebaseReady()) {
-    const q = query(collection(firebaseDb(), "chats", id, "messages"), orderBy("createdAt", "asc"));
-    unsubFs = onSnapshot(
-      q,
-      (snap) => {
-        const remote: ChatMsg[] = snap.docs.map((d) => {
-          const v = d.data() as ChatMsg;
-          return {
-            id: d.id,
-            text: v.text ?? "",
-            from: v.from ?? "",
-            kind: v.kind ?? "text",
-            createdAt: typeof v.createdAt === "number" ? v.createdAt : Date.now(),
-            photoUrl: v.photoUrl,
-            offerCents: v.offerCents,
-            status: v.status ?? "delivered",
-          };
-        });
-        const local = memory.messages[id] ?? [];
-        const seen = new Set(remote.map((m) => `${m.from}|${m.createdAt}|${m.text}`));
-        const extra = local.filter((m) => !seen.has(`${m.from}|${m.createdAt}|${m.text}`));
-        const merged = [...remote, ...extra].sort((a, b) => a.createdAt - b.createdAt);
-        memory.messages[id] = merged.map((m) => {
-          const old = local.find((x) => x.id === m.id || (x.from === m.from && x.createdAt === m.createdAt && x.text === m.text));
-          const rank = { sending: 0, sent: 1, delivered: 2, seen: 3 };
-          const a = old?.status ?? "sent";
-          const b = m.status ?? "delivered";
-          return { ...m, status: (rank[b] > rank[a] ? b : a) as MsgStatus };
-        });
-        emitMsgs(id);
-      },
-      () => undefined,
-    );
+    try {
+      const q = query(collection(firebaseDb(), "chats", id, "messages"), orderBy("createdAt", "asc"));
+      unsubFs = onSnapshot(
+        q,
+        (snap) => {
+          const remote: ChatMsg[] = snap.docs.map((d) => {
+            const v = d.data() as ChatMsg;
+            return {
+              id: d.id,
+              text: v.text ?? "",
+              from: v.from ?? "",
+              kind: v.kind ?? "text",
+              createdAt: typeof v.createdAt === "number" ? v.createdAt : Date.now(),
+              photoUrl: v.photoUrl,
+              offerCents: v.offerCents,
+              status: v.status ?? "delivered",
+            };
+          });
+          const local = memory.messages[id] ?? [];
+          const seen = new Set(remote.map((m) => `${m.from}|${m.createdAt}|${m.text}`));
+          const extra = local.filter((m) => !seen.has(`${m.from}|${m.createdAt}|${m.text}`));
+          const merged = [...remote, ...extra].sort((a, b) => a.createdAt - b.createdAt);
+          memory.messages[id] = merged.map((m) => {
+            const old = local.find((x) => x.id === m.id || (x.from === m.from && x.createdAt === m.createdAt && x.text === m.text));
+            const rank = { sending: 0, sent: 1, delivered: 2, seen: 3 };
+            const a = old?.status ?? "sent";
+            const b = m.status ?? "delivered";
+            return { ...m, status: (rank[b] > rank[a] ? b : a) as MsgStatus };
+          });
+          emitMsgs(id);
+        },
+        () => undefined,
+      );
+    } catch {
+      /* Local chat remains available if the remote listener cannot be created. */
+    }
   }
   return () => {
     set!.delete(onMsgs);
@@ -263,45 +271,49 @@ export function listenThread(id: string, onThread: (t: ChatThread) => void) {
   if (memory.threads[id]) onThread(memory.threads[id]);
   let unsubFs = () => undefined as void;
   if (firebaseReady()) {
-    unsubFs = onSnapshot(
-      doc(firebaseDb(), "chats", id),
-      (snap) => {
-        const v = snap.data() as Partial<ChatThread> | undefined;
-        if (!v) return;
-        const existing = memory.threads[id];
-        const t: ChatThread = existing || {
-          id,
-          pieceId: String(v.pieceId || ""),
-          buyerId: String(v.buyerId || ""),
-          sellerId: String(v.sellerId || ""),
-          pieceName: String(v.pieceName || "Listing"),
-          piecePhoto: String(v.piecePhoto || ""),
-          piecePriceCents: typeof v.piecePriceCents === "number" ? v.piecePriceCents : 0,
-          sellerName: String(v.sellerName || "Seller"),
-          buyerName: String(v.buyerName || "Buyer"),
-          lastText: String(v.lastText || ""),
-          lastAt: typeof v.lastAt === "number" ? v.lastAt : Date.now(),
-          lastFrom: String(v.lastFrom || ""),
-          unreadBuyer: typeof v.unreadBuyer === "number" ? v.unreadBuyer : 0,
-          unreadSeller: typeof v.unreadSeller === "number" ? v.unreadSeller : 0,
-          typingBy: String(v.typingBy || ""),
-          typingAt: typeof v.typingAt === "number" ? v.typingAt : 0,
-        };
-        memory.threads[id] = {
-          ...t,
-          ...v,
-          id,
-          brandId: v.brandId || t.brandId,
-          brandName: v.brandName || t.brandName,
-          brandLogo: v.brandLogo || t.brandLogo,
-          brandVerified: typeof v.brandVerified === "boolean" ? v.brandVerified : t.brandVerified,
-          recipientIds: v.recipientIds || t.recipientIds,
-        };
-        emitThread(id);
-        emitInbox();
-      },
-      () => undefined,
-    );
+    try {
+      unsubFs = onSnapshot(
+        doc(firebaseDb(), "chats", id),
+        (snap) => {
+          const v = snap.data() as Partial<ChatThread> | undefined;
+          if (!v) return;
+          const existing = memory.threads[id];
+          const t: ChatThread = existing || {
+            id,
+            pieceId: String(v.pieceId || ""),
+            buyerId: String(v.buyerId || ""),
+            sellerId: String(v.sellerId || ""),
+            pieceName: String(v.pieceName || "Listing"),
+            piecePhoto: String(v.piecePhoto || ""),
+            piecePriceCents: typeof v.piecePriceCents === "number" ? v.piecePriceCents : 0,
+            sellerName: String(v.sellerName || "Seller"),
+            buyerName: String(v.buyerName || "Buyer"),
+            lastText: String(v.lastText || ""),
+            lastAt: typeof v.lastAt === "number" ? v.lastAt : Date.now(),
+            lastFrom: String(v.lastFrom || ""),
+            unreadBuyer: typeof v.unreadBuyer === "number" ? v.unreadBuyer : 0,
+            unreadSeller: typeof v.unreadSeller === "number" ? v.unreadSeller : 0,
+            typingBy: String(v.typingBy || ""),
+            typingAt: typeof v.typingAt === "number" ? v.typingAt : 0,
+          };
+          memory.threads[id] = {
+            ...t,
+            ...v,
+            id,
+            brandId: v.brandId || t.brandId,
+            brandName: v.brandName || t.brandName,
+            brandLogo: v.brandLogo || t.brandLogo,
+            brandVerified: typeof v.brandVerified === "boolean" ? v.brandVerified : t.brandVerified,
+            recipientIds: v.recipientIds || t.recipientIds,
+          };
+          emitThread(id);
+          emitInbox();
+        },
+        () => undefined,
+      );
+    } catch {
+      /* Local chat remains available if the remote listener cannot be created. */
+    }
   }
   return () => {
     set!.delete(onThread);
@@ -373,11 +385,15 @@ export function setTyping(id: string, uid: string, on: boolean) {
   patchThread(id, { typingBy: on ? uid : "", typingAt: on ? Date.now() : 0 });
   void persist();
   if (firebaseReady()) {
-    void setDoc(
-      doc(firebaseDb(), "chats", id),
-      { typingBy: on ? uid : "", typingAt: on ? Date.now() : 0 },
-      { merge: true },
-    ).catch(() => undefined);
+    try {
+      void setDoc(
+        doc(firebaseDb(), "chats", id),
+        { typingBy: on ? uid : "", typingAt: on ? Date.now() : 0 },
+        { merge: true },
+      ).catch(() => undefined);
+    } catch {
+      /* Local typing state remains safe if Firebase is unavailable. */
+    }
   }
 }
 
@@ -401,11 +417,15 @@ export function markSeen(id: string, uid: string) {
   emitInbox();
   void persist();
   if (firebaseReady() && changed) {
-    void setDoc(
-      doc(firebaseDb(), "chats", id),
-      { unreadBuyer: t?.unreadBuyer ?? 0, unreadSeller: t?.unreadSeller ?? 0, seenBy: uid, seenAt: Date.now() },
-      { merge: true },
-    ).catch(() => undefined);
+    try {
+      void setDoc(
+        doc(firebaseDb(), "chats", id),
+        { unreadBuyer: t?.unreadBuyer ?? 0, unreadSeller: t?.unreadSeller ?? 0, seenBy: uid, seenAt: Date.now() },
+        { merge: true },
+      ).catch(() => undefined);
+    } catch {
+      /* Local seen state remains safe if Firebase is unavailable. */
+    }
   }
 }
 

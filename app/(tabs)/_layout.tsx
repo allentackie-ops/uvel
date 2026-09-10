@@ -31,7 +31,7 @@ export default function TabsLayout() {
 
   const tabs = useMemo<TabScreen[]>(
     () => [
-      { key: "workspace", screen: <TodayToolsDrawer onClose={() => pagerRef.current?.setPage(1)} /> },
+      { key: "workspace", screen: <TodayToolsDrawer onClose={() => pagerRef.current?.setPage(1)} onOpenSell={() => { pagerRef.current?.setPage(3); router.navigate("/closet"); }} /> },
       { key: "today", screen: <Today onOpenTools={() => pagerRef.current?.setPage(0)} /> },
       { key: "mirror", screen: <Mirror /> },
       { key: "sell", screen: <Closet /> },
