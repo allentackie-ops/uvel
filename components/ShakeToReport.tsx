@@ -154,15 +154,6 @@ export function ShakeToReport() {
               <Pressable onPress={() => setCompose(true)} style={styles.primary} accessibilityRole="button">
                 <Text style={styles.primaryText}>Report a problem</Text>
               </Pressable>
-              <Pressable style={styles.infoRow} accessibilityRole="button" accessibilityLabel="Learn about safety and abuse reports">
-                <View style={styles.infoIcon}><Text style={styles.infoIconText}>i</Text></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.infoTitle}>Reports about abuse or spam shouldn’t be submitted here.</Text>
-                  <Text style={styles.infoText}>Learn how to report abuse or spam. This includes violence, criminal behavior, offensive content, and safety issues.</Text>
-                </View>
-                <Text style={styles.chevron}>›</Text>
-              </Pressable>
-              <View style={styles.divider} />
               <Pressable onPress={() => setShakeEnabled((enabled) => !enabled)} style={styles.toggleRow} accessibilityRole="switch" accessibilityState={{ checked: shakeEnabled }}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.toggleTitle}>Shake phone to report a problem</Text>
@@ -192,13 +183,6 @@ function make(colors: ReturnType<typeof useColors>) {
     primary: { minHeight: 57, borderRadius: 15, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", marginTop: 2 },
     primaryDisabled: { opacity: 0.42 },
     primaryText: { color: colors.successInk, fontSize: 16, fontWeight: "800" },
-    infoRow: { flexDirection: "row", alignItems: "flex-start", gap: 14, paddingVertical: 22 },
-    infoIcon: { width: 30, height: 30, borderWidth: 2, borderColor: colors.bone, borderRadius: 15, alignItems: "center", justifyContent: "center", marginTop: 2 },
-    infoIconText: { color: colors.bone, fontSize: 19, fontWeight: "800", lineHeight: 22 },
-    infoTitle: { color: colors.bone, fontSize: 16, lineHeight: 21, fontWeight: "600" },
-    infoText: { color: `${colors.bone}B8`, fontSize: 14, lineHeight: 19, marginTop: 6 },
-    chevron: { color: `${colors.bone}B8`, fontSize: 31, lineHeight: 34, marginTop: 20 },
-    divider: { height: 1, backgroundColor: `${colors.bone}15`, marginHorizontal: -26 },
     toggleRow: { flexDirection: "row", alignItems: "center", gap: 16, paddingVertical: 21 },
     toggleTitle: { color: colors.bone, fontSize: 16, lineHeight: 21 },
     toggleHint: { color: `${colors.bone}85`, fontSize: 13, lineHeight: 18, marginTop: 4 },
