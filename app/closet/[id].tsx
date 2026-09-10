@@ -2,8 +2,6 @@ import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { alertKindLabel, enableAlert, setAlertPreference, type AlertKind, useAlertPreference } from "../../lib/alerts";
 import { router, useLocalSearchParams } from "expo-router";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { runOnJS } from "react-native-reanimated";
 import { StatusBar } from "expo-status-bar";
 import { useRef, useEffect, useMemo, useState } from "react";
 import { Alert, Animated, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -262,6 +260,8 @@ export default function ClosetPiece() {
   const heartPopScale = useRef(new Animated.Value(0.55)).current;
   const heartPopX = useRef(new Animated.Value(0)).current;
   const heartPopY = useRef(new Animated.Value(0)).current;
+  const lastImageTap = useRef(0);
+  const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveTarget, setSaveTarget] = useState({ x: W - 36, y: insets.top + 26 });
 
   function recordLike() {
@@ -301,6 +301,22 @@ export default function ClosetPiece() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     recordLike();
     showHeartPop(x, y);
+  }
+
+  function onImagePress(x: number, y: number) {
+    const now = Date.now();
+    if (now - lastImageTap.current <= 450) {
+      if (imageTapTimer.current) clearTimeout(imageTapTimer.current);
+      lastImageTap.current = 0;
+      onImageDoubleTap(x, y);
+      return;
+    }
+    lastImageTap.current = now;
+    if (imageTapTimer.current) clearTimeout(imageTapTimer.current);
+    imageTapTimer.current = setTimeout(() => {
+      lastImageTap.current = 0;
+      imageTapTimer.current = null;
+    }, 450);
   }
 
   useEffect(() => {
@@ -373,25 +389,18 @@ export default function ClosetPiece() {
             }
           >
             {gallery.map((uri) => (
-              <GestureDetector
+              <Pressable
                 key={uri}
-                gesture={Gesture.Tap()
-                  .numberOfTaps(2)
-                  .maxDuration(250)
-                  .maxDistance(24)
-                  .onEnd((event, success) => {
-                    if (success) runOnJS(onImageDoubleTap)(event.x, event.y);
-                  })}
+                onPress={(event) => onImagePress(event.nativeEvent.locationX, event.nativeEvent.locationY)}
+                style={[styles.imageGesture, { width: imgW, height: imgH }]}
               >
-                <View style={[styles.imageGesture, { width: imgW, height: imgH }]}>
-                  <Image
-                    source={{ uri }}
-                    style={[styles.hero, { width: imgW, height: imgH, borderRadius: framed ? 4 : 0 }]}
-                    contentFit="cover"
-                    pointerEvents="none"
-                  />
-                </View>
-              </GestureDetector>
+                <Image
+                  source={{ uri }}
+                  style={[styles.hero, { width: imgW, height: imgH, borderRadius: framed ? 4 : 0 }]}
+                  contentFit="cover"
+                  pointerEvents="none"
+                />
+              </Pressable>
             ))}
           </ScrollView>
           <Animated.Text
