@@ -42,7 +42,16 @@ export default function Ask() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { id, threadId: routeThreadId, orderId: routeOrderId, supportCaseId: routeSupportCaseId, pieceName: routePieceName, piecePhoto: routePiecePhoto, piecePriceCents: routePiecePriceCents, brandId: routeBrandId } = useLocalSearchParams<{ id: string; threadId?: string; orderId?: string; supportCaseId?: string; pieceName?: string; piecePhoto?: string; piecePriceCents?: string; brandId?: string }>();
+  const { id: rawId, threadId: rawThreadId, orderId: rawOrderId, supportCaseId: rawSupportCaseId, pieceName: rawPieceName, piecePhoto: rawPiecePhoto, piecePriceCents: rawPiecePriceCents, brandId: rawBrandId } = useLocalSearchParams<{ id?: string | string[]; threadId?: string | string[]; orderId?: string | string[]; supportCaseId?: string | string[]; pieceName?: string | string[]; piecePhoto?: string | string[]; piecePriceCents?: string | string[]; brandId?: string | string[] }>();
+  const param = (value?: string | string[]) => Array.isArray(value) ? value[0] || "" : value || "";
+  const id = param(rawId);
+  const routeThreadId = param(rawThreadId);
+  const routeOrderId = param(rawOrderId);
+  const routeSupportCaseId = param(rawSupportCaseId);
+  const routePieceName = param(rawPieceName);
+  const routePiecePhoto = param(rawPiecePhoto);
+  const routePiecePriceCents = param(rawPiecePriceCents);
+  const routeBrandId = param(rawBrandId);
   const app = useUvel();
   const pieces = useWardrobe();
   useBrands();

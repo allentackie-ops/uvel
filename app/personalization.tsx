@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { requestTrackingPermissionsAsync, getTrackingPermissionsAsync } from "expo-tracking-transparency";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
@@ -17,7 +16,10 @@ export default function Personalization() {
 
   useEffect(() => {
     if (Platform.OS !== "ios") return;
-    void getTrackingPermissionsAsync().then((permission) => setCrossApp(permission.status === "granted")).catch(() => undefined);
+    void import("expo-tracking-transparency")
+      .then(({ getTrackingPermissionsAsync }) => getTrackingPermissionsAsync())
+      .then((permission) => setCrossApp(permission.status === "granted"))
+      .catch(() => setCrossApp(false));
   }, []);
 
   async function toggleCrossApp(enabled: boolean) {
@@ -30,8 +32,14 @@ export default function Personalization() {
       Alert.alert("Not available on this device", "Android does not provide a permission to read activity from other apps. Uvel only uses the activity you choose to share inside Uvel.");
       return;
     }
-    const permission = await requestTrackingPermissionsAsync();
-    setCrossApp(permission.status === "granted");
+    try {
+      const { requestTrackingPermissionsAsync } = await import("expo-tracking-transparency");
+      const permission = await requestTrackingPermissionsAsync();
+      setCrossApp(permission.status === "granted");
+    } catch {
+      setCrossApp(false);
+      Alert.alert("App update required", "Cross-app tracking is not available in this installed app version. You can still use Uvel’s in-app personalization now.");
+    }
   }
 
   return (
