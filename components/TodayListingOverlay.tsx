@@ -11,6 +11,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getBrand } from "../lib/brands";
 import { getMarket, moneyInMarket } from "../lib/markets";
 import { shipsToLabel } from "../lib/ships";
@@ -35,6 +36,7 @@ export function TodayListingOverlay({
   const colors = useColors();
   const styles = make(colors);
   const app = useUvel();
+  const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const top = useSharedValue(origin.y);
   const left = useSharedValue(origin.x);
@@ -105,19 +107,20 @@ export function TodayListingOverlay({
   const gallery = piece.photos?.length ? piece.photos : [piece.photo];
   const measurementEntries = Object.entries(piece.measurements || {}).filter(([, value]) => Boolean(value));
   const currentPhoto = gallery[Math.min(activePhoto, gallery.length - 1)] || piece.photo;
+  const heroHeight = Math.min(Math.max(screenHeight * 0.5, 320), 480);
 
   return (
     <View style={styles.root} pointerEvents="box-none">
       <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents="none" />
       <Animated.View style={[styles.surface, surfaceStyle]}>
           <Animated.View style={[styles.chrome, chromeStyle]} pointerEvents="box-none">
-            <Pressable onPress={animateToOrigin} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel="Close listing">
+            <Pressable onPress={animateToOrigin} hitSlop={12} style={[styles.back, { top: insets.top + 12 }]} accessibilityRole="button" accessibilityLabel="Close listing">
               <Ionicons name="chevron-down" size={28} color={colors.ink} />
             </Pressable>
             <Pressable
               onPress={() => app.toggleSaved(piece.id)}
               hitSlop={10}
-              style={styles.save}
+              style={[styles.save, { top: insets.top + 12 }]}
               accessibilityRole="button"
               accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}
             >
@@ -127,7 +130,7 @@ export function TodayListingOverlay({
           </Animated.View>
           <ScrollView
             style={styles.bodyScroll}
-            contentContainerStyle={styles.bodyContent}
+            contentContainerStyle={[styles.bodyContent, { paddingTop: insets.top, paddingBottom: insets.bottom + 32 }]}
             showsVerticalScrollIndicator={false}
             scrollEventThrottle={16}
             nestedScrollEnabled
@@ -136,7 +139,7 @@ export function TodayListingOverlay({
               if (event.nativeEvent.contentOffset.y < -96) animateToOrigin();
             }}
           >
-            <View style={styles.heroGesture}>
+            <View style={[styles.heroGesture, { height: heroHeight }]}>
               <Image source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
               {gallery.length > 1 ? (
                 <View style={styles.photoCount} pointerEvents="none">
