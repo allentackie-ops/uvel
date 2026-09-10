@@ -14,7 +14,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { loadShakeToReportEnabled, requestFeedback, saveShakeToReportEnabled, submitFeedback, subscribeToFeedbackRequest } from "../lib/feedback";
 import { pickFromLibrary } from "../lib/photo";
 import { useUvel } from "../lib/store";
@@ -26,7 +25,6 @@ const SAMPLE_MS = 80;
 export function ShakeToReport() {
   const colors = useColors();
   const styles = make(colors);
-  const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const app = useUvel();
   const [open, setOpen] = useState(false);
@@ -138,7 +136,7 @@ export function ShakeToReport() {
     <Modal visible={open} transparent animationType="slide" onRequestClose={close} statusBarTranslucent>
       <KeyboardAvoidingView style={styles.modalRoot} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <Pressable style={styles.scrim} onPress={close} accessibilityLabel="Close report problem" />
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 16) + 8 }]}>
+        <View style={[styles.sheet, { paddingBottom: 4 }]}>
           <View style={styles.grabber} />
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
@@ -241,7 +239,7 @@ function make(colors: ReturnType<typeof useColors>) {
     optionTitle: { color: colors.bone, fontSize: 15, lineHeight: 20 },
     optionHint: { color: `${colors.bone}75`, fontSize: 12, marginTop: 3 },
     preview: { width: 84, height: 84, borderRadius: 12, marginBottom: 4 },
-    cancel: { minHeight: 48, alignItems: "center", justifyContent: "center" },
+    cancel: { minHeight: 36, alignItems: "center", justifyContent: "center" },
     cancelText: { color: colors.bone, fontSize: 14, fontWeight: "700" },
     success: { paddingVertical: 12 },
     successTitle: { color: colors.bone, fontSize: 18, fontWeight: "800" },
