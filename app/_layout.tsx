@@ -282,6 +282,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="friends/chat/[id]"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="inbox"
             options={{
               headerShown: false,

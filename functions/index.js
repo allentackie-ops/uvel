@@ -3,6 +3,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const crypto = require("crypto");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
+Object.assign(exports, require("./social"));
 const stripeSecret = defineSecret("STRIPE_SECRET");
 const paystackSecret = defineSecret("PAYSTACK_SECRET");
 const anthropicSecret = defineSecret("ANTHROPIC_API_KEY");

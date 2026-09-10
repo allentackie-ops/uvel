@@ -22,6 +22,7 @@ import { useColors, type Colors } from "../lib/theme";
 import { type ClosetPiece } from "../lib/wardrobe";
 import type { PersonalizationAction } from "../lib/personalization";
 import { VerifiedMark } from "./VerifiedMark";
+import { FriendShareSheet, type FriendSharePayload } from "./FriendShareSheet";
 
 export type ListingOrigin = { x: number; y: number; width: number; height: number };
 
@@ -54,6 +55,7 @@ export function TodayListingOverlay({
   const [activePhoto, setActivePhoto] = useState(0);
   const [measurementsOpen, setMeasurementsOpen] = useState(false);
   const [shippingOpen, setShippingOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const lastImageTap = useRef(0);
   const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openedAt = useRef(Date.now());
@@ -125,6 +127,7 @@ export function TodayListingOverlay({
   const heartPopY = useSharedValue(heroHeight / 2);
   const heartPopScale = useSharedValue(0);
   const heartPopOpacity = useSharedValue(0);
+  const sharePayload: FriendSharePayload = { kind: "listing", id: piece.id, title: piece.name, deepLink: `uvel://piece/${piece.id}`, imageUri: piece.photo, previewText: `Have a look at ${piece.name} on Uvel.` };
 
   const heartPopStyle = useAnimatedStyle(() => ({
     opacity: heartPopOpacity.value,
@@ -205,7 +208,7 @@ export function TodayListingOverlay({
                 <Pressable
                   onPress={() => {
                     onInteraction?.("share", piece);
-                    void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel.` });
+                    setShareOpen(true);
                   }}
                   hitSlop={10}
                   style={styles.share}
@@ -349,6 +352,7 @@ export function TodayListingOverlay({
             </Animated.View>
           </ScrollView>
       </Animated.View>
+      <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
     </View>
   );
 }

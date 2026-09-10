@@ -23,6 +23,7 @@ import { httpsCallable } from "firebase/functions";
 import { firebaseAuth, firebaseDb, firebaseExtra, firebaseFunctions, firebaseReady } from "./firebase";
 import type { AuthVia } from "./sessionPath";
 import { remoteProfileComplete } from "./sessionPath";
+import { normalizeUsername } from "./username";
 
 export type Session = {
   uid: string;
@@ -136,10 +137,11 @@ export async function readUserProfile(uid: string) {
 
 export async function writeUserProfile(uid: string, data: Record<string, unknown>) {
   try {
+    const profile = typeof data.name === "string" ? { ...data, nameLower: data.name.trim().toLowerCase() } : data;
     await withTimeout(
       setDoc(
         doc(firebaseDb(), "users", uid),
-        { ...data, updatedAt: serverTimestamp() },
+        { ...profile, updatedAt: serverTimestamp() },
         { merge: true },
       ).then(() => true),
       8000,
@@ -148,6 +150,14 @@ export async function writeUserProfile(uid: string, data: Record<string, unknown
   } catch {
     /* local profile still counts */
   }
+}
+
+export async function claimUsername(value: string) {
+  needFirebase();
+  const username = normalizeUsername(value);
+  const call = httpsCallable<{ username: string }, { username: string }>(firebaseFunctions(), "claimUsername");
+  const result = await call({ username });
+  return result.data.username;
 }
 
 function needFirebase() {

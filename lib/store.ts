@@ -22,6 +22,7 @@ type State = {
   uid: string;
   email: string;
   displayName: string;
+  username: string;
   locale: string;
   country: string;
   profileDone: boolean;
@@ -50,6 +51,7 @@ const defaults: State = {
   uid: "",
   email: "",
   displayName: "",
+  username: "",
   locale: "",
   country: "",
   profileDone: false,
@@ -118,6 +120,7 @@ async function applyAccount(
       uid: user.uid,
       email: user.email,
       displayName: (stashed?.displayName as string) || user.name || memory.displayName,
+      username: (stashed?.username as string) || memory.username,
       signedInWith: user.provider,
       onboarded: true,
       onboardVersion: Math.max(memory.onboardVersion ?? 0, 4),
@@ -158,6 +161,7 @@ async function applyAccount(
       (stashed?.displayName as string) ||
       user.name ||
       memory.displayName,
+    username: (typeof remote?.username === "string" && remote.username) || (stashed?.username as string) || memory.username,
     signedInWith: user.provider,
     onboarded: true,
     onboardVersion: Math.max(memory.onboardVersion ?? 0, 4),
@@ -203,6 +207,7 @@ async function stashProfile() {
     all[memory.uid] = {
       profileDone: true,
       displayName: memory.displayName,
+      username: memory.username,
       avatarUri: memory.avatarUri,
       birthday: memory.birthday,
       gender: memory.gender,
@@ -323,6 +328,7 @@ export function useUvel() {
     },
     completeProfile: (patch: {
       displayName?: string;
+      username: string;
       birthday: string;
       gender: string;
       personUri: string | null;
@@ -361,6 +367,7 @@ export function useUvel() {
         saved: [],
         email: "",
         displayName: "",
+        username: "",
         profileDone: false,
         profileChecked: true,
         birthday: "",

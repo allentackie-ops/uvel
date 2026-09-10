@@ -20,6 +20,8 @@ import { useUvel } from "../lib/store";
 import { dressPerson } from "../lib/tryon";
 import { pickFromLibrary, takePhoto } from "../lib/photo";
 import { addPiece } from "../lib/wardrobe";
+import { claimUsername } from "../lib/auth";
+import { isValidUsername, normalizeUsername } from "../lib/username";
 
 const BG = "#FFFFFF";
 const INK = "#16140F";
@@ -29,7 +31,7 @@ const OLIVE = "#5E7018";
 const LIME = "#D6E27A";
 const WASH = "rgba(214,226,122,0.28)";
 const SOFT = "#F5F3EC";
-const STEPS = 5;
+const STEPS = 6;
 
 const STYLES = [
   "Quiet",
@@ -95,6 +97,8 @@ export default function ProfileSetup() {
   const [worn, setWorn] = useState<string | null>(null);
   const [look, setLook] = useState(LOOKS[0]?.id ?? "");
   const [asking, setAsking] = useState(false);
+  const [username, setUsername] = useState("");
+  const [wantsUpdates, setWantsUpdates] = useState(false);
   const [rendering, setRendering] = useState(false);
   const [rendered, setRendered] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
@@ -174,10 +178,22 @@ export default function ProfileSetup() {
     }
   }
 
-  async function finish(updates: boolean) {
+  async function finish() {
     if (asking) return;
+    const normalized = normalizeUsername(username);
+    if (!isValidUsername(normalized)) {
+      setErr("Use 3–20 lowercase letters, numbers, or underscores.");
+      return;
+    }
     setAsking(true);
-    if (updates) {
+    try {
+      await claimUsername(normalized);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "That username is not available.");
+      setAsking(false);
+      return;
+    }
+    if (wantsUpdates) {
       try {
         const Notifications = await import("expo-notifications");
         await Notifications.requestPermissionsAsync({
@@ -209,7 +225,8 @@ export default function ProfileSetup() {
       personUri: photo,
       styles: picked,
       wardrobeUris: fits,
-      wantsUpdates: updates,
+      wantsUpdates,
+      username: normalized,
     });
     setAsking(false);
   }
@@ -527,11 +544,35 @@ export default function ProfileSetup() {
                 ))}
               </View>
               <View style={{ flex: 1 }} />
-              <Pressable onPress={() => void finish(false)} disabled={asking} style={styles.skipBtn}>
+                <Pressable onPress={() => { setWantsUpdates(false); go(5); }} disabled={asking} style={styles.skipBtn}>
                 <Text style={styles.skipTxt}>No thanks</Text>
               </Pressable>
-              <Pressable onPress={() => void finish(true)} disabled={asking} style={styles.cta}>
-                <Text style={styles.ctaTxt}>{asking ? "One moment…" : "Keep me posted"}</Text>
+              <Pressable onPress={() => { setWantsUpdates(true); go(5); }} disabled={asking} style={styles.cta}>
+                <Text style={styles.ctaTxt}>Keep me posted</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          {step === 5 ? (
+            <View style={[styles.body, { paddingBottom: insets.bottom + 28 }]}>
+              <Text style={styles.h}>Choose your username.</Text>
+              <Text style={styles.lede}>This is how friends will find you on Uvel. Your username is required and can’t be changed here.</Text>
+              <TextInput
+                value={username}
+                onChangeText={(value) => setUsername(normalizeUsername(value).slice(0, 20))}
+                placeholder="your_username"
+                placeholderTextColor={MUTED}
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="username"
+                style={styles.field}
+                accessibilityLabel="Username"
+              />
+              <Text style={styles.usernameHint}>3–20 characters · letters, numbers, and underscores</Text>
+              {err ? <Text style={styles.err}>{err}</Text> : null}
+              <View style={{ flex: 1 }} />
+              <Pressable onPress={() => void finish()} disabled={asking || !username} style={[styles.cta, !username && styles.ctaOff]}>
+                <Text style={styles.ctaTxt}>{asking ? "Checking username…" : "Finish setup"}</Text>
               </Pressable>
             </View>
           ) : null}
@@ -600,6 +641,7 @@ const styles = StyleSheet.create({
   dobY: { flex: 1.3 },
   dobOn: { borderColor: OLIVE, backgroundColor: WASH },
   err: { color: "#B42318", marginTop: 12, fontSize: 14 },
+  usernameHint: { color: MUTED, fontSize: 13, marginTop: -4 },
   cta: {
     marginTop: 28,
     height: 54,

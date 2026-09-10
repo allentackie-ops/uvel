@@ -33,8 +33,39 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read, create, update: if isSelf(uid);
+      allow read: if isSelf(uid);
+      allow create: if isSelf(uid) && !request.resource.data.keys().hasAny(["username", "usernameNormalized"]);
+      allow update: if isSelf(uid) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(["username", "usernameNormalized"]);
       allow delete: if isSelf(uid);
+    }
+
+    match /usernames/{username} {
+      allow read, create, update, delete: if false;
+    }
+
+    match /friendRequests/{requestId} {
+      allow read: if signedIn() && (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /friendships/{friendshipId} {
+      allow read: if signedIn() && resource.data.userIds is list && resource.data.userIds.hasAny([request.auth.uid]);
+      allow write: if false;
+    }
+
+    match /users/{uid}/notifications/{notificationId} {
+      allow read: if isSelf(uid);
+      allow update: if isSelf(uid) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["readAt"]);
+      allow create, delete: if false;
+    }
+
+    match /friendChats/{chatId} {
+      allow read: if signedIn() && resource.data.participantIds is list && resource.data.participantIds.hasAny([request.auth.uid]);
+      allow write: if false;
+      match /messages/{messageId} {
+        allow read: if signedIn() && get(/databases/$(database)/documents/friendChats/$(chatId)).data.participantIds.hasAny([request.auth.uid]);
+        allow write: if false;
+      }
     }
 
     match /brands/{brandId} {
