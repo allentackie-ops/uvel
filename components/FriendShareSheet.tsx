@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   externalAction: { width: 60, alignItems: "center", gap: 6 },
   externalIcon: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
   externalLabel: { fontSize: 10, textAlign: "center" },
-  finderOverlay: { ...StyleSheet.absoluteFillObject, zIndex: 10 },
+  finderOverlay: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 10 },
   finderScrim: { flex: 1, justifyContent: "center", padding: 18, backgroundColor: "rgba(0,0,0,0.7)" },
   finder: { borderRadius: 24, padding: 20, maxHeight: "76%" },
   searchBox: { marginTop: 18, minHeight: 48, borderRadius: 14, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 8 },
@@ -179,7 +179,5 @@ const styles = StyleSheet.create({
   addButton: { minWidth: 58, minHeight: 34, borderRadius: 17, alignItems: "center", justifyContent: "center", paddingHorizontal: 13 },
   empty: { textAlign: "center", paddingVertical: 30, fontSize: 14 },
 });
-
-void onExternalShare;
 
 export default FriendShareSheet;
