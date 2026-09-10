@@ -241,7 +241,7 @@ export function TodayListingOverlay({
               </View>
               <View style={styles.actions}>
                 <Pressable onPress={() => router.push({ pathname: "/try-on", params: { piece: piece.id } })} style={styles.tryAction} accessibilityRole="button" accessibilityLabel="Try this listing on">
-                  <Ionicons name="person-outline" size={18} color={colors.bone} />
+                  <Ionicons name="body-outline" size={18} color={colors.bone} />
                   <Text style={styles.tryText}>Try it on</Text>
                 </Pressable>
                 <Pressable onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id } })} style={styles.primaryAction} accessibilityRole="button" accessibilityLabel="Buy this listing">
