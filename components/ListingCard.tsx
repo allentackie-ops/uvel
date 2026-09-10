@@ -130,8 +130,8 @@ function make(colors: ReturnType<typeof useColors>) {
     brandFramed: { marginTop: 0, letterSpacing: 1.3, fontWeight: "700", color: `${colors.bone}6B` },
     name: { color: colors.bone, fontSize: 14, fontWeight: "600", marginTop: 3, lineHeight: 18 },
     nameFramed: { color: colors.bone, marginTop: 4 },
-    price: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 4, fontVariant: ["tabular-nums"] },
-    priceFramed: { color: colors.bone },
+    price: { color: colors.success, fontSize: 15, fontWeight: "700", marginTop: 4, fontVariant: ["tabular-nums"] },
+    priceFramed: { color: colors.success },
     sizeLine: { color: `${colors.bone}6B`, fontSize: 11, marginTop: 4, letterSpacing: 0.4 },
   });
 }
