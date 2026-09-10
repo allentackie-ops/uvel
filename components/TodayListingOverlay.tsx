@@ -178,31 +178,33 @@ export function TodayListingOverlay({
               <Pressable onPress={animateToOrigin} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel="Close listing">
                 <Ionicons name="chevron-down" size={28} color={colors.ink} />
               </Pressable>
-              <Pressable
-                onPress={() => {
-                  onInteraction?.("save", piece);
-                  void app.toggleSaved(piece.id);
-                }}
-                hitSlop={10}
-                style={styles.save}
-                accessibilityRole="button"
-                accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}
-              >
-                <Ionicons name={liked ? "heart" : "heart-outline"} size={21} color={liked ? colors.success : colors.ink} />
-                <Text style={styles.saveText}>{liked ? "Saved" : "Save"}</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  onInteraction?.("share", piece);
-                  void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel.` });
-                }}
-                hitSlop={10}
-                style={styles.share}
-                accessibilityRole="button"
-                accessibilityLabel={`Share ${piece.name}`}
-              >
-                <Ionicons name="share-outline" size={20} color={colors.ink} />
-              </Pressable>
+              <View style={styles.topActions}>
+                <Pressable
+                  onPress={() => {
+                    onInteraction?.("share", piece);
+                    void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel.` });
+                  }}
+                  hitSlop={10}
+                  style={styles.share}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Share ${piece.name}`}
+                >
+                  <Ionicons name="share-outline" size={20} color={colors.ink} />
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    onInteraction?.("save", piece);
+                    void app.toggleSaved(piece.id);
+                  }}
+                  hitSlop={10}
+                  style={styles.save}
+                  accessibilityRole="button"
+                  accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}
+                >
+                  <Ionicons name={liked ? "heart" : "heart-outline"} size={21} color={liked ? colors.success : colors.ink} />
+                  <Text style={styles.saveText}>{liked ? "Saved" : "Save"}</Text>
+                </Pressable>
+              </View>
             </Animated.View>
             <Pressable
               style={[styles.heroGesture, { height: heroHeight }]}
@@ -357,8 +359,9 @@ function make(colors: Colors) {
     chrome: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     topBar: { paddingHorizontal: 18, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.ink },
     back: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone },
+    topActions: { flexDirection: "row", alignItems: "center", gap: 8 },
     save: { minHeight: 42, paddingHorizontal: 14, borderRadius: 22, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.bone },
-    share: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone, marginLeft: 8 },
+    share: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone },
     saveText: { color: colors.ink, fontSize: 13, fontWeight: "800" },
     photoCount: { position: "absolute", right: 18, bottom: 18, minWidth: 48, height: 28, paddingHorizontal: 9, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.58)", alignItems: "center", justifyContent: "center" },
     photoCountText: { color: colors.bone, fontSize: 11, fontWeight: "800", fontVariant: ["tabular-nums"] },
