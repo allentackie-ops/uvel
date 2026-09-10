@@ -41,7 +41,7 @@ export default function StyleDna() {
         <Text style={styles.kicker}>YOUR PREFERENCES</Text>
         <Text style={styles.heading}>Shape what Uvel shows you.</Text>
         <Text style={styles.lede}>
-          Choose a style, palette, and silhouette. Today and Shop use this mix to shape the looks and pieces they put in front of you.
+          Choose a style, palette, and silhouette. Today mixes this with what you browse, save, and like — it does not replace that.
         </Text>
 
         <OptionGroup
@@ -72,7 +72,7 @@ export default function StyleDna() {
         <View style={styles.savedNote} accessibilityLiveRegion="polite">
           <Text style={styles.savedTitle}>{dnaReady ? "Style DNA saved" : "Style DNA is not set"}</Text>
           <Text style={styles.savedCopy}>
-            {dnaReady ? "Change any choice whenever your taste shifts." : "Choose at least one option to start shaping Today."}
+            {dnaReady ? "Today will put more of this in front of you, alongside what you already engage with." : "Choose at least one option to start shaping Today."}
           </Text>
         </View>
       </ScrollView>
