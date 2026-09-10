@@ -1,22 +1,24 @@
 import { Image } from "expo-image";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Dimensions, Image as RNImage, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Dimensions, Image as RNImage, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ListingCard } from "./ListingCard";
+import type { ClosetPiece } from "../lib/wardrobe";
 
 const { width: SW, height: SH } = Dimensions.get("window");
 const MIN_CROP_SIZE = 92;
 const HANDLE_HIT_SIZE = 64;
+type Mode = "move" | "tl" | "tr" | "bl" | "br";
 
 type Props = {
   uri: string;
   onCancel: () => void;
   onPreview?: (uri: string) => void;
   previewStatus?: "idle" | "searching" | "ready";
-  previewItems?: string[];
+  previewItems?: ClosetPiece[];
 };
-type Mode = "move" | "tl" | "tr" | "bl" | "br";
 
 export function PhotoCrop({ uri, onCancel, onPreview, previewStatus = "idle", previewItems = [] }: Props) {
   const insets = useSafeAreaInsets();
@@ -47,6 +49,8 @@ export function PhotoCrop({ uri, onCancel, onPreview, previewStatus = "idle", pr
   const startRight = useSharedValue(0);
   const startBottom = useSharedValue(0);
   const mode = useSharedValue<Mode>("move");
+  const sheetY = useSharedValue(150);
+  const sheetStartY = useSharedValue(150);
 
   useEffect(() => {
     left.value = imageBox.left + imageBox.width * 0.12;
@@ -55,12 +59,8 @@ export function PhotoCrop({ uri, onCancel, onPreview, previewStatus = "idle", pr
     bottom.value = imageBox.top + imageBox.height * 0.88;
   }, [imageBox.height, imageBox.left, imageBox.top, imageBox.width]);
 
-  const cropStyle = useAnimatedStyle(() => ({
-    left: left.value,
-    top: top.value,
-    width: right.value - left.value,
-    height: bottom.value - top.value,
-  }));
+  const cropStyle = useAnimatedStyle(() => ({ left: left.value, top: top.value, width: right.value - left.value, height: bottom.value - top.value }));
+  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetY.value }] }));
 
   const cropImage = useCallback(async () => {
     if (!natural || !onPreview) return;
@@ -81,7 +81,7 @@ export function PhotoCrop({ uri, onCancel, onPreview, previewStatus = "idle", pr
     }
   }, [bottom, imageBox.height, imageBox.left, imageBox.top, imageBox.width, left, natural, onPreview, right, top, uri]);
 
-  const gesture = Gesture.Pan().onStart((event) => {
+  const cropGesture = Gesture.Pan().onStart((event) => {
     startLeft.value = left.value;
     startTop.value = top.value;
     startRight.value = right.value;
@@ -117,7 +117,15 @@ export function PhotoCrop({ uri, onCancel, onPreview, previewStatus = "idle", pr
     if (onPreview) runOnJS(cropImage)();
   });
 
-  const liveText = previewStatus === "searching" ? "Looking for this on Uvel…" : previewStatus === "ready" ? `${previewItems.length ? "Matches found" : "No close matches yet"}` : "Move the crop to start matching";
+  const sheetGesture = Gesture.Pan().onStart(() => {
+    sheetStartY.value = sheetY.value;
+  }).onUpdate((event) => {
+    sheetY.value = Math.max(0, Math.min(150, sheetStartY.value + event.translationY));
+  }).onEnd(() => {
+    sheetY.value = withSpring(sheetY.value < 75 ? 0 : 150, { damping: 24, stiffness: 220 });
+  });
+
+  const liveText = previewStatus === "searching" ? "Looking for this on Uvel…" : previewStatus === "ready" ? `${previewItems.length} ${previewItems.length === 1 ? "match" : "matches"}` : "";
 
   return (
     <View style={[styles.page, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -129,28 +137,30 @@ export function PhotoCrop({ uri, onCancel, onPreview, previewStatus = "idle", pr
       <View style={styles.stage}>
         <View style={[styles.frame, { width: frame.w, height: frame.h }]}>
           {natural ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" /> : <ActivityIndicator color="#D6E27A" />}
-          <GestureDetector gesture={gesture}>
+          <GestureDetector gesture={cropGesture}>
             <View style={styles.gestureSurface}>
               <Animated.View style={[styles.cropBox, cropStyle]}>
-              <View pointerEvents="none" style={styles.grid}>
-                <View style={styles.gridV1} /><View style={styles.gridV2} /><View style={styles.gridH1} /><View style={styles.gridH2} />
-              </View>
-              <View pointerEvents="none" style={styles.cropBorder} />
-              <View pointerEvents="none" style={[styles.handle, styles.tl]} /><View pointerEvents="none" style={[styles.handle, styles.tr]} />
-              <View pointerEvents="none" style={[styles.handle, styles.bl]} /><View pointerEvents="none" style={[styles.handle, styles.br]} />
+                <View pointerEvents="none" style={styles.grid}><View style={styles.gridV1} /><View style={styles.gridV2} /><View style={styles.gridH1} /><View style={styles.gridH2} /></View>
+                <View pointerEvents="none" style={styles.cropBorder} />
+                <View pointerEvents="none" style={[styles.handle, styles.tl]} /><View pointerEvents="none" style={[styles.handle, styles.tr]} />
+                <View pointerEvents="none" style={[styles.handle, styles.bl]} /><View pointerEvents="none" style={[styles.handle, styles.br]} />
               </Animated.View>
             </View>
           </GestureDetector>
         </View>
       </View>
-      <View style={styles.footer}>
-        <View style={styles.liveRow}>
-          {previewStatus === "searching" ? <ActivityIndicator size="small" color="#D6E27A" /> : <View style={[styles.liveDot, previewStatus === "ready" && styles.liveDotReady]} />}
-          <Text style={styles.liveText}>{liveText}</Text>
-        </View>
-        {previewItems.length ? <Text style={styles.matchNames} numberOfLines={1}>{previewItems.join("  ·  ")}</Text> : null}
-        <Text style={styles.liveCaption}>Live matches update as you move the crop.</Text>
-      </View>
+      <GestureDetector gesture={sheetGesture}>
+        <Animated.View style={[styles.resultsSheet, sheetStyle]}>
+          <View style={styles.sheetGrip} />
+          <View style={styles.sheetHeader}>
+            <View><Text style={styles.sheetTitle}>Live matches</Text><Text style={styles.sheetSubhead}>{liveText || "Move the crop to begin"}</Text></View>
+            {previewStatus === "searching" ? <ActivityIndicator color="#D6E27A" /> : null}
+          </View>
+          {previewItems.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.resultsRail} nestedScrollEnabled>
+            {previewItems.map((piece) => <ListingCard key={piece.id} piece={piece} wide={164} framed />)}
+          </ScrollView> : <Text style={styles.emptyResults}>{previewStatus === "ready" ? "No close Uvel listings yet." : "Matches will appear here as you frame an item."}</Text>}
+        </Animated.View>
+      </GestureDetector>
     </View>
   );
 }
@@ -176,11 +186,11 @@ const styles = StyleSheet.create({
   tr: { top: -2, right: -2, borderLeftWidth: 0, borderBottomWidth: 0 },
   bl: { bottom: -2, left: -2, borderRightWidth: 0, borderTopWidth: 0 },
   br: { bottom: -2, right: -2, borderLeftWidth: 0, borderTopWidth: 0 },
-  footer: { borderTopWidth: 1, borderTopColor: "#514D47", paddingHorizontal: 26, paddingTop: 18 },
-  liveRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 24 },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#D6E27A" },
-  liveDotReady: { backgroundColor: "#85D6A0" },
-  liveText: { color: "#F4F0E6", fontSize: 15, fontWeight: "600" },
-  matchNames: { color: "rgba(244,240,230,0.66)", textAlign: "center", fontSize: 12, marginTop: 4 },
-  liveCaption: { color: "rgba(244,240,230,0.58)", fontSize: 13, textAlign: "center", marginTop: 9, marginBottom: 12 },
+  resultsSheet: { position: "absolute", left: 0, right: 0, bottom: 0, minHeight: 360, backgroundColor: "#1A1916", borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 18, paddingTop: 9, paddingBottom: 16, zIndex: 20 },
+  sheetGrip: { alignSelf: "center", width: 42, height: 5, borderRadius: 3, backgroundColor: "rgba(244,240,230,0.32)", marginBottom: 14 },
+  sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  sheetTitle: { color: "#F4F0E6", fontSize: 18, fontWeight: "700" },
+  sheetSubhead: { color: "rgba(244,240,230,0.58)", fontSize: 13, marginTop: 3 },
+  resultsRail: { gap: 12, paddingBottom: 14 },
+  emptyResults: { color: "rgba(244,240,230,0.62)", fontSize: 14, lineHeight: 20, paddingVertical: 24 },
 });
