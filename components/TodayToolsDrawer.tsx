@@ -9,7 +9,9 @@ import { canSeeAnalytics, ownedBrand, useBrands } from "../lib/brands";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 
-export const DRAWER_WIDTH = Math.min(Dimensions.get("window").width * 0.84, 360);
+// Keep a meaningful portion of Today visible behind the workspace, rather than
+// reducing it to an unusable sliver during the X-style page transition.
+export const DRAWER_WIDTH = Math.min(Dimensions.get("window").width * 0.74, 320);
 const SPRING = { damping: 28, stiffness: 300, mass: 0.82 };
 
 type Tool = {
