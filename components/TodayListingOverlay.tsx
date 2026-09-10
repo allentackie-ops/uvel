@@ -113,24 +113,9 @@ export function TodayListingOverlay({
     <View style={styles.root} pointerEvents="box-none">
       <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents="none" />
       <Animated.View style={[styles.surface, surfaceStyle]}>
-          <Animated.View style={[styles.chrome, chromeStyle]} pointerEvents="box-none">
-            <Pressable onPress={animateToOrigin} hitSlop={12} style={[styles.back, { top: insets.top + 12 }]} accessibilityRole="button" accessibilityLabel="Close listing">
-              <Ionicons name="chevron-down" size={28} color={colors.ink} />
-            </Pressable>
-            <Pressable
-              onPress={() => app.toggleSaved(piece.id)}
-              hitSlop={10}
-              style={[styles.save, { top: insets.top + 12 }]}
-              accessibilityRole="button"
-              accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}
-            >
-              <Ionicons name={liked ? "heart" : "heart-outline"} size={21} color={liked ? colors.success : colors.ink} />
-              <Text style={styles.saveText}>{liked ? "Saved" : "Save"}</Text>
-            </Pressable>
-          </Animated.View>
           <ScrollView
             style={styles.bodyScroll}
-            contentContainerStyle={[styles.bodyContent, { paddingTop: insets.top, paddingBottom: insets.bottom + 32 }]}
+            contentContainerStyle={[styles.bodyContent, { paddingBottom: insets.bottom + 32 }]}
             showsVerticalScrollIndicator={false}
             scrollEventThrottle={16}
             nestedScrollEnabled
@@ -139,6 +124,21 @@ export function TodayListingOverlay({
               if (event.nativeEvent.contentOffset.y < -96) animateToOrigin();
             }}
           >
+            <Animated.View style={[styles.topBar, { height: insets.top + 76, paddingTop: insets.top }, chromeStyle]}>
+              <Pressable onPress={animateToOrigin} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel="Close listing">
+                <Ionicons name="chevron-down" size={28} color={colors.ink} />
+              </Pressable>
+              <Pressable
+                onPress={() => app.toggleSaved(piece.id)}
+                hitSlop={10}
+                style={styles.save}
+                accessibilityRole="button"
+                accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}
+              >
+                <Ionicons name={liked ? "heart" : "heart-outline"} size={21} color={liked ? colors.success : colors.ink} />
+                <Text style={styles.saveText}>{liked ? "Saved" : "Save"}</Text>
+              </Pressable>
+            </Animated.View>
             <View style={[styles.heroGesture, { height: heroHeight }]}>
               <Image source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
               {gallery.length > 1 ? (
@@ -292,8 +292,9 @@ function make(colors: Colors) {
     heroGesture: { width: "100%", height: "54%" },
     hero: { width: "100%", height: "100%", backgroundColor: colors.surface },
     chrome: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
-    back: { position: "absolute", top: 54, left: 18, width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(244,240,230,0.84)" },
-    save: { position: "absolute", top: 54, right: 18, minHeight: 42, paddingHorizontal: 14, borderRadius: 22, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(244,240,230,0.84)" },
+    topBar: { paddingHorizontal: 18, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.ink },
+    back: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(244,240,230,0.84)" },
+    save: { minHeight: 42, paddingHorizontal: 14, borderRadius: 22, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(244,240,230,0.84)" },
     saveText: { color: colors.ink, fontSize: 13, fontWeight: "800" },
     photoCount: { position: "absolute", right: 18, bottom: 18, minWidth: 48, height: 28, paddingHorizontal: 9, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.58)", alignItems: "center", justifyContent: "center" },
     photoCountText: { color: colors.bone, fontSize: 11, fontWeight: "800", fontVariant: ["tabular-nums"] },
