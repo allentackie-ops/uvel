@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { LANGS } from "../lib/i18n";
 import { getMarket } from "../lib/markets";
+import { requestFeedback } from "../lib/feedback";
 import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
 import { useColors, type Colors } from "../lib/theme";
@@ -68,6 +69,7 @@ export default function Settings() {
       <Text style={styles.section}>{C.support}</Text>
       <View style={styles.group}>
         <Row label={C.helpSupport} onPress={() => void Linking.openURL(HELP)} colors={colors} />
+        <Row label="Report app issue" hint="Send feedback with an optional screenshot" onPress={requestFeedback} colors={colors} />
         <Row label={C.privacyPolicy} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "privacy" } })} colors={colors} />
         <Row label={C.terms} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "terms" } })} colors={colors} last />
       </View>

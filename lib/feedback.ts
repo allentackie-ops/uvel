@@ -7,6 +7,7 @@ const KEY = "uvel-feedback-v1";
 export type FeedbackReport = {
   id: string;
   body: string;
+  screenshotUri?: string;
   category: "technical";
   screen: string;
   createdAt: number;
@@ -14,6 +15,19 @@ export type FeedbackReport = {
   userName?: string;
   syncStatus: "pending" | "synced";
 };
+
+const openListeners = new Set<() => void>();
+
+export function requestFeedback() {
+  openListeners.forEach((listener) => listener());
+}
+
+export function subscribeToFeedbackRequest(listener: () => void) {
+  openListeners.add(listener);
+  return () => {
+    openListeners.delete(listener);
+  };
+}
 
 async function persist(reports: FeedbackReport[]) {
   try {

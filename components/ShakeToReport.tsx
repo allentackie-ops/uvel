@@ -1,4 +1,5 @@
 import { Accelerometer } from "expo-sensors";
+import { Image } from "expo-image";
 import { usePathname } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -14,7 +15,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { submitFeedback } from "../lib/feedback";
+import { requestFeedback, submitFeedback, subscribeToFeedbackRequest } from "../lib/feedback";
+import { pickFromLibrary } from "../lib/photo";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 
@@ -30,6 +32,8 @@ export function ShakeToReport() {
   const [open, setOpen] = useState(false);
   const [compose, setCompose] = useState(false);
   const [shakeEnabled, setShakeEnabled] = useState(true);
+  const [includeScreenshot, setIncludeScreenshot] = useState(false);
+  const [screenshotUri, setScreenshotUri] = useState<string | undefined>();
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
@@ -41,6 +45,16 @@ export function ShakeToReport() {
   useEffect(() => {
     openRef.current = open;
   }, [open]);
+
+  useEffect(() => subscribeToFeedbackRequest(() => {
+    openRef.current = true;
+    setCompose(true);
+    setSent(false);
+    setBody("");
+    setScreenshotUri(undefined);
+    setIncludeScreenshot(false);
+    setOpen(true);
+  }), []);
 
   useEffect(() => {
     activeRef.current = true;
@@ -58,11 +72,7 @@ export function ShakeToReport() {
           const now = Date.now();
           if (magnitude >= SHAKE_THRESHOLD && now - lastShake.current >= SHAKE_COOLDOWN_MS) {
             lastShake.current = now;
-            openRef.current = true;
-            setCompose(false);
-            setSent(false);
-            setBody("");
-            setOpen(true);
+            requestFeedback();
           }
         });
       }).catch(() => undefined);
@@ -81,6 +91,8 @@ export function ShakeToReport() {
     openRef.current = false;
     setOpen(false);
     setCompose(false);
+    setIncludeScreenshot(false);
+    setScreenshotUri(undefined);
     setBody("");
     setSent(false);
   }
@@ -92,6 +104,7 @@ export function ShakeToReport() {
     try {
       await submitFeedback({
         body: clean,
+        screenshotUri,
         category: "technical",
         screen: pathname || "/",
         userId: app.uid || undefined,
@@ -101,6 +114,19 @@ export function ShakeToReport() {
       setBody("");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function toggleScreenshot() {
+    if (includeScreenshot) {
+      setIncludeScreenshot(false);
+      setScreenshotUri(undefined);
+      return;
+    }
+    const uri = await pickFromLibrary();
+    if (uri) {
+      setScreenshotUri(uri);
+      setIncludeScreenshot(true);
     }
   }
 
@@ -142,6 +168,14 @@ export function ShakeToReport() {
                 accessibilityLabel="Describe the technical problem"
               />
               <Text style={styles.counter}>{body.length}/2000</Text>
+              <Pressable onPress={() => void toggleScreenshot()} style={styles.optionRow} accessibilityRole="switch" accessibilityState={{ checked: includeScreenshot }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.optionTitle}>Include screenshot in report</Text>
+                  <Text style={styles.optionHint}>{includeScreenshot ? "Screenshot attached" : "Optional"}</Text>
+                </View>
+                <View style={[styles.toggle, includeScreenshot && styles.toggleOn]}><View style={[styles.knob, includeScreenshot && styles.knobOn]} /></View>
+              </Pressable>
+              {screenshotUri ? <Image source={{ uri: screenshotUri }} style={styles.preview} contentFit="cover" /> : null}
               <Pressable onPress={() => void send()} disabled={!body.trim() || submitting} style={[styles.primary, (!body.trim() || submitting) && styles.primaryDisabled]} accessibilityRole="button" accessibilityState={{ disabled: !body.trim() || submitting }}>
                 {submitting ? <ActivityIndicator color={colors.successInk} /> : <Text style={styles.primaryText}>Send report</Text>}
               </Pressable>
@@ -192,6 +226,10 @@ function make(colors: ReturnType<typeof useColors>) {
     knobOn: { backgroundColor: colors.successInk, transform: [{ translateX: 26 }] },
     input: { minHeight: 142, maxHeight: 220, borderRadius: 16, borderWidth: 1, borderColor: `${colors.bone}32`, backgroundColor: `${colors.bone}0C`, color: colors.bone, padding: 15, fontSize: 15, lineHeight: 21 },
     counter: { alignSelf: "flex-end", color: `${colors.bone}60`, fontSize: 11, marginTop: 7 },
+    optionRow: { flexDirection: "row", alignItems: "center", gap: 16, paddingVertical: 15 },
+    optionTitle: { color: colors.bone, fontSize: 15, lineHeight: 20 },
+    optionHint: { color: `${colors.bone}75`, fontSize: 12, marginTop: 3 },
+    preview: { width: 84, height: 84, borderRadius: 12, marginBottom: 4 },
     cancel: { minHeight: 48, alignItems: "center", justifyContent: "center" },
     cancelText: { color: colors.bone, fontSize: 14, fontWeight: "700" },
     success: { paddingVertical: 12 },
