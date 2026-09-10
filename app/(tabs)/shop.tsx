@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Image as RNImage, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
@@ -14,7 +14,7 @@ import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
 import { VerifiedMark } from "../../components/VerifiedMark";
 import { followedBrandIds, getBrand, verifiedBrands, useBrands } from "../../lib/brands";
-import { CATEGORIES } from "../../lib/catalog";
+import { CATEGORIES, GARMENTS } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
 import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
 import { getMarket } from "../../lib/markets";
@@ -23,7 +23,7 @@ import { useCopy } from "../../lib/useCopy";
 import { useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
 import { useLiveShopCampaigns } from "../../lib/marketing";
-import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated } from "../../lib/wardrobe";
+import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
 import { unreadFor, useInbox } from "../../lib/chat";
 
 const MIN_REFRESH_MS = 1200;
@@ -105,7 +105,6 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
   const [aiIds, setAiIds] = useState<string[] | null>(null);
   const [scanning, setScanning] = useState(false);
   const [job, setJob] = useState<LookScan | null>(null);
-  const [retrying, setRetrying] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
@@ -153,7 +152,6 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
       ]);
     } finally {
       setRefreshing(false);
-      setRetrying(false);
     }
   }, []);
 
@@ -182,7 +180,33 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
   }, []);
 
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
-  const live = shopFloor(country);
+  const live = useMemo(() => {
+    const remote = shopFloor(country);
+    if (remote.length) return remote;
+    return GARMENTS.map((garment): ClosetPiece => {
+      const photo = RNImage.resolveAssetSource(garment.image)?.uri || "";
+      return {
+        id: `test-${garment.id}`,
+        photo,
+        photos: [photo],
+        name: garment.name,
+        brand: garment.brand,
+        category: garment.category,
+        color: garment.color,
+        size: garment.size,
+        condition: garment.condition,
+        material: garment.material,
+        notes: garment.description,
+        listPriceCents: garment.priceCents,
+        originalPriceCents: garment.priceCents,
+        status: "listed",
+        createdAt: Date.now(),
+        country: garment.country,
+        currency: "USD",
+        shipsTo: "all",
+      };
+    });
+  }, [country, marketplaceSync]);
   const liveCampaigns = useLiveShopCampaigns();
   const scanningLook = Boolean(scan === "1" || look || frame || videoUrl);
   const shopCampaignRows = useMemo(() => liveCampaigns
@@ -318,24 +342,6 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
       {scanning ? (
         <View style={styles.orbitBox}>
           <OrbitLoader />
-        </View>
-      ) : null}
-
-      {marketplaceSync !== "confirmed" ? (
-        <View style={styles.syncCard} accessibilityLiveRegion="polite">
-          <Text style={styles.syncKicker}>{marketplaceSync === "loading" ? "CONNECTING TO SHOP" : "SHOP TEMPORARILY UNAVAILABLE"}</Text>
-          <Text style={styles.syncTitle}>{marketplaceSync === "loading" ? "Finding live listings" : "We’re reconnecting the marketplace"}</Text>
-          <Text style={styles.syncNotice}>{marketplaceSync === "loading" ? "Your shop is loading the latest verified inventory." : "Live listings will return when the marketplace connection is restored."}</Text>
-          {marketplaceSync === "unavailable" ? (
-            <View style={styles.syncActions}>
-              <AccessiblePressable onPress={() => { setRetrying(true); void onRefresh(); }} style={styles.syncPrimary} accessibilityRole="button" accessibilityLabel="Retry marketplace connection">
-                <Text style={styles.syncPrimaryTxt}>{retrying ? "Retrying…" : "Retry"}</Text>
-              </AccessiblePressable>
-              <AccessiblePressable onPress={() => router.push("/")} style={styles.syncSecondary} accessibilityRole="button" accessibilityLabel="Explore Today’s edit">
-                <Text style={styles.syncSecondaryTxt}>Explore Today</Text>
-              </AccessiblePressable>
-            </View>
-          ) : null}
         </View>
       ) : null}
 
@@ -513,20 +519,11 @@ function make(colors: Colors) {
     todayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 56, marginBottom: 4 },
     headerSide: { width: 44, height: 44 },
     wordmarkButton: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 10, gap: 4 },
-    wordmark: { color: colors.bone, fontFamily: "Georgia", fontSize: 36, fontStyle: "italic", fontWeight: "700", letterSpacing: -2.2, lineHeight: 42 },
-    wordmarkChevron: { color: `${colors.bone}B8`, fontSize: 21, fontWeight: "700", marginTop: 7 },
+    wordmark: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, fontStyle: "italic", fontWeight: "700", letterSpacing: 0, lineHeight: 42 },
+    wordmarkChevron: { color: `${colors.bone}B8`, fontSize: 19, fontWeight: "700", marginTop: 0 },
     messageButton: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: `${colors.bone}55`, backgroundColor: `${colors.bone}14`, alignItems: "center", justifyContent: "center" },
     messageBadge: { position: "absolute", right: -2, top: -3, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     messageBadgeText: { color: colors.successInk, fontSize: 9, fontWeight: "900" },
-    syncCard: { marginTop: 18, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}1F` },
-    syncKicker: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.4 },
-    syncTitle: { color: colors.bone, fontSize: 17, fontWeight: "800", marginTop: 5 },
-    syncNotice: { color: `${colors.bone}99`, fontSize: 13, lineHeight: 18, marginTop: 5 },
-    syncActions: { flexDirection: "row", gap: 8, marginTop: 14 },
-    syncPrimary: { minHeight: 40, paddingHorizontal: 16, borderRadius: 20, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
-    syncPrimaryTxt: { color: colors.successInk, fontSize: 13, fontWeight: "800" },
-    syncSecondary: { minHeight: 40, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: `${colors.bone}2E`, alignItems: "center", justifyContent: "center" },
-    syncSecondaryTxt: { color: colors.bone, fontSize: 13, fontWeight: "700" },
     emptyState: { marginTop: 22, padding: 22, borderRadius: 20, backgroundColor: colors.surface, alignItems: "center" },
     emptyKicker: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
     emptyTitle: { color: colors.bone, fontSize: 19, fontWeight: "800", textAlign: "center", marginTop: 7 },
@@ -594,7 +591,7 @@ function make(colors: Colors) {
     input: { flex: 1, color: colors.bone, fontSize: 16, height: 46 },
     clearBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
     clear: { color: `${colors.bone}D1`, fontSize: 22, paddingHorizontal: 4 },
-    cameraBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: `${colors.bone}12` },
+    cameraBtn: { width: 36, height: 44, alignItems: "center", justifyContent: "center" },
     chips: { gap: 8, paddingVertical: 16 },
     chip: {
       minHeight: 44,
