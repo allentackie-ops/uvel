@@ -43,9 +43,9 @@ export default function Personalization() {
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <View style={styles.heroIcon}><Ionicons name="sparkles-outline" size={24} color={colors.successInk} /></View>
+      <View style={styles.heroIcon}><Ionicons name="compass" size={24} color={colors.successInk} /></View>
       <Text style={styles.title}>Make Today yours</Text>
-      <Text style={styles.intro}>Uvel learns from how you use the app from day one—what you view, save, search, share, try on, like, and read closely—so your marketplace edit gets sharper over time.</Text>
+      <Text style={styles.intro}>Uvel learns from how you use the app from day one. It pays attention to what you view, save, search, share, try on, like, and read closely, so your marketplace edit gets sharper over time.</Text>
 
       <View style={styles.card}>
         <Pressable onPress={() => { void clearPersonalization(uid); Alert.alert("Your edit was cleared", "Uvel will start learning your Today preferences again from now on."); }} style={styles.clearRow} accessibilityRole="button">
