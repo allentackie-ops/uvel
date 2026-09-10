@@ -166,6 +166,22 @@ export function TodayListingOverlay({
     }, 450);
   }
 
+  function openMessage() {
+    onClose();
+    setTimeout(() => {
+      router.push({
+        pathname: "/ask/[id]",
+        params: {
+          id: piece.id,
+          pieceName: piece.name,
+          piecePhoto: piece.photo,
+          piecePriceCents: String(piece.listPriceCents),
+          ...(piece.brandId ? { brandId: piece.brandId } : {}),
+        },
+      });
+    }, 300);
+  }
+
   return (
     <View style={styles.root} pointerEvents="box-none">
       <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents="none" />
@@ -265,7 +281,7 @@ export function TodayListingOverlay({
                   <Text style={styles.sellerMeta} numberOfLines={1}>Ships from {sellerLocation}</Text>
                 </View>
                 <Pressable
-                  onPress={() => router.push({ pathname: "/ask/[id]", params: { id: piece.id } })}
+                  onPress={openMessage}
                   style={styles.messageButton}
                   accessibilityRole="button"
                   accessibilityLabel={`Message ${sellerName}`}
