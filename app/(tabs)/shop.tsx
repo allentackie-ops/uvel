@@ -17,6 +17,7 @@ import { VerifiedMark } from "../../components/VerifiedMark";
 import { followedBrandIds, getBrand, verifiedBrands, useBrands } from "../../lib/brands";
 import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
+import { dnaFrom } from "../../lib/styleDna";
 import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
 import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
@@ -117,6 +118,10 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const followedIds = useMemo(() => followedBrandIds(app.uid), [brandState, app.uid]);
   const followedKey = followedIds.join("|");
   const personalization = usePersonalization(app.uid || "guest");
+  const dna = useMemo(
+    () => dnaFrom(app),
+    [app.archetype, app.palette, app.silhouette, app.styles, app.gender],
+  );
   const openTodayListing = useCallback((piece: ClosetPiece, origin: ListingOrigin) => {
     setOpenOrigin(origin);
     setOpenPiece(piece);
@@ -259,8 +264,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     }
 
     const rows = look ? matchListings(look, live, taste, followedIds) : forYou(live, taste, country, followedIds);
-    return personalization.rank(rows.filter(passQ), country);
-  }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey, personalization.rank]);
+    return personalization.rank(rows.filter(passQ), country, dna);
+  }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey, dna, personalization.rank]);
 
   if (!wardrobeReady && !scanningLook) return <ShopSkeleton colors={colors} />;
 
