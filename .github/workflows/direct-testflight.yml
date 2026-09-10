@@ -35,40 +35,42 @@ jobs:
       - name: Download IPA from EAS artifact
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          BUILD_ID: ${{ inputs.build_id }}
         run: |
           set -euo pipefail
-          ID="${{ inputs.build_id }}"
-          echo "Looking up IPA for $ID"
-          RAW=$(npx --yes eas-cli@latest build:view "$ID" --json --non-interactive)
-          URL=$(python3 - <<'PY'
-          import json, os, sys
-          s = os.environ.get("RAW") or open("/tmp/eas-build.json").read() if False else sys.stdin.read()
+          npx --yes eas-cli@latest build:view "$BUILD_ID" --json --non-interactive > /tmp/eas-build.json
+          python3 - <<'PY'
+          import json, pathlib, sys
+          s = pathlib.Path("/tmp/eas-build.json").read_text()
           i = s.find("{")
           if i < 0:
-              raise SystemExit(s[:4000])
+              sys.exit("eas build:view did not return JSON:\n" + s[:4000])
           j = json.loads(s[i:])
           arts = j.get("artifacts") or {}
           u = arts.get("applicationArchiveUrl") or arts.get("buildUrl")
           if not u:
-              raise SystemExit("No IPA URL in:\n" + s[:4000])
-          print(u)
+              sys.exit("No IPA URL in:\n" + s[:4000])
+          pathlib.Path("/tmp/ipa-url.txt").write_text(u.strip())
+          print(u.strip())
           PY
-          <<<"$RAW")
-          echo "Downloading $URL"
+          URL=$(cat /tmp/ipa-url.txt)
+          echo "Downloading IPA"
           curl -fL --retry 5 --retry-delay 2 -H "Authorization: Bearer $EXPO_TOKEN" -o uvel.ipa "$URL"
           ls -lh uvel.ipa
           python3 - <<'PY'
-          import pathlib
+          import pathlib, sys
           p = pathlib.Path("uvel.ipa")
-          if p.stat().st_size < 1_000_000:
-              raise SystemExit(f"IPA too small: {p.stat().st_size} bytes")
+          size = p.stat().st_size
+          print(f"IPA size: {size} bytes")
+          if size < 1_000_000:
+              sys.exit(f"IPA too small: {size} bytes")
           head = p.read_bytes()[:4]
           if head != b"PK\x03\x04":
-              raise SystemExit(f"Not a zip/ipa, starts with {head!r}")
+              sys.exit(f"Not a zip/ipa, starts with {head!r}")
           print("IPA looks valid")
           PY
 
-      - name: Normalize App Store Connect key
+      - name: Write App Store Connect key
         env:
           ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
         run: |
@@ -77,17 +79,14 @@ jobs:
           from pathlib import Path
           key = os.environ["ASC_API_KEY"].replace("\\n", "\n").strip() + "\n"
           Path("AuthKey.p8").write_text(key)
-          Path("/tmp/asc_key.pem").write_text(key)
-          print("Wrote AuthKey.p8", len(key), "chars")
+          print("Wrote AuthKey.p8")
           PY
-          echo "ASC_API_KEY<<EOF" >> "$GITHUB_ENV"
-          python3 -c 'import pathlib; print(pathlib.Path("AuthKey.p8").read_text(), end="")' >> "$GITHUB_ENV"
-          echo "EOF" >> "$GITHUB_ENV"
 
       - name: Upload IPA to TestFlight
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_PATH: AuthKey.p8
           IPA_PATH: uvel.ipa
           WHAT_TO_TEST: ${{ inputs.what_to_test }}
           FASTLANE_SKIP_UPDATE_CHECK: "1"
