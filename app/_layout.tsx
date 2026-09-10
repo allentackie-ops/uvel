@@ -6,6 +6,7 @@ import { Pressable, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { LaunchSplash } from "../components/LaunchSplash";
+import { ShakeToReport } from "../components/ShakeToReport";
 import { observeListing } from "../lib/alerts";
 import { useOtaReady } from "../lib/ota";
 import { armNotificationHandler, registerPushToken, watchLastSeen } from "../lib/push";
@@ -114,6 +115,7 @@ function AppStack() {
         <PushSync />
         <AlertSync />
         <LikesSync />
+        <ShakeToReport />
         <StatusBar style={appearance === "dark" ? "light" : "dark"} />
         <Stack
           screenOptions={{
