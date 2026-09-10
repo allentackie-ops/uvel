@@ -4,7 +4,6 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { PhotoCrop } from "../components/PhotoCrop";
 import { useUvel } from "../lib/store";
 import { lensScan } from "../lib/lookMatch";
-import { setLookScan } from "../lib/lookSearch";
 import { useWardrobe } from "../lib/wardrobe";
 
 export default function VisualSearch() {
@@ -56,10 +55,6 @@ export default function VisualSearch() {
       previewStatus={status}
       previewItems={matchNames}
       onCancel={() => router.back()}
-      onDone={(croppedUri) => {
-        setLookScan(croppedUri, "Visual search");
-        router.replace({ pathname: "/(tabs)/shop", params: { scan: "1" } });
-      }}
     />
   );
 }

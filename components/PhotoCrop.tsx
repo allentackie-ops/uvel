@@ -12,17 +12,15 @@ const HANDLE_HIT_SIZE = 64;
 type Props = {
   uri: string;
   onCancel: () => void;
-  onDone: (uri: string) => void;
   onPreview?: (uri: string) => void;
   previewStatus?: "idle" | "searching" | "ready";
   previewItems?: string[];
 };
 type Mode = "move" | "tl" | "tr" | "bl" | "br";
 
-export function PhotoCrop({ uri, onCancel, onDone, onPreview, previewStatus = "idle", previewItems = [] }: Props) {
+export function PhotoCrop({ uri, onCancel, onPreview, previewStatus = "idle", previewItems = [] }: Props) {
   const insets = useSafeAreaInsets();
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
-  const [busy, setBusy] = useState(false);
   const frame = useMemo(() => {
     const avail = SH - insets.top - insets.bottom - 316;
     const h = Math.min(SW * 1.28, Math.max(220, avail));
@@ -119,33 +117,6 @@ export function PhotoCrop({ uri, onCancel, onDone, onPreview, previewStatus = "i
     if (onPreview) runOnJS(cropImage)();
   });
 
-  async function finish() {
-    if (!natural || busy) return;
-    setBusy(true);
-    const previous = onPreview;
-    const callback = (outUri: string) => onDone(outUri);
-    const originalPreview = onPreview;
-    try {
-      const cropLeft = Math.max(imageBox.left, Math.min(imageBox.left + imageBox.width, left.value));
-      const cropTop = Math.max(imageBox.top, Math.min(imageBox.top + imageBox.height, top.value));
-      const cropRight = Math.max(cropLeft + 1, Math.min(imageBox.left + imageBox.width, right.value));
-      const cropBottom = Math.max(cropTop + 1, Math.min(imageBox.top + imageBox.height, bottom.value));
-      const originX = Math.round((cropLeft - imageBox.left) / imageBox.width * natural.w);
-      const originY = Math.round((cropTop - imageBox.top) / imageBox.height * natural.h);
-      const cropW = Math.max(1, Math.min(natural.w - originX, Math.round((cropRight - cropLeft) / imageBox.width * natural.w)));
-      const cropH = Math.max(1, Math.min(natural.h - originY, Math.round((cropBottom - cropTop) / imageBox.height * natural.h)));
-      const ImageManipulator = await import("expo-image-manipulator");
-      const out = await ImageManipulator.manipulateAsync(uri, [{ crop: { originX, originY, width: cropW, height: cropH } }], { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG });
-      callback(out.uri);
-    } catch {
-      callback(uri);
-    } finally {
-      void previous;
-      void originalPreview;
-      setBusy(false);
-    }
-  }
-
   const liveText = previewStatus === "searching" ? "Looking for this on Uvel…" : previewStatus === "ready" ? `${previewItems.length ? "Matches found" : "No close matches yet"}` : "Move the crop to start matching";
 
   return (
@@ -159,14 +130,16 @@ export function PhotoCrop({ uri, onCancel, onDone, onPreview, previewStatus = "i
         <View style={[styles.frame, { width: frame.w, height: frame.h }]}>
           {natural ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" /> : <ActivityIndicator color="#D6E27A" />}
           <GestureDetector gesture={gesture}>
-            <Animated.View style={[styles.cropBox, cropStyle]}>
+            <View style={styles.gestureSurface}>
+              <Animated.View style={[styles.cropBox, cropStyle]}>
               <View pointerEvents="none" style={styles.grid}>
                 <View style={styles.gridV1} /><View style={styles.gridV2} /><View style={styles.gridH1} /><View style={styles.gridH2} />
               </View>
               <View pointerEvents="none" style={styles.cropBorder} />
               <View pointerEvents="none" style={[styles.handle, styles.tl]} /><View pointerEvents="none" style={[styles.handle, styles.tr]} />
               <View pointerEvents="none" style={[styles.handle, styles.bl]} /><View pointerEvents="none" style={[styles.handle, styles.br]} />
-            </Animated.View>
+              </Animated.View>
+            </View>
           </GestureDetector>
         </View>
       </View>
@@ -176,10 +149,7 @@ export function PhotoCrop({ uri, onCancel, onDone, onPreview, previewStatus = "i
           <Text style={styles.liveText}>{liveText}</Text>
         </View>
         {previewItems.length ? <Text style={styles.matchNames} numberOfLines={1}>{previewItems.join("  ·  ")}</Text> : null}
-        <Text style={styles.hint}>Drag the corners to resize · drag inside to move · grid lines help you frame one item</Text>
-        <Pressable onPress={() => void finish()} disabled={busy || !natural} style={({ pressed }) => [styles.doneButton, pressed && { opacity: 0.86 }, (busy || !natural) && { opacity: 0.55 }]} accessibilityRole="button" accessibilityLabel="View live matches">
-          {busy ? <ActivityIndicator color="#16140F" /> : <Text style={styles.doneText}>See all matches</Text>}
-        </Pressable>
+        <Text style={styles.liveCaption}>Live matches update as you move the crop.</Text>
       </View>
     </View>
   );
@@ -193,6 +163,7 @@ const styles = StyleSheet.create({
   barSpacer: { width: 30 },
   stage: { flex: 1, alignItems: "center", justifyContent: "center" },
   frame: { overflow: "hidden", backgroundColor: "#1A1814", alignItems: "center", justifyContent: "center" },
+  gestureSurface: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
   cropBox: { position: "absolute", minWidth: MIN_CROP_SIZE, minHeight: MIN_CROP_SIZE },
   cropBorder: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderWidth: 2, borderColor: "#F4F0E6" },
   grid: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
@@ -211,7 +182,5 @@ const styles = StyleSheet.create({
   liveDotReady: { backgroundColor: "#85D6A0" },
   liveText: { color: "#F4F0E6", fontSize: 15, fontWeight: "600" },
   matchNames: { color: "rgba(244,240,230,0.66)", textAlign: "center", fontSize: 12, marginTop: 4 },
-  hint: { color: "#F4F0E6", fontSize: 14, lineHeight: 20, textAlign: "center", marginTop: 10, marginBottom: 16 },
-  doneButton: { height: 58, borderRadius: 29, backgroundColor: "#F4F0E6", alignItems: "center", justifyContent: "center", marginBottom: 12 },
-  doneText: { color: "#16140F", fontSize: 18, fontWeight: "700" },
+  liveCaption: { color: "rgba(244,240,230,0.58)", fontSize: 13, textAlign: "center", marginTop: 9, marginBottom: 12 },
 });
