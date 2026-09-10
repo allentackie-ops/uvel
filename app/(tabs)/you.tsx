@@ -150,7 +150,7 @@ export default function You() {
   return (
     <ScrollView
       style={styles.page}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 108 }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 108 }]}
     >
       <View style={styles.top}>
         <View style={{ flex: 1, paddingRight: 12 }}>
