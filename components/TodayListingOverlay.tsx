@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useEffect } from "react";
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Extrapolation,
@@ -124,9 +124,12 @@ export function TodayListingOverlay({
   return (
     <View style={styles.root} pointerEvents="box-none">
       <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents="none" />
-      <GestureDetector gesture={gesture}>
-        <Animated.View style={[styles.surface, surfaceStyle]}>
-          <Image source={{ uri: gallery[0] }} style={styles.hero} contentFit="cover" />
+      <Animated.View style={[styles.surface, surfaceStyle]}>
+        <GestureDetector gesture={gesture}>
+          <Animated.View style={styles.heroGesture}>
+            <Image source={{ uri: gallery[0] }} style={styles.hero} contentFit="cover" />
+          </Animated.View>
+        </GestureDetector>
           <Animated.View style={[styles.chrome, chromeStyle]} pointerEvents="box-none">
             <Pressable onPress={animateToOrigin} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel="Close listing">
               <Ionicons name="chevron-down" size={28} color={colors.ink} />
@@ -142,32 +145,43 @@ export function TodayListingOverlay({
               <Text style={styles.saveText}>{liked ? "Saved" : "Save"}</Text>
             </Pressable>
           </Animated.View>
-          <Animated.View style={[styles.detail, detailStyle]}>
-            <Text style={styles.kicker}>{(brand || "UVEL").toUpperCase()}</Text>
-            <Text style={styles.title}>{piece.name}</Text>
-            <Text style={styles.price}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
-            <Text style={styles.meta}>{[piece.size || piece.sizes?.[0] || "One size", piece.color, piece.condition].filter(Boolean).join(" · ")}</Text>
-            {piece.notes ? <Text style={styles.notes}>{piece.notes}</Text> : null}
-            <View style={styles.rule} />
-            <Text style={styles.section}>Listing details</Text>
-            <View style={styles.facts}>
-              {piece.category ? <Fact label="Category" value={piece.category} styles={styles} /> : null}
-              {piece.material ? <Fact label="Material" value={piece.material} styles={styles} /> : null}
-              <Fact label="Ships from" value={piece.country || app.country} styles={styles} />
-            </View>
-            <View style={styles.actions}>
-              <Pressable onPress={() => app.toggleSaved(piece.id)} style={styles.secondaryAction} accessibilityRole="button">
-                <Ionicons name={liked ? "heart" : "heart-outline"} size={18} color={colors.bone} />
-                <Text style={styles.secondaryText}>{liked ? "Saved" : "Save listing"}</Text>
-              </Pressable>
-              <Pressable onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id } })} style={styles.primaryAction} accessibilityRole="button" accessibilityLabel="Buy this listing">
-                <Text style={styles.primaryText}>Buy this listing</Text>
-                <Ionicons name="arrow-forward" size={17} color={colors.successInk} />
-              </Pressable>
-            </View>
-          </Animated.View>
-        </Animated.View>
-      </GestureDetector>
+          <ScrollView
+            style={styles.bodyScroll}
+            contentContainerStyle={styles.bodyContent}
+            showsVerticalScrollIndicator={false}
+            scrollEventThrottle={16}
+            nestedScrollEnabled
+          >
+            <Animated.View style={[styles.detail, detailStyle]}>
+              <Text style={styles.kicker}>{(brand || "UVEL").toUpperCase()}</Text>
+              <Text style={styles.title}>{piece.name}</Text>
+              <Text style={styles.price}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
+              <Text style={styles.meta}>{[piece.size || piece.sizes?.[0] || "One size", piece.color, piece.condition].filter(Boolean).join(" · ")}</Text>
+              {piece.notes ? <Text style={styles.notes}>{piece.notes}</Text> : null}
+              <View style={styles.rule} />
+              <Text style={styles.section}>Listing details</Text>
+              <View style={styles.facts}>
+                {piece.category ? <Fact label="Category" value={piece.category} styles={styles} /> : null}
+                {piece.material ? <Fact label="Material" value={piece.material} styles={styles} /> : null}
+                <Fact label="Ships from" value={piece.country || app.country} styles={styles} />
+              </View>
+              <View style={styles.actions}>
+                <Pressable onPress={() => router.push({ pathname: "/try-on", params: { piece: piece.id } })} style={styles.tryAction} accessibilityRole="button" accessibilityLabel="Try this listing on">
+                  <Ionicons name="person-outline" size={18} color={colors.ink} />
+                  <Text style={styles.tryText}>Try on me</Text>
+                </Pressable>
+                <Pressable onPress={() => app.toggleSaved(piece.id)} style={styles.secondaryAction} accessibilityRole="button">
+                  <Ionicons name={liked ? "heart" : "heart-outline"} size={18} color={colors.bone} />
+                  <Text style={styles.secondaryText}>{liked ? "Saved" : "Save listing"}</Text>
+                </Pressable>
+                <Pressable onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id } })} style={styles.primaryAction} accessibilityRole="button" accessibilityLabel="Buy this listing">
+                  <Text style={styles.primaryText}>Add to cart</Text>
+                  <Ionicons name="arrow-forward" size={17} color={colors.successInk} />
+                </Pressable>
+              </View>
+            </Animated.View>
+          </ScrollView>
+      </Animated.View>
     </View>
   );
 }
@@ -186,11 +200,14 @@ function make(colors: Colors) {
     root: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, elevation: 100 },
     backdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "#000" },
     surface: { position: "absolute", overflow: "hidden", backgroundColor: colors.ink },
-    hero: { width: "100%", height: "59%", backgroundColor: colors.surface },
+    heroGesture: { width: "100%", height: "59%" },
+    hero: { width: "100%", height: "100%", backgroundColor: colors.surface },
     chrome: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     back: { position: "absolute", top: 54, left: 18, width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(244,240,230,0.84)" },
     save: { position: "absolute", top: 54, right: 18, minHeight: 42, paddingHorizontal: 14, borderRadius: 22, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(244,240,230,0.84)" },
     saveText: { color: colors.ink, fontSize: 13, fontWeight: "800" },
+    bodyScroll: { flex: 1 },
+    bodyContent: { paddingBottom: 132 },
     detail: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 40 },
     kicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.8 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 30, lineHeight: 36, marginTop: 7 },
@@ -204,6 +221,8 @@ function make(colors: Colors) {
     factLabel: { color: `${colors.bone}60`, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 },
     factValue: { color: colors.bone, fontSize: 13, marginTop: 4 },
     actions: { gap: 10, marginTop: 26 },
+    tryAction: { minHeight: 52, borderRadius: 26, paddingHorizontal: 18, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+    tryText: { color: colors.ink, fontSize: 14, fontWeight: "800" },
     secondaryAction: { minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: `${colors.bone}32`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     secondaryText: { color: colors.bone, fontSize: 14, fontWeight: "800" },
     primaryAction: { minHeight: 52, borderRadius: 26, paddingHorizontal: 18, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
