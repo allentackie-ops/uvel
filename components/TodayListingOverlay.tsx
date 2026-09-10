@@ -286,7 +286,7 @@ export function TodayListingOverlay({
                   accessibilityRole="button"
                   accessibilityLabel={`Message ${sellerName}`}
                 >
-                  <Ionicons name="chatbubble-outline" size={16} color={colors.bone} />
+                  <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.bone} />
                   <Text style={styles.messageText}>Message</Text>
                 </Pressable>
               </View>
