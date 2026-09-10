@@ -6,6 +6,7 @@ import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, KeyboardAvoidingView, Linking, Modal, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createFriendChat, listFriends, sendFriendMessage, uploadFriendAttachment } from "../lib/friendChat";
 import { searchUsers, sendFriendRequest, type PublicUser } from "../lib/friends";
 import { useColors } from "../lib/theme";
@@ -21,6 +22,7 @@ type FriendShareSheetProps = {
 
 export function FriendShareSheet({ visible, payload, onClose, onExternalShare }: FriendShareSheetProps) {
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const [friends, setFriends] = useState<PublicUser[]>([]);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -153,10 +155,19 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
           <ExternalAction icon="mail-outline" label="Email" onPress={() => void openExternal("email")} colors={colors} />
           <ExternalAction icon="ellipsis-horizontal" label="More" onPress={() => void openExternal("more")} colors={colors} />
         </ScrollView>
-        {toast ? <View pointerEvents="none" style={styles.toast}><Ionicons name="checkmark-circle" size={17} color={colors.success} /><Text style={[styles.toastText, { color: colors.bone }]}>{toast}</Text></View> : null}
       </Animated.View>
     </Animated.View>
     </KeyboardAvoidingView>
+    {toast ? (
+      <View
+        pointerEvents="none"
+        style={[styles.toast, { top: insets.top + 10 }]}
+        accessibilityLiveRegion="polite"
+      >
+        <Ionicons name="checkmark-circle" size={18} color="#D6E27A" />
+        <Text style={styles.toastText}>{toast}</Text>
+      </View>
+    ) : null}
     <View pointerEvents={finderVisible ? "auto" : "none"} style={[styles.finderOverlay, { opacity: finderVisible ? 1 : 0 }]}>
       <KeyboardAvoidingView style={styles.finderKeyboard} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}><View style={styles.finderScrim}><View style={[styles.finder, { backgroundColor: colors.surface }]}>
         <View style={styles.head}><View><Text style={[styles.title, { color: colors.bone }]}>Find friends</Text><Text style={[styles.preview, { color: colors.muted }]}>Search by name or username</Text></View><Pressable onPress={() => setFinderVisible(false)} hitSlop={12}><Ionicons name="close" size={26} color={colors.muted} /></Pressable></View>
@@ -196,8 +207,26 @@ const styles = StyleSheet.create({
   externalAction: { width: 60, alignItems: "center", gap: 6 },
   externalIcon: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
   externalLabel: { fontSize: 10, textAlign: "center" },
-  toast: { position: "absolute", left: 20, right: 20, bottom: 12, minHeight: 42, borderRadius: 21, backgroundColor: "#111111F2", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 7 },
-  toastText: { fontSize: 13, fontWeight: "700" },
+  toast: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    zIndex: 30,
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    backgroundColor: "#16140F",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    shadowColor: "#000",
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 8,
+  },
+  toastText: { fontSize: 14, fontWeight: "700", color: "#F4F0E6" },
   finderOverlay: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 10 },
   finderKeyboard: { flex: 1 },
   finderScrim: { flex: 1, justifyContent: "center", padding: 18, backgroundColor: "rgba(0,0,0,0.7)" },
