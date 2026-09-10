@@ -112,7 +112,10 @@ function Row({
   const you = t.lastFrom === uid || t.lastFrom === "me";
   const unread = unreadFor(t, uid);
   return (
-    <Pressable onPress={() => router.push({ pathname: "/ask/[id]", params: { id: t.pieceId, threadId: t.id } })} style={styles.row}>
+    <Pressable
+      onPress={() => router.push({ pathname: "/ask/[id]", params: { id: t.pieceId, threadId: t.id, pieceName: t.pieceName, piecePhoto: t.piecePhoto, piecePriceCents: String(t.piecePriceCents), brandId: t.brandId || "" } })}
+      style={styles.row}
+    >
       {brand?.logoUri ? (
         <Image source={{ uri: brand.logoUri }} style={styles.thumb} contentFit="cover" />
       ) : t.piecePhoto ? (

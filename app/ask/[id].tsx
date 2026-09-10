@@ -35,20 +35,38 @@ import {
 import { pickFromLibrary, takePhoto } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
-import { getPiece, useWardrobe } from "../../lib/wardrobe";
+import { getPiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { useOrders } from "../../lib/orders";
 
 export default function Ask() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { id, threadId: routeThreadId, orderId: routeOrderId, supportCaseId: routeSupportCaseId } = useLocalSearchParams<{ id: string; threadId?: string; orderId?: string; supportCaseId?: string }>();
+  const { id, threadId: routeThreadId, orderId: routeOrderId, supportCaseId: routeSupportCaseId, pieceName: routePieceName, piecePhoto: routePiecePhoto, piecePriceCents: routePiecePriceCents, brandId: routeBrandId } = useLocalSearchParams<{ id: string; threadId?: string; orderId?: string; supportCaseId?: string; pieceName?: string; piecePhoto?: string; piecePriceCents?: string; brandId?: string }>();
   const app = useUvel();
-  useWardrobe();
+  const pieces = useWardrobe();
   useBrands();
   const orders = useOrders();
-  const piece = getPiece(id);
   const storedThread = routeThreadId ? getThread(routeThreadId) : undefined;
+  const livePiece = pieces.find((candidate) => candidate.id === id) || getPiece(id);
+  const piece: ClosetPiece | undefined = livePiece || (typeof routePieceName === "string" && typeof routePiecePhoto === "string" && routePiecePhoto ? {
+    id,
+    photo: routePiecePhoto,
+    photos: [routePiecePhoto],
+    name: routePieceName,
+    brand: "Unlabeled",
+    category: "Accessories",
+    color: "",
+    size: "",
+    condition: "",
+    material: "",
+    notes: "",
+    listPriceCents: Number(routePiecePriceCents) || 0,
+    originalPriceCents: Number(routePiecePriceCents) || 0,
+    status: "listed",
+    createdAt: Date.now(),
+    brandId: typeof routeBrandId === "string" && routeBrandId ? routeBrandId : undefined,
+  } : undefined);
   const brand = piece?.brandId ? getBrand(piece.brandId) : undefined;
   const [thread, setThread] = useState("");
   const [threadData, setThreadData] = useState<ChatThread | undefined>(undefined);
@@ -135,7 +153,7 @@ export default function Ask() {
       clearInterval(tick);
       setTyping(tid, mine, false);
     };
-  }, [piece?.id, mine, routeThreadId, routeOrderId, routeSupportCaseId, activeThread?.id, activeThread?.buyerId, activeThread?.buyerName, activeThread?.recipientIds?.join(","), brand?.id, brand?.name, brand?.logoUri, brand?.verified, brand?.status, isSellerSide, sellerId, brandRecipients.join(",")]);
+  }, [piece?.id, mine, routeThreadId, routeOrderId, routeSupportCaseId, routePieceName, routePiecePhoto, routePiecePriceCents, routeBrandId, activeThread?.id, activeThread?.buyerId, activeThread?.buyerName, activeThread?.recipientIds?.join(","), brand?.id, brand?.name, brand?.logoUri, brand?.verified, brand?.status, isSellerSide, sellerId, brandRecipients.join(",")]);
 
   async function send(text: string, kind: ChatMsg["kind"] = "text", offerCents?: number, photoUrl?: string) {
     if (!piece) return;
