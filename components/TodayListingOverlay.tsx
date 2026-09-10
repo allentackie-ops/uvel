@@ -3,9 +3,7 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-  Extrapolation,
   interpolate,
   runOnJS,
   useAnimatedStyle,
@@ -24,8 +22,6 @@ import { VerifiedMark } from "./VerifiedMark";
 export type ListingOrigin = { x: number; y: number; width: number; height: number };
 
 const SPRING = { damping: 28, stiffness: 285, mass: 0.82 };
-const RELEASE_DISTANCE = 124;
-const RELEASE_VELOCITY = 900;
 
 export function TodayListingOverlay({
   piece,
@@ -87,29 +83,6 @@ export function TodayListingOverlay({
     radius.value = withTiming(0, { duration: 220 });
   };
 
-  const gesture = Gesture.Pan()
-    .activeOffsetY(8)
-    .failOffsetX([-28, 28])
-    .onUpdate((event) => {
-      const drag = Math.max(0, event.translationY);
-      const dragProgress = Math.min(drag / (screenHeight * 0.72), 1);
-      top.value = drag;
-      left.value = interpolate(dragProgress, [0, 1], [0, origin.x], Extrapolation.CLAMP);
-      boxWidth.value = interpolate(dragProgress, [0, 1], [screenWidth, origin.width], Extrapolation.CLAMP);
-      boxHeight.value = interpolate(dragProgress, [0, 1], [screenHeight, origin.height], Extrapolation.CLAMP);
-      progress.value = 1 - dragProgress;
-      detailOpacity.value = 1 - dragProgress * 0.78;
-      chromeOpacity.value = 1 - dragProgress;
-      radius.value = interpolate(dragProgress, [0, 1], [0, 18], Extrapolation.CLAMP);
-    })
-    .onEnd((event) => {
-      if (event.translationY > RELEASE_DISTANCE || event.velocityY > RELEASE_VELOCITY) {
-        runOnJS(animateToOrigin)();
-      } else {
-        runOnJS(animateToScreen)();
-      }
-    });
-
   const surfaceStyle = useAnimatedStyle(() => ({
     top: top.value,
     left: left.value,
@@ -137,11 +110,6 @@ export function TodayListingOverlay({
     <View style={styles.root} pointerEvents="box-none">
       <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents="none" />
       <Animated.View style={[styles.surface, surfaceStyle]}>
-        <GestureDetector gesture={gesture}>
-          <Animated.View style={styles.heroGesture}>
-            <Image source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
-          </Animated.View>
-        </GestureDetector>
           <Animated.View style={[styles.chrome, chromeStyle]} pointerEvents="box-none">
             <Pressable onPress={animateToOrigin} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel="Close listing">
               <Ionicons name="chevron-down" size={28} color={colors.ink} />
@@ -156,11 +124,6 @@ export function TodayListingOverlay({
               <Ionicons name={liked ? "heart" : "heart-outline"} size={21} color={liked ? colors.success : colors.ink} />
               <Text style={styles.saveText}>{liked ? "Saved" : "Save"}</Text>
             </Pressable>
-            {gallery.length > 1 ? (
-              <View style={styles.photoCount} pointerEvents="none">
-                <Text style={styles.photoCountText}>{Math.min(activePhoto + 1, gallery.length)} / {gallery.length}</Text>
-              </View>
-            ) : null}
           </Animated.View>
           <ScrollView
             style={styles.bodyScroll}
@@ -168,7 +131,19 @@ export function TodayListingOverlay({
             showsVerticalScrollIndicator={false}
             scrollEventThrottle={16}
             nestedScrollEnabled
+            decelerationRate="normal"
+            onScrollEndDrag={(event) => {
+              if (event.nativeEvent.contentOffset.y < -96) animateToOrigin();
+            }}
           >
+            <View style={styles.heroGesture}>
+              <Image source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
+              {gallery.length > 1 ? (
+                <View style={styles.photoCount} pointerEvents="none">
+                  <Text style={styles.photoCountText}>{Math.min(activePhoto + 1, gallery.length)} / {gallery.length}</Text>
+                </View>
+              ) : null}
+            </View>
             <Animated.View style={[styles.detail, detailStyle]}>
               <Text style={styles.kicker}>{(brand || "UVEL").toUpperCase()}</Text>
               <Text style={styles.title}>{piece.name}</Text>
@@ -311,7 +286,7 @@ function make(colors: Colors) {
     root: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, elevation: 100 },
     backdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "#000" },
     surface: { position: "absolute", overflow: "hidden", backgroundColor: colors.ink },
-    heroGesture: { width: "100%", height: "59%" },
+    heroGesture: { width: "100%", height: "54%" },
     hero: { width: "100%", height: "100%", backgroundColor: colors.surface },
     chrome: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     back: { position: "absolute", top: 54, left: 18, width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(244,240,230,0.84)" },
