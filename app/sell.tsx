@@ -499,7 +499,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     };
   }
 
-
+  return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
