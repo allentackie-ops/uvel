@@ -1,0 +1,40 @@
+name: Submit iOS build to TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_id:
+        description: Exact EAS iOS build ID to submit
+        required: true
+        type: string
+      what_to_test:
+        description: TestFlight What to Test note
+        required: true
+        default: "Includes the current Uvel app, personalized Today feed, appearance updates, and crash fixes for Message and Today personalization."
+        type: string
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Submit exact iOS build to TestFlight
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: "1"
+        run: >-
+          npx eas-cli@latest submit
+          --platform ios
+          --id "${{ inputs.build_id }}"
+          --profile production
+          --what-to-test "${{ inputs.what_to_test }}"
+          --non-interactive
+          --wait
