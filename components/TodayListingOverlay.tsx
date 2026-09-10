@@ -176,7 +176,7 @@ export function TodayListingOverlay({
           >
             <Animated.View style={[styles.topBar, { height: insets.top + 76, paddingTop: insets.top }, chromeStyle]}>
               <Pressable onPress={animateToOrigin} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel="Close listing">
-                <Ionicons name="chevron-down" size={28} color={colors.ink} />
+                <Ionicons name="chevron-down" size={20} color={colors.ink} />
               </Pressable>
               <View style={styles.topActions}>
                 <Pressable
@@ -358,7 +358,7 @@ function make(colors: Colors) {
     heartPop: { position: "absolute", left: 0, top: 0, zIndex: 5, color: colors.success, fontSize: 68, lineHeight: 72, textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
     chrome: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     topBar: { paddingHorizontal: 18, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.ink },
-    back: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone },
+    back: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone },
     topActions: { flexDirection: "row", alignItems: "center", gap: 8 },
     save: { minHeight: 42, paddingHorizontal: 14, borderRadius: 22, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.bone },
     share: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone },
