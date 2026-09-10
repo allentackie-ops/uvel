@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Image as RNImage, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
@@ -14,7 +14,7 @@ import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
 import { VerifiedMark } from "../../components/VerifiedMark";
 import { followedBrandIds, getBrand, verifiedBrands, useBrands } from "../../lib/brands";
-import { CATEGORIES, GARMENTS } from "../../lib/catalog";
+import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
 import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
 import { getMarket } from "../../lib/markets";
@@ -23,7 +23,7 @@ import { useCopy } from "../../lib/useCopy";
 import { useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
 import { useLiveShopCampaigns } from "../../lib/marketing";
-import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
+import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated } from "../../lib/wardrobe";
 import { unreadFor, useInbox } from "../../lib/chat";
 
 const MIN_REFRESH_MS = 1200;
@@ -180,33 +180,7 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
   }, []);
 
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
-  const live = useMemo(() => {
-    const remote = shopFloor(country);
-    if (remote.length) return remote;
-    return GARMENTS.map((garment): ClosetPiece => {
-      const photo = RNImage.resolveAssetSource(garment.image)?.uri || "";
-      return {
-        id: `test-${garment.id}`,
-        photo,
-        photos: [photo],
-        name: garment.name,
-        brand: garment.brand,
-        category: garment.category,
-        color: garment.color,
-        size: garment.size,
-        condition: garment.condition,
-        material: garment.material,
-        notes: garment.description,
-        listPriceCents: garment.priceCents,
-        originalPriceCents: garment.priceCents,
-        status: "listed",
-        createdAt: Date.now(),
-        country: garment.country,
-        currency: "USD",
-        shipsTo: "all",
-      };
-    });
-  }, [country, marketplaceSync]);
+  const live = shopFloor(country);
   const liveCampaigns = useLiveShopCampaigns();
   const scanningLook = Boolean(scan === "1" || look || frame || videoUrl);
   const shopCampaignRows = useMemo(() => liveCampaigns

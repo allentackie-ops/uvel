@@ -1,7 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Image as RNImage } from "react-native";
 import { useEffect, useState } from "react";
 import { collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore";
-import type { Category } from "./catalog";
+import { GARMENTS, type Category } from "./catalog";
 import { firebaseAuth, firebaseDb, firebaseFunctions, firebaseReady } from "./firebase";
 import { httpsCallable } from "firebase/functions";
 import { reviewListingPhoto } from "./photoCheck";
@@ -59,6 +60,32 @@ export type Liker = {
   photo?: string;
   at: number;
 };
+
+function testShopPieces(): ClosetPiece[] {
+  return GARMENTS.map((garment): ClosetPiece => {
+    const photo = RNImage.resolveAssetSource(garment.image)?.uri || "";
+    return {
+      id: `test-${garment.id}`,
+      photo,
+      photos: [photo],
+      name: garment.name,
+      brand: garment.brand,
+      category: garment.category,
+      color: garment.color,
+      size: garment.size,
+      condition: garment.condition,
+      material: garment.material,
+      notes: garment.description,
+      listPriceCents: garment.priceCents,
+      originalPriceCents: garment.priceCents,
+      status: "listed",
+      createdAt: 1,
+      country: garment.country,
+      currency: "USD",
+      shipsTo: "all",
+    };
+  });
+}
 
 const KEY = "uvel-wardrobe-v1";
 const DEMO_BRAND_IDS = new Set(["maison-found", "archive-1982", "atelier-no4"]);
@@ -309,7 +336,7 @@ export function isRemoteListedPiece(id: string) {
 }
 
 export function getPiece(id: string) {
-  return pieces.find((p) => p.id === id);
+  return pieces.find((p) => p.id === id) || testShopPieces().find((p) => p.id === id);
 }
 
 export function allPieces() {
@@ -323,9 +350,10 @@ export function listedPieces() {
 
 /** Live listings a buyer in this country is allowed to see. */
 export function shopFloor(buyerCountry: string) {
-  return listedPieces().filter((p) =>
+  const remote = listedPieces().filter((p) =>
     listingVisibleIn({ origin: p.country, shipsTo: p.shipsTo, buyer: buyerCountry }),
   );
+  return remote.length ? remote : testShopPieces();
 }
 
 export async function analyzePhoto(photo: string): Promise<Omit<ClosetPiece, "id" | "status" | "createdAt">> {
