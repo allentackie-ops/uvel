@@ -42,7 +42,7 @@ jobs:
       - name: Configure submit profile
         env:
           ASC_APP_ID: ${{ steps.asc.outputs.asc_app_id }}
-        run: node -e 'const fs=require("fs"); const p=JSON.parse(fs.readFileSync("eas.json","utf8")); p.submit ??= {}; p.submit.production ??= {}; p.submit.production.ascAppId=process.env.ASC_APP_ID; fs.writeFileSync("eas.json", JSON.stringify(p,null,2)+"\n");'
+        run: node -e 'const fs=require("fs"); const p=JSON.parse(fs.readFileSync("eas.json","utf8")); p.submit ??= {}; p.submit.production ??= {}; p.submit.production.ios ??= {}; p.submit.production.ios.ascAppId=process.env.ASC_APP_ID; fs.writeFileSync("eas.json", JSON.stringify(p,null,2)+"\n");'
       - name: Submit exact iOS build to TestFlight
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
