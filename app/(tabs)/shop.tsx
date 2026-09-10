@@ -9,6 +9,7 @@ import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
+import { TodayListingOverlay } from "../../components/TodayListingOverlay";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
@@ -23,7 +24,7 @@ import { useCopy } from "../../lib/useCopy";
 import { useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
 import { useLiveShopCampaigns } from "../../lib/marketing";
-import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated } from "../../lib/wardrobe";
+import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
 import { unreadFor, useInbox } from "../../lib/chat";
 
 const MIN_REFRESH_MS = 1200;
@@ -106,6 +107,7 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
   const [scanning, setScanning] = useState(false);
   const [job, setJob] = useState<LookScan | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
@@ -457,7 +459,7 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
           ? null
           : ranked.map((p) => (
               <View key={p.id} style={styles.cell}>
-                <ListingCard piece={p} framed />
+                <ListingCard piece={p} framed onOpen={todayHome ? setOpenPiece : undefined} />
               </View>
             ))}
       </View>
@@ -479,6 +481,17 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
         <View style={[orbitTop, { paddingTop: insets.top + 10 }]} pointerEvents="none">
           <OrbitLoader />
         </View>
+      ) : null}
+      {todayHome && openPiece ? (
+        <TodayListingOverlay
+          piece={openPiece}
+          onClose={() => setOpenPiece(null)}
+          onOpenFull={() => {
+            const id = openPiece.id;
+            setOpenPiece(null);
+            router.push({ pathname: "/closet/[id]", params: { id } });
+          }}
+        />
       ) : null}
     </View>
   );

@@ -15,11 +15,13 @@ export function ListingCard({
   wide,
   badge,
   framed,
+  onOpen,
 }: {
   piece: ClosetPiece;
   wide?: number;
   badge?: string;
   framed?: boolean;
+  onOpen?: (piece: ClosetPiece) => void;
 }) {
   const colors = useColors();
   const styles = make(colors);
@@ -41,7 +43,7 @@ export function ListingCard({
   const remote = isRemoteListedPiece(live.id);
   const confirmed = sync === "confirmed" && remote;
   return (
-    <AccessiblePressable      onPress={() => router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
+    <AccessiblePressable      onPress={() => onOpen ? onOpen(live) : router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
       style={({ pressed }) => [styles.wrap, wide ? { width: wide, flex: undefined } : null, framed && styles.framed, pressed && styles.focused]}
       accessibilityRole="button"
       accessibilityLabel={`${brand} ${live.name}, ${moneyInMarket(live.listPriceCents, itemCurrency, here)}${typeof live.stockQuantity === "number" ? live.stockQuantity === 0 ? ", sold out" : live.stockQuantity <= 10 ? `, ${live.stockQuantity} remaining` : "" : ""}${!confirmed ? ", availability not confirmed" : ""}`}
