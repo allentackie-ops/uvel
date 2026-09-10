@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { dnaIsSet, scorePieceAgainstDna, type Dna } from "./styleDna";
 import type { ClosetPiece } from "./wardrobe";
 
 export type PersonalizationAction = "view" | "save" | "share" | "search" | "double_view" | "double_tap_like" | "try_on" | "dwell";
@@ -167,15 +168,23 @@ export function usePersonalization(uid: string) {
     });
   }, [storageKey]);
 
-  const rank = useCallback((pieces: ClosetPiece[], country: string) => {
+  const rank = useCallback((pieces: ClosetPiece[], country: string, dna?: Dna) => {
     const code = country.toLowerCase();
-    return [...pieces].sort((a, b) => score(b, code, profile) - score(a, code, profile));
+    return [...pieces].sort((a, b) => score(b, code, profile, dna) - score(a, code, profile, dna));
   }, [profile]);
 
   return { profile, consent: "allowed" as const, ready, record, rank };
 }
 
-function score(piece: ClosetPiece, country: string, profile: PersonalizationProfile) {
+function dnaBoost(piece: ClosetPiece, dna: Dna | undefined, events: number) {
+  if (!dna || !dnaIsSet(dna)) return 0;
+  const raw = scorePieceAgainstDna(piece, dna);
+  if (!raw) return 0;
+  const weight = events < 6 ? 2.8 : events < 20 ? 2.2 : 1.6;
+  return Math.min(64, raw * weight);
+}
+
+function score(piece: ClosetPiece, country: string, profile: PersonalizationProfile, dna?: Dna) {
   const signal = profile.listings[piece.id];
   const text = words(`${piece.name} ${piece.notes} ${piece.category} ${piece.color} ${piece.brand} ${piece.material}`);
   const termScore = text.reduce((sum, word) => sum + Math.min(profile.terms[word] || 0, 30), 0);
@@ -183,7 +192,7 @@ function score(piece: ClosetPiece, country: string, profile: PersonalizationProf
   const repeatInterest = signal ? signal.views * 2 + signal.repeatViews * 8 + signal.saves * 7 + signal.shares * 8 + signal.doubleTapLikes * 10 + Math.min(36, signal.dwellSeconds / 10) + signal.engagedViews * 4 : 0;
   const local = piece.country?.toLowerCase() === country ? 3 : 0;
   const fresh = Math.max(0, 3 - Math.floor(Math.max(0, Date.now() - (piece.createdAt || 0)) / (14 * DAY)));
-  return termScore + affinity + repeatInterest + local + fresh;
+  return termScore + affinity + repeatInterest + local + fresh + dnaBoost(piece, dna, profile.events);
 }
 
 export async function clearPersonalization(uid: string) {
