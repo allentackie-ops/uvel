@@ -2,60 +2,94 @@ name: iOS Submit
 
 on:
   workflow_dispatch:
+    inputs:
+      build_id:
+        description: EAS iOS build ID whose IPA to upload
+        required: true
+        type: string
+        default: "73640106-5d4c-47bb-b152-6409a26392fb"
+      what_to_test:
+        description: TestFlight What to Test note
+        required: false
+        type: string
+        default: "Build 29. Current Uvel iOS app."
 
 jobs:
   submit:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install Python deps
-        run: pip install "PyJWT[crypto]" requests
 
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
 
-      - uses: expo/expo-github-action@v8
+      - uses: ruby/setup-ruby@v1
         with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+          ruby-version: "3.3"
 
-      - name: Install JS dependencies
-        run: npm ci
+      - name: Install Fastlane
+        run: gem install fastlane --no-document
 
-      - name: Write App Store Connect key and app id
+      - name: Download IPA from EAS artifact
         env:
-          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          BUILD_ID: ${{ inputs.build_id }}
         run: |
+          set -euo pipefail
+          npx --yes eas-cli@latest build:view "$BUILD_ID" --json --non-interactive > /tmp/eas-build.json
           python3 - <<'PY'
-          import json, os, subprocess
-          from pathlib import Path
-          Path("AuthKey.p8").write_text(os.environ["ASC_API_KEY"].replace("\\n", "\n").strip() + "\n")
-          app_id = subprocess.check_output(["python3", "scripts/ensure_asc_app.py"], text=True).strip()
-          print("ascAppId", app_id)
-          eas = json.loads(Path("eas.json").read_text())
-          eas["submit"] = {
-            "production": {
-              "ios": {
-                "appleTeamId": "24TJHWVK8T",
-                "ascAppId": app_id,
-                "ascApiKeyPath": "AuthKey.p8",
-                "ascApiKeyId": os.environ["ASC_KEY_ID"].strip(),
-                "ascApiKeyIssuerId": os.environ["ASC_ISSUER_ID"].strip(),
-                "companyName": "Uvel",
-                "language": "en-US",
-              }
-            }
-          }
-          Path("eas.json").write_text(json.dumps(eas, indent=2) + "\n")
+          import json, pathlib, sys
+          s = pathlib.Path("/tmp/eas-build.json").read_text()
+          i = s.find("{")
+          if i < 0:
+              sys.exit("eas build:view did not return JSON:\n" + s[:4000])
+          j = json.loads(s[i:])
+          arts = j.get("artifacts") or {}
+          u = arts.get("applicationArchiveUrl") or arts.get("buildUrl")
+          if not u:
+              sys.exit("No IPA URL in:\n" + s[:4000])
+          pathlib.Path("/tmp/ipa-url.txt").write_text(u.strip())
+          print(u.strip())
+          PY
+          URL=$(cat /tmp/ipa-url.txt)
+          echo "Downloading IPA"
+          curl -fL --retry 5 --retry-delay 2 -H "Authorization: Bearer $EXPO_TOKEN" -o uvel.ipa "$URL"
+          ls -lh uvel.ipa
+          python3 - <<'PY'
+          import pathlib, sys
+          p = pathlib.Path("uvel.ipa")
+          size = p.stat().st_size
+          print(f"IPA size: {size} bytes")
+          if size < 1_000_000:
+              sys.exit(f"IPA too small: {size} bytes")
+          head = p.read_bytes()[:4]
+          if head != b"PK\x03\x04":
+              sys.exit(f"Not a zip/ipa, starts with {head!r}")
+          print("IPA looks valid")
           PY
 
-      - name: Submit iOS IPA to App Store Connect
-        run: timeout 15m npx eas-cli submit --platform ios --latest --profile production --non-interactive --no-wait --verbose
+      - name: Write App Store Connect key
+        env:
+          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          key = os.environ["ASC_API_KEY"].replace("\\n", "\n").strip() + "\n"
+          Path("AuthKey.p8").write_text(key)
+          print("Wrote AuthKey.p8")
+          PY
+
+      - name: Upload IPA to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_PATH: AuthKey.p8
+          IPA_PATH: uvel.ipa
+          WHAT_TO_TEST: ${{ inputs.what_to_test }}
+          FASTLANE_SKIP_UPDATE_CHECK: "1"
+          FASTLANE_HIDE_CHANGELOG: "1"
+          SPACESHIP_SKIP_2FA_UPGRADE: "1"
+        run: fastlane ios testflight_direct --verbose
