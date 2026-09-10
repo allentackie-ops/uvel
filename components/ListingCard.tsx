@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import {  StyleSheet, Text, View } from "react-native";
+import { useRef } from "react";
 import { AccessiblePressable } from "./AccessiblePressable";
 import { getBrand } from "../lib/brands";
 import { uvelFeeCents } from "../lib/fees";
@@ -21,10 +22,11 @@ export function ListingCard({
   wide?: number;
   badge?: string;
   framed?: boolean;
-  onOpen?: (piece: ClosetPiece) => void;
+  onOpen?: (piece: ClosetPiece, origin: { x: number; y: number; width: number; height: number }) => void;
 }) {
   const colors = useColors();
   const styles = make(colors);
+  const mediaRef = useRef<View>(null);
   useWardrobe();
   const app = useUvel();
   const live = getPiece(piece.id) || piece;
@@ -43,13 +45,19 @@ export function ListingCard({
   const remote = isRemoteListedPiece(live.id);
   const confirmed = sync === "confirmed" && remote;
   return (
-    <AccessiblePressable      onPress={() => onOpen ? onOpen(live) : router.push({ pathname: "/closet/[id]", params: { id: live.id } })}
+    <AccessiblePressable      onPress={() => {
+      if (!onOpen) {
+        router.push({ pathname: "/closet/[id]", params: { id: live.id } });
+        return;
+      }
+      mediaRef.current?.measureInWindow((x, y, width, height) => onOpen(live, { x, y, width, height }));
+    }}
       style={({ pressed }) => [styles.wrap, wide ? { width: wide, flex: undefined } : null, framed && styles.framed, pressed && styles.focused]}
       accessibilityRole="button"
       accessibilityLabel={`${brand} ${live.name}, ${moneyInMarket(live.listPriceCents, itemCurrency, here)}${typeof live.stockQuantity === "number" ? live.stockQuantity === 0 ? ", sold out" : live.stockQuantity <= 10 ? `, ${live.stockQuantity} remaining` : "" : ""}${!confirmed ? ", availability not confirmed" : ""}`}
       accessibilityHint="Double tap to view this listing."
     >
-      <View>
+      <View ref={mediaRef}>
         <Image
           source={{ uri: live.photo }}
           style={[styles.img, wide ? { width: wide, borderRadius: framed ? 0 : 18 } : null, framed && styles.framedImg]}

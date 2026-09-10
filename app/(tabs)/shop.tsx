@@ -9,7 +9,7 @@ import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
-import { TodayListingOverlay } from "../../components/TodayListingOverlay";
+import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayListingOverlay";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
@@ -108,11 +108,16 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
   const [job, setJob] = useState<LookScan | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
+  const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
   const followedIds = useMemo(() => followedBrandIds(app.uid), [brandState, app.uid]);
   const followedKey = followedIds.join("|");
+  const openTodayListing = useCallback((piece: ClosetPiece, origin: ListingOrigin) => {
+    setOpenOrigin(origin);
+    setOpenPiece(piece);
+  }, []);
   const houses = verifiedBrands();
 
   useEffect(() => {
@@ -459,7 +464,7 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
           ? null
           : ranked.map((p) => (
               <View key={p.id} style={styles.cell}>
-                <ListingCard piece={p} framed onOpen={todayHome ? setOpenPiece : undefined} />
+                <ListingCard piece={p} framed onOpen={todayHome ? openTodayListing : undefined} />
               </View>
             ))}
       </View>
@@ -482,14 +487,13 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
           <OrbitLoader />
         </View>
       ) : null}
-      {todayHome && openPiece ? (
+      {todayHome && openPiece && openOrigin ? (
         <TodayListingOverlay
           piece={openPiece}
-          onClose={() => setOpenPiece(null)}
-          onOpenFull={() => {
-            const id = openPiece.id;
+          origin={openOrigin}
+          onClose={() => {
             setOpenPiece(null);
-            router.push({ pathname: "/closet/[id]", params: { id } });
+            setOpenOrigin(null);
           }}
         />
       ) : null}
