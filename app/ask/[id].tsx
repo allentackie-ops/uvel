@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -95,6 +96,11 @@ export default function Ask() {
   const [typing, setTypingOn] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasOlder, setHasOlder] = useState(false);
+  const [pendingPhoto, setPendingPhoto] = useState<string | undefined>();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [readOffset, setReadOffset] = useState(0);
+  const draftReady = useRef(false);
   const [boxKey, setBoxKey] = useState(0);
   const scroller = useRef<ScrollView>(null);
   const typeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -169,6 +175,26 @@ export default function Ask() {
       setTyping(tid, mine, false);
     };
   }, [piece?.id, mine, routeThreadId, routeOrderId, routeSupportCaseId, routePieceName, routePiecePhoto, routePiecePriceCents, routeBrandId, activeThread?.id, activeThread?.buyerId, activeThread?.buyerName, activeThread?.recipientIds?.join(","), brand?.id, brand?.name, brand?.logoUri, brand?.verified, brand?.status, isSellerSide, sellerId, brandRecipients.join(",")]);
+
+  useEffect(() => {
+    if (!thread) return;
+    let cancelled = false;
+    draftReady.current = false;
+    void AsyncStorage.multiGet([`uvel-chat-draft-${thread}`, `uvel-chat-position-${thread}`]).then(([draft, position]) => {
+      if (cancelled) return;
+      setDraft(draft[1] || "");
+      setReadOffset(Number(position[1] || 0));
+      draftReady.current = true;
+      setTimeout(() => scroller.current?.scrollTo({ y: Number(position[1] || 0), animated: false }), 100);
+    }).catch(() => { draftReady.current = true; });
+    return () => { cancelled = true; };
+  }, [thread]);
+
+  useEffect(() => {
+    if (!thread || !draftReady.current) return;
+    const timer = setTimeout(() => void AsyncStorage.setItem(`uvel-chat-draft-${thread}`, draft), 250);
+    return () => clearTimeout(timer);
+  }, [thread, draft]);
 
   async function send(text: string, kind: ChatMsg["kind"] = "text", offerCents?: number, photoUrl?: string, offerStatus?: ChatMsg["offerStatus"]) {
     if (!piece) return;
@@ -246,7 +272,7 @@ export default function Ask() {
     try {
       const uri = camera ? await takePhoto(false) : await pickFromLibrary();
       if (!uri) return;
-      await send("Sent a photo", "text", undefined, uri);
+      setPendingPhoto(uri);
     } catch (e) {
       Alert.alert("Photo", e instanceof Error ? e.message : "Couldn’t add that.");
     }
@@ -274,6 +300,13 @@ export default function Ask() {
     ]);
   }
 
+  function showMessageActions(message: ChatMsg) {
+    Alert.alert("Message options", "Choose an action for this message.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Report message", style: "destructive", onPress: () => void reportConversation(thread, mine, `Reported message ${message.id}`) },
+    ]);
+  }
+
   if (!piece) {
     return (
       <View style={[styles.page, { paddingTop: insets.top + 24, paddingHorizontal: 20 }]}>
@@ -285,6 +318,7 @@ export default function Ask() {
   const conversationBrand = brand || (activeThread?.brandId ? getBrand(activeThread.brandId) : undefined);
   const handle = conversationBrand?.name || sellerHandle.trim() || "Seller";
   const brandIsVerified = Boolean(conversationBrand?.verified && conversationBrand.status === "verified");
+  const visibleMsgs = searchQuery.trim() ? msgs.filter((message) => message.text.toLowerCase().includes(searchQuery.trim().toLowerCase())) : msgs;
 
   if (!piece) {
     return (
@@ -319,11 +353,13 @@ export default function Ask() {
             </Text>
             {brandIsVerified ? <VerifiedMark size={16} /> : null}
           </View>
-          <Pressable onPress={showConversationActions} hitSlop={12} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Conversation options">
-            <Text style={styles.info}>i</Text>
-          </Pressable>
+          <View style={styles.navActions}>
+            <Pressable onPress={() => setSearchOpen((value) => !value)} hitSlop={12} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Search conversation"><Text style={styles.searchIcon}>⌕</Text></Pressable>
+            <Pressable onPress={showConversationActions} hitSlop={12} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Conversation options"><Text style={styles.info}>i</Text></Pressable>
+          </View>
         </View>
 
+        {searchOpen ? <View style={styles.searchBox}><TextInput value={searchQuery} onChangeText={setSearchQuery} autoFocus placeholder="Search messages" placeholderTextColor={colors.subtle} style={styles.searchInput} accessibilityLabel="Search messages" /><Pressable onPress={() => { setSearchQuery(""); setSearchOpen(false); }} accessibilityRole="button" accessibilityLabel="Close search"><Text style={styles.searchClose}>×</Text></Pressable></View> : null}
         <View style={styles.listing}>
           <Image source={{ uri: piece.photo }} style={styles.thumb} contentFit="cover" />
           <View style={{ flex: 1 }}>
@@ -345,6 +381,12 @@ export default function Ask() {
           contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          onScroll={(event) => {
+            const y = event.nativeEvent.contentOffset.y;
+            setReadOffset(y);
+            if (thread) void AsyncStorage.setItem(`uvel-chat-position-${thread}`, String(Math.max(0, y)));
+          }}
+          scrollEventThrottle={250}
         >
           {hasOlder || msgs.length >= 80 ? <Pressable onPress={() => void loadOlder()} style={styles.loadOlder} accessibilityRole="button" accessibilityLabel="Load older messages"><Text style={styles.loadOlderTxt}>{loadingOlder ? "Loading…" : "Load older messages"}</Text></Pressable> : null}
           <View style={styles.hello}>
@@ -365,7 +407,7 @@ export default function Ask() {
             </View>
           </View>
 
-          {msgs.map((m, i) => {
+          {visibleMsgs.map((m, i) => {
             const mineMsg = m.from === mine;
             const lastMine = mineMsg && !msgs.slice(i + 1).some((x) => x.from === mine);
             const prev = msgs[i - 1];
@@ -373,7 +415,7 @@ export default function Ask() {
             const status =
               m.status === "seen" ? "Seen" : m.status === "delivered" ? "Delivered" : m.status === "sending" ? "Sending" : m.status === "failed" ? "Failed · try sending again" : "Sent";
             return (
-              <View key={m.id}>
+              <Pressable key={m.id} onLongPress={() => showMessageActions(m)} delayLongPress={450} accessibilityRole="text">
                 {newDay ? <Text style={styles.day}>{dayLabel(m.createdAt)}</Text> : null}
                 {m.kind === "offer" ? (
                   <View style={[styles.bubble, mineMsg ? styles.bubbleMine : styles.bubbleThem]}>
@@ -392,7 +434,7 @@ export default function Ask() {
                 ) : !mineMsg ? (
                   <Text style={styles.metaThem}>{clock(m.createdAt)}</Text>
                 ) : null}
-              </View>
+              </Pressable>
             );
           })}
           {typing ? (
@@ -413,6 +455,7 @@ export default function Ask() {
           </View>
         ) : null}
 
+        {pendingPhoto ? <View style={styles.attachmentPreview}><Image source={{ uri: pendingPhoto }} style={styles.attachmentThumb} contentFit="cover" /><Text style={styles.attachmentLabel}>Photo ready to send</Text><Pressable onPress={() => setPendingPhoto(undefined)} accessibilityRole="button" accessibilityLabel="Remove attached photo"><Text style={styles.attachmentRemove}>×</Text></Pressable><Pressable onPress={() => { void send("Sent a photo", "text", undefined, pendingPhoto); setPendingPhoto(undefined); }} accessibilityRole="button" accessibilityLabel="Send attached photo"><Text style={styles.attachmentSend}>Send</Text></Pressable></View> : null}
         <View style={[styles.composer, { paddingBottom: insets.bottom + 8 }]}>
           <Pressable onPress={() => void attach(false)} style={styles.icon} accessibilityRole="button" accessibilityLabel="Attach photo from library">
             <Text style={styles.iconTxt}>+</Text>
@@ -486,6 +529,11 @@ function make(colors: Colors) {
       paddingBottom: 8,
     },
     navBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+    navActions: { flexDirection: "row", alignItems: "center" },
+    searchIcon: { color: colors.bone, fontSize: 27, lineHeight: 30 },
+    searchBox: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 16, marginBottom: 10, paddingHorizontal: 12, borderRadius: 12, backgroundColor: colors.surface },
+    searchInput: { flex: 1, minHeight: 42, color: colors.bone, fontSize: 15 },
+    searchClose: { color: colors.muted, fontSize: 24 },
     navBack: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
     navTitleRow: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
     navTitle: { color: colors.bone, fontSize: 16, fontWeight: "600", maxWidth: "88%" },
@@ -594,6 +642,11 @@ function make(colors: Colors) {
     },
     safetyTxt: { flex: 1, color: colors.muted, fontSize: 12, lineHeight: 16 },
     safetyX: { color: colors.subtle, fontSize: 22, paddingHorizontal: 6 },
+    attachmentPreview: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.surface },
+    attachmentThumb: { width: 42, height: 42, borderRadius: 8 },
+    attachmentLabel: { flex: 1, color: colors.muted, fontSize: 13 },
+    attachmentRemove: { color: colors.muted, fontSize: 22 },
+    attachmentSend: { color: colors.success, fontWeight: "800", fontSize: 13 },
     composer: {
       flexDirection: "row",
       alignItems: "center",
