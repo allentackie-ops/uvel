@@ -77,12 +77,12 @@ export function TodayToolsDrawer({ open, onOpen, onClose, progress: externalProg
           <View style={styles.edgeZone} pointerEvents="box-only" accessibilityElementsHidden />
         </GestureDetector>
       ) : null}
-      <Animated.View style={[styles.layer, { paddingTop: insets.top }]} pointerEvents={open ? "box-none" : "none"}>
+      <Animated.View style={styles.layer} pointerEvents={open ? "box-none" : "none"}>
           <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
             {open ? <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close tools drawer" /> : null}
           </Animated.View>
           <GestureDetector gesture={closeSwipe}>
-            <Animated.View style={[styles.drawer, drawerStyle]} pointerEvents={open ? "auto" : "none"}>
+            <Animated.View style={[styles.drawer, { paddingTop: insets.top + 18 }, drawerStyle]} pointerEvents={open ? "auto" : "none"}>
               <View style={styles.header}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.eyebrow}>TODAY</Text>
@@ -123,7 +123,7 @@ function make(colors: Colors) {
     edgeZone: { position: "absolute", top: 0, bottom: 108, left: 0, width: 30, zIndex: 85, elevation: 85 },
     backdrop: { backgroundColor: "#000" },
     drawer: { position: "absolute", top: 0, bottom: 0, left: 0, width: DRAWER_WIDTH, backgroundColor: colors.ink, paddingHorizontal: 22, borderRightWidth: 1, borderRightColor: `${colors.bone}20`, shadowColor: "#000", shadowOpacity: 0.24, shadowRadius: 20, shadowOffset: { width: 8, height: 0 }, elevation: 18 },
-    header: { flexDirection: "row", alignItems: "flex-start", paddingTop: 18, paddingBottom: 26, gap: 12 },
+    header: { flexDirection: "row", alignItems: "flex-start", paddingTop: 8, paddingBottom: 26, gap: 12 },
     eyebrow: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 2 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 30, lineHeight: 36, marginTop: 5 },
     subtitle: { color: `${colors.bone}91`, fontSize: 13, lineHeight: 19, marginTop: 7, maxWidth: 250 },
