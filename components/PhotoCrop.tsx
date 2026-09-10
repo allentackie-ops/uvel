@@ -1,30 +1,32 @@
 import { Image } from "expo-image";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Dimensions, Image as RNImage, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width: SW, height: SH } = Dimensions.get("window");
-export const LISTING_RATIO = 4 / 5;
 const MIN_CROP_SIZE = 92;
+const HANDLE_HIT_SIZE = 64;
 
 type Props = {
   uri: string;
   onCancel: () => void;
   onDone: (uri: string) => void;
+  onPreview?: (uri: string) => void;
+  previewStatus?: "idle" | "searching" | "ready";
+  previewItems?: string[];
 };
+type Mode = "move" | "tl" | "tr" | "bl" | "br";
 
-type Point = { x: number; y: number };
-
-export function PhotoCrop({ uri, onCancel, onDone }: Props) {
+export function PhotoCrop({ uri, onCancel, onDone, onPreview, previewStatus = "idle", previewItems = [] }: Props) {
   const insets = useSafeAreaInsets();
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const frame = useMemo(() => {
-    const avail = SH - insets.top - insets.bottom - 250;
-    const h = Math.min(SW / LISTING_RATIO, Math.max(240, avail));
-    return { w: h * LISTING_RATIO, h };
+    const avail = SH - insets.top - insets.bottom - 316;
+    const h = Math.min(SW * 1.28, Math.max(220, avail));
+    return { w: Math.min(SW - 20, h * 0.8), h };
   }, [insets.bottom, insets.top]);
   const imageBox = useMemo(() => {
     if (!natural) return { left: 0, top: 0, width: frame.w, height: frame.h };
@@ -38,19 +40,22 @@ export function PhotoCrop({ uri, onCancel, onDone }: Props) {
     RNImage.getSize(uri, (w, h) => setNatural({ w, h }), () => setNatural({ w: 1200, h: 1500 }));
   }, [uri]);
 
-  const left = useSharedValue(imageBox.left + imageBox.width * 0.12);
-  const top = useSharedValue(imageBox.top + imageBox.height * 0.12);
-  const right = useSharedValue(imageBox.left + imageBox.width * 0.88);
-  const bottom = useSharedValue(imageBox.top + imageBox.height * 0.88);
-  const start = { left: useSharedValue(0), top: useSharedValue(0), right: useSharedValue(0), bottom: useSharedValue(0) };
+  const left = useSharedValue(0);
+  const top = useSharedValue(0);
+  const right = useSharedValue(0);
+  const bottom = useSharedValue(0);
+  const startLeft = useSharedValue(0);
+  const startTop = useSharedValue(0);
+  const startRight = useSharedValue(0);
+  const startBottom = useSharedValue(0);
+  const mode = useSharedValue<Mode>("move");
 
   useEffect(() => {
-    if (!natural) return;
     left.value = imageBox.left + imageBox.width * 0.12;
     top.value = imageBox.top + imageBox.height * 0.12;
     right.value = imageBox.left + imageBox.width * 0.88;
     bottom.value = imageBox.top + imageBox.height * 0.88;
-  }, [imageBox.height, imageBox.left, imageBox.top, imageBox.width, natural]);
+  }, [imageBox.height, imageBox.left, imageBox.top, imageBox.width]);
 
   const cropStyle = useAnimatedStyle(() => ({
     left: left.value,
@@ -58,44 +63,9 @@ export function PhotoCrop({ uri, onCancel, onDone }: Props) {
     width: right.value - left.value,
     height: bottom.value - top.value,
   }));
-  const moveStart = { left: useSharedValue(0), top: useSharedValue(0), right: useSharedValue(0), bottom: useSharedValue(0) };
 
-  const clampX = (value: number) => Math.max(imageBox.left, Math.min(imageBox.left + imageBox.width, value));
-  const clampY = (value: number) => Math.max(imageBox.top, Math.min(imageBox.top + imageBox.height, value));
-
-  const move = Gesture.Pan().onStart(() => {
-    moveStart.left.value = left.value;
-    moveStart.top.value = top.value;
-    moveStart.right.value = right.value;
-    moveStart.bottom.value = bottom.value;
-  }).onUpdate((event) => {
-    const width = moveStart.right.value - moveStart.left.value;
-    const height = moveStart.bottom.value - moveStart.top.value;
-    const nextLeft = Math.max(imageBox.left, Math.min(imageBox.left + imageBox.width - width, moveStart.left.value + event.translationX));
-    const nextTop = Math.max(imageBox.top, Math.min(imageBox.top + imageBox.height - height, moveStart.top.value + event.translationY));
-    left.value = nextLeft;
-    top.value = nextTop;
-    right.value = nextLeft + width;
-    bottom.value = nextTop + height;
-  });
-
-  const cornerGesture = (corner: "tl" | "tr" | "bl" | "br") => Gesture.Pan().onStart(() => {
-    start.left.value = left.value;
-    start.top.value = top.value;
-    start.right.value = right.value;
-    start.bottom.value = bottom.value;
-  }).onUpdate((event) => {
-    const dx = event.translationX;
-    const dy = event.translationY;
-    if (corner.includes("l")) left.value = Math.min(clampX(start.left.value + dx), start.right.value - MIN_CROP_SIZE);
-    if (corner.includes("r")) right.value = Math.max(clampX(start.right.value + dx), start.left.value + MIN_CROP_SIZE);
-    if (corner.includes("t")) top.value = Math.min(clampY(start.top.value + dy), start.bottom.value - MIN_CROP_SIZE);
-    if (corner.includes("b")) bottom.value = Math.max(clampY(start.bottom.value + dy), start.top.value + MIN_CROP_SIZE);
-  });
-
-  async function search() {
-    if (!natural || busy) return;
-    setBusy(true);
+  const cropImage = useCallback(async () => {
+    if (!natural || !onPreview) return;
     const cropLeft = Math.max(imageBox.left, Math.min(imageBox.left + imageBox.width, left.value));
     const cropTop = Math.max(imageBox.top, Math.min(imageBox.top + imageBox.height, top.value));
     const cropRight = Math.max(cropLeft + 1, Math.min(imageBox.left + imageBox.width, right.value));
@@ -106,14 +76,77 @@ export function PhotoCrop({ uri, onCancel, onDone }: Props) {
     const cropH = Math.max(1, Math.min(natural.h - originY, Math.round((cropBottom - cropTop) / imageBox.height * natural.h)));
     try {
       const ImageManipulator = await import("expo-image-manipulator");
-      const out = await ImageManipulator.manipulateAsync(uri, [{ crop: { originX, originY, width: cropW, height: cropH } }], { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG });
-      onDone(out.uri);
+      const out = await ImageManipulator.manipulateAsync(uri, [{ crop: { originX, originY, width: cropW, height: cropH } }], { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG });
+      onPreview(out.uri);
     } catch {
-      onDone(uri);
+      onPreview(uri);
+    }
+  }, [bottom, imageBox.height, imageBox.left, imageBox.top, imageBox.width, left, natural, onPreview, right, top, uri]);
+
+  const gesture = Gesture.Pan().onStart((event) => {
+    startLeft.value = left.value;
+    startTop.value = top.value;
+    startRight.value = right.value;
+    startBottom.value = bottom.value;
+    const nearLeft = Math.abs(event.x - left.value) <= HANDLE_HIT_SIZE;
+    const nearRight = Math.abs(event.x - right.value) <= HANDLE_HIT_SIZE;
+    const nearTop = Math.abs(event.y - top.value) <= HANDLE_HIT_SIZE;
+    const nearBottom = Math.abs(event.y - bottom.value) <= HANDLE_HIT_SIZE;
+    mode.value = nearLeft && nearTop ? "tl" : nearRight && nearTop ? "tr" : nearLeft && nearBottom ? "bl" : nearRight && nearBottom ? "br" : "move";
+  }).onUpdate((event) => {
+    const dx = event.translationX;
+    const dy = event.translationY;
+    if (mode.value === "move") {
+      const width = startRight.value - startLeft.value;
+      const height = startBottom.value - startTop.value;
+      const nextLeft = Math.max(imageBox.left, Math.min(imageBox.left + imageBox.width - width, startLeft.value + dx));
+      const nextTop = Math.max(imageBox.top, Math.min(imageBox.top + imageBox.height - height, startTop.value + dy));
+      left.value = nextLeft;
+      top.value = nextTop;
+      right.value = nextLeft + width;
+      bottom.value = nextTop + height;
+      return;
+    }
+    const minX = imageBox.left;
+    const maxX = imageBox.left + imageBox.width;
+    const minY = imageBox.top;
+    const maxY = imageBox.top + imageBox.height;
+    if (mode.value.includes("l")) left.value = Math.max(minX, Math.min(startRight.value - MIN_CROP_SIZE, startLeft.value + dx));
+    if (mode.value.includes("r")) right.value = Math.min(maxX, Math.max(startLeft.value + MIN_CROP_SIZE, startRight.value + dx));
+    if (mode.value.includes("t")) top.value = Math.max(minY, Math.min(startBottom.value - MIN_CROP_SIZE, startTop.value + dy));
+    if (mode.value.includes("b")) bottom.value = Math.min(maxY, Math.max(startTop.value + MIN_CROP_SIZE, startBottom.value + dy));
+  }).onEnd(() => {
+    if (onPreview) runOnJS(cropImage)();
+  });
+
+  async function finish() {
+    if (!natural || busy) return;
+    setBusy(true);
+    const previous = onPreview;
+    const callback = (outUri: string) => onDone(outUri);
+    const originalPreview = onPreview;
+    try {
+      const cropLeft = Math.max(imageBox.left, Math.min(imageBox.left + imageBox.width, left.value));
+      const cropTop = Math.max(imageBox.top, Math.min(imageBox.top + imageBox.height, top.value));
+      const cropRight = Math.max(cropLeft + 1, Math.min(imageBox.left + imageBox.width, right.value));
+      const cropBottom = Math.max(cropTop + 1, Math.min(imageBox.top + imageBox.height, bottom.value));
+      const originX = Math.round((cropLeft - imageBox.left) / imageBox.width * natural.w);
+      const originY = Math.round((cropTop - imageBox.top) / imageBox.height * natural.h);
+      const cropW = Math.max(1, Math.min(natural.w - originX, Math.round((cropRight - cropLeft) / imageBox.width * natural.w)));
+      const cropH = Math.max(1, Math.min(natural.h - originY, Math.round((cropBottom - cropTop) / imageBox.height * natural.h)));
+      const ImageManipulator = await import("expo-image-manipulator");
+      const out = await ImageManipulator.manipulateAsync(uri, [{ crop: { originX, originY, width: cropW, height: cropH } }], { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG });
+      callback(out.uri);
+    } catch {
+      callback(uri);
     } finally {
+      void previous;
+      void originalPreview;
       setBusy(false);
     }
   }
+
+  const liveText = previewStatus === "searching" ? "Looking for this on Uvel…" : previewStatus === "ready" ? `${previewItems.length ? "Matches found" : "No close matches yet"}` : "Move the crop to start matching";
 
   return (
     <View style={[styles.page, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -125,22 +158,27 @@ export function PhotoCrop({ uri, onCancel, onDone }: Props) {
       <View style={styles.stage}>
         <View style={[styles.frame, { width: frame.w, height: frame.h }]}>
           {natural ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" /> : <ActivityIndicator color="#D6E27A" />}
-          <GestureDetector gesture={move}>
+          <GestureDetector gesture={gesture}>
             <Animated.View style={[styles.cropBox, cropStyle]}>
-              <View pointerEvents="none" style={styles.shadeTop} />
-              <View style={styles.cropBorder} pointerEvents="none" />
-              <GestureDetector gesture={cornerGesture("tl")}><View style={[styles.handle, styles.tl]} /></GestureDetector>
-              <GestureDetector gesture={cornerGesture("tr")}><View style={[styles.handle, styles.tr]} /></GestureDetector>
-              <GestureDetector gesture={cornerGesture("bl")}><View style={[styles.handle, styles.bl]} /></GestureDetector>
-              <GestureDetector gesture={cornerGesture("br")}><View style={[styles.handle, styles.br]} /></GestureDetector>
+              <View pointerEvents="none" style={styles.grid}>
+                <View style={styles.gridV1} /><View style={styles.gridV2} /><View style={styles.gridH1} /><View style={styles.gridH2} />
+              </View>
+              <View pointerEvents="none" style={styles.cropBorder} />
+              <View pointerEvents="none" style={[styles.handle, styles.tl]} /><View pointerEvents="none" style={[styles.handle, styles.tr]} />
+              <View pointerEvents="none" style={[styles.handle, styles.bl]} /><View pointerEvents="none" style={[styles.handle, styles.br]} />
             </Animated.View>
           </GestureDetector>
         </View>
       </View>
       <View style={styles.footer}>
-        <Text style={styles.hint}>Focus on one item, drag the corners to resize, or drag inside to move the crop</Text>
-        <Pressable onPress={() => void search()} disabled={busy || !natural} style={({ pressed }) => [styles.searchButton, pressed && { opacity: 0.86 }, (busy || !natural) && { opacity: 0.55 }]} accessibilityRole="button" accessibilityLabel="Search Uvel with this crop">
-          {busy ? <ActivityIndicator color="#16140F" /> : <Text style={styles.searchText}>Search</Text>}
+        <View style={styles.liveRow}>
+          {previewStatus === "searching" ? <ActivityIndicator size="small" color="#D6E27A" /> : <View style={[styles.liveDot, previewStatus === "ready" && styles.liveDotReady]} />}
+          <Text style={styles.liveText}>{liveText}</Text>
+        </View>
+        {previewItems.length ? <Text style={styles.matchNames} numberOfLines={1}>{previewItems.join("  ·  ")}</Text> : null}
+        <Text style={styles.hint}>Drag the corners to resize · drag inside to move · grid lines help you frame one item</Text>
+        <Pressable onPress={() => void finish()} disabled={busy || !natural} style={({ pressed }) => [styles.doneButton, pressed && { opacity: 0.86 }, (busy || !natural) && { opacity: 0.55 }]} accessibilityRole="button" accessibilityLabel="View live matches">
+          {busy ? <ActivityIndicator color="#16140F" /> : <Text style={styles.doneText}>See all matches</Text>}
         </Pressable>
       </View>
     </View>
@@ -157,14 +195,23 @@ const styles = StyleSheet.create({
   frame: { overflow: "hidden", backgroundColor: "#1A1814", alignItems: "center", justifyContent: "center" },
   cropBox: { position: "absolute", minWidth: MIN_CROP_SIZE, minHeight: MIN_CROP_SIZE },
   cropBorder: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderWidth: 2, borderColor: "#F4F0E6" },
-  shadeTop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.10)" },
-  handle: { position: "absolute", width: 48, height: 48, borderColor: "#F4F0E6", borderWidth: 4, zIndex: 4 },
-  tl: { top: -4, left: -4, borderRightWidth: 0, borderBottomWidth: 0 },
-  tr: { top: -4, right: -4, borderLeftWidth: 0, borderBottomWidth: 0 },
-  bl: { bottom: -4, left: -4, borderRightWidth: 0, borderTopWidth: 0 },
-  br: { bottom: -4, right: -4, borderLeftWidth: 0, borderTopWidth: 0 },
-  footer: { borderTopWidth: 1, borderTopColor: "#514D47", paddingHorizontal: 26, paddingTop: 28 },
-  hint: { color: "#F4F0E6", fontSize: 16, lineHeight: 23, textAlign: "center", marginBottom: 24 },
-  searchButton: { height: 68, borderRadius: 34, backgroundColor: "#F4F0E6", alignItems: "center", justifyContent: "center", marginBottom: 16 },
-  searchText: { color: "#16140F", fontSize: 20, fontWeight: "700" },
+  grid: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
+  gridV1: { position: "absolute", top: 0, bottom: 0, left: "33.33%", borderLeftWidth: 1, borderColor: "rgba(244,240,230,0.52)" },
+  gridV2: { position: "absolute", top: 0, bottom: 0, left: "66.66%", borderLeftWidth: 1, borderColor: "rgba(244,240,230,0.52)" },
+  gridH1: { position: "absolute", left: 0, right: 0, top: "33.33%", borderTopWidth: 1, borderColor: "rgba(244,240,230,0.52)" },
+  gridH2: { position: "absolute", left: 0, right: 0, top: "66.66%", borderTopWidth: 1, borderColor: "rgba(244,240,230,0.52)" },
+  handle: { position: "absolute", width: 36, height: 36, borderColor: "#F4F0E6", borderWidth: 4 },
+  tl: { top: -2, left: -2, borderRightWidth: 0, borderBottomWidth: 0 },
+  tr: { top: -2, right: -2, borderLeftWidth: 0, borderBottomWidth: 0 },
+  bl: { bottom: -2, left: -2, borderRightWidth: 0, borderTopWidth: 0 },
+  br: { bottom: -2, right: -2, borderLeftWidth: 0, borderTopWidth: 0 },
+  footer: { borderTopWidth: 1, borderTopColor: "#514D47", paddingHorizontal: 26, paddingTop: 18 },
+  liveRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 24 },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#D6E27A" },
+  liveDotReady: { backgroundColor: "#85D6A0" },
+  liveText: { color: "#F4F0E6", fontSize: 15, fontWeight: "600" },
+  matchNames: { color: "rgba(244,240,230,0.66)", textAlign: "center", fontSize: 12, marginTop: 4 },
+  hint: { color: "#F4F0E6", fontSize: 14, lineHeight: 20, textAlign: "center", marginTop: 10, marginBottom: 16 },
+  doneButton: { height: 58, borderRadius: 29, backgroundColor: "#F4F0E6", alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  doneText: { color: "#16140F", fontSize: 18, fontWeight: "700" },
 });
