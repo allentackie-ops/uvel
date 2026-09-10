@@ -1,9 +1,10 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
-import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { Alert, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
 import { VerifiedMark } from "../components/VerifiedMark";
 import { getBrand, useBrands } from "../lib/brands";
 import { unreadFor, useInbox, type ChatThread } from "../lib/chat";
@@ -12,6 +13,7 @@ import { useColors, type Colors } from "../lib/theme";
 
 type Filter = "All" | "Messages" | "Selling" | "Buying";
 const FILTERS: Filter[] = ["All", "Messages", "Selling", "Buying"];
+const MIN_REFRESH_MS = 1100;
 
 function when(ms: number) {
   const min = Math.max(1, Math.round((Date.now() - ms) / 60000));
@@ -30,6 +32,13 @@ export default function Inbox() {
   const me = uid || "me";
   const threads = useInbox(me);
   const [filter, setFilter] = useState<Filter>("All");
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await new Promise<void>((resolve) => setTimeout(resolve, MIN_REFRESH_MS));
+    setRefreshing(false);
+  }, []);
+  const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
 
   const visible = useMemo(() => {
     return threads.filter((t) => {
@@ -88,7 +97,9 @@ export default function Inbox() {
         data={visible}
         keyExtractor={(t) => t.id}
         renderItem={({ item }) => <Row thread={item} uid={me} colors={colors} />}
+        ListHeaderComponent={orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
         ListEmptyComponent={<Text style={styles.empty}>{empty}</Text>}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="transparent" colors={["transparent"]} />}
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         style={styles.list}
       />
@@ -182,6 +193,7 @@ function make(colors: Colors) {
     chipTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
     chipTxtOn: { color: colors.successInk },
     empty: { color: colors.muted, padding: 24, lineHeight: 22, fontSize: 15 },
+    refreshOrbit: { height: 220, alignItems: "center", justifyContent: "center" },
     list: { flex: 1 },
     row: {
       flexDirection: "row",
