@@ -29,7 +29,7 @@ export function TodayToolsDrawer({ onClose }: TodayToolsDrawerProps) {
   ];
   const businessTools: Tool[] = [
     { icon: "stats-chart-outline", label: "Seller analytics", detail: "Listing signals and order records", onPress: () => router.push("/seller-analytics") },
-    { icon: "add-circle-outline", label: "List an item", detail: "Put something new on Uvel", onPress: () => router.replace("/sell") },
+    { icon: "add-circle-outline", label: "List an item", detail: "Put something new on Uvel", onPress: () => router.navigate("/closet") },
     { icon: "notifications-outline", label: "Price & restock alerts", detail: "Keep watch on saved pieces", onPress: () => router.push("/alerts") },
   ];
 
