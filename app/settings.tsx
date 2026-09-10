@@ -84,20 +84,12 @@ export default function Settings() {
 
       <Text style={styles.section}>{C.preferences}</Text>
       <View style={styles.group}>
-        <View style={styles.row}>
-          <View style={{ flex: 1, paddingRight: 12 }}>
-            <Text style={styles.rowLabel}>{C.appearance}</Text>
-            <Text style={styles.hint}>{app.appearance === "dark" ? C.dark : C.light}</Text>
-          </View>
-          <View style={styles.seg} accessibilityRole="radiogroup">
-            <Pressable onPress={() => void app.setAppearance("light")} style={[styles.segBtn, app.appearance === "light" && styles.segOn]} accessibilityRole="radio" accessibilityState={{ selected: app.appearance === "light" }}>
-              <Text style={[styles.segTxt, app.appearance === "light" && styles.segTxtOn]}>{C.light}</Text>
-            </Pressable>
-            <Pressable onPress={() => void app.setAppearance("dark")} style={[styles.segBtn, app.appearance === "dark" && styles.segOn]} accessibilityRole="radio" accessibilityState={{ selected: app.appearance === "dark" }}>
-              <Text style={[styles.segTxt, app.appearance === "dark" && styles.segTxtOn]}>{C.dark}</Text>
-            </Pressable>
-          </View>
-        </View>
+        <Row
+          label={C.appearance}
+          hint={app.appearance === "system" ? "System" : app.appearance === "dark" ? C.dark : C.light}
+          onPress={() => router.push("/appearance")}
+          colors={colors}
+        />
         <View style={styles.row}>
           <View style={{ flex: 1, paddingRight: 12 }}>
             <Text style={styles.rowLabel}>{C.notifications}</Text>
@@ -245,11 +237,6 @@ function make(colors: Colors) {
       borderBottomColor: colors.ink,
     },
     rowLabel: { color: colors.bone, fontSize: 16 },
-    seg: { flexDirection: "row", minWidth: 156, minHeight: 44, backgroundColor: colors.ink, borderRadius: 12, padding: 3, gap: 3 },
-    segBtn: { flex: 1, minHeight: 38, paddingHorizontal: 10, borderRadius: 9, alignItems: "center", justifyContent: "center" },
-    segOn: { backgroundColor: colors.success },
-    segTxt: { color: colors.muted, fontSize: 13, fontWeight: "600" },
-    segTxtOn: { color: colors.successInk },
     lang: {
       paddingVertical: 12,
       paddingHorizontal: 16,

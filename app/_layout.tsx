@@ -10,7 +10,7 @@ import { observeListing } from "../lib/alerts";
 import { useOtaReady } from "../lib/ota";
 import { armNotificationHandler, registerPushToken, watchLastSeen } from "../lib/push";
 import { useUvel } from "../lib/store";
-import { useColors } from "../lib/theme";
+import { useColors, useResolvedAppearance } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
 import { pullLooks } from "../lib/trends";
 import { useWardrobe } from "../lib/wardrobe";
@@ -89,7 +89,7 @@ function PushSync() {
 }
 
 function AppStack() {
-  const { appearance } = useUvel();
+  const appearance = useResolvedAppearance();
   const colors = useColors();
   const C = useCopy();
   const navTheme = useMemo(
@@ -165,6 +165,14 @@ function AppStack() {
             name="settings"
             options={{
               headerTitle: C.settings,
+              headerTransparent: false,
+              headerShadowVisible: false,
+            }}
+          />
+          <Stack.Screen
+            name="appearance"
+            options={{
+              headerTitle: C.appearance,
               headerTransparent: false,
               headerShadowVisible: false,
             }}
@@ -424,7 +432,8 @@ function DraftResumeNotice() {
 }
 
 export default function Root() {
-  const { onboarded, hydrated, uid, profileDone, profileChecked, appearance } = useUvel();
+  const { onboarded, hydrated, uid, profileDone, profileChecked } = useUvel();
+  const appearance = useResolvedAppearance();
   const colors = useColors();
   useOtaReady();
   const [intro, setIntro] = useState(true);

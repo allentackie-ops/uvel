@@ -1,4 +1,5 @@
-import { useUvel } from "./store";
+import { useColorScheme } from "react-native";
+import { useUvel, type AppearancePreference } from "./store";
 
 export type Colors = {
   ink: string;
@@ -63,7 +64,20 @@ export const palettes: Record<"dark" | "light", Colors> = {
 
 export const colors = palettes.dark;
 
+export function resolveAppearance(
+  preference: AppearancePreference,
+  systemScheme: "dark" | "light" | "unspecified" | null | undefined,
+): "dark" | "light" {
+  if (preference === "system") return systemScheme === "light" ? "light" : "dark";
+  return preference;
+}
+
+export function useResolvedAppearance(): "dark" | "light" {
+  const { appearance } = useUvel();
+  return resolveAppearance(appearance, useColorScheme());
+}
+
 export function useColors(): Colors {
   const { appearance } = useUvel();
-  return appearance === "light" ? palettes.light : palettes.dark;
+  return resolveAppearance(appearance, useColorScheme()) === "light" ? palettes.light : palettes.dark;
 }

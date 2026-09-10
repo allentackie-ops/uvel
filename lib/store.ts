@@ -6,6 +6,8 @@ import { detectCountry, setActiveMarket } from "./markets";
 import { skipSetup } from "./sessionPath";
 import { getPiece, syncSavedLikes, toggleLiker } from "./wardrobe";
 
+export type AppearancePreference = "dark" | "light" | "system";
+
 type State = {
   saved: string[];
   archetype: string;
@@ -13,7 +15,7 @@ type State = {
   silhouette: string;
   personUri: string | null;
   avatarUri: string | null;
-  appearance: "dark" | "light";
+  appearance: AppearancePreference;
   onboarded: boolean;
   onboardVersion: number;
   signedInWith: string;
@@ -292,7 +294,7 @@ export function useUvel() {
     consumeFind: () => true,
     consumeTryOn: () => true,
     setStyle: (patch: Partial<State>) => save(patch),
-    setAppearance: (appearance: "dark" | "light") => save({ appearance }),
+    setAppearance: (appearance: AppearancePreference) => save({ appearance }),
     setPerson: (uri: string | null) => save({ personUri: uri }),
     setAvatar: (uri: string | null) => save({ avatarUri: uri }).then(() => stashProfile()),
     setAccessibilityMode: (accessibilityMode: boolean) => {

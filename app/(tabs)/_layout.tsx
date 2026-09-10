@@ -10,8 +10,7 @@ import Today from "./index";
 import Mirror from "./find";
 import Closet from "./closet";
 import You from "./you";
-import { useColors } from "../../lib/theme";
-import { useUvel } from "../../lib/store";
+import { useColors, useResolvedAppearance } from "../../lib/theme";
 import { useCopy } from "../../lib/useCopy";
 
 const ROUTES = ["/", "/find", "/closet", "/you"] as const;
@@ -21,7 +20,7 @@ const ACTIVE_ICONS = ["compass", "body", "add", "person"] as const;
 type TabScreen = { key: string; screen: React.ReactNode };
 
 export default function TabsLayout() {
-  const { appearance } = useUvel();
+  const appearance = useResolvedAppearance();
   const colors = useColors();
   const C = useCopy();
   const inactiveIcon = appearance === "dark" ? "#A9A398" : colors.muted;
