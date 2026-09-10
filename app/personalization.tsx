@@ -72,7 +72,6 @@ export default function Personalization() {
         <Text style={styles.boundary}>{Platform.OS === "ios" ? "Optional. You can change this any time in iPhone Settings." : "Not available on Android. Uvel keeps personalization inside the app."}</Text>
       </View>
 
-      <Text style={styles.privacy}>Your Today profile is stored on this device and is used to rank listings. You can clear it whenever you want.</Text>
       <Pressable onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "privacy" } })} style={styles.privacyLink} accessibilityRole="button">
         <Text style={styles.privacyLinkText}>Read Uvel’s Privacy Policy</Text>
         <Ionicons name="arrow-forward" size={16} color={colors.success} />
