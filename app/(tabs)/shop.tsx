@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
 import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayListingOverlay";
+import { TodayToolsDrawer } from "../../components/TodayToolsDrawer";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
@@ -109,6 +110,7 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
   const [refreshing, setRefreshing] = useState(false);
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
+  const [toolsOpen, setToolsOpen] = useState(false);
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
@@ -273,7 +275,15 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
       >
       {todayHome ? (
         <View style={[styles.todayHeader, { paddingTop: 2 }]}>
-          <View style={styles.headerSide} />
+          <AccessiblePressable
+            onPress={() => setToolsOpen(true)}
+            style={({ pressed }) => [styles.headerSide, pressed && { opacity: 0.72 }]}
+            accessibilityRole="button"
+            accessibilityLabel="Open your Uvel workspace"
+            accessibilityHint="Open Founder Studio, Brand HQ, and seller tools."
+          >
+            <View style={styles.menuIcon}><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View>
+          </AccessiblePressable>
           <AccessiblePressable
             onPress={() => router.push("/store")}
             style={({ pressed }) => [styles.wordmarkButton, pressed && { opacity: 0.78 }]}
@@ -497,6 +507,7 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
           }}
         />
       ) : null}
+      {todayHome ? <TodayToolsDrawer open={toolsOpen} onOpen={() => setToolsOpen(true)} onClose={() => setToolsOpen(false)} /> : null}
     </View>
   );
 }
@@ -508,7 +519,9 @@ function make(colors: Colors) {
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
     titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     todayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 56, marginBottom: 4 },
-    headerSide: { width: 44, height: 44 },
+    headerSide: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+    menuIcon: { width: 22, gap: 4 },
+    menuLine: { height: 2, width: 22, borderRadius: 1, backgroundColor: colors.bone },
     wordmarkButton: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 10, gap: 4 },
     wordmark: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, fontStyle: "italic", fontWeight: "700", letterSpacing: 0, lineHeight: 42 },
     wordmarkChevron: { color: `${colors.bone}B8`, fontSize: 19, fontWeight: "700", marginTop: 0 },

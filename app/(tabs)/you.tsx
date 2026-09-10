@@ -9,7 +9,6 @@ import { VerifiedMark } from "../../components/VerifiedMark";
 import { GARMENTS, getGarment, usd } from "../../lib/catalog";
 import {
   acceptInvite,
-  canSeeAnalytics,
   declineInvite,
   memberBrands,
   ownedBrand,
@@ -199,34 +198,6 @@ export default function You() {
         </View>
       ))}
 
-      <Text style={styles.sectionLabel}>NEXT UP</Text>
-      <Pressable
-        onPress={() => mine ? router.push({ pathname: "/brand/[id]", params: { id: mine.id } }) : router.push("/brand/apply")}
-        style={styles.nextCard}
-        accessibilityRole="button"
-        accessibilityLabel={mine ? `Open ${mine.name} brand status` : "Start a public brand application"}
-      >
-        <View style={{ flex: 1 }}>
-          <Text style={styles.nextK}>{mine ? (mine.verified ? "UVEL-REVIEWED" : mine.reviewStatus === "needs_information" ? "ACTION NEEDED" : "IN REVIEW") : "YOUR NEXT STEP"}</Text>
-          <Text style={styles.nextTitle}>{mine ? mine.name : "Start your brand"}</Text>
-          <Text style={styles.nextP}>{mine ? (mine.verified ? "Your page, listings, and team are ready." : mine.reviewStatus === "needs_information" ? "Add the missing details, then submit again." : "Your workspace is ready while Uvel reviews the brand.") : "Apply publicly when you are ready to post."}</Text>
-        </View>
-        <Text style={styles.nextAction}>{mine ? (mine.reviewStatus === "needs_information" ? "Fix" : "Open") : "Start"}</Text>
-      </Pressable>
-
-      <Pressable
-        onPress={() => router.push("/brand/founder")}
-        style={styles.nextCard}
-        accessibilityRole="button"
-        accessibilityLabel="Build privately in Founder Studio"
-      >
-        <View style={{ flex: 1 }}>
-          <Text style={styles.nextK}>BUILD PRIVATELY FIRST</Text>
-          <Text style={styles.nextTitle}>Founder Studio</Text>
-          <Text style={styles.nextP}>Shape an idea, sketch a first product, and prepare before you apply publicly.</Text>
-        </View>
-        <Text style={styles.nextAction}>Open</Text>
-      </Pressable>
 
       <Text style={styles.sectionLabel}>YOUR ACTIVITY</Text>
       <View style={styles.tabs}>
@@ -274,30 +245,6 @@ export default function You() {
         <Text style={styles.dnaChevron}>›</Text>
       </Pressable>
 
-      <Text style={[styles.sectionLabel, { marginTop: 24 }]}>BRAND WORKSPACE</Text>
-      {mine ? (
-        <View style={styles.brandCard}>
-          <View style={styles.brandCardMain}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.brandK}>PUBLIC PAGE</Text>
-              <Text style={styles.brandName}>{mine.name}</Text>
-              <Text style={styles.brandP}>View the public brand page.</Text>
-            </View>
-          </View>
-          <Pressable onPress={() => router.push({ pathname: "/brand/hq", params: { id: mine.id } })} style={styles.brandHQButton} accessibilityRole="button" accessibilityLabel={`Manage ${mine.name} brand`}>
-            <Text style={styles.brandHQText}>Manage</Text>
-          </Pressable>
-        </View>
-      ) : null}
-      {mine?.verified && canSeeAnalytics(mine, app.uid) ? (
-        <Pressable onPress={() => router.push({ pathname: "/brand/analytics", params: { id: mine.id } })} style={styles.toolRow}>
-          <View><Text style={styles.planH}>Brand analysis</Text><Text style={styles.planP}>Earnings, views, likes</Text></View><Text style={styles.planGo}>View</Text>
-        </Pressable>
-      ) : null}
-      <>
-        <Pressable onPress={() => router.push("/seller-analytics")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Open seller analytics"><View><Text style={styles.planH}>Seller analytics</Text><Text style={styles.planP}>Listing signals and order records</Text></View></Pressable>
-        <Pressable onPress={() => router.push("/alerts")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Open price and restock alerts"><View><Text style={styles.planH}>Price & restock alerts</Text><Text style={styles.planP}>Watch the saved pieces you care about</Text></View></Pressable>
-      </>
       {teams.map((b) => (
         <Pressable key={b.id} onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })} style={styles.toolRow}>
           <View style={{ flex: 1 }}><Text style={styles.brandK}>TEAM</Text><Text style={styles.brandName}>{b.name}</Text><Text style={styles.brandP}>You post on this house</Text></View><Text style={styles.brandGo}>Open</Text>
