@@ -1,9 +1,10 @@
 import { Image } from "expo-image";
+import * as Haptics from "expo-haptics";
 import { alertKindLabel, enableAlert, setAlertPreference, type AlertKind, useAlertPreference } from "../../lib/alerts";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useState } from "react";
-import { Alert, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useRef, useEffect, useMemo, useState } from "react";
+import { Alert, Animated, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usd } from "../../lib/catalog";
 import { recordAnalyticsEvent } from "../../lib/analytics";
@@ -255,6 +256,58 @@ export default function ClosetPiece() {
     Boolean(app.uid) &&
     (app.saved.includes(piece.id) || (piece.likedBy || []).some((l) => l.uid === app.uid));
   const hearts = piece ? likeCount(piece, app.saved, app.uid) : 0;
+  const lastImageTap = useRef(0);
+  const heartPopOpacity = useRef(new Animated.Value(0)).current;
+  const heartPopScale = useRef(new Animated.Value(0.55)).current;
+  const heartPopX = useRef(new Animated.Value(0)).current;
+  const heartPopY = useRef(new Animated.Value(0)).current;
+
+  function recordLike() {
+    if (!piece || liked) return;
+    app.likePiece(piece.id);
+    if (piece.brandId && app.uid) {
+      void recordAnalyticsEvent({
+        type: "listing_like",
+        brandId: piece.brandId,
+        listingId: piece.id,
+        listingName: piece.name,
+        listingPhoto: piece.photo,
+      }).catch(() => undefined);
+    }
+  }
+
+  function showHeartPop(x: number, y: number) {
+    const targetX = W - 36;
+    const targetY = insets.top + 26;
+    heartPopX.setValue(x);
+    heartPopY.setValue(y);
+    heartPopScale.setValue(0.55);
+    heartPopOpacity.setValue(1);
+    Animated.parallel([
+      Animated.timing(heartPopX, { toValue: targetX - x, duration: 520, useNativeDriver: true }),
+      Animated.timing(heartPopY, { toValue: targetY - y, duration: 520, useNativeDriver: true }),
+      Animated.sequence([
+        Animated.spring(heartPopScale, { toValue: 1.15, speed: 28, bounciness: 8, useNativeDriver: true }),
+        Animated.timing(heartPopScale, { toValue: 0.7, duration: 300, useNativeDriver: true }),
+      ]),
+      Animated.sequence([
+        Animated.delay(180),
+        Animated.timing(heartPopOpacity, { toValue: 0, duration: 340, useNativeDriver: true }),
+      ]),
+    ]).start();
+  }
+
+  function onImagePress(x: number, y: number) {
+    const now = Date.now();
+    if (now - lastImageTap.current < 300) {
+      lastImageTap.current = 0;
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+      recordLike();
+      showHeartPop(x, y);
+      return;
+    }
+    lastImageTap.current = now;
+  }
 
   useEffect(() => {
     if (!piece) return;
@@ -326,14 +379,25 @@ export default function ClosetPiece() {
             }
           >
             {gallery.map((uri) => (
-              <Image
-                key={uri}
-                source={{ uri }}
-                style={[styles.hero, { width: imgW, height: imgH, borderRadius: framed ? 4 : 0 }]}
-                contentFit="cover"
-              />
+              <Pressable key={uri} onPress={(e) => onImagePress(e.nativeEvent.locationX, e.nativeEvent.locationY)}>
+                <Image
+                  source={{ uri }}
+                  style={[styles.hero, { width: imgW, height: imgH, borderRadius: framed ? 4 : 0 }]}
+                  contentFit="cover"
+                />
+              </Pressable>
             ))}
           </ScrollView>
+          <Animated.Text
+            pointerEvents="none"
+            style={[
+              styles.heartPop,
+              { color: look.accent },
+              { opacity: heartPopOpacity, transform: [{ translateX: heartPopX }, { translateY: heartPopY }, { scale: heartPopScale }] },
+            ]}
+          >
+            ♥
+          </Animated.Text>
           {piece.brandId && typeof selectedStock === "number" && selectedStock > 0 && selectedStock <= 10 ? (
             <View style={[styles.stockBadge, { top: insets.top + 58, left: 16 }]}>
               <Text style={styles.stockBadgeTxt}>{selectedStock} remaining{selectedSize ? ` · ${selectedSize}` : ""}</Text>
@@ -370,7 +434,7 @@ export default function ClosetPiece() {
                 }).catch(() => undefined);
               }
             }}
-            style={[styles.heartBtn, { bottom: 16, right: 16 }]}
+            style={[styles.heartBtn, { top: insets.top + 6, right: 16 }]}
             hitSlop={8}
           >
             <Text style={[styles.heart, { color: liked ? look.accent : look.status === "dark" ? "#16140F" : "#F4F0E6" }]}>
@@ -649,6 +713,7 @@ function make(look: ShopLook, colors: Colors) {
     stockBadge: { position: "absolute", left: 16, backgroundColor: "#D6E27A", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, zIndex: 4 },
     stockBadgeTxt: { color: "#16140F", fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
     heart: { fontSize: 18, marginTop: 1 },
+    heartPop: { position: "absolute", left: -18, top: -28, zIndex: 8, fontSize: 56, lineHeight: 64, textShadowColor: "rgba(0,0,0,0.2)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
     heartBtn: {
       position: "absolute",
       minWidth: 40,
