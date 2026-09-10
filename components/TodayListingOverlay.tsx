@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import { useEffect } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -159,7 +160,7 @@ export function TodayListingOverlay({
                 <Ionicons name={liked ? "heart" : "heart-outline"} size={18} color={colors.bone} />
                 <Text style={styles.secondaryText}>{liked ? "Saved" : "Save listing"}</Text>
               </Pressable>
-              <Pressable style={styles.primaryAction} accessibilityRole="button" accessibilityLabel="Buy this listing">
+              <Pressable onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id } })} style={styles.primaryAction} accessibilityRole="button" accessibilityLabel="Buy this listing">
                 <Text style={styles.primaryText}>Buy this listing</Text>
                 <Ionicons name="arrow-forward" size={17} color={colors.successInk} />
               </Pressable>
