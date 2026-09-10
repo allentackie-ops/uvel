@@ -282,7 +282,7 @@ function ShopPane({ listed, draft, styles }: { listed: ClosetPiece[]; draft: Lis
           <Rack />
           <Text style={styles.emptyH}>No active listings</Text>
           <Text style={styles.emptyP}>List an item so buyers can discover your shop.</Text>
-          <Pressable onPress={() => router.push("/sell")} style={styles.start}>
+          <Pressable onPress={() => router.replace("/sell")} style={styles.start}>
             <Text style={styles.startTxt}>Start selling</Text>
           </Pressable>
         </View>
