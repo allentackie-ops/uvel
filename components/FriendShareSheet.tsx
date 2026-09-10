@@ -99,7 +99,8 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
 
   if (!payload) return null;
   return <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
-    <Animated.View style={[styles.scrim, { opacity: backdropOpacity }]}>
+    <KeyboardAvoidingView style={styles.keyboardRoot} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={10}>
+    <Animated.View style={[styles.scrim, { opacity: backdropOpacity }] }>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close share sheet" />
       <Animated.View style={[styles.sheet, { backgroundColor: colors.surface, transform: [{ translateY }] }]}>
         <View {...pan.panHandlers} style={styles.dragArea} accessibilityRole="adjustable" accessibilityLabel="Drag down to close">
@@ -128,6 +129,7 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
         </ScrollView>
       </Animated.View>
     </Animated.View>
+    </KeyboardAvoidingView>
     <View pointerEvents={finderVisible ? "auto" : "none"} style={[styles.finderOverlay, { opacity: finderVisible ? 1 : 0 }]}>
       <KeyboardAvoidingView style={styles.finderKeyboard} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={10}><View style={styles.finderScrim}><View style={[styles.finder, { backgroundColor: colors.surface }]}>
         <View style={styles.head}><View><Text style={[styles.title, { color: colors.bone }]}>Find friends</Text><Text style={[styles.preview, { color: colors.muted }]}>Search by name or username</Text></View><Pressable onPress={() => setFinderVisible(false)} hitSlop={12}><Ionicons name="close" size={26} color={colors.muted} /></Pressable></View>
@@ -144,6 +146,7 @@ function ExternalAction({ icon, label, onPress, colors }: { icon: keyof typeof I
 
 const styles = StyleSheet.create({
   scrim: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.58)" },
+  keyboardRoot: { flex: 1, justifyContent: "flex-end" },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingBottom: 30, paddingTop: 4, minHeight: 390 },
   dragArea: { alignItems: "center", paddingVertical: 9 },
   handle: { width: 42, height: 5, borderRadius: 4 },
