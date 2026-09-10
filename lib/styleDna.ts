@@ -117,6 +117,10 @@ export function seedFromStyles(styles: string[]) {
   return out;
 }
 
+export function dnaIsSet(dna: Dna) {
+  return Boolean(dna.archetype || dna.palette || dna.silhouette || dna.styles.length);
+}
+
 export function dnaKeywords(dna: Dna): string[] {
   const words = new Set<string>();
   for (const w of ARCH_WORDS[dna.archetype] || []) words.add(w);
@@ -144,6 +148,7 @@ function bag(s: string) {
 }
 
 export function scoreLookText(text: string, dna: Dna) {
+  if (!dnaIsSet(dna)) return 0;
   const hay = bag(text);
   const set = new Set(hay);
   let n = 0;
@@ -152,11 +157,43 @@ export function scoreLookText(text: string, dna: Dna) {
   return n;
 }
 
+const ARCH_CATS: Record<string, string[]> = {
+  "Quiet luxury": ["outerwear", "trousers", "knitwear", "bags", "shoes", "accessories"],
+  Street: ["tops", "trousers", "outerwear", "shoes", "accessories"],
+  "Vintage archive": ["outerwear", "trousers", "tops", "dresses", "skirts"],
+  Utility: ["outerwear", "trousers", "bags", "shoes", "accessories"],
+  Romantic: ["dresses", "skirts", "tops", "knitwear", "accessories"],
+  "Western city": ["trousers", "outerwear", "shoes", "accessories", "tops"],
+  "Tailored city": ["trousers", "outerwear", "tops", "shoes", "knitwear"],
+  "Bourgeois chic": ["dresses", "skirts", "knitwear", "outerwear", "bags", "shoes"],
+};
+
+export function scorePieceAgainstDna(
+  piece: {
+    name?: string;
+    notes?: string;
+    category?: string;
+    color?: string;
+    brand?: string;
+    material?: string;
+  },
+  dna: Dna,
+) {
+  if (!dnaIsSet(dna)) return 0;
+  const text = [piece.name, piece.notes, piece.category, piece.color, piece.brand, piece.material]
+    .filter(Boolean)
+    .join(" ");
+  let n = scoreLookText(text, dna);
+  const cat = (piece.category || "").toLowerCase();
+  if (cat && (ARCH_CATS[dna.archetype] || []).includes(cat)) n += 5;
+  return n;
+}
+
 export function rankLooks<T extends { title?: string; summary?: string; shopQuery?: string; handle?: string }>(
   looks: T[],
   dna: Dna,
 ) {
-  if (!dna.archetype && !dna.palette && !dna.styles.length) return looks;
+  if (!dnaIsSet(dna)) return looks;
   return [...looks].sort((a, b) => {
     const as = scoreLookText([a.title, a.summary, a.shopQuery, a.handle].filter(Boolean).join(" "), dna);
     const bs = scoreLookText([b.title, b.summary, b.shopQuery, b.handle].filter(Boolean).join(" "), dna);
