@@ -5,15 +5,18 @@ import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   AppState,
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { loadShakeToReportEnabled, requestFeedback, saveShakeToReportEnabled, submitFeedback, subscribeToFeedbackRequest } from "../lib/feedback";
 import { pickFromLibrary } from "../lib/photo";
 import { useUvel } from "../lib/store";
@@ -27,6 +30,8 @@ export function ShakeToReport() {
   const styles = make(colors);
   const pathname = usePathname();
   const app = useUvel();
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const [open, setOpen] = useState(false);
   const [compose, setCompose] = useState(false);
   const [shakeEnabled, setShakeEnabled] = useState(true);
@@ -35,6 +40,8 @@ export function ShakeToReport() {
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [chromeH, setChromeH] = useState(120);
   const lastShake = useRef(0);
   const listenerRef = useRef<{ remove: () => void } | null>(null);
   const activeRef = useRef(true);
@@ -56,6 +63,17 @@ export function ShakeToReport() {
 
   useEffect(() => {
     void loadShakeToReportEnabled().then(setShakeEnabled);
+  }, []);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const show = Keyboard.addListener(showEvent, (e) => setKeyboardHeight(e.endCoordinates.height));
+    const hide = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -132,82 +150,96 @@ export function ShakeToReport() {
     }
   }
 
+  const sheetPad = keyboardHeight ? 12 : Math.max(insets.bottom, 12);
+  const sheetMaxHeight = Math.max(280, windowHeight - keyboardHeight - Math.max(insets.top, 8) - 8);
+  const formMaxHeight = Math.max(120, sheetMaxHeight - chromeH - sheetPad);
+
   return (
     <Modal visible={open} transparent animationType="slide" onRequestClose={close} statusBarTranslucent>
-      <KeyboardAvoidingView style={styles.modalRoot} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <View style={styles.modalRoot}>
         <Pressable style={styles.scrim} onPress={close} accessibilityLabel="Close report problem" />
-        <View style={[styles.sheet, { paddingBottom: 4 }]}>
-          <View style={styles.grabber} />
-          <View style={styles.header}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.title}>Report a technical problem</Text>
-              <Text style={styles.subtitle}>If a feature or product isn’t working correctly, you can give feedback to help us make Uvel better.</Text>
+        <View style={[styles.sheetWrap, { paddingBottom: keyboardHeight }]}>
+          <View style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: sheetPad }]}>
+            <View onLayout={(e) => setChromeH(e.nativeEvent.layout.height)}>
+              <View style={styles.grabber} />
+              <View style={styles.header}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.title}>Report a technical problem</Text>
+                  <Text style={styles.subtitle}>If a feature or product isn’t working correctly, you can give feedback to help us make Uvel better.</Text>
+                </View>
+                <Pressable onPress={close} hitSlop={10} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
+                  <Text style={styles.closeText}>×</Text>
+                </Pressable>
+              </View>
             </View>
-            <Pressable onPress={close} hitSlop={10} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
-              <Text style={styles.closeText}>×</Text>
-            </Pressable>
+            {sent ? (
+              <View style={styles.success}>
+                <Text style={styles.successTitle}>Thanks for letting us know.</Text>
+                <Text style={styles.successText}>Your report was saved and sent to the Uvel team.</Text>
+                <Pressable onPress={close} style={styles.primary} accessibilityRole="button">
+                  <Text style={styles.primaryText}>Done</Text>
+                </Pressable>
+              </View>
+            ) : compose ? (
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                showsVerticalScrollIndicator={false}
+                style={{ maxHeight: formMaxHeight }}
+                contentContainerStyle={styles.formContent}
+              >
+                <TextInput
+                  value={body}
+                  onChangeText={setBody}
+                  style={styles.input}
+                  placeholder="What happened?"
+                  placeholderTextColor={`${colors.bone}70`}
+                  multiline
+                  maxLength={2000}
+                  autoFocus
+                  textAlignVertical="top"
+                  accessibilityLabel="Describe the technical problem"
+                />
+                <Text style={styles.counter}>{body.length}/2000</Text>
+                <Pressable onPress={() => void toggleScreenshot()} style={styles.optionRow} accessibilityRole="switch" accessibilityState={{ checked: includeScreenshot }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.optionTitle}>Include screenshot in report</Text>
+                    <Text style={styles.optionHint}>{includeScreenshot ? "Screenshot attached" : "Optional"}</Text>
+                  </View>
+                  <View style={[styles.toggle, includeScreenshot && styles.toggleOn]}><View style={[styles.knob, includeScreenshot && styles.knobOn]} /></View>
+                </Pressable>
+                {screenshotUri ? <Image source={{ uri: screenshotUri }} style={styles.preview} contentFit="cover" /> : null}
+                <Pressable onPress={() => { const next = !shakeEnabled; setShakeEnabled(next); void saveShakeToReportEnabled(next); }} style={styles.optionRow} accessibilityRole="switch" accessibilityState={{ checked: shakeEnabled }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.optionTitle}>Shake phone to report a problem</Text>
+                    <Text style={styles.optionHint}>{shakeEnabled ? "Shake your phone anywhere in Uvel" : "Toggle on to enable"}</Text>
+                  </View>
+                  <View style={[styles.toggle, shakeEnabled && styles.toggleOn]}><View style={[styles.knob, shakeEnabled && styles.knobOn]} /></View>
+                </Pressable>
+                <Pressable onPress={() => void send()} disabled={!body.trim() || submitting} style={[styles.primary, (!body.trim() || submitting) && styles.primaryDisabled]} accessibilityRole="button" accessibilityState={{ disabled: !body.trim() || submitting }}>
+                  {submitting ? <ActivityIndicator color={colors.successInk} /> : <Text style={styles.primaryText}>Send report</Text>}
+                </Pressable>
+                <Pressable onPress={() => setCompose(false)} disabled={submitting} style={styles.cancel} accessibilityRole="button">
+                  <Text style={styles.cancelText}>Back</Text>
+                </Pressable>
+              </ScrollView>
+            ) : (
+              <>
+                <Pressable onPress={() => setCompose(true)} style={styles.primary} accessibilityRole="button">
+                  <Text style={styles.primaryText}>Report a problem</Text>
+                </Pressable>
+                <Pressable onPress={() => { const next = !shakeEnabled; setShakeEnabled(next); void saveShakeToReportEnabled(next); }} style={styles.toggleRow} accessibilityRole="switch" accessibilityState={{ checked: shakeEnabled }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.toggleTitle}>Shake phone to report a problem</Text>
+                    <Text style={styles.toggleHint}>{shakeEnabled ? "Shake your phone anywhere in Uvel" : "Toggle on to enable"}</Text>
+                  </View>
+                  <View style={[styles.toggle, shakeEnabled && styles.toggleOn]}><View style={[styles.knob, shakeEnabled && styles.knobOn]} /></View>
+                </Pressable>
+              </>
+            )}
           </View>
-          {sent ? (
-            <View style={styles.success}>
-              <Text style={styles.successTitle}>Thanks for letting us know.</Text>
-              <Text style={styles.successText}>Your report was saved and sent to the Uvel team.</Text>
-              <Pressable onPress={close} style={styles.primary} accessibilityRole="button">
-                <Text style={styles.primaryText}>Done</Text>
-              </Pressable>
-            </View>
-          ) : compose ? (
-            <>
-              <TextInput
-                value={body}
-                onChangeText={setBody}
-                style={styles.input}
-                placeholder="What happened?"
-                placeholderTextColor={`${colors.bone}70`}
-                multiline
-                maxLength={2000}
-                autoFocus
-                textAlignVertical="top"
-                accessibilityLabel="Describe the technical problem"
-              />
-              <Text style={styles.counter}>{body.length}/2000</Text>
-              <Pressable onPress={() => void toggleScreenshot()} style={styles.optionRow} accessibilityRole="switch" accessibilityState={{ checked: includeScreenshot }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.optionTitle}>Include screenshot in report</Text>
-                  <Text style={styles.optionHint}>{includeScreenshot ? "Screenshot attached" : "Optional"}</Text>
-                </View>
-                <View style={[styles.toggle, includeScreenshot && styles.toggleOn]}><View style={[styles.knob, includeScreenshot && styles.knobOn]} /></View>
-              </Pressable>
-              {screenshotUri ? <Image source={{ uri: screenshotUri }} style={styles.preview} contentFit="cover" /> : null}
-              <Pressable onPress={() => { const next = !shakeEnabled; setShakeEnabled(next); void saveShakeToReportEnabled(next); }} style={styles.optionRow} accessibilityRole="switch" accessibilityState={{ checked: shakeEnabled }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.optionTitle}>Shake phone to report a problem</Text>
-                  <Text style={styles.optionHint}>{shakeEnabled ? "Shake your phone anywhere in Uvel" : "Toggle on to enable"}</Text>
-                </View>
-                <View style={[styles.toggle, shakeEnabled && styles.toggleOn]}><View style={[styles.knob, shakeEnabled && styles.knobOn]} /></View>
-              </Pressable>
-              <Pressable onPress={() => void send()} disabled={!body.trim() || submitting} style={[styles.primary, (!body.trim() || submitting) && styles.primaryDisabled]} accessibilityRole="button" accessibilityState={{ disabled: !body.trim() || submitting }}>
-                {submitting ? <ActivityIndicator color={colors.successInk} /> : <Text style={styles.primaryText}>Send report</Text>}
-              </Pressable>
-              <Pressable onPress={() => setCompose(false)} disabled={submitting} style={styles.cancel} accessibilityRole="button">
-                <Text style={styles.cancelText}>Back</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <Pressable onPress={() => setCompose(true)} style={styles.primary} accessibilityRole="button">
-                <Text style={styles.primaryText}>Report a problem</Text>
-              </Pressable>
-              <Pressable onPress={() => { const next = !shakeEnabled; setShakeEnabled(next); void saveShakeToReportEnabled(next); }} style={styles.toggleRow} accessibilityRole="switch" accessibilityState={{ checked: shakeEnabled }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.toggleTitle}>Shake phone to report a problem</Text>
-                  <Text style={styles.toggleHint}>{shakeEnabled ? "Shake your phone anywhere in Uvel" : "Toggle on to enable"}</Text>
-                </View>
-                <View style={[styles.toggle, shakeEnabled && styles.toggleOn]}><View style={[styles.knob, shakeEnabled && styles.knobOn]} /></View>
-              </Pressable>
-            </>
-          )}
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -215,7 +247,8 @@ export function ShakeToReport() {
 function make(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     modalRoot: { flex: 1, justifyContent: "flex-end" },
-    scrim: { ...StyleSheet.absoluteFill, backgroundColor: `${colors.ink}CC` },
+    scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: `${colors.ink}CC` },
+    sheetWrap: { width: "100%", justifyContent: "flex-end" },
     sheet: { backgroundColor: colors.ink, borderTopLeftRadius: 27, borderTopRightRadius: 27, paddingHorizontal: 26, paddingTop: 10, borderWidth: 1, borderColor: `${colors.bone}1F` },
     grabber: { alignSelf: "center", width: 42, height: 4, borderRadius: 3, backgroundColor: `${colors.bone}55`, marginBottom: 22 },
     header: { flexDirection: "row", alignItems: "flex-start", gap: 14, marginBottom: 18 },
@@ -223,6 +256,7 @@ function make(colors: ReturnType<typeof useColors>) {
     subtitle: { color: `${colors.bone}E0`, fontSize: 14, lineHeight: 20, marginTop: 10, textAlign: "center" },
     close: { position: "absolute", right: -4, top: -4, width: 32, height: 32, borderRadius: 16, backgroundColor: `${colors.bone}14`, alignItems: "center", justifyContent: "center" },
     closeText: { color: colors.bone, fontSize: 24, lineHeight: 26, marginTop: -2 },
+    formContent: { paddingBottom: 8 },
     primary: { minHeight: 57, borderRadius: 15, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", marginTop: 2 },
     primaryDisabled: { opacity: 0.42 },
     primaryText: { color: colors.successInk, fontSize: 16, fontWeight: "800" },
