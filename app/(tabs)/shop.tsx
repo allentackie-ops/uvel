@@ -10,7 +10,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
 import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayListingOverlay";
-import { TodayToolsDrawer } from "../../components/TodayToolsDrawer";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
@@ -91,7 +90,7 @@ function FrozenClip({
   );
 }
 
-export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
+export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: boolean; onOpenTools?: () => void }) {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
@@ -110,7 +109,6 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
   const [refreshing, setRefreshing] = useState(false);
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
-  const [toolsOpen, setToolsOpen] = useState(false);
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
@@ -276,7 +274,7 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
       {todayHome ? (
         <View style={[styles.todayHeader, { paddingTop: 2 }]}>
           <AccessiblePressable
-            onPress={() => setToolsOpen(true)}
+            onPress={() => onOpenTools?.()}
             style={({ pressed }) => [styles.headerSide, pressed && { opacity: 0.72 }]}
             accessibilityRole="button"
             accessibilityLabel="Open your Uvel workspace"
@@ -507,7 +505,6 @@ export default function Shop({ todayHome = false }: { todayHome?: boolean }) {
           }}
         />
       ) : null}
-      {todayHome ? <TodayToolsDrawer open={toolsOpen} onOpen={() => setToolsOpen(true)} onClose={() => setToolsOpen(false)} /> : null}
     </View>
   );
 }

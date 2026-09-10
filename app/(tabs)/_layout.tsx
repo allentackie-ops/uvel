@@ -4,6 +4,8 @@ import { router, usePathname } from "expo-router";
 import PagerView, { type PagerViewOnPageSelectedEvent } from "react-native-pager-view";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { TodayToolsDrawer, DRAWER_WIDTH } from "../../components/TodayToolsDrawer";
+import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Today from "./index";
 import Mirror from "./find";
@@ -17,7 +19,7 @@ const ROUTES = ["/", "/find", "/closet", "/you"] as const;
 const ICONS = ["compass-outline", "body-outline", "add-outline", "person-outline"] as const;
 const ACTIVE_ICONS = ["compass", "body", "add", "person"] as const;
 
-type TabScreen = { key: string; label: string; screen: React.ComponentType };
+type TabScreen = { key: string; label: string; screen: React.ReactNode };
 
 export default function TabsLayout() {
   const { appearance } = useUvel();
@@ -28,13 +30,16 @@ export default function TabsLayout() {
   const pathname = usePathname();
   const pagerRef = useRef<PagerView>(null);
   const [selected, setSelected] = useState(() => routeIndex(pathname) ?? 0);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const drawerProgress = useSharedValue(0);
+  const contentShiftStyle = useAnimatedStyle(() => ({ transform: [{ translateX: drawerProgress.value * DRAWER_WIDTH }] }));
 
   const tabs = useMemo<TabScreen[]>(
     () => [
-      { key: "today", label: C.today, screen: Today },
-      { key: "mirror", label: C.mirror, screen: Mirror },
-      { key: "sell", label: C.sell, screen: Closet },
-      { key: "you", label: C.you, screen: You },
+      { key: "today", label: C.today, screen: <Today onOpenTools={() => setToolsOpen(true)} /> },
+      { key: "mirror", label: C.mirror, screen: <Mirror /> },
+      { key: "sell", label: C.sell, screen: <Closet /> },
+      { key: "you", label: C.you, screen: <You /> },
     ],
     [C.today, C.mirror, C.sell, C.you],
   );
@@ -67,7 +72,8 @@ export default function TabsLayout() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.ink }]}>
-      <PagerView
+      <Animated.View style={[styles.contentLayer, contentShiftStyle]}>
+        <PagerView
         ref={pagerRef}
         style={styles.pager}
         initialPage={selected}
@@ -77,15 +83,14 @@ export default function TabsLayout() {
         scrollEnabled
         offscreenPageLimit={1}
       >
-        {tabs.map(({ key, screen: Screen }) => (
+        {tabs.map(({ key, screen }) => (
           <View key={key} style={[styles.page, { backgroundColor: colors.ink }]}>
-
-            <Screen />
+            {screen}
           </View>
         ))}
-      </PagerView>
-      <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]}>
-        <View style={[styles.bar, { backgroundColor: colors.ink }]}>
+        </PagerView>
+        <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]}>
+          <View style={[styles.bar, { backgroundColor: colors.ink }]}>
 
           {tabs.map((tab, index) => {
             const active = selected === index;
@@ -110,8 +115,10 @@ export default function TabsLayout() {
               </Pressable>
             );
           })}
+          </View>
         </View>
-      </View>
+      </Animated.View>
+      {selected === 0 ? <TodayToolsDrawer open={toolsOpen} progress={drawerProgress} onOpen={() => setToolsOpen(true)} onClose={() => setToolsOpen(false)} /> : null}
     </View>
   );
 }
@@ -126,6 +133,7 @@ function routeIndex(pathname: string): number | null {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  contentLayer: { flex: 1 },
   pager: { flex: 1 },
   page: { flex: 1, backgroundColor: "#000000" },
   barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 4, backgroundColor: "#000000" },

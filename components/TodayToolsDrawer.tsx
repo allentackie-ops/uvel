@@ -3,13 +3,13 @@ import { router } from "expo-router";
 import { useEffect } from "react";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming, type SharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { canSeeAnalytics, ownedBrand, useBrands } from "../lib/brands";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 
-const DRAWER_WIDTH = Math.min(Dimensions.get("window").width * 0.84, 360);
+export const DRAWER_WIDTH = Math.min(Dimensions.get("window").width * 0.84, 360);
 const SPRING = { damping: 28, stiffness: 300, mass: 0.82 };
 
 type Tool = {
@@ -19,13 +19,14 @@ type Tool = {
   onPress: () => void;
 };
 
-export function TodayToolsDrawer({ open, onOpen, onClose }: { open: boolean; onOpen: () => void; onClose: () => void }) {
+export function TodayToolsDrawer({ open, onOpen, onClose, progress: externalProgress }: { open: boolean; onOpen: () => void; onClose: () => void; progress?: SharedValue<number> }) {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const app = useUvel();
   useBrands();
-  const progress = useSharedValue(0);
+  const localProgress = useSharedValue(0);
+  const progress = externalProgress ?? localProgress;
   const mine = ownedBrand(app.uid);
   const hasAnalytics = Boolean(mine?.verified && canSeeAnalytics(mine, app.uid));
 
@@ -38,14 +39,22 @@ export function TodayToolsDrawer({ open, onOpen, onClose }: { open: boolean; onO
   const edgeSwipe = Gesture.Pan()
     .activeOffsetX(14)
     .failOffsetY([-24, 24])
+    .onUpdate((event) => {
+      if (externalProgress) progress.value = Math.max(0, Math.min(1, event.translationX / DRAWER_WIDTH));
+    })
     .onEnd((event) => {
       if (event.translationX > 56 || event.velocityX > 500) runOnJS(onOpen)();
+      else if (externalProgress) progress.value = withTiming(0, { duration: 180 });
     });
   const closeSwipe = Gesture.Pan()
     .activeOffsetX(-14)
     .failOffsetY([-24, 24])
+    .onUpdate((event) => {
+      if (externalProgress) progress.value = Math.max(0, Math.min(1, 1 + event.translationX / DRAWER_WIDTH));
+    })
     .onEnd((event) => {
       if (event.translationX < -56 || event.velocityX < -500) runOnJS(onClose)();
+      else if (externalProgress) progress.value = withSpring(1, SPRING);
     });
 
   const buildTools: Tool[] = [
@@ -66,13 +75,12 @@ export function TodayToolsDrawer({ open, onOpen, onClose }: { open: boolean; onO
           <View style={styles.edgeZone} pointerEvents="box-only" accessibilityElementsHidden />
         </GestureDetector>
       ) : null}
-      {open ? (
-        <Animated.View style={[styles.layer, { paddingTop: insets.top }]} pointerEvents="box-none">
+      <Animated.View style={[styles.layer, { paddingTop: insets.top }]} pointerEvents={open ? "box-none" : "none"}>
           <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
-            <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close tools drawer" />
+            {open ? <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close tools drawer" /> : null}
           </Animated.View>
           <GestureDetector gesture={closeSwipe}>
-            <Animated.View style={[styles.drawer, drawerStyle]}>
+            <Animated.View style={[styles.drawer, drawerStyle]} pointerEvents={open ? "auto" : "none"}>
               <View style={styles.header}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.eyebrow}>TODAY</Text>
@@ -92,8 +100,7 @@ export function TodayToolsDrawer({ open, onOpen, onClose }: { open: boolean; onO
               </ScrollView>
             </Animated.View>
           </GestureDetector>
-        </Animated.View>
-      ) : null}
+      </Animated.View>
     </>
   );
 }
