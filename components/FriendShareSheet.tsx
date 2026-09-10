@@ -1,9 +1,11 @@
 import { Image } from "expo-image";
 import * as FileSystem from "expo-file-system";
 import { Ionicons } from "@expo/vector-icons";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
+import * as Haptics from "expo-haptics";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, KeyboardAvoidingView, Linking, Modal, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { createFriendChat, listFriends, sendFriendMessage, uploadFriendAttachment } from "../lib/friendChat";
 import { searchUsers, sendFriendRequest, type PublicUser } from "../lib/friends";
 import { useColors } from "../lib/theme";
@@ -27,6 +29,8 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
   const [results, setResults] = useState<PublicUser[]>([]);
   const [searching, setSearching] = useState(false);
   const [requested, setRequested] = useState<Record<string, boolean>>({});
+  const [copied, setCopied] = useState(false);
+  const [toast, setToast] = useState("");
   const translateY = useRef(new Animated.Value(0)).current;
   const backdropOpacity = translateY.interpolate({ inputRange: [0, 360], outputRange: [1, 0], extrapolate: "clamp" });
 
@@ -36,6 +40,8 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
     setFinderVisible(false);
     setQuery("");
     setResults([]);
+    setCopied(false);
+    setToast("");
     void listFriends().then(setFriends).catch(() => setFriends([]));
     Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 24, stiffness: 220, mass: 0.85 }).start();
   }, [visible, translateY]);
@@ -97,7 +103,14 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
       whatsapp: `whatsapp://send?text=${encodeURIComponent(text)}`,
       email: `mailto:?subject=${encodeURIComponent(payload.title)}&body=${encodeURIComponent(text)}`,
     };
-    if (kind === "copy") { await Share.share({ message: text, title: payload.title }); return; }
+    if (kind === "copy") {
+      await Clipboard.setStringAsync(text);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setCopied(true);
+      setToast("Copied to clipboard");
+      setTimeout(() => { setCopied(false); setToast(""); }, 1800);
+      return;
+    }
     const url = urls[kind];
     try {
       if (await Linking.canOpenURL(url)) {
@@ -134,12 +147,13 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
         </Pressable>}
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>SHARE TO</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.externalRail}>
-          <ExternalAction icon="copy-outline" label="Copy link" onPress={() => void openExternal("copy")} colors={colors} />
-          <ExternalAction icon={Platform.OS === "ios" ? "message-text-outline" : "message-outline"} label="Messages" onPress={() => void openExternal("message")} colors={colors} />
+          <ExternalAction icon={copied ? "checkmark" : "copy-outline"} label={copied ? "Copied" : "Copy link"} onPress={() => void openExternal("copy")} colors={colors} />
+          <ExternalAction icon={Platform.OS === "ios" ? "chatbubble-ellipses-outline" : "message-outline"} label="Messages" onPress={() => void openExternal("message")} colors={colors} family={Platform.OS === "ios" ? "ion" : "material"} />
           <ExternalAction icon="whatsapp" label="WhatsApp" onPress={() => void openExternal("whatsapp")} colors={colors} family="material" />
           <ExternalAction icon="mail-outline" label="Email" onPress={() => void openExternal("email")} colors={colors} />
           <ExternalAction icon="ellipsis-horizontal" label="More" onPress={() => void openExternal("more")} colors={colors} />
         </ScrollView>
+        {toast ? <View pointerEvents="none" style={styles.toast}><Ionicons name="checkmark-circle" size={17} color={colors.success} /><Text style={[styles.toastText, { color: colors.bone }]}>{toast}</Text></View> : null}
       </Animated.View>
     </Animated.View>
     </KeyboardAvoidingView>
@@ -182,6 +196,8 @@ const styles = StyleSheet.create({
   externalAction: { width: 60, alignItems: "center", gap: 6 },
   externalIcon: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
   externalLabel: { fontSize: 10, textAlign: "center" },
+  toast: { position: "absolute", left: 20, right: 20, bottom: 12, minHeight: 42, borderRadius: 21, backgroundColor: "#111111F2", alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 7 },
+  toastText: { fontSize: 13, fontWeight: "700" },
   finderOverlay: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 10 },
   finderKeyboard: { flex: 1 },
   finderScrim: { flex: 1, justifyContent: "center", padding: 18, backgroundColor: "rgba(0,0,0,0.7)" },
