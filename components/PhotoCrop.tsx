@@ -24,7 +24,8 @@ export function PhotoCrop({ uri, onCancel, onPreview, previewStatus = "idle", pr
   const insets = useSafeAreaInsets();
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const frame = useMemo(() => {
-    const avail = SH - insets.top - insets.bottom - 316;
+    // Give the crop image more of the vertical space above the live-matches sheet.
+    const avail = SH - insets.top - insets.bottom - 250;
     const h = Math.min(SW * 1.28, Math.max(220, avail));
     return { w: Math.min(SW - 20, h * 0.8), h };
   }, [insets.bottom, insets.top]);
@@ -171,7 +172,7 @@ const styles = StyleSheet.create({
   back: { color: "#F4F0E6", fontSize: 46, fontWeight: "200", lineHeight: 46 },
   title: { color: "#F4F0E6", fontWeight: "700", fontSize: 23 },
   barSpacer: { width: 30 },
-  stage: { flex: 1, alignItems: "center", justifyContent: "center" },
+  stage: { flex: 1, alignItems: "center", justifyContent: "center", transform: [{ translateY: -96 }] },
   frame: { overflow: "hidden", backgroundColor: "#1A1814", alignItems: "center", justifyContent: "center" },
   gestureSurface: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
   cropBox: { position: "absolute", minWidth: MIN_CROP_SIZE, minHeight: MIN_CROP_SIZE },
