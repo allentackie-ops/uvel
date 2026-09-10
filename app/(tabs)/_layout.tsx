@@ -4,8 +4,7 @@ import { router, usePathname } from "expo-router";
 import PagerView, { type PagerViewOnPageSelectedEvent } from "react-native-pager-view";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { TodayToolsDrawer, DRAWER_WIDTH } from "../../components/TodayToolsDrawer";
-import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
+import { TodayToolsDrawer } from "../../components/TodayToolsDrawer";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Today from "./index";
 import Mirror from "./find";
@@ -19,7 +18,7 @@ const ROUTES = ["/", "/find", "/closet", "/you"] as const;
 const ICONS = ["compass-outline", "body-outline", "add-outline", "person-outline"] as const;
 const ACTIVE_ICONS = ["compass", "body", "add", "person"] as const;
 
-type TabScreen = { key: string; label: string; screen: React.ReactNode };
+type TabScreen = { key: string; screen: React.ReactNode };
 
 export default function TabsLayout() {
   const { appearance } = useUvel();
@@ -29,54 +28,52 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const pagerRef = useRef<PagerView>(null);
-  const [selected, setSelected] = useState(() => routeIndex(pathname) ?? 0);
-  const [toolsOpen, setToolsOpen] = useState(false);
-  const drawerProgress = useSharedValue(0);
-  const contentShiftStyle = useAnimatedStyle(() => ({ transform: [{ translateX: drawerProgress.value * DRAWER_WIDTH }] }));
+  const [pageIndex, setPageIndex] = useState(() => routeIndex(pathname));
 
   const tabs = useMemo<TabScreen[]>(
     () => [
-      { key: "today", label: C.today, screen: <Today onOpenTools={() => setToolsOpen(true)} /> },
-      { key: "mirror", label: C.mirror, screen: <Mirror /> },
-      { key: "sell", label: C.sell, screen: <Closet /> },
-      { key: "you", label: C.you, screen: <You /> },
+      { key: "workspace", screen: <TodayToolsDrawer onClose={() => pagerRef.current?.setPage(1)} /> },
+      { key: "today", screen: <Today onOpenTools={() => pagerRef.current?.setPage(0)} /> },
+      { key: "mirror", screen: <Mirror /> },
+      { key: "sell", screen: <Closet /> },
+      { key: "you", screen: <You /> },
     ],
     [C.today, C.mirror, C.sell, C.you],
   );
 
   useEffect(() => {
-    // Keep the current tab mounted behind stack screens such as Settings.
-    // Treating every non-tab route as Today causes a visible pager reset while
-    // the stack screen is pushed or popped.
+    if (pageIndex === 0) return;
     const next = routeIndex(pathname);
-    if (next === null || next === selected) return;
-    setSelected(next);
+    if (next === pageIndex) return;
+    setPageIndex(next);
     pagerRef.current?.setPageWithoutAnimation(next);
-  }, [pathname, selected]);
+  }, [pathname, pageIndex]);
 
-  function selectTab(index: number) {
-    if (index === selected) return;
-    setSelected(index);
-    pagerRef.current?.setPage(index);
-    router.navigate(ROUTES[index]);
+  function selectTab(tabIndex: number) {
+    const next = tabIndex + 1;
+    if (next === pageIndex) return;
+    setPageIndex(next);
+    pagerRef.current?.setPage(next);
+    router.navigate(ROUTES[tabIndex]);
   }
 
   function onPageSelected(event: PagerViewOnPageSelectedEvent) {
-    const index = event.nativeEvent.position;
-    if (index === selected) return;
-    setSelected(index);
+    const next = event.nativeEvent.position;
+    if (next === pageIndex) return;
+    setPageIndex(next);
     void Haptics.selectionAsync().catch(() => undefined);
-    const currentRouteIndex = routeIndex(pathname);
-    if (currentRouteIndex !== null && currentRouteIndex !== index) router.navigate(ROUTES[index]);
+    if (next === 0) return;
+    const route = ROUTES[next - 1];
+    if (route !== pathname) router.navigate(route);
   }
 
+  const activeTab = pageIndex === 0 ? 0 : pageIndex - 1;
   return (
     <View style={[styles.root, { backgroundColor: colors.ink }]}>
-      <Animated.View style={[styles.contentLayer, contentShiftStyle]}>
-        <PagerView
+      <PagerView
         ref={pagerRef}
         style={styles.pager}
-        initialPage={selected}
+        initialPage={pageIndex}
         onPageSelected={onPageSelected}
         overScrollMode="never"
         pageMargin={0}
@@ -84,23 +81,20 @@ export default function TabsLayout() {
         offscreenPageLimit={1}
       >
         {tabs.map(({ key, screen }) => (
-          <View key={key} style={[styles.page, { backgroundColor: colors.ink }]}>
-            {screen}
-          </View>
+          <View key={key} style={[styles.page, { backgroundColor: colors.ink }]}>{screen}</View>
         ))}
-        </PagerView>
-        <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]}>
-          <View style={[styles.bar, { backgroundColor: colors.ink }]}>
-
-          {tabs.map((tab, index) => {
-            const active = selected === index;
+      </PagerView>
+      <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]}>
+        <View style={[styles.bar, { backgroundColor: colors.ink }]}>
+          {ROUTES.map((_, index) => {
+            const active = activeTab === index;
             return (
               <Pressable
-                key={tab.key}
+                key={index}
                 onPress={() => selectTab(index)}
                 style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
                 accessibilityRole="tab"
-                accessibilityLabel={tab.label}
+                accessibilityLabel={[C.today, C.mirror, C.sell, C.you][index]}
                 accessibilityState={{ selected: active }}
               >
                 {index === 2 ? (
@@ -111,29 +105,26 @@ export default function TabsLayout() {
                 ) : (
                   <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={23} color={active ? colors.success : inactiveIcon} />
                 )}
-                <Text style={[styles.label, { color: active ? colors.success : inactiveIcon }]}>{tab.label}</Text>
+                <Text style={[styles.label, { color: active ? colors.success : inactiveIcon }]}>{[C.today, C.mirror, C.sell, C.you][index]}</Text>
               </Pressable>
             );
           })}
-          </View>
         </View>
-      </Animated.View>
-      {selected === 0 ? <TodayToolsDrawer open={toolsOpen} progress={drawerProgress} onOpen={() => setToolsOpen(true)} onClose={() => setToolsOpen(false)} /> : null}
+      </View>
     </View>
   );
 }
 
-function routeIndex(pathname: string): number | null {
-  if (pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/")) return 0;
-  if (pathname.includes("/find")) return 1;
-  if (pathname.includes("/closet")) return 2;
-  if (pathname.includes("/you")) return 3;
-  return null;
+function routeIndex(pathname: string): number {
+  if (pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/")) return 1;
+  if (pathname.includes("/find")) return 2;
+  if (pathname.includes("/closet")) return 3;
+  if (pathname.includes("/you")) return 4;
+  return 1;
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  contentLayer: { flex: 1 },
   pager: { flex: 1 },
   page: { flex: 1, backgroundColor: "#000000" },
   barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 4, backgroundColor: "#000000" },
@@ -145,5 +136,4 @@ const styles = StyleSheet.create({
   sellPlusHorizontal: { width: 25, height: 3 },
   sellPlusVertical: { width: 3, height: 25 },
   label: { color: "#A9A398", fontSize: 11, fontWeight: "700" },
-  labelActive: { color: "#D6E27A" },
 });
