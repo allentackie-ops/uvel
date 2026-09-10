@@ -4,11 +4,10 @@ import {  StyleSheet, Text, View } from "react-native";
 import { useRef } from "react";
 import { AccessiblePressable } from "./AccessiblePressable";
 import { getBrand } from "../lib/brands";
-import { uvelFeeCents } from "../lib/fees";
-import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
+import { getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
-import { getPiece, isRemoteListedPiece, likeCount, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
+import { getPiece, likeCount, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { VerifiedMark } from "./VerifiedMark";
 import type { PersonalizationAction } from "../lib/personalization";
 
@@ -41,12 +40,6 @@ export function ListingCard({
   const house = live.brandId ? getBrand(live.brandId) : undefined;
   const brand = house?.name || (live.brand && live.brand !== "Unlabeled" ? live.brand : "Unbranded");
   const itemCurrency = live.currency || getMarket(live.country || app.country).currency;
-  const localPriceCents = convertCents(live.listPriceCents, itemCurrency, here);
-  const buyerFee = uvelFeeCents(live.listPriceCents, itemCurrency, here);
-  const total = localPriceCents + buyerFee;
-  const sync = useMarketplaceSyncState();
-  const remote = isRemoteListedPiece(live.id);
-  const confirmed = sync === "confirmed" && remote;
   return (
     <AccessiblePressable      onPress={() => {
       onInteraction?.("view", live);
@@ -58,7 +51,7 @@ export function ListingCard({
     }}
       style={({ pressed }) => [styles.wrap, wide ? { width: wide, flex: undefined } : null, framed && styles.framed, pressed && app.accessibilityMode && styles.focused]}
       accessibilityRole="button"
-      accessibilityLabel={`${brand} ${live.name}, ${moneyInMarket(live.listPriceCents, itemCurrency, here)}${typeof live.stockQuantity === "number" ? live.stockQuantity === 0 ? ", sold out" : live.stockQuantity <= 10 ? `, ${live.stockQuantity} remaining` : "" : ""}${!confirmed ? ", availability not confirmed" : ""}`}
+      accessibilityLabel={`${brand} ${live.name}, ${moneyInMarket(live.listPriceCents, itemCurrency, here)}${typeof live.stockQuantity === "number" ? live.stockQuantity === 0 ? ", sold out" : live.stockQuantity <= 10 ? `, ${live.stockQuantity} remaining` : "" : ""}`}
       accessibilityHint="Double tap to view this listing."
     >
       <View ref={mediaRef}>
@@ -110,12 +103,6 @@ export function ListingCard({
         <Text style={[styles.sizeLine, framed && styles.brandFramed]} numberOfLines={1}>
           {[live.size || live.sizes?.[0] || "One size", live.condition || "Condition not listed"].join(" · ")}
         </Text>
-        <Text style={[styles.total, framed && styles.totalFramed]} numberOfLines={1}>
-          {moneyInMarket(total, here.currency, here)} {confirmed ? "incl. buyer protection" : "availability pending"}
-        </Text>
-        {!confirmed && sync !== "loading" ? (
-          <View style={styles.syncDot} />
-        ) : null}
       </View>
     </AccessiblePressable>
   );
@@ -138,7 +125,6 @@ function make(colors: ReturnType<typeof useColors>) {
     badgeTxt: { color: colors.ink, fontWeight: "700", fontSize: 12 },
     stockBadge: { position: "absolute", left: 10, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", zIndex: 9 },
     stockBadgeTxt: { color: colors.ink, fontSize: 11, fontWeight: "800" },
-    syncDot: { position: "absolute", top: 10, right: 10, width: 6, height: 6, borderRadius: 3, backgroundColor: colors.muted, opacity: 0.5 },
     framedMeta: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12 },
     brand: { color: colors.subtle, fontSize: 11, marginTop: 8, letterSpacing: 0.4 },
     brandFramed: { marginTop: 0, letterSpacing: 1.3, fontWeight: "700", color: `${colors.bone}6B` },
@@ -147,8 +133,6 @@ function make(colors: ReturnType<typeof useColors>) {
     price: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 4, fontVariant: ["tabular-nums"] },
     priceFramed: { color: colors.bone },
     sizeLine: { color: `${colors.bone}6B`, fontSize: 11, marginTop: 4, letterSpacing: 0.4 },
-    total: { color: colors.success, fontSize: 12, marginTop: 5, fontWeight: "700", fontVariant: ["tabular-nums"] },
-    totalFramed: { color: colors.success },
   });
 }
 
