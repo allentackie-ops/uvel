@@ -531,7 +531,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
 
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 232 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: (embedded ? 70 : insets.bottom + 12) + 160 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -852,7 +852,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           </View>
         </ScrollView>
 
-        <View style={[styles.foot, { paddingBottom: keyboardVisible ? 8 : insets.bottom + (embedded ? 88 : 12) }]}>
+        <View style={[styles.foot, { paddingBottom: keyboardVisible ? 8 : embedded ? 70 : insets.bottom + 12 }]}>
           <AccessiblePressable
             onPress={() => void publish()}
             disabled={!canList}
