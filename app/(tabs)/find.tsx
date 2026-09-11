@@ -329,21 +329,12 @@ export default function Mirror() {
           </View>
         )}
 
-        {picked ? (
+        {picked?.kind === "photo" ? (
           <View style={styles.selected}>
-            {picked.kind === "photo" ? (
-              <View>
-                <Image source={{ uri: picked.uri }} style={styles.selectedImage} contentFit="cover" />
-                <Pressable onPress={clearGarment} style={styles.selectedRemove} accessibilityRole="button" accessibilityLabel="Remove selected clothing photo">
-                  <Ionicons name="close" size={18} color={colors.bone} />
-                </Pressable>
-              </View>
-            ) : null}
-            <View style={styles.selectedCopyWrap}>
-              <Text style={styles.selectedKicker}>READY TO TRY</Text>
-              <Text style={styles.selectedTitle}>{garmentName}</Text>
-              <Text style={styles.selectedCopy}>Your photo and this piece are ready for a preview.</Text>
-            </View>
+            <Image source={{ uri: picked.uri }} style={styles.selectedImage} contentFit="cover" />
+            <Pressable onPress={clearGarment} style={styles.selectedRemove} accessibilityRole="button" accessibilityLabel="Remove selected clothing photo">
+              <Ionicons name="close" size={18} color={colors.bone} />
+            </Pressable>
           </View>
         ) : null}
 
