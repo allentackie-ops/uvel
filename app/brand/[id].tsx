@@ -191,6 +191,12 @@ export default function BrandPage() {
           </View>
           <Text style={[styles.handle, { color: theme.muted }]}>@{brand.handle}</Text>
           {brand.tagline ? <Text style={[styles.tagline, { color: theme.ink }]}>{brand.tagline}</Text> : null}
+          {owner && !brand.verified ? (
+            <View style={[styles.reviewCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+              <Text style={[styles.reviewTitle, { color: theme.ink }]}>In review</Text>
+              <Text style={[styles.reviewCopy, { color: theme.muted }]}>Dress this page while we look at it. Logo, banner, look. If you’re accepted, it’s already yours.</Text>
+            </View>
+          ) : null}
           <Text style={[styles.owner, { color: theme.muted }]}>
             Owner · {brand.legalName || brand.ownerName}
             {role === "poster" ? "  ·  You post here" : role === "owner" ? "  ·  You" : ""}
@@ -214,6 +220,16 @@ export default function BrandPage() {
             >
               <Text style={[styles.followTxt, { color: following ? theme.ink : theme.accentInk }]}>{following ? "Following" : "Follow"}</Text>
             </AccessiblePressable>
+            {owner ? (
+              <AccessiblePressable
+                onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })}
+                style={({ pressed }) => [styles.ghost, { borderColor: theme.lineColor }, pressed && { opacity: 0.92 }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Dress ${brand.name}`}
+              >
+                <Text style={[styles.ghostTxt, { color: theme.ink }]}>Dress this page</Text>
+              </AccessiblePressable>
+            ) : null}
             {poster ? (
               <AccessiblePressable                onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })}
                 style={({ pressed }) => [styles.ghost, { borderColor: theme.lineColor }, pressed && { opacity: 0.92 }]}
@@ -352,6 +368,9 @@ export default function BrandPage() {
 const styles = StyleSheet.create({
   missing: { flex: 1, backgroundColor: "#000000", paddingHorizontal: 20 },
   missingH: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, marginTop: 24 },
+  reviewCard: { marginTop: 16, borderRadius: 16, borderWidth: 1, padding: 14 },
+  reviewTitle: { fontSize: 16, fontWeight: "800" },
+  reviewCopy: { fontSize: 13, lineHeight: 18, marginTop: 4 },
   banner: { width: W, height: 280, backgroundColor: "#161512" },
   nav: {
     position: "absolute",
