@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { appendFounderReference, applyReady, createFounderBoard, getFounderProject, ideaReady, pieceReady, simpleStageOf, updateFounderProject, useFounderProjects } from "../../../lib/founder";
+import { appendFounderReference, createFounderBoard, getFounderProject, ideaReady, pieceReady, simpleStageOf, updateFounderProject, useFounderProjects } from "../../../lib/founder";
 import { pickFromLibrary, saveFounderPhotoReference } from "../../../lib/photo";
 import { ownedBrand, useBrands } from "../../../lib/brands";
 import { useUvel } from "../../../lib/store";
@@ -41,6 +41,11 @@ export default function FounderStagePage() {
     }
   }, [project?.id, stage]);
 
+  const goTo = (nextStage: JourneyStage) => {
+    if (!project) return;
+    updateFounderProject(project.id, { stage: nextStage });
+    router.replace({ pathname: "/brand/founder/[stage]", params: { id: project.id, stage: nextStage } });
+  };
   const next = () => {
     if (!project) return;
     if (stage === "idea" && !ideaReady(project)) {
@@ -52,11 +57,16 @@ export default function FounderStagePage() {
       return;
     }
     if (index >= JOURNEY.length - 1) return;
-    const nextStage = JOURNEY[index + 1];
-    updateFounderProject(project.id, { stage: nextStage });
-    router.push({ pathname: "/brand/founder/[stage]", params: { id: project.id, stage: nextStage } });
+    goTo(JOURNEY[index + 1]);
   };
-  const back = () => (index > 0 ? router.back() : router.replace("/brand/founder"));
+  const headerBack = () => {
+    if (index > 0) {
+      goTo(JOURNEY[index - 1]);
+      return;
+    }
+    if (router.canGoBack()) router.back();
+    else router.replace("/brand/founder");
+  };
   const createBoard = () => {
     if (!project) return;
     const created = createFounderBoard(project.id, "sketch");
@@ -89,12 +99,25 @@ export default function FounderStagePage() {
 
   return (
     <View style={[local.page, { backgroundColor: palette.ink }]}>
-      <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 42 }} keyboardShouldPersistTaps="handled">
+      <View style={[local.top, { paddingTop: insets.top + 4 }]}>
+        <Pressable onPress={headerBack} hitSlop={16} style={local.backBtn} accessibilityRole="button" accessibilityLabel={index > 0 ? "Back to previous step" : "Close studio"}>
+          <Text style={[local.back, { color: palette.bone }]}>‹</Text>
+        </Pressable>
+        <Text style={[local.topTitle, { color: palette.bone }]}>Founder Studio</Text>
+        <View style={local.backBtn} />
+      </View>
+      <ScrollView contentContainerStyle={{ paddingTop: 8, paddingBottom: insets.bottom + 36 }} keyboardShouldPersistTaps="handled">
         <View style={local.progress}>
           <Text style={[local.progressCount, { color: palette.success }]}>{String(index + 1).padStart(2, "0")} / 03</Text>
           <View style={local.progressLine}>
             {JOURNEY.map((item, itemIndex) => (
-              <View key={item} style={[local.progressDot, { backgroundColor: itemIndex <= index ? palette.success : palette.subtle }]} />
+              <Pressable
+                key={item}
+                onPress={() => { if (itemIndex <= index) goTo(item); }}
+                style={[local.progressDot, { backgroundColor: itemIndex <= index ? palette.success : palette.subtle }]}
+                accessibilityRole="button"
+                accessibilityLabel={TITLES[item].kicker}
+              />
             ))}
           </View>
         </View>
@@ -131,11 +154,8 @@ export default function FounderStagePage() {
           {stage === "launch" ? <FounderLaunchReview project={project} colors={colors} /> : null}
           {stage !== "launch" ? (
             <Pressable onPress={next} style={styles.primary} accessibilityRole="button">
-              <Text style={styles.primaryText}>{stage === "idea" ? "Make the first piece" : applyReady(project) ? "This is enough" : "This is enough"}</Text>
+              <Text style={styles.primaryText}>{stage === "idea" ? "Make the first piece" : "This is enough"}</Text>
             </Pressable>
-          ) : null}
-          {stage !== "idea" ? (
-            <Pressable onPress={back} style={styles.secondary}><Text style={styles.secondaryText}>Back</Text></Pressable>
           ) : null}
         </View>
       </ScrollView>
@@ -145,11 +165,15 @@ export default function FounderStagePage() {
 
 const local = StyleSheet.create({
   page: { flex: 1 },
-  progress: { paddingHorizontal: 20, paddingTop: 6 },
+  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8, paddingBottom: 4 },
+  backBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  back: { fontSize: 36, lineHeight: 38, fontWeight: "300" },
+  topTitle: { fontSize: 17, fontWeight: "700" },
+  progress: { paddingHorizontal: 20, paddingTop: 4 },
   progressCount: { fontSize: 11, fontWeight: "900", letterSpacing: 1.4 },
   progressLine: { flexDirection: "row", gap: 6, marginTop: 10 },
   progressDot: { height: 4, flex: 1, borderRadius: 2 },
-  hero: { padding: 20, paddingTop: 24, paddingBottom: 12 },
+  hero: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
   content: { paddingHorizontal: 20 },
   photo: { width: "100%", height: 220, borderRadius: 16, marginBottom: 10, backgroundColor: "#161512" },
   live: { marginHorizontal: 20, marginTop: 12, borderWidth: 1, borderRadius: 18, padding: 16 },
