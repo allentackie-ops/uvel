@@ -6,8 +6,8 @@ import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, Alert } from
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "../../components/ListingCard";
 import { VerifiedMark } from "../../components/VerifiedMark";
-import { GARMENTS, getGarment, usd } from "../../lib/catalog";
-import { getMarket, moneyExact } from "../../lib/markets";
+import { GARMENTS, getGarment, usd, CATEGORIES } from "../../lib/catalog";
+import { getMarket, moneyExact, moneyInMarket } from "../../lib/markets";
 import { useWallet } from "../../lib/wallet";
 import { useFirstFind } from "../../lib/firstFind";
 import {
@@ -472,7 +472,70 @@ function LikesPane({
   garments: (typeof GARMENTS)[number][];
   styles: ReturnType<typeof make>;
 }) {
-  const hasSaved = pieces.length > 0 || garments.length > 0;
+  const app = useUvel();
+  const colors = useColors();
+  const market = getMarket(app.country);
+  const [cat, setCat] = useState("all");
+  const saved = useMemo(() => {
+    const rows: {
+      id: string;
+      name: string;
+      brand: string;
+      category: string;
+      priceCents: number;
+      currency: string;
+      photo?: string;
+      image?: (typeof GARMENTS)[number]["image"];
+      href: "/closet/[id]" | "/product/[id]";
+    }[] = [];
+    for (const id of app.saved) {
+      const piece = getPiece(id);
+      if (piece) {
+        rows.push({
+          id: piece.id,
+          name: piece.name,
+          brand: piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Unbranded",
+          category: piece.category || "Other",
+          priceCents: piece.listPriceCents,
+          currency: piece.currency || market.currency,
+          photo: piece.photo,
+          href: "/closet/[id]",
+        });
+        continue;
+      }
+      const garment = getGarment(id);
+      if (garment) {
+        rows.push({
+          id: garment.id,
+          name: garment.name,
+          brand: garment.brand || "Unbranded",
+          category: garment.category || "Other",
+          priceCents: garment.priceCents,
+          currency: "USD",
+          image: garment.image,
+          href: "/product/[id]",
+        });
+      }
+    }
+    return rows;
+  }, [app.saved, pieces, garments, market.currency]);
+
+  const catCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of saved) counts.set(row.category, (counts.get(row.category) || 0) + 1);
+    const known = CATEGORIES.filter((item) => item !== "All" && counts.has(item));
+    const extra = [...counts.keys()].filter((item) => item !== "Other" && !known.includes(item as (typeof CATEGORIES)[number]));
+    const ordered = [...known, ...extra];
+    if (counts.has("Other")) ordered.push("Other");
+    return ordered.map((item) => [item, counts.get(item) || 0] as const);
+  }, [saved]);
+
+  const filtered = cat === "all" ? saved : saved.filter((row) => row.category === cat);
+  const groups = cat === "all" && saved.length >= 8
+    ? catCounts.map(([name]) => ({ name, rows: saved.filter((row) => row.category === name) })).filter((group) => group.rows.length)
+    : [{ name: "", rows: filtered }];
+
+  const hasSaved = saved.length > 0;
   if (!received.length && !hasSaved) {
     return (
       <View style={styles.empty}>
@@ -481,11 +544,12 @@ function LikesPane({
       </View>
     );
   }
+
   return (
     <View>
       {received.length ? (
         <>
-          <Text style={styles.active}>Likes on your listings</Text>
+          <Text style={styles.active}>Likes on your listings · {received.length}</Text>
           {received.map((row) => (
             <Pressable
               key={`${row.uid}-${row.piece.id}-${row.at}`}
@@ -513,27 +577,56 @@ function LikesPane({
       ) : null}
       {hasSaved ? (
         <View>
-          <Text style={styles.active}>You liked</Text>
-          <View style={styles.grid}>
-            {pieces.map((p) => (
-              <View key={p.id} style={{ width: COL }}>
-                <ListingCard piece={p} framed wide={COL} />
-              </View>
-            ))}
-            {garments.map((g) => (
-              <Pressable
-                key={g.id}
-                onPress={() => router.push({ pathname: "/product/[id]", params: { id: g.id } })}
-                style={[styles.likeCard, { width: COL }]}
-                accessibilityRole="button"
-                accessibilityLabel={`Open liked item ${g.name}`}
-              >
-                <Image source={g.image} style={styles.likeImg} contentFit="cover" />
-                <Text style={styles.likeName} numberOfLines={2}>{g.name}</Text>
-                <Text style={styles.likePrice}>{usd(g.priceCents)}</Text>
+          <Text style={styles.active}>You liked · {saved.length}</Text>
+          {catCounts.length > 1 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+              <Pressable onPress={() => setCat("all")} style={[styles.chip, cat === "all" && styles.chipOn]}>
+                <Text style={[styles.chipTxt, cat === "all" && styles.chipTxtOn]}>All · {saved.length}</Text>
               </Pressable>
-            ))}
-          </View>
+              {catCounts.map(([name, count]) => {
+                const on = cat === name;
+                return (
+                  <Pressable key={name} onPress={() => setCat(name)} style={[styles.chip, on && styles.chipOn]}>
+                    <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{name} · {count}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : null}
+          {groups.map((group) => (
+            <View key={group.name || "all"}>
+              {group.name ? <Text style={styles.likeGroup}>{group.name} · {group.rows.length}</Text> : null}
+              {group.rows.map((row) => (
+                <Pressable
+                  key={row.id}
+                  onPress={() => router.push({ pathname: row.href, params: { id: row.id } })}
+                  style={styles.likeRow}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${row.brand} ${row.name}, ${moneyInMarket(row.priceCents, row.currency, market)}`}
+                >
+                  {row.photo ? (
+                    <Image source={{ uri: row.photo }} style={styles.likeThumb} contentFit="cover" />
+                  ) : (
+                    <Image source={row.image} style={styles.likeThumb} contentFit="cover" />
+                  )}
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.likeBrand} numberOfLines={1}>{row.brand.toUpperCase()}</Text>
+                    <Text style={styles.likeTitle} numberOfLines={2}>{row.name}</Text>
+                    <Text style={styles.likeAmt}>{moneyInMarket(row.priceCents, row.currency, market)}</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => app.likePiece(row.id)}
+                    hitSlop={10}
+                    style={styles.likeHeart}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${row.name} from likes`}
+                  >
+                    <Ionicons name="heart" size={18} color={colors.success} />
+                  </Pressable>
+                </Pressable>
+              ))}
+            </View>
+          ))}
         </View>
       ) : null}
     </View>
@@ -840,6 +933,13 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     tagTxt: { color: `${colors.bone}B2`, fontSize: 11, fontWeight: "700" },
+    likeRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10 },
+    likeThumb: { width: 64, height: 80, borderRadius: 10, backgroundColor: colors.surface },
+    likeBrand: { color: `${colors.bone}6B`, fontSize: 11, fontWeight: "700", letterSpacing: 0.8 },
+    likeTitle: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 3 },
+    likeAmt: { color: colors.success, fontSize: 15, fontWeight: "800", marginTop: 5, fontVariant: ["tabular-nums"] },
+    likeHeart: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+    likeGroup: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 10, marginBottom: 2 },
     likeCard: { backgroundColor: colors.surface, borderRadius: 18, overflow: "hidden" },
     likeImg: { width: "100%", height: COL * 1.25, backgroundColor: colors.surface },
     likeName: { color: colors.bone, fontWeight: "600", fontSize: 13, paddingHorizontal: 10, paddingTop: 10 },
