@@ -40,7 +40,7 @@ export async function pickFromLibrary() {
   return res.assets[0]?.uri ?? null;
 }
 
-async function copyFounderImport(uri: string, name?: string) {
+export async function takeListingPhoto() {
   const root = `${FileSystem.documentDirectory || FileSystem.cacheDirectory || ""}founder-imports/`;
   await FileSystem.makeDirectoryAsync(root, { intermediates: true }).catch(() => undefined);
   const safeName = (name || `canvas-work-${Date.now()}.jpg`).replace(/[^a-zA-Z0-9._-]/g, "-");
@@ -86,6 +86,46 @@ export async function pickListingPhoto() {
   });
   if (res.canceled) return null;
   return res.assets[0]?.uri ?? null;
+}
+
+async function persistListingClip(uri: string, duration?: number | null) {
+  if (typeof duration === "number" && duration > 15.5) {
+    throw new Error("Keep the clip to 15 seconds.");
+  }
+  const root = `${FileSystem.documentDirectory || FileSystem.cacheDirectory || ""}listing-clips/`;
+  await FileSystem.makeDirectoryAsync(root, { intermediates: true }).catch(() => undefined);
+  const destination = `${root}${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp4`;
+  await FileSystem.copyAsync({ from: uri, to: destination });
+  return destination;
+}
+
+export async function takeListingClip() {
+  await need("camera");
+  const res = await ImagePicker.launchCameraAsync({
+    mediaTypes: ["videos"],
+    quality: 0.7,
+    videoMaxDuration: 15,
+    allowsEditing: true,
+    cameraType: ImagePicker.CameraType.back,
+  });
+  if (res.canceled) return null;
+  const asset = res.assets[0];
+  if (!asset?.uri) return null;
+  return persistListingClip(asset.uri, asset.duration);
+}
+
+export async function pickListingClip() {
+  await need("library");
+  const res = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ["videos"],
+    quality: 0.7,
+    videoMaxDuration: 15,
+    allowsEditing: true,
+  });
+  if (res.canceled) return null;
+  const asset = res.assets[0];
+  if (!asset?.uri) return null;
+  return persistListingClip(asset.uri, asset.duration);
 }
 
 export async function takeAvatar() {
