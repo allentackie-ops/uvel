@@ -41,13 +41,6 @@ export function TodayCartFab({
   function openCart() {
     if (!cart.count) return;
     onBeforeOpen?.();
-    if (cart.count === 1) {
-      const latest = cart.items[0];
-      if (latest?.pieceId) {
-        router.push({ pathname: "/checkout/[id]", params: { id: latest.pieceId } });
-        return;
-      }
-    }
     router.push("/cart");
   }
 
