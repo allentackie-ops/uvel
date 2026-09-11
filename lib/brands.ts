@@ -443,6 +443,65 @@ export async function createBrand(input: {
   return brand;
 }
 
+export async function openFounderBrand(input: {
+  name: string;
+  audience?: string;
+  story?: string;
+  vertical?: string;
+  country: string;
+  ownerId: string;
+  ownerName: string;
+  ownerPhoto?: string;
+  logoUri?: string;
+}) {
+  const name = input.name.trim();
+  const base = slugify(name) || "label";
+  const existing = ownedBrand(input.ownerId);
+  let handle = existing?.handle || base;
+  if (!handleFree(handle, existing?.id)) {
+    let n = 1;
+    while (!handleFree(`${base}${n}`, existing?.id) && n < 99) n += 1;
+    handle = `${base}${n}`;
+  }
+  const patch = {
+    name,
+    handle,
+    tagline: (input.audience || "").trim(),
+    story: (input.story || input.audience || "").trim(),
+    vertical: input.vertical || "Unisex",
+    country: input.country,
+    status: "pending" as const,
+    verified: false,
+    reviewStatus: "review_pending" as const,
+  };
+  if (existing) {
+    return updateBrand(existing.id, {
+      ...patch,
+      ...(input.logoUri && !existing.logoUri ? { logoUri: input.logoUri } : {}),
+    })!;
+  }
+  const brand = await createBrand({
+    name,
+    handle,
+    tagline: patch.tagline,
+    story: patch.story,
+    vertical: patch.vertical,
+    website: "",
+    instagram: "",
+    phone: "",
+    whatsapp: "",
+    legalName: "",
+    registrationId: "",
+    contactEmail: "",
+    country: input.country,
+    logoUri: input.logoUri || "",
+    ownerId: input.ownerId,
+    ownerName: input.ownerName,
+    ownerPhoto: input.ownerPhoto,
+  });
+  return updateBrand(brand.id, { status: "pending", verified: false, reviewStatus: "review_pending" })!;
+}
+
 export function updateBrand(id: string, patch: Partial<Brand>) {
   brands = brands.map((b) => (b.id === id ? { ...b, ...patch } : b));
   const next = getBrand(id);
