@@ -7,6 +7,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "../../components/ListingCard";
 import { VerifiedMark } from "../../components/VerifiedMark";
 import { GARMENTS, getGarment, usd } from "../../lib/catalog";
+import { getMarket, moneyExact } from "../../lib/markets";
+import { useWallet } from "../../lib/wallet";
 import {
   acceptInvite,
   declineInvite,
@@ -16,7 +18,7 @@ import {
   useBrands,
   useInvites,
 } from "../../lib/brands";
-import { useOrders, type Order } from "../../lib/orders";
+import { useOrders, watchMyOrders, type Order } from "../../lib/orders";
 import { pickAvatar, takeAvatar } from "../../lib/photo";
 import { seedFromStyles } from "../../lib/styleDna";
 import { useUvel } from "../../lib/store";
@@ -57,6 +59,9 @@ export default function You() {
   const pieces = useWardrobe();
   const { draft } = useListingDraft();
   const orders = useOrders();
+  const market = getMarket(app.country);
+  const wallet = useWallet(market.currency);
+  useEffect(() => watchMyOrders(app.uid), [app.uid]);
   useBrands();
   useInvites();
   const mine = ownedBrand(app.uid);
@@ -200,6 +205,16 @@ export default function You() {
 
 
       <Text style={styles.sectionLabel}>YOUR ACTIVITY</Text>
+      <Pressable onPress={() => router.push("/wallet")} style={styles.walletCard} accessibilityRole="button" accessibilityLabel="Open wallet">
+        <View style={{ flex: 1 }}>
+          <Text style={styles.walletK}>WALLET</Text>
+          <Text style={styles.walletV}>{moneyExact(wallet.availableCents, wallet.currency)}</Text>
+          <Text style={styles.walletP}>
+            {wallet.pendingCents ? `${moneyExact(wallet.pendingCents, wallet.currency)} pending  ·  available after delivery` : "Held until the order is completed, then yours to spend or withdraw."}
+          </Text>
+        </View>
+        <Text style={styles.dnaChevron}>›</Text>
+      </Pressable>
       <View style={styles.tabs}>
         {(["shop", "sold", "purchases", "likes"] as const).map((id) => {
           const on = hub === id;
@@ -513,8 +528,8 @@ function OrderRow({
     <Pressable
       onPress={() =>
         router.push({
-          pathname: sold ? "/closet/[id]" : "/order/[id]",
-          params: { id: sold ? row.pieceId : row.id },
+          pathname: sold && !row.id.startsWith("o-") ? "/closet/[id]" : "/order/[id]",
+          params: { id: sold && !row.id.startsWith("o-") ? row.pieceId : row.id },
         })
       }
       style={styles.order}
@@ -610,6 +625,10 @@ function make(colors: Colors) {
     inviteNoTxt: { color: colors.bone, fontWeight: "700", fontSize: 13 },
     brandArea: { marginBottom: 8 },
     sectionLabel: { color: `${colors.bone}6B`, letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 22, marginBottom: 9 },
+    walletCard: { marginTop: 2, marginBottom: 8, backgroundColor: colors.surface, borderRadius: 20, padding: 16, flexDirection: "row", alignItems: "center", gap: 12 },
+    walletK: { color: `${colors.bone}6B`, letterSpacing: 1.4, fontSize: 10, fontWeight: "800" },
+    walletV: { color: colors.success, fontWeight: "800", fontSize: 28, marginTop: 6, fontVariant: ["tabular-nums"] },
+    walletP: { color: `${colors.bone}80`, fontSize: 13, marginTop: 6, lineHeight: 18 },
     brandAreaLabel: { color: `${colors.bone}6B`, letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 10, marginBottom: 9 },
     brandCard: {
       marginTop: 16,
