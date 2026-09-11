@@ -1,6 +1,6 @@
 import { openaiKey } from "./tryon";
 import type { Category } from "./catalog";
-import type { ClosetPiece } from "./wardrobe";
+import { allPieces, type ClosetPiece } from "./wardrobe";
 import type { Look } from "./trends";
 import { dnaFrom, dnaKeywords } from "./styleDna";
 import { snapshot } from "./store";
@@ -35,6 +35,16 @@ export function followedBrandBoost(piece: ClosetPiece, followedBrandIds: string[
   return 14 + freshness;
 }
 
+export function firstSaleBoost(piece: ClosetPiece, dnaScore: number) {
+  if (dnaScore <= 0 || piece.status !== "listed") return 0;
+  const owner = piece.ownerId || piece.listedByUid;
+  if (!owner) return 0;
+  const first = allPieces()
+    .filter((row) => (row.ownerId === owner || row.listedByUid === owner) && (row.status === "listed" || row.status === "sold"))
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))[0];
+  return first?.id === piece.id ? 16 : 0;
+}
+
 export function scoreListing(piece: ClosetPiece, needles: string[], styles: string[]) {
   const hay = bag([piece.name, piece.brand, piece.category, piece.color, piece.material, piece.notes].join(" "));
   const set = new Set(hay);
@@ -57,7 +67,10 @@ export function matchListings(
 ) {
   const needles = bag([look.shopQuery, look.title, look.summary].join(" "));
   return [...pieces]
-    .map((p) => ({ p, s: scoreListing(p, needles, styles) + followedBrandBoost(p, followedBrandIds) }))
+    .map((p) => {
+      const s = scoreListing(p, needles, styles);
+      return { p, s: s + followedBrandBoost(p, followedBrandIds) + firstSaleBoost(p, s) };
+    })
     .sort((a, b) => b.s - a.s || b.p.createdAt - a.p.createdAt)
     .map((x) => x.p);
 }
@@ -66,9 +79,11 @@ export function forYou(pieces: ClosetPiece[], styles: string[], country: string,
   return [...pieces]
     .filter((p) => listingVisibleIn({ origin: p.country, shipsTo: p.shipsTo, buyer: country }))
     .sort((a, b) => {
-      const as = scoreListing(a, [], styles) + (a.country === country ? 2 : 0) + followedBrandBoost(a, followedBrandIds);
-      const bs = scoreListing(b, [], styles) + (b.country === country ? 2 : 0) + followedBrandBoost(b, followedBrandIds);
-      return bs - as || b.createdAt - a.createdAt;
+      const as = scoreListing(a, [], styles);
+      const bs = scoreListing(b, [], styles);
+      const aTotal = as + (a.country === country ? 2 : 0) + followedBrandBoost(a, followedBrandIds) + firstSaleBoost(a, as);
+      const bTotal = bs + (b.country === country ? 2 : 0) + followedBrandBoost(b, followedBrandIds) + firstSaleBoost(b, bs);
+      return bTotal - aTotal || b.createdAt - a.createdAt;
     });
 }
 
