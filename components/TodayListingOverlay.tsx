@@ -23,6 +23,7 @@ import { type ClosetPiece } from "../lib/wardrobe";
 import type { PersonalizationAction } from "../lib/personalization";
 import { VerifiedMark } from "./VerifiedMark";
 import { FriendShareSheet, type FriendSharePayload } from "./FriendShareSheet";
+import { addToCart, useCart } from "../lib/cart";
 
 export type ListingOrigin = { x: number; y: number; width: number; height: number };
 
@@ -60,6 +61,8 @@ export function TodayListingOverlay({
   const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openedAt = useRef(Date.now());
   const dwellRecorded = useRef(false);
+  const cart = useCart();
+  const inBag = cart.has(piece.id);
 
   useEffect(() => {
     top.value = withSpring(0, SPRING);
@@ -344,9 +347,19 @@ export function TodayListingOverlay({
                   <Ionicons name="body-outline" size={18} color={colors.bone} />
                   <Text style={styles.tryText}>Try it on</Text>
                 </Pressable>
-                <Pressable onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id } })} style={styles.primaryAction} accessibilityRole="button" accessibilityLabel="Buy this listing">
-                  <Text style={styles.primaryText}>Add to cart</Text>
-                  <Ionicons name="arrow-forward" size={17} color={colors.successInk} />
+                <Pressable
+                  onPress={() => {
+                    if (inBag) return;
+                    addToCart(piece.id);
+                    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+                  }}
+                  style={styles.primaryAction}
+                  accessibilityRole="button"
+                  accessibilityLabel={inBag ? `${piece.name} is in your cart` : `Add ${piece.name} to cart`}
+                  accessibilityState={{ selected: inBag }}
+                >
+                  <Text style={styles.primaryText}>{inBag ? "In cart" : "Add to cart"}</Text>
+                  {inBag ? null : <Ionicons name="arrow-forward" size={17} color={colors.successInk} />}
                 </Pressable>
               </View>
             </Animated.View>
