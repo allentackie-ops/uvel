@@ -56,6 +56,13 @@ export function removeManyFromCart(pieceIds: string[]) {
   return items;
 }
 
+export function clearCart() {
+  items = [];
+  void persist();
+  emit();
+  return items;
+}
+
 export function inCart(pieceId: string) {
   return items.some((item) => item.pieceId === pieceId);
 }
@@ -76,6 +83,7 @@ export function useCart() {
     add: addToCart,
     remove: removeFromCart,
     removeMany: removeManyFromCart,
+    clear: clearCart,
     has: inCart,
   };
 }
