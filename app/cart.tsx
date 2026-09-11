@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { restoreToCart, useCart, type CartItem } from "../lib/cart";
-import { getMarket, moneyInMarket } from "../lib/markets";
+import { useFirstFind } from "../lib/firstFind";
+import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { getPiece, useWardrobe } from "../lib/wardrobe";
@@ -20,11 +21,21 @@ export default function Cart() {
   const app = useUvel();
   const cart = useCart();
   useWardrobe();
+  const find = useFirstFind();
   const market = getMarket(app.country);
   const rows = cart.items
     .map((item) => getPiece(item.pieceId))
     .filter((piece): piece is NonNullable<ReturnType<typeof getPiece>> => Boolean(piece));
-  const total = rows.reduce((sum, piece) => sum + piece.listPriceCents, 0);
+  const priced = (() => {
+    let leftover = find.remaining;
+    return rows.map((piece) => {
+      const local = convertCents(piece.listPriceCents, piece.currency || market.currency, market);
+      const credit = leftover > 0 && find.matches(piece) ? Math.min(local, leftover) : 0;
+      leftover -= credit;
+      return { piece, local, credit, sale: Math.max(0, local - credit) };
+    });
+  })();
+  const total = priced.reduce((sum, row) => sum + row.sale, 0);
   const [removed, setRemoved] = useState<Removed | null>(null);
   const toastY = useRef(new Animated.Value(-28)).current;
   const toastOpacity = useRef(new Animated.Value(0)).current;
@@ -94,7 +105,7 @@ export default function Cart() {
           <>
             <Text style={styles.kicker}>{rows.length === 1 ? "1 PIECE" : `${rows.length} PIECES`}</Text>
             <Text style={styles.heading}>{rows.length === 1 ? "Ready when you are." : "Everything you picked."}</Text>
-            {rows.map((piece) => {
+            {priced.map(({ piece, local, credit, sale }) => {
               const brand = piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Unbranded";
               return (
                 <View key={piece.id} style={styles.card}>
@@ -105,7 +116,14 @@ export default function Cart() {
                     <Text style={styles.meta} numberOfLines={1}>
                       {[piece.size || piece.sizes?.[0] || "One size", piece.color, piece.condition].filter(Boolean).join("  ·  ")}
                     </Text>
-                    <Text style={styles.price}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
+                    {credit > 0 ? (
+                      <View style={styles.priceRow}>
+                        <Text style={styles.was}>{moneyInMarket(local, market.currency, market)}</Text>
+                        <Text style={[styles.price, { marginTop: 0 }]}>{moneyInMarket(sale, market.currency, market)}</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.price}>{moneyInMarket(local, market.currency, market)}</Text>
+                    )}
                     <Pressable onPress={() => removePiece(piece.id, piece.name)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Remove ${piece.name}`}>
                       <Text style={styles.remove}>Remove</Text>
                     </Pressable>
@@ -186,7 +204,9 @@ function make(colors: Colors) {
     brand: { color: `${colors.bone}6B`, fontSize: 11, fontWeight: "700", letterSpacing: 1.2 },
     name: { color: colors.bone, fontSize: 17, fontWeight: "700", marginTop: 5, lineHeight: 22 },
     meta: { color: `${colors.bone}80`, fontSize: 12, marginTop: 6 },
+    priceRow: { flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 10, flexWrap: "wrap" },
     price: { color: colors.success, fontSize: 16, fontWeight: "800", marginTop: 10, fontVariant: ["tabular-nums"] },
+    was: { color: `${colors.bone}66`, fontSize: 14, fontWeight: "600", textDecorationLine: "line-through", fontVariant: ["tabular-nums"] },
     remove: { color: `${colors.bone}88`, fontSize: 13, fontWeight: "700", marginTop: 10, textDecorationLine: "underline" },
     emptyWrap: { paddingTop: 24 },
     empty: { color: colors.muted, fontSize: 15, lineHeight: 22, marginTop: 10 },
