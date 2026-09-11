@@ -1,13 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useCart } from "../lib/cart";
+import { restoreToCart, useCart, type CartItem } from "../lib/cart";
 import { getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { getPiece, useWardrobe } from "../lib/wardrobe";
+
+type Removed = { item: CartItem; index: number; name: string };
 
 export default function Cart() {
   const colors = useColors();
@@ -21,6 +25,51 @@ export default function Cart() {
     .map((item) => getPiece(item.pieceId))
     .filter((piece): piece is NonNullable<ReturnType<typeof getPiece>> => Boolean(piece));
   const total = rows.reduce((sum, piece) => sum + piece.listPriceCents, 0);
+  const [removed, setRemoved] = useState<Removed | null>(null);
+  const toastY = useRef(new Animated.Value(-28)).current;
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+  }, []);
+
+  function showRemovedToast(next: Removed) {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    setRemoved(next);
+    toastY.setValue(-28);
+    toastOpacity.setValue(0);
+    Animated.parallel([
+      Animated.spring(toastY, { toValue: 0, useNativeDriver: true, damping: 18, stiffness: 260 }),
+      Animated.timing(toastOpacity, { toValue: 1, duration: 160, useNativeDriver: true }),
+    ]).start();
+    hideTimer.current = setTimeout(() => dismissToast(), 5200);
+  }
+
+  function dismissToast() {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = null;
+    Animated.parallel([
+      Animated.timing(toastY, { toValue: -24, duration: 180, useNativeDriver: true }),
+      Animated.timing(toastOpacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+    ]).start(() => setRemoved(null));
+  }
+
+  function removePiece(pieceId: string, name: string) {
+    const index = cart.items.findIndex((item) => item.pieceId === pieceId);
+    const item = cart.items[index];
+    if (!item) return;
+    cart.remove(pieceId);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+    showRemovedToast({ item, index: Math.max(0, index), name });
+  }
+
+  function undoRemove() {
+    if (!removed) return;
+    restoreToCart(removed.item, removed.index);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    dismissToast();
+  }
 
   function checkout() {
     if (!rows.length) return;
@@ -57,7 +106,7 @@ export default function Cart() {
                       {[piece.size || piece.sizes?.[0] || "One size", piece.color, piece.condition].filter(Boolean).join("  ·  ")}
                     </Text>
                     <Text style={styles.price}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
-                    <Pressable onPress={() => cart.remove(piece.id)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Remove ${piece.name}`}>
+                    <Pressable onPress={() => removePiece(piece.id, piece.name)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Remove ${piece.name}`}>
                       <Text style={styles.remove}>Remove</Text>
                     </Pressable>
                   </View>
@@ -88,6 +137,26 @@ export default function Cart() {
             <Ionicons name="arrow-forward" size={18} color={colors.successInk} />
           </Pressable>
         </View>
+      ) : null}
+
+      {removed ? (
+        <Animated.View
+          pointerEvents="box-none"
+          style={[styles.toastWrap, { top: insets.top + 8, opacity: toastOpacity, transform: [{ translateY: toastY }] }]}
+        >
+          <View style={styles.toast} accessibilityLiveRegion="polite" accessibilityRole="alert">
+            <Text style={styles.toastText} numberOfLines={2}>Item has been removed from cart</Text>
+            <Pressable
+              onPress={undoRemove}
+              hitSlop={8}
+              style={styles.undo}
+              accessibilityRole="button"
+              accessibilityLabel={`Undo removing ${removed.name}`}
+            >
+              <Text style={styles.undoText}>Undo</Text>
+            </Pressable>
+          </View>
+        </Animated.View>
       ) : null}
     </View>
   );
@@ -122,5 +191,25 @@ function make(colors: Colors) {
     totalHint: { color: `${colors.bone}70`, fontSize: 12, marginTop: 6, marginBottom: 14 },
     pay: { minHeight: 54, borderRadius: 27, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     payText: { color: colors.successInk, fontSize: 16, fontWeight: "800" },
+    toastWrap: { position: "absolute", left: 16, right: 16, zIndex: 40 },
+    toast: {
+      minHeight: 48,
+      paddingLeft: 16,
+      paddingRight: 8,
+      paddingVertical: 8,
+      borderRadius: 24,
+      backgroundColor: "#16140F",
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      shadowColor: "#000",
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 10,
+    },
+    toastText: { flex: 1, fontSize: 14, fontWeight: "700", color: "#F4F0E6" },
+    undo: { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center" },
+    undoText: { color: "#16140F", fontSize: 13, fontWeight: "800" },
   });
 }
