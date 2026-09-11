@@ -316,6 +316,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="cart"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="checkout/[id]"
             options={{
               headerShown: false,
