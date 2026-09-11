@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { alertKindLabel, enableAlert, setAlertPreference, type AlertKind, useAlertPreference } from "../../lib/alerts";
 import { router, useLocalSearchParams } from "expo-router";
@@ -15,6 +16,7 @@ import { shopLookOf, type ShopLook } from "../../lib/shopLook";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { VerifiedMark } from "../../components/VerifiedMark";
+import { MotionClip } from "../../components/MotionClip";
 import { getPiece, isRemoteListedPiece, likeCount, markSold, recordPieceView, unlistPiece, updatePiece, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
@@ -167,7 +169,11 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
     <View style={styles.page}>
       <StatusBar style={colors.bone === "#F4F0E6" ? "light" : "dark"} />
       <View style={styles.heroWrap}>
-        <Image source={{ uri: gallery[0] }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        {piece.clipUri ? (
+          <MotionClip uri={piece.clipUri} style={StyleSheet.absoluteFill} />
+        ) : (
+          <Image source={{ uri: gallery[0] }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        )}
         <Pressable onPress={() => router.back()} style={[styles.iconBtn, { top: insets.top + 6 }]} hitSlop={8}>
           <Text style={styles.iconTxt}>‹</Text>
         </Pressable>
@@ -229,6 +235,7 @@ export default function ClosetPiece() {
   const app = useUvel();
   const preview = v === "buy";
   const [page, setPage] = useState(0);
+  const [clipMuted, setClipMuted] = useState(true);
   const [selectedSize, setSelectedSize] = useState("");
   const piece = getPiece(id);
   const alertPreference = useAlertPreference(app.uid, piece?.id || "");
@@ -345,6 +352,10 @@ export default function ClosetPiece() {
   const inventoryTracked = Boolean(piece.brandId && (typeof piece.stockQuantity === "number" || Boolean(piece.sizeStock)));
   const inStock = !inventoryTracked || (typeof selectedStock === "number" && selectedStock > 0);
   const gallery = piece.photos?.length ? piece.photos : piece.photo ? [piece.photo] : [];
+  const slides = [
+    ...(piece.clipUri ? [{ key: "clip", kind: "clip" as const, uri: piece.clipUri }] : []),
+    ...gallery.map((uri, index) => ({ key: `photo-${index}`, kind: "photo" as const, uri })),
+  ];
   const pieceId = piece.id;
   const framed = look.photo === "frame";
   const runway = look.photo === "runway";
@@ -388,18 +399,22 @@ export default function ClosetPiece() {
               setPage(Math.round(e.nativeEvent.contentOffset.x / (framed ? imgW + 8 : W)))
             }
           >
-            {gallery.map((uri) => (
+            {slides.map((slide) => (
               <Pressable
-                key={uri}
+                key={slide.key}
                 onPress={(event) => onImagePress(event.nativeEvent.locationX, event.nativeEvent.locationY)}
                 style={[styles.imageGesture, { width: imgW, height: imgH }]}
               >
-                <Image
-                  source={{ uri }}
-                  style={[styles.hero, { width: imgW, height: imgH, borderRadius: framed ? 4 : 0 }]}
-                  contentFit="cover"
-                  pointerEvents="none"
-                />
+                {slide.kind === "clip" ? (
+                  <MotionClip uri={slide.uri} muted={clipMuted} playing={page === 0} style={[styles.hero, { width: imgW, height: imgH, borderRadius: framed ? 4 : 0 }]} />
+                ) : (
+                  <Image
+                    source={{ uri: slide.uri }}
+                    style={[styles.hero, { width: imgW, height: imgH, borderRadius: framed ? 4 : 0 }]}
+                    contentFit="cover"
+                    pointerEvents="none"
+                  />
+                )}
               </Pressable>
             ))}
           </ScrollView>
@@ -418,12 +433,22 @@ export default function ClosetPiece() {
               <Text style={styles.stockBadgeTxt}>{selectedStock} remaining{selectedSize ? ` · ${selectedSize}` : ""}</Text>
             </View>
           ) : null}
-          {gallery.length > 1 ? (
+          {slides.length > 1 ? (
             <View style={[styles.count, { top: insets.top + 10 }]}>
               <Text style={styles.countTxt}>
-                {String(page + 1).padStart(2, "0")} / {String(gallery.length).padStart(2, "0")}
+                {String(page + 1).padStart(2, "0")} / {String(slides.length).padStart(2, "0")}
               </Text>
             </View>
+          ) : null}
+          {piece.clipUri && page === 0 ? (
+            <Pressable
+              onPress={() => setClipMuted((value) => !value)}
+              style={[styles.muteBtn, { top: insets.top + (slides.length > 1 ? 44 : 10) }]}
+              accessibilityRole="button"
+              accessibilityLabel={clipMuted ? "Unmute clip" : "Mute clip"}
+            >
+              <Ionicons name={clipMuted ? "volume-mute" : "volume-high"} size={18} color="#F4F0E6" />
+            </Pressable>
           ) : null}
           {runway ? (
             <View style={styles.runway}>
@@ -702,6 +727,17 @@ function make(look: ShopLook, colors: Colors) {
     page: { flex: 1, backgroundColor: look.page },
     hero: { backgroundColor: look.surface },
     imageGesture: { overflow: "hidden" },
+    muteBtn: {
+      position: "absolute",
+      right: 16,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: "rgba(22,20,15,0.62)",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 8,
+    },
     count: {
       position: "absolute",
       alignSelf: "center",
