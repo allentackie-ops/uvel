@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -116,6 +116,12 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const [draftReady, setDraftReady] = useState(draftParam !== "1");
   const [draftDisabled, setDraftDisabled] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const titleRef = useRef<TextInput>(null);
+  const notesRef = useRef<TextInput>(null);
+  const sizeRef = useRef<TextInput>(null);
+  const colorRef = useRef<TextInput>(null);
+  const materialRef = useRef<TextInput>(null);
   const priceKey = existing?.id || "new";
   const leaveSell = useCallback(() => {
     if (embedded) router.replace("/(tabs)/index");
@@ -227,43 +233,23 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const hasMaterial = Boolean(material.trim());
   const hasCond = Boolean(condition);
   const photoQualityReady = Boolean(hasPhoto && (existing || (cover?.status === "ok" && photoReadyForPricing)));
-  const canList =
-    hasPhoto &&
-    hasTitle &&
-    hasNotes &&
-    hasPrice &&
-    hasCat &&
-    hasSize &&
-    hasColor &&
-    hasMaterial &&
-    hasCond &&
-    !checking &&
-    gate.phase === "idle";
-  const progress = [hasPhoto, hasPrice, hasTitle, hasNotes, hasCat, hasSize, hasColor, hasMaterial, hasCond].filter(
-    Boolean,
-  ).length;
+  const steps = [
+    { key: "photo", done: hasPhoto && !checking, label: checking ? "Checking photos…" : "Add a photo" },
+    { key: "title", done: hasTitle, label: "Add a title" },
+    { key: "notes", done: hasNotes, label: "Add a description" },
+    { key: "category", done: hasCat, label: "Pick a category" },
+    { key: "size", done: hasSize, label: "Add a size" },
+    { key: "color", done: hasColor, label: "Add a colour" },
+    { key: "material", done: hasMaterial, label: "Add a material" },
+    { key: "condition", done: hasCond, label: "Pick a condition" },
+    { key: "price", done: hasPrice, label: "Add a price" },
+  ] as const;
+  const nextStep = steps.find((step) => !step.done);
+  const canList = !nextStep && gate.phase === "idle";
+  const progress = steps.filter((step) => step.done).length;
   const ph = colors.muted;
-  const ctaLabel = checking
-    ? "Checking photos…"
-    : !hasPhoto
-      ? "Add a photo"
-      : !hasTitle
-        ? "Add a title"
-        : !hasNotes
-          ? "Add a description"
-          : !hasPrice
-          ? "Add a price"
-          : !hasCat
-            ? "Pick a category"
-            : !hasSize
-              ? "Add a size"
-              : !hasColor
-                ? "Add a colour"
-                : !hasMaterial
-                  ? "Add a material"
-                  : !hasCond
-                    ? "Pick a condition"
-                    : "Complete";
+  const ctaLabel = nextStep?.label ?? "Complete";
+  const ctaReady = gate.phase === "idle" && !checking;
 
   useEffect(() => {
     if (!existing && photos.length === 1 && photos[0].status === "ok" && photos[0].review) {
@@ -452,6 +438,54 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     });
   }
 
+  function focusField(input: { current: TextInput | null }) {
+    requestAnimationFrame(() => input.current?.focus());
+  }
+
+  function goNext() {
+    if (checking || gate.phase !== "idle") return;
+    if (!nextStep) {
+      void publish();
+      return;
+    }
+    if (nextStep.key === "photo") {
+      choosePhoto();
+      return;
+    }
+    if (nextStep.key === "title") {
+      focusField(titleRef);
+      return;
+    }
+    if (nextStep.key === "notes") {
+      focusField(notesRef);
+      return;
+    }
+    if (nextStep.key === "category") {
+      Keyboard.dismiss();
+      openCategory();
+      return;
+    }
+    if (nextStep.key === "size") {
+      focusField(sizeRef);
+      return;
+    }
+    if (nextStep.key === "color") {
+      focusField(colorRef);
+      return;
+    }
+    if (nextStep.key === "material") {
+      focusField(materialRef);
+      return;
+    }
+    if (nextStep.key === "condition") {
+      Keyboard.dismiss();
+      openCondition();
+      return;
+    }
+    Keyboard.dismiss();
+    openPrice();
+  }
+
   async function publish() {
     if (!canList) return;
     setGate({ phase: "review", line: STAGES[0] });
@@ -578,6 +612,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         </View>
 
         <ScrollView
+          ref={scrollRef}
           style={{ flex: 1 }}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + (embedded ? 68 : 12) + 160 }]}
           keyboardShouldPersistTaps="handled"
@@ -738,16 +773,20 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           <View style={styles.sheet}>
             <Text style={styles.sectionKicker}>THE PIECE</Text>
             <TextInput
+              ref={titleRef}
               style={styles.titleIn}
               value={name}
               onChangeText={editField("title", setName)}
               placeholder="What’s the piece?"
               placeholderTextColor={ph}
+              returnKeyType="next"
+              onSubmitEditing={() => notesRef.current?.focus()}
               accessibilityLabel="Listing title"
               accessibilityHint="Required. Enter the name buyers will see."
             />
             {fromPhoto.title ? <Text style={styles.fromPhoto}>From photo</Text> : null}
             <TextInput
+              ref={notesRef}
               style={styles.bodyIn}
               value={notes}
               onChangeText={editField("notes", setNotes)}
@@ -782,30 +821,42 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               {fromPhoto.brand ? <Text style={styles.fromPhoto}>From photo</Text> : null}
 
               <TextInput
+                ref={sizeRef}
                 style={styles.field}
                 value={size}
                 onChangeText={setSize}
                 placeholder="Size"
                 placeholderTextColor={ph}
+                returnKeyType="next"
+                onSubmitEditing={() => colorRef.current?.focus()}
                 accessibilityLabel="Size, required"
               />
 
               <TextInput
+                ref={colorRef}
                 style={styles.field}
                 value={color}
                 onChangeText={editField("color", setColor)}
                 placeholder="Colour"
                 placeholderTextColor={ph}
+                returnKeyType="next"
+                onSubmitEditing={() => materialRef.current?.focus()}
                 accessibilityLabel="Colour, required"
               />
               {fromPhoto.color ? <Text style={styles.fromPhoto}>From photo</Text> : null}
 
               <TextInput
+                ref={materialRef}
                 style={styles.field}
                 value={material}
                 onChangeText={editField("material", setMaterial)}
                 placeholder="Material"
                 placeholderTextColor={ph}
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  Keyboard.dismiss();
+                  if (!condition) openCondition();
+                }}
                 accessibilityLabel="Material, required"
               />
               {fromPhoto.material ? <Text style={styles.fromPhoto}>From photo</Text> : null}
@@ -946,14 +997,14 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
 
         <View style={[styles.foot, { paddingBottom: keyboardVisible ? 8 : insets.bottom + (embedded ? 68 : 12) }]}>
           <AccessiblePressable
-            onPress={() => void publish()}
-            disabled={!canList}
-            style={({ pressed }) => [styles.cta, !canList && styles.ctaOff, pressed && { opacity: 0.92 }]}
+            onPress={goNext}
+            disabled={!ctaReady}
+            style={({ pressed }) => [styles.cta, !ctaReady && styles.ctaOff, pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
             accessibilityLabel={ctaLabel}
-            accessibilityState={{ disabled: !canList, busy: gate.phase === "review" }}
+            accessibilityState={{ disabled: !ctaReady, busy: gate.phase === "review" }}
           >
-            <Text style={[styles.ctaTxt, !canList && styles.ctaTxtOff]}>{ctaLabel}</Text>
+            <Text style={[styles.ctaTxt, !ctaReady && styles.ctaTxtOff]}>{ctaLabel}</Text>
           </AccessiblePressable>
         </View>
       </KeyboardAvoidingView>
