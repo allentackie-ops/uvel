@@ -556,7 +556,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       ) : null}
       {todayHome ? <TodayCartFab lifted={Boolean(openPiece)} /> : null}
       {findHint ? (
-        <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 10 }]} accessibilityLiveRegion="polite">
+        <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 68 }]} accessibilityLiveRegion="polite">
+          <Text style={styles.findToastK}>FIRST FIND</Text>
           <Text style={styles.findToastTxt}>We’ll cover {moneyExact(firstFind.remaining, firstFind.currency)} of this piece at checkout.</Text>
         </View>
       ) : null}
@@ -579,20 +580,20 @@ function make(colors: Colors) {
       left: 16,
       right: 16,
       zIndex: 80,
-      minHeight: 48,
       paddingHorizontal: 16,
-      paddingVertical: 12,
+      paddingVertical: 14,
       borderRadius: 16,
       backgroundColor: colors.surface,
-      alignItems: "center",
-      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: `${colors.bone}1A`,
       shadowColor: "#000",
       shadowOpacity: 0.28,
       shadowRadius: 12,
       shadowOffset: { width: 0, height: 6 },
       elevation: 10,
     },
-    findToastTxt: { color: colors.bone, fontSize: 14, fontWeight: "700", textAlign: "center", lineHeight: 20 },
+    findToastK: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.4, marginBottom: 4 },
+    findToastTxt: { color: colors.bone, fontSize: 15, fontWeight: "700", lineHeight: 20 },
     headerSide: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
     menuIcon: { width: 22, gap: 4 },
     menuLine: { height: 2, width: 22, borderRadius: 1, backgroundColor: colors.bone },
