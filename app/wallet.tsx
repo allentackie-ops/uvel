@@ -23,15 +23,16 @@ export default function Wallet() {
   const [holder, setHolder] = useState(wallet.profile?.accountHolderName || app.displayName || "");
   const [institution, setInstitution] = useState(wallet.profile?.institutionName || "");
   const [destination, setDestination] = useState("");
-  const [kind, setKind] = useState<"bank" | "mobile_money">(wallet.profile?.destinationType || (market.code === "GH" ? "mobile_money" : "bank"));
+  const [kind, setKind] = useState<"bank" | "mobile_money">(wallet.profile?.destinationType === "mobile_money" && market.code === "GH" ? "mobile_money" : "bank");
   const [busy, setBusy] = useState(false);
+  const showMobileMoney = market.code === "GH";
 
   async function savePayout() {
     if (busy) return;
     setBusy(true);
     try {
       await saveUserPayoutProfile({
-        destinationType: kind,
+        destinationType: showMobileMoney ? kind : "bank",
         country: market.code,
         currency: market.currency,
         accountHolderName: holder,
@@ -99,15 +100,16 @@ export default function Wallet() {
         </Pressable>
 
         <Text style={styles.h}>Payout account</Text>
-        <Text style={styles.hint}>In your name. Bank account or mobile money, same country as your Uvel market.</Text>
-        <View style={styles.kinds}>
-          <Pressable onPress={() => setKind("bank")} style={[styles.kind, kind === "bank" && styles.kindOn]}>
-            <Text style={[styles.kindTxt, kind === "bank" && styles.kindTxtOn]}>Bank</Text>
-          </Pressable>
-          <Pressable onPress={() => setKind("mobile_money")} style={[styles.kind, kind === "mobile_money" && styles.kindOn]}>
-            <Text style={[styles.kindTxt, kind === "mobile_money" && styles.kindTxtOn]}>Mobile money</Text>
-          </Pressable>
-        </View>
+        {showMobileMoney ? (
+          <View style={styles.kinds}>
+            <Pressable onPress={() => setKind("bank")} style={[styles.kind, kind === "bank" && styles.kindOn]}>
+              <Text style={[styles.kindTxt, kind === "bank" && styles.kindTxtOn]}>Bank</Text>
+            </Pressable>
+            <Pressable onPress={() => setKind("mobile_money")} style={[styles.kind, kind === "mobile_money" && styles.kindOn]}>
+              <Text style={[styles.kindTxt, kind === "mobile_money" && styles.kindTxtOn]}>Mobile money</Text>
+            </Pressable>
+          </View>
+        ) : null}
         {wallet.profile ? <Text style={styles.saved}>On file · {wallet.profile.institutionName} ·••{wallet.profile.destinationLast4}</Text> : null}
         <TextInput value={holder} onChangeText={setHolder} placeholder="Account holder name" placeholderTextColor={`${colors.bone}55`} style={styles.input} />
         <TextInput value={institution} onChangeText={setInstitution} placeholder={kind === "mobile_money" ? "Network (MTN, Telecel, M-Pesa…)" : "Bank name"} placeholderTextColor={`${colors.bone}55`} style={styles.input} />
