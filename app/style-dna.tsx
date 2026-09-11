@@ -13,7 +13,6 @@ export default function StyleDna() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const dnaReady = Boolean(app.archetype || app.palette || app.silhouette);
 
   function pick(patch: { archetype?: string; palette?: string; silhouette?: string }) {
     app.setStyle(patch);
@@ -41,7 +40,7 @@ export default function StyleDna() {
         <Text style={styles.kicker}>YOUR PREFERENCES</Text>
         <Text style={styles.heading}>Shape what Uvel shows you.</Text>
         <Text style={styles.lede}>
-          Choose a style, palette, and silhouette. Today mixes this with what you browse, save, and like — it does not replace that.
+          Choose a style, palette, and silhouette. Today and Shop use this mix to shape the looks and pieces they put in front of you.
         </Text>
 
         <OptionGroup
@@ -68,13 +67,6 @@ export default function StyleDna() {
           onPick={(value) => pick({ silhouette: value })}
           styles={styles}
         />
-
-        <View style={styles.savedNote} accessibilityLiveRegion="polite">
-          <Text style={styles.savedTitle}>{dnaReady ? "Style DNA saved" : "Style DNA is not set"}</Text>
-          <Text style={styles.savedCopy}>
-            {dnaReady ? "Today will put more of this in front of you, alongside what you already engage with." : "Choose at least one option to start shaping Today."}
-          </Text>
-        </View>
       </ScrollView>
     </View>
   );
