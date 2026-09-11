@@ -193,8 +193,17 @@ export default function BrandPage() {
           {brand.tagline ? <Text style={[styles.tagline, { color: theme.ink }]}>{brand.tagline}</Text> : null}
           {owner && !brand.verified ? (
             <View style={[styles.reviewCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
-              <Text style={[styles.reviewTitle, { color: theme.ink }]}>In review</Text>
-              <Text style={[styles.reviewCopy, { color: theme.muted }]}>Dress this page while we look at it. Logo, banner, look. If you’re accepted, it’s already yours.</Text>
+              <Text style={[styles.reviewTitle, { color: theme.ink }]}>{brand.reviewStatus === "rejected" ? (brand.rejectHeadline || "Rejected") : "In review"}</Text>
+              {(brand.rejectReasons || []).map((reason) => (
+                <Text key={reason} style={[styles.reviewCopy, { color: theme.muted }]}>{reason}</Text>
+              ))}
+              {brand.reviewStatus === "rejected" ? (
+                <AccessiblePressable onPress={() => router.push({ pathname: "/brand/founder/[stage]", params: { stage: "launch" } })} style={{ marginTop: 10 }}>
+                  <Text style={[styles.ghostTxt, { color: theme.ink }]}>Change the name and send again</Text>
+                </AccessiblePressable>
+              ) : (
+                <Text style={[styles.reviewCopy, { color: theme.muted }]}>Dress this page while we look at it. Logo, banner, look.</Text>
+              )}
             </View>
           ) : null}
           <Text style={[styles.owner, { color: theme.muted }]}>
