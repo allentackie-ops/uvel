@@ -340,6 +340,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="invite"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="cart"
             options={{
               headerShown: false,
