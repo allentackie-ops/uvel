@@ -12,6 +12,7 @@ import {
   useWallet,
   type WalletEntry,
 } from "../lib/wallet";
+import { useFirstFind } from "../lib/firstFind";
 
 export default function Wallet() {
   const colors = useColors();
@@ -20,6 +21,7 @@ export default function Wallet() {
   const app = useUvel();
   const market = getMarket(app.country);
   const wallet = useWallet(market.currency);
+  const firstFind = useFirstFind();
   const [holder, setHolder] = useState(wallet.profile?.accountHolderName || app.displayName || "");
   const [institution, setInstitution] = useState(wallet.profile?.institutionName || "");
   const [destination, setDestination] = useState("");
@@ -93,6 +95,12 @@ export default function Wallet() {
             <Text style={styles.splitL}>Withdrawn</Text>
           </View>
         </View>
+        {firstFind.remaining > 0 ? (
+          <View style={[styles.splitCard, { marginTop: 10 }]}>
+            <Text style={styles.splitV}>{moneyExact(firstFind.remaining, firstFind.currency)}</Text>
+            <Text style={styles.splitL}>First Find</Text>
+          </View>
+        ) : null}
         <Text style={styles.hint}>When someone buys from you, the money is held. It moves to available after they confirm, or two days after delivery. Then you can spend it on Uvel or withdraw it.</Text>
 
         <Pressable onPress={() => void withdraw()} disabled={busy || wallet.availableCents < 10} style={[styles.withdraw, (busy || wallet.availableCents < 10) && { opacity: 0.45 }]} accessibilityRole="button" accessibilityLabel="Withdraw available balance">
