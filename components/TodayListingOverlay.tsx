@@ -16,7 +16,8 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getBrand } from "../lib/brands";
 import { addToCart, useCart } from "../lib/cart";
-import { getMarket, moneyInMarket } from "../lib/markets";
+import { useFirstFind } from "../lib/firstFind";
+import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
 import { shipsToLabel } from "../lib/ships";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
@@ -121,6 +122,11 @@ export function TodayListingOverlay({
   const sellerPhoto = brandRecord?.logoUri || piece.ownerPhoto || null;
   const sellerLocation = piece.country ? getMarket(piece.country).name : getMarket(app.country).name;
   const market = getMarket(app.country);
+  const find = useFirstFind();
+  const itemCurrency = piece.currency || market.currency;
+  const localPriceCents = convertCents(piece.listPriceCents, itemCurrency, market);
+  const credit = find.applyTo(piece, localPriceCents);
+  const saleCents = Math.max(0, localPriceCents - credit);
   const liked = app.saved.includes(piece.id);
   const gallery = piece.photos?.length ? piece.photos : [piece.photo];
   const measurementEntries = Object.entries(piece.measurements || {}).filter(([, value]) => Boolean(value));
@@ -252,7 +258,14 @@ export function TodayListingOverlay({
             <Animated.View style={[styles.detail, detailStyle]}>
               <Text style={styles.kicker}>{(brand || "UVEL").toUpperCase()}</Text>
               <Text style={styles.title}>{piece.name}</Text>
-              <Text style={styles.price}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
+              {credit > 0 ? (
+                <View style={styles.priceRow}>
+                  <Text style={styles.was}>{moneyInMarket(localPriceCents, market.currency, market)}</Text>
+                  <Text style={[styles.price, { marginTop: 0 }]}>{moneyInMarket(saleCents, market.currency, market)}</Text>
+                </View>
+              ) : (
+                <Text style={styles.price}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
+              )}
               <Text style={styles.meta}>{[piece.size || piece.sizes?.[0] || "One size", piece.color, piece.condition].filter(Boolean).join(" · ")}</Text>
               {gallery.length > 1 ? (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRail}>
@@ -409,7 +422,9 @@ function make(colors: Colors) {
     detail: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 40 },
     kicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.8 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 30, lineHeight: 36, marginTop: 7 },
+    priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 12, flexWrap: "wrap" },
     price: { color: colors.success, fontSize: 19, fontWeight: "800", marginTop: 12 },
+    was: { color: `${colors.bone}66`, fontSize: 16, fontWeight: "600", textDecorationLine: "line-through", fontVariant: ["tabular-nums"] },
     meta: { color: `${colors.bone}85`, fontSize: 13, marginTop: 7 },
     thumbRail: { gap: 8, paddingTop: 16, paddingBottom: 2 },
     thumbnail: { width: 58, height: 72, borderRadius: 10, overflow: "hidden", borderWidth: 1, borderColor: "transparent" },
