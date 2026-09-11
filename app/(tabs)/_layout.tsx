@@ -89,11 +89,6 @@ export default function TabsLayout() {
         drawerPosition="left"
         drawerStyle={{ width: DRAWER_W, backgroundColor: colors.ink }}
         overlayStyle={{ backgroundColor: "rgba(0,0,0,0.32)" }}
-        configureGestureHandler={({ gesture }) =>
-          open
-            ? gesture.failOffsetY([-28, 28])
-            : gesture.activeOffsetX(12).failOffsetX(-8).failOffsetY([-28, 28])
-        }
         renderDrawerContent={() => (
           <TodayToolsDrawer
             onClose={closeDrawer}
