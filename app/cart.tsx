@@ -3,8 +3,9 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { FriendShareSheet, type FriendSharePayload } from "../components/FriendShareSheet";
 import { restoreToCart, useCart, type CartItem } from "../lib/cart";
 import { useFirstFind } from "../lib/firstFind";
 import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
@@ -37,6 +38,7 @@ export default function Cart() {
   })();
   const total = priced.reduce((sum, row) => sum + row.sale, 0);
   const [removed, setRemoved] = useState<Removed | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
   const toastY = useRef(new Animated.Value(-28)).current;
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -90,6 +92,20 @@ export default function Cart() {
     });
   }
 
+  const bagNames = priced.map(({ piece }) => piece.name);
+  const sharePayload: FriendSharePayload | null = priced.length
+    ? {
+        kind: "listing",
+        id: priced[0].piece.id,
+        title: priced.length === 1 ? priced[0].piece.name : "My bag on Uvel",
+        deepLink: priced.length === 1 ? `uvel://piece/${priced[0].piece.id}` : "uvel://cart",
+        imageUri: priced[0].piece.photo,
+        previewText: priced.length === 1
+          ? `Have a look at ${priced[0].piece.name} in my bag on Uvel.`
+          : `Have a look at my bag on Uvel.\n${bagNames.map((name) => `• ${name}`).join("\n")}`,
+      }
+    : null;
+
   return (
     <View style={styles.page}>
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
@@ -97,7 +113,22 @@ export default function Cart() {
           <Text style={styles.navBack}>‹</Text>
         </Pressable>
         <Text style={styles.navTitle}>Your bag</Text>
-        <View style={styles.navBtn} />
+        {sharePayload ? (
+          <Pressable
+            onPress={() => {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+              setShareOpen(true);
+            }}
+            hitSlop={10}
+            style={styles.navBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Share bag"
+          >
+            <Ionicons name="share-outline" size={22} color={colors.bone} />
+          </Pressable>
+        ) : (
+          <View style={styles.navBtn} />
+        )}
       </View>
 
       <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 160 }]} showsVerticalScrollIndicator={false}>
@@ -183,6 +214,20 @@ export default function Cart() {
             </Pressable>
           </View>
         </Animated.View>
+      ) : null}
+      {sharePayload ? (
+        <FriendShareSheet
+          visible={shareOpen}
+          payload={sharePayload}
+          onClose={() => setShareOpen(false)}
+          onExternalShare={() => {
+            setShareOpen(false);
+            void Share.share({
+              title: sharePayload.title,
+              message: `${sharePayload.previewText}\n${sharePayload.deepLink}`,
+            });
+          }}
+        />
       ) : null}
     </View>
   );
