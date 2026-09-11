@@ -81,6 +81,7 @@ export type Copy = {
   sold: string;
   purchases: string;
   likes: string;
+  wallet: string;
   continueAgreement: string;
   termsAndConditions: string;
   andWord: string;
@@ -245,6 +246,7 @@ const en: Copy = {
   sold: "Sold",
   purchases: "Purchases",
   likes: "Likes",
+  wallet: "Wallet",
   continueAgreement: "By continuing you agree to our",
   termsAndConditions: "Terms and Conditions",
   andWord: "and",
