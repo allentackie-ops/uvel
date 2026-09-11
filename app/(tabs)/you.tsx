@@ -226,7 +226,7 @@ export default function You() {
           </View>
           <Text style={styles.dnaChevron}>›</Text>
         </Pressable>
-      ) : !firstFind.ready ? (
+      ) : !firstFind.ready && !firstFind.blocked ? (
         <Pressable onPress={() => router.push("/style-dna")} style={styles.walletCard} accessibilityRole="button" accessibilityLabel="Set Style DNA to unlock First Find">
           <View style={{ flex: 1 }}>
             <Text style={styles.walletK}>FIRST FIND</Text>
