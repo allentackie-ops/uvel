@@ -114,6 +114,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const [refreshing, setRefreshing] = useState(false);
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
+  const [findHint, setFindHint] = useState(false);
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
@@ -129,6 +130,11 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     setOpenOrigin(origin);
     setOpenPiece(piece);
   }, []);
+  useEffect(() => {
+    if (!findHint) return;
+    const timer = setTimeout(() => setFindHint(false), 3200);
+    return () => clearTimeout(timer);
+  }, [findHint]);
   const houses = verifiedBrands();
 
   useEffect(() => {
@@ -343,10 +349,16 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       ) : null}
 
       {todayHome && firstFind.remaining > 0 ? (
-        <View style={styles.findBanner} accessibilityLabel={`First Find ${moneyExact(firstFind.remaining, firstFind.currency)} on a matching piece`}>
+        <AccessiblePressable
+          onPress={() => setFindHint(true)}
+          style={styles.findBanner}
+          accessibilityRole="button"
+          accessibilityLabel={`First Find ${moneyExact(firstFind.remaining, firstFind.currency)} on a matching piece`}
+          accessibilityHint="Double tap to hear how First Find works."
+        >
           <Text style={styles.findK}>FIRST FIND</Text>
           <Text style={styles.findV}>{moneyExact(firstFind.remaining, firstFind.currency)} on a piece that matches you</Text>
-        </View>
+        </AccessiblePressable>
       ) : todayHome && !firstFind.ready ? (
         <AccessiblePressable
           onPress={() => router.push("/style-dna")}
@@ -508,7 +520,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           ? null
           : ranked.map((p) => (
               <View key={p.id} style={styles.cell}>
-                <ListingCard piece={p} framed firstFind={todayHome && firstFind.matches(p)} onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />
+                <ListingCard piece={p} framed firstFind={todayHome && firstFind.matches(p)} onFirstFind={todayHome ? () => setFindHint(true) : undefined} onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />
               </View>
             ))}
       </View>
@@ -543,6 +555,11 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         />
       ) : null}
       {todayHome ? <TodayCartFab lifted={Boolean(openPiece)} /> : null}
+      {findHint ? (
+        <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 10 }]} accessibilityLiveRegion="polite">
+          <Text style={styles.findToastTxt}>We’ll cover {moneyExact(firstFind.remaining, firstFind.currency)} of this piece at checkout.</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -557,6 +574,25 @@ function make(colors: Colors) {
     findBanner: { marginTop: 10, backgroundColor: colors.surface, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14 },
     findK: { color: `${colors.bone}6B`, letterSpacing: 1.4, fontSize: 10, fontWeight: "800" },
     findV: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 5 },
+    findToast: {
+      position: "absolute",
+      left: 16,
+      right: 16,
+      zIndex: 80,
+      minHeight: 48,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.28,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 10,
+    },
+    findToastTxt: { color: colors.bone, fontSize: 14, fontWeight: "700", textAlign: "center", lineHeight: 20 },
     headerSide: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
     menuIcon: { width: 22, gap: 4 },
     menuLine: { height: 2, width: 22, borderRadius: 1, backgroundColor: colors.bone },
