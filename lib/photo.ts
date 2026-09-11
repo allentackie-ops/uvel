@@ -40,7 +40,7 @@ export async function pickFromLibrary() {
   return res.assets[0]?.uri ?? null;
 }
 
-export async function takeListingPhoto() {
+async function copyFounderImport(uri: string, name?: string) {
   const root = `${FileSystem.documentDirectory || FileSystem.cacheDirectory || ""}founder-imports/`;
   await FileSystem.makeDirectoryAsync(root, { intermediates: true }).catch(() => undefined);
   const safeName = (name || `canvas-work-${Date.now()}.jpg`).replace(/[^a-zA-Z0-9._-]/g, "-");
