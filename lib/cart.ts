@@ -48,6 +48,14 @@ export function removeFromCart(pieceId: string) {
   return items;
 }
 
+export function removeManyFromCart(pieceIds: string[]) {
+  const drop = new Set(pieceIds);
+  items = items.filter((item) => !drop.has(item.pieceId));
+  void persist();
+  emit();
+  return items;
+}
+
 export function inCart(pieceId: string) {
   return items.some((item) => item.pieceId === pieceId);
 }
@@ -67,6 +75,7 @@ export function useCart() {
     count: items.length,
     add: addToCart,
     remove: removeFromCart,
+    removeMany: removeManyFromCart,
     has: inCart,
   };
 }
