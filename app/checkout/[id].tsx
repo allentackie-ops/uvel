@@ -15,22 +15,17 @@ import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { getPiece, isRemoteListedPiece, useMarketplaceSyncState, useWardrobe } from "../../lib/wardrobe";
 import { recordCampaignAttribution } from "../../lib/attribution";
-import { removeManyFromCart } from "../../lib/cart";
+import { removeFromCart } from "../../lib/cart";
+import { payWithWallet, useWallet } from "../../lib/wallet";
 
 export default function Checkout() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { id, ids: idsParam, variantKey: variantParam, variantLabel: variantLabelParam, campaignId, collectionId, promotionId, campaignChannel } = useLocalSearchParams<{ id: string; ids?: string; variantKey?: string; variantLabel?: string; campaignId?: string; collectionId?: string; promotionId?: string; campaignChannel?: string }>();
+  const { id, variantKey: variantParam, variantLabel: variantLabelParam, campaignId, collectionId, promotionId, campaignChannel } = useLocalSearchParams<{ id: string; variantKey?: string; variantLabel?: string; campaignId?: string; collectionId?: string; promotionId?: string; campaignChannel?: string }>();
   useWardrobe();
   const marketplaceSync = useMarketplaceSyncState();
-  const listingIds = useMemo(() => {
-    const extra = typeof idsParam === "string" ? idsParam.split(",").map((value) => value.trim()).filter(Boolean) : [];
-    const lead = typeof id === "string" ? id : "";
-    return [...new Set(extra.length ? extra : lead ? [lead] : [])];
-  }, [id, idsParam]);
-  const pieces = listingIds.map((listingId) => getPiece(listingId)).filter((row): row is NonNullable<ReturnType<typeof getPiece>> => Boolean(row));
-  const piece = pieces[0];
+  const piece = getPiece(id);
   const selectedVariant = typeof variantParam === "string" ? variantParam : "";
   const selectedVariantLabel = typeof variantLabelParam === "string" ? variantLabelParam : selectedVariant;
   const app = useUvel();
@@ -54,18 +49,22 @@ export default function Checkout() {
   );
 
   const currency = piece?.currency || "USD";
-  const itemLocal = pieces.reduce((sum, row) => sum + convertCents(row.listPriceCents, row.currency || "USD", market), 0);
-  const fee = pieces.reduce((sum, row) => sum + uvelFeeCents(row.listPriceCents, row.currency || "USD", market), 0);
+  const item = piece?.listPriceCents || 0;
+  const itemLocal = piece ? convertCents(item, currency, market) : 0;
+  const fee = piece ? uvelFeeCents(item, currency, market) : 0;
   const discountCents = Math.min(itemLocal, promotionQuote?.discountCents || 0);
   const discountedItem = Math.max(0, itemLocal - discountCents);
-  const sellsHere = pieces.length > 0 && pieces.every((row) => listingVisibleIn({ origin: row.country, shipsTo: row.shipsTo, buyer: market.code }));
-  const addressOk = Boolean(address && pieces.length && pieces.every((row) => listingVisibleIn({ origin: row.country, shipsTo: row.shipsTo, buyer: address.country })));
-  const availabilityConfirmed = marketplaceSync === "confirmed" && pieces.length > 0 && pieces.every((row) => isRemoteListedPiece(row.id));
-  const same = Boolean(address && pieces.length && pieces.every((row) => address.country === (row.country || market.code)));
+  const sellsHere = piece ? listingVisibleIn({ origin: piece.country, shipsTo: piece.shipsTo, buyer: market.code }) : false;
+  const addressOk = piece && address
+    ? listingVisibleIn({ origin: piece.country, shipsTo: piece.shipsTo, buyer: address.country })
+    : false;
+  const availabilityConfirmed = marketplaceSync === "confirmed" && isRemoteListedPiece(piece?.id || "");
+  const same = Boolean(address && piece && address.country === (piece.country || market.code));
   const shipCost = address && addressOk ? shippingCents(same, ship === "express", market) : 0;
   const total = discountedItem + fee + shipCost;
+  const wallet = useWallet(market.currency);
+  const walletCovers = wallet.availableCents >= total && total > 0;
   const method = methods.find((m) => m.id === pay) ?? methods[0];
-  const bagLabel = pieces.length > 1 ? `${pieces.length} pieces` : piece?.name || "this listing";
 
   useEffect(() => {
     const linkedPromotionId = typeof promotionId === "string" ? promotionId.trim() : "";
@@ -101,7 +100,7 @@ export default function Checkout() {
     }
   }
 
-  if (!piece || !pieces.length) {
+  if (!piece) {
     return (
       <View style={[styles.page, { paddingTop: insets.top + 24, paddingHorizontal: 20 }]}>
         <Text style={{ color: colors.muted }}>That listing isn’t here.</Text>
@@ -113,16 +112,16 @@ export default function Checkout() {
   const selectedStock = selectedVariant && piece.sizeStock ? piece.sizeStock[selectedVariant] : piece.stockQuantity;
   const inventoryAvailable = !variantTracked || (typeof selectedStock === "number" && selectedStock > 0);
   const needsVariant = variantTracked && Boolean(piece.sizes?.length || piece.size) && !selectedVariant;
-  const ready = Boolean(address) && addressOk && sellsHere && !paying && pieces.every((row) => row.status === "listed") && inventoryAvailable && !needsVariant;
+  const ready = Boolean(address) && addressOk && sellsHere && !paying && piece.status === "listed" && inventoryAvailable && !needsVariant;
 
   async function payNow() {
-    if (!address || !piece || !pieces.length) return;
+    if (!address || !piece) return;
     if (!availabilityConfirmed) {
-      Alert.alert("Availability unavailable", marketplaceSync === "loading" ? "Uvel is still checking these listings. Try again in a moment." : "Uvel could not confirm these listings with the marketplace service. Checkout is paused.");
+      Alert.alert("Availability unavailable", marketplaceSync === "loading" ? "Uvel is still checking this listing. Try again in a moment." : "Uvel could not confirm this listing with the marketplace service. Checkout is paused.");
       return;
     }
     if (!sellsHere || !addressOk) {
-      Alert.alert("Wrong store", "A seller in this bag doesn’t ship to that country.");
+      Alert.alert("Wrong store", "This seller doesn’t ship this piece to that country.");
       return;
     }
     if (needsVariant) {
@@ -136,47 +135,44 @@ export default function Checkout() {
     setPaying(true);
     try {
       if (!app.uid) throw new Error("Sign in before checking out.");
-      const orders = [];
-      for (let index = 0; index < pieces.length; index += 1) {
-        const row = pieces[index];
-        const line = convertCents(row.listPriceCents, row.currency || "USD", market);
-        const lineFee = uvelFeeCents(row.listPriceCents, row.currency || "USD", market);
-        const lineDiscount = index === 0 ? discountCents : 0;
-        const lineShip = index === 0 ? shipCost : 0;
-        orders.push(await placeOrder({
-          pieceId: row.id,
-          pieceName: row.name,
-          piecePhoto: row.photo,
-          brandId: row.brandId,
-          variantKey: index === 0 ? selectedVariant || undefined : undefined,
-          variantLabel: index === 0 ? selectedVariantLabel || undefined : undefined,
-          buyerId: app.uid,
-          sellerId: row.ownerId || "seller",
-          itemCents: line,
-          feeCents: lineFee,
-          discountCents: lineDiscount || undefined,
-          promotionId: index === 0 ? promotionQuote?.promotionId : undefined,
-          promotionCode: index === 0 ? promotionQuote?.code : undefined,
-          shipCents: lineShip,
-          taxCents: 0,
-          totalCents: Math.max(0, line - lineDiscount) + lineFee + lineShip,
-          currency: market.currency,
-          country: market.code,
-          payMethod: method.label,
-          delivery: ship,
-          address,
-        }));
-      }
-      const order = orders[0];
+      const order = await placeOrder({
+        pieceId: piece.id,
+        pieceName: piece.name,
+        piecePhoto: piece.photo,
+        brandId: piece.brandId,
+        variantKey: selectedVariant || undefined,
+        variantLabel: selectedVariantLabel || undefined,
+        buyerId: app.uid,
+        sellerId: piece.ownerId || "seller",
+        itemCents: itemLocal,
+        feeCents: fee,
+        discountCents: discountCents || undefined,
+        promotionId: promotionQuote?.promotionId,
+        promotionCode: promotionQuote?.code,
+        shipCents: shipCost,
+        taxCents: 0,
+        totalCents: total,
+        currency: market.currency,
+        country: market.code,
+        payMethod: method.label,
+        delivery: ship,
+        address,
+      });
       if (piece.brandId && typeof campaignId === "string" && campaignId) void recordCampaignAttribution({ brandId: piece.brandId, campaignId, channel: campaignChannel === "shop" ? "shop" : "brand_page", collectionId: typeof collectionId === "string" ? collectionId : undefined, promotionId: typeof promotionId === "string" ? promotionId : undefined, type: "checkout_started", listingId: piece.id, orderId: order.id, currency: market.currency, eventId: `checkout_started_${order.id}` }).catch(() => undefined);
+      if (walletCovers) {
+        await payWithWallet(order.id);
+        removeFromCart(piece.id);
+        router.replace({ pathname: "/order/[id]", params: { id: order.id } });
+        return;
+      }
       const session = await createCheckoutSession({
         amountCents: total,
         currency: market.currency,
         email: app.email || "pay@uvel.app",
         method: method.id,
         country: market.code,
-        reference: `uvel-${pieces.map((row) => row.id).join("-")}-${Date.now()}`,
-        name: pieces.length === 1 ? piece.name : `${pieces.length} pieces on Uvel`,
+        reference: `uvel-${piece.id}-${Date.now()}`,
+        name: piece.name,
         orderId: order.id,
         listingId: piece.id,
         brandId: piece.brandId || "",
@@ -189,7 +185,9 @@ export default function Checkout() {
       if (!session.url) throw new Error("That payment method isn’t live yet.");
       const ok = await openHostedPay(session.url);
       if (!ok) return;
-      removeManyFromCart(pieces.map((row) => row.id));
+      // Hosted checkout returning only means the payment page completed.
+      // A trusted payment webhook must confirm payment before marking inventory sold.
+      removeFromCart(piece.id);
       router.replace({ pathname: "/order/[id]", params: { id: order.id } });
     } catch (e) {
       const raw = e instanceof Error ? e.message : String(e || "");
@@ -218,9 +216,7 @@ export default function Checkout() {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 200 }}>
         <Text style={[styles.boxS, { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 }]}>
-          {pieces.length > 1
-            ? `${pieces.length} pieces · ${shipsToLine(piece.country || market.code, piece.shipsTo)}`
-            : shipsToLine(piece.country || market.code, piece.shipsTo)}
+          {shipsToLine(piece.country || market.code, piece.shipsTo)}
         </Text>
         {!availabilityConfirmed ? (
           <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={[styles.boxS, { paddingHorizontal: 20, color: colors.warning, paddingBottom: 8 }]}
@@ -230,7 +226,7 @@ export default function Checkout() {
         ) : null}
         {!sellsHere ? (
           <Text accessibilityRole="text" accessibilityLiveRegion="assertive" style={[styles.boxS, { paddingHorizontal: 20, color: colors.danger, paddingBottom: 8 }]}>
-            {pieces.length > 1 ? `A piece in this bag isn’t on the ${market.name} floor.` : `This piece isn’t on the ${market.name} floor.`}
+            This piece isn’t on the {market.name} floor.
           </Text>
         ) : null}
         {address && !addressOk ? (
@@ -333,19 +329,18 @@ export default function Checkout() {
 
         <Text style={styles.h}>Order summary</Text>
         <View style={styles.sum}>
-          {pieces.map((row) => (
-            <View key={row.id} style={styles.item}>
-              <Image source={{ uri: row.photo }} style={styles.thumb} contentFit="cover" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.itemN} numberOfLines={1}>
-                  {row.name}
-                </Text>
-                <Text style={styles.itemM}>{row.brand === "Unlabeled" ? "Uvel" : row.brand}</Text>
-                <Text style={styles.itemM}>{[row.id === piece.id ? selectedVariantLabel || row.size : row.size, row.color].filter(Boolean).join(" / ")}</Text>
-              </View>
-              <Text style={styles.itemP}>{moneyExact(convertCents(row.listPriceCents, row.currency || "USD", market), market.currency)}</Text>
+          <View style={styles.item}>
+            <Image source={{ uri: piece.photo }} style={styles.thumb} contentFit="cover" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.itemN} numberOfLines={1}>
+                {piece.name}
+              </Text>
+              <Text style={styles.itemM}>{piece.brand === "Unlabeled" ? "Uvel" : piece.brand}</Text>
+              <Text style={styles.itemM}>{[selectedVariantLabel || piece.size, piece.color].filter(Boolean).join(" / ")}</Text>
+              {variantTracked && typeof selectedStock === "number" ? <Text style={styles.itemM}>{selectedStock} available now</Text> : null}
             </View>
-          ))}
+            <Text style={styles.itemP}>{moneyExact(itemLocal, market.currency)}</Text>
+          </View>
 
           {discountCents > 0 ? <View style={styles.line}><Text style={styles.lineL}>Promotion · {promotionQuote?.code}</Text><Text style={styles.discountValue}>−{moneyExact(discountCents, market.currency)}</Text></View> : null}
           <View style={styles.line}>
@@ -372,6 +367,7 @@ export default function Checkout() {
             <Text style={styles.lineL}>Sales tax</Text>
             <Text style={styles.muted}>To be confirmed</Text>
           </View>
+          {walletCovers ? <View style={styles.line}><Text style={styles.lineL}>Uvel balance</Text><Text style={styles.discountValue}>−{moneyExact(total, market.currency)}</Text></View> : wallet.availableCents > 0 ? <Text style={styles.protect}>Uvel balance {moneyExact(wallet.availableCents, market.currency)} — it pays in full when it covers the total.</Text> : null}
           <AccessiblePressable            onPress={() => setFeeInfo(true)}
             style={({ pressed }) => [pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
@@ -385,17 +381,17 @@ export default function Checkout() {
       <View style={[styles.dock, { paddingBottom: insets.bottom + 12 }]}>
         <View style={styles.totalRow}>
           <Text style={styles.totalL}>Total to pay</Text>
-          <Text style={styles.totalV}>{moneyExact(total, market.currency)}</Text>
+          <Text style={styles.totalV}>{moneyExact(walletCovers ? 0 : total, market.currency)}</Text>
         </View>
         <AccessiblePressable onPress={() => void payNow()}
           disabled={!ready || !availabilityConfirmed}
           style={({ pressed }) => [styles.payBtn, (!ready || !availabilityConfirmed) && { opacity: 0.4 }, pressed && { opacity: 0.92 }]}
           accessibilityRole="button"
-          accessibilityLabel={paying ? "Processing payment" : `Pay with ${method?.label || "selected method"} for ${bagLabel}, ${moneyExact(total, market.currency)}`}
+          accessibilityLabel={paying ? "Processing payment" : walletCovers ? `Pay with Uvel balance, ${moneyExact(total, market.currency)}` : `Pay with ${method?.label || "selected method"}, ${moneyExact(total, market.currency)}`}
           accessibilityState={{ disabled: !ready || !availabilityConfirmed, busy: paying }}
         >
           <Text style={styles.payTxt}>
-            {paying ? "Paying…" : method?.kind === "apple" ? "Apple Pay" : `Pay with ${method?.label}`}
+            {paying ? "Paying…" : walletCovers ? "Pay with Uvel balance" : method?.kind === "apple" ? "Apple Pay" : `Pay with ${method?.label}`}
           </Text>
         </AccessiblePressable>
         <Text style={styles.lock}>Payment details are handled by the connected payment provider.</Text>
