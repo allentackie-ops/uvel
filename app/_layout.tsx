@@ -414,13 +414,7 @@ function AppStack() {
           <Stack.Screen
             name="brand/founder/[stage]"
             options={{
-              headerShown: true,
-              title: "Founder Studio",
-              headerBackTitle: "",
-              headerTransparent: false,
-              headerStyle: { backgroundColor: colors.ink },
-              headerTintColor: colors.bone,
-              headerShadowVisible: false,
+              headerShown: false,
               animation: "slide_from_right",
               contentStyle: { backgroundColor: colors.ink },
             }}
