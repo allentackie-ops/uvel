@@ -56,6 +56,16 @@ export function removeManyFromCart(pieceIds: string[]) {
   return items;
 }
 
+export function restoreToCart(item: CartItem, index = 0) {
+  if (!item?.pieceId || items.some((row) => row.pieceId === item.pieceId)) return items;
+  const next = items.slice();
+  next.splice(Math.max(0, Math.min(index, next.length)), 0, item);
+  items = next;
+  void persist();
+  emit();
+  return items;
+}
+
 export function clearCart() {
   items = [];
   void persist();
@@ -83,6 +93,7 @@ export function useCart() {
     add: addToCart,
     remove: removeFromCart,
     removeMany: removeManyFromCart,
+    restore: restoreToCart,
     clear: clearCart,
     has: inCart,
   };
