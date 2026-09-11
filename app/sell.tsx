@@ -18,13 +18,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
+import { MotionClip } from "../components/MotionClip";
 import type { Category } from "../lib/catalog";
 import { usd } from "../lib/catalog";
 import { uvelFeeCents } from "../lib/fees";
 import { getMarket, getMarketByCurrency, moneyExact } from "../lib/markets";
 import { takePendingListingPrice } from "../lib/listingPriceDraft";
 import { clearListingDraft, loadListingDraft, saveListingDraft } from "../lib/listingDraft";
-import { pickListingPhoto, takeListingPhoto } from "../lib/photo";
+import { pickListingClip, pickListingPhoto, takeListingClip, takeListingPhoto } from "../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
 import { encodeShipsTo, shipsToLabel, type ShipsTo } from "../lib/ships";
 import { SHOP_LOOKS, shopLookOf } from "../lib/shopLook";
@@ -88,6 +89,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         ? [{ uri: existing.photo, status: "ok" }]
         : [],
   );
+  const [clipUri, setClipUri] = useState(existing?.clipUri || "");
   const [name, setName] = useState(existing?.name ?? "");
   const [brand, setBrand] = useState(existing?.brand && existing.brand !== "Unlabeled" ? existing.brand : "");
   const [category, setCategory] = useState<Category | null>(existing?.category ?? null);
@@ -131,6 +133,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         setDraftOrigin(saved.origin);
         setDraftCurrency(saved.currency);
         setPhotos(saved.photos.map((photo) => ({ uri: photo.uri, status: "ok" as const })));
+        setClipUri(saved.clipUri || "");
         setName(saved.name || "");
         setBrand(saved.brand || "");
         setCategory(saved.category || null);
@@ -169,6 +172,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     if (existing || !draftReady || draftDisabled) return;
     void saveListingDraft({
       photos: photos.map((photo) => ({ uri: photo.uri })),
+      clipUri: clipUri || undefined,
       name,
       brand,
       category,
@@ -185,7 +189,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       currency: listingCurrency,
       updatedAt: Date.now(),
     });
-  }, [existing?.id, draftReady, draftDisabled, photos, name, brand, category, color, size, condition, material, notes, price, was, shopLook, shipsTo, origin, listingCurrency]);
+  }, [existing?.id, draftReady, draftDisabled, photos, clipUri, name, brand, category, color, size, condition, material, notes, price, was, shopLook, shipsTo, origin, listingCurrency]);
 
   useEffect(() => {
     if (existing || !draftReady || draftDisabled) return;
@@ -364,6 +368,49 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     setPhotos((prev) => prev.filter((p) => p.uri !== uri));
   }
 
+  async function fromClipCamera() {
+    Keyboard.dismiss();
+    try {
+      const uri = await takeListingClip();
+      if (uri) setClipUri(uri);
+    } catch (err) {
+      Alert.alert("Camera", err instanceof Error ? err.message : "Couldn’t record a clip.");
+    }
+  }
+
+  async function fromClipLibrary() {
+    Keyboard.dismiss();
+    try {
+      const uri = await pickListingClip();
+      if (uri) setClipUri(uri);
+    } catch (err) {
+      Alert.alert("Clip", err instanceof Error ? err.message : "Couldn’t add that clip.");
+    }
+  }
+
+  function chooseClip() {
+    Keyboard.dismiss();
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Record a clip", "Choose from library", "Cancel"],
+          cancelButtonIndex: 2,
+          userInterfaceStyle: "dark",
+        },
+        (i) => {
+          if (i === 0) void fromClipCamera();
+          else if (i === 1) void fromClipLibrary();
+        },
+      );
+      return;
+    }
+    Alert.alert("Add a clip", "8–15 seconds. You can trim it before it saves.", [
+      { text: "Record a clip", onPress: () => void fromClipCamera() },
+      { text: "Choose from library", onPress: () => void fromClipLibrary() },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
+
   function openCategory() {
     router.push({ pathname: "/sell-category", params: { selected: category || "" } });
   }
@@ -439,6 +486,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     const draft = {
       photo: uris[0],
       photos: uris,
+      clipUri: clipUri || undefined,
       name: name.trim(),
       brand: brand.trim() || "Unlabeled",
       category: category as Category,
@@ -591,6 +639,50 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               </AccessiblePressable>
             ) : null}
           </ScrollView>
+
+          <Text style={styles.photosLabel}>In motion</Text>
+          {clipUri ? (
+            <View style={styles.clipRow}>
+              <View style={styles.clipTile}>
+                <MotionClip uri={clipUri} style={styles.clipPreview} />
+                <View style={styles.mainPhotoPill}>
+                  <Text style={styles.mainPhotoTxt}>8–15s</Text>
+                </View>
+                <AccessiblePressable
+                  onPress={() => setClipUri("")}
+                  hitSlop={10}
+                  style={({ pressed }) => [styles.photoX, pressed && { opacity: 0.92 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove clip"
+                >
+                  <Text style={styles.photoXTxt}>×</Text>
+                </AccessiblePressable>
+              </View>
+              <AccessiblePressable
+                onPress={chooseClip}
+                style={({ pressed }) => [styles.clipSwap, pressed && { opacity: 0.92 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Replace clip"
+              >
+                <Text style={styles.clipSwapTxt}>Replace</Text>
+              </AccessiblePressable>
+            </View>
+          ) : (
+            <AccessiblePressable
+              onPress={chooseClip}
+              style={({ pressed }) => [styles.clipAdd, pressed && { opacity: 0.92 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Add a clip of the piece in motion"
+              accessibilityHint="Optional. Record or choose an 8 to 15 second clip. You can trim it."
+            >
+              <Ionicons name="videocam-outline" size={22} color={colors.bone} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.clipAddTitle}>Add a clip</Text>
+                <Text style={styles.clipAddBody}>Optional · 8–15 seconds · trim only</Text>
+              </View>
+              <Ionicons name="add" size={20} color={colors.subtle} />
+            </AccessiblePressable>
+          )}
 
           {fitsOpen && wardrobeUris.length ? (
             <View style={styles.picker}>
@@ -951,6 +1043,27 @@ function make(colors: Colors) {
     photoAddSlot: { width: ADD_W },
     photoAddTxt: { color: colors.bone, fontSize: 12, fontWeight: "600", marginTop: 4 },
     photoCount: { color: colors.subtle, fontSize: 11, marginTop: 4 },
+    clipRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 20, marginBottom: 8 },
+    clipTile: { width: COVER_W, height: COVER_H, borderRadius: 16, overflow: "hidden", backgroundColor: colors.surface },
+    clipPreview: { width: "100%", height: "100%" },
+    clipSwap: { paddingVertical: 10, paddingHorizontal: 4 },
+    clipSwapTxt: { color: colors.bone, fontSize: 14, fontWeight: "700" },
+    clipAdd: {
+      marginHorizontal: 20,
+      marginBottom: 8,
+      minHeight: 64,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: colors.subtle + "88",
+      backgroundColor: colors.surface,
+      paddingHorizontal: 14,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    clipAddTitle: { color: colors.bone, fontSize: 15, fontWeight: "700" },
+    clipAddBody: { color: colors.subtle, fontSize: 12, marginTop: 2 },
     mainPhotoPill: { position: "absolute", left: 8, bottom: 8, paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: `${colors.ink}C2`, alignItems: "center", justifyContent: "center" },
     mainPhotoTxt: { color: colors.bone, fontSize: 10, fontWeight: "600" },
     photoCheck: { ...StyleSheet.absoluteFillObject, backgroundColor: `${colors.success}85`, alignItems: "center", justifyContent: "center" },
