@@ -133,7 +133,6 @@ export default function FounderStagePage() {
         ) : null}
         <View style={local.hero}>
           <Text style={[styles.kicker, { color: colors.accent }]}>{title.kicker}</Text>
-          <Text style={[styles.title, { color: colors.ink }]}>{title.title}</Text>
           <Text style={[styles.lede, { color: colors.muted }]}>{title.body}</Text>
         </View>
         <View style={local.content}>
