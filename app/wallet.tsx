@@ -118,10 +118,12 @@ export default function Wallet() {
           <Text style={styles.saveTxt}>{wallet.profile ? "Update account" : "Save account"}</Text>
         </Pressable>
 
-        <Text style={styles.h}>Activity</Text>
-        {wallet.entries.length ? wallet.entries.map((entry) => <EntryRow key={entry.id} entry={entry} styles={styles} />) : (
-          <Text style={styles.empty}>Sales, holds, and withdrawals will show up here.</Text>
-        )}
+        {wallet.entries.length ? (
+          <>
+            <Text style={styles.h}>Activity</Text>
+            {wallet.entries.map((entry) => <EntryRow key={entry.id} entry={entry} styles={styles} />)}
+          </>
+        ) : null}
       </ScrollView>
     </View>
   );
