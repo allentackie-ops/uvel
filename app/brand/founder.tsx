@@ -5,10 +5,8 @@ import { Alert, Linking, PanResponder, Pressable, ScrollView, StyleSheet, Text, 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { importFounderWork, pickFromLibrary, saveFounderPhotoReference } from "../../lib/photo";
 import { workspaceStyles } from "./founder-workspace-styles";
-import { appendFounderReference, archiveFounderProject, createFounderBoard, createFounderProject, getFounderProject, saveFounderProduct, updateFounderBoard, updateFounderProject, updateFounderProduction, updateFounderTask, useFounderProjects, type FounderBoard, type FounderCanvasTool, type FounderPoint, type FounderProduction, type FounderProject, type FounderSetup, type FounderStage, type FounderStroke, type FounderSupplier, type FounderSample, type FounderImportedWork } from "../../lib/founder";
+import { appendFounderReference, archiveFounderProject, applyReady, createFounderBoard, createFounderProject, getFounderProject, ideaReady, pieceReady, saveFounderProduct, simpleStageOf, updateFounderBoard, updateFounderProject, updateFounderProduction, updateFounderTask, useFounderProjects, type FounderBoard, type FounderCanvasTool, type FounderPoint, type FounderProduction, type FounderProject, type FounderSetup, type FounderStage, type FounderStroke, type FounderSupplier, type FounderSample, type FounderImportedWork } from "../../lib/founder";
 import { useColors, type Colors } from "../../lib/theme";
-import { saveListingDraft } from "../../lib/listingDraft";
-import type { Category } from "../../lib/catalog";
 import { founderCloudCapability, type FounderCloudCapability } from "../../lib/firebase";
 
 const STAGES: FounderStage[] = ["idea", "identity", "design", "product", "source", "launch"];
@@ -209,74 +207,61 @@ export function FounderProductionWorkspace({ project, colors }: { project: Found
 
 export function FounderLaunchReview({ project, colors }: { project: FounderProject; colors: FounderColors }) {
   const styles = make(colors);
-  const strategyReady = Boolean(project.brief.audience.trim() && project.brief.category.trim() && project.brief.promise.trim() && project.brief.values.trim() && project.brief.tone.trim() && project.brief.story.trim());
-  const identityReady = Boolean(project.identity.workingName.trim() && project.identity.tone.trim() && project.identity.story.trim() && project.identity.colors.length && project.identity.typography.trim() && project.identity.logoDirection.trim());
-  const productReady = Boolean(project.product.name.trim() && project.product.category.trim() && project.product.silhouette.trim() && project.product.fit.trim() && project.product.materials.trim() && project.product.colorway.trim() && project.product.sizes.trim() && project.product.measurements.trim() && project.product.construction.trim() && project.product.targetUnitCost.trim() && project.product.targetPrice.trim() && project.product.sampleQuantity.trim() && project.product.productionQuestions.trim() && project.product.boardId);
-  const setupReady = project.setup.completedTaskIds.length >= 6;
-  const checks = [
-    { id: "strategy", label: "Brand idea brief", done: strategyReady, detail: "Audience, category, promise, values, tone, and story" },
-    { id: "identity", label: "Identity direction", done: identityReady, detail: "Palette, typography, and logo direction" },
-    { id: "product", label: "First-product brief", done: productReady, detail: "A product concept connected to a saved board" },
-    { id: "setup", label: "Source & launch plan", done: setupReady, detail: "At least six setup tasks reviewed" },
-  ];
-  const ready = checks.every((check) => check.done);
+  const name = (project.identity.workingName || project.name).trim();
+  const piece = project.product.name.trim();
+  const ready = applyReady(project);
+  const [more, setMore] = useState(false);
   const openApplication = () => {
     if (!ready) {
-      Alert.alert("A few things are still open", checks.filter((check) => !check.done).map((check) => check.label).join("\n"));
+      Alert.alert("A name and a piece", [!ideaReady(project) ? "Name the label and who it’s for." : "", !pieceReady(project) ? "Add the first piece." : ""].filter(Boolean).join("\n"));
       return;
     }
     router.push({ pathname: "/brand/apply", params: { founderProjectId: project.id } });
   };
-  const prepareCatalogDraft = async () => {
-    const board = project.boards.find((item) => item.id === project.product.boardId);
-    const image = board?.references[0] || board?.imports.find((item) => item.kind === "image")?.uri;
-    const categories: Category[] = ["Outerwear", "Dresses", "Tops", "Trousers", "Knitwear", "Shoes", "Skirts", "Bags", "Accessories", "Jewelry", "Watches", "Hats", "Belts", "Sunglasses", "Scarves", "Hair", "Lingerie", "Swim", "Activewear", "Socks", "Ties", "Gloves"];
-    const category = categories.find((item) => item.toLowerCase() === project.product.category.toLowerCase()) || "Tops";
-    await saveListingDraft({ photos: image ? [{ uri: image }] : [], name: project.product.name, brand: project.identity.workingName || project.name, category, color: project.product.colorway, size: project.product.sizes, condition: "New / founder sample", material: project.product.materials, notes: [project.product.silhouette, project.product.fit, project.product.construction, project.product.care, project.product.productionQuestions].filter(Boolean).join("\n\n"), price: project.product.targetPrice.replace(/[^0-9.]/g, ""), was: "", shopLook: "", shipsTo: "all", origin: project.country, currency: "USD", updatedAt: Date.now() });
-    Alert.alert("Catalog draft prepared", "Your product concept is now available as a local listing draft for review. It has not been published or added to a brand.");
-  };
   return <View style={styles.launchCard}>
-    <Text style={styles.sectionLabel}>LAUNCH READINESS</Text>
-    <Text style={styles.cardTitle}>Know what is ready before you apply.</Text>
-    <Text style={styles.cardBody}>This review checks your private preparation. It does not verify a business, reserve a trademark, or publish anything.</Text>
-    <View style={styles.readinessRow}><Text style={styles.saveHint}>Founder readiness</Text><Text style={styles.readinessCount}>{checks.filter((check) => check.done).length}/{checks.length} ready</Text></View>
-    <View style={styles.launchChecks}>{checks.map((check) => <View key={check.id} style={styles.launchCheck}><View style={[styles.taskCheck, check.done && styles.taskCheckDone]}><Text style={styles.taskCheckText}>{check.done ? "✓" : ""}</Text></View><View style={{ flex: 1 }}><Text style={styles.taskTitle}>{check.label}</Text><Text style={styles.taskBody}>{check.detail}</Text></View></View>)}</View>
-    <Pressable onPress={openApplication} style={[styles.primary, !ready && styles.primaryMuted]}><Text style={[styles.primaryText, !ready && styles.primaryMutedText]}>{ready ? "Open brand application" : "Finish readiness first"}</Text></Pressable>
-    <Pressable onPress={() => void prepareCatalogDraft()} style={styles.secondary}><Text style={styles.secondaryText}>Prepare private catalog draft</Text></Pressable>
-    <Text style={styles.handoffHint}>{ready ? "Your private work stays private. The application is a separate review step." : "Complete the missing sections above before starting the public brand application."}</Text>
+    <Text style={styles.sectionLabel}>3 OF 3 · READY</Text>
+    <Text style={styles.cardTitle}>Apply when this is true.</Text>
+    <Text style={styles.cardBody}>No domain. No Stripe. Name + a piece. That’s the gate. After you’re accepted, Brand HQ is shop, orders, inventory, and money.</Text>
+    <View style={styles.launchChecks}>
+      <View style={styles.launchCheck}><View style={[styles.taskCheck, ideaReady(project) && styles.taskCheckDone]}><Text style={styles.taskCheckText}>{ideaReady(project) ? "✓" : ""}</Text></View><View style={{ flex: 1 }}><Text style={styles.taskTitle}>{name || "Name the label"}</Text><Text style={styles.taskBody}>{project.brief.audience.trim() || "Who it’s for"}</Text></View></View>
+      <View style={styles.launchCheck}><View style={[styles.taskCheck, pieceReady(project) && styles.taskCheckDone]}><Text style={styles.taskCheckText}>{pieceReady(project) ? "✓" : ""}</Text></View><View style={{ flex: 1 }}><Text style={styles.taskTitle}>{piece || "First piece"}</Text><Text style={styles.taskBody}>{project.product.category || "A name and a category"}</Text></View></View>
+      <View style={styles.launchCheck}><View style={styles.taskCheck} /><View style={{ flex: 1 }}><Text style={styles.taskTitle}>Makers, payments, domain</Text><Text style={styles.taskBody}>Still here — under More. Not required to apply.</Text></View></View>
+    </View>
+    <Pressable onPress={openApplication} style={[styles.primary, !ready && styles.primaryMuted]}><Text style={[styles.primaryText, !ready && styles.primaryMutedText]}>{ready ? "Apply as a brand" : "Finish the name and the piece"}</Text></Pressable>
+    <Pressable onPress={() => setMore((value) => !value)} style={styles.secondary}><Text style={styles.secondaryText}>{more ? "Hide more" : "More · makers and setup"}</Text></Pressable>
+    {more ? <>
+      <FounderSetupHub project={project} colors={colors} />
+      <FounderProductionWorkspace project={project} colors={colors} />
+    </> : null}
+    <Text style={styles.handoffHint}>Apply stays private until we review it. Source and production don’t block this.</Text>
   </View>;
 }
 
 export function FounderProductEditor({ project, colors }: { project: FounderProject; colors: FounderColors }) {
   const styles = make(colors);
   const [product, setProduct] = useState(project.product);
-  const [showVersions, setShowVersions] = useState(false);
+  const [more, setMore] = useState(false);
   useEffect(() => { setProduct(project.product); }, [project.id, project.product]);
   const setField = <K extends keyof typeof product>(key: K, value: (typeof product)[K]) => setProduct((current) => ({ ...current, [key]: value }));
-  const required = [product.name, product.category, product.silhouette, product.fit, product.materials, product.colorway, product.sizes, product.measurements, product.construction, product.targetUnitCost, product.targetPrice, product.sampleQuantity, product.productionQuestions, product.boardId];
-  const completion = required.filter((value) => value.trim()).length;
   const save = () => saveFounderProduct(project.id, product);
-  const field = (key: keyof typeof product, placeholder: string, multiline = false) => <TextInput value={String(product[key])} onChangeText={(value) => setField(key, value as never)} placeholder={placeholder} placeholderTextColor={colors.muted} multiline={multiline} style={[styles.input, multiline && styles.longInput]} />;
+  const categories = ["Outerwear", "Dresses", "Tops", "Trousers", "Knitwear", "Skirts", "Shoes", "Bags", "Accessories"];
   return <View style={styles.productCard}>
-    <Text style={styles.sectionLabel}>FIRST-PRODUCT BRIEF</Text>
-    <Text style={styles.cardTitle}>Turn the direction into one piece.</Text>
-    <Text style={styles.cardBody}>Capture what a maker, collaborator, or future catalog draft needs. Blank fields stay blank—Uvel does not invent specifications.</Text>
-    <Text style={styles.fieldLabel}>CORE CONCEPT</Text>
-    {field("name", "Product name")}{field("category", "Category · dress, trouser, knit, accessory…")}{field("silhouette", "Silhouette · shape and key details")}{field("fit", "Intended fit · relaxed, close, oversized…")}
-    <Text style={styles.fieldLabel}>MATERIAL & COLOR</Text>
-    {field("materials", "Materials · what could it be made from?")}{field("trims", "Trims and hardware · optional")}{field("colorway", "Colorway · name the first version")}
-    <Text style={styles.fieldLabel}>SIZING & CONSTRUCTION</Text>
-    {field("sizes", "Size range")}{field("measurements", "Measurements to confirm · optional detail or chart notes", true)}{field("construction", "Construction notes · seams, closures, finish", true)}{field("care", "Care notes · leave blank if unknown")}
-    <Text style={styles.fieldLabel}>COST & SAMPLE</Text>
-    {field("targetUnitCost", "Target unit cost · include currency")}{field("targetPrice", "Target retail price · include currency")}{field("sampleQuantity", "Sample quantity")}
-    <View style={styles.optionRow}>{(["not-started", "requested", "received", "changes-needed", "approved"] as const).map((status) => <Pressable key={status} onPress={() => setField("sampleStatus", status)} style={[styles.option, product.sampleStatus === status && styles.optionOn]}><Text style={[styles.optionText, product.sampleStatus === status && styles.optionTextOn]}>{status.replaceAll("-", " ")}</Text></Pressable>)}</View>
-    {field("productionQuestions", "Questions for a maker or supplier", true)}
-    <Text style={styles.fieldLabel}>CONNECT A VISUAL VERSION</Text>
-    {project.boards.length ? <View style={styles.optionRow}>{project.boards.map((board) => <Pressable key={board.id} onPress={() => setField("boardId", board.id)} style={[styles.option, product.boardId === board.id && styles.optionOn]}><Text style={[styles.optionText, product.boardId === board.id && styles.optionTextOn]}>{board.name}</Text></Pressable>)}</View> : <Text style={styles.empty}>Create a moodboard or sketch above to connect visual direction here.</Text>}
-    <View style={styles.readinessRow}><Text style={styles.saveHint}>Brief completeness</Text><Text style={styles.readinessCount}>{completion}/{required.length} complete</Text></View>
-    <Pressable onPress={save} style={styles.primary}><Text style={styles.primaryText}>Save product brief</Text></Pressable>
-    <Pressable onPress={() => setShowVersions((value) => !value)} style={styles.secondary}><Text style={styles.secondaryText}>{showVersions ? "Hide saved versions" : `View saved versions (${project.productVersions.length})`}</Text></Pressable>
-    {showVersions ? <View style={styles.versionList}>{project.productVersions.length ? project.productVersions.slice().reverse().map((version) => <View key={version.version} style={styles.versionRow}><Text style={styles.versionTitle}>Version {version.version}</Text><Text style={styles.versionMeta}>{new Date(version.savedAt).toLocaleString()} · {version.name || "Untitled product"}</Text></View>) : <Text style={styles.empty}>Save a changed brief to create its first version.</Text>}</View> : null}
+    <Text style={styles.sectionLabel}>2 OF 3 · MAKE IT</Text>
+    <Text style={styles.cardTitle}>One piece.</Text>
+    <Text style={styles.cardBody}>Not a collection. Not 14 fields. A name and a category. Add a photo on the board if you have one.</Text>
+    <TextInput value={product.name} onChangeText={(value) => setField("name", value)} placeholder="What’s the piece?" placeholderTextColor={colors.muted} style={styles.input} />
+    <Text style={styles.fieldLabel}>CATEGORY</Text>
+    <View style={styles.optionRow}>{categories.map((option) => <Pressable key={option} onPress={() => setField("category", option)} style={[styles.option, product.category === option && styles.optionOn]}><Text style={[styles.optionText, product.category === option && styles.optionTextOn]}>{option}</Text></Pressable>)}</View>
+    <Pressable onPress={() => setMore((value) => !value)} style={styles.secondary}><Text style={styles.secondaryText}>{more ? "Hide extra spec" : "More · fit, fabric, maker notes"}</Text></Pressable>
+    {more ? <>
+      <TextInput value={product.silhouette} onChangeText={(value) => setField("silhouette", value)} placeholder="Silhouette" placeholderTextColor={colors.muted} style={styles.input} />
+      <TextInput value={product.materials} onChangeText={(value) => setField("materials", value)} placeholder="Materials" placeholderTextColor={colors.muted} style={styles.input} />
+      <TextInput value={product.colorway} onChangeText={(value) => setField("colorway", value)} placeholder="Colorway" placeholderTextColor={colors.muted} style={styles.input} />
+      <TextInput value={product.sizes} onChangeText={(value) => setField("sizes", value)} placeholder="Size range" placeholderTextColor={colors.muted} style={styles.input} />
+      <TextInput value={product.targetPrice} onChangeText={(value) => setField("targetPrice", value)} placeholder="Target price" placeholderTextColor={colors.muted} style={styles.input} />
+      <TextInput value={product.productionQuestions} onChangeText={(value) => setField("productionQuestions", value)} placeholder="Notes for a maker · later" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.longInput]} />
+    </> : null}
+    <Pressable onPress={save} style={styles.primary}><Text style={styles.primaryText}>Save piece</Text></Pressable>
   </View>;
 }
 
@@ -284,35 +269,24 @@ export function FounderStrategy({ project, colors }: { project: FounderProject; 
   const styles = make(colors);
   const [brief, setBrief] = useState(project.brief);
   const [identity, setIdentity] = useState(project.identity);
+  const [more, setMore] = useState(false);
   useEffect(() => { setBrief(project.brief); setIdentity(project.identity); }, [project.id]);
   const setBriefField = <K extends keyof typeof brief>(key: K, value: (typeof brief)[K]) => setBrief((current) => ({ ...current, [key]: value }));
-  const save = () => updateFounderProject(project.id, { brief, identity, stage: "identity" });
+  const save = () => updateFounderProject(project.id, { brief, identity, name: identity.workingName.trim() || project.name, stage: "idea" });
   return <View style={styles.strategyCard}>
-    <Text style={styles.sectionLabel}>BRAND IDEA BRIEF</Text>
-    <Text style={styles.cardTitle}>Make the idea specific.</Text>
-    <Text style={styles.cardBody}>A clear brief gives your visual direction something real to express.</Text>
-    <TextInput value={brief.audience} onChangeText={(value) => setBriefField("audience", value)} placeholder="Who is this for?" placeholderTextColor={colors.muted} style={styles.input} />
-    <TextInput value={brief.category} onChangeText={(value) => setBriefField("category", value)} placeholder="What will you make first?" placeholderTextColor={colors.muted} style={styles.input} />
-    <TextInput value={brief.promise} onChangeText={(value) => setBriefField("promise", value)} placeholder="What should people feel or get?" placeholderTextColor={colors.muted} style={styles.input} />
-    <TextInput value={brief.values} onChangeText={(value) => setBriefField("values", value)} placeholder="Values · separated by commas" placeholderTextColor={colors.muted} style={styles.input} />
-    <TextInput value={brief.tone} onChangeText={(value) => setBriefField("tone", value)} placeholder="Tone · e.g. quiet, playful, precise" placeholderTextColor={colors.muted} style={styles.input} />
-    <TextInput value={brief.story} onChangeText={(value) => setBriefField("story", value)} placeholder="What is the story behind the label?" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.longInput]} />
-    <Text style={styles.fieldLabel}>PRICE POSITION</Text>
-    <View style={styles.optionRow}>{(["accessible", "mid-market", "premium"] as const).map((option) => <Pressable key={option} onPress={() => setBriefField("pricePosition", option)} style={[styles.option, brief.pricePosition === option && styles.optionOn]}><Text style={[styles.optionText, brief.pricePosition === option && styles.optionTextOn]}>{option === "mid-market" ? "Mid-market" : option[0].toUpperCase() + option.slice(1)}</Text></Pressable>)}</View>
-    <Text style={[styles.sectionLabel, { marginTop: 22 }]}>IDENTITY STARTER KIT</Text>
-    <Text style={styles.cardBody}>Choose a working identity for the project. These are creative decisions, not trademark or handle availability checks.</Text>
-    <TextInput value={identity.workingName} onChangeText={(workingName) => setIdentity((current) => ({ ...current, workingName }))} placeholder="Working brand name" placeholderTextColor={colors.muted} style={styles.input} />
-    <TextInput value={identity.handleIdeas} onChangeText={(handleIdeas) => setIdentity((current) => ({ ...current, handleIdeas }))} placeholder="Handle ideas · availability not checked" placeholderTextColor={colors.muted} style={styles.input} />
-    <TextInput value={identity.tone} onChangeText={(tone) => setIdentity((current) => ({ ...current, tone }))} placeholder="Tone of voice · quiet, direct, playful…" placeholderTextColor={colors.muted} style={styles.input} />
-    <TextInput value={identity.story} onChangeText={(story) => setIdentity((current) => ({ ...current, story }))} placeholder="Short brand story" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.longInput]} />
-    <Text style={styles.fieldLabel}>PALETTE</Text>
-    <View style={styles.identitySwatches}>{identity.colors.map((swatch) => <View key={swatch} style={[styles.identitySwatch, { backgroundColor: swatch }]} />)}<Text style={styles.boardMeta}>Base palette</Text></View>
-    <Text style={styles.fieldLabel}>TYPE DIRECTION</Text>
-    <View style={styles.optionRow}>{["Warm editorial sans", "Sharp modern grotesk", "Soft expressive serif"].map((option) => <Pressable key={option} onPress={() => setIdentity((current) => ({ ...current, typography: option }))} style={[styles.option, identity.typography === option && styles.optionOn]}><Text style={[styles.optionText, identity.typography === option && styles.optionTextOn]}>{option}</Text></Pressable>)}</View>
-    <TextInput value={identity.logoDirection} onChangeText={(logoDirection) => setIdentity((current) => ({ ...current, logoDirection }))} placeholder="Logo direction · wordmark, symbol, monogram…" placeholderTextColor={colors.muted} style={styles.input} />
-    <TextInput value={identity.photographyDirection} onChangeText={(photographyDirection) => setIdentity((current) => ({ ...current, photographyDirection }))} placeholder="Photography direction · light, setting, framing…" placeholderTextColor={colors.muted} style={[styles.input, styles.longInput]} />
-    <TextInput value={identity.packagingNotes} onChangeText={(packagingNotes) => setIdentity((current) => ({ ...current, packagingNotes }))} placeholder="Packaging notes · materials, unboxing, inserts…" placeholderTextColor={colors.muted} style={[styles.input, styles.longInput]} />
-    <Pressable onPress={save} style={styles.primary}><Text style={styles.primaryText}>Save brief and identity</Text></Pressable>
+    <Text style={styles.sectionLabel}>1 OF 3 · IDEA</Text>
+    <Text style={styles.cardTitle}>What’s the label?</Text>
+    <Text style={styles.cardBody}>A name and who it’s for. Palette, tone, and story wait until you ask.</Text>
+    <TextInput value={identity.workingName} onChangeText={(workingName) => setIdentity((current) => ({ ...current, workingName }))} placeholder="Name" placeholderTextColor={colors.muted} style={styles.input} />
+    <TextInput value={brief.audience} onChangeText={(value) => setBriefField("audience", value)} placeholder="Who it’s for" placeholderTextColor={colors.muted} style={styles.input} />
+    <Pressable onPress={() => setMore((value) => !value)} style={styles.secondary}><Text style={styles.secondaryText}>{more ? "Hide extra identity" : "More · palette, tone, story"}</Text></Pressable>
+    {more ? <>
+      <TextInput value={brief.promise} onChangeText={(value) => setBriefField("promise", value)} placeholder="What should people feel?" placeholderTextColor={colors.muted} style={styles.input} />
+      <TextInput value={brief.story} onChangeText={(value) => setBriefField("story", value)} placeholder="Story · optional" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.longInput]} />
+      <TextInput value={identity.tone} onChangeText={(tone) => setIdentity((current) => ({ ...current, tone }))} placeholder="Tone · quiet, direct, playful…" placeholderTextColor={colors.muted} style={styles.input} />
+      <TextInput value={identity.logoDirection} onChangeText={(logoDirection) => setIdentity((current) => ({ ...current, logoDirection }))} placeholder="Logo direction · optional" placeholderTextColor={colors.muted} style={styles.input} />
+    </> : null}
+    <Pressable onPress={save} style={styles.primary}><Text style={styles.primaryText}>Save idea</Text></Pressable>
   </View>;
 }
 
@@ -338,7 +312,7 @@ export default function FounderStudio() {
   const project = activeProjects.find((item) => item.id === selectedId) || activeProjects[0];
   const board = project?.boards.find((item) => item.id === boardId) || project?.boards[0];
   useEffect(() => {
-    if (hydrated && project && !showCreate) router.replace({ pathname: "/brand/founder/[stage]", params: { stage: project.stage, id: project.id } });
+    if (hydrated && project && !showCreate) router.replace({ pathname: "/brand/founder/[stage]", params: { stage: simpleStageOf(project.stage), id: project.id } });
   }, [hydrated, project?.id, project?.stage, showCreate]);
   useEffect(() => {
     setSettingsName(project?.name || "");
