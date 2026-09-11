@@ -218,6 +218,14 @@ export default function BrandHQ() {
 function Overview({ brand, catalogCount, lowStockCount, teamCount, inquiryCount, theme, styles, onSection }: { brand: Brand; catalogCount: number; lowStockCount: number; teamCount: number; inquiryCount: number; theme: HQTheme; styles: ReturnType<typeof make>; onSection: (section: Section) => void }) {
   return (
     <View>
+      {!brand.verified ? (
+        <Pressable onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })} style={[styles.hero, { backgroundColor: theme.card, marginBottom: 16 }]}>
+          <View style={styles.heroCopy}>
+            <Text style={[styles.heroTitle, { color: theme.ink }]}>In review</Text>
+            <Text style={[styles.heroP, { color: theme.muted }]}>Dress the page while we look at it. Logo, banner, look.</Text>
+          </View>
+        </Pressable>
+      ) : null}
       <Text style={[styles.sectionKicker, { color: theme.muted }]}>OPERATING PICTURE</Text>
       <View style={styles.stats}>
         <Stat label="Active products" value={String(catalogCount)} theme={theme} styles={styles} />
