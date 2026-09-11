@@ -42,6 +42,7 @@ export function TodayCartFab({
   const dropping = useRef(false);
   const droppingSV = useSharedValue(0);
   const placed = useRef(false);
+  const hadItems = useRef(false);
   const tabBar = 64 + Math.max(insets.bottom, 8);
   const trashBottom = tabBar + 18;
   const minX = PAD;
@@ -132,11 +133,29 @@ export function TodayCartFab({
     void AsyncStorage.setItem(POS_KEY, JSON.stringify({ x, y })).catch(() => undefined);
   }
 
+  function forgetPos() {
+    placed.current = false;
+    void AsyncStorage.removeItem(POS_KEY).catch(() => undefined);
+    posX.value = defaultX;
+    posY.value = Math.min(defaultY, maxY);
+  }
+
+  useEffect(() => {
+    if (cart.count > 0) {
+      hadItems.current = true;
+      return;
+    }
+    if (!hadItems.current) return;
+    hadItems.current = false;
+    forgetPos();
+  }, [cart.count]);
+
   function finishDrop() {
     dropping.current = true;
     droppingSV.value = 1;
     setTimeout(() => {
       clearCart();
+      forgetPos();
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
       bump.value = 1;
       armed.value = 0;
