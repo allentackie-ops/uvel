@@ -100,7 +100,7 @@ export default function You() {
   }
 
   function changeFace() {
-    Alert.alert("Profile picture", "Buyers see this on your listings.", [
+    Alert.alert("Profile picture", "Buyers will see this when you sell. Friends will see this on your profile.", [
       { text: "Cancel", style: "cancel" },
       { text: "Take photo", onPress: () => void takeAvatar().then(setFace).catch(() => undefined) },
       { text: "Choose photo", onPress: () => void pickAvatar().then(setFace).catch(() => undefined) },
