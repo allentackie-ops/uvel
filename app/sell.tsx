@@ -404,7 +404,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       );
       return;
     }
-    Alert.alert("Add a clip", "8–15 seconds. You can trim it before it saves.", [
+    Alert.alert("Add a clip", "Up to 15 seconds. You can trim it before it saves.", [
       { text: "Record a clip", onPress: () => void fromClipCamera() },
       { text: "Choose from library", onPress: () => void fromClipLibrary() },
       { text: "Cancel", style: "cancel" },
@@ -646,7 +646,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               <View style={styles.clipTile}>
                 <MotionClip uri={clipUri} style={styles.clipPreview} />
                 <View style={styles.mainPhotoPill}>
-                  <Text style={styles.mainPhotoTxt}>8–15s</Text>
+                  <Text style={styles.mainPhotoTxt}>Up to 15s</Text>
                 </View>
                 <AccessiblePressable
                   onPress={() => setClipUri("")}
@@ -673,12 +673,12 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               style={({ pressed }) => [styles.clipAdd, pressed && { opacity: 0.92 }]}
               accessibilityRole="button"
               accessibilityLabel="Add a clip of the piece in motion"
-              accessibilityHint="Optional. Record or choose an 8 to 15 second clip. You can trim it."
+              accessibilityHint="Optional. Record or choose a clip up to 15 seconds. You can trim it."
             >
               <Ionicons name="videocam-outline" size={22} color={colors.bone} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.clipAddTitle}>Add a clip</Text>
-                <Text style={styles.clipAddBody}>Optional · 8–15 seconds · trim only</Text>
+                <Text style={styles.clipAddBody}>Optional · up to 15 seconds · trim only</Text>
               </View>
               <Ionicons name="add" size={20} color={colors.subtle} />
             </AccessiblePressable>
