@@ -107,9 +107,9 @@ export default function BrandList() {
         </Pressable>
         <View style={styles.center}>
           <Text style={styles.big}>Verification first</Text>
-          <Text style={styles.p}>A brand posts after the blue check. Finish the filing.</Text>
-          <Pressable onPress={() => router.push("/brand/apply")} style={styles.cta}>
-            <Text style={styles.ctaTxt}>Open filing</Text>
+          <Text style={styles.p}>A brand posts after it is accepted. Open Brand HQ.</Text>
+          <Pressable onPress={() => router.push({ pathname: "/brand/hq", params: { id: brand.id } })} style={styles.cta}>
+            <Text style={styles.ctaTxt}>Open Brand HQ</Text>
           </Pressable>
         </View>
       </View>
@@ -275,8 +275,8 @@ export default function BrandList() {
             <View style={styles.contactGate}>
               <Text style={styles.contactGateTitle}>Add a brand contact first</Text>
               <Text style={styles.contactGateText}>Before publishing a listing, add at least one reachable phone, WhatsApp, Instagram, email, or website to this brand.</Text>
-              <Pressable onPress={() => router.push({ pathname: "/brand/apply", params: { id: activeBrand.id } })} style={styles.contactGateBtn}>
-                <Text style={styles.contactGateBtnText}>Open brand details</Text>
+              <Pressable onPress={() => router.push({ pathname: "/brand/hq", params: { id: activeBrand.id } })} style={styles.contactGateBtn}>
+                <Text style={styles.contactGateBtnText}>Open Brand HQ</Text>
               </Pressable>
             </View>
           ) : null}
