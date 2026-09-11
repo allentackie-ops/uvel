@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -38,6 +38,8 @@ export function TodayCartFab({
   const hovering = useSharedValue(0);
   const tx = useSharedValue(0);
   const ty = useSharedValue(0);
+  const dropping = useRef(false);
+  const droppingSV = useSharedValue(0);
   const tabBar = 64 + Math.max(insets.bottom, 8);
   const fabBottom = tabBar + (listingOpen ? 68 : 14);
   const trashBottom = tabBar + 18;
@@ -54,6 +56,7 @@ export function TodayCartFab({
   }, [fabBottom, fabBottomSV, height, tabBar, tabBarSV, width, winH, winW]);
 
   useEffect(() => {
+    if (dropping.current) return;
     scale.value = withSpring(cart.count ? 1 : 0, { damping: 16, stiffness: 260, mass: 0.7 });
     if (cart.count) {
       bump.value = withSequence(
@@ -69,7 +72,7 @@ export function TodayCartFab({
   }, [armed, bump, cart.count, hovering, scale, tx, ty]);
 
   function openCart() {
-    if (!cart.count) return;
+    if (!cart.count || dropping.current) return;
     onBeforeOpen?.();
     router.push("/cart");
   }
@@ -82,12 +85,24 @@ export function TodayCartFab({
     if (on) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => undefined);
   }
 
-  function emptyBag() {
-    clearCart();
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+  function finishDrop() {
+    dropping.current = true;
+    droppingSV.value = 1;
+    setTimeout(() => {
+      clearCart();
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+      tx.value = 0;
+      ty.value = 0;
+      bump.value = 1;
+      armed.value = 0;
+      hovering.value = 0;
+      droppingSV.value = 0;
+      dropping.current = false;
+    }, 220);
   }
 
   function resetDrag() {
+    if (dropping.current) return;
     tx.value = withSpring(0, { damping: 18, stiffness: 280 });
     ty.value = withSpring(0, { damping: 18, stiffness: 280 });
     armed.value = withTiming(0, { duration: 180 });
@@ -101,10 +116,12 @@ export function TodayCartFab({
   const drag = Gesture.Pan()
     .activateAfterLongPress(380)
     .onStart(() => {
+      if (droppingSV.value) return;
       armed.value = withSpring(1, { damping: 16, stiffness: 260 });
       runOnJS(armHaptic)();
     })
     .onUpdate((event) => {
+      if (droppingSV.value) return;
       tx.value = event.translationX;
       ty.value = event.translationY;
       const fabX = winW.value - 16 - FAB / 2 + tx.value;
@@ -118,12 +135,20 @@ export function TodayCartFab({
       }
     })
     .onEnd(() => {
+      if (droppingSV.value) return;
       if (hovering.value) {
-        tx.value = 0;
-        ty.value = 0;
-        armed.value = 0;
-        hovering.value = 0;
-        runOnJS(emptyBag)();
+        droppingSV.value = 1;
+        const fabX = winW.value - 16 - FAB / 2 + tx.value;
+        const fabY = winH.value - fabBottomSV.value - FAB / 2 + ty.value;
+        const trashX = winW.value / 2;
+        const trashY = winH.value - tabBarSV.value - 18 - TRASH / 2;
+        tx.value = withTiming(tx.value + (trashX - fabX), { duration: 160 });
+        ty.value = withTiming(ty.value + (trashY - fabY), { duration: 160 });
+        scale.value = withTiming(0, { duration: 180 });
+        bump.value = 1;
+        hovering.value = 1;
+        armed.value = 1;
+        runOnJS(finishDrop)();
         return;
       }
       runOnJS(resetDrag)();
