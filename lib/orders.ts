@@ -98,6 +98,12 @@ export type Order = {
   fulfillmentUpdatedAt?: number;
   resolution?: OrderResolution;
   paidAt?: number;
+  deliveredAt?: number;
+  buyerConfirmedAt?: number;
+  walletReleased?: boolean;
+  walletVoided?: boolean;
+  walletCredited?: boolean;
+  walletPendingCents?: number;
   createdAt: number;
 };
 
@@ -144,6 +150,8 @@ function remoteOrder(id: string, data: Record<string, unknown>): Order {
     shipment,
     createdAt: millis(data.createdAt),
     paidAt: data.paidAt == null ? undefined : millis(data.paidAt),
+    deliveredAt: data.deliveredAt == null ? undefined : millis(data.deliveredAt),
+    buyerConfirmedAt: data.buyerConfirmedAt == null ? undefined : millis(data.buyerConfirmedAt),
     fulfillmentUpdatedAt: data.fulfillmentUpdatedAt == null ? undefined : millis(data.fulfillmentUpdatedAt),
     inventoryReservationExpiresAt: data.inventoryReservationExpiresAt == null ? undefined : millis(data.inventoryReservationExpiresAt),
   });
@@ -164,6 +172,25 @@ export function watchBrandOrders(brandId: string) {
     return onSnapshot(ordersQuery, (snap) => {
       mergeRemoteOrders(snap.docs.map((item) => remoteOrder(item.id, item.data() as Record<string, unknown>)));
     }, () => undefined);
+  } catch {
+    return () => undefined;
+  }
+}
+
+export function watchMyOrders(uid: string) {
+  if (!uid || !firebaseReady() || !firebaseAuth().currentUser) return () => undefined;
+  try {
+    const db = firebaseDb();
+    const buyer = onSnapshot(query(collection(db, "orders"), where("buyerId", "==", uid)), (snap) => {
+      mergeRemoteOrders(snap.docs.map((item) => remoteOrder(item.id, item.data() as Record<string, unknown>)));
+    }, () => undefined);
+    const seller = onSnapshot(query(collection(db, "orders"), where("sellerId", "==", uid)), (snap) => {
+      mergeRemoteOrders(snap.docs.map((item) => remoteOrder(item.id, item.data() as Record<string, unknown>)));
+    }, () => undefined);
+    return () => {
+      buyer();
+      seller();
+    };
   } catch {
     return () => undefined;
   }
