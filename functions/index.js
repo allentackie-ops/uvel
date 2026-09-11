@@ -11,6 +11,7 @@ const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const paystackWebhookSecret = defineSecret("PAYSTACK_WEBHOOK_SECRET");
 
 if (!admin.apps.length) admin.initializeApp({ storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "uvel-32d32.firebasestorage.app" });
+const wallet = require("./wallet");
 
 const PAYSTACK = new Set(["GH", "NG", "KE", "ZA"]);
 const RESERVATION_MINUTES = 30;
@@ -133,7 +134,7 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
     amountCents > 100000000 ||
     !/^[A-Z]{3}$/.test(normalizedCurrency) ||
     !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizedEmail) ||
-    !["card", "momo", "telecel", "mpesa", "apple"].includes(normalizedMethod) ||
+    !["card", "momo", "telecel", "mpesa", "apple", "wallet"].includes(normalizedMethod) ||
     !/^[A-Z]{2}$/.test(normalizedCountry) ||
     !/^[a-zA-Z0-9._:-]{1,120}$/.test(normalizedReference) ||
     !/^[a-zA-Z0-9._:-]{1,120}$/.test(normalizedOrderId)
@@ -654,6 +655,9 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
   if (result.ok && !result.duplicate && result.attribution?.campaignId) {
     await saveCampaignAttribution({ ...result.attribution, type: "purchase", orderId, valueCents: Math.max(0, Number(providerAmount) || 0), currency: String(providerCurrency || "USD"), eventId: `purchase_${orderId}` }).catch(() => undefined);
   }
+  if (result.ok && !result.duplicate) {
+    await wallet.creditSellerPending(orderId).catch(() => undefined);
+  }
   return result;
 }
 
@@ -686,13 +690,16 @@ exports.updateOrderFulfillment = onCall(async (req) => {
   const orderSnap = await orderRef.get();
   if (!orderSnap.exists) throw new HttpsError("not-found", "Order not found.");
   const order = orderSnap.data() || {};
-  if (!order.brandId) throw new HttpsError("failed-precondition", "This is not a brand order.");
-  const brandSnap = await db.collection("brands").doc(String(order.brandId)).get();
-  const brand = brandSnap.data() || {};
-  const member = Array.isArray(brand.members) ? brand.members.find((candidate) => candidate && candidate.uid === req.auth.uid) : null;
-  const role = member && member.role;
-  if (!role || !["owner", "admin", "support"].includes(role)) {
-    throw new HttpsError("permission-denied", "You cannot update this brand order.");
+  if (order.brandId) {
+    const brandSnap = await db.collection("brands").doc(String(order.brandId)).get();
+    const brand = brandSnap.data() || {};
+    const member = Array.isArray(brand.members) ? brand.members.find((candidate) => candidate && candidate.uid === req.auth.uid) : null;
+    const role = member && member.role;
+    if (!role || !["owner", "admin", "support"].includes(role)) {
+      throw new HttpsError("permission-denied", "You cannot update this brand order.");
+    }
+  } else if (String(order.sellerId || "") !== req.auth.uid) {
+    throw new HttpsError("permission-denied", "You cannot update this order.");
   }
   const update = {
     fulfillmentStatus: nextStatus,
@@ -1324,6 +1331,7 @@ async function executeRefund(orderId) {
     const refundPatch = { refundStatus: succeeded ? "succeeded" : "processing", refundProviderId: refund.id, refundUpdatedAt: admin.firestore.FieldValue.serverTimestamp(), ...(succeeded ? { refundedAt: admin.firestore.FieldValue.serverTimestamp() } : {}) };
     if (succeeded && resolution) refundPatch.resolution = { ...resolution, status: "refunded", refundedAt: admin.firestore.FieldValue.serverTimestamp() };
     await orderRef.set(refundPatch, { merge: true });
+    if (succeeded) await wallet.voidSellerWallet(orderId).catch(() => undefined);
     return { ok: true, status: succeeded ? "succeeded" : "processing", providerId: refund.id };
   } catch (error) {
     await orderRef.set({ refundStatus: "failed", refundError: error instanceof Error ? error.message.slice(0, 240) : "Refund failed.", refundUpdatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
@@ -1904,3 +1912,11 @@ exports.saveBrandPromotion = onCall((req) => saveMarketingRecord(req, "brandProm
   const status = requestedStatus === "live" && startAt && startAt > Date.now() ? "scheduled" : requestedStatus;
   return { code, kind, value: Math.round(value * 100) / 100, currency: marketingText(input.currency, 3).toUpperCase() || undefined, minimumOrderCents, ...(usageLimit != null ? { usageLimit } : {}), status, ...(startAt ? { startAt } : {}), ...(endAt ? { endAt } : {}), createdAt: input.createdAt || admin.firestore.FieldValue.serverTimestamp() };
 }));
+
+exports.confirmOrderReceived = onCall(wallet.confirmOrderReceivedHandler);
+exports.saveUserPayoutProfile = onCall(wallet.saveUserPayoutProfileHandler);
+exports.requestSellerPayout = onCall(wallet.requestSellerPayoutHandler);
+exports.payWithWallet = onCall(wallet.payWithWalletHandler);
+exports.releaseDueWallets = onSchedule("every 60 minutes", async () => {
+  await wallet.releaseDueWalletsHandler();
+});
