@@ -185,10 +185,9 @@ export const emptyFounderProduction = (): FounderProduction => ({
 });
 
 export const defaultFounderTasks = (): FounderTask[] => [
-  { id: "idea-brief", title: "Write the idea brief", body: "Name the person, promise, and point of view behind the label.", stage: "idea", status: "todo" },
-  { id: "first-board", title: "Make the first board", body: "Collect references or sketch the first silhouette.", stage: "design", status: "todo" },
-  { id: "product-brief", title: "Describe the first product", body: "Turn the direction into one clear product brief.", stage: "product", status: "todo" },
-  { id: "launch-checklist", title: "Review launch setup", body: "See what still needs to happen before a public application.", stage: "launch", status: "todo" },
+  { id: "idea-brief", title: "Name the label", body: "A name and who it’s for.", stage: "idea", status: "todo" },
+  { id: "product-brief", title: "Make the first piece", body: "A photo, a name, and a category.", stage: "product", status: "todo" },
+  { id: "launch-checklist", title: "Apply as a brand", body: "When the name and the piece are there, apply.", stage: "launch", status: "todo" },
 ];
 
 function normalizeProject(project: FounderProject): FounderProject {
@@ -241,7 +240,7 @@ export function createFounderProject(name: string, description = "") {
     stage: "idea",
     tasks: defaultFounderTasks(),
     brief: emptyFounderBrief(),
-    identity: defaultFounderIdentity(),
+    identity: { ...defaultFounderIdentity(), workingName: name.trim() },
     product: emptyFounderProduct(),
     productVersions: [],
     handoffStatus: "not-started",
@@ -256,6 +255,24 @@ export function createFounderProject(name: string, description = "") {
   projects = [project, ...projects];
   void persist();
   return project;
+}
+
+export function ideaReady(project: FounderProject) {
+  return Boolean((project.identity.workingName || project.name).trim() && project.brief.audience.trim());
+}
+
+export function pieceReady(project: FounderProject) {
+  return Boolean(project.product.name.trim() && project.product.category.trim());
+}
+
+export function applyReady(project: FounderProject) {
+  return ideaReady(project) && pieceReady(project);
+}
+
+export function simpleStageOf(stage: string): "idea" | "product" | "launch" {
+  if (stage === "product" || stage === "design") return "product";
+  if (stage === "launch" || stage === "source") return "launch";
+  return "idea";
 }
 
 export function getFounderProject(id?: string) {
