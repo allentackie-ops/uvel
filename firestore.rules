@@ -181,6 +181,26 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    match /wallets/{uid} {
+      allow read: if isSelf(uid);
+      allow create, update, delete: if false;
+    }
+
+    match /walletEntries/{entryId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    match /userPayouts/{payoutId} {
+      allow read: if signedIn() && resource.data.uid == request.auth.uid;
+      allow create, update, delete: if false;
+    }
+
+    match /userPayoutProfiles/{uid} {
+      allow read: if isSelf(uid);
+      allow create, update, delete: if false;
+    }
+
     match /brandCollections/{collectionId} {
       allow read: if resource.data.status == "live" || (signedIn() && resource.data.brandId is string && isBrandMember(resource.data.brandId));
       allow create, update, delete: if false;
