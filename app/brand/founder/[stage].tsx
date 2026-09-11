@@ -146,7 +146,7 @@ export default function FounderStagePage() {
                 <Text style={styles.cardBody}>Optional. One still of the piece is enough.</Text>
                 {photo ? <Image source={{ uri: photo }} style={local.photo} contentFit="cover" /> : null}
                 {board && board.kind === "sketch" ? <SketchBoard board={board} projectId={project.id} colors={colors} /> : null}
-                <Pressable onPress={() => void addPhoto()} style={styles.primary}><Text style={styles.primaryText}>{photo ? "Replace photo" : "Add a photo"}</Text></Pressable>
+                <Pressable onPress={() => void addPhoto()} style={[local.ghost, { borderColor: palette.subtle }]}><Text style={[styles.secondaryText, { color: palette.bone }]}>{photo ? "Replace photo" : "Add a photo"}</Text></Pressable>
                 <Pressable onPress={createBoard} style={styles.secondary}><Text style={styles.secondaryText}>{board ? "New sketch" : "Sketch instead"}</Text></Pressable>
               </View>
             </>
@@ -178,4 +178,5 @@ const local = StyleSheet.create({
   photo: { width: "100%", height: 220, borderRadius: 16, marginBottom: 10, backgroundColor: "#161512" },
   live: { marginHorizontal: 20, marginTop: 12, borderWidth: 1, borderRadius: 18, padding: 16 },
   liveKicker: { fontSize: 11, fontWeight: "800", letterSpacing: 1.4, marginBottom: 6 },
+  ghost: { height: 50, borderRadius: 25, borderWidth: 1, alignItems: "center", justifyContent: "center", marginTop: 14 },
 });
