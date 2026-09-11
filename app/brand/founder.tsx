@@ -273,7 +273,7 @@ export function FounderLaunchReview({ project, colors }: { project: FounderProje
       });
       if (result.ok && result.decision === "uvel_reviewed") {
         updateFounderProject(project.id, { handoffStatus: "submitted" });
-        router.replace({ pathname: "/brand/[id]", params: { id: brand.id } });
+        router.replace({ pathname: "/brand/hq", params: { id: brand.id } });
         return;
       }
       updateFounderProject(project.id, { handoffStatus: "rejected" });
