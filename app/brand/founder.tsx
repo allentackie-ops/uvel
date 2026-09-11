@@ -8,6 +8,8 @@ import { workspaceStyles } from "./founder-workspace-styles";
 import { appendFounderReference, archiveFounderProject, applyReady, createFounderBoard, createFounderProject, getFounderProject, ideaReady, pieceReady, saveFounderProduct, simpleStageOf, updateFounderBoard, updateFounderProject, updateFounderProduction, updateFounderTask, useFounderProjects, type FounderBoard, type FounderCanvasTool, type FounderPoint, type FounderProduction, type FounderProject, type FounderSetup, type FounderStage, type FounderStroke, type FounderSupplier, type FounderSample, type FounderImportedWork } from "../../lib/founder";
 import { useColors, type Colors } from "../../lib/theme";
 import { founderCloudCapability, type FounderCloudCapability } from "../../lib/firebase";
+import { openFounderBrand, useBrands } from "../../lib/brands";
+import { useUvel } from "../../lib/store";
 
 const STAGES: FounderStage[] = ["idea", "identity", "design", "product", "source", "launch"];
 const STAGE_LABELS: Record<FounderStage, string> = { idea: "Idea", identity: "Identity", design: "Design", product: "Product", source: "Source", launch: "Launch" };
@@ -209,30 +211,55 @@ export function FounderProductionWorkspace({ project, colors }: { project: Found
 
 export function FounderLaunchReview({ project, colors }: { project: FounderProject; colors: FounderColors }) {
   const styles = make(colors);
+  const app = useUvel();
+  useBrands();
   const name = (project.identity.workingName || project.name).trim();
   const piece = project.product.name.trim();
   const ready = applyReady(project);
   const [more, setMore] = useState(false);
-  const openApplication = () => {
-    if (!ready) {
-      Alert.alert("A name and a piece", [!ideaReady(project) ? "Name the label and who it’s for." : "", !pieceReady(project) ? "Add the first piece." : ""].filter(Boolean).join("\n"));
+  const [applying, setApplying] = useState(false);
+  const openApplication = async () => {
+    if (!ready || applying) {
+      if (!ready) Alert.alert("A name and a piece", [!ideaReady(project) ? "Name the label and who it’s for." : "", !pieceReady(project) ? "Add the first piece." : ""].filter(Boolean).join("\n"));
       return;
     }
-    router.push({ pathname: "/brand/apply", params: { founderProjectId: project.id } });
+    if (!app.uid) {
+      Alert.alert("Sign in", "Open a brand from the account that will own it.");
+      return;
+    }
+    setApplying(true);
+    try {
+      const photo = project.boards[0]?.references[0] || project.boards[0]?.imports.find((item) => item.kind === "image")?.uri;
+      const brand = await openFounderBrand({
+        name,
+        audience: project.brief.audience,
+        story: project.identity.story || project.brief.story || project.brief.audience,
+        vertical: project.product.category || "Unisex",
+        country: project.country || app.country || "US",
+        ownerId: app.uid,
+        ownerName: app.displayName || "Owner",
+        ownerPhoto: app.avatarUri || app.personUri,
+        logoUri: photo,
+      });
+      updateFounderProject(project.id, { handoffStatus: "submitted" });
+      router.replace({ pathname: "/brand/[id]", params: { id: brand.id } });
+    } catch (error) {
+      Alert.alert("Couldn’t open the brand", error instanceof Error ? error.message : "Try again in a moment.");
+      setApplying(false);
+    }
   };
   return <View style={styles.launchCard}>
     <View style={styles.launchChecks}>
       <View style={styles.launchCheck}><View style={[styles.taskCheck, ideaReady(project) && styles.taskCheckDone]}><Text style={styles.taskCheckText}>{ideaReady(project) ? "✓" : ""}</Text></View><View style={{ flex: 1 }}><Text style={styles.taskTitle}>{name || "Name the label"}</Text><Text style={styles.taskBody}>{project.brief.audience.trim() || "Who it’s for"}</Text></View></View>
       <View style={styles.launchCheck}><View style={[styles.taskCheck, pieceReady(project) && styles.taskCheckDone]}><Text style={styles.taskCheckText}>{pieceReady(project) ? "✓" : ""}</Text></View><View style={{ flex: 1 }}><Text style={styles.taskTitle}>{piece || "First piece"}</Text><Text style={styles.taskBody}>{project.product.category || "A name and a category"}</Text></View></View>
-      <View style={styles.launchCheck}><View style={styles.taskCheck} /><View style={{ flex: 1 }}><Text style={styles.taskTitle}>Makers, payments, domain</Text><Text style={styles.taskBody}>Still here — under More. Not required to apply.</Text></View></View>
     </View>
-    <Pressable onPress={openApplication} style={[styles.primary, !ready && styles.primaryMuted]}><Text style={[styles.primaryText, !ready && styles.primaryMutedText]}>{ready ? "Apply as a brand" : "Finish the name and the piece"}</Text></Pressable>
+    <Pressable onPress={() => void openApplication()} style={[styles.primary, (!ready || applying) && styles.primaryMuted]}><Text style={[styles.primaryText, (!ready || applying) && styles.primaryMutedText]}>{applying ? "Opening…" : ready ? "Apply as a brand" : "Finish the name and the piece"}</Text></Pressable>
     <Pressable onPress={() => setMore((value) => !value)} style={styles.secondary}><Text style={styles.secondaryText}>{more ? "Hide more" : "More · makers and setup"}</Text></Pressable>
     {more ? <>
       <FounderSetupHub project={project} colors={colors} />
       <FounderProductionWorkspace project={project} colors={colors} />
     </> : null}
-    <Text style={styles.handoffHint}>Apply stays private until we review it. Source and production don’t block this.</Text>
+    <Text style={styles.handoffHint}>We’ll review the brand. You can dress the page while you wait.</Text>
   </View>;
 }
 
