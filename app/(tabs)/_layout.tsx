@@ -20,8 +20,8 @@ const ICONS = ["compass-outline", "body-outline", "add-outline", "person-outline
 const ACTIVE_ICONS = ["compass", "body", "add", "person"] as const;
 const SCREEN_W = Dimensions.get("window").width;
 const DRAWER_W = Math.min(SCREEN_W * 0.78, 340);
-const TRAVEL = SCREEN_W * 0.24;
-const SPRING = { damping: 28, stiffness: 260, mass: 0.78 };
+const TRAVEL = SCREEN_W * 0.46;
+const SPRING = { damping: 44, stiffness: 112, mass: 1.15, overshootClamping: true };
 
 type TabScreen = { key: string; screen: React.ReactNode };
 
@@ -91,12 +91,6 @@ export default function TabsLayout() {
     if (open) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
   }
 
-  function goMirror() {
-    setPageIndex(1);
-    pagerRef.current?.setPage(1);
-    router.navigate("/find");
-  }
-
   const pan = Gesture.Pan()
     .enabled(pageIndex === 0 || toolsOpen)
     .manualActivation(true)
@@ -116,24 +110,20 @@ export default function TabsLayout() {
       if (!touch) return;
       const dx = touch.absoluteX - touchX.value;
       const dy = touch.absoluteY - touchY.value;
-      if (Math.abs(dx) > 4 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx > 6 && dx > Math.abs(dy)) {
         manager.activate();
+      } else if (dx < -4 && Math.abs(dx) > Math.abs(dy)) {
+        manager.fail();
       } else if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)) {
         manager.fail();
       }
     })
     .onUpdate((event) => {
-      if (startProgress.value <= 0.02 && event.translationX < 0) return;
       const next = startProgress.value + event.translationX / TRAVEL;
       progress.value = Math.max(0, Math.min(1, next));
     })
     .onEnd((event) => {
-      if (startProgress.value <= 0.02 && event.translationX < -48 && progress.value < 0.08) {
-        progress.value = withSpring(0, SPRING);
-        runOnJS(goMirror)();
-        return;
-      }
-      const shouldOpen = event.velocityX > 180 ? true : event.velocityX < -180 ? false : progress.value > 0.12;
+      const shouldOpen = event.velocityX > 220 ? true : event.velocityX < -220 ? false : progress.value > 0.22;
       progress.value = withSpring(shouldOpen ? 1 : 0, SPRING);
       runOnJS(finishGesture)(shouldOpen);
     });
@@ -159,7 +149,6 @@ export default function TabsLayout() {
   }));
 
   const activeTab = pageIndex;
-  const onToday = pageIndex === 0;
 
   return (
     <View style={[styles.root, { backgroundColor: colors.ink }]}>
@@ -181,7 +170,7 @@ export default function TabsLayout() {
             onPageSelected={onPageSelected}
             overScrollMode="never"
             pageMargin={0}
-            scrollEnabled={!toolsOpen && !onToday}
+            scrollEnabled={!toolsOpen}
             offscreenPageLimit={1}
             pointerEvents={toolsOpen ? "none" : "auto"}
           >
