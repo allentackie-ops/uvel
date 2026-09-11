@@ -9,6 +9,7 @@ type DraftPhoto = { uri: string };
 
 export type ListingDraft = {
   photos: DraftPhoto[];
+  clipUri?: string;
   name: string;
   brand: string;
   category: Category | null;
@@ -63,7 +64,7 @@ async function hydrate() {
 }
 
 function hasContent(draft: ListingDraft) {
-  return draft.photos.length > 0 || Boolean(draft.name || draft.brand || draft.category || draft.color || draft.size || draft.condition || draft.material || draft.notes || draft.price || draft.was);
+  return draft.photos.length > 0 || Boolean(draft.clipUri) || Boolean(draft.name || draft.brand || draft.category || draft.color || draft.size || draft.condition || draft.material || draft.notes || draft.price || draft.was);
 }
 
 export async function loadListingDraft() {
