@@ -32,6 +32,7 @@ export default function BrandApply() {
   const insets = useSafeAreaInsets();
   const app = useUvel();
   useBrands();
+  useEffect(() => { router.replace("/brand/founder"); }, []);
   const { founderProjectId } = useLocalSearchParams<{ founderProjectId?: string }>();
   const { projects: founderProjects, hydrated: founderHydrated } = useFounderProjects();
   const founderProject = founderProjects.find((project) => project.id === founderProjectId) || getFounderProject(founderProjectId);
