@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
 import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayListingOverlay";
+import { TodayCartFab } from "../../components/TodayCartFab";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
@@ -520,6 +521,15 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
             setOpenOrigin(null);
           }}
           onInteraction={personalization.record}
+        />
+      ) : null}
+      {todayHome ? (
+        <TodayCartFab
+          listingOpen={Boolean(openPiece)}
+          onBeforeOpen={() => {
+            setOpenPiece(null);
+            setOpenOrigin(null);
+          }}
         />
       ) : null}
     </View>
