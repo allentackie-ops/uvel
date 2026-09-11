@@ -145,7 +145,7 @@ export type FounderProject = {
   identity: FounderIdentity;
   product: FounderProductBrief;
   productVersions: FounderProductSnapshot[];
-  handoffStatus: "not-started" | "in-review" | "submitted";
+  handoffStatus: "not-started" | "in-review" | "submitted" | "rejected";
   cloudSyncStatus: "local-only" | "ready" | "synced" | "needs-auth" | "unavailable";
   lastSyncedAt?: number;
   auditLog: FounderAuditEvent[];
