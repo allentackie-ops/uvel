@@ -221,9 +221,6 @@ export function FounderLaunchReview({ project, colors }: { project: FounderProje
     router.push({ pathname: "/brand/apply", params: { founderProjectId: project.id } });
   };
   return <View style={styles.launchCard}>
-    <Text style={styles.sectionLabel}>3 OF 3 · READY</Text>
-    <Text style={styles.cardTitle}>Apply when this is true.</Text>
-    <Text style={styles.cardBody}>No domain. No Stripe. Name + a piece. That’s the gate. After you’re accepted, Brand HQ is shop, orders, inventory, and money.</Text>
     <View style={styles.launchChecks}>
       <View style={styles.launchCheck}><View style={[styles.taskCheck, ideaReady(project) && styles.taskCheckDone]}><Text style={styles.taskCheckText}>{ideaReady(project) ? "✓" : ""}</Text></View><View style={{ flex: 1 }}><Text style={styles.taskTitle}>{name || "Name the label"}</Text><Text style={styles.taskBody}>{project.brief.audience.trim() || "Who it’s for"}</Text></View></View>
       <View style={styles.launchCheck}><View style={[styles.taskCheck, pieceReady(project) && styles.taskCheckDone]}><Text style={styles.taskCheckText}>{pieceReady(project) ? "✓" : ""}</Text></View><View style={{ flex: 1 }}><Text style={styles.taskTitle}>{piece || "First piece"}</Text><Text style={styles.taskBody}>{project.product.category || "A name and a category"}</Text></View></View>
@@ -243,15 +240,17 @@ export function FounderProductEditor({ project, colors }: { project: FounderProj
   const styles = make(colors);
   const [product, setProduct] = useState(project.product);
   const [more, setMore] = useState(false);
-  useEffect(() => { setProduct(project.product); }, [project.id, project.product]);
-  const setField = <K extends keyof typeof product>(key: K, value: (typeof product)[K]) => setProduct((current) => ({ ...current, [key]: value }));
-  const save = () => saveFounderProduct(project.id, product);
+  useEffect(() => { setProduct(project.product); }, [project.id]);
+  const setField = <K extends keyof typeof product>(key: K, value: (typeof product)[K]) => {
+    setProduct((current) => {
+      const next = { ...current, [key]: value };
+      saveFounderProduct(project.id, next);
+      return next;
+    });
+  };
   const categories = ["Outerwear", "Dresses", "Tops", "Trousers", "Knitwear", "Skirts", "Shoes", "Bags", "Accessories"];
   return <View style={styles.productCard}>
-    <Text style={styles.sectionLabel}>2 OF 3 · MAKE IT</Text>
-    <Text style={styles.cardTitle}>One piece.</Text>
-    <Text style={styles.cardBody}>Not a collection. Not 14 fields. A name and a category. Add a photo on the board if you have one.</Text>
-    <TextInput value={product.name} onChangeText={(value) => setField("name", value)} placeholder="What’s the piece?" placeholderTextColor={colors.muted} style={styles.input} />
+    <TextInput value={product.name} onChangeText={(value) => setField("name", value)} placeholder="What’s the piece?" placeholderTextColor={colors.muted} style={[styles.input, { marginTop: 0 }]} />
     <Text style={styles.fieldLabel}>CATEGORY</Text>
     <View style={styles.optionRow}>{categories.map((option) => <Pressable key={option} onPress={() => setField("category", option)} style={[styles.option, product.category === option && styles.optionOn]}><Text style={[styles.optionText, product.category === option && styles.optionTextOn]}>{option}</Text></Pressable>)}</View>
     <Pressable onPress={() => setMore((value) => !value)} style={styles.secondary}><Text style={styles.secondaryText}>{more ? "Hide extra spec" : "More · fit, fabric, maker notes"}</Text></Pressable>
@@ -263,7 +262,6 @@ export function FounderProductEditor({ project, colors }: { project: FounderProj
       <TextInput value={product.targetPrice} onChangeText={(value) => setField("targetPrice", value)} placeholder="Target price" placeholderTextColor={colors.muted} style={styles.input} />
       <TextInput value={product.productionQuestions} onChangeText={(value) => setField("productionQuestions", value)} placeholder="Notes for a maker · later" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.longInput]} />
     </> : null}
-    <Pressable onPress={save} style={styles.primary}><Text style={styles.primaryText}>Save piece</Text></Pressable>
   </View>;
 }
 
@@ -273,22 +271,26 @@ export function FounderStrategy({ project, colors }: { project: FounderProject; 
   const [identity, setIdentity] = useState(project.identity);
   const [more, setMore] = useState(false);
   useEffect(() => { setBrief(project.brief); setIdentity(project.identity); }, [project.id]);
-  const setBriefField = <K extends keyof typeof brief>(key: K, value: (typeof brief)[K]) => setBrief((current) => ({ ...current, [key]: value }));
-  const save = () => updateFounderProject(project.id, { brief, identity, name: identity.workingName.trim() || project.name, stage: "idea" });
+  const persist = (nextBrief: typeof brief, nextIdentity: typeof identity) => {
+    updateFounderProject(project.id, { brief: nextBrief, identity: nextIdentity, name: nextIdentity.workingName.trim() || project.name, stage: "idea" });
+  };
+  const setBriefField = <K extends keyof typeof brief>(key: K, value: (typeof brief)[K]) => {
+    setBrief((current) => {
+      const next = { ...current, [key]: value };
+      persist(next, identity);
+      return next;
+    });
+  };
   return <View style={styles.strategyCard}>
-    <Text style={styles.sectionLabel}>1 OF 3 · IDEA</Text>
-    <Text style={styles.cardTitle}>What’s the label?</Text>
-    <Text style={styles.cardBody}>A name and who it’s for. Palette, tone, and story wait until you ask.</Text>
-    <TextInput value={identity.workingName} onChangeText={(workingName) => setIdentity((current) => ({ ...current, workingName }))} placeholder="Name" placeholderTextColor={colors.muted} style={styles.input} />
+    <TextInput value={identity.workingName} onChangeText={(workingName) => setIdentity((current) => { const next = { ...current, workingName }; persist(brief, next); return next; })} placeholder="Name" placeholderTextColor={colors.muted} style={[styles.input, { marginTop: 0 }]} />
     <TextInput value={brief.audience} onChangeText={(value) => setBriefField("audience", value)} placeholder="Who it’s for" placeholderTextColor={colors.muted} style={styles.input} />
     <Pressable onPress={() => setMore((value) => !value)} style={styles.secondary}><Text style={styles.secondaryText}>{more ? "Hide extra identity" : "More · palette, tone, story"}</Text></Pressable>
     {more ? <>
       <TextInput value={brief.promise} onChangeText={(value) => setBriefField("promise", value)} placeholder="What should people feel?" placeholderTextColor={colors.muted} style={styles.input} />
       <TextInput value={brief.story} onChangeText={(value) => setBriefField("story", value)} placeholder="Story · optional" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.longInput]} />
-      <TextInput value={identity.tone} onChangeText={(tone) => setIdentity((current) => ({ ...current, tone }))} placeholder="Tone · quiet, direct, playful…" placeholderTextColor={colors.muted} style={styles.input} />
-      <TextInput value={identity.logoDirection} onChangeText={(logoDirection) => setIdentity((current) => ({ ...current, logoDirection }))} placeholder="Logo direction · optional" placeholderTextColor={colors.muted} style={styles.input} />
+      <TextInput value={identity.tone} onChangeText={(tone) => setIdentity((current) => { const next = { ...current, tone }; persist(brief, next); return next; })} placeholder="Tone · quiet, direct, playful…" placeholderTextColor={colors.muted} style={styles.input} />
+      <TextInput value={identity.logoDirection} onChangeText={(logoDirection) => setIdentity((current) => { const next = { ...current, logoDirection }; persist(brief, next); return next; })} placeholder="Logo direction · optional" placeholderTextColor={colors.muted} style={styles.input} />
     </> : null}
-    <Pressable onPress={save} style={styles.primary}><Text style={styles.primaryText}>Save idea</Text></Pressable>
   </View>;
 }
 
