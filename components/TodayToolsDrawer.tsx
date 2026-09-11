@@ -27,7 +27,7 @@ export function TodayToolsDrawer({ onClose, onOpenSell }: TodayToolsDrawerProps)
   const photo = app.avatarUri || app.personUri;
   const buildTools: Tool[] = [
     { icon: "color-palette-outline", label: "Founder Studio", onPress: () => router.push("/brand/founder") },
-    { icon: "briefcase-outline", label: mine ? "Brand HQ" : "Start a brand", onPress: () => router.push(mine ? { pathname: "/brand/hq", params: { id: mine.id } } : "/brand/apply") },
+    ...(mine ? [{ icon: "briefcase-outline" as const, label: "Brand HQ", onPress: () => router.push({ pathname: "/brand/hq", params: { id: mine.id } }) }] : []),
     ...(mine?.verified && canSeeAnalytics(mine, app.uid) ? [{ icon: "bar-chart-outline" as const, label: "Brand analytics", onPress: () => router.push({ pathname: "/brand/analytics", params: { id: mine.id } }) }] : []),
   ];
   const businessTools: Tool[] = [
