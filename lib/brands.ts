@@ -14,7 +14,8 @@ import { httpsCallable } from "firebase/functions";
 import { useEffect, useState } from "react";
 import * as FileSystem from "expo-file-system/legacy";
 import { themeOf, type BrandTheme } from "./brandThemes";
-import { reviewBrand, type BrandFiling } from "./brandVerify";
+import { reviewBrand, type BrandFiling, type BrandReview } from "./brandVerify";
+import { reviewFounderBrand, type FounderFiling } from "./founderReview";
 import { firebaseAuth, firebaseDb, firebaseFunctions, firebaseReady } from "./firebase";
 import { listedPieces } from "./wardrobe";
 import { allOrders } from "./orders";
@@ -513,6 +514,38 @@ export function updateBrand(id: string, patch: Partial<Brand>) {
 export async function submitForVerification(id: string, filing: BrandFiling) {
   updateBrand(id, { status: "pending", reviewStatus: "review_pending", verified: false });
   const result = await reviewBrand(filing, id);
+  if (result.decision === "uvel_reviewed" && result.ok) {
+    updateBrand(id, {
+      status: "verified",
+      verified: true,
+      reviewStatus: "uvel_reviewed",
+      verifiedAt: Date.now(),
+      rejectReasons: [],
+      rejectHeadline: "",
+    });
+  } else if (result.decision === "rejected") {
+    updateBrand(id, {
+      status: "rejected",
+      verified: false,
+      reviewStatus: "rejected",
+      rejectReasons: result.reasons,
+      rejectHeadline: result.headline,
+    });
+  } else {
+    updateBrand(id, {
+      status: "pending",
+      verified: false,
+      reviewStatus: result.decision,
+      rejectReasons: result.reasons,
+      rejectHeadline: result.headline,
+    });
+  }
+  return result;
+}
+
+export async function submitFounderReview(id: string, filing: FounderFiling) {
+  updateBrand(id, { status: "pending", reviewStatus: "review_pending", verified: false, rejectReasons: [], rejectHeadline: "" });
+  const result: BrandReview = await reviewFounderBrand({ ...filing, brandId: id });
   if (result.decision === "uvel_reviewed" && result.ok) {
     updateBrand(id, {
       status: "verified",
