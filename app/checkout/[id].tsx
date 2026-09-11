@@ -17,6 +17,7 @@ import { getPiece, isRemoteListedPiece, useMarketplaceSyncState, useWardrobe } f
 import { recordCampaignAttribution } from "../../lib/attribution";
 import { removeFromCart } from "../../lib/cart";
 import { payWithWallet, useWallet } from "../../lib/wallet";
+import { useFirstFind } from "../../lib/firstFind";
 
 export default function Checkout() {
   const colors = useColors();
@@ -54,6 +55,9 @@ export default function Checkout() {
   const fee = piece ? uvelFeeCents(item, currency, market) : 0;
   const discountCents = Math.min(itemLocal, promotionQuote?.discountCents || 0);
   const discountedItem = Math.max(0, itemLocal - discountCents);
+  const firstFind = useFirstFind();
+  const creditCents = piece ? firstFind.applyTo(piece, discountedItem) : 0;
+  const billedItem = Math.max(0, discountedItem - creditCents);
   const sellsHere = piece ? listingVisibleIn({ origin: piece.country, shipsTo: piece.shipsTo, buyer: market.code }) : false;
   const addressOk = piece && address
     ? listingVisibleIn({ origin: piece.country, shipsTo: piece.shipsTo, buyer: address.country })
@@ -61,7 +65,7 @@ export default function Checkout() {
   const availabilityConfirmed = marketplaceSync === "confirmed" && isRemoteListedPiece(piece?.id || "");
   const same = Boolean(address && piece && address.country === (piece.country || market.code));
   const shipCost = address && addressOk ? shippingCents(same, ship === "express", market) : 0;
-  const total = discountedItem + fee + shipCost;
+  const total = billedItem + fee + shipCost;
   const wallet = useWallet(market.currency);
   const walletCovers = wallet.availableCents >= total && total > 0;
   const method = methods.find((m) => m.id === pay) ?? methods[0];
@@ -147,6 +151,7 @@ export default function Checkout() {
         itemCents: itemLocal,
         feeCents: fee,
         discountCents: discountCents || undefined,
+        creditCents: creditCents || undefined,
         promotionId: promotionQuote?.promotionId,
         promotionCode: promotionQuote?.code,
         shipCents: shipCost,
@@ -343,6 +348,7 @@ export default function Checkout() {
           </View>
 
           {discountCents > 0 ? <View style={styles.line}><Text style={styles.lineL}>Promotion · {promotionQuote?.code}</Text><Text style={styles.discountValue}>−{moneyExact(discountCents, market.currency)}</Text></View> : null}
+          {creditCents > 0 ? <View style={styles.line}><Text style={styles.lineL}>First Find</Text><Text style={styles.discountValue}>−{moneyExact(creditCents, market.currency)}</Text></View> : null}
           <View style={styles.line}>
             <AccessiblePressable              onPress={() => setFeeInfo(true)}
               style={({ pressed }) => [styles.feeL, pressed && { opacity: 0.92 }]}
