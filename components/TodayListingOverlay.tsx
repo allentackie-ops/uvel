@@ -15,6 +15,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getBrand } from "../lib/brands";
+import { addToCart, useCart } from "../lib/cart";
 import { getMarket, moneyInMarket } from "../lib/markets";
 import { shipsToLabel } from "../lib/ships";
 import { useUvel } from "../lib/store";
@@ -23,7 +24,6 @@ import { type ClosetPiece } from "../lib/wardrobe";
 import type { PersonalizationAction } from "../lib/personalization";
 import { VerifiedMark } from "./VerifiedMark";
 import { FriendShareSheet, type FriendSharePayload } from "./FriendShareSheet";
-import { addToCart, useCart } from "../lib/cart";
 
 export type ListingOrigin = { x: number; y: number; width: number; height: number };
 
@@ -57,12 +57,12 @@ export function TodayListingOverlay({
   const [measurementsOpen, setMeasurementsOpen] = useState(false);
   const [shippingOpen, setShippingOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const cart = useCart();
+  const inBag = cart.has(piece.id);
   const lastImageTap = useRef(0);
   const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openedAt = useRef(Date.now());
   const dwellRecorded = useRef(false);
-  const cart = useCart();
-  const inBag = cart.has(piece.id);
 
   useEffect(() => {
     top.value = withSpring(0, SPRING);
@@ -356,10 +356,9 @@ export function TodayListingOverlay({
                   style={styles.primaryAction}
                   accessibilityRole="button"
                   accessibilityLabel={inBag ? `${piece.name} is in your cart` : `Add ${piece.name} to cart`}
-                  accessibilityState={{ selected: inBag }}
                 >
                   <Text style={styles.primaryText}>{inBag ? "In cart" : "Add to cart"}</Text>
-                  {inBag ? null : <Ionicons name="arrow-forward" size={17} color={colors.successInk} />}
+                  <Ionicons name={inBag ? "checkmark" : "bag-handle-outline"} size={17} color={colors.successInk} />
                 </Pressable>
               </View>
             </Animated.View>
@@ -410,7 +409,7 @@ function make(colors: Colors) {
     detail: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 40 },
     kicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.8 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 30, lineHeight: 36, marginTop: 7 },
-    price: { color: colors.bone, fontSize: 19, fontWeight: "800", marginTop: 12 },
+    price: { color: colors.success, fontSize: 19, fontWeight: "800", marginTop: 12 },
     meta: { color: `${colors.bone}85`, fontSize: 13, marginTop: 7 },
     thumbRail: { gap: 8, paddingTop: 16, paddingBottom: 2 },
     thumbnail: { width: 58, height: 72, borderRadius: 10, overflow: "hidden", borderWidth: 1, borderColor: "transparent" },
