@@ -14,6 +14,8 @@ export type ClosetPiece = {
   id: string;
   photo: string;
   photos: string[];
+  /** Optional 8–15s clip of the piece in motion. Local or remote URI. */
+  clipUri?: string;
   name: string;
   brand: string;
   category: Category;
@@ -177,6 +179,7 @@ function normalize(p: ClosetPiece): ClosetPiece {
     ...p,
     photos,
     photo: photos[0] ?? p.photo ?? "",
+    clipUri: p.clipUri || undefined,
     material: p.material ?? "",
     originalPriceCents: p.originalPriceCents ?? 0,
     sku: p.sku || undefined,
