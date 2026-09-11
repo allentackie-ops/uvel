@@ -17,6 +17,7 @@ export function ListingCard({
   badge,
   framed,
   firstFind,
+  onFirstFind,
   onOpen,
   onInteraction,
 }: {
@@ -25,6 +26,7 @@ export function ListingCard({
   badge?: string;
   framed?: boolean;
   firstFind?: boolean;
+  onFirstFind?: () => void;
   onOpen?: (piece: ClosetPiece, origin: { x: number; y: number; width: number; height: number }) => void;
   onInteraction?: (action: PersonalizationAction, piece: ClosetPiece) => void;
 }) {
@@ -72,9 +74,15 @@ export function ListingCard({
           </View>
         ) : null}
         {firstFind ? (
-          <View style={[styles.stockBadge, { top: framed && fresh ? 38 : 10 }]}>
+          <AccessiblePressable
+            onPress={() => onFirstFind?.()}
+            style={[styles.stockBadge, { top: framed && fresh ? 38 : 10 }]}
+            accessibilityRole="button"
+            accessibilityLabel="What First Find is"
+            accessibilityHint="Double tap to hear how First Find works on this piece."
+          >
             <Text style={styles.stockBadgeTxt}>First Find</Text>
-          </View>
+          </AccessiblePressable>
         ) : live.brandId && typeof live.stockQuantity === "number" && live.stockQuantity > 0 && live.stockQuantity <= 10 ? (
           <View style={[styles.stockBadge, { top: framed && fresh ? 38 : 10 }]}>
             <Text style={styles.stockBadgeTxt}>{live.stockQuantity} remaining</Text>
@@ -132,7 +140,7 @@ function make(colors: ReturnType<typeof useColors>) {
     heartsN: { color: colors.bone, fontSize: 14, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
     badge: { position: "absolute", left: 10, bottom: 10, backgroundColor: `${colors.surface}F0`, paddingHorizontal: 12, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
     badgeTxt: { color: colors.ink, fontWeight: "700", fontSize: 12 },
-    stockBadge: { position: "absolute", left: 10, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", zIndex: 9 },
+    stockBadge: { position: "absolute", left: 10, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", zIndex: 12 },
     stockBadgeTxt: { color: colors.ink, fontSize: 11, fontWeight: "800" },
     framedMeta: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12 },
     brand: { color: colors.subtle, fontSize: 11, marginTop: 8, letterSpacing: 0.4 },
