@@ -1153,6 +1153,242 @@ exports.reviewBrand = onCall({ secrets: [anthropicSecret] }, async (req) => {
   return review;
 });
 
+const FOUNDER_HOUSES = ["nike", "adidas", "gucci", "chanel", "dior", "prada", "hermes", "louisvuitton", "lv", "rolex", "zara", "hm", "shein", "supreme", "offwhite", "balenciaga", "fendi", "versace", "givenchy", "burberry", "moncler", "puma", "newbalance", "yeezy", "skims"];
+const REPLICA_RE = /\b(replica|counterfeit|1\s*:\s*1|aaa\s*quality|mirror\s*quality|inspired\s*by\s+(nike|adidas|gucci|chanel|dior|prada|hermes|louis|lv|balenciaga|fendi|versace)|not\s*affiliated|fake\s*(nike|gucci|chanel)|authentic\s*(nike|gucci|chanel|dior|prada|lv))\b/i;
+
+function founderToken(s) {
+  return String(s || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function founderImpersonates(name, handle) {
+  const core = founderToken(name);
+  const h = founderToken(handle);
+  const words = String(name || "").toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  return FOUNDER_HOUSES.some((house) => core === house || h === house || words.includes(house));
+}
+
+function founderReplicaCopy(text) {
+  return REPLICA_RE.test(String(text || ""));
+}
+
+function marksFromUnknown(data) {
+  const rows = data?.results || data?.docs || data?.items || data?.response?.docs || data?.hits || [];
+  return (Array.isArray(rows) ? rows : []).slice(0, 8).map((row) => ({
+    mark: String(row.wordMark || row.cm || row.mark || row.markText || row.combinedMark || row.conveyedName || ""),
+    status: String(row.status || row.statusCode || row.ld || row.liveDeadIndicator || ""),
+    serial: String(row.serialNumber || row.sn || row.serial || ""),
+    owner: String(row.owner || row.ownerName || row.on || ""),
+  })).filter((item) => item.mark);
+}
+
+function markLooksLive(status) {
+  const s = String(status || "").toLowerCase();
+  if (!s) return true;
+  if (/\b(dead|abandoned|cancelled|canceled|expired|surrendered)\b/.test(s)) return false;
+  return /\b(live|registered|pending|published|allowed|active)\b/.test(s) || s === "1" || s.toLowerCase() === "live";
+}
+
+async function searchUspto(name) {
+  const query = String(name || "").trim();
+  if (query.length < 2) return [];
+  const clean = query.replace(/"/g, "");
+  const attempts = [
+    async () => {
+      const res = await fetch("https://tmsearch.uspto.gov/api/v1/trademarkSearch/search", {
+        method: "POST",
+        headers: { "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ query: `cm:"${clean}"`, rows: 8, start: 0 }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      return marksFromUnknown(await res.json());
+    },
+    async () => {
+      const res = await fetch(`https://assignment-api.uspto.gov/trademark/v2/assignments?query=${encodeURIComponent(clean)}&rows=6`);
+      if (!res.ok) throw new Error(String(res.status));
+      return marksFromUnknown(await res.json());
+    },
+  ];
+  for (const attempt of attempts) {
+    try {
+      const marks = await Promise.race([
+        attempt(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("uspto-timeout")), 8000)),
+      ]);
+      if (Array.isArray(marks) && marks.length) return marks;
+    } catch {
+      /* try next USPTO door */
+    }
+  }
+  return [];
+}
+
+function founderPrompt(f, uspto, usptoOk) {
+  const hits = uspto.length
+    ? uspto.slice(0, 6).map((item) => `- ${item.mark}${item.status ? ` · ${item.status}` : ""}${item.serial ? ` · SN ${item.serial}` : ""}${item.owner ? ` · ${item.owner}` : ""}`).join("\n")
+    : "(no close live records returned)";
+  return `You are Uvel’s founder-brand review desk. A new label is applying from Founder Studio. They are not a registered company. This is a marketplace-safety screen, not legal clearance.
+
+Check ONLY:
+1) Name and handle vs famous houses and the USPTO hits below
+2) Replica / counterfeit language
+3) Pictures: stolen logos, famous marks, watermarks, listing screenshots, celebrity they don’t own
+
+Name: ${f.name}
+Handle: @${f.handle}
+First piece: ${f.piece || "(none)"} · ${f.category || "(none)"}
+Who it’s for: ${f.audience || "(none)"}
+Notes: ${f.story || "(none)"}
+
+USPTO wordmark search for "${f.name}": ${usptoOk ? "ran" : "unavailable this pass"}
+${hits}
+
+Reject (decision "rejected") if:
+- Name or handle is a famous house or an obvious fake of one
+- USPTO shows a LIVE mark whose wording is the same as this name (same core word). Tell them the serial if you have it.
+- Replica / 1:1 / AAA / “inspired by [famous house]” language
+- A picture shows another brand’s logo, a watermark, a stolen product shot, or a screenshot of someone else’s listing
+
+Do NOT reject for:
+- A short story, missing legal name, missing website, taste, price, or whether the idea is “good”
+- A new original name that is merely similar to something far away
+- USPTO being unavailable
+
+If the name is close but not the same as a live mark, use "human_review".
+If it is clean, use "uvel_reviewed" and ok true.
+
+Return ONLY JSON:
+{
+  "ok": boolean,
+  "decision": "needs_information" | "human_review" | "uvel_reviewed" | "rejected",
+  "headline": string,
+  "reasons": string[],
+  "notes": string
+}
+
+headline: a few words they can show. If rejected because of the name, say they can change the name and send again.
+reasons: 0–3 sentences they can act on. Empty if ok.
+Never claim this is a lawyer’s trademark opinion.`;
+}
+
+exports.reviewFounderBrand = onCall({ secrets: [anthropicSecret], timeoutSeconds: 60 }, async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const f = req.data || {};
+  const brandId = String(f.brandId || "").trim();
+  const name = String(f.name || "").trim();
+  const handle = String(f.handle || "").trim().replace(/^@/, "");
+  const piece = String(f.piece || "").trim();
+  const category = String(f.category || "").trim();
+  const audience = String(f.audience || "").trim();
+  const story = String(f.story || "").trim();
+  const images = Array.isArray(f.images) ? f.images.slice(0, 2) : [];
+  const copy = [name, handle, piece, audience, story].join(" ");
+
+  if (!name) return { ok: false, decision: "needs_information", headline: "Need a brand name", reasons: ["Add the name buyers will see."], notes: "" };
+  if (!founderToken(handle)) return { ok: false, decision: "needs_information", headline: "Need a handle", reasons: ["Pick an @ made of letters or numbers."], notes: "" };
+  if (!piece) return { ok: false, decision: "needs_information", headline: "Need a first piece", reasons: ["Name the first piece, then apply again."], notes: "" };
+
+  if (founderImpersonates(name, handle)) {
+    return { ok: false, decision: "rejected", headline: "That name isn’t available", reasons: ["Pick a name and handle that are yours — not a famous label. Change the name and send again."], notes: "Famous-house screen." };
+  }
+  if (founderReplicaCopy(copy)) {
+    return { ok: false, decision: "rejected", headline: "Replica language", reasons: ["Uvel doesn’t take replica, 1:1, or “inspired by” famous-house listings. Take that language out and send again."], notes: "Replica language screen." };
+  }
+
+  if (brandId) {
+    const brandSnap = await admin.firestore().collection("brands").doc(brandId).get();
+    if (!brandSnap.exists || brandSnap.data()?.ownerId !== req.auth.uid) throw new HttpsError("permission-denied", "Only the brand owner can submit this filing.");
+  }
+
+  let uspto = [];
+  let usptoOk = false;
+  try {
+    uspto = await searchUspto(name);
+    usptoOk = true;
+  } catch {
+    uspto = [];
+  }
+  const core = founderToken(name);
+  const liveHit = uspto.find((item) => founderToken(item.mark) === core && markLooksLive(item.status));
+  if (liveHit) {
+    const review = {
+      ok: false,
+      decision: "rejected",
+      headline: "That name is already a trademark",
+      reasons: [`“${name}” matches a live USPTO mark${liveHit.serial ? ` (SN ${liveHit.serial})` : ""}. Change the name and send again.`],
+      notes: "USPTO exact live wordmark.",
+    };
+    if (brandId) {
+      await admin.firestore().collection("brands").doc(brandId).set({
+        status: "rejected",
+        verified: false,
+        reviewStatus: "rejected",
+        rejectReasons: review.reasons,
+        rejectHeadline: review.headline,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
+    return review;
+  }
+
+  const key = anthropicSecret.value();
+  if (!key) throw new HttpsError("failed-precondition", "Brand check isn’t connected yet.");
+
+  const content = [];
+  for (const img of images) {
+    if (!img || !img.data) continue;
+    const mime = img.mime === "image/png" ? "image/png" : img.mime === "image/webp" ? "image/webp" : "image/jpeg";
+    content.push({ type: "image", source: { type: "base64", media_type: mime, data: String(img.data) } });
+  }
+  content.push({ type: "text", text: founderPrompt({ name, handle, piece, category, audience, story }, uspto, usptoOk) });
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 500,
+      messages: [{ role: "user", content }],
+    }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new HttpsError("internal", json.error?.message || "Couldn’t finish the check.");
+  const parsed = parseJson(json.content?.[0]?.text || "{}");
+  const ok = parsed.ok === true;
+  const reasons = Array.isArray(parsed.reasons) ? parsed.reasons.map(String).filter(Boolean).slice(0, 3) : [];
+  const decision = parsed.decision === "needs_information" || parsed.decision === "human_review" || parsed.decision === "uvel_reviewed" || parsed.decision === "rejected"
+    ? parsed.decision
+    : ok ? "uvel_reviewed" : "human_review";
+  const review = {
+    ok: ok && decision === "uvel_reviewed",
+    decision: ok && decision !== "uvel_reviewed" ? decision : decision,
+    reasons: ok ? [] : reasons,
+    headline: String(parsed.headline || (ok ? "Uvel review complete." : "This brand needs review.")),
+    notes: String(parsed.notes || ""),
+  };
+  if (review.ok) {
+    review.decision = "uvel_reviewed";
+    review.headline = "Uvel review complete.";
+    review.reasons = [];
+  }
+  if (brandId) {
+    const patch = review.ok && review.decision === "uvel_reviewed"
+      ? { status: "verified", verified: true, reviewStatus: "uvel_reviewed", verifiedAt: admin.firestore.FieldValue.serverTimestamp(), rejectReasons: [], rejectHeadline: "" }
+      : review.decision === "rejected"
+        ? { status: "rejected", verified: false, reviewStatus: "rejected", rejectReasons: review.reasons, rejectHeadline: review.headline }
+        : { status: "pending", verified: false, reviewStatus: review.decision, rejectReasons: review.reasons, rejectHeadline: review.headline };
+    const db = admin.firestore();
+    await db.collection("brands").doc(brandId).set({ ...patch, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  }
+  return review;
+});
+
 exports.deleteAccount = onCall(async (req) => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
   const uid = req.auth.uid;
