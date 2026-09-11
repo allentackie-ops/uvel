@@ -118,7 +118,15 @@ export default function Cart() {
           <View style={styles.emptyWrap}>
             <Text style={styles.heading}>Your bag is empty.</Text>
             <Text style={styles.empty}>Add pieces from Today. They’ll wait here until you’re ready to check out.</Text>
-            <Pressable onPress={() => router.replace("/")} style={styles.emptyBtn} accessibilityRole="button" accessibilityLabel="Back to Today">
+            <Pressable
+              onPress={() => {
+                if (router.canGoBack()) router.back();
+                else router.replace("/");
+              }}
+              style={styles.emptyBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Back to Today"
+            >
               <Text style={styles.emptyBtnText}>Back to Today</Text>
             </Pressable>
           </View>
