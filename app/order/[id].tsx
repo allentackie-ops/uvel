@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { confirmOrderReturnSent, requestOrderResolution, useOrders, watchOrder, type FulfillmentStatus } from "../../lib/orders";
+import { buyerHasConfirmed, confirmOrderReceived } from "../../lib/wallet";
 import { createSupportCase, type SupportCategory } from "../../lib/support";
 import { getBrand, inquiryRecipients, useBrands } from "../../lib/brands";
 import { openThread, threadId } from "../../lib/chat";
@@ -39,6 +40,7 @@ export default function OrderDone() {
   const shipment = currentOrder?.shipment;
   const orderBrand = currentOrder?.brandId ? getBrand(currentOrder.brandId) : undefined;
   const canCancel = confirmed && ["unfulfilled", "processing", "packed"].includes(fulfillment || "unfulfilled") && !resolution;
+  const canConfirm = confirmed && ["shipped", "delivered"].includes(fulfillment || "") && !currentOrder?.buyerConfirmedAt && !buyerHasConfirmed(id || "") && !resolution && currentOrder?.buyerId === app.uid;
   const canReturn = confirmed && fulfillment === "delivered" && !resolution;
   const supportReasonOptions: Array<[SupportCategory, string]> = [["order_status", "Order status"], ["shipping", "Shipping or delivery"], ["return", "Return"], ["refund", "Refund"], ["cancellation", "Cancellation"], ["product", "Product issue"], ["payment", "Payment"], ["other", "Something else"]];
   const reasonOptions = [
@@ -95,6 +97,19 @@ export default function OrderDone() {
     }
   }
 
+  async function markReceived() {
+    if (!id || busy) return;
+    setBusy(true);
+    try {
+      await confirmOrderReceived(id);
+      Alert.alert("Thanks", "The seller’s payment will move from pending to their wallet.");
+    } catch (error) {
+      Alert.alert("Could not confirm", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function markReturnSent() {
     if (!id || busy) return;
     setBusy(true);
@@ -115,7 +130,7 @@ export default function OrderDone() {
       <Text style={styles.title}>{confirmed ? (fulfillment === "delivered" ? "It arrived." : "You’re covered.") : "Payment submitted."}</Text>
       <Text style={styles.p}>
         {confirmed
-          ? fulfillment === "shipped" ? "Your order is on the way. Tracking will appear here as soon as the seller adds it." : fulfillment === "delivered" ? "The seller marked this order delivered. Keep Uvel’s protection details available if you need help." : fulfillment === "canceled" ? "This order was canceled. Contact Uvel support if you need help with the refund." : `Payment is confirmed. Fulfillment status: ${fulfillmentLabel}.`
+          ? fulfillment === "shipped" ? "Your order is on the way. When it arrives, tap Everything’s OK so the seller can be paid." : fulfillment === "delivered" ? (currentOrder?.buyerConfirmedAt || buyerHasConfirmed(id || "") ? "You confirmed this order. The seller can now use this money." : "The seller marked this delivered. Confirm it so their wallet can be paid, or open a claim within two days.") : fulfillment === "canceled" ? "This order was canceled. Contact Uvel support if you need help with the refund." : `Payment is confirmed. Fulfillment status: ${fulfillmentLabel}.`
           : "We’re waiting for the payment provider to confirm this order. You can leave this screen; the order will update when confirmation arrives."}
       </Text>
       {confirmed ? <Text style={[styles.status, orderStatusAppearance]}>{fulfillmentLabel}</Text> : null}
@@ -123,6 +138,7 @@ export default function OrderDone() {
 Delivery exception: {shipment.exceptionCode?.replace("_", " ") || "Carrier issue"}{shipment.exceptionNote ? ` · ${shipment.exceptionNote}` : ""}</Text> : null}</View> : currentOrder?.trackingNumber ? <Text style={styles.tracking}>{currentOrder.carrier ? `${currentOrder.carrier} · ` : ""}{currentOrder.trackingNumber}</Text> : null}
       {resolution ? <View style={styles.resolutionCard}><Text style={[styles.resolutionK, { color: semanticStatus(colors, statusToneFor(resolution.status)).color }]}>{resolution.type === "return" ? "RETURN" : "CANCELLATION"}</Text><Text style={styles.resolutionText}>{resolution.status === "requested" ? "Waiting for brand review" : resolution.status === "approved" ? "Approved" : resolution.status === "item_sent" ? "Return marked as sent" : resolution.status === "received" ? "Return received · refund processing" : resolution.status === "refunded" ? "Refund complete" : resolution.status === "rejected" ? "Request declined" : resolution.status.replace("_", " ")}</Text>{resolution.type === "return" && resolution.status === "approved" ? <Pressable disabled={busy} onPress={() => void markReturnSent()} style={[styles.actionBtn, busy && styles.actionBtnOff]}><Text style={styles.actionTxt}>{busy ? "Updating…" : "I sent the return"}</Text></Pressable> : null}</View> : null}
       {currentOrder?.refundStatus && currentOrder.refundStatus !== "none" ? <Text style={[styles.refund, { color: semanticStatus(colors, statusToneFor(currentOrder.refundStatus)).color }]}>Refund: {currentOrder.refundStatus === "succeeded" ? "Complete" : currentOrder.refundStatus === "failed" ? "Needs attention" : "Processing"}</Text> : null}
+      {canConfirm ? <Pressable disabled={busy} onPress={() => void markReceived()} style={[styles.btn, busy && styles.actionBtnOff]} accessibilityRole="button" accessibilityLabel="Confirm everything is OK"><Text style={styles.btnTxt}>{busy ? "Confirming…" : "Everything’s OK"}</Text></Pressable> : null}
       {currentOrder && orderBrand ? <Pressable disabled={busy} onPress={chooseSupportReason} style={[styles.secondaryBtn, busy && styles.actionBtnOff]}><Text style={styles.secondaryTxt}>Contact support about this order</Text></Pressable> : null}
       {canCancel ? <Pressable disabled={busy} onPress={() => chooseResolution("cancellation")} style={[styles.secondaryBtn, busy && styles.actionBtnOff]}><Text style={styles.secondaryTxt}>Request cancellation</Text></Pressable> : null}
       {canReturn ? <Pressable disabled={busy} onPress={() => chooseResolution("return")} style={[styles.secondaryBtn, busy && styles.actionBtnOff]}><Text style={styles.secondaryTxt}>Request a return</Text></Pressable> : null}
