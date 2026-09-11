@@ -133,7 +133,6 @@ export default function FounderStagePage() {
         ) : null}
         <View style={local.hero}>
           <Text style={[styles.kicker, { color: colors.accent }]}>{title.kicker}</Text>
-          <Text style={[styles.lede, { color: colors.muted }]}>{title.body}</Text>
         </View>
         <View style={local.content}>
           {stage === "idea" ? <FounderStrategy project={project} colors={colors} /> : null}
@@ -172,7 +171,7 @@ const local = StyleSheet.create({
   progressCount: { fontSize: 11, fontWeight: "900", letterSpacing: 1.4 },
   progressLine: { flexDirection: "row", gap: 6, marginTop: 10 },
   progressDot: { height: 4, flex: 1, borderRadius: 2 },
-  hero: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 },
+  hero: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10 },
   content: { paddingHorizontal: 20 },
   photo: { width: "100%", height: 220, borderRadius: 16, marginBottom: 10, backgroundColor: "#161512" },
   live: { marginHorizontal: 20, marginTop: 12, borderWidth: 1, borderRadius: 18, padding: 16 },
