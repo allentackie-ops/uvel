@@ -4,7 +4,8 @@ import {  StyleSheet, Text, View } from "react-native";
 import { useRef } from "react";
 import { AccessiblePressable } from "./AccessiblePressable";
 import { getBrand } from "../lib/brands";
-import { getMarket, moneyInMarket } from "../lib/markets";
+import { useFirstFind } from "../lib/firstFind";
+import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 import { getPiece, isRemoteListedPiece, likeCount, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
@@ -44,6 +45,10 @@ export function ListingCard({
   const house = live.brandId ? getBrand(live.brandId) : undefined;
   const brand = house?.name || (live.brand && live.brand !== "Unlabeled" ? live.brand : "Unbranded");
   const itemCurrency = live.currency || getMarket(live.country || app.country).currency;
+  const find = useFirstFind();
+  const localPriceCents = convertCents(live.listPriceCents, itemCurrency, here);
+  const credit = firstFind ? find.applyTo(live, localPriceCents) : 0;
+  const saleCents = Math.max(0, localPriceCents - credit);
   const sync = useMarketplaceSyncState();
   const remote = isRemoteListedPiece(live.id);
   const confirmed = sync === "confirmed" && remote;
@@ -58,7 +63,7 @@ export function ListingCard({
     }}
       style={({ pressed }) => [styles.wrap, wide ? { width: wide, flex: undefined } : null, framed && styles.framed, pressed && app.accessibilityMode && styles.focused]}
       accessibilityRole="button"
-      accessibilityLabel={`${brand} ${live.name}, ${moneyInMarket(live.listPriceCents, itemCurrency, here)}${typeof live.stockQuantity === "number" ? live.stockQuantity === 0 ? ", sold out" : live.stockQuantity <= 10 ? `, ${live.stockQuantity} remaining` : "" : ""}${!confirmed ? ", availability not confirmed" : ""}`}
+      accessibilityLabel={`${brand} ${live.name}, ${credit > 0 ? `${moneyInMarket(saleCents, here.currency, here)} with First Find, was ${moneyInMarket(localPriceCents, itemCurrency, here)}` : moneyInMarket(live.listPriceCents, itemCurrency, here)}${typeof live.stockQuantity === "number" ? live.stockQuantity === 0 ? ", sold out" : live.stockQuantity <= 10 ? `, ${live.stockQuantity} remaining` : "" : ""}${!confirmed ? ", availability not confirmed" : ""}`}
       accessibilityHint="Double tap to view this listing."
     >
       <View ref={mediaRef}>
@@ -116,7 +121,14 @@ export function ListingCard({
         <Text style={[styles.name, framed && styles.nameFramed]} numberOfLines={2}>
           {piece.name}
         </Text>
-        <Text style={[styles.price, framed && styles.priceFramed]}>{moneyInMarket(live.listPriceCents, itemCurrency, here)}</Text>
+        {credit > 0 ? (
+          <View style={styles.priceRow}>
+            <Text style={styles.was}>{moneyInMarket(localPriceCents, here.currency, here)}</Text>
+            <Text style={[styles.price, framed && styles.priceFramed]}>{moneyInMarket(saleCents, here.currency, here)}</Text>
+          </View>
+        ) : (
+          <Text style={[styles.price, framed && styles.priceFramed]}>{moneyInMarket(live.listPriceCents, itemCurrency, here)}</Text>
+        )}
         <Text style={[styles.sizeLine, framed && styles.brandFramed]} numberOfLines={1}>
           {[live.size || live.sizes?.[0] || "One size", live.condition || "Condition not listed"].join(" · ")}
         </Text>
@@ -147,8 +159,10 @@ function make(colors: ReturnType<typeof useColors>) {
     brandFramed: { marginTop: 0, letterSpacing: 1.3, fontWeight: "700", color: `${colors.bone}6B` },
     name: { color: colors.bone, fontSize: 14, fontWeight: "600", marginTop: 3, lineHeight: 18 },
     nameFramed: { color: colors.bone, marginTop: 4 },
+    priceRow: { flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 4, flexWrap: "wrap" },
     price: { color: colors.success, fontSize: 15, fontWeight: "700", marginTop: 4, fontVariant: ["tabular-nums"] },
-    priceFramed: { color: colors.success },
+    priceFramed: { color: colors.success, marginTop: 0 },
+    was: { color: `${colors.bone}66`, fontSize: 13, fontWeight: "600", textDecorationLine: "line-through", fontVariant: ["tabular-nums"] },
     sizeLine: { color: `${colors.bone}6B`, fontSize: 11, marginTop: 4, letterSpacing: 0.4 },
   });
 }
