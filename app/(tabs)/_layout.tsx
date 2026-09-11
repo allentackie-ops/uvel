@@ -2,10 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router, usePathname } from "expo-router";
 import PagerView, { type PagerViewOnPageSelectedEvent } from "react-native-pager-view";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { interpolate, useAnimatedStyle } from "react-native-reanimated";
-import { Drawer, useDrawerProgress } from "react-native-drawer-layout";
+import { Drawer, DrawerGestureContext, useDrawerProgress } from "react-native-drawer-layout";
 import { TodayToolsDrawer } from "../../components/TodayToolsDrawer";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Today from "./index";
@@ -74,6 +75,7 @@ export default function TabsLayout() {
   }
 
   const onToday = pageIndex === 0;
+  const swipeEnabled = onToday || open;
 
   return (
     <View style={[styles.root, { backgroundColor: colors.ink }]}>
@@ -81,14 +83,23 @@ export default function TabsLayout() {
         open={open}
         onOpen={() => setOpen(true)}
         onClose={closeDrawer}
-        swipeEnabled={onToday || open}
-        swipeEdgeWidth={open ? SCREEN_W : Math.round(SCREEN_W * 0.42)}
-        swipeMinDistance={36}
-        swipeMinVelocity={320}
+        swipeEnabled
+        swipeEdgeWidth={SCREEN_W}
+        swipeMinDistance={10}
+        swipeMinVelocity={100}
         drawerType="slide"
         drawerPosition="left"
         drawerStyle={{ width: DRAWER_W, backgroundColor: colors.ink }}
         overlayStyle={{ backgroundColor: "rgba(0,0,0,0.32)" }}
+        configureGestureHandler={(handler) => {
+          if (!swipeEnabled) {
+            return handler.failOffsetX([0, 0]).failOffsetY([0, 0]);
+          }
+          if (open) {
+            return handler.activeOffsetX([-1, 1]);
+          }
+          return handler.failOffsetX(-1).activeOffsetX(5);
+        }}
         renderDrawerContent={() => (
           <TodayToolsDrawer
             onClose={closeDrawer}
@@ -100,20 +111,16 @@ export default function TabsLayout() {
         )}
       >
         <ScaledStage>
-          <PagerView
-            ref={pagerRef}
-            style={styles.pager}
-            initialPage={pageIndex}
+          <DrawerAwarePager
+            pagerRef={pagerRef}
+            pageIndex={pageIndex}
             onPageSelected={onPageSelected}
-            overScrollMode="never"
-            pageMargin={0}
             scrollEnabled={!open}
-            offscreenPageLimit={1}
           >
             {tabs.map(({ key, screen }) => (
               <View key={key} style={[styles.page, { backgroundColor: colors.ink }]} collapsable={false}>{screen}</View>
             ))}
-          </PagerView>
+          </DrawerAwarePager>
           <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]} pointerEvents={open ? "none" : "auto"}>
             <View style={[styles.bar, { backgroundColor: colors.ink }]}>
               {ROUTES.map((_, index) => {
@@ -165,6 +172,44 @@ function ScaledStage({ children }: { children: ReactNode }) {
     };
   });
   return <Animated.View style={[styles.stage, style]}>{children}</Animated.View>;
+}
+
+function DrawerAwarePager({
+  children,
+  pagerRef,
+  pageIndex,
+  onPageSelected,
+  scrollEnabled,
+}: {
+  children: ReactNode;
+  pagerRef: RefObject<PagerView | null>;
+  pageIndex: number;
+  onPageSelected: (event: PagerViewOnPageSelectedEvent) => void;
+  scrollEnabled: boolean;
+}) {
+  const drawerGesture = useContext(DrawerGestureContext);
+  const native = useMemo(() => {
+    const gesture = Gesture.Native();
+    if (drawerGesture) gesture.requireExternalGestureToFail(drawerGesture);
+    return gesture;
+  }, [drawerGesture]);
+
+  return (
+    <GestureDetector gesture={native}>
+      <PagerView
+        ref={pagerRef}
+        style={styles.pager}
+        initialPage={pageIndex}
+        onPageSelected={onPageSelected}
+        overScrollMode="never"
+        pageMargin={0}
+        scrollEnabled={scrollEnabled}
+        offscreenPageLimit={1}
+      >
+        {children}
+      </PagerView>
+    </GestureDetector>
+  );
 }
 
 function routeIndex(pathname: string): number | null {
