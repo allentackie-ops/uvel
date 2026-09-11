@@ -20,8 +20,8 @@ const ICONS = ["compass-outline", "body-outline", "add-outline", "person-outline
 const ACTIVE_ICONS = ["compass", "body", "add", "person"] as const;
 const SCREEN_W = Dimensions.get("window").width;
 const DRAWER_W = Math.min(SCREEN_W * 0.78, 340);
-const TRAVEL = SCREEN_W * 0.38;
-const SPRING = { damping: 30, stiffness: 240, mass: 0.8 };
+const TRAVEL = SCREEN_W * 0.24;
+const SPRING = { damping: 28, stiffness: 260, mass: 0.78 };
 
 type TabScreen = { key: string; screen: React.ReactNode };
 
@@ -37,6 +37,8 @@ export default function TabsLayout() {
   const [toolsOpen, setToolsOpen] = useState(false);
   const progress = useSharedValue(0);
   const startProgress = useSharedValue(0);
+  const touchX = useSharedValue(0);
+  const touchY = useSharedValue(0);
 
   const tabs = useMemo<TabScreen[]>(
     () => [
@@ -89,29 +91,51 @@ export default function TabsLayout() {
     if (open) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
   }
 
+  function goMirror() {
+    setPageIndex(1);
+    pagerRef.current?.setPage(1);
+    router.navigate("/find");
+  }
+
   const pan = Gesture.Pan()
     .enabled(pageIndex === 0 || toolsOpen)
-    .activeOffsetX(8)
-    .failOffsetX(-14)
-    .failOffsetY([-22, 22])
-    .onBegin(() => {
+    .manualActivation(true)
+    .onTouchesDown((event) => {
+      const touch = event.allTouches[0];
+      if (!touch) return;
+      touchX.value = touch.absoluteX;
+      touchY.value = touch.absoluteY;
       startProgress.value = progress.value;
     })
+    .onTouchesMove((event, manager) => {
+      if (progress.value > 0.02) {
+        manager.activate();
+        return;
+      }
+      const touch = event.allTouches[0];
+      if (!touch) return;
+      const dx = touch.absoluteX - touchX.value;
+      const dy = touch.absoluteY - touchY.value;
+      if (Math.abs(dx) > 4 && Math.abs(dx) > Math.abs(dy)) {
+        manager.activate();
+      } else if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)) {
+        manager.fail();
+      }
+    })
     .onUpdate((event) => {
+      if (startProgress.value <= 0.02 && event.translationX < 0) return;
       const next = startProgress.value + event.translationX / TRAVEL;
       progress.value = Math.max(0, Math.min(1, next));
     })
     .onEnd((event) => {
-      const shouldOpen = event.velocityX > 350 ? true : event.velocityX < -350 ? false : progress.value > 0.2;
+      if (startProgress.value <= 0.02 && event.translationX < -48 && progress.value < 0.08) {
+        progress.value = withSpring(0, SPRING);
+        runOnJS(goMirror)();
+        return;
+      }
+      const shouldOpen = event.velocityX > 180 ? true : event.velocityX < -180 ? false : progress.value > 0.12;
       progress.value = withSpring(shouldOpen ? 1 : 0, SPRING);
       runOnJS(finishGesture)(shouldOpen);
-    });
-
-  const tapClose = Gesture.Tap()
-    .enabled(toolsOpen)
-    .maxDistance(14)
-    .onEnd(() => {
-      runOnJS(closeTools)();
     });
 
   const contentStyle = useAnimatedStyle(() => {
@@ -128,13 +152,14 @@ export default function TabsLayout() {
   });
 
   const dimStyle = useAnimatedStyle(() => ({
-    opacity: progress.value * 0.28,
+    opacity: progress.value * 0.42,
   }));
   const drawerStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: interpolate(progress.value, [0, 1], [-DRAWER_W, 0]) }],
   }));
 
   const activeTab = pageIndex;
+  const onToday = pageIndex === 0;
 
   return (
     <View style={[styles.root, { backgroundColor: colors.ink }]}>
@@ -147,7 +172,7 @@ export default function TabsLayout() {
           }}
         />
       </Animated.View>
-      <GestureDetector gesture={Gesture.Exclusive(pan, tapClose)}>
+      <GestureDetector gesture={pan}>
         <Animated.View style={[styles.stage, { backgroundColor: colors.ink }, contentStyle]}>
           <PagerView
             ref={pagerRef}
@@ -156,14 +181,15 @@ export default function TabsLayout() {
             onPageSelected={onPageSelected}
             overScrollMode="never"
             pageMargin={0}
-            scrollEnabled={!toolsOpen}
+            scrollEnabled={!toolsOpen && !onToday}
             offscreenPageLimit={1}
+            pointerEvents={toolsOpen ? "none" : "auto"}
           >
             {tabs.map(({ key, screen }) => (
-              <View key={key} style={[styles.page, { backgroundColor: colors.ink }]}>{screen}</View>
+              <View key={key} style={[styles.page, { backgroundColor: colors.ink }]} collapsable={false}>{screen}</View>
             ))}
           </PagerView>
-          <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]}>
+          <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]} pointerEvents={toolsOpen ? "none" : "auto"}>
             <View style={[styles.bar, { backgroundColor: colors.ink }]}>
               {ROUTES.map((_, index) => {
                 const active = activeTab === index;
@@ -221,7 +247,7 @@ const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: "#000000" },
   dim: { ...StyleSheet.absoluteFillObject, backgroundColor: "#000", zIndex: 4 },
   cardHit: { ...StyleSheet.absoluteFillObject, zIndex: 5 },
-  barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 4, backgroundColor: "#000000" },
+  barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 4, backgroundColor: "#000000", zIndex: 3 },
   bar: { minHeight: 60, borderRadius: 0, borderWidth: 0, backgroundColor: "#000000", flexDirection: "row", alignItems: "center", paddingHorizontal: 10 },
   tab: { flex: 1, minHeight: 52, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 2 },
   tabPressed: { opacity: 0.76 },
