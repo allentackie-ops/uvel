@@ -209,9 +209,9 @@ export default function You() {
         <View style={{ flex: 1 }}>
           <Text style={styles.walletK}>WALLET</Text>
           <Text style={styles.walletV}>{moneyExact(wallet.availableCents, wallet.currency)}</Text>
-          <Text style={styles.walletP}>
-            {wallet.pendingCents ? `${moneyExact(wallet.pendingCents, wallet.currency)} pending  ·  available after delivery` : "Held until the order is completed, then yours to spend or withdraw."}
-          </Text>
+          {wallet.pendingCents ? (
+            <Text style={styles.walletP}>{moneyExact(wallet.pendingCents, wallet.currency)} pending</Text>
+          ) : null}
         </View>
         <Text style={styles.dnaChevron}>›</Text>
       </Pressable>
