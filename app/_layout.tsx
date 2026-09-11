@@ -15,11 +15,18 @@ import { useColors, useResolvedAppearance } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
 import { pullLooks } from "../lib/trends";
 import { useWardrobe } from "../lib/wardrobe";
+import { watchMyOrders } from "../lib/orders";
 import { consumeListingDraftNotice } from "../lib/listingDraft";
 import Onboard from "./onboard";
 import ProfileSetup from "./setup";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
+function OrderSync() {
+  const { uid } = useUvel();
+  useEffect(() => watchMyOrders(uid), [uid]);
+  return null;
+}
 
 function LikesSync() {
   const app = useUvel();
@@ -124,6 +131,7 @@ function AppStack() {
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
         <PushSync />
         <AlertSync />
+        <OrderSync />
         <LikesSync />
         <ShakeToReport />
         <StatusBar style={appearance === "dark" ? "light" : "dark"} />
@@ -316,7 +324,7 @@ function AppStack() {
             }}
           />
           <Stack.Screen
-            name="cart"
+            name="checkout/[id]"
             options={{
               headerShown: false,
               animation: "slide_from_right",
@@ -324,7 +332,15 @@ function AppStack() {
             }}
           />
           <Stack.Screen
-            name="checkout/[id]"
+            name="wallet"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
+            name="cart"
             options={{
               headerShown: false,
               animation: "slide_from_right",
