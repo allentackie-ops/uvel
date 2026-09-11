@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { useEffect, useRef } from "react";
@@ -20,6 +21,8 @@ import { useColors } from "../lib/theme";
 const FAB = 58;
 const TRASH = 68;
 const HIT = 56;
+const PAD = 12;
+const POS_KEY = "uvel-today-cart-fab-pos";
 
 export function TodayCartFab({
   listingOpen,
@@ -36,24 +39,65 @@ export function TodayCartFab({
   const bump = useSharedValue(1);
   const armed = useSharedValue(0);
   const hovering = useSharedValue(0);
-  const tx = useSharedValue(0);
-  const ty = useSharedValue(0);
   const dropping = useRef(false);
   const droppingSV = useSharedValue(0);
+  const placed = useRef(false);
   const tabBar = 64 + Math.max(insets.bottom, 8);
-  const fabBottom = tabBar + (listingOpen ? 68 : 14);
   const trashBottom = tabBar + 18;
+  const minX = PAD;
+  const maxX = Math.max(PAD, width - PAD - FAB);
+  const minY = insets.top + 8;
+  const maxY = Math.max(minY, height - tabBar - PAD - FAB);
+  const defaultX = width - 16 - FAB;
+  const defaultY = height - (tabBar + (listingOpen ? 68 : 14)) - FAB;
+  const posX = useSharedValue(defaultX);
+  const posY = useSharedValue(defaultY);
+  const startX = useSharedValue(defaultX);
+  const startY = useSharedValue(defaultY);
+  const minXSV = useSharedValue(minX);
+  const maxXSV = useSharedValue(maxX);
+  const minYSV = useSharedValue(minY);
+  const maxYSV = useSharedValue(maxY);
   const winW = useSharedValue(width);
   const winH = useSharedValue(height);
-  const fabBottomSV = useSharedValue(fabBottom);
   const tabBarSV = useSharedValue(tabBar);
 
   useEffect(() => {
+    minXSV.value = minX;
+    maxXSV.value = maxX;
+    minYSV.value = minY;
+    maxYSV.value = maxY;
     winW.value = width;
     winH.value = height;
-    fabBottomSV.value = fabBottom;
     tabBarSV.value = tabBar;
-  }, [fabBottom, fabBottomSV, height, tabBar, tabBarSV, width, winH, winW]);
+  }, [height, maxX, maxXSV, maxY, maxYSV, minX, minXSV, minY, minYSV, tabBar, tabBarSV, width, winH, winW]);
+
+  useEffect(() => {
+    let live = true;
+    void AsyncStorage.getItem(POS_KEY)
+      .then((raw) => {
+        if (!live) return;
+        const saved = raw ? (JSON.parse(raw) as { x?: number; y?: number }) : null;
+        if (typeof saved?.x === "number" && typeof saved?.y === "number") {
+          posX.value = clamp(saved.x, minX, maxX);
+          posY.value = clamp(saved.y, minY, maxY);
+          placed.current = true;
+        } else {
+          posX.value = defaultX;
+          posY.value = Math.min(defaultY, maxY);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [defaultX, defaultY, maxX, maxY, minX, minY, posX, posY]);
+
+  useEffect(() => {
+    if (placed.current || dropping.current) return;
+    posX.value = defaultX;
+    posY.value = Math.min(defaultY, maxY);
+  }, [defaultX, defaultY, maxY, posX, posY]);
 
   useEffect(() => {
     if (dropping.current) return;
@@ -64,12 +108,10 @@ export function TodayCartFab({
         withSpring(1, { damping: 14, stiffness: 240 }),
       );
     } else {
-      tx.value = 0;
-      ty.value = 0;
       armed.value = 0;
       hovering.value = 0;
     }
-  }, [armed, bump, cart.count, hovering, scale, tx, ty]);
+  }, [armed, bump, cart.count, hovering, scale]);
 
   function openCart() {
     if (!cart.count || dropping.current) return;
@@ -85,14 +127,17 @@ export function TodayCartFab({
     if (on) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy).catch(() => undefined);
   }
 
+  function persistPos(x: number, y: number) {
+    placed.current = true;
+    void AsyncStorage.setItem(POS_KEY, JSON.stringify({ x, y })).catch(() => undefined);
+  }
+
   function finishDrop() {
     dropping.current = true;
     droppingSV.value = 1;
     setTimeout(() => {
       clearCart();
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
-      tx.value = 0;
-      ty.value = 0;
       bump.value = 1;
       armed.value = 0;
       hovering.value = 0;
@@ -101,31 +146,43 @@ export function TodayCartFab({
     }, 220);
   }
 
-  function resetDrag() {
-    if (dropping.current) return;
-    tx.value = withSpring(0, { damping: 18, stiffness: 280 });
-    ty.value = withSpring(0, { damping: 18, stiffness: 280 });
-    armed.value = withTiming(0, { duration: 180 });
-    hovering.value = 0;
-  }
-
-  const tap = Gesture.Tap().onEnd(() => {
+  const tap = Gesture.Tap().maxDistance(8).onEnd(() => {
     runOnJS(openCart)();
   });
 
-  const drag = Gesture.Pan()
+  const move = Gesture.Pan()
+    .minDistance(6)
+    .onStart(() => {
+      startX.value = posX.value;
+      startY.value = posY.value;
+    })
+    .onUpdate((event) => {
+      posX.value = startX.value + event.translationX;
+      posY.value = startY.value + event.translationY;
+    })
+    .onEnd(() => {
+      const x = Math.min(maxXSV.value, Math.max(minXSV.value, posX.value));
+      const y = Math.min(maxYSV.value, Math.max(minYSV.value, posY.value));
+      posX.value = withSpring(x, { damping: 18, stiffness: 280 });
+      posY.value = withSpring(y, { damping: 18, stiffness: 280 });
+      runOnJS(persistPos)(x, y);
+    });
+
+  const dragDelete = Gesture.Pan()
     .activateAfterLongPress(380)
     .onStart(() => {
       if (droppingSV.value) return;
+      startX.value = posX.value;
+      startY.value = posY.value;
       armed.value = withSpring(1, { damping: 16, stiffness: 260 });
       runOnJS(armHaptic)();
     })
     .onUpdate((event) => {
       if (droppingSV.value) return;
-      tx.value = event.translationX;
-      ty.value = event.translationY;
-      const fabX = winW.value - 16 - FAB / 2 + tx.value;
-      const fabY = winH.value - fabBottomSV.value - FAB / 2 + ty.value;
+      posX.value = startX.value + event.translationX;
+      posY.value = startY.value + event.translationY;
+      const fabX = posX.value + FAB / 2;
+      const fabY = posY.value + FAB / 2;
       const trashX = winW.value / 2;
       const trashY = winH.value - tabBarSV.value - 18 - TRASH / 2;
       const next = Math.hypot(fabX - trashX, fabY - trashY) < HIT ? 1 : 0;
@@ -138,12 +195,10 @@ export function TodayCartFab({
       if (droppingSV.value) return;
       if (hovering.value) {
         droppingSV.value = 1;
-        const fabX = winW.value - 16 - FAB / 2 + tx.value;
-        const fabY = winH.value - fabBottomSV.value - FAB / 2 + ty.value;
-        const trashX = winW.value / 2;
-        const trashY = winH.value - tabBarSV.value - 18 - TRASH / 2;
-        tx.value = withTiming(tx.value + (trashX - fabX), { duration: 160 });
-        ty.value = withTiming(ty.value + (trashY - fabY), { duration: 160 });
+        const trashX = winW.value / 2 - FAB / 2;
+        const trashY = winH.value - tabBarSV.value - 18 - TRASH / 2 - FAB / 2;
+        posX.value = withTiming(trashX, { duration: 160 });
+        posY.value = withTiming(trashY, { duration: 160 });
         scale.value = withTiming(0, { duration: 180 });
         bump.value = 1;
         hovering.value = 1;
@@ -151,15 +206,21 @@ export function TodayCartFab({
         runOnJS(finishDrop)();
         return;
       }
-      runOnJS(resetDrag)();
+      const x = Math.min(maxXSV.value, Math.max(minXSV.value, posX.value));
+      const y = Math.min(maxYSV.value, Math.max(minYSV.value, posY.value));
+      posX.value = withSpring(x, { damping: 18, stiffness: 280 });
+      posY.value = withSpring(y, { damping: 18, stiffness: 280 });
+      armed.value = withTiming(0, { duration: 180 });
+      hovering.value = 0;
+      runOnJS(persistPos)(x, y);
     });
 
-  const gesture = Gesture.Exclusive(drag, tap);
+  const gesture = Gesture.Race(dragDelete, move, tap);
 
   const fabStyle = useAnimatedStyle(() => ({
+    left: posX.value,
+    top: posY.value,
     transform: [
-      { translateX: tx.value },
-      { translateY: ty.value },
       { scale: scale.value * bump.value * (1 + armed.value * 0.08) * (hovering.value ? 0.86 : 1) },
     ],
     opacity: scale.value,
@@ -187,10 +248,10 @@ export function TodayCartFab({
       <GestureDetector gesture={gesture}>
         <Animated.View
           pointerEvents={cart.count ? "auto" : "none"}
-          style={[styles.wrap, { bottom: fabBottom, backgroundColor: colors.bone }, fabStyle]}
+          style={[styles.wrap, { backgroundColor: colors.bone }, fabStyle]}
           accessibilityRole="button"
           accessibilityLabel={cart.count ? `Cart, ${cart.count} ${cart.count === 1 ? "item" : "items"}` : "Cart"}
-          accessibilityHint="Double tap to open your bag. Touch and hold, then drag to the trash to empty it."
+          accessibilityHint="Double tap to open your bag. Drag to move it. Touch and hold, then drag to the trash to empty it."
         >
           <View style={styles.hit}>
             <Ionicons name="cart" size={26} color={colors.ink} />
@@ -206,10 +267,13 @@ export function TodayCartFab({
   );
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
 const styles = StyleSheet.create({
   wrap: {
     position: "absolute",
-    right: 16,
     width: FAB,
     height: FAB,
     borderRadius: FAB / 2,
