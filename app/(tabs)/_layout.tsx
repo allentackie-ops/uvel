@@ -20,7 +20,8 @@ const ICONS = ["compass-outline", "body-outline", "add-outline", "person-outline
 const ACTIVE_ICONS = ["compass", "body", "add", "person"] as const;
 const SCREEN_W = Dimensions.get("window").width;
 const DRAWER_W = Math.min(SCREEN_W * 0.78, 340);
-const SPRING = { damping: 26, stiffness: 280, mass: 0.82 };
+const TRAVEL = SCREEN_W * 0.38;
+const SPRING = { damping: 30, stiffness: 240, mass: 0.8 };
 
 type TabScreen = { key: string; screen: React.ReactNode };
 
@@ -36,7 +37,6 @@ export default function TabsLayout() {
   const [toolsOpen, setToolsOpen] = useState(false);
   const progress = useSharedValue(0);
   const startProgress = useSharedValue(0);
-  const startX = useSharedValue(0);
 
   const tabs = useMemo<TabScreen[]>(
     () => [
@@ -90,24 +90,28 @@ export default function TabsLayout() {
   }
 
   const pan = Gesture.Pan()
-    .onBegin((event) => {
+    .enabled(pageIndex === 0 || toolsOpen)
+    .activeOffsetX(8)
+    .failOffsetX(-14)
+    .failOffsetY([-22, 22])
+    .onBegin(() => {
       startProgress.value = progress.value;
-      startX.value = event.x;
     })
     .onUpdate((event) => {
-      const opened = startProgress.value > 0.04;
-      const fromEdge = startX.value <= 28;
-      if (!opened && !fromEdge) return;
-      const next = startProgress.value + event.translationX / DRAWER_W;
+      const next = startProgress.value + event.translationX / TRAVEL;
       progress.value = Math.max(0, Math.min(1, next));
     })
     .onEnd((event) => {
-      const opened = startProgress.value > 0.04;
-      const fromEdge = startX.value <= 28;
-      if (!opened && !fromEdge) return;
-      const shouldOpen = event.velocityX > 700 ? true : event.velocityX < -700 ? false : progress.value > 0.45;
+      const shouldOpen = event.velocityX > 350 ? true : event.velocityX < -350 ? false : progress.value > 0.2;
       progress.value = withSpring(shouldOpen ? 1 : 0, SPRING);
       runOnJS(finishGesture)(shouldOpen);
+    });
+
+  const tapClose = Gesture.Tap()
+    .enabled(toolsOpen)
+    .maxDistance(14)
+    .onEnd(() => {
+      runOnJS(closeTools)();
     });
 
   const contentStyle = useAnimatedStyle(() => {
@@ -143,10 +147,8 @@ export default function TabsLayout() {
           }}
         />
       </Animated.View>
-      <GestureDetector gesture={toolsOpen ? pan : Gesture.Pan().enabled(false)}>
-        <Animated.View
-          style={[styles.stage, { backgroundColor: colors.ink }, contentStyle]}
-        >
+      <GestureDetector gesture={Gesture.Exclusive(pan, tapClose)}>
+        <Animated.View style={[styles.stage, { backgroundColor: colors.ink }, contentStyle]}>
           <PagerView
             ref={pagerRef}
             style={styles.pager}
@@ -192,14 +194,10 @@ export default function TabsLayout() {
           {toolsOpen ? (
             <Pressable
               onPress={closeTools}
-              style={styles.peekHit}
+              style={styles.cardHit}
               accessibilityRole="button"
-              accessibilityLabel="Close menu"
+              accessibilityLabel="Back to Today"
             />
-          ) : pageIndex === 0 ? (
-            <GestureDetector gesture={pan}>
-              <View style={styles.edgeHit} />
-            </GestureDetector>
           ) : null}
         </Animated.View>
       </GestureDetector>
@@ -222,8 +220,7 @@ const styles = StyleSheet.create({
   pager: { flex: 1 },
   page: { flex: 1, backgroundColor: "#000000" },
   dim: { ...StyleSheet.absoluteFillObject, backgroundColor: "#000", zIndex: 4 },
-  peekHit: { position: "absolute", top: 0, bottom: 0, right: 0, width: SCREEN_W - DRAWER_W + 24, zIndex: 5 },
-  edgeHit: { position: "absolute", top: 108, bottom: 88, left: 0, width: 22, zIndex: 8 },
+  cardHit: { ...StyleSheet.absoluteFillObject, zIndex: 5 },
   barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 4, backgroundColor: "#000000" },
   bar: { minHeight: 60, borderRadius: 0, borderWidth: 0, backgroundColor: "#000000", flexDirection: "row", alignItems: "center", paddingHorizontal: 10 },
   tab: { flex: 1, minHeight: 52, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 2 },
