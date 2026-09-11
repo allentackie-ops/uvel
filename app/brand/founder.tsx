@@ -269,7 +269,6 @@ export function FounderStrategy({ project, colors }: { project: FounderProject; 
   const styles = make(colors);
   const [brief, setBrief] = useState(project.brief);
   const [identity, setIdentity] = useState(project.identity);
-  const [more, setMore] = useState(false);
   useEffect(() => { setBrief(project.brief); setIdentity(project.identity); }, [project.id]);
   const persist = (nextBrief: typeof brief, nextIdentity: typeof identity) => {
     updateFounderProject(project.id, { brief: nextBrief, identity: nextIdentity, name: nextIdentity.workingName.trim() || project.name, stage: "idea" });
@@ -284,13 +283,6 @@ export function FounderStrategy({ project, colors }: { project: FounderProject; 
   return <View style={styles.strategyCard}>
     <TextInput value={identity.workingName} onChangeText={(workingName) => setIdentity((current) => { const next = { ...current, workingName }; persist(brief, next); return next; })} placeholder="Name" placeholderTextColor={colors.muted} style={[styles.input, { marginTop: 0 }]} />
     <TextInput value={brief.audience} onChangeText={(value) => setBriefField("audience", value)} placeholder="Who it’s for" placeholderTextColor={colors.muted} style={styles.input} />
-    <Pressable onPress={() => setMore((value) => !value)} style={styles.secondary}><Text style={styles.secondaryText}>{more ? "Hide extra identity" : "More · palette, tone, story"}</Text></Pressable>
-    {more ? <>
-      <TextInput value={brief.promise} onChangeText={(value) => setBriefField("promise", value)} placeholder="What should people feel?" placeholderTextColor={colors.muted} style={styles.input} />
-      <TextInput value={brief.story} onChangeText={(value) => setBriefField("story", value)} placeholder="Story · optional" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.longInput]} />
-      <TextInput value={identity.tone} onChangeText={(tone) => setIdentity((current) => { const next = { ...current, tone }; persist(brief, next); return next; })} placeholder="Tone · quiet, direct, playful…" placeholderTextColor={colors.muted} style={styles.input} />
-      <TextInput value={identity.logoDirection} onChangeText={(logoDirection) => setIdentity((current) => { const next = { ...current, logoDirection }; persist(brief, next); return next; })} placeholder="Logo direction · optional" placeholderTextColor={colors.muted} style={styles.input} />
-    </> : null}
   </View>;
 }
 
