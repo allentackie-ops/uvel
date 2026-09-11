@@ -9,6 +9,7 @@ import { VerifiedMark } from "../../components/VerifiedMark";
 import { GARMENTS, getGarment, usd } from "../../lib/catalog";
 import { getMarket, moneyExact } from "../../lib/markets";
 import { useWallet } from "../../lib/wallet";
+import { useFirstFind } from "../../lib/firstFind";
 import {
   acceptInvite,
   declineInvite,
@@ -61,6 +62,7 @@ export default function You() {
   const orders = useOrders();
   const market = getMarket(app.country);
   const wallet = useWallet(market.currency);
+  const firstFind = useFirstFind();
   useEffect(() => watchMyOrders(app.uid), [app.uid]);
   useBrands();
   useInvites();
@@ -216,6 +218,23 @@ export default function You() {
         </View>
         <Text style={styles.dnaChevron}>›</Text>
       </Pressable>
+      {firstFind.ready && firstFind.remaining > 0 ? (
+        <Pressable onPress={() => router.push("/")} style={styles.walletCard} accessibilityRole="button" accessibilityLabel="Use First Find on Today">
+          <View style={{ flex: 1 }}>
+            <Text style={styles.walletK}>FIRST FIND</Text>
+            <Text style={styles.walletV}>{moneyExact(firstFind.remaining, firstFind.currency)}</Text>
+          </View>
+          <Text style={styles.dnaChevron}>›</Text>
+        </Pressable>
+      ) : !firstFind.ready ? (
+        <Pressable onPress={() => router.push("/style-dna")} style={styles.walletCard} accessibilityRole="button" accessibilityLabel="Set Style DNA to unlock First Find">
+          <View style={{ flex: 1 }}>
+            <Text style={styles.walletK}>FIRST FIND</Text>
+            <Text style={styles.dnaTitle}>Set Style DNA to unlock</Text>
+          </View>
+          <Text style={styles.dnaChevron}>›</Text>
+        </Pressable>
+      ) : null}
       <View style={styles.tabs}>
         {(["shop", "sold", "purchases", "likes"] as const).map((id) => {
           const on = hub === id;
@@ -257,6 +276,13 @@ export default function You() {
         <View style={{ flex: 1 }}>
           <Text style={styles.dnaTitle}>Style DNA</Text>
           <Text style={styles.dnaSum} numberOfLines={1}>{dnaReady ? [app.archetype, app.palette, app.silhouette].filter(Boolean).join("  ·  ") : "Set how your picks look on the Today page"}</Text>
+        </View>
+        <Text style={styles.dnaChevron}>›</Text>
+      </Pressable>
+      <Pressable onPress={() => router.push("/invite")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Invite friends">
+        <View style={{ flex: 1 }}>
+          <Text style={styles.dnaTitle}>Invite friends</Text>
+          <Text style={styles.dnaSum} numberOfLines={1}>They get a first find</Text>
         </View>
         <Text style={styles.dnaChevron}>›</Text>
       </Pressable>
