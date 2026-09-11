@@ -89,14 +89,20 @@ export async function pickListingPhoto() {
 }
 
 async function persistListingClip(uri: string, duration?: number | null) {
-  if (typeof duration === "number" && duration > 15.5) {
-    throw new Error("Keep the clip to 15 seconds.");
+  const seconds = clipLengthSeconds(duration);
+  if (seconds > 15.5) {
+    throw new Error("Clips can be up to 15 seconds.");
   }
   const root = `${FileSystem.documentDirectory || FileSystem.cacheDirectory || ""}listing-clips/`;
   await FileSystem.makeDirectoryAsync(root, { intermediates: true }).catch(() => undefined);
   const destination = `${root}${Date.now()}-${Math.random().toString(36).slice(2, 8)}.mp4`;
   await FileSystem.copyAsync({ from: uri, to: destination });
   return destination;
+}
+
+function clipLengthSeconds(duration?: number | null) {
+  if (typeof duration !== "number" || duration <= 0) return 0;
+  return duration > 120 ? duration / 1000 : duration;
 }
 
 export async function takeListingClip() {
