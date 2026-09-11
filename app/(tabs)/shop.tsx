@@ -20,7 +20,6 @@ import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
 import { dnaFrom } from "../../lib/styleDna";
 import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
-import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
 import { useColors, type Colors } from "../../lib/theme";
@@ -29,6 +28,8 @@ import { useLiveShopCampaigns } from "../../lib/marketing";
 import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
 import { unreadFor, useInbox } from "../../lib/chat";
 import { usePersonalization } from "../../lib/personalization";
+import { useFirstFind } from "../../lib/firstFind";
+import { getMarket, moneyExact } from "../../lib/markets";
 
 const MIN_REFRESH_MS = 1200;
 const ORBIT_SLOT = 96;
@@ -119,6 +120,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const followedIds = useMemo(() => followedBrandIds(app.uid), [brandState, app.uid]);
   const followedKey = followedIds.join("|");
   const personalization = usePersonalization(app.uid || "guest");
+  const firstFind = useFirstFind();
   const dna = useMemo(
     () => dnaFrom(app),
     [app.archetype, app.palette, app.silhouette, app.styles, app.gender],
@@ -340,6 +342,23 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         </AccessiblePressable>
       ) : null}
 
+      {todayHome && firstFind.remaining > 0 ? (
+        <View style={styles.findBanner} accessibilityLabel={`First Find ${moneyExact(firstFind.remaining, firstFind.currency)} on a matching piece`}>
+          <Text style={styles.findK}>FIRST FIND</Text>
+          <Text style={styles.findV}>{moneyExact(firstFind.remaining, firstFind.currency)} on a piece that matches you</Text>
+        </View>
+      ) : todayHome && !firstFind.ready ? (
+        <AccessiblePressable
+          onPress={() => router.push("/style-dna")}
+          style={styles.findBanner}
+          accessibilityRole="button"
+          accessibilityLabel="Set Style DNA to unlock First Find"
+        >
+          <Text style={styles.findK}>FIRST FIND</Text>
+          <Text style={styles.findV}>Set Style DNA to unlock</Text>
+        </AccessiblePressable>
+      ) : null}
+
       {videoUrl ? (
         <FrozenClip uri={videoUrl} time={freezeAt} style={styles.frame} />
       ) : frame ? (
@@ -489,7 +508,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           ? null
           : ranked.map((p) => (
               <View key={p.id} style={styles.cell}>
-                <ListingCard piece={p} framed onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />
+                <ListingCard piece={p} framed firstFind={todayHome && firstFind.matches(p)} onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />
               </View>
             ))}
       </View>
@@ -523,15 +542,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           onInteraction={personalization.record}
         />
       ) : null}
-      {todayHome ? (
-        <TodayCartFab
-          listingOpen={Boolean(openPiece)}
-          onBeforeOpen={() => {
-            setOpenPiece(null);
-            setOpenOrigin(null);
-          }}
-        />
-      ) : null}
+      {todayHome ? <TodayCartFab lifted={Boolean(openPiece)} /> : null}
     </View>
   );
 }
@@ -543,6 +554,9 @@ function make(colors: Colors) {
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
     titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     todayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 56, marginBottom: 4 },
+    findBanner: { marginTop: 10, backgroundColor: colors.surface, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14 },
+    findK: { color: `${colors.bone}6B`, letterSpacing: 1.4, fontSize: 10, fontWeight: "800" },
+    findV: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 5 },
     headerSide: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
     menuIcon: { width: 22, gap: 4 },
     menuLine: { height: 2, width: 22, borderRadius: 1, backgroundColor: colors.bone },
