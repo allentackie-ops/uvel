@@ -359,7 +359,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           <Text style={styles.findK}>FIRST FIND</Text>
           <Text style={styles.findV}>{moneyExact(firstFind.remaining, firstFind.currency)} on a piece that matches you</Text>
         </AccessiblePressable>
-      ) : todayHome && !firstFind.ready ? (
+      ) : todayHome && !firstFind.ready && !firstFind.blocked ? (
         <AccessiblePressable
           onPress={() => router.push("/style-dna")}
           style={styles.findBanner}
