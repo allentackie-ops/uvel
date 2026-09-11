@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import {  StyleSheet, Text, View } from "react-native";
 import { useRef } from "react";
 import { AccessiblePressable } from "./AccessiblePressable";
+import { MotionClip } from "./MotionClip";
 import { getBrand } from "../lib/brands";
 import { useFirstFind } from "../lib/firstFind";
 import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
@@ -73,6 +74,17 @@ export function ListingCard({
           contentFit="cover"
           accessible={false}
         />
+        {live.clipUri ? (
+          <MotionClip
+            uri={live.clipUri}
+            style={[styles.img, styles.clip, wide ? { width: wide, borderRadius: framed ? 0 : 18 } : null, framed && styles.framedImg]}
+          />
+        ) : null}
+        {live.clipUri ? (
+          <View style={styles.motionPill} pointerEvents="none">
+            <Text style={styles.motionTxt}>In motion</Text>
+          </View>
+        ) : null}
         {framed && fresh ? (
           <View style={styles.newBadge}>
             <Text style={styles.newBadgeTxt}>New</Text>
@@ -143,7 +155,10 @@ function make(colors: ReturnType<typeof useColors>) {
     focused: { borderWidth: 2, borderColor: colors.success },
     framed: { backgroundColor: colors.surface, borderRadius: 18, overflow: "hidden" },
     img: { width: "100%", aspectRatio: 3 / 4, borderRadius: 18, backgroundColor: colors.surface },
+    clip: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
     framedImg: { borderRadius: 0, backgroundColor: colors.surface },
+    motionPill: { position: "absolute", left: 10, bottom: 10, zIndex: 7, paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: "rgba(22,20,15,0.72)", alignItems: "center", justifyContent: "center" },
+    motionTxt: { color: colors.bone, fontSize: 10, fontWeight: "700", letterSpacing: 0.4 },
     newBadge: { position: "absolute", top: 10, left: 10, zIndex: 8 },
     newBadgeTxt: { color: colors.bone, fontSize: 13, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
     hearts: { position: "absolute", minWidth: 44, minHeight: 44, right: 10, bottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, zIndex: 8 },
