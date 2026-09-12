@@ -1,0 +1,28 @@
+name: EAS status
+on:
+  workflow_dispatch:
+    inputs:
+      build_id:
+        required: true
+        type: string
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: View Expo build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          BUILD_ID: ${{ github.event.inputs.build_id }}
+        run: |
+          set -euo pipefail
+          BODY=$(python3 - <<'PY'
+          import json, os
+          q = """query ($id: ID!) { builds { byId(buildId: $id) { id status platform appVersion appBuildVersion error { errorCode message } } } }"""
+          print(json.dumps({"query": q, "variables": {"id": os.environ["BUILD_ID"]}}))
+          PY
+          )
+          curl -sS https://api.expo.dev/graphql \
+            -H "Authorization: Bearer $EXPO_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-binary "$BODY"
+          echo
