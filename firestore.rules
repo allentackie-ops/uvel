@@ -35,12 +35,26 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if isSelf(uid);
       allow create: if isSelf(uid) && !request.resource.data.keys().hasAny(["username", "usernameNormalized"]);
-      allow update: if isSelf(uid) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(["username", "usernameNormalized"]);
+      allow update: if isSelf(uid) && (
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(["username", "usernameNormalized"])
+        || ownsUsername(request.resource.data.username)
+      );
       allow delete: if isSelf(uid);
     }
 
+    function ownsUsername(name) {
+      return name is string
+        && exists(/databases/$(database)/documents/usernames/$(name))
+        && get(/databases/$(database)/documents/usernames/$(name)).data.uid == request.auth.uid;
+    }
+
     match /usernames/{username} {
-      allow read, create, update, delete: if false;
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.username == username;
+      allow update: if signedIn() && resource.data.uid == request.auth.uid;
+      allow delete: if false;
     }
 
     match /friendRequests/{requestId} {

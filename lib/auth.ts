@@ -18,12 +18,12 @@ import {
   signOut as fbSignOut,
   updateProfile,
 } from "firebase/auth";
-import { deleteDoc, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firebaseAuth, firebaseDb, firebaseExtra, firebaseFunctions, firebaseReady } from "./firebase";
 import type { AuthVia } from "./sessionPath";
 import { remoteProfileComplete } from "./sessionPath";
-import { normalizeUsername } from "./username";
+import { isValidUsername, normalizeUsername } from "./username";
 
 export type Session = {
   uid: string;
@@ -155,9 +155,54 @@ export async function writeUserProfile(uid: string, data: Record<string, unknown
 export async function claimUsername(value: string) {
   needFirebase();
   const username = normalizeUsername(value);
-  const call = httpsCallable<{ username: string }, { username: string }>(firebaseFunctions(), "claimUsername");
-  const result = await call({ username });
-  return result.data.username;
+  if (!isValidUsername(username)) {
+    throw new Error("Use 3–20 lowercase letters, numbers, or underscores.");
+  }
+  const uid = firebaseAuth().currentUser?.uid;
+  if (!uid) throw new Error("Sign in before choosing a username.");
+  try {
+    const call = httpsCallable<{ username: string }, { username: string }>(firebaseFunctions(), "claimUsername");
+    const result = await call({ username });
+    return result.data.username;
+  } catch (err) {
+    if (!isMissingFunction(err)) throw usernameError(err);
+    return claimUsernameOnClient(username, uid);
+  }
+}
+
+function isMissingFunction(err: unknown) {
+  const code = typeof err === "object" && err && "code" in err ? String((err as { code: string }).code) : "";
+  const msg = err instanceof Error ? err.message : String(err);
+  return /not-found|404|functions\/not-found|unimplemented/i.test(`${code} ${msg}`);
+}
+
+function usernameError(err: unknown) {
+  const code = typeof err === "object" && err && "code" in err ? String((err as { code: string }).code) : "";
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/already-exists|already taken/i.test(`${code} ${msg}`)) return new Error("That username is already taken.");
+  if (/unauthenticated/i.test(`${code} ${msg}`)) return new Error("Sign in before choosing a username.");
+  if (/permission-denied/i.test(`${code} ${msg}`)) return new Error("Couldn’t save that username. Try again.");
+  if (msg && !/firebase|not-found|404/i.test(msg)) return new Error(msg);
+  return new Error("Couldn’t save that username. Try again.");
+}
+
+async function claimUsernameOnClient(username: string, uid: string) {
+  const db = firebaseDb();
+  const usernameRef = doc(db, "usernames", username);
+  const userRef = doc(db, "users", uid);
+  try {
+    await runTransaction(db, async (tx) => {
+      const existing = await tx.get(usernameRef);
+      if (existing.exists() && existing.data()?.uid !== uid) {
+        throw new Error("That username is already taken.");
+      }
+      tx.set(usernameRef, { uid, username, updatedAt: serverTimestamp() }, { merge: true });
+    });
+    await setDoc(userRef, { username, usernameNormalized: username, updatedAt: serverTimestamp() }, { merge: true });
+    return username;
+  } catch (err) {
+    throw usernameError(err);
+  }
 }
 
 function needFirebase() {
