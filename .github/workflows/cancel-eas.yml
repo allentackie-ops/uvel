@@ -1,0 +1,17 @@
+name: Cancel EAS build
+on:
+  workflow_dispatch:
+    inputs:
+      build_id:
+        description: EAS build ID to cancel
+        required: true
+        type: string
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npx eas-cli build:cancel "${{ github.event.inputs.build_id }}" --non-interactive
