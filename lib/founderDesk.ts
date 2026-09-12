@@ -5,7 +5,7 @@ import { applyFounderReviewResult, openFounderBrand, submitFounderReview } from 
 import { updateFounderProject, type FounderProject } from "./founder";
 import type { BrandReview } from "./brandVerify";
 import type { FounderFiling } from "./founderReview";
-import { armNotificationHandler } from "./push";
+import { armNotificationHandler, UVEL_SOUND } from "./push";
 
 const KEY = "uvel-founder-desk-v1";
 export const FOUNDER_REVIEW_WAIT_MS = 10 * 60 * 1000;
@@ -99,7 +99,7 @@ async function scheduleDecisionNotice(seconds: number, next: FounderDeskJob) {
             : next.phase === "rejected"
               ? next.headline || "See why, then send again."
               : "We’ll let you know when the review is done.",
-        sound: "default",
+        sound: UVEL_SOUND,
         data: { kind: "founder_desk", jobId: next.id, brandId: next.brandId, phase: next.phase },
       },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds: Math.max(1, Math.round(seconds)), repeats: false },
