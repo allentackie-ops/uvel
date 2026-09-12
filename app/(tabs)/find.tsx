@@ -210,7 +210,7 @@ export default function Mirror() {
               <View style={styles.cameraPlaceholder}>
                 <Ionicons name="camera-outline" size={34} color={colors.success} />
               </View>
-              <Text style={styles.needH}>Add your full-length photo</Text>
+              <Text style={styles.needH}>Add your full length photo</Text>
               <Text style={styles.needP}>Then see how a look works on you before you buy.</Text>
               <View style={styles.needRow}>
                 <Pressable onPress={() => void fromCamera()} style={styles.needBtn}>
@@ -410,7 +410,7 @@ function make(colors: Colors) {
     shareResultTxt: { color: colors.successInk, fontWeight: "800", fontSize: 13 },
     need: { flex: 1, alignItems: "center", justifyContent: "center", padding: 28, gap: 8 },
     cameraPlaceholder: { width: 84, height: 84, borderRadius: 24, borderWidth: 1, borderColor: `${colors.success}80`, backgroundColor: `${colors.success}12`, alignItems: "center", justifyContent: "center", marginBottom: 8 },
-    needH: { color: colors.bone, fontFamily: "Georgia", fontSize: 26 },
+    needH: { color: colors.bone, fontSize: 24, fontWeight: "800" },
     needP: { color: `${colors.bone}9E`, textAlign: "center", marginBottom: 8 },
     needRow: { flexDirection: "row", gap: 10, marginTop: 8 },
     needBtn: {
