@@ -62,4 +62,4 @@ jobs:
           # depend on Storage rules being deployed in the same run.
           npx firebase-tools deploy \
             --project uvel-32d32 \
-            --only ${{ github.event.inputs.only || 'firestore:rules,firestore:indexes,functions' }}
+            --only firestore:rules
