@@ -17,6 +17,8 @@ import { pullLooks } from "../lib/trends";
 import { useWardrobe } from "../lib/wardrobe";
 import { watchMyOrders } from "../lib/orders";
 import { consumeListingDraftNotice } from "../lib/listingDraft";
+import { armFounderDesk, founderDeskRoute, getFounderDeskJob, revealFounderDesk } from "../lib/founderDesk";
+import { FounderDeskNotice } from "../components/FounderDeskNotice";
 import Onboard from "./onboard";
 import ProfileSetup from "./setup";
 
@@ -72,6 +74,13 @@ function PushSync() {
       .then((N) => {
         const handle = (res: { notification: { request: { content: { data?: Record<string, unknown> } } } }) => {
           const data = res.notification.request.content.data || {};
+          if (data.kind === "founder_desk") {
+            void revealFounderDesk().then(() => {
+              const next = getFounderDeskJob();
+              if (next && next.phase !== "reviewing") router.push(founderDeskRoute(next));
+            });
+            return;
+          }
           if (data.kind === "friend_request" || data.kind === "friend_accepted") {
             router.push("/inbox");
             return;
@@ -420,6 +429,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="brand/decision"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="brand/list"
             options={{
               headerShown: false,
@@ -499,6 +516,7 @@ export default function Root() {
   useEffect(() => {
     if (!hydrated) return;
     void pullLooks();
+    void armFounderDesk();
   }, [hydrated]);
 
   return (
@@ -515,6 +533,7 @@ export default function Root() {
           )
         ) : null}
         {signedIn && gateReady && !intro ? <DraftResumeNotice /> : null}
+        {signedIn && gateReady && !intro ? <FounderDeskNotice /> : null}
         {intro || !gateReady ? <LaunchSplash ready={gateReady} onDone={dismiss} /> : null}
       </GestureHandlerRootView>
     </SafeAreaProvider>
