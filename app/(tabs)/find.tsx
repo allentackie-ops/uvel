@@ -483,7 +483,7 @@ function make(colors: Colors) {
       marginTop: 26,
       marginBottom: 14,
     },
-    h2: { color: colors.bone, fontFamily: "Georgia", fontSize: 26 },
+    h2: { color: colors.bone, fontSize: 22, fontWeight: "800" },
     seeAll: { color: colors.success, fontSize: 15, fontWeight: "700" },
     strip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
     uvelCard: {
