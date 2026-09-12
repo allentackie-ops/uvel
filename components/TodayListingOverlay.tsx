@@ -53,6 +53,7 @@ export function TodayListingOverlay({
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
   const heroH = Math.round(Math.min(Math.max(screenH * 0.62, 420), 620));
+  const chromeTop = insets.top + 54;
   const imgX = useSharedValue(origin.x);
   const imgY = useSharedValue(origin.y);
   const imgW = useSharedValue(origin.width);
@@ -94,7 +95,7 @@ export function TodayListingOverlay({
     imgH.value = origin.height;
     imgR.value = 18;
     imgX.value = withSpring(0, OPEN_SPRING);
-    imgY.value = withSpring(0, OPEN_SPRING);
+    imgY.value = withSpring(chromeTop, OPEN_SPRING);
     imgW.value = withSpring(screenW, OPEN_SPRING);
     imgH.value = withSpring(heroH, OPEN_SPRING);
     imgR.value = withSpring(0, OPEN_SPRING);
@@ -133,7 +134,7 @@ export function TodayListingOverlay({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
       if (closing.value || dismissing.value) return;
-      imgY.value = -event.contentOffset.y;
+      imgY.value = chromeTop - event.contentOffset.y;
     },
   });
 
@@ -157,7 +158,7 @@ export function TodayListingOverlay({
       imgW.value = w;
       imgH.value = h;
       imgX.value = (screenW - w) / 2 + event.translationX * 0.4;
-      imgY.value = event.translationY * 0.92;
+      imgY.value = chromeTop + event.translationY * 0.92;
       imgR.value = 20 * p;
       backdrop.value = 1 - p * 0.95;
       chrome.value = Math.max(0, 1 - p * 2.8);
@@ -185,7 +186,7 @@ export function TodayListingOverlay({
       dismissing.value = 0;
       dragY.value = 0;
       imgX.value = withSpring(0, SNAP);
-      imgY.value = withSpring(0, SNAP);
+      imgY.value = withSpring(chromeTop, SNAP);
       imgW.value = withSpring(screenW, SNAP);
       imgH.value = withSpring(heroH, SNAP);
       imgR.value = withSpring(0, SNAP);
@@ -298,7 +299,7 @@ export function TodayListingOverlay({
         <Animated.ScrollView
           ref={scrollRef}
           style={[styles.page, pageStyle]}
-          contentContainerStyle={[styles.pageContent, { paddingTop: heroH, paddingBottom: insets.bottom + 120 }]}
+          contentContainerStyle={[styles.pageContent, { paddingTop: chromeTop + heroH, paddingBottom: insets.bottom + 120 }]}
           showsVerticalScrollIndicator={false}
           bounces={false}
           overScrollMode="never"
