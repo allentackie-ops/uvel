@@ -8,10 +8,9 @@ import { workspaceStyles } from "./founder-workspace-styles";
 import { appendFounderReference, archiveFounderProject, applyReady, createFounderBoard, createFounderProject, getFounderProject, ideaReady, pieceReady, saveFounderProduct, simpleStageOf, updateFounderBoard, updateFounderProject, updateFounderProduction, updateFounderTask, useFounderProjects, type FounderBoard, type FounderCanvasTool, type FounderPoint, type FounderProduction, type FounderProject, type FounderSetup, type FounderStage, type FounderStroke, type FounderSupplier, type FounderSample, type FounderImportedWork } from "../../lib/founder";
 import { useColors, type Colors } from "../../lib/theme";
 import { founderCloudCapability, type FounderCloudCapability } from "../../lib/firebase";
-import { openFounderBrand, submitFounderReview, useBrands } from "../../lib/brands";
+import { useBrands } from "../../lib/brands";
 import { useUvel } from "../../lib/store";
-import { FOUNDER_REVIEW_STAGES } from "../../lib/founderReview";
-import { OrbitLoader } from "../../components/OrbitLoader";
+import { startFounderDesk } from "../../lib/founderDesk";
 
 const STAGES: FounderStage[] = ["idea", "identity", "design", "product", "source", "launch"];
 const STAGE_LABELS: Record<FounderStage, string> = { idea: "Idea", identity: "Identity", design: "Design", product: "Product", source: "Source", launch: "Launch" };
@@ -219,20 +218,9 @@ export function FounderLaunchReview({ project, colors }: { project: FounderProje
   const piece = project.product.name.trim();
   const ready = applyReady(project);
   const [more, setMore] = useState(false);
-  const [applying, setApplying] = useState(false);
-  const [stage, setStage] = useState(0);
-  const [rename, setRename] = useState(name);
-  const [block, setBlock] = useState<{ headline: string; reasons: string[] } | null>(
-    project.handoffStatus === "rejected" ? { headline: "This filing was rejected", reasons: [] } : null,
-  );
-  useEffect(() => {
-    if (!applying) return;
-    setStage(0);
-    const t = setInterval(() => setStage((n) => (n + 1) % FOUNDER_REVIEW_STAGES.length), 3800);
-    return () => clearInterval(t);
-  }, [applying]);
-  const openApplication = async (nextName = name) => {
-    if (!ready || applying) {
+  const [sending, setSending] = useState(false);
+  const openApplication = async () => {
+    if (!ready || sending) {
       if (!ready) Alert.alert("A name and a piece", [!ideaReady(project) ? "Name the label and who it’s for." : "", !pieceReady(project) ? "Add the first piece." : ""].filter(Boolean).join("\n"));
       return;
     }
@@ -240,81 +228,33 @@ export function FounderLaunchReview({ project, colors }: { project: FounderProje
       Alert.alert("Sign in", "Open a brand from the account that will own it.");
       return;
     }
-    const label = nextName.trim() || name;
-    setApplying(true);
-    setBlock(null);
+    setSending(true);
     try {
-      updateFounderProject(project.id, {
-        name: label,
-        identity: { ...project.identity, workingName: label },
-        handoffStatus: "in-review",
+      await startFounderDesk({
+        project,
+        uid: app.uid,
+        displayName: app.displayName || "Owner",
+        avatarUri: app.avatarUri || app.personUri,
+        country: app.country,
       });
-      const photo = project.boards[0]?.references[0] || project.boards[0]?.imports.find((item) => item.kind === "image")?.uri;
-      const brand = await openFounderBrand({
-        name: label,
-        audience: project.brief.audience,
-        story: project.identity.story || project.brief.story || project.brief.audience,
-        vertical: project.product.category || "Unisex",
-        country: project.country || app.country || "US",
-        ownerId: app.uid,
-        ownerName: app.displayName || "Owner",
-        ownerPhoto: app.avatarUri || app.personUri,
-        logoUri: photo,
-      });
-      const result = await submitFounderReview(brand.id, {
-        name: label,
-        handle: brand.handle,
-        piece,
-        category: project.product.category,
-        audience: project.brief.audience,
-        story: [project.brief.audience, project.identity.story, project.brief.story, project.product.productionQuestions].filter(Boolean).join("\n"),
-        photos: [photo, brand.logoUri, brand.bannerUri].filter(Boolean) as string[],
-        brandId: brand.id,
-      });
-      if (result.ok && result.decision === "uvel_reviewed") {
-        updateFounderProject(project.id, { handoffStatus: "submitted" });
-        router.replace({ pathname: "/brand/hq", params: { id: brand.id } });
-        return;
-      }
-      updateFounderProject(project.id, { handoffStatus: "rejected" });
-      setRename(label);
-      setBlock({ headline: result.headline || "This filing was rejected", reasons: result.reasons });
+      router.replace("/");
     } catch (error) {
-      Alert.alert("Couldn’t open the brand", error instanceof Error ? error.message : "Try again in a moment.");
-    } finally {
-      setApplying(false);
+      Alert.alert("Couldn’t send the brand", error instanceof Error ? error.message : "Try again in a moment.");
+      setSending(false);
     }
   };
   return <View style={styles.launchCard}>
-    {applying ? (
-      <View style={{ alignItems: "center", paddingVertical: 28 }}>
-        <OrbitLoader />
-        <Text style={[styles.cardTitle, { textAlign: "center", marginTop: 18 }]}>{FOUNDER_REVIEW_STAGES[stage]}</Text>
-        <Text style={[styles.cardBody, { textAlign: "center" }]}>Name, handle, pictures, replica language. USPTO for the name.</Text>
-      </View>
-    ) : null}
-    {!applying && block ? (
-      <View style={{ marginBottom: 12 }}>
-        <Text style={styles.cardTitle}>{block.headline}</Text>
-        {block.reasons.map((reason) => <Text key={reason} style={styles.cardBody}>{reason}</Text>)}
-        <TextInput value={rename} onChangeText={setRename} placeholder="New name" placeholderTextColor={colors.muted} style={styles.input} />
-        <Pressable onPress={() => void openApplication(rename)} style={styles.primary}><Text style={styles.primaryText}>Change name and send again</Text></Pressable>
-        <Pressable onPress={() => router.replace({ pathname: "/brand/founder/[stage]", params: { id: project.id, stage: "product" } })} style={styles.secondary}><Text style={styles.secondaryText}>Change the picture</Text></Pressable>
-      </View>
-    ) : null}
-    {!applying && !block ? <>
-      <View style={styles.launchChecks}>
-        <View style={styles.launchCheck}><View style={[styles.taskCheck, ideaReady(project) && styles.taskCheckDone]}><Text style={styles.taskCheckText}>{ideaReady(project) ? "✓" : ""}</Text></View><View style={{ flex: 1 }}><Text style={styles.taskTitle}>{name || "Name the label"}</Text><Text style={styles.taskBody}>{project.brief.audience.trim() || "Who it’s for"}</Text></View></View>
-        <View style={styles.launchCheck}><View style={[styles.taskCheck, pieceReady(project) && styles.taskCheckDone]}><Text style={styles.taskCheckText}>{pieceReady(project) ? "✓" : ""}</Text></View><View style={{ flex: 1 }}><Text style={styles.taskTitle}>{piece || "First piece"}</Text><Text style={styles.taskBody}>{project.product.category || "A name and a category"}</Text></View></View>
-      </View>
-      <Pressable onPress={() => void openApplication()} style={[styles.primary, !ready && styles.primaryMuted]}><Text style={[styles.primaryText, !ready && styles.primaryMutedText]}>{ready ? "Apply as a brand" : "Finish the name and the piece"}</Text></Pressable>
-      <Pressable onPress={() => setMore((value) => !value)} style={styles.secondary}><Text style={styles.secondaryText}>{more ? "Hide more" : "More · makers and setup"}</Text></Pressable>
-      {more ? <>
-        <FounderSetupHub project={project} colors={colors} />
-        <FounderProductionWorkspace project={project} colors={colors} />
-      </> : null}
-      <Text style={styles.handoffHint}>We’ll check the name on the USPTO, the pictures, and replica language.</Text>
+    <View style={styles.launchChecks}>
+      <View style={styles.launchCheck}><View style={[styles.taskCheck, ideaReady(project) && styles.taskCheckDone]}><Text style={styles.taskCheckText}>{ideaReady(project) ? "✓" : ""}</Text></View><View style={{ flex: 1 }}><Text style={styles.taskTitle}>{name || "Name the label"}</Text><Text style={styles.taskBody}>{project.brief.audience.trim() || "Who it’s for"}</Text></View></View>
+      <View style={styles.launchCheck}><View style={[styles.taskCheck, pieceReady(project) && styles.taskCheckDone]}><Text style={styles.taskCheckText}>{pieceReady(project) ? "✓" : ""}</Text></View><View style={{ flex: 1 }}><Text style={styles.taskTitle}>{piece || "First piece"}</Text><Text style={styles.taskBody}>{project.product.category || "A name and a category"}</Text></View></View>
+    </View>
+    <Pressable onPress={() => void openApplication()} style={[styles.primary, (!ready || sending) && styles.primaryMuted]}><Text style={[styles.primaryText, (!ready || sending) && styles.primaryMutedText]}>{sending ? "Sending…" : ready ? "Apply as a brand" : "Finish the name and the piece"}</Text></Pressable>
+    <Pressable onPress={() => setMore((value) => !value)} style={styles.secondary}><Text style={styles.secondaryText}>{more ? "Hide more" : "More · makers and setup"}</Text></Pressable>
+    {more ? <>
+      <FounderSetupHub project={project} colors={colors} />
+      <FounderProductionWorkspace project={project} colors={colors} />
     </> : null}
+    <Text style={styles.handoffHint}>We’ll take it from here. You’ll get a note when the review is done.</Text>
   </View>;
 }
 
