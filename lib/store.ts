@@ -76,6 +76,10 @@ async function load() {
   setActiveMarket(memory.country);
   if ((memory.onboardVersion ?? 0) < 4) memory.onboarded = false;
   if (memory.uid && memory.profileDone) memory.profileChecked = true;
+  if (memory.uid && !memory.profileDone) {
+    memory = { ...memory, uid: "", email: "", signedInWith: "", onboarded: false, profileChecked: false };
+    void import("./auth").then(({ signOut }) => signOut()).catch(() => undefined);
+  }
   hydrated = true;
   listeners.forEach((l) => l());
 }
@@ -155,6 +159,26 @@ async function applyAccount(
     createdAt: user.createdAt,
     lastSignInAt: user.lastSignInAt,
   });
+  if (opts.restored && !done) {
+    try {
+      const { signOut } = await import("./auth");
+      await signOut();
+    } catch {
+      /* still dump them at sign-in */
+    }
+    memory = {
+      ...memory,
+      uid: "",
+      email: "",
+      signedInWith: "",
+      onboarded: false,
+      profileDone: false,
+      profileChecked: true,
+    };
+    listeners.forEach((l) => l());
+    void AsyncStorage.setItem(KEY, JSON.stringify(memory));
+    return;
+  }
   memory = {
     ...memory,
     uid: user.uid,
