@@ -133,10 +133,7 @@ export default function Cart() {
 
       <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 160 }]} showsVerticalScrollIndicator={false}>
         {rows.length ? (
-          <>
-            <Text style={styles.kicker}>{rows.length === 1 ? "1 PIECE" : `${rows.length} PIECES`}</Text>
-            <Text style={styles.heading}>{rows.length === 1 ? "Ready when you are." : "Everything you picked."}</Text>
-            {priced.map(({ piece, local, credit, sale }) => {
+          priced.map(({ piece, local, credit, sale }) => {
               const brand = piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Unbranded";
               return (
                 <View key={piece.id} style={styles.card}>
@@ -161,8 +158,7 @@ export default function Cart() {
                   </View>
                 </View>
               );
-            })}
-          </>
+          })
         ) : (
           <View style={styles.emptyWrap}>
             <Text style={styles.heading}>Your bag is empty.</Text>
