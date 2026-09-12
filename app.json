@@ -104,7 +104,7 @@
         {
           "icon": "./assets/icon.png",
           "color": "#2A320E",
-          "sounds": []
+          "sounds": ["./assets/sounds/uvel.wav"]
         }
       ],
       "expo-tracking-transparency"
