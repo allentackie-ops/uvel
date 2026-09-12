@@ -280,7 +280,7 @@ export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status
     const other = await readUserLite(order.sellerId);
     const token = typeof other?.expoPushToken === "string" ? other.expoPushToken : "";
     if (token) {
-      void sendPush(token, "Sold on Uvel", `${order.pieceName} just sold.`, { pieceId: order.pieceId });
+      void sendPush(token, "You sold something", `${order.pieceName} just sold.`, { kind: "sold", pieceId: order.pieceId, orderId: full.id });
     }
   }
   return full;
