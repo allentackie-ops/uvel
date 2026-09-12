@@ -519,7 +519,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         {scanning
           ? null
           : ranked.map((p) => (
-              <View key={p.id} style={styles.cell}>
+              <View key={p.id} style={[styles.cell, openPiece?.id === p.id && { opacity: 0 }]}>
                 <ListingCard piece={p} framed firstFind={todayHome && firstFind.matches(p)} onFirstFind={todayHome ? () => setFindHint(true) : undefined} onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />
               </View>
             ))}
