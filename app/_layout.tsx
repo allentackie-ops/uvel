@@ -207,6 +207,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="guide"
+            options={{
+              headerTitle: "How to use Uvel",
+              headerTransparent: false,
+              headerShadowVisible: false,
+            }}
+          />
+          <Stack.Screen
             name="appearance"
             options={{
               headerTitle: C.appearance,
