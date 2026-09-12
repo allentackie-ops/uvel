@@ -283,8 +283,8 @@ export function TodayListingOverlay({
       onInteraction?.("save", piece);
       void app.toggleSaved(piece.id);
     }
-    heartPopX.value = withSequence(withTiming(x, { duration: 1 }), withTiming(screenW - 38, { duration: 520 }));
-    heartPopY.value = withSequence(withTiming(y, { duration: 1 }), withTiming(-38, { duration: 520 }));
+    heartPopX.value = withSequence(withTiming(x, { duration: 1 }), withTiming(screenW - 56, { duration: 560 }));
+    heartPopY.value = withSequence(withTiming(chromeTop + y, { duration: 1 }), withTiming(insets.top + 28, { duration: 560 }));
     heartPopScale.value = withSequence(withSpring(1.12, { damping: 10, stiffness: 260 }), withTiming(0.55, { duration: 520 }));
     heartPopOpacity.value = withSequence(withTiming(1, { duration: 1 }), withTiming(0, { duration: 520 }));
   }
@@ -483,7 +483,6 @@ export function TodayListingOverlay({
         </AnimatedScrollView>
         <Animated.View pointerEvents="none" style={[styles.photo, photoStyle]}>
           <Image source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
-          <Animated.Text pointerEvents="none" style={[styles.heartPop, heartPopStyle]}>♥</Animated.Text>
         </Animated.View>
         <Animated.View pointerEvents="box-none" style={[styles.topBar, { paddingTop: insets.top + 6 }, chromeStyle]}>
           <Pressable onPress={closeToPin} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel="Close listing">
@@ -517,6 +516,7 @@ export function TodayListingOverlay({
             </Pressable>
           </View>
         </Animated.View>
+        <Animated.Text pointerEvents="none" style={[styles.heartPop, heartPopStyle]}>♥</Animated.Text>
         <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
       </View>
     </GestureHandlerRootView>
@@ -553,7 +553,7 @@ function make(colors: Colors) {
     photo: { position: "absolute", overflow: "hidden", backgroundColor: colors.surface, zIndex: 4 },
     heroHit: { flex: 1 },
     hero: { width: "100%", height: "100%", backgroundColor: colors.surface },
-    heartPop: { position: "absolute", left: 0, top: 0, zIndex: 5, color: colors.success, fontSize: 68, lineHeight: 72, textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
+    heartPop: { position: "absolute", left: 0, top: 0, zIndex: 20, color: colors.success, fontSize: 68, lineHeight: 72, textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
     topBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 8, paddingHorizontal: 18, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     back: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone },
     topActions: { flexDirection: "row", alignItems: "center", gap: 8 },
