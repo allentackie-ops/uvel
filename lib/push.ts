@@ -15,13 +15,26 @@ export function armNotificationHandler() {
   void notifications()
     .then((N) => {
       N.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: false,
-          shouldShowBanner: true,
-          shouldShowList: true,
-        }),
+        handleNotification: async (notification) => {
+          const kind = String(notification.request.content.data?.kind || "");
+          if (kind === "founder_desk" && AppState.currentState === "active") {
+            void import("./founderDesk").then((mod) => mod.revealFounderDesk()).catch(() => undefined);
+            return {
+              shouldShowAlert: false,
+              shouldPlaySound: false,
+              shouldSetBadge: false,
+              shouldShowBanner: false,
+              shouldShowList: false,
+            };
+          }
+          return {
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+            shouldShowBanner: true,
+            shouldShowList: true,
+          };
+        },
       });
     })
     .catch(() => undefined);
