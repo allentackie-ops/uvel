@@ -4,7 +4,9 @@ import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Share as NativeShare, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
+  Extrapolation,
   interpolate,
   runOnJS,
   useAnimatedStyle,
@@ -28,7 +30,7 @@ import { FriendShareSheet, type FriendSharePayload } from "./FriendShareSheet";
 
 export type ListingOrigin = { x: number; y: number; width: number; height: number };
 
-const SPRING = { damping: 28, stiffness: 285, mass: 0.82 };
+const SPRING = { damping: 22, stiffness: 240, mass: 0.86, overshootClamping: false };
 
 export function TodayListingOverlay({
   piece,
@@ -46,14 +48,14 @@ export function TodayListingOverlay({
   const app = useUvel();
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const top = useSharedValue(origin.y);
-  const left = useSharedValue(origin.x);
-  const boxWidth = useSharedValue(origin.width);
-  const boxHeight = useSharedValue(origin.height);
-  const progress = useSharedValue(0);
+  const open = useSharedValue(0);
+  const originX = useSharedValue(origin.x);
+  const originY = useSharedValue(origin.y);
+  const originW = useSharedValue(origin.width);
+  const originH = useSharedValue(origin.height);
   const detailOpacity = useSharedValue(0);
   const chromeOpacity = useSharedValue(0);
-  const radius = useSharedValue(18);
+  const scrollY = useSharedValue(0);
   const [activePhoto, setActivePhoto] = useState(0);
   const [measurementsOpen, setMeasurementsOpen] = useState(false);
   const [shippingOpen, setShippingOpen] = useState(false);
@@ -64,55 +66,83 @@ export function TodayListingOverlay({
   const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openedAt = useRef(Date.now());
   const dwellRecorded = useRef(false);
+  const closingRef = useRef(false);
+  const closing = useSharedValue(0);
 
   useEffect(() => {
-    top.value = withSpring(0, SPRING);
-    left.value = withSpring(0, SPRING);
-    boxWidth.value = withSpring(screenWidth, SPRING);
-    boxHeight.value = withSpring(screenHeight, SPRING);
-    progress.value = withTiming(1, { duration: 360 });
-    detailOpacity.value = withTiming(1, { duration: 280 });
-    chromeOpacity.value = withTiming(1, { duration: 300 });
-    radius.value = withTiming(0, { duration: 300 });
-  }, [boxHeight, boxWidth, chromeOpacity, detailOpacity, left, progress, radius, screenHeight, screenWidth, top]);
+    originX.value = origin.x;
+    originY.value = origin.y;
+    originW.value = origin.width;
+    originH.value = origin.height;
+  }, [origin.height, origin.width, origin.x, origin.y, originH, originW, originX, originY]);
+
+  useEffect(() => {
+    open.value = withSpring(1, SPRING);
+    detailOpacity.value = withTiming(1, { duration: 240 });
+    chromeOpacity.value = withTiming(1, { duration: 260 });
+  }, [chromeOpacity, detailOpacity, open]);
+
+  const finishClose = () => {
+    onClose();
+  };
 
   const animateToOrigin = () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    closing.value = 1;
     if (!dwellRecorded.current) {
       const dwellSeconds = Math.round((Date.now() - openedAt.current) / 1000);
       if (dwellSeconds >= 10) onInteraction?.("dwell", piece, undefined, dwellSeconds);
       dwellRecorded.current = true;
     }
-    top.value = withTiming(origin.y, { duration: 260 });
-    left.value = withTiming(origin.x, { duration: 260 });
-    boxWidth.value = withTiming(origin.width, { duration: 260 });
-    boxHeight.value = withTiming(origin.height, { duration: 260 });
-    progress.value = withTiming(0, { duration: 230 });
-    detailOpacity.value = withTiming(0, { duration: 150 });
-    chromeOpacity.value = withTiming(0, { duration: 120 });
-    radius.value = withTiming(18, { duration: 220 }, (finished) => {
-      if (finished) runOnJS(onClose)();
+    detailOpacity.value = withTiming(0, { duration: 80 });
+    chromeOpacity.value = withTiming(0, { duration: 70 });
+    open.value = withSpring(0, SPRING, (finished) => {
+      if (finished) runOnJS(finishClose)();
     });
   };
 
-  const animateToScreen = () => {
-    top.value = withSpring(0, SPRING);
-    left.value = withSpring(0, SPRING);
-    boxWidth.value = withSpring(screenWidth, SPRING);
-    boxHeight.value = withSpring(screenHeight, SPRING);
-    progress.value = withTiming(1, { duration: 250 });
-    detailOpacity.value = withTiming(1, { duration: 220 });
-    chromeOpacity.value = withTiming(1, { duration: 230 });
-    radius.value = withTiming(0, { duration: 220 });
+  const snapOpen = () => {
+    if (closingRef.current) return;
+    open.value = withSpring(1, SPRING);
+    detailOpacity.value = withTiming(1, { duration: 180 });
+    chromeOpacity.value = withTiming(1, { duration: 180 });
   };
 
+  const pan = Gesture.Pan()
+    .activeOffsetY(12)
+    .failOffsetX([-28, 28])
+    .onUpdate((event) => {
+      if (closing.value) return;
+      if (scrollY.value > 6 && event.translationY > 0) return;
+      if (event.translationY <= 0) {
+        open.value = 1;
+        return;
+      }
+      const next = 1 - Math.min(event.translationY / 380, 1);
+      open.value = next;
+      const faded = next < 0.94 ? Math.max(0, (next - 0.62) / 0.32) : 1;
+      detailOpacity.value = faded;
+      chromeOpacity.value = faded;
+    })
+    .onEnd((event) => {
+      if (closing.value) return;
+      if (open.value < 0.8 || event.velocityY > 1050) {
+        runOnJS(animateToOrigin)();
+        return;
+      }
+      runOnJS(snapOpen)();
+    });
+  const dismissGesture = Gesture.Simultaneous(pan, Gesture.Native());
+
   const surfaceStyle = useAnimatedStyle(() => ({
-    top: top.value,
-    left: left.value,
-    width: boxWidth.value,
-    height: boxHeight.value,
-    borderRadius: radius.value,
+    top: interpolate(open.value, [0, 1], [originY.value, 0], Extrapolation.CLAMP),
+    left: interpolate(open.value, [0, 1], [originX.value, 0], Extrapolation.CLAMP),
+    width: interpolate(open.value, [0, 1], [originW.value, screenWidth], Extrapolation.CLAMP),
+    height: interpolate(open.value, [0, 1], [originH.value, screenHeight], Extrapolation.CLAMP),
+    borderRadius: interpolate(open.value, [0, 1], [18, 0], Extrapolation.CLAMP),
   }));
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: interpolate(progress.value, [0, 1], [0, 0.58]) }));
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: interpolate(open.value, [0, 1], [0, 0.58], Extrapolation.CLAMP) }));
   const detailStyle = useAnimatedStyle(() => ({ opacity: detailOpacity.value }));
   const chromeStyle = useAnimatedStyle(() => ({ opacity: chromeOpacity.value }));
 
@@ -197,6 +227,7 @@ export function TodayListingOverlay({
   return (
     <View style={styles.root} pointerEvents="box-none">
       <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents="none" />
+      <GestureDetector gesture={dismissGesture}>
       <Animated.View style={[styles.surface, surfaceStyle]}>
           <ScrollView
             style={styles.bodyScroll}
@@ -204,9 +235,11 @@ export function TodayListingOverlay({
             showsVerticalScrollIndicator={false}
             scrollEventThrottle={16}
             nestedScrollEnabled
+            bounces
+            alwaysBounceVertical
             decelerationRate="normal"
-            onScrollEndDrag={(event) => {
-              if (event.nativeEvent.contentOffset.y < -96) animateToOrigin();
+            onScroll={(event) => {
+              scrollY.value = event.nativeEvent.contentOffset.y;
             }}
           >
             <Animated.View style={[styles.topBar, { height: insets.top + 76, paddingTop: insets.top }, chromeStyle]}>
@@ -377,6 +410,7 @@ export function TodayListingOverlay({
             </Animated.View>
           </ScrollView>
       </Animated.View>
+      </GestureDetector>
       <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
     </View>
   );
