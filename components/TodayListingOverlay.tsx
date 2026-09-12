@@ -159,11 +159,15 @@ export function TodayListingOverlay({
       }
       const y = event.allTouches[0]?.absoluteY ?? touchStartY.value;
       const dy = y - touchStartY.value;
-      if (scrollY.value <= 1 && dy > 10) {
+      if (scrollY.value > 4) {
+        state.fail();
+        return;
+      }
+      if (dy > 8) {
         state.activate();
         return;
       }
-      if (scrollY.value > 1 || dy < -8) {
+      if (dy < -8) {
         state.fail();
       }
     })
@@ -198,7 +202,7 @@ export function TodayListingOverlay({
     })
     .onEnd((event) => {
       if (closing.value || !dismissing.value) return;
-      if (dragY.value > 70 || event.velocityY > 800) {
+      if (dragY.value > 48 || event.velocityY > 600) {
         closing.value = 1;
         runOnJS(recordDwell)();
         chrome.value = withTiming(0, { duration: 70 });
@@ -226,7 +230,6 @@ export function TodayListingOverlay({
       chrome.value = withTiming(1, { duration: 140 });
       sheet.value = withTiming(1, { duration: 160 });
     });
-  const dismiss = Gesture.Simultaneous(pan, Gesture.Native());
 
   const photoStyle = useAnimatedStyle(() => ({
     top: imgY.value,
@@ -331,7 +334,6 @@ export function TodayListingOverlay({
         }}
       >
         <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents="none" />
-        <GestureDetector gesture={dismiss}>
         <AnimatedScrollView
           ref={scrollRef}
           style={[styles.page, pageStyle]}
@@ -346,6 +348,7 @@ export function TodayListingOverlay({
           scrollEventThrottle={16}
           onScroll={scrollHandler}
         >
+          <GestureDetector gesture={pan}>
           <Animated.View style={[styles.heroSlot, { height: heroH }, inFlowStyle]}>
             <Pressable
               style={styles.heroHit}
@@ -361,6 +364,7 @@ export function TodayListingOverlay({
               ) : null}
             </Pressable>
           </Animated.View>
+          </GestureDetector>
           <View style={styles.detail}>
           <Text style={styles.kicker}>{(brand || "UVEL").toUpperCase()}</Text>
           <Text style={styles.title}>{piece.name}</Text>
@@ -477,7 +481,6 @@ export function TodayListingOverlay({
           </View>
           </View>
         </AnimatedScrollView>
-        </GestureDetector>
         <Animated.View pointerEvents="none" style={[styles.photo, photoStyle]}>
           <Image source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
           <Animated.Text pointerEvents="none" style={[styles.heartPop, heartPopStyle]}>♥</Animated.Text>
