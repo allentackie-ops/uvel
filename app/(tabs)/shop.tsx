@@ -4,7 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
@@ -112,6 +112,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const [scanning, setScanning] = useState(false);
   const [job, setJob] = useState<LookScan | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [feedEpoch, setFeedEpoch] = useState(0);
+  const frozenOrder = useRef<string[] | null>(null);
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
   const [findHint, setFindHint] = useState(false);
@@ -175,6 +177,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         new Promise<void>((resolve) => setTimeout(resolve, MIN_REFRESH_MS)),
       ]);
     } finally {
+      frozenOrder.current = null;
+      setFeedEpoch((n) => n + 1);
       setRefreshing(false);
     }
   }, []);
@@ -272,9 +276,17 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       return live.filter((p) => hit.has(p.id)).filter(passQ);
     }
 
-    const rows = look ? matchListings(look, live, taste, followedIds) : forYou(live, taste, country, followedIds);
-    return personalization.rank(rows.filter(passQ), country, dna);
-  }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey, dna, personalization.rank]);
+    const liveIds = new Set(live.map((p) => p.id));
+    if (frozenOrder.current && frozenOrder.current.every((id) => !liveIds.has(id)) && live.length) {
+      frozenOrder.current = null;
+    }
+    if (!frozenOrder.current && live.length) {
+      const rows = look ? matchListings(look, live, taste, followedIds) : forYou(live, taste, country, followedIds);
+      frozenOrder.current = personalization.rank(rows, country, dna).map((p) => p.id);
+    }
+    const byId = new Map(live.map((p) => [p.id, p]));
+    return (frozenOrder.current || []).map((id) => byId.get(id)).filter((p): p is ClosetPiece => Boolean(p)).filter(passQ);
+  }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey, dna, personalization.rank, feedEpoch]);
 
   if (!wardrobeReady && !scanningLook) return <ShopSkeleton colors={colors} />;
 
