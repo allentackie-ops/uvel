@@ -135,6 +135,8 @@ export default function ProfileSetup() {
     if (!look) return;
     await renderLook();
   }
+
+  async function renderLook() {
     if (!photo || !look) return;
     setErr("");
     setRendering(true);
@@ -171,6 +173,8 @@ export default function ProfileSetup() {
       /* current TestFlight may not have the native module yet */
     }
   }
+
+  async function finish() {
     if (asking) return;
     const normalized = normalizeUsername(username);
     if (!isValidUsername(normalized)) {
