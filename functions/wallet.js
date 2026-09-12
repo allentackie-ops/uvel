@@ -133,6 +133,12 @@ async function confirmOrderReceivedHandler(req) {
     fulfillmentUpdatedAt: now,
   }, { merge: true });
   await releaseSellerWallet(orderId, "buyer_confirmed");
+  try {
+    const { notifyUid } = require("./notify");
+    await notifyUid(db, order.sellerId, "The buyer confirmed", `${order.pieceName || "Your listing"} is paid out to your wallet.`, { kind: "wallet", orderId, pieceId: String(order.pieceId || "") });
+  } catch {
+    /* wallet release still stands */
+  }
   return { ok: true, orderId };
 }
 
