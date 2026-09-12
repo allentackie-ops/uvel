@@ -68,6 +68,7 @@ export default function Settings() {
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
       <Text style={styles.section}>{C.support}</Text>
       <View style={styles.group}>
+        <Row label="How to use Uvel" hint="A walkthrough and FAQ" onPress={() => router.push("/guide")} colors={colors} />
         <Row label={C.helpSupport} onPress={() => void Linking.openURL(HELP)} colors={colors} />
         <Row label="Report app issue" onPress={() => requestFeedback("compose")} colors={colors} />
         <Row label={C.privacyPolicy} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "privacy" } })} colors={colors} />
