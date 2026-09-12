@@ -1,5 +1,5 @@
 import { getCart } from "./cart";
-import { armNotificationHandler } from "./push";
+import { armNotificationHandler, UVEL_SOUND } from "./push";
 
 const TODAY_ID = "uvel-today-nudge";
 const BAG_ID = "uvel-bag-wait";
@@ -29,7 +29,7 @@ export async function syncEngagement(opts: { allowed: boolean; hasBag: boolean; 
       content: {
         title: "Today’s floor is up",
         body: "A few pieces landed that look like you.",
-        sound: "default",
+        sound: UVEL_SOUND,
         data: { kind: "today" },
       },
       trigger: { type: Daily, hour: 11, minute: 0 },
@@ -42,7 +42,7 @@ export async function syncEngagement(opts: { allowed: boolean; hasBag: boolean; 
         content: {
           title: "Your bag is still here",
           body: "The pieces you picked are waiting.",
-          sound: "default",
+          sound: UVEL_SOUND,
           data: { kind: "cart" },
         },
         trigger: { type: Interval, seconds: 60 * 60 * 3, repeats: false },
@@ -56,7 +56,7 @@ export async function syncEngagement(opts: { allowed: boolean; hasBag: boolean; 
         content: {
           title: "Your First Find is still on the table",
           body: "We’ll cover part of a piece that matches you.",
-          sound: "default",
+          sound: UVEL_SOUND,
           data: { kind: "first_find" },
         },
         trigger: { type: Daily, hour: 16, minute: 0 },
@@ -74,7 +74,7 @@ export async function pingEnabled() {
       content: {
         title: "You’re on",
         body: "We’ll ping you when someone writes, a piece sells, or Today has something for you.",
-        sound: "default",
+        sound: UVEL_SOUND,
         data: { kind: "system" },
       },
       trigger: null,
