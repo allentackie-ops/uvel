@@ -10,6 +10,7 @@ jobs:
   cancel:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
