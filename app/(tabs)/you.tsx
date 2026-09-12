@@ -209,34 +209,6 @@ export default function You() {
       ))}
 
 
-      <Text style={styles.sectionLabel}>YOUR ACTIVITY</Text>
-      <Pressable onPress={() => router.push("/wallet")} style={styles.walletCard} accessibilityRole="button" accessibilityLabel="Open wallet">
-        <View style={{ flex: 1 }}>
-          <Text style={styles.walletK}>WALLET</Text>
-          <Text style={styles.walletV}>{moneyExact(wallet.availableCents, wallet.currency)}</Text>
-          {wallet.pendingCents ? (
-            <Text style={styles.walletP}>{moneyExact(wallet.pendingCents, wallet.currency)} pending</Text>
-          ) : null}
-        </View>
-        <Text style={styles.dnaChevron}>›</Text>
-      </Pressable>
-      {firstFind.ready && firstFind.remaining > 0 ? (
-        <Pressable onPress={() => router.push("/")} style={styles.walletCard} accessibilityRole="button" accessibilityLabel="Use First Find on Today">
-          <View style={{ flex: 1 }}>
-            <Text style={styles.walletK}>FIRST FIND</Text>
-            <Text style={styles.walletV}>{moneyExact(firstFind.remaining, firstFind.currency)}</Text>
-          </View>
-          <Text style={styles.dnaChevron}>›</Text>
-        </Pressable>
-      ) : !firstFind.ready && !firstFind.blocked ? (
-        <Pressable onPress={() => router.push("/style-dna")} style={styles.walletCard} accessibilityRole="button" accessibilityLabel="Set Style DNA to unlock First Find">
-          <View style={{ flex: 1 }}>
-            <Text style={styles.walletK}>FIRST FIND</Text>
-            <Text style={styles.dnaTitle}>Set Style DNA to unlock</Text>
-          </View>
-          <Text style={styles.dnaChevron}>›</Text>
-        </Pressable>
-      ) : null}
       <View style={styles.tabs}>
         {(["shop", "sold", "purchases", "likes"] as const).map((id) => {
           const on = hub === id;
@@ -272,12 +244,27 @@ export default function You() {
         />
       )}
 
+      <View style={styles.moneyRow}>
+        <Pressable onPress={() => router.push("/wallet")} style={styles.moneyCell} accessibilityRole="button" accessibilityLabel="Open wallet">
+          <Text style={styles.walletK}>WALLET</Text>
+          <Text style={styles.moneyV}>{moneyExact(wallet.availableCents, wallet.currency)}</Text>
+          {wallet.pendingCents ? (
+            <Text style={styles.walletP}>{moneyExact(wallet.pendingCents, wallet.currency)} pending</Text>
+          ) : null}
+        </Pressable>
+        {firstFind.ready && firstFind.remaining > 0 ? (
+          <Pressable onPress={() => router.push("/")} style={styles.moneyCell} accessibilityRole="button" accessibilityLabel="Use First Find on Today">
+            <Text style={styles.walletK}>FIRST FIND</Text>
+            <Text style={styles.moneyV}>{moneyExact(firstFind.remaining, firstFind.currency)}</Text>
+          </Pressable>
+        ) : null}
+      </View>
 
       <Text style={[styles.sectionLabel, { marginTop: 30 }]}>TOOLS & PREFERENCES</Text>
       <Pressable onPress={() => router.push("/style-dna")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel={`Style DNA${dnaReady ? `: ${[app.archetype, app.palette, app.silhouette].filter(Boolean).join(", ")}` : ": not set"}`}>
         <View style={{ flex: 1 }}>
           <Text style={styles.dnaTitle}>Style DNA</Text>
-          <Text style={styles.dnaSum} numberOfLines={1}>{dnaReady ? [app.archetype, app.palette, app.silhouette].filter(Boolean).join("  ·  ") : "Set how your picks look on the Today page"}</Text>
+          <Text style={styles.dnaSum} numberOfLines={1}>{dnaReady ? [app.archetype, app.palette, app.silhouette].filter(Boolean).join("  ·  ") : "Unlocks First Find, and how Today looks"}</Text>
         </View>
         <Text style={styles.dnaChevron}>›</Text>
       </Pressable>
@@ -750,7 +737,10 @@ function make(colors: Colors) {
     walletCard: { marginTop: 2, marginBottom: 8, backgroundColor: colors.surface, borderRadius: 20, padding: 16, flexDirection: "row", alignItems: "center", gap: 12 },
     walletK: { color: `${colors.bone}6B`, letterSpacing: 1.4, fontSize: 10, fontWeight: "800" },
     walletV: { color: colors.success, fontWeight: "800", fontSize: 28, marginTop: 6, fontVariant: ["tabular-nums"] },
-    walletP: { color: `${colors.bone}80`, fontSize: 13, marginTop: 6, lineHeight: 18 },
+    walletP: { color: `${colors.bone}80`, fontSize: 12, marginTop: 4, lineHeight: 16 },
+    moneyRow: { flexDirection: "row", gap: 10, marginTop: 28 },
+    moneyCell: { flex: 1, backgroundColor: colors.surface, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14 },
+    moneyV: { color: colors.success, fontWeight: "800", fontSize: 20, marginTop: 6, fontVariant: ["tabular-nums"] },
     brandAreaLabel: { color: `${colors.bone}6B`, letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 10, marginBottom: 9 },
     brandCard: {
       marginTop: 16,
@@ -841,7 +831,7 @@ function make(colors: Colors) {
     planGo: { color: colors.bone, fontWeight: "700", fontSize: 13 },
     tabs: {
       flexDirection: "row",
-      marginTop: 2,
+      marginTop: 18,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: `${colors.bone}1F`,
     },
