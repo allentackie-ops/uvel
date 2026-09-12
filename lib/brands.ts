@@ -543,9 +543,14 @@ export async function submitForVerification(id: string, filing: BrandFiling) {
   return result;
 }
 
-export async function submitFounderReview(id: string, filing: FounderFiling) {
+export async function submitFounderReview(id: string, filing: FounderFiling, opts?: { apply?: boolean }) {
   updateBrand(id, { status: "pending", reviewStatus: "review_pending", verified: false, rejectReasons: [], rejectHeadline: "" });
   const result: BrandReview = await reviewFounderBrand({ ...filing, brandId: id });
+  if (opts?.apply !== false) applyFounderReviewResult(id, result);
+  return result;
+}
+
+export function applyFounderReviewResult(id: string, result: BrandReview) {
   if (result.decision === "uvel_reviewed" && result.ok) {
     updateBrand(id, {
       status: "verified",
@@ -555,7 +560,9 @@ export async function submitFounderReview(id: string, filing: FounderFiling) {
       rejectReasons: [],
       rejectHeadline: "",
     });
-  } else if (result.decision === "rejected") {
+    return;
+  }
+  if (result.decision === "rejected") {
     updateBrand(id, {
       status: "rejected",
       verified: false,
@@ -563,16 +570,15 @@ export async function submitFounderReview(id: string, filing: FounderFiling) {
       rejectReasons: result.reasons,
       rejectHeadline: result.headline,
     });
-  } else {
-    updateBrand(id, {
-      status: "pending",
-      verified: false,
-      reviewStatus: result.decision,
-      rejectReasons: result.reasons,
-      rejectHeadline: result.headline,
-    });
+    return;
   }
-  return result;
+  updateBrand(id, {
+    status: "pending",
+    verified: false,
+    reviewStatus: result.decision,
+    rejectReasons: result.reasons,
+    rejectHeadline: result.headline,
+  });
 }
 
 export function toggleFollow(id: string, uid: string) {
