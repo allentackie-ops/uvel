@@ -4,11 +4,10 @@ import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, Share as NativeShare, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import { Gesture, GestureDetector, GestureHandlerRootView, ScrollView as GHScrollView } from "react-native-gesture-handler";
 import Animated, {
   Easing,
   runOnJS,
-  scrollTo,
   useAnimatedRef,
   useAnimatedScrollHandler,
   useAnimatedStyle,
@@ -29,6 +28,8 @@ import { type ClosetPiece } from "../lib/wardrobe";
 import type { PersonalizationAction } from "../lib/personalization";
 import { VerifiedMark } from "./VerifiedMark";
 import { FriendShareSheet, type FriendSharePayload } from "./FriendShareSheet";
+
+const AnimatedScrollView = Animated.createAnimatedComponent(GHScrollView);
 
 export type ListingOrigin = { x: number; y: number; width: number; height: number };
 
@@ -69,7 +70,9 @@ export function TodayListingOverlay({
   const dragY = useSharedValue(0);
   const closing = useSharedValue(0);
   const dismissing = useSharedValue(0);
+  const settled = useSharedValue(0);
   const scrollY = useSharedValue(0);
+  const touchStartY = useSharedValue(0);
   const [coverTop, setCoverTop] = useState(0);
   const [activePhoto, setActivePhoto] = useState(0);
   const [measurementsOpen, setMeasurementsOpen] = useState(false);
@@ -98,7 +101,9 @@ export function TodayListingOverlay({
     imgY.value = withSpring(chromeTop, OPEN_SPRING);
     imgW.value = withSpring(screenW, OPEN_SPRING);
     imgH.value = withSpring(heroH, OPEN_SPRING);
-    imgR.value = withSpring(0, OPEN_SPRING);
+    imgR.value = withSpring(0, OPEN_SPRING, (finished) => {
+      if (finished) settled.value = 1;
+    });
     backdrop.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
     chrome.value = withTiming(1, { duration: 180 });
     sheet.value = withTiming(1, { duration: 220 });
@@ -117,6 +122,12 @@ export function TodayListingOverlay({
     if (closing.value) return;
     closing.value = 1;
     dismissing.value = 1;
+    settled.value = 0;
+    imgX.value = 0;
+    imgY.value = chromeTop - scrollY.value;
+    imgW.value = screenW;
+    imgH.value = heroH;
+    imgR.value = 0;
     recordDwell();
     chrome.value = withTiming(0, { duration: 70 });
     sheet.value = withTiming(0, { duration: 80 });
@@ -133,24 +144,44 @@ export function TodayListingOverlay({
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
-      if (closing.value || dismissing.value) return;
-      imgY.value = chromeTop - event.contentOffset.y;
     },
   });
 
   const pan = Gesture.Pan()
-    .maxPointers(1)
-    .activeOffsetY([-16, 16])
-    .onUpdate((event) => {
-      if (closing.value) return;
-      if (scrollY.value > 2 || event.translationY < 0) {
-        dismissing.value = 0;
-        dragY.value = 0;
-        const next = Math.max(0, scrollY.value - event.changeY);
-        scrollTo(scrollRef, 0, next, false);
+    .manualActivation(true)
+    .onTouchesDown((event) => {
+      touchStartY.value = event.allTouches[0]?.absoluteY ?? 0;
+    })
+    .onTouchesMove((event, state) => {
+      if (closing.value) {
+        state.fail();
         return;
       }
+      const y = event.allTouches[0]?.absoluteY ?? touchStartY.value;
+      const dy = y - touchStartY.value;
+      if (scrollY.value <= 1 && dy > 10) {
+        state.activate();
+        return;
+      }
+      if (scrollY.value > 1 || dy < -8) {
+        state.fail();
+      }
+    })
+    .onStart(() => {
+      if (closing.value || scrollY.value > 4) {
+        dismissing.value = 0;
+        return;
+      }
+      settled.value = 0;
       dismissing.value = 1;
+      imgX.value = 0;
+      imgY.value = chromeTop;
+      imgW.value = screenW;
+      imgH.value = heroH;
+      imgR.value = 0;
+    })
+    .onUpdate((event) => {
+      if (closing.value || !dismissing.value) return;
       const p = Math.min(Math.max(event.translationY, 0) / 280, 1);
       const s = 1 - p * 0.28;
       const w = screenW * s;
@@ -166,8 +197,7 @@ export function TodayListingOverlay({
       dragY.value = event.translationY;
     })
     .onEnd((event) => {
-      if (closing.value) return;
-      if (!dismissing.value) return;
+      if (closing.value || !dismissing.value) return;
       if (dragY.value > 70 || event.velocityY > 800) {
         closing.value = 1;
         runOnJS(recordDwell)();
@@ -189,11 +219,14 @@ export function TodayListingOverlay({
       imgY.value = withSpring(chromeTop, SNAP);
       imgW.value = withSpring(screenW, SNAP);
       imgH.value = withSpring(heroH, SNAP);
-      imgR.value = withSpring(0, SNAP);
+      imgR.value = withSpring(0, SNAP, (finished) => {
+        if (finished) settled.value = 1;
+      });
       backdrop.value = withSpring(1, SNAP);
       chrome.value = withTiming(1, { duration: 140 });
       sheet.value = withTiming(1, { duration: 160 });
     });
+  const dismiss = Gesture.Simultaneous(pan, Gesture.Native());
 
   const photoStyle = useAnimatedStyle(() => ({
     top: imgY.value,
@@ -201,7 +234,9 @@ export function TodayListingOverlay({
     width: imgW.value,
     height: imgH.value,
     borderRadius: imgR.value,
+    opacity: 1 - settled.value,
   }));
+  const inFlowStyle = useAnimatedStyle(() => ({ opacity: settled.value }));
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value * 0.55 }));
   const chromeStyle = useAnimatedStyle(() => ({ opacity: chrome.value }));
   const pageStyle = useAnimatedStyle(() => ({ opacity: sheet.value }));
@@ -296,10 +331,11 @@ export function TodayListingOverlay({
         }}
       >
         <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents="none" />
-        <Animated.ScrollView
+        <GestureDetector gesture={dismiss}>
+        <AnimatedScrollView
           ref={scrollRef}
           style={[styles.page, pageStyle]}
-          contentContainerStyle={[styles.pageContent, { paddingTop: chromeTop + heroH, paddingBottom: insets.bottom + 120 }]}
+          contentContainerStyle={{ paddingTop: chromeTop, paddingBottom: insets.bottom + 120 }}
           showsVerticalScrollIndicator={false}
           bounces={false}
           overScrollMode="never"
@@ -310,6 +346,22 @@ export function TodayListingOverlay({
           scrollEventThrottle={16}
           onScroll={scrollHandler}
         >
+          <Animated.View style={[styles.heroSlot, { height: heroH }, inFlowStyle]}>
+            <Pressable
+              style={styles.heroHit}
+              onPress={(event) => onHeroPress(event.nativeEvent.locationX, event.nativeEvent.locationY)}
+              accessibilityRole="image"
+              accessibilityLabel={`Double tap to save ${piece.name}`}
+            >
+              <Image source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
+              {gallery.length > 1 ? (
+                <View style={styles.photoCount} pointerEvents="none">
+                  <Text style={styles.photoCountText}>{Math.min(activePhoto + 1, gallery.length)} / {gallery.length}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+          </Animated.View>
+          <View style={styles.detail}>
           <Text style={styles.kicker}>{(brand || "UVEL").toUpperCase()}</Text>
           <Text style={styles.title}>{piece.name}</Text>
           {credit > 0 ? (
@@ -423,25 +475,13 @@ export function TodayListingOverlay({
               <Ionicons name={inBag ? "checkmark" : "bag-handle-outline"} size={17} color={colors.successInk} />
             </Pressable>
           </View>
-        </Animated.ScrollView>
-        <GestureDetector gesture={pan}>
-          <Animated.View style={[styles.photo, photoStyle]}>
-            <Pressable
-              style={styles.heroHit}
-              onPress={(event) => onHeroPress(event.nativeEvent.locationX, event.nativeEvent.locationY)}
-              accessibilityRole="image"
-              accessibilityLabel={`Double tap to save ${piece.name}`}
-            >
-              <Image source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
-              <Animated.Text pointerEvents="none" style={[styles.heartPop, heartPopStyle]}>♥</Animated.Text>
-              {gallery.length > 1 ? (
-                <View style={styles.photoCount} pointerEvents="none">
-                  <Text style={styles.photoCountText}>{Math.min(activePhoto + 1, gallery.length)} / {gallery.length}</Text>
-                </View>
-              ) : null}
-            </Pressable>
-          </Animated.View>
+          </View>
+        </AnimatedScrollView>
         </GestureDetector>
+        <Animated.View pointerEvents="none" style={[styles.photo, photoStyle]}>
+          <Image source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
+          <Animated.Text pointerEvents="none" style={[styles.heartPop, heartPopStyle]}>♥</Animated.Text>
+        </Animated.View>
         <Animated.View pointerEvents="box-none" style={[styles.topBar, { paddingTop: insets.top + 6 }, chromeStyle]}>
           <Pressable onPress={closeToPin} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel="Close listing">
             <Ionicons name="chevron-down" size={20} color={colors.ink} />
@@ -504,7 +544,9 @@ function make(colors: Colors) {
     fill: { flex: 1 },
     backdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "#000" },
     page: { flex: 1, backgroundColor: colors.ink },
-    pageContent: { paddingHorizontal: 22, paddingBottom: 40 },
+    pageContent: { paddingBottom: 40 },
+    detail: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 40 },
+    heroSlot: { width: "100%", backgroundColor: colors.surface },
     photo: { position: "absolute", overflow: "hidden", backgroundColor: colors.surface, zIndex: 4 },
     heroHit: { flex: 1 },
     hero: { width: "100%", height: "100%", backgroundColor: colors.surface },
