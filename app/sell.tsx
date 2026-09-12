@@ -1172,9 +1172,9 @@ function make(colors: Colors) {
     fromPhoto: { color: colors.subtle, fontSize: 11, marginTop: 6 },
     titleIn: {
       color: colors.bone,
-      fontFamily: "Georgia",
-      fontSize: 28,
-      lineHeight: 34,
+      fontSize: 26,
+      fontWeight: "800",
+      lineHeight: 32,
       marginTop: 14,
       padding: 0,
     },
