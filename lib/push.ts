@@ -3,6 +3,9 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { AppState, Platform } from "react-native";
 import { firebaseDb, firebaseReady } from "./firebase";
 
+/** Bundled stitch chime. Filename must match app.json expo-notifications sounds. */
+export const UVEL_SOUND = "uvel.wav";
+
 let handlerReady = false;
 
 async function notifications() {
@@ -43,9 +46,24 @@ export function armNotificationHandler() {
 async function ensureAndroidChannels() {
   if (Platform.OS !== "android") return;
   const N = await notifications();
-  await N.setNotificationChannelAsync("activity", { name: "Activity", importance: N.AndroidImportance.HIGH, sound: "default" });
-  await N.setNotificationChannelAsync("social", { name: "Messages", importance: N.AndroidImportance.HIGH, sound: "default" });
-  await N.setNotificationChannelAsync("orders", { name: "Orders", importance: N.AndroidImportance.HIGH, sound: "default" });
+  const channels = [
+    ["activity-stitch", "Activity"],
+    ["social-stitch", "Messages"],
+    ["orders-stitch", "Orders"],
+  ] as const;
+  for (const [id, name] of channels) {
+    await N.setNotificationChannelAsync(id, {
+      name,
+      importance: N.AndroidImportance.HIGH,
+      sound: UVEL_SOUND,
+    });
+  }
+}
+
+function channelFor(kind: string) {
+  if (kind === "friend_message" || kind === "listing_message" || kind === "friend_request" || kind === "friend_accepted") return "social-stitch";
+  if (kind === "sold" || kind === "shipped" || kind === "delivered" || kind === "wallet") return "orders-stitch";
+  return "activity-stitch";
 }
 
 export async function registerPushToken(uid: string) {
@@ -102,7 +120,6 @@ export function watchLastSeen(uid: string) {
 export async function sendPush(toToken: string, title: string, body: string, data: Record<string, string>) {
   if (!toToken) return;
   try {
-    const channel = data.kind === "friend_message" || data.kind === "listing_message" || data.kind === "friend_request" ? "social" : data.kind === "sold" || data.kind === "shipped" || data.kind === "delivered" || data.kind === "wallet" ? "orders" : "activity";
     await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -110,8 +127,8 @@ export async function sendPush(toToken: string, title: string, body: string, dat
         to: toToken,
         title,
         body,
-        sound: "default",
-        channelId: channel,
+        sound: UVEL_SOUND,
+        channelId: channelFor(data.kind || ""),
         priority: "high",
         data,
       }),
