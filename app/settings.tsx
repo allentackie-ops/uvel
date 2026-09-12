@@ -71,7 +71,8 @@ export default function Settings() {
         <Row label={C.helpSupport} onPress={() => void Linking.openURL(HELP)} colors={colors} />
         <Row label="Report app issue" onPress={() => requestFeedback("compose")} colors={colors} />
         <Row label={C.privacyPolicy} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "privacy" } })} colors={colors} />
-        <Row label={C.terms} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "terms" } })} colors={colors} last />
+        <Row label={C.terms} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "terms" } })} colors={colors} />
+        <Row label="About Uvel" onPress={() => router.push("/about")} colors={colors} last />
       </View>
 
       <Text style={styles.section}>{C.account}</Text>
