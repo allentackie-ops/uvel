@@ -37,6 +37,7 @@ type State = {
 
 const KEY = "uvel-state-v1";
 const PROFILES = "uvel-profiles-v1";
+let setupLive = false;
 const defaults: State = {
   saved: [],
   archetype: "",
@@ -76,9 +77,8 @@ async function load() {
   setActiveMarket(memory.country);
   if ((memory.onboardVersion ?? 0) < 4) memory.onboarded = false;
   if (memory.uid && memory.profileDone) memory.profileChecked = true;
-  if (memory.uid && !memory.profileDone) {
-    memory = { ...memory, uid: "", email: "", signedInWith: "", onboarded: false, profileChecked: false };
-    void import("./auth").then(({ signOut }) => signOut()).catch(() => undefined);
+  if (!memory.profileDone) {
+    memory = { ...memory, uid: "", email: "", signedInWith: "", onboarded: false };
   }
   hydrated = true;
   listeners.forEach((l) => l());
@@ -86,13 +86,17 @@ async function load() {
 
 void load().then(() => {
   void import("./auth").then(({ subscribeAuth }) => {
+    let sawAuth = false;
     subscribeAuth((user) => {
       if (!user) {
         memory = { ...memory, profileChecked: true };
         listeners.forEach((l) => l());
+        sawAuth = true;
         return;
       }
-      void applyAccount(user, { restored: true });
+      const restored = !sawAuth;
+      sawAuth = true;
+      void applyAccount(user, { restored });
     });
   });
   setTimeout(() => {
@@ -142,7 +146,7 @@ async function applyAccount(
       avatarUri: (stashed?.avatarUri as string) || memory.avatarUri,
     };
     listeners.forEach((l) => l());
-    void AsyncStorage.setItem(KEY, JSON.stringify(memory));
+    void persist();
   }
 
   let remote: Record<string, unknown> | null = null;
@@ -159,7 +163,7 @@ async function applyAccount(
     createdAt: user.createdAt,
     lastSignInAt: user.lastSignInAt,
   });
-  if (opts.restored && !done) {
+  if (opts.restored && !done && !setupLive) {
     try {
       const { signOut } = await import("./auth");
       await signOut();
@@ -176,9 +180,10 @@ async function applyAccount(
       profileChecked: true,
     };
     listeners.forEach((l) => l());
-    void AsyncStorage.setItem(KEY, JSON.stringify(memory));
+    await persist();
     return;
   }
+  if (!done) setupLive = true;
   memory = {
     ...memory,
     uid: user.uid,
@@ -206,7 +211,7 @@ async function applyAccount(
     avatarUri: (stashed?.avatarUri as string) || memory.avatarUri,
   };
   listeners.forEach((l) => l());
-  void AsyncStorage.setItem(KEY, JSON.stringify(memory));
+  void persist();
   if (done) {
     void stashProfile();
     if (!remoteProfileFlag(remote)) {
@@ -272,11 +277,23 @@ export function snapshot() {
   return { ...memory };
 }
 
+async function persist() {
+  const disk: State = { ...memory };
+  if (!disk.profileDone) {
+    disk.uid = "";
+    disk.email = "";
+    disk.signedInWith = "";
+    disk.onboarded = false;
+  }
+  await AsyncStorage.setItem(KEY, JSON.stringify(disk));
+}
+
 async function save(next: Partial<State>) {
   memory = { ...memory, ...next };
   if (next.country) setActiveMarket(next.country);
+  if (memory.profileDone) setupLive = false;
   listeners.forEach((l) => l());
-  await AsyncStorage.setItem(KEY, JSON.stringify(memory));
+  await persist();
 }
 
 export function useUvel() {

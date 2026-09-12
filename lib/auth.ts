@@ -159,7 +159,7 @@ export async function claimUsername(value: string) {
     throw new Error("Use 3–20 lowercase letters, numbers, or underscores.");
   }
   const uid = firebaseAuth().currentUser?.uid;
-  if (!uid) throw new Error("Sign in before choosing a username.");
+  if (!uid) throw new Error("Couldn’t save that username. Try again.");
   try {
     const call = httpsCallable<{ username: string }, { username: string }>(firebaseFunctions(), "claimUsername");
     const result = await call({ username });
@@ -180,7 +180,7 @@ function usernameError(err: unknown) {
   const code = typeof err === "object" && err && "code" in err ? String((err as { code: string }).code) : "";
   const msg = err instanceof Error ? err.message : String(err);
   if (/already-exists|already taken/i.test(`${code} ${msg}`)) return new Error("That username is already taken.");
-  if (/unauthenticated/i.test(`${code} ${msg}`)) return new Error("Sign in before choosing a username.");
+  if (/unauthenticated/i.test(`${code} ${msg}`)) return new Error("Couldn’t save that username. Try again.");
   if (/permission-denied/i.test(`${code} ${msg}`)) return new Error("Couldn’t save that username. Try again.");
   if (msg && !/firebase|not-found|404/i.test(msg)) return new Error(msg);
   return new Error("Couldn’t save that username. Try again.");
