@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { dnaIsSet, scorePieceAgainstDna, type Dna } from "./styleDna";
+import { genderBoost } from "./lookMatch";
 import type { ClosetPiece } from "./wardrobe";
 
 export type PersonalizationAction = "view" | "save" | "share" | "search" | "double_view" | "double_tap_like" | "try_on" | "dwell";
@@ -192,7 +193,7 @@ function score(piece: ClosetPiece, country: string, profile: PersonalizationProf
   const repeatInterest = signal ? signal.views * 2 + signal.repeatViews * 8 + signal.saves * 7 + signal.shares * 8 + signal.doubleTapLikes * 10 + Math.min(36, signal.dwellSeconds / 10) + signal.engagedViews * 4 : 0;
   const local = piece.country?.toLowerCase() === country ? 3 : 0;
   const fresh = Math.max(0, 3 - Math.floor(Math.max(0, Date.now() - (piece.createdAt || 0)) / (14 * DAY)));
-  return termScore + affinity + repeatInterest + local + fresh + dnaBoost(piece, dna, profile.events);
+  return termScore + affinity + repeatInterest + local + fresh + dnaBoost(piece, dna, profile.events) + genderBoost(piece, dna?.gender);
 }
 
 export async function clearPersonalization(uid: string) {

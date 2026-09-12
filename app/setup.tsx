@@ -352,10 +352,10 @@ export default function ProfileSetup() {
               <Text style={styles.lede}>
                 {first ? (
                   <>
-                    This is so we can try clothes on <Name>{first}</Name> — woman, man, or something else.
+                    This is so we can try clothes on <Name>{first}</Name>. Woman, man, or something else.
                   </>
                 ) : (
-                  "This helps us try clothes on you — woman, man, or something else."
+                  "This helps us try clothes on you. Woman, man, or something else."
                 )}
               </Text>
               {(
