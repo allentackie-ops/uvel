@@ -363,23 +363,14 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       {todayHome && firstFind.remaining > 0 ? (
         <AccessiblePressable
           onPress={() => setFindHint(true)}
-          style={styles.findBanner}
+          style={styles.findLine}
           accessibilityRole="button"
           accessibilityLabel={`First Find ${moneyExact(firstFind.remaining, firstFind.currency)} on a matching piece`}
           accessibilityHint="Double tap to hear how First Find works."
         >
-          <Text style={styles.findK}>FIRST FIND</Text>
-          <Text style={styles.findV}>{moneyExact(firstFind.remaining, firstFind.currency)} on a piece that matches you</Text>
-        </AccessiblePressable>
-      ) : todayHome && !firstFind.ready && !firstFind.blocked ? (
-        <AccessiblePressable
-          onPress={() => router.push("/style-dna")}
-          style={styles.findBanner}
-          accessibilityRole="button"
-          accessibilityLabel="Set Style DNA to unlock First Find"
-        >
-          <Text style={styles.findK}>FIRST FIND</Text>
-          <Text style={styles.findV}>Set Style DNA to unlock</Text>
+          <Text style={styles.findLineTxt}>
+            First Find · <Text style={styles.findLineAmt}>{moneyExact(firstFind.remaining, firstFind.currency)}</Text> on a matching piece
+          </Text>
         </AccessiblePressable>
       ) : null}
 
@@ -538,13 +529,21 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       </View>
 
       {!scanning && ranked.length === 0 ? (
-        marketplaceSync !== "confirmed" ? null : (
+        marketplaceSync !== "confirmed" ? null : scanningLook ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyKicker}>{scanningLook ? "LOOK SEARCH" : "THIS SHOP IS QUIET"}</Text>
-            <Text style={styles.emptyTitle}>{scanningLook ? "Nothing matches this look yet" : `Nothing is listed in the ${market.name} shop yet`}</Text>
-            <Text style={styles.emptyCopy}>{scanningLook ? "Try another frame or remove a filter to see more pieces." : "Explore the daily edit while verified houses bring new pieces online."}</Text>
-            <AccessiblePressable onPress={() => router.push("/")} style={styles.emptyPrimary} accessibilityRole="button" accessibilityLabel="Explore Today’s edit">
-              <Text style={styles.emptyPrimaryTxt}>Explore Today’s Edit</Text>
+            <Text style={styles.emptyTitle}>Nothing matches this look yet</Text>
+            <Text style={styles.emptyCopy}>Try another frame or take a filter off.</Text>
+          </View>
+        ) : todayHome ? (
+          <View style={styles.emptyQuiet}>
+            <Text style={styles.emptyQuietTxt}>Nothing new yet. Pull to refresh.</Text>
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>{`Nothing listed in the ${market.name} shop yet`}</Text>
+            <Text style={styles.emptyCopy}>Pull to refresh, or check Today.</Text>
+            <AccessiblePressable onPress={() => router.push("/")} style={styles.emptyPrimary} accessibilityRole="button" accessibilityLabel="Go to Today">
+              <Text style={styles.emptyPrimaryTxt}>Today</Text>
             </AccessiblePressable>
           </View>
         )
@@ -584,9 +583,9 @@ function make(colors: Colors) {
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
     titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     todayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 56, marginBottom: 4 },
-    findBanner: { marginTop: 10, backgroundColor: colors.surface, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14 },
-    findK: { color: `${colors.bone}6B`, letterSpacing: 1.4, fontSize: 10, fontWeight: "800" },
-    findV: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 5 },
+    findLine: { alignSelf: "center", minHeight: 32, paddingHorizontal: 8, marginBottom: 6, justifyContent: "center" },
+    findLineTxt: { color: `${colors.bone}8C`, fontSize: 13, fontWeight: "600", textAlign: "center" },
+    findLineAmt: { color: colors.success, fontWeight: "800" },
     findToast: {
       position: "absolute",
       left: 16,
@@ -616,7 +615,8 @@ function make(colors: Colors) {
     messageBadge: { position: "absolute", right: -2, top: -3, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     messageBadgeText: { color: colors.successInk, fontSize: 9, fontWeight: "900" },
     emptyState: { marginTop: 22, padding: 22, borderRadius: 20, backgroundColor: colors.surface, alignItems: "center" },
-    emptyKicker: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
+    emptyQuiet: { paddingVertical: 28, alignItems: "center" },
+    emptyQuietTxt: { color: `${colors.bone}7A`, fontSize: 15, textAlign: "center" },
     emptyTitle: { color: colors.bone, fontSize: 19, fontWeight: "800", textAlign: "center", marginTop: 7 },
     emptyCopy: { color: `${colors.bone}94`, fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 6 },
     emptyPrimary: { marginTop: 16, minHeight: 44, paddingHorizontal: 18, borderRadius: 22, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
