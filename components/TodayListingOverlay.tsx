@@ -421,12 +421,12 @@ export function TodayListingOverlay({
             </View>
           ) : null}
           <View style={styles.rule} />
-          <Text style={styles.section}>Listing details</Text>
-          <View style={styles.facts}>
-            {piece.category ? <Fact label="Category" value={piece.category} styles={styles} /> : null}
-            {piece.material ? <Fact label="Material" value={piece.material} styles={styles} /> : null}
-            <Fact label="Ships from" value={piece.country || app.country} styles={styles} />
-          </View>
+          {piece.category || piece.material ? (
+            <View style={styles.facts}>
+              {piece.category ? <Fact label="Category" value={piece.category} styles={styles} /> : null}
+              {piece.material ? <Fact label="Material" value={piece.material} styles={styles} /> : null}
+            </View>
+          ) : null}
           <View style={styles.detailSections}>
             <Pressable onPress={() => setMeasurementsOpen((open) => !open)} style={styles.expandRow} accessibilityRole="button" accessibilityState={{ expanded: measurementsOpen }}>
               <View style={styles.expandTitleWrap}>
@@ -455,10 +455,6 @@ export function TodayListingOverlay({
                 <Text style={styles.expandBody}>Returns and delivery details are confirmed at checkout.</Text>
               </View>
             ) : null}
-          </View>
-          <View style={styles.trustRow}>
-            <TrustItem icon="shield-checkmark-outline" label="Secure checkout" styles={styles} />
-            <TrustItem icon="checkmark-circle-outline" label="Buyer protection" styles={styles} />
           </View>
           <View style={styles.actions}>
             <Pressable onPress={() => { onInteraction?.("try_on", piece); router.push({ pathname: "/try-on", params: { piece: piece.id } }); }} style={styles.tryAction} accessibilityRole="button" accessibilityLabel="Try this listing on">
@@ -532,15 +528,6 @@ function Fact({ label, value, styles }: { label: string; value: string; styles: 
   );
 }
 
-function TrustItem({ icon, label, styles }: { icon: keyof typeof Ionicons.glyphMap; label: string; styles: ReturnType<typeof make> }) {
-  return (
-    <View style={styles.trustItem}>
-      <Ionicons name={icon} size={16} color="#7F9BFF" />
-      <Text style={styles.trustText}>{label}</Text>
-    </View>
-  );
-}
-
 function make(colors: Colors) {
   return StyleSheet.create({
     root: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, elevation: 100 },
@@ -599,9 +586,6 @@ function make(colors: Colors) {
     expandContent: { paddingVertical: 14, gap: 10 },
     emptyDetail: { color: colors.muted, fontSize: 13, lineHeight: 20 },
     expandBody: { color: colors.muted, fontSize: 13, lineHeight: 20 },
-    trustRow: { flexDirection: "row", flexWrap: "wrap", gap: 14, marginTop: 18 },
-    trustItem: { flexDirection: "row", alignItems: "center", gap: 5 },
-    trustText: { color: `${colors.bone}A8`, fontSize: 11, fontWeight: "700" },
     actions: { flexDirection: "row", gap: 10, marginTop: 26 },
     tryAction: { flex: 1, minHeight: 52, borderRadius: 26, paddingHorizontal: 12, borderWidth: 1, borderColor: `${colors.bone}32`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     tryText: { color: colors.bone, fontSize: 14, fontWeight: "800" },
