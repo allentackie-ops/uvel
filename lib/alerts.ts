@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import type { ClosetPiece } from "./wardrobe";
-import { armNotificationHandler } from "./push";
+import { armNotificationHandler, UVEL_SOUND } from "./push";
 
 export type AlertKind = "price_drop" | "restock" | "both";
 
@@ -141,7 +141,7 @@ async function deliverLocal(event: AlertEvent) {
       content: {
         title: event.title,
         body: event.body,
-        sound: "default",
+        sound: UVEL_SOUND,
         data: { pieceId: event.listingId, alertId: event.id },
       },
       trigger: null,
