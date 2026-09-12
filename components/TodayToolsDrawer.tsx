@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { brandApproved, canSeeAnalytics, ownedBrand, useBrands } from "../lib/brands";
+import { ownedBrand, useBrands } from "../lib/brands";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 
@@ -28,10 +28,9 @@ export function TodayToolsDrawer({ onClose, onOpenSell }: TodayToolsDrawerProps)
   const buildTools: Tool[] = [
     { icon: "color-palette-outline", label: "Founder Studio", onPress: () => router.push("/brand/founder") },
     ...(mine ? [{ icon: "briefcase-outline" as const, label: "Brand HQ", onPress: () => router.push({ pathname: "/brand/hq", params: { id: mine.id } }) }] : []),
-    ...(brandApproved(mine) && mine && canSeeAnalytics(mine, app.uid) ? [{ icon: "bar-chart-outline" as const, label: "Brand analytics", onPress: () => router.push({ pathname: "/brand/analytics", params: { id: mine.id } }) }] : []),
   ];
   const businessTools: Tool[] = [
-    { icon: "stats-chart-outline", label: "Seller analytics", onPress: () => router.push("/seller-analytics") },
+    ...(!mine ? [{ icon: "stats-chart-outline" as const, label: "Your listings", onPress: () => router.push("/seller-analytics") }] : []),
     { icon: "add-circle-outline", label: "List an item", onPress: onOpenSell },
     { icon: "notifications-outline", label: "Price & restock alerts", onPress: () => router.push("/alerts") },
   ];
