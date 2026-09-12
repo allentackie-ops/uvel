@@ -402,6 +402,7 @@ export function useUvel() {
           gender: patch.gender,
           styles: patch.styles,
           wantsUpdates: patch.wantsUpdates,
+          username: patch.username,
           archetype: patch.archetype || "",
           palette: patch.palette || "",
           silhouette: patch.silhouette || "",

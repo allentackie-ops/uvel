@@ -32,6 +32,12 @@ service cloud.firestore {
          (data.recipientIds is list && data.recipientIds.hasAny([request.auth.uid])));
     }
 
+    function ownsUsername(name) {
+      return name is string
+        && exists(/databases/$(database)/documents/usernames/$(name))
+        && get(/databases/$(database)/documents/usernames/$(name)).data.uid == request.auth.uid;
+    }
+
     match /users/{uid} {
       allow read: if isSelf(uid);
       allow create: if isSelf(uid) && !request.resource.data.keys().hasAny(["username", "usernameNormalized"]);
@@ -40,12 +46,6 @@ service cloud.firestore {
         || ownsUsername(request.resource.data.username)
       );
       allow delete: if isSelf(uid);
-    }
-
-    function ownsUsername(name) {
-      return name is string
-        && exists(/databases/$(database)/documents/usernames/$(name))
-        && get(/databases/$(database)/documents/usernames/$(name)).data.uid == request.auth.uid;
     }
 
     match /usernames/{username} {
