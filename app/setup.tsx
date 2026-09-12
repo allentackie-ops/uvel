@@ -127,7 +127,14 @@ export default function ProfileSetup() {
     }
   }
 
-  async function renderLook() {
+  async function tryIt() {
+    if (!photo) {
+      await pickPhoto(true);
+      return;
+    }
+    if (!look) return;
+    await renderLook();
+  }
     if (!photo || !look) return;
     setErr("");
     setRendering(true);
@@ -442,13 +449,11 @@ export default function ProfileSetup() {
                   </ScrollView>
                 </>
               ) : null}
-              {photo && look ? (
-                <Pressable onPress={() => void renderLook()} style={styles.cta} disabled={rendering}>
-                  <Text style={styles.ctaTxt}>{rendering ? "Dressing you…" : "Try this look"}</Text>
-                </Pressable>
-              ) : null}
-              <Pressable onPress={() => go(3)} style={[styles.cta, { marginTop: 18 }]}>
-                <Text style={styles.ctaTxt}>{photo ? "Continue" : "Skip for now"}</Text>
+              <Pressable onPress={() => void tryIt()} style={[styles.cta, rendering && styles.ctaOff]} disabled={rendering}>
+                <Text style={styles.ctaTxt}>{rendering ? "Dressing you…" : "Try it"}</Text>
+              </Pressable>
+              <Pressable onPress={() => go(3)} style={styles.skipBtn}>
+                <Text style={styles.skipTxt}>Skip for now</Text>
               </Pressable>
             </ScrollView>
           ) : null}
