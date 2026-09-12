@@ -199,6 +199,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="about"
+            options={{
+              headerTitle: "About Uvel",
+              headerTransparent: false,
+              headerShadowVisible: false,
+            }}
+          />
+          <Stack.Screen
             name="appearance"
             options={{
               headerTitle: C.appearance,
