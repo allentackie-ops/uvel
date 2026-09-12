@@ -32,6 +32,7 @@ const LIME = "#D6E27A";
 const WASH = "rgba(214,226,122,0.28)";
 const SOFT = "#F5F3EC";
 const STEPS = 6;
+const MIN_AGE = 18;
 
 const STYLES = [
   "Quiet",
@@ -125,8 +126,8 @@ export default function ProfileSetup() {
       setErr("That date doesn’t look right.");
       return;
     }
-    if (ageOf(dt) < 18) {
-      setErr("You need to be 18 or older to use Uvel.");
+    if (ageOf(dt) < MIN_AGE) {
+      setErr(`Below age requirement. ${MIN_AGE}.`);
       return;
     }
     go(1);
@@ -296,6 +297,7 @@ export default function ProfileSetup() {
                   value={mm}
                   onChangeText={(v) => {
                     const t = v.replace(/\D/g, "").slice(0, 2);
+                    setErr("");
                     setMm(t);
                     if (t.length === 2) ddRef.current?.focus();
                   }}
@@ -310,6 +312,7 @@ export default function ProfileSetup() {
                   value={dd}
                   onChangeText={(v) => {
                     const t = v.replace(/\D/g, "").slice(0, 2);
+                    setErr("");
                     setDd(t);
                     if (t.length === 2) yyRef.current?.focus();
                   }}
@@ -322,7 +325,10 @@ export default function ProfileSetup() {
                 <TextInput
                   ref={yyRef}
                   value={yyyy}
-                  onChangeText={(v) => setYyyy(v.replace(/\D/g, "").slice(0, 4))}
+                  onChangeText={(v) => {
+                    setErr("");
+                    setYyyy(v.replace(/\D/g, "").slice(0, 4));
+                  }}
                   placeholder="YYYY"
                   placeholderTextColor={MUTED}
                   keyboardType="number-pad"
@@ -604,15 +610,13 @@ const styles = StyleSheet.create({
   body: { paddingHorizontal: 24, paddingTop: 22, flexGrow: 1 },
   h: {
     color: INK,
-    fontFamily: "Georgia",
-    fontSize: 32,
-    lineHeight: 40,
-    letterSpacing: -0.5,
+    fontSize: 28,
+    fontWeight: "800",
+    lineHeight: 36,
   },
   name: {
     color: OLIVE,
-    fontFamily: "Georgia",
-    fontStyle: "italic",
+    fontWeight: "800",
   },
   lede: { color: MUTED, fontSize: 15, lineHeight: 22, marginTop: 12, marginBottom: 26 },
   field: {
