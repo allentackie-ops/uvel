@@ -1,5 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -15,11 +16,12 @@ import {
 import { StatusBar } from "expo-status-bar";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { GARMENTS } from "../lib/catalog";
+import { usd } from "../lib/catalog";
+import { genderBoost } from "../lib/lookMatch";
 import { useUvel } from "../lib/store";
 import { dressPerson } from "../lib/tryon";
 import { pickFromLibrary, takePhoto } from "../lib/photo";
-import { addPiece } from "../lib/wardrobe";
+import { addPiece, shopFloor, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { claimUsername } from "../lib/auth";
 import { isValidUsername, normalizeUsername } from "../lib/username";
 
@@ -49,19 +51,6 @@ const STYLES = [
   "Coastal",
 ];
 
-const LOOKS = GARMENTS.filter((g) =>
-  [
-    "silk-slip",
-    "poet-blouse",
-    "satin-skirt",
-    "oxford-shirt",
-    "wool-blazer",
-    "black-trouser",
-    "leather-trench",
-    "field-jacket",
-  ].includes(g.id),
-);
-
 function Name({ children }: { children: string }) {
   return <Text style={styles.name}>{children}</Text>;
 }
@@ -87,6 +76,7 @@ function ageOf(dt: Date) {
 export default function ProfileSetup() {
   const insets = useSafeAreaInsets();
   const app = useUvel();
+  useWardrobe();
   const [step, setStep] = useState(0);
   const [name, setName] = useState(app.displayName);
   const [mm, setMm] = useState("");
@@ -96,7 +86,7 @@ export default function ProfileSetup() {
   const [gender, setGender] = useState("");
   const [photo, setPhoto] = useState<string | null>(null);
   const [worn, setWorn] = useState<string | null>(null);
-  const [look, setLook] = useState(LOOKS[0]?.id ?? "");
+  const [look, setLook] = useState<ClosetPiece | null>(null);
   const [asking, setAsking] = useState(false);
   const [username, setUsername] = useState("");
   const [wantsUpdates, setWantsUpdates] = useState(false);
@@ -109,7 +99,11 @@ export default function ProfileSetup() {
   const yyRef = useRef<TextInput>(null);
 
   const first = (name.trim().split(" ")[0] || "").trim();
-  const garment = LOOKS.find((g) => g.id === look);
+  const liveLooks = shopFloor(app.country)
+    .map((p) => ({ p, s: genderBoost(p, gender) }))
+    .sort((a, b) => b.s - a.s || b.p.createdAt - a.p.createdAt)
+    .map((row) => row.p)
+    .slice(0, 10);
 
   function go(n: number) {
     setErr("");
@@ -139,6 +133,7 @@ export default function ProfileSetup() {
       const uri = camera ? await takePhoto(true) : await pickFromLibrary();
       if (!uri) return;
       setPhoto(uri);
+      app.setPerson(uri);
       setWorn(null);
       setRendered(false);
     } catch (e) {
@@ -147,15 +142,15 @@ export default function ProfileSetup() {
   }
 
   async function renderLook() {
-    if (!photo || !garment) return;
+    if (!photo || !look) return;
     setErr("");
     setRendering(true);
     try {
       const dressed = await dressPerson({
         personUri: photo,
-        garment: garment.image,
-        garmentName: garment.name,
-        category: garment.category,
+        garment: { uri: look.photo },
+        garmentName: look.name,
+        category: look.category,
       });
       setWorn(dressed);
       setRendered(true);
@@ -401,66 +396,77 @@ export default function ProfileSetup() {
                 The whole you, not a crop. We’ll put the clothes on your body so you can see the outfit before you
                 buy.
               </Text>
-              <View style={styles.stage}>
+              <View style={[styles.stage, !photo && styles.stageNeed]}>
                 {photo ? (
                   <View style={styles.stageFill}>
                     <Image source={{ uri: worn ?? photo }} style={styles.fullPic} contentFit="contain" />
                     {rendering ? (
                       <View style={styles.spin}>
                         <ActivityIndicator color={INK} />
-                        <Text style={styles.spinTxt}>{rendering ? "Dressing you" : "Rendering"}</Text>
                       </View>
-                    ) : null}
+                    ) : (
+                      <View style={styles.changeWrap}>
+                        <Pressable onPress={() => void pickPhoto(true)} style={styles.change}>
+                          <Text style={styles.changeTxt}>Change photo</Text>
+                        </Pressable>
+                      </View>
+                    )}
                   </View>
                 ) : (
-                  <Text style={styles.stageHint}>Full-length mirror. Head to shoes. Nothing cropped.</Text>
+                  <View style={styles.need}>
+                    <View style={styles.cameraPlaceholder}>
+                      <Ionicons name="camera-outline" size={34} color={OLIVE} />
+                    </View>
+                    <Text style={styles.needH}>Add your full length photo</Text>
+                    <View style={styles.needRow}>
+                      <Pressable onPress={() => void pickPhoto(true)} style={styles.needBtn}>
+                        <Text style={styles.needBtnTxt}>Add your photo</Text>
+                      </Pressable>
+                      <Pressable onPress={() => void pickPhoto(false)} style={styles.needBtnGhost} accessibilityRole="button" accessibilityLabel="Choose from library">
+                        <Ionicons name="images-outline" size={18} color={INK} />
+                        <Text style={styles.needBtnGhostTxt}>Choose from library</Text>
+                      </Pressable>
+                    </View>
+                  </View>
                 )}
               </View>
-              {rendered && garment && worn ? (
-                <Text style={styles.savedLook}>You, in the {garment.name.toLowerCase()}.</Text>
-              ) : null}
               {err ? <Text style={styles.err}>{err}</Text> : null}
-              <View style={styles.row}>
-                <Pressable onPress={() => void pickPhoto(true)} style={styles.ghost}>
-                  <Text style={styles.ghostTxt}>Camera</Text>
-                </Pressable>
-                <Pressable onPress={() => void pickPhoto(false)} style={styles.ghost}>
-                  <Text style={styles.ghostTxt}>Library</Text>
-                </Pressable>
-              </View>
-              {photo ? (
+              {liveLooks.length ? (
                 <>
-                  <Text style={styles.meta}>TRY A LOOK</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -24 }}>
-                    <View style={{ width: 24 }} />
-                    {LOOKS.map((g) => (
-                      <Pressable
-                        key={g.id}
-                        onPress={() => {
-                          setLook(g.id);
-                          setRendered(false);
-                          setWorn(null);
-                        }}
-                        style={styles.look}
-                      >
-                        <Image
-                          source={g.image}
-                          style={[styles.lookImg, look === g.id && styles.lookOn]}
-                          contentFit="cover"
-                        />
-                        <Text style={styles.lookName} numberOfLines={1}>
-                          {g.name}
-                        </Text>
-                      </Pressable>
-                    ))}
-                    <View style={{ width: 16 }} />
+                  <Text style={styles.h2}>From Uvel</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -24 }} contentContainerStyle={styles.strip}>
+                    {liveLooks.map((p) => {
+                      const on = look?.id === p.id;
+                      return (
+                        <Pressable
+                          key={p.id}
+                          onPress={() => {
+                            setLook(p);
+                            setRendered(false);
+                            setWorn(null);
+                          }}
+                          style={[styles.uvelCard, on && styles.uvelOn]}
+                        >
+                          <Image source={{ uri: p.photo }} style={styles.uvelImg} contentFit="cover" />
+                          {on ? (
+                            <View style={styles.trying}>
+                              <Text style={styles.tryingTxt}>Trying</Text>
+                            </View>
+                          ) : null}
+                          <View style={styles.uvelMeta}>
+                            <Text style={styles.uvelName} numberOfLines={2}>{p.name}</Text>
+                            <Text style={styles.uvelPrice}>{usd(p.listPriceCents, p.currency || "USD")}</Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
                   </ScrollView>
-                  <Pressable onPress={() => void renderLook()} style={styles.ghost} disabled={rendering}>
-                    <Text style={styles.ghostTxt}>
-                      {rendering ? "Dressing you…" : rendered ? "That’s you" : "See it on you"}
-                    </Text>
-                  </Pressable>
                 </>
+              ) : null}
+              {photo && look ? (
+                <Pressable onPress={() => void renderLook()} style={styles.cta} disabled={rendering}>
+                  <Text style={styles.ctaTxt}>{rendering ? "Dressing you…" : "Try this look"}</Text>
+                </Pressable>
               ) : null}
               <Pressable onPress={() => go(3)} style={[styles.cta, { marginTop: 18 }]}>
                 <Text style={styles.ctaTxt}>{photo ? "Continue" : "Skip for now"}</Text>
@@ -689,6 +695,86 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  stageNeed: { height: 360 },
+  need: { flex: 1, width: "100%", alignItems: "center", justifyContent: "center", padding: 24, gap: 8 },
+  cameraPlaceholder: {
+    width: 84,
+    height: 84,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(94,112,24,0.5)",
+    backgroundColor: WASH,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  needH: { color: INK, fontSize: 22, fontWeight: "800", textAlign: "center" },
+  needRow: { flexDirection: "row", gap: 10, marginTop: 8, flexWrap: "wrap", justifyContent: "center" },
+  needBtn: {
+    height: 44,
+    paddingHorizontal: 20,
+    borderRadius: 22,
+    backgroundColor: LIME,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  needBtnTxt: { color: INK, fontWeight: "700" },
+  needBtnGhost: {
+    height: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    backgroundColor: "#fff",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  needBtnGhostTxt: { color: INK, fontWeight: "600" },
+  changeWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 16,
+    alignItems: "center",
+  },
+  change: {
+    backgroundColor: "rgba(255,255,255,0.92)",
+    borderWidth: 1,
+    borderColor: LINE,
+    height: 36,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  changeTxt: { color: INK, fontSize: 13, fontWeight: "600" },
+  h2: { color: INK, fontSize: 22, fontWeight: "800", marginTop: 26, marginBottom: 14 },
+  strip: { paddingHorizontal: 24, gap: 12, paddingRight: 28 },
+  uvelCard: {
+    width: 168,
+    borderRadius: 18,
+    overflow: "hidden",
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  uvelOn: { borderColor: OLIVE },
+  uvelImg: { width: 168, height: 210, backgroundColor: SOFT },
+  trying: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    backgroundColor: LIME,
+    paddingHorizontal: 10,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tryingTxt: { color: INK, fontSize: 11, fontWeight: "700" },
+  uvelMeta: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12 },
+  uvelName: { color: INK, fontSize: 14, fontWeight: "600", lineHeight: 18 },
+  uvelPrice: { color: INK, fontSize: 14, fontWeight: "700", marginTop: 4 },
   stageFill: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0 },
   fullPic: { width: "100%", height: "100%" },
   stageHint: { color: MUTED, textAlign: "center", paddingHorizontal: 28, lineHeight: 22 },
