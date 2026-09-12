@@ -211,7 +211,6 @@ export default function Mirror() {
                 <Ionicons name="camera-outline" size={34} color={colors.success} />
               </View>
               <Text style={styles.needH}>Add your full length photo</Text>
-              <Text style={styles.needP}>Then see how a look works on you before you buy.</Text>
               <View style={styles.needRow}>
                 <Pressable onPress={() => void fromCamera()} style={styles.needBtn}>
                   <Text style={styles.needBtnTxt}>Add your photo</Text>
