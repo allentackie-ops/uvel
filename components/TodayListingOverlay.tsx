@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Share as NativeShare, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
-  Extrapolation,
+  Easing,
   interpolate,
   runOnJS,
   useAnimatedStyle,
@@ -30,7 +30,9 @@ import { FriendShareSheet, type FriendSharePayload } from "./FriendShareSheet";
 
 export type ListingOrigin = { x: number; y: number; width: number; height: number };
 
-const SPRING = { damping: 22, stiffness: 240, mass: 0.86, overshootClamping: false };
+const OPEN_SPRING = { damping: 24, stiffness: 260, mass: 0.78 };
+const CLOSE_SPRING = { damping: 32, stiffness: 420, mass: 0.62, overshootClamping: true };
+const SNAP = { damping: 26, stiffness: 320, mass: 0.7, overshootClamping: true };
 
 export function TodayListingOverlay({
   piece,
@@ -41,20 +43,31 @@ export function TodayListingOverlay({
   piece: ClosetPiece;
   origin: ListingOrigin;
   onClose: () => void;
-    onInteraction?: (action: PersonalizationAction, piece: ClosetPiece, query?: string, dwellSeconds?: number) => void;
+  onInteraction?: (action: PersonalizationAction, piece: ClosetPiece, query?: string, dwellSeconds?: number) => void;
 }) {
   const colors = useColors();
   const styles = make(colors);
   const app = useUvel();
   const insets = useSafeAreaInsets();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const open = useSharedValue(0);
+  const { width: screenW, height: screenH } = useWindowDimensions();
+  const heroH = Math.min(Math.max(screenH * 0.52, 340), 520);
+  const imgX = useSharedValue(origin.x);
+  const imgY = useSharedValue(origin.y);
+  const imgW = useSharedValue(origin.width);
+  const imgH = useSharedValue(origin.height);
+  const imgR = useSharedValue(18);
   const originX = useSharedValue(origin.x);
   const originY = useSharedValue(origin.y);
   const originW = useSharedValue(origin.width);
   const originH = useSharedValue(origin.height);
-  const detailOpacity = useSharedValue(0);
-  const chromeOpacity = useSharedValue(0);
+  const hostX = useSharedValue(0);
+  const hostY = useSharedValue(0);
+  const rootRef = useRef<View>(null);
+  const backdrop = useSharedValue(0);
+  const chrome = useSharedValue(0);
+  const sheet = useSharedValue(0);
+  const dragY = useSharedValue(0);
+  const closing = useSharedValue(0);
   const scrollY = useSharedValue(0);
   const [activePhoto, setActivePhoto] = useState(0);
   const [measurementsOpen, setMeasurementsOpen] = useState(false);
@@ -66,85 +79,146 @@ export function TodayListingOverlay({
   const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openedAt = useRef(Date.now());
   const dwellRecorded = useRef(false);
-  const closingRef = useRef(false);
-  const closing = useSharedValue(0);
+  const originRef = useRef(origin);
+  originRef.current = origin;
 
   useEffect(() => {
-    originX.value = origin.x;
-    originY.value = origin.y;
+    originX.value = origin.x - hostX.value;
+    originY.value = origin.y - hostY.value;
     originW.value = origin.width;
     originH.value = origin.height;
-  }, [origin.height, origin.width, origin.x, origin.y, originH, originW, originX, originY]);
+  }, [origin.height, origin.width, origin.x, origin.y, originH, originW, originX, originY, hostX, hostY]);
 
   useEffect(() => {
-    open.value = withSpring(1, SPRING);
-    detailOpacity.value = withTiming(1, { duration: 240 });
-    chromeOpacity.value = withTiming(1, { duration: 260 });
-  }, [chromeOpacity, detailOpacity, open]);
+    imgX.value = origin.x;
+    imgY.value = origin.y;
+    requestAnimationFrame(() => {
+      rootRef.current?.measureInWindow((x, y) => {
+        hostX.value = x;
+        hostY.value = y;
+        originX.value = origin.x - x;
+        originY.value = origin.y - y;
+        imgX.value = origin.x - x;
+        imgY.value = origin.y - y;
+        imgX.value = withSpring(0, OPEN_SPRING);
+        imgY.value = withSpring(0, OPEN_SPRING);
+        imgW.value = withSpring(screenW, OPEN_SPRING);
+        imgH.value = withSpring(heroH, OPEN_SPRING);
+        imgR.value = withSpring(0, OPEN_SPRING);
+      });
+    });
+    backdrop.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
+    chrome.value = withTiming(1, { duration: 200 });
+    sheet.value = withTiming(1, { duration: 240 });
+  }, [backdrop, chrome, heroH, imgH, imgR, imgW, imgX, imgY, origin.x, origin.y, originX, originY, originH, originW, hostX, hostY, screenW, sheet]);
+
+  const recordDwell = () => {
+    if (dwellRecorded.current) return;
+    const dwellSeconds = Math.round((Date.now() - openedAt.current) / 1000);
+    if (dwellSeconds >= 10) onInteraction?.("dwell", piece, undefined, dwellSeconds);
+    dwellRecorded.current = true;
+  };
 
   const finishClose = () => {
     onClose();
   };
 
-  const animateToOrigin = () => {
-    if (closingRef.current) return;
-    closingRef.current = true;
+  const closeToPin = () => {
+    if (closing.value) return;
     closing.value = 1;
-    if (!dwellRecorded.current) {
-      const dwellSeconds = Math.round((Date.now() - openedAt.current) / 1000);
-      if (dwellSeconds >= 10) onInteraction?.("dwell", piece, undefined, dwellSeconds);
-      dwellRecorded.current = true;
-    }
-    detailOpacity.value = withTiming(0, { duration: 80 });
-    chromeOpacity.value = withTiming(0, { duration: 70 });
-    open.value = withSpring(0, SPRING, (finished) => {
+    recordDwell();
+    chrome.value = withTiming(0, { duration: 70 });
+    sheet.value = withTiming(0, { duration: 80 });
+    backdrop.value = withTiming(0, { duration: 240, easing: Easing.out(Easing.cubic) });
+    imgX.value = withSpring(originX.value, CLOSE_SPRING);
+    imgY.value = withSpring(originY.value, CLOSE_SPRING);
+    imgW.value = withSpring(originW.value, CLOSE_SPRING);
+    imgH.value = withSpring(originH.value, CLOSE_SPRING);
+    imgR.value = withSpring(18, CLOSE_SPRING, (finished) => {
       if (finished) runOnJS(finishClose)();
     });
   };
 
   const snapOpen = () => {
-    if (closingRef.current) return;
-    open.value = withSpring(1, SPRING);
-    detailOpacity.value = withTiming(1, { duration: 180 });
-    chromeOpacity.value = withTiming(1, { duration: 180 });
+    if (closing.value) return;
+    imgX.value = withSpring(0, SNAP);
+    imgY.value = withSpring(0, SNAP);
+    imgW.value = withSpring(screenW, SNAP);
+    imgH.value = withSpring(heroH, SNAP);
+    imgR.value = withSpring(0, SNAP);
+    backdrop.value = withSpring(1, SNAP);
+    chrome.value = withTiming(1, { duration: 140 });
+    sheet.value = withTiming(1, { duration: 160 });
+    dragY.value = 0;
   };
 
   const pan = Gesture.Pan()
-    .activeOffsetY(12)
-    .failOffsetX([-28, 28])
+    .maxPointers(1)
+    .activeOffsetY(8)
+    .failOffsetX([-36, 36])
     .onUpdate((event) => {
       if (closing.value) return;
-      if (scrollY.value > 6 && event.translationY > 0) return;
-      if (event.translationY <= 0) {
-        open.value = 1;
+      if (scrollY.value > 8 && event.translationY > 0) return;
+      if (event.translationY < 0) {
+        imgY.value = event.translationY * 0.14;
         return;
       }
-      const next = 1 - Math.min(event.translationY / 380, 1);
-      open.value = next;
-      const faded = next < 0.94 ? Math.max(0, (next - 0.62) / 0.32) : 1;
-      detailOpacity.value = faded;
-      chromeOpacity.value = faded;
+      const p = Math.min(event.translationY / 300, 1);
+      const s = 1 - p * 0.26;
+      const w = screenW * s;
+      const h = heroH * s;
+      imgW.value = w;
+      imgH.value = h;
+      imgX.value = (screenW - w) / 2 + event.translationX * 0.38;
+      imgY.value = event.translationY * 0.92;
+      imgR.value = 18 * p;
+      backdrop.value = 1 - p * 0.92;
+      chrome.value = Math.max(0, 1 - p * 2.6);
+      sheet.value = Math.max(0, 1 - p * 3.1);
+      dragY.value = event.translationY;
     })
     .onEnd((event) => {
       if (closing.value) return;
-      if (open.value < 0.8 || event.velocityY > 1050) {
-        runOnJS(animateToOrigin)();
+      if (dragY.value > 72 || event.velocityY > 850) {
+        closing.value = 1;
+        runOnJS(recordDwell)();
+        chrome.value = withTiming(0, { duration: 70 });
+        sheet.value = withTiming(0, { duration: 80 });
+        backdrop.value = withTiming(0, { duration: 240, easing: Easing.out(Easing.cubic) });
+        imgX.value = withSpring(originX.value, CLOSE_SPRING);
+        imgY.value = withSpring(originY.value, CLOSE_SPRING);
+        imgW.value = withSpring(originW.value, CLOSE_SPRING);
+        imgH.value = withSpring(originH.value, CLOSE_SPRING);
+        imgR.value = withSpring(18, CLOSE_SPRING, (finished) => {
+          if (finished) runOnJS(finishClose)();
+        });
         return;
       }
-      runOnJS(snapOpen)();
+      imgX.value = withSpring(0, SNAP);
+      imgY.value = withSpring(0, SNAP);
+      imgW.value = withSpring(screenW, SNAP);
+      imgH.value = withSpring(heroH, SNAP);
+      imgR.value = withSpring(0, SNAP);
+      backdrop.value = withSpring(1, SNAP);
+      chrome.value = withTiming(1, { duration: 140 });
+      sheet.value = withTiming(1, { duration: 160 });
+      dragY.value = 0;
     });
-  const dismissGesture = Gesture.Simultaneous(pan, Gesture.Native());
+  const dismiss = Gesture.Simultaneous(pan, Gesture.Native());
 
-  const surfaceStyle = useAnimatedStyle(() => ({
-    top: interpolate(open.value, [0, 1], [originY.value, 0], Extrapolation.CLAMP),
-    left: interpolate(open.value, [0, 1], [originX.value, 0], Extrapolation.CLAMP),
-    width: interpolate(open.value, [0, 1], [originW.value, screenWidth], Extrapolation.CLAMP),
-    height: interpolate(open.value, [0, 1], [originH.value, screenHeight], Extrapolation.CLAMP),
-    borderRadius: interpolate(open.value, [0, 1], [18, 0], Extrapolation.CLAMP),
+  const photoStyle = useAnimatedStyle(() => ({
+    top: imgY.value,
+    left: imgX.value,
+    width: imgW.value,
+    height: imgH.value,
+    borderRadius: imgR.value,
   }));
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: interpolate(open.value, [0, 1], [0, 0.58], Extrapolation.CLAMP) }));
-  const detailStyle = useAnimatedStyle(() => ({ opacity: detailOpacity.value }));
-  const chromeStyle = useAnimatedStyle(() => ({ opacity: chromeOpacity.value }));
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value * 0.62 }));
+  const chromeStyle = useAnimatedStyle(() => ({ opacity: chrome.value }));
+  const sheetStyle = useAnimatedStyle(() => ({
+    opacity: sheet.value,
+    transform: [{ translateY: Math.max(0, imgY.value) * 0.35 }],
+  }));
 
   const brand = piece.brandId ? getBrand(piece.brandId)?.name : piece.brand;
   const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
@@ -161,9 +235,8 @@ export function TodayListingOverlay({
   const gallery = piece.photos?.length ? piece.photos : [piece.photo];
   const measurementEntries = Object.entries(piece.measurements || {}).filter(([, value]) => Boolean(value));
   const currentPhoto = gallery[Math.min(activePhoto, gallery.length - 1)] || piece.photo;
-  const heroHeight = Math.min(Math.max(screenHeight * 0.5, 320), 480);
-  const heartPopX = useSharedValue(screenWidth / 2);
-  const heartPopY = useSharedValue(heroHeight / 2);
+  const heartPopX = useSharedValue(screenW / 2);
+  const heartPopY = useSharedValue(heroH / 2);
   const heartPopScale = useSharedValue(0);
   const heartPopOpacity = useSharedValue(0);
   const sharePayload: FriendSharePayload = { kind: "listing", id: piece.id, title: piece.name, deepLink: `uvel://piece/${piece.id}`, imageUri: piece.photo, previewText: `Have a look at ${piece.name} on Uvel.` };
@@ -186,7 +259,7 @@ export function TodayListingOverlay({
       onInteraction?.("save", piece);
       void app.toggleSaved(piece.id);
     }
-    heartPopX.value = withSequence(withTiming(x, { duration: 1 }), withTiming(screenWidth - 38, { duration: 520 }));
+    heartPopX.value = withSequence(withTiming(x, { duration: 1 }), withTiming(screenW - 38, { duration: 520 }));
     heartPopY.value = withSequence(withTiming(y, { duration: 1 }), withTiming(-38, { duration: 520 }));
     heartPopScale.value = withSequence(withSpring(1.12, { damping: 10, stiffness: 260 }), withTiming(0.55, { duration: 520 }));
     heartPopOpacity.value = withSequence(withTiming(1, { duration: 1 }), withTiming(0, { duration: 520 }));
@@ -209,7 +282,7 @@ export function TodayListingOverlay({
   }
 
   function openMessage() {
-    onClose();
+    closeToPin();
     setTimeout(() => {
       router.push({
         pathname: "/ask/[id]",
@@ -221,198 +294,191 @@ export function TodayListingOverlay({
           ...(piece.brandId ? { brandId: piece.brandId } : {}),
         },
       });
-    }, 300);
+    }, 280);
   }
 
   return (
-    <View style={styles.root} pointerEvents="box-none">
+    <GestureDetector gesture={dismiss}>
+    <View ref={rootRef} style={styles.root} pointerEvents="box-none" collapsable={false}>
       <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents="none" />
-      <GestureDetector gesture={dismissGesture}>
-      <Animated.View style={[styles.surface, surfaceStyle]}>
-          <ScrollView
-            style={styles.bodyScroll}
-            contentContainerStyle={[styles.bodyContent, { paddingBottom: insets.bottom + 32 }]}
-            showsVerticalScrollIndicator={false}
-            scrollEventThrottle={16}
-            nestedScrollEnabled
-            bounces
-            alwaysBounceVertical
-            decelerationRate="normal"
-            onScroll={(event) => {
-              scrollY.value = event.nativeEvent.contentOffset.y;
-            }}
-          >
-            <Animated.View style={[styles.topBar, { height: insets.top + 76, paddingTop: insets.top }, chromeStyle]}>
-              <Pressable onPress={animateToOrigin} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel="Close listing">
-                <Ionicons name="chevron-down" size={20} color={colors.ink} />
-              </Pressable>
-              <View style={styles.topActions}>
+      <Animated.View style={[styles.sheet, { top: heroH, paddingBottom: insets.bottom + 24 }, sheetStyle]} pointerEvents="box-none">
+        <ScrollView
+          style={styles.bodyScroll}
+          contentContainerStyle={styles.bodyContent}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          overScrollMode="never"
+          scrollEventThrottle={16}
+          onScroll={(event) => {
+            scrollY.value = event.nativeEvent.contentOffset.y;
+          }}
+        >
+          <Text style={styles.kicker}>{(brand || "UVEL").toUpperCase()}</Text>
+          <Text style={styles.title}>{piece.name}</Text>
+          {credit > 0 ? (
+            <View style={styles.priceRow}>
+              <Text style={styles.was}>{moneyInMarket(localPriceCents, market.currency, market)}</Text>
+              <Text style={[styles.price, { marginTop: 0 }]}>{moneyInMarket(saleCents, market.currency, market)}</Text>
+            </View>
+          ) : (
+            <Text style={styles.price}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
+          )}
+          <Text style={styles.meta}>{[piece.size || piece.sizes?.[0] || "One size", piece.color, piece.condition].filter(Boolean).join(" · ")}</Text>
+          {gallery.length > 1 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRail}>
+              {gallery.map((photo, index) => (
                 <Pressable
-                  onPress={() => {
-                    onInteraction?.("share", piece);
-                    setShareOpen(true);
-                  }}
-                  hitSlop={10}
-                  style={styles.share}
+                  key={`${photo}-${index}`}
+                  onPress={() => setActivePhoto(index)}
+                  style={[styles.thumbnail, index === activePhoto && styles.thumbnailActive]}
                   accessibilityRole="button"
-                  accessibilityLabel={`Share ${piece.name}`}
+                  accessibilityLabel={`View listing photo ${index + 1} of ${gallery.length}`}
+                  accessibilityState={{ selected: index === activePhoto }}
                 >
-                  <Ionicons name="share-outline" size={20} color={colors.ink} />
+                  <Image source={{ uri: photo }} style={styles.thumbnailImage} contentFit="cover" />
                 </Pressable>
-                <Pressable
-                  onPress={() => {
-                    onInteraction?.("save", piece);
-                    void app.toggleSaved(piece.id);
-                  }}
-                  hitSlop={10}
-                  style={styles.save}
-                  accessibilityRole="button"
-                  accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}
-                >
-                  <Ionicons name={liked ? "heart" : "heart-outline"} size={21} color={liked ? colors.success : colors.ink} />
-                  <Text style={styles.saveText}>{liked ? "Saved" : "Save"}</Text>
-                </Pressable>
+              ))}
+            </ScrollView>
+          ) : null}
+          <View style={styles.sellerCard}>
+            {sellerPhoto ? (
+              <Image source={{ uri: sellerPhoto }} style={styles.avatarImage} contentFit="cover" />
+            ) : (
+              <View style={styles.avatarFallback}>
+                <Text style={styles.avatarInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text>
               </View>
-            </Animated.View>
-            <Pressable
-              style={[styles.heroGesture, { height: heroHeight }]}
-              onPress={(event) => onHeroPress(event.nativeEvent.locationX, event.nativeEvent.locationY)}
-              accessibilityRole="image"
-              accessibilityLabel={`Double tap to save ${piece.name}`}
-            >
-              <Image source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
-              <Animated.Text pointerEvents="none" style={[styles.heartPop, heartPopStyle]}>♥</Animated.Text>
-              {gallery.length > 1 ? (
-                <View style={styles.photoCount} pointerEvents="none">
-                  <Text style={styles.photoCountText}>{Math.min(activePhoto + 1, gallery.length)} / {gallery.length}</Text>
-                </View>
-              ) : null}
+            )}
+            <View style={styles.sellerCopy}>
+              <Text style={styles.sellerEyebrow}>{brandRecord ? "Sold by" : "Listed by"}</Text>
+              <View style={styles.sellerNameRow}>
+                <Text style={styles.sellerName} numberOfLines={1}>{sellerName}</Text>
+                {brandRecord?.verified && brandRecord.status === "verified" ? <VerifiedMark size={15} /> : null}
+              </View>
+              <Text style={styles.sellerMeta} numberOfLines={1}>Ships from {sellerLocation}</Text>
+            </View>
+            <Pressable onPress={openMessage} style={styles.messageButton} accessibilityRole="button" accessibilityLabel={`Message ${sellerName}`}>
+              <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.bone} />
+              <Text style={styles.messageText}>Message</Text>
             </Pressable>
-            <Animated.View style={[styles.detail, detailStyle]}>
-              <Text style={styles.kicker}>{(brand || "UVEL").toUpperCase()}</Text>
-              <Text style={styles.title}>{piece.name}</Text>
-              {credit > 0 ? (
-                <View style={styles.priceRow}>
-                  <Text style={styles.was}>{moneyInMarket(localPriceCents, market.currency, market)}</Text>
-                  <Text style={[styles.price, { marginTop: 0 }]}>{moneyInMarket(saleCents, market.currency, market)}</Text>
-                </View>
-              ) : (
-                <Text style={styles.price}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
-              )}
-              <Text style={styles.meta}>{[piece.size || piece.sizes?.[0] || "One size", piece.color, piece.condition].filter(Boolean).join(" · ")}</Text>
-              {gallery.length > 1 ? (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRail}>
-                  {gallery.map((photo, index) => (
-                    <Pressable
-                      key={`${photo}-${index}`}
-                      onPress={() => setActivePhoto(index)}
-                      style={[styles.thumbnail, index === activePhoto && styles.thumbnailActive]}
-                      accessibilityRole="button"
-                      accessibilityLabel={`View listing photo ${index + 1} of ${gallery.length}`}
-                      accessibilityState={{ selected: index === activePhoto }}
-                    >
-                      <Image source={{ uri: photo }} style={styles.thumbnailImage} contentFit="cover" />
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              ) : null}
-              <View style={styles.sellerCard}>
-                {sellerPhoto ? (
-                  <Image source={{ uri: sellerPhoto }} style={styles.avatarImage} contentFit="cover" />
-                ) : (
-                  <View style={styles.avatarFallback}>
-                    <Text style={styles.avatarInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text>
-                  </View>
-                )}
-                <View style={styles.sellerCopy}>
-                  <Text style={styles.sellerEyebrow}>{brandRecord ? "Sold by" : "Listed by"}</Text>
-                  <View style={styles.sellerNameRow}>
-                    <Text style={styles.sellerName} numberOfLines={1}>{sellerName}</Text>
-                    {brandRecord?.verified && brandRecord.status === "verified" ? <VerifiedMark size={15} /> : null}
-                  </View>
-                  <Text style={styles.sellerMeta} numberOfLines={1}>Ships from {sellerLocation}</Text>
-                </View>
-                <Pressable
-                  onPress={openMessage}
-                  style={styles.messageButton}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Message ${sellerName}`}
-                >
-                  <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.bone} />
-                  <Text style={styles.messageText}>Message</Text>
-                </Pressable>
+          </View>
+          {piece.notes ? (
+            <View style={styles.conditionBlock}>
+              <Text style={styles.conditionLabel}>Condition notes</Text>
+              <Text style={styles.notes}>{piece.notes}</Text>
+            </View>
+          ) : null}
+          <View style={styles.rule} />
+          <Text style={styles.section}>Listing details</Text>
+          <View style={styles.facts}>
+            {piece.category ? <Fact label="Category" value={piece.category} styles={styles} /> : null}
+            {piece.material ? <Fact label="Material" value={piece.material} styles={styles} /> : null}
+            <Fact label="Ships from" value={piece.country || app.country} styles={styles} />
+          </View>
+          <View style={styles.detailSections}>
+            <Pressable onPress={() => setMeasurementsOpen((open) => !open)} style={styles.expandRow} accessibilityRole="button" accessibilityState={{ expanded: measurementsOpen }}>
+              <View style={styles.expandTitleWrap}>
+                <Ionicons name="resize-outline" size={18} color={colors.success} />
+                <Text style={styles.expandTitle}>Measurements & fit</Text>
               </View>
-              {piece.notes ? (
-                <View style={styles.conditionBlock}>
-                  <Text style={styles.conditionLabel}>Condition notes</Text>
-                  <Text style={styles.notes}>{piece.notes}</Text>
-                </View>
-              ) : null}
-              <View style={styles.rule} />
-              <Text style={styles.section}>Listing details</Text>
-              <View style={styles.facts}>
-                {piece.category ? <Fact label="Category" value={piece.category} styles={styles} /> : null}
-                {piece.material ? <Fact label="Material" value={piece.material} styles={styles} /> : null}
-                <Fact label="Ships from" value={piece.country || app.country} styles={styles} />
+              <Ionicons name={measurementsOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.bone} />
+            </Pressable>
+            {measurementsOpen ? (
+              <View style={styles.expandContent}>
+                {measurementEntries.length ? measurementEntries.map(([label, value]) => (
+                  <Fact key={label} label={label} value={value} styles={styles} />
+                )) : <Text style={styles.emptyDetail}>The seller hasn’t added measurements yet. Message them for fit details.</Text>}
               </View>
-              <View style={styles.detailSections}>
-                <Pressable onPress={() => setMeasurementsOpen((open) => !open)} style={styles.expandRow} accessibilityRole="button" accessibilityState={{ expanded: measurementsOpen }}>
-                  <View style={styles.expandTitleWrap}>
-                    <Ionicons name="resize-outline" size={18} color={colors.success} />
-                    <Text style={styles.expandTitle}>Measurements & fit</Text>
-                  </View>
-                  <Ionicons name={measurementsOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.bone} />
-                </Pressable>
-                {measurementsOpen ? (
-                  <View style={styles.expandContent}>
-                    {measurementEntries.length ? measurementEntries.map(([label, value]) => (
-                      <Fact key={label} label={label} value={value} styles={styles} />
-                    )) : <Text style={styles.emptyDetail}>The seller hasn’t added measurements yet. Message them for fit details.</Text>}
-                  </View>
-                ) : null}
-                <Pressable onPress={() => setShippingOpen((open) => !open)} style={styles.expandRow} accessibilityRole="button" accessibilityState={{ expanded: shippingOpen }}>
-                  <View style={styles.expandTitleWrap}>
-                    <Ionicons name="cube-outline" size={18} color={colors.success} />
-                    <Text style={styles.expandTitle}>Shipping & returns</Text>
-                  </View>
-                  <Ionicons name={shippingOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.bone} />
-                </Pressable>
-                {shippingOpen ? (
-                  <View style={styles.expandContent}>
-                    <Text style={styles.expandBody}>Ships to {shipsToLabel(piece.country || app.country, piece.shipsTo)}.</Text>
-                    <Text style={styles.expandBody}>Returns and delivery details are confirmed at checkout.</Text>
-                  </View>
-                ) : null}
+            ) : null}
+            <Pressable onPress={() => setShippingOpen((open) => !open)} style={styles.expandRow} accessibilityRole="button" accessibilityState={{ expanded: shippingOpen }}>
+              <View style={styles.expandTitleWrap}>
+                <Ionicons name="cube-outline" size={18} color={colors.success} />
+                <Text style={styles.expandTitle}>Shipping & returns</Text>
               </View>
-              <View style={styles.trustRow}>
-                <TrustItem icon="shield-checkmark-outline" label="Secure checkout" styles={styles} />
-                <TrustItem icon="checkmark-circle-outline" label="Buyer protection" styles={styles} />
+              <Ionicons name={shippingOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.bone} />
+            </Pressable>
+            {shippingOpen ? (
+              <View style={styles.expandContent}>
+                <Text style={styles.expandBody}>Ships to {shipsToLabel(piece.country || app.country, piece.shipsTo)}.</Text>
+                <Text style={styles.expandBody}>Returns and delivery details are confirmed at checkout.</Text>
               </View>
-              <View style={styles.actions}>
-                <Pressable onPress={() => { onInteraction?.("try_on", piece); router.push({ pathname: "/try-on", params: { piece: piece.id } }); }} style={styles.tryAction} accessibilityRole="button" accessibilityLabel="Try this listing on">
-                  <Ionicons name="body-outline" size={18} color={colors.bone} />
-                  <Text style={styles.tryText}>Try it on</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    if (inBag) return;
-                    addToCart(piece.id);
-                    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
-                  }}
-                  style={styles.primaryAction}
-                  accessibilityRole="button"
-                  accessibilityLabel={inBag ? `${piece.name} is in your cart` : `Add ${piece.name} to cart`}
-                >
-                  <Text style={styles.primaryText}>{inBag ? "In cart" : "Add to cart"}</Text>
-                  <Ionicons name={inBag ? "checkmark" : "bag-handle-outline"} size={17} color={colors.successInk} />
-                </Pressable>
-              </View>
-            </Animated.View>
-          </ScrollView>
+            ) : null}
+          </View>
+          <View style={styles.trustRow}>
+            <TrustItem icon="shield-checkmark-outline" label="Secure checkout" styles={styles} />
+            <TrustItem icon="checkmark-circle-outline" label="Buyer protection" styles={styles} />
+          </View>
+          <View style={styles.actions}>
+            <Pressable onPress={() => { onInteraction?.("try_on", piece); router.push({ pathname: "/try-on", params: { piece: piece.id } }); }} style={styles.tryAction} accessibilityRole="button" accessibilityLabel="Try this listing on">
+              <Ionicons name="body-outline" size={18} color={colors.bone} />
+              <Text style={styles.tryText}>Try it on</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                if (inBag) return;
+                addToCart(piece.id);
+                void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+              }}
+              style={styles.primaryAction}
+              accessibilityRole="button"
+              accessibilityLabel={inBag ? `${piece.name} is in your cart` : `Add ${piece.name} to cart`}
+            >
+              <Text style={styles.primaryText}>{inBag ? "In cart" : "Add to cart"}</Text>
+              <Ionicons name={inBag ? "checkmark" : "bag-handle-outline"} size={17} color={colors.successInk} />
+            </Pressable>
+          </View>
+        </ScrollView>
       </Animated.View>
-      </GestureDetector>
+      <Animated.View style={[styles.photo, photoStyle]}>
+          <Pressable
+            style={styles.heroHit}
+            onPress={(event) => onHeroPress(event.nativeEvent.locationX, event.nativeEvent.locationY)}
+            accessibilityRole="image"
+            accessibilityLabel={`Double tap to save ${piece.name}`}
+          >
+            <Image source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
+            <Animated.Text pointerEvents="none" style={[styles.heartPop, heartPopStyle]}>♥</Animated.Text>
+            {gallery.length > 1 ? (
+              <View style={styles.photoCount} pointerEvents="none">
+                <Text style={styles.photoCountText}>{Math.min(activePhoto + 1, gallery.length)} / {gallery.length}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        </Animated.View>
+      <Animated.View pointerEvents="box-none" style={[styles.topBar, { paddingTop: insets.top + 8 }, chromeStyle]}>
+        <Pressable onPress={closeToPin} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel="Close listing">
+          <Ionicons name="chevron-down" size={20} color={colors.ink} />
+        </Pressable>
+        <View style={styles.topActions}>
+          <Pressable
+            onPress={() => {
+              onInteraction?.("share", piece);
+              setShareOpen(true);
+            }}
+            hitSlop={10}
+            style={styles.share}
+            accessibilityRole="button"
+            accessibilityLabel={`Share ${piece.name}`}
+          >
+            <Ionicons name="share-outline" size={20} color={colors.ink} />
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              onInteraction?.("save", piece);
+              void app.toggleSaved(piece.id);
+            }}
+            hitSlop={10}
+            style={styles.save}
+            accessibilityRole="button"
+            accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}
+          >
+            <Ionicons name={liked ? "heart" : "heart-outline"} size={21} color={liked ? colors.success : colors.ink} />
+            <Text style={styles.saveText}>{liked ? "Saved" : "Save"}</Text>
+          </Pressable>
+        </View>
+      </Animated.View>
       <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
     </View>
+    </GestureDetector>
   );
 }
 
@@ -438,12 +504,12 @@ function make(colors: Colors) {
   return StyleSheet.create({
     root: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, elevation: 100 },
     backdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "#000" },
-    surface: { position: "absolute", overflow: "hidden", backgroundColor: colors.ink },
-    heroGesture: { width: "100%", height: "54%" },
+    photo: { position: "absolute", overflow: "hidden", backgroundColor: colors.surface, zIndex: 3 },
+    heroHit: { flex: 1 },
     hero: { width: "100%", height: "100%", backgroundColor: colors.surface },
     heartPop: { position: "absolute", left: 0, top: 0, zIndex: 5, color: colors.success, fontSize: 68, lineHeight: 72, textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
-    chrome: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
-    topBar: { paddingHorizontal: 18, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.ink },
+    sheet: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: colors.ink, zIndex: 2 },
+    topBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 5, paddingHorizontal: 18, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     back: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone },
     topActions: { flexDirection: "row", alignItems: "center", gap: 8 },
     save: { minHeight: 42, paddingHorizontal: 14, borderRadius: 22, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.bone },
@@ -452,8 +518,7 @@ function make(colors: Colors) {
     photoCount: { position: "absolute", right: 18, bottom: 18, minWidth: 48, height: 28, paddingHorizontal: 9, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.58)", alignItems: "center", justifyContent: "center" },
     photoCountText: { color: colors.bone, fontSize: 11, fontWeight: "800", fontVariant: ["tabular-nums"] },
     bodyScroll: { flex: 1 },
-    bodyContent: { paddingBottom: 132 },
-    detail: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 40 },
+    bodyContent: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 40 },
     kicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.8 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 30, lineHeight: 36, marginTop: 7 },
     priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 12, flexWrap: "wrap" },
