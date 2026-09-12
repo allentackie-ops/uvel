@@ -662,7 +662,7 @@ export async function sendInvite(input: {
       const token = snap.exists() ? String((snap.data() as { expoPushToken?: string }).expoPushToken || "") : "";
       if (token) {
         const { sendPush } = await import("./push");
-        void sendPush(token, "Brand invite", `${input.fromName} invited you to post on ${brand.name}`, { brandId: brand.id });
+        void sendPush(token, "Brand invite", `${input.fromName} invited you to post on ${brand.name}`, { kind: "brand_invite", brandId: brand.id });
       }
     } catch {
       /* ignore */
