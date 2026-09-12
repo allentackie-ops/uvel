@@ -129,6 +129,9 @@ async function applyAccount(
       birthday: (stashed?.birthday as string) || memory.birthday,
       gender: (stashed?.gender as string) || memory.gender,
       styles: (stashed?.styles as string[]) || memory.styles,
+      archetype: (stashed?.archetype as string) || memory.archetype,
+      palette: (stashed?.palette as string) || memory.palette,
+      silhouette: (stashed?.silhouette as string) || memory.silhouette,
       wantsUpdates: Boolean(stashed?.wantsUpdates) || memory.wantsUpdates,
       accessibilityMode: typeof stashed?.accessibilityMode === "boolean" ? stashed.accessibilityMode : memory.accessibilityMode,
       locale: (typeof stashed?.locale === "string" && stashed.locale) || memory.locale,
@@ -170,6 +173,9 @@ async function applyAccount(
     birthday: (typeof remote?.birthday === "string" && remote.birthday) || (stashed?.birthday as string) || memory.birthday,
     gender: (typeof remote?.gender === "string" && remote.gender) || (stashed?.gender as string) || memory.gender,
     styles: (Array.isArray(remote?.styles) ? (remote.styles as string[]) : null) || (stashed?.styles as string[]) || memory.styles,
+    archetype: (typeof remote?.archetype === "string" && remote.archetype) || (stashed?.archetype as string) || memory.archetype,
+    palette: (typeof remote?.palette === "string" && remote.palette) || (stashed?.palette as string) || memory.palette,
+    silhouette: (typeof remote?.silhouette === "string" && remote.silhouette) || (stashed?.silhouette as string) || memory.silhouette,
     wantsUpdates: typeof remote?.wantsUpdates === "boolean" ? remote.wantsUpdates : typeof stashed?.wantsUpdates === "boolean" ? stashed.wantsUpdates : memory.wantsUpdates,
     accessibilityMode: typeof remote?.accessibilityMode === "boolean" ? remote.accessibilityMode : typeof stashed?.accessibilityMode === "boolean" ? stashed.accessibilityMode : memory.accessibilityMode,
     locale: typeof remote?.locale === "string" && remote.locale ? remote.locale : (typeof stashed?.locale === "string" && stashed.locale) || memory.locale,
@@ -188,6 +194,9 @@ async function applyAccount(
           birthday: memory.birthday,
           gender: memory.gender,
           styles: memory.styles,
+          archetype: memory.archetype,
+          palette: memory.palette,
+          silhouette: memory.silhouette,
           wantsUpdates: memory.wantsUpdates,
         }),
       );
@@ -212,6 +221,9 @@ async function stashProfile() {
       birthday: memory.birthday,
       gender: memory.gender,
       styles: memory.styles,
+      archetype: memory.archetype,
+      palette: memory.palette,
+      silhouette: memory.silhouette,
       wantsUpdates: memory.wantsUpdates,
       accessibilityMode: memory.accessibilityMode,
       locale: memory.locale,
@@ -335,6 +347,9 @@ export function useUvel() {
       styles: string[];
       wardrobeUris: string[];
       wantsUpdates: boolean;
+      archetype?: string;
+      palette?: string;
+      silhouette?: string;
     }) => {
       void import("./auth").then(({ writeUserProfile }) => {
         if (!memory.uid) return;
@@ -346,6 +361,9 @@ export function useUvel() {
           gender: patch.gender,
           styles: patch.styles,
           wantsUpdates: patch.wantsUpdates,
+          archetype: patch.archetype || "",
+          palette: patch.palette || "",
+          silhouette: patch.silhouette || "",
         });
       });
       return save({

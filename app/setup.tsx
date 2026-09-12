@@ -1,4 +1,3 @@
-import * as ImagePicker from "expo-image-picker";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useRef, useState } from "react";
@@ -18,10 +17,11 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usd } from "../lib/catalog";
 import { genderBoost } from "../lib/lookMatch";
+import { ARCH, PALS, SILS } from "../lib/styleDna";
 import { useUvel } from "../lib/store";
 import { dressPerson } from "../lib/tryon";
 import { pickFromLibrary, takePhoto } from "../lib/photo";
-import { addPiece, shopFloor, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
+import { shopFloor, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { claimUsername } from "../lib/auth";
 import { isValidUsername, normalizeUsername } from "../lib/username";
 
@@ -35,21 +35,6 @@ const WASH = "rgba(214,226,122,0.28)";
 const SOFT = "#F5F3EC";
 const STEPS = 6;
 const MIN_AGE = 18;
-
-const STYLES = [
-  "Quiet",
-  "Romantic",
-  "Tailored",
-  "Street",
-  "Vintage",
-  "Western",
-  "Utility",
-  "Minimal",
-  "Evening",
-  "Work",
-  "Y2K",
-  "Coastal",
-];
 
 function Name({ children }: { children: string }) {
   return <Text style={styles.name}>{children}</Text>;
@@ -92,8 +77,9 @@ export default function ProfileSetup() {
   const [wantsUpdates, setWantsUpdates] = useState(false);
   const [rendering, setRendering] = useState(false);
   const [rendered, setRendered] = useState(false);
-  const [picked, setPicked] = useState<string[]>([]);
-  const [fits, setFits] = useState<string[]>([]);
+  const [arch, setArch] = useState("");
+  const [pal, setPal] = useState("");
+  const [sil, setSil] = useState("");
   const mmRef = useRef<TextInput>(null);
   const ddRef = useRef<TextInput>(null);
   const yyRef = useRef<TextInput>(null);
@@ -161,19 +147,6 @@ export default function ProfileSetup() {
     }
   }
 
-  async function pickFit() {
-    if (fits.length >= 5) return;
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 0.8,
-      allowsMultipleSelection: true,
-      selectionLimit: 5 - fits.length,
-    });
-    if (!res.canceled) {
-      setFits((cur) => [...cur, ...res.assets.map((a) => a.uri)].slice(0, 5));
-    }
-  }
-
   async function finish() {
     if (asking) return;
     const normalized = normalizeUsername(username);
@@ -201,28 +174,18 @@ export default function ProfileSetup() {
     }
     const dt = parseDob(mm, dd, yyyy);
     const iso = dt ? dt.toISOString().slice(0, 10) : "";
-    fits.forEach((uri, i) => {
-      addPiece({
-        photo: uri,
-        name: `Fit ${i + 1}`,
-        brand: "Your wardrobe",
-        category: "Tops",
-        color: "",
-        size: "",
-        condition: "Excellent",
-        notes: "From setup",
-        listPriceCents: 0,
-      });
-    });
     await app.completeProfile({
       displayName: name.trim(),
       birthday: iso,
       gender,
       personUri: photo,
-      styles: picked,
-      wardrobeUris: fits,
+      styles: [],
+      wardrobeUris: [],
       wantsUpdates,
       username: normalized,
+      archetype: arch,
+      palette: pal,
+      silhouette: sil,
     });
     setAsking(false);
   }
@@ -486,40 +449,38 @@ export default function ProfileSetup() {
                 )}
               </Text>
               <Text style={styles.lede}>
-                Tap the styles you wear. Or show us up to 5 fits from your wardrobe — we’ll learn from them and
-                recommend pieces brands are actually selling.
+                Tap the styles you wear. We’ll recommend pieces brands are actually selling.
               </Text>
-              <View style={styles.chips}>
-                {STYLES.map((s) => {
-                  const on = picked.includes(s);
-                  return (
-                    <Pressable
-                      key={s}
-                      onPress={() =>
-                        setPicked((cur) => (on ? cur.filter((x) => x !== s) : [...cur, s]))
-                      }
-                      style={[styles.chip, on && styles.chipOn]}
-                    >
-                      <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{s}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <Text style={styles.meta}>YOUR FITS · UP TO 5</Text>
-              <View style={styles.fits}>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Pressable key={i} onPress={() => void pickFit()} style={styles.fit}>
-                    {fits[i] ? (
-                      <Image source={{ uri: fits[i] }} style={styles.fitImg} contentFit="cover" />
-                    ) : (
-                      <Text style={styles.fitPlus}>+</Text>
-                    )}
-                  </Pressable>
-                ))}
-              </View>
+              <Text style={styles.groupLabel}>Style</Text>
+              {ARCH.map((item) => (
+                <Pressable key={item} onPress={() => setArch(item)} style={[styles.choice, arch === item && styles.choiceOn]}>
+                  <Text style={styles.choiceTxt}>{item}</Text>
+                  <View style={[styles.radio, arch === item && styles.radioOn]}>
+                    {arch === item ? <View style={styles.radioDot} /> : null}
+                  </View>
+                </Pressable>
+              ))}
+              <Text style={[styles.groupLabel, { marginTop: 18 }]}>Palette</Text>
+              {PALS.map((item) => (
+                <Pressable key={item} onPress={() => setPal(item)} style={[styles.choice, pal === item && styles.choiceOn]}>
+                  <Text style={styles.choiceTxt}>{item}</Text>
+                  <View style={[styles.radio, pal === item && styles.radioOn]}>
+                    {pal === item ? <View style={styles.radioDot} /> : null}
+                  </View>
+                </Pressable>
+              ))}
+              <Text style={[styles.groupLabel, { marginTop: 18 }]}>Silhouette</Text>
+              {SILS.map((item) => (
+                <Pressable key={item} onPress={() => setSil(item)} style={[styles.choice, sil === item && styles.choiceOn]}>
+                  <Text style={styles.choiceTxt}>{item}</Text>
+                  <View style={[styles.radio, sil === item && styles.radioOn]}>
+                    {sil === item ? <View style={styles.radioDot} /> : null}
+                  </View>
+                </Pressable>
+              ))}
               <Pressable
-                onPress={() => go(4)}
-                style={[styles.cta, picked.length || fits.length ? null : styles.ctaOff]}
+                onPress={() => arch && pal && sil && go(4)}
+                style={[styles.cta, arch && pal && sil ? null : styles.ctaOff]}
               >
                 <Text style={styles.ctaTxt}>Continue</Text>
               </Pressable>
@@ -676,6 +637,7 @@ const styles = StyleSheet.create({
   },
   choiceOn: { borderColor: OLIVE, backgroundColor: WASH },
   choiceTxt: { color: INK, fontSize: 17 },
+  groupLabel: { color: MUTED, fontSize: 12, letterSpacing: 0.8, marginBottom: 10 },
   radio: {
     width: 22,
     height: 22,
