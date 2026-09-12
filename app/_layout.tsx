@@ -10,6 +10,9 @@ import { ShakeToReport } from "../components/ShakeToReport";
 import { observeListing } from "../lib/alerts";
 import { useOtaReady } from "../lib/ota";
 import { armNotificationHandler, registerPushToken, watchLastSeen } from "../lib/push";
+import { syncEngagement } from "../lib/engagement";
+import { useCart } from "../lib/cart";
+import { useFirstFind } from "../lib/firstFind";
 import { useUvel } from "../lib/store";
 import { useColors, useResolvedAppearance } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
@@ -61,7 +64,10 @@ function AlertSync() {
 }
 
 function PushSync() {
-  const { uid } = useUvel();
+  const app = useUvel();
+  const uid = app.uid;
+  const cart = useCart();
+  const find = useFirstFind();
   useEffect(() => {
     armNotificationHandler();
   }, []);
@@ -74,19 +80,36 @@ function PushSync() {
       .then((N) => {
         const handle = (res: { notification: { request: { content: { data?: Record<string, unknown> } } } }) => {
           const data = res.notification.request.content.data || {};
-          if (data.kind === "founder_desk") {
+          const kind = String(data.kind || "");
+          if (kind === "founder_desk") {
             void revealFounderDesk().then(() => {
               const next = getFounderDeskJob();
               if (next && next.phase !== "reviewing") router.push(founderDeskRoute(next));
             });
             return;
           }
-          if (data.kind === "friend_request" || data.kind === "friend_accepted") {
+          if (kind === "friend_request" || kind === "friend_accepted") {
             router.push("/inbox");
             return;
           }
-          if (data.kind === "friend_message" && typeof data.conversationId === "string") {
+          if (kind === "friend_message" && typeof data.conversationId === "string") {
             router.push({ pathname: "/friends/chat/[id]", params: { id: data.conversationId } });
+            return;
+          }
+          if (kind === "today" || kind === "first_find") {
+            router.push("/");
+            return;
+          }
+          if (kind === "cart") {
+            router.push("/cart");
+            return;
+          }
+          if (kind === "wallet") {
+            router.push("/wallet");
+            return;
+          }
+          if ((kind === "sold" || kind === "shipped" || kind === "delivered" || kind === "order") && typeof data.orderId === "string" && data.orderId) {
+            router.push({ pathname: "/order/[id]", params: { id: data.orderId } });
             return;
           }
           const pieceId = data.pieceId;
@@ -94,6 +117,10 @@ function PushSync() {
           const threadId = data.threadId;
           if (typeof pieceId === "string" && pieceId) {
             if (typeof alertId === "string" && alertId) {
+              router.push({ pathname: "/closet/[id]", params: { id: pieceId } });
+              return;
+            }
+            if (kind === "like") {
               router.push({ pathname: "/closet/[id]", params: { id: pieceId } });
               return;
             }
@@ -112,6 +139,14 @@ function PushSync() {
       sub?.remove();
     };
   }, [uid]);
+  useEffect(() => {
+    if (!uid) return;
+    void syncEngagement({
+      allowed: app.wantsUpdates,
+      hasBag: cart.count > 0,
+      hasFirstFind: find.remaining > 10,
+    });
+  }, [uid, app.wantsUpdates, cart.count, find.remaining]);
   return null;
 }
 
