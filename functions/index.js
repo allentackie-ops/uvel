@@ -12,6 +12,7 @@ const paystackWebhookSecret = defineSecret("PAYSTACK_WEBHOOK_SECRET");
 
 if (!admin.apps.length) admin.initializeApp({ storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "uvel-32d32.firebasestorage.app" });
 const wallet = require("./wallet");
+const { notifyUid } = require("./notify");
 
 const PAYSTACK = new Set(["GH", "NG", "KE", "ZA"]);
 const RESERVATION_MINUTES = 30;
@@ -727,6 +728,11 @@ exports.updateOrderFulfillment = onCall(async (req) => {
     tx.set(orderRef, update, { merge: true });
   });
   await writeAudit(db, { brandId: String(order.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: "order_fulfillment_updated", entity: "order", entityId: orderId, entityName: String(order.pieceName || "Order"), summary: `Fulfillment moved to ${nextStatus}.`, metadata: { from: String(order.fulfillmentStatus || "unfulfilled"), to: nextStatus } });
+  if (nextStatus === "shipped") {
+    await notifyUid(db, order.buyerId, `${order.pieceName || "Your order"} is on its way`, "We’ll tell you when it lands.", { kind: "shipped", orderId, pieceId: String(order.pieceId || "") });
+  } else if (nextStatus === "delivered") {
+    await notifyUid(db, order.buyerId, `${order.pieceName || "Your order"} has arrived`, "Confirm it so the seller can be paid.", { kind: "delivered", orderId, pieceId: String(order.pieceId || "") });
+  }
   return { ok: true, orderId, fulfillmentStatus: nextStatus };
 });
 
@@ -1857,6 +1863,7 @@ exports.createOrderShipment = onCall(async (req) => {
   const shipment = { id: shipmentId, carrier: input.carrier, trackingNumber: input.trackingNumber, ...(input.trackingUrl ? { trackingUrl: input.trackingUrl } : {}), status: "in_transit", shippedAt: now, lastEventAt: now, createdAt: now, updatedAt: now };
   await orderRef.set({ carrier: input.carrier, trackingNumber: input.trackingNumber, shipment, fulfillmentStatus: "shipped", fulfillmentUpdatedAt: now }, { merge: true });
   await writeAudit(db, { brandId: String(order.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: "order_fulfillment_updated", entity: "order", entityId: orderId, entityName: String(order.pieceName || "Order"), summary: `Shipment created with ${input.carrier}.`, metadata: { shipmentStatus: "in_transit", carrier: input.carrier } });
+  await notifyUid(db, order.buyerId, `${order.pieceName || "Your order"} is on its way`, "We’ll tell you when it lands.", { kind: "shipped", orderId, pieceId: String(order.pieceId || "") });
   return { ok: true, orderId, shipmentId, status: "in_transit" };
 });
 
@@ -1884,6 +1891,9 @@ exports.updateOrderShipment = onCall(async (req) => {
   const fulfillmentStatus = nextStatus === "delivered" ? "delivered" : nextStatus === "returned" ? "returned" : "shipped";
   await orderRef.set({ shipment: nextShipment, fulfillmentStatus, fulfillmentUpdatedAt: now, ...(nextStatus === "delivered" ? { deliveredAt: now } : {}) }, { merge: true });
   await writeAudit(db, { brandId: String(order.brandId), actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: "order_fulfillment_updated", entity: "order", entityId: orderId, entityName: String(order.pieceName || "Order"), summary: `Shipment updated to ${nextStatus.replace("_", " ")}.`, metadata: { shipmentStatus: nextStatus, ...(exceptionCode ? { exceptionCode } : {}) } });
+  if (nextStatus === "delivered") {
+    await notifyUid(db, order.buyerId, `${order.pieceName || "Your order"} has arrived`, "Confirm it so the seller can be paid.", { kind: "delivered", orderId, pieceId: String(order.pieceId || "") });
+  }
   return { ok: true, orderId, status: nextStatus };
 });
 
