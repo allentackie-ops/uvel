@@ -10,9 +10,15 @@ jobs:
   cancel:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
-      - run: npx eas-cli build:cancel "${{ github.event.inputs.build_id }}" --non-interactive
+      - name: Cancel Expo build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          BUILD_ID: ${{ github.event.inputs.build_id }}
+        run: |
+          set -euo pipefail
+          RESP=$(curl -sS https://api.expo.dev/graphql \
+            -H "Authorization: Bearer $EXPO_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data-binary "{\"query\":\"mutation { build { cancelBuild(buildId: \\\"$BUILD_ID\\\") { id status } } }\"}")
+          echo "$RESP"
+          echo "$RESP" | grep -q '"status"' || { echo "cancel failed"; exit 1; }
