@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -20,7 +21,7 @@ import { genderBoost } from "../lib/lookMatch";
 import { ARCH, PALS, SILS } from "../lib/styleDna";
 import { useUvel } from "../lib/store";
 import { dressPerson } from "../lib/tryon";
-import { pickFromLibrary, takePhoto } from "../lib/photo";
+import { pickAvatar, pickFromLibrary, takeAvatar, takePhoto } from "../lib/photo";
 import { shopFloor, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { claimUsername } from "../lib/auth";
 import { isValidUsername, normalizeUsername } from "../lib/username";
@@ -80,6 +81,7 @@ export default function ProfileSetup() {
   const [arch, setArch] = useState("");
   const [pal, setPal] = useState("");
   const [sil, setSil] = useState("");
+  const [avatar, setAvatar] = useState<string | null>(null);
   const mmRef = useRef<TextInput>(null);
   const ddRef = useRef<TextInput>(null);
   const yyRef = useRef<TextInput>(null);
@@ -134,6 +136,14 @@ export default function ProfileSetup() {
     }
     if (!look) return;
     await renderLook();
+  }
+
+  function pickFace() {
+    Alert.alert("Profile picture", "", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Take photo", onPress: () => void takeAvatar().then((uri) => uri && setAvatar(uri)).catch(() => undefined) },
+      { text: "Choose photo", onPress: () => void pickAvatar().then((uri) => uri && setAvatar(uri)).catch(() => undefined) },
+    ]);
   }
 
   async function renderLook() {
@@ -206,6 +216,7 @@ export default function ProfileSetup() {
       birthday: iso,
       gender,
       personUri: photo,
+      avatarUri: avatar,
       styles: [],
       wardrobeUris: [],
       wantsUpdates,
@@ -556,6 +567,15 @@ export default function ProfileSetup() {
             <View style={[styles.body, { paddingBottom: insets.bottom + 28 }]}>
               <Text style={styles.h}>Choose your username.</Text>
               <Text style={styles.lede}>This is how friends will find you on Uvel. Your username is required and can’t be changed here.</Text>
+              <Pressable onPress={pickFace} style={styles.face} accessibilityRole="button" accessibilityLabel="Add a profile picture">
+                {avatar ? (
+                  <Image source={{ uri: avatar }} style={styles.faceImg} contentFit="cover" />
+                ) : (
+                  <View style={styles.faceEmpty}>
+                    <Ionicons name="camera-outline" size={26} color={OLIVE} />
+                  </View>
+                )}
+              </Pressable>
               <TextInput
                 value={username}
                 onChangeText={(value) => setUsername(normalizeUsername(value).slice(0, 20))}
@@ -639,6 +659,24 @@ const styles = StyleSheet.create({
   dobOn: { borderColor: OLIVE, backgroundColor: WASH },
   err: { color: "#B42318", marginTop: 12, fontSize: 14 },
   usernameHint: { color: MUTED, fontSize: 13, marginTop: -4 },
+  face: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    overflow: "hidden",
+    alignSelf: "center",
+    marginBottom: 18,
+    backgroundColor: SOFT,
+  },
+  faceImg: { width: "100%", height: "100%" },
+  faceEmpty: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: LINE,
+    borderRadius: 44,
+  },
   cta: {
     marginTop: 28,
     height: 54,

@@ -385,6 +385,7 @@ export function useUvel() {
       birthday: string;
       gender: string;
       personUri: string | null;
+      avatarUri?: string | null;
       styles: string[];
       wardrobeUris: string[];
       wantsUpdates: boolean;
@@ -403,6 +404,7 @@ export function useUvel() {
           styles: patch.styles,
           wantsUpdates: patch.wantsUpdates,
           username: patch.username,
+          avatarUri: patch.avatarUri || "",
           archetype: patch.archetype || "",
           palette: patch.palette || "",
           silhouette: patch.silhouette || "",
