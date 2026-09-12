@@ -283,7 +283,7 @@ export function useUvel() {
           if (!token) return;
           const who = memory.displayName || "Someone";
           void import("./push").then(({ sendPush }) =>
-            sendPush(token, "New like", `${who} liked ${piece.name}`, { pieceId: id }),
+            sendPush(token, `${who} liked your listing`, piece.name, { kind: "like", pieceId: id }),
           );
         }),
       );
