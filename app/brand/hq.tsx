@@ -3,9 +3,11 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { VerifiedMark } from "../../components/VerifiedMark";
+import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { BrandHQSkeleton } from "../../components/ScreenSkeletons";
 import {
+  brandApproved,
+  brandCheck,
   canAccessHQ,
   canManageCatalog,
   canManageOrders,
@@ -160,7 +162,7 @@ export default function BrandHQ() {
             <Text style={[styles.topKicker, { color: theme.muted }]}>BRAND WORKSPACE</Text>
             <View style={styles.topNameRow}>
               <Text style={[styles.topTitle, { color: theme.ink }]} numberOfLines={1}>{brand.name}</Text>
-              {brand.verified ? <VerifiedMark size={16} /> : null}
+              <BrandVerifiedMark brand={brand} size={16} />
             </View>
           </View>
           <View style={styles.topSpacer} />
@@ -218,7 +220,7 @@ export default function BrandHQ() {
 function Overview({ brand, catalogCount, lowStockCount, teamCount, inquiryCount, theme, styles, onSection }: { brand: Brand; catalogCount: number; lowStockCount: number; teamCount: number; inquiryCount: number; theme: HQTheme; styles: ReturnType<typeof make>; onSection: (section: Section) => void }) {
   return (
     <View>
-      {!brand.verified ? (
+      {!brandApproved(brand) ? (
         <Pressable onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })} style={[styles.hero, { backgroundColor: theme.card, marginBottom: 16 }]}>
           <View style={styles.heroCopy}>
             <Text style={[styles.heroTitle, { color: theme.ink }]}>In review</Text>
@@ -240,7 +242,7 @@ function Overview({ brand, catalogCount, lowStockCount, teamCount, inquiryCount,
       <ActionCard title="Finance & settlements" copy="Review order-linked earnings, refunds, balances, and payout history." button="Open finance" onPress={() => onSection("finance")} theme={theme} styles={styles} />
       <ActionCard title="Merchandising & marketing" copy="Build collections, schedule drops, and control brand promotions." button="Open marketing" onPress={() => onSection("marketing")} theme={theme} styles={styles} />
       <ActionCard title="Support desk" copy="Work order-linked cases with assignment, escalation, and private team notes." button="Open support" onPress={() => onSection("support")} theme={theme} styles={styles} />
-      {brand.verified ? <Text style={[styles.note, { color: theme.muted }]}>Verified brand workspace · {brand.country} · {brand.legalName || brand.ownerName}</Text> : null}
+      {brandApproved(brand) ? <Text style={[styles.note, { color: theme.muted }]}>{brandCheck(brand) === "lime" ? `Green check · two sales · ${brand.country}` : brandCheck(brand) === "blue" ? `Verified brand · ${brand.country}` : `Sell two pieces. Then the green check goes on your name.`}</Text> : null}
     </View>
   );
 }
@@ -1048,7 +1050,7 @@ function SettingsSection({ brand, theme, styles }: { brand: Brand; theme: HQThem
         <Detail label="Legal owner" value={brand.legalName || brand.ownerName} theme={theme} styles={styles} />
         <Detail label="Registration" value={brand.registrationId || "Not provided"} theme={theme} styles={styles} />
         <Detail label="Primary market" value={brand.country} theme={theme} styles={styles} />
-        <Detail label="Brand review" value={brand.reviewStatus === "uvel_reviewed" && brand.verified ? "Uvel-reviewed" : brand.reviewStatus === "human_review" ? "Human review needed" : brand.reviewStatus === "needs_information" ? "Information needed" : brand.status} theme={theme} styles={styles} />
+        <Detail label="Brand review" value={brandCheck(brand) === "lime" ? "Green check" : brandCheck(brand) === "blue" ? "Blue check" : brandApproved(brand) ? "On Uvel" : brand.reviewStatus === "human_review" ? "Human review needed" : brand.reviewStatus === "needs_information" ? "Information needed" : brand.status} theme={theme} styles={styles} />
         <Detail label="Payout status" value={brand.payoutStatus === "enabled" ? "Enabled" : brand.payoutStatus === "pending" ? "Pending provider review" : "Not started"} theme={theme} styles={styles} />
       </View>
     </View>

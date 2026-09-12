@@ -10,7 +10,7 @@ import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 import { getPiece, isRemoteListedPiece, likeCount, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
-import { VerifiedMark } from "./VerifiedMark";
+import { BrandVerifiedMark } from "./VerifiedMark";
 import type { PersonalizationAction } from "../lib/personalization";
 
 export function ListingCard({
@@ -128,7 +128,7 @@ export function ListingCard({
           <Text style={[styles.brand, framed && styles.brandFramed, { flexShrink: 1 }]} numberOfLines={1}>
             {brand.toUpperCase()}
           </Text>
-          {house?.verified ? <VerifiedMark size={11} /> : null}
+          <BrandVerifiedMark brand={house} size={11} />
         </View>
         <Text style={[styles.name, framed && styles.nameFramed]} numberOfLines={2}>
           {piece.name}

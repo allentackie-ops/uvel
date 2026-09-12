@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { appendFounderReference, createFounderBoard, getFounderProject, ideaReady, pieceReady, simpleStageOf, updateFounderProject, useFounderProjects } from "../../../lib/founder";
 import { pickFromLibrary, saveFounderPhotoReference } from "../../../lib/photo";
-import { ownedBrand, useBrands } from "../../../lib/brands";
+import { brandApproved, ownedBrand, useBrands } from "../../../lib/brands";
 import { useUvel } from "../../../lib/store";
 import { useColors, type Colors } from "../../../lib/theme";
 import { FounderLaunchReview, FounderProductEditor, FounderStrategy, SketchBoard, make } from "./../founder";
@@ -121,7 +121,7 @@ export default function FounderStagePage() {
             ))}
           </View>
         </View>
-        {mine?.verified ? (
+        {brandApproved(mine) ? (
           <Pressable
             onPress={() => router.push({ pathname: "/brand/hq", params: { id: mine.id } })}
             style={[local.live, { borderColor: palette.success }]}

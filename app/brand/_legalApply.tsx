@@ -1,3 +1,8 @@
+/**
+ * Parked. Established houses apply here later (website), not in the app.
+ * Approval awards a blue check immediately via submitForVerification.
+ * Founder Studio does not use this screen.
+ */
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
@@ -186,7 +191,7 @@ export default function LegalBrandApply() {
           <Text style={styles.backTxt}>‹</Text>
         </Pressable>
         <View style={styles.done}>
-          <VerifiedMark size={28} />
+          <VerifiedMark size={28} tone="blue" />
           <Text style={styles.doneH}>{mine.name} is verified</Text>
           <Text style={styles.doneP}>You own this house. Post, invite the team, and dress the page.</Text>
           <Pressable onPress={() => router.replace({ pathname: "/brand/[id]", params: { id: mine.id } })} style={styles.doneCta}>
@@ -336,7 +341,7 @@ export default function LegalBrandApply() {
           ) : null}
           {gate.phase === "pass" ? (
             <>
-              <VerifiedMark size={36} />
+              <VerifiedMark size={36} tone="blue" />
               <Text style={styles.gateH}>Uvel review complete.</Text>
               <Text style={styles.gateP}>Your brand passed Uvel’s internal marketplace-safety review. This is not government registration, trademark clearance, or payout verification.</Text>
             </>

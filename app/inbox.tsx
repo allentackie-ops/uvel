@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
-import { VerifiedMark } from "../components/VerifiedMark";
+import { BrandVerifiedMark } from "../components/VerifiedMark";
 import { getBrand, useBrands } from "../lib/brands";
 import { unreadFor, useInbox, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
@@ -189,7 +189,7 @@ function Row({
           <Text style={[styles.name, unread ? { fontWeight: "800" } : null]} numberOfLines={1}>
             {who}
           </Text>
-          {!iAmSeller && (brand?.verified || t.brandVerified) ? <VerifiedMark size={16} /> : null}
+          {!iAmSeller ? <BrandVerifiedMark brand={brand} size={16} /> : null}
           {t.lastAt ? <Text style={styles.time}>{when(t.lastAt)}</Text> : null}
         </View>
         <Text style={[styles.prev, unread ? { color: colors.bone } : null]} numberOfLines={1}>

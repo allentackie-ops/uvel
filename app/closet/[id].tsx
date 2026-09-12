@@ -15,7 +15,7 @@ import { listingVisibleIn, shipsToLine } from "../../lib/ships";
 import { shopLookOf, type ShopLook } from "../../lib/shopLook";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
-import { VerifiedMark } from "../../components/VerifiedMark";
+import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { MotionClip } from "../../components/MotionClip";
 import { getPiece, isRemoteListedPiece, likeCount, markSold, recordPieceView, unlistPiece, updatePiece, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
@@ -600,7 +600,7 @@ export default function ClosetPiece() {
               <Text style={styles.sellerK}>{sellerLabel}</Text>
               <View style={styles.sellerNameRow}>
                 <Text style={styles.sellerN}>{seller}</Text>
-                {owningBrand?.verified && owningBrand.status === "verified" ? <VerifiedMark size={17} /> : null}
+                <BrandVerifiedMark brand={owningBrand} size={17} />
               </View>
               <Text style={styles.sellerP}>Ships from {ship.name}</Text>
               <Text style={styles.sellerP}>{shipsToLine(piece.country || app.country, piece.shipsTo)}</Text>

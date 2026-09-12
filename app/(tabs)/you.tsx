@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "../../components/ListingCard";
-import { VerifiedMark } from "../../components/VerifiedMark";
+import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { GARMENTS, getGarment, usd, CATEGORIES } from "../../lib/catalog";
 import { getMarket, moneyExact, moneyInMarket } from "../../lib/markets";
 import { useWallet } from "../../lib/wallet";
@@ -15,6 +15,7 @@ import {
   declineInvite,
   memberBrands,
   ownedBrand,
+  brandApproved,
   pendingInvitesFor,
   useBrands,
   useInvites,
@@ -164,10 +165,11 @@ export default function You() {
         <View style={{ flex: 1, paddingRight: 12 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Text style={styles.title}>{app.displayName || "Your closet"}</Text>
-            {mine?.verified && mine.logoUri ? <Image source={{ uri: mine.logoUri }} style={styles.ownerBrandLogo} contentFit="cover" /> : null}
+            <BrandVerifiedMark brand={mine} size={18} />
+            {brandApproved(mine) && mine?.logoUri ? <Image source={{ uri: mine.logoUri }} style={styles.ownerBrandLogo} contentFit="cover" /> : null}
           </View>
           {mine ? (
-            <Text style={styles.ownerLine}>{mine.verified ? `Owner of ${mine.name}` : `Filing for ${mine.name}`}</Text>
+            <Text style={styles.ownerLine}>{brandApproved(mine) ? `Owner of ${mine.name}` : `Filing for ${mine.name}`}</Text>
           ) : teams[0] ? (
             <Text style={styles.ownerLine}>Team at {teams[0].name}</Text>
           ) : null}

@@ -21,6 +21,8 @@ import { listedPieces } from "./wardrobe";
 import { allOrders } from "./orders";
 
 export type BrandStatus = "draft" | "pending" | "verified" | "rejected";
+export type BrandOrigin = "founder" | "house";
+export type BrandCheck = "none" | "lime" | "blue";
 export type BrandReviewStatus = "not_started" | "review_pending" | "needs_information" | "human_review" | "uvel_reviewed" | "rejected";
 export type PayoutStatus = "not_started" | "pending" | "enabled" | "needs_attention" | "unavailable";
 export type MemberRole = "owner" | "admin" | "merchandiser" | "marketing" | "support" | "finance" | "viewer" | "poster";
@@ -69,6 +71,11 @@ export type Brand = {
   themeId: string;
   custom?: Partial<BrandTheme>;
   status: BrandStatus;
+  /** founder = started in Founder Studio. house = already-existing brand (website path). */
+  origin?: BrandOrigin;
+  /** Public check. Founders stay none until two successful sales. Houses get blue on approval. */
+  check?: BrandCheck;
+  checkAwardedAt?: number;
   verified: boolean;
   /** Uvel marketplace review state; this is not legal registration or trademark clearance. */
   reviewStatus?: BrandReviewStatus;
@@ -236,8 +243,20 @@ export function getBrand(id: string) {
   return brands.find((b) => b.id === id);
 }
 
+export function brandApproved(brand?: Brand | null) {
+  return Boolean(brand && brand.status === "verified");
+}
+
+export function brandCheck(brand?: Brand | null): BrandCheck {
+  if (!brand) return "none";
+  if (brand.check === "lime" || brand.check === "blue") return brand.check;
+  if (brand.origin === "founder") return "none";
+  if (brand.verified && brand.status === "verified") return "blue";
+  return "none";
+}
+
 export function verifiedBrands() {
-  return brands.filter((b) => b.verified && b.status === "verified");
+  return brands.filter((b) => brandCheck(b) !== "none");
 }
 
 export function ownedBrand(uid: string) {
@@ -267,7 +286,7 @@ export function memberRoleLabel(role: MemberRole) {
 }
 
 export function canPost(brand: Brand, uid: string) {
-  return brand.verified && Boolean(roleOn(brand, uid));
+  return brandApproved(brand) && Boolean(roleOn(brand, uid));
 }
 
 export function canAccessHQ(brand: Brand, uid: string) {
@@ -416,6 +435,8 @@ export async function createBrand(input: {
     bannerUri: "",
     themeId: "ink",
     status: "draft",
+    origin: undefined,
+    check: "none",
     verified: false,
     reviewStatus: "not_started",
     payoutStatus: "not_started",
@@ -472,6 +493,8 @@ export async function openFounderBrand(input: {
     vertical: input.vertical || "Unisex",
     country: input.country,
     status: "pending" as const,
+    origin: "founder" as const,
+    check: "none" as const,
     verified: false,
     reviewStatus: "review_pending" as const,
   };
@@ -500,7 +523,7 @@ export async function openFounderBrand(input: {
     ownerName: input.ownerName,
     ownerPhoto: input.ownerPhoto,
   });
-  return updateBrand(brand.id, { status: "pending", verified: false, reviewStatus: "review_pending" })!;
+  return updateBrand(brand.id, patch)!;
 }
 
 export function updateBrand(id: string, patch: Partial<Brand>) {
@@ -512,11 +535,13 @@ export function updateBrand(id: string, patch: Partial<Brand>) {
 }
 
 export async function submitForVerification(id: string, filing: BrandFiling) {
-  updateBrand(id, { status: "pending", reviewStatus: "review_pending", verified: false });
+  updateBrand(id, { status: "pending", reviewStatus: "review_pending", verified: false, origin: "house", check: "none" });
   const result = await reviewBrand(filing, id);
   if (result.decision === "uvel_reviewed" && result.ok) {
     updateBrand(id, {
       status: "verified",
+      origin: "house",
+      check: "blue",
       verified: true,
       reviewStatus: "uvel_reviewed",
       verifiedAt: Date.now(),
@@ -554,7 +579,9 @@ export function applyFounderReviewResult(id: string, result: BrandReview) {
   if (result.decision === "uvel_reviewed" && result.ok) {
     updateBrand(id, {
       status: "verified",
-      verified: true,
+      origin: "founder",
+      check: "none",
+      verified: false,
       reviewStatus: "uvel_reviewed",
       verifiedAt: Date.now(),
       rejectReasons: [],

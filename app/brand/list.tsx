@@ -21,7 +21,7 @@ import { ShipsPicker } from "../../components/ShipsPicker";
 import { BRAND_CATEGORIES, usd, type Category } from "../../lib/catalog";
 import { hasBrandContact } from "../../lib/brandContact";
 import { BRAND_CONDITIONS, SIZE_SYSTEMS, sizesOf, systemFor, type SizeSystem } from "../../lib/brandSizes";
-import { canPost, getBrand, useBrands } from "../../lib/brands";
+import { brandApproved, canPost, getBrand, useBrands } from "../../lib/brands";
 import { getMarket } from "../../lib/markets";
 import { pickListingPhoto, takeListingPhoto } from "../../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../../lib/photoCheck";
@@ -99,7 +99,7 @@ export default function BrandList() {
     );
   }
 
-  if (!brand.verified) {
+  if (!brandApproved(brand)) {
     return (
       <View style={[styles.page, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => router.back()} style={styles.back}>

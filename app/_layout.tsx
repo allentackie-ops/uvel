@@ -21,7 +21,9 @@ import { useWardrobe } from "../lib/wardrobe";
 import { watchMyOrders } from "../lib/orders";
 import { consumeListingDraftNotice } from "../lib/listingDraft";
 import { armFounderDesk, founderDeskRoute, getFounderDeskJob, revealFounderDesk } from "../lib/founderDesk";
+import { useFounderCheckSync } from "../lib/founderCheck";
 import { FounderDeskNotice } from "../components/FounderDeskNotice";
+import { FounderCheckNotice } from "../components/FounderCheckNotice";
 import Onboard from "./onboard";
 import ProfileSetup from "./setup";
 
@@ -30,6 +32,7 @@ void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 function OrderSync() {
   const { uid } = useUvel();
   useEffect(() => watchMyOrders(uid), [uid]);
+  useFounderCheckSync(uid);
   return null;
 }
 
@@ -86,6 +89,10 @@ function PushSync() {
               const next = getFounderDeskJob();
               if (next && next.phase !== "reviewing") router.push(founderDeskRoute(next));
             });
+            return;
+          }
+          if (kind === "founder_check" && typeof data.brandId === "string") {
+            router.push({ pathname: "/brand/[id]", params: { id: data.brandId } });
             return;
           }
           if (kind === "friend_request" || kind === "friend_accepted") {
@@ -585,6 +592,7 @@ export default function Root() {
         ) : null}
         {signedIn && gateReady && !intro ? <DraftResumeNotice /> : null}
         {signedIn && gateReady && !intro ? <FounderDeskNotice /> : null}
+        {signedIn && gateReady && !intro ? <FounderCheckNotice /> : null}
         {intro || !gateReady ? <LaunchSplash ready={gateReady} onDone={dismiss} /> : null}
       </GestureHandlerRootView>
     </SafeAreaProvider>

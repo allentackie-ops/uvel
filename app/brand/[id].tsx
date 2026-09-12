@@ -7,8 +7,10 @@ import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { BrandBanner } from "../../components/BrandBanner";
 import { BrandPageSkeleton } from "../../components/ScreenSkeletons";
 import { ListingCard } from "../../components/ListingCard";
-import { VerifiedMark } from "../../components/VerifiedMark";
+import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import {
+  brandApproved,
+  brandCheck,
   brandListings,
   canAccessHQ,
   canManageTeam,
@@ -184,14 +186,14 @@ export default function BrandPage() {
         </View>
 
         <View style={{ paddingHorizontal: 20, paddingTop: 56 }}>
-          <Text style={[styles.kicker, { color: theme.muted }]}>{brand.reviewStatus === "uvel_reviewed" && brand.verified ? "UVEL-REVIEWED BRAND" : brand.reviewStatus === "human_review" ? "BRAND · HUMAN REVIEW" : brand.reviewStatus === "needs_information" ? "BRAND · INFORMATION NEEDED" : "BRAND · IN REVIEW"}</Text>
+          <Text style={[styles.kicker, { color: theme.muted }]}>{brandCheck(brand) === "lime" ? "VERIFIED FOUNDER" : brandCheck(brand) === "blue" ? "VERIFIED BRAND" : brandApproved(brand) ? "BRAND ON UVEL" : brand.reviewStatus === "human_review" ? "BRAND · HUMAN REVIEW" : brand.reviewStatus === "needs_information" ? "BRAND · INFORMATION NEEDED" : "BRAND · IN REVIEW"}</Text>
           <View style={styles.nameRow}>
             <Text style={[styles.name, { color: theme.ink }]}>{brand.name}</Text>
-            {brand.verified ? <VerifiedMark size={20} /> : null}
+            <BrandVerifiedMark brand={brand} size={20} />
           </View>
           <Text style={[styles.handle, { color: theme.muted }]}>@{brand.handle}</Text>
           {brand.tagline ? <Text style={[styles.tagline, { color: theme.ink }]}>{brand.tagline}</Text> : null}
-          {owner && !brand.verified ? (
+          {owner && !brandApproved(brand) ? (
             <View style={[styles.reviewCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
               <Text style={[styles.reviewTitle, { color: theme.ink }]}>{brand.reviewStatus === "rejected" ? (brand.rejectHeadline || "Rejected") : "In review"}</Text>
               {(brand.rejectReasons || []).map((reason) => (
@@ -325,7 +327,7 @@ export default function BrandPage() {
           ))
         ) : (
           <Text style={[styles.empty, { color: theme.muted }]}>
-            {brand.verified && brand.reviewStatus === "uvel_reviewed" ? "Nothing listed yet." : "Uvel review is required before this brand can post publicly."}
+            {brandApproved(brand) ? "Nothing listed yet." : "Uvel review is required before this brand can post publicly."}
           </Text>
         )}
 

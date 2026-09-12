@@ -26,7 +26,7 @@ import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { type ClosetPiece } from "../lib/wardrobe";
 import type { PersonalizationAction } from "../lib/personalization";
-import { VerifiedMark } from "./VerifiedMark";
+import { BrandVerifiedMark } from "./VerifiedMark";
 import { FriendShareSheet, type FriendSharePayload } from "./FriendShareSheet";
 
 const AnimatedScrollView = Animated.createAnimatedComponent(GHScrollView);
@@ -405,7 +405,7 @@ export function TodayListingOverlay({
               <Text style={styles.sellerEyebrow}>{brandRecord ? "Sold by" : "Listed by"}</Text>
               <View style={styles.sellerNameRow}>
                 <Text style={styles.sellerName} numberOfLines={1}>{sellerName}</Text>
-                {brandRecord?.verified && brandRecord.status === "verified" ? <VerifiedMark size={15} /> : null}
+                <BrandVerifiedMark brand={brandRecord} size={15} />
               </View>
               <Text style={styles.sellerMeta} numberOfLines={1}>Ships from {sellerLocation}</Text>
             </View>

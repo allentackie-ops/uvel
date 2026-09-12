@@ -14,8 +14,8 @@ import { TodayCartFab } from "../../components/TodayCartFab";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
-import { VerifiedMark } from "../../components/VerifiedMark";
-import { followedBrandIds, getBrand, verifiedBrands, useBrands } from "../../lib/brands";
+import { BrandVerifiedMark } from "../../components/VerifiedMark";
+import { followedBrandIds, getBrand, verifiedBrands, useBrands, brandCheck } from "../../lib/brands";
 import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
 import { dnaFrom } from "../../lib/styleDna";
@@ -457,7 +457,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
                 onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })}
                 style={({ pressed }) => [styles.house, pressed && { opacity: 0.92 }]}
                 accessibilityRole="button"
-                accessibilityLabel={`Open ${b.name}${b.verified ? ", verified brand" : ""}`}
+                accessibilityLabel={`Open ${b.name}${brandCheck(b) !== "none" ? ", verified brand" : ""}`}
                 accessibilityHint="Double tap to open this brand."
               >
                 {b.logoUri ? (
@@ -470,7 +470,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
                     <Text style={styles.houseName} numberOfLines={1}>
                       {b.name}
                     </Text>
-                    <VerifiedMark size={12} />
+                    <BrandVerifiedMark brand={b} size={12} />
                   </View>
                   <Text style={styles.houseLine} numberOfLines={1}>
                     {b.tagline || b.vertical}
@@ -510,7 +510,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
                     <View style={styles.campaignBrandRow}>
                       {brand?.logoUri ? <Image source={{ uri: brand.logoUri }} style={styles.campaignLogo} contentFit="cover" /> : null}
                       <Text style={styles.campaignBrand} numberOfLines={1}>{brand?.name || "Brand drop"}</Text>
-                      {brand?.verified ? <VerifiedMark size={11} /> : null}
+                      <BrandVerifiedMark brand={brand} size={11} />
                     </View>
                     <Text style={styles.campaignTitle} numberOfLines={2}>{campaign.headline || campaign.name}</Text>
                     <Text style={styles.campaignBody} numberOfLines={2}>{campaign.body || "Explore the latest drop."}</Text>

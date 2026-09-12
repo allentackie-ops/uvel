@@ -5,7 +5,7 @@ import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native"
 import { confirmOrderReturnSent, requestOrderResolution, useOrders, watchOrder, type FulfillmentStatus } from "../../lib/orders";
 import { buyerHasConfirmed, confirmOrderReceived } from "../../lib/wallet";
 import { createSupportCase, type SupportCategory } from "../../lib/support";
-import { getBrand, inquiryRecipients, useBrands } from "../../lib/brands";
+import { brandCheck, getBrand, inquiryRecipients, useBrands } from "../../lib/brands";
 import { openThread, threadId } from "../../lib/chat";
 import { useUvel } from "../../lib/store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -85,7 +85,7 @@ export default function OrderDone() {
       const sellerId = recipients[0] || orderBrand.ownerId;
       const buyerId = app.uid || currentOrder.buyerId;
       const conversationId = threadId(buyerId, sellerId, currentOrder.pieceId, orderBrand.id, id);
-      const base = { pieceId: currentOrder.pieceId, buyerId, sellerId, pieceName: currentOrder.pieceName, piecePhoto: currentOrder.piecePhoto, piecePriceCents: currentOrder.itemCents, sellerName: orderBrand.name, buyerName: currentOrder.address?.name || app.displayName || "Buyer", brandId: orderBrand.id, brandName: orderBrand.name, brandLogo: orderBrand.logoUri, brandVerified: Boolean(orderBrand.verified), recipientIds: recipients, orderId: id, contextId: id };
+      const base = { pieceId: currentOrder.pieceId, buyerId, sellerId, pieceName: currentOrder.pieceName, piecePhoto: currentOrder.piecePhoto, piecePriceCents: currentOrder.itemCents, sellerName: orderBrand.name, buyerName: currentOrder.address?.name || app.displayName || "Buyer", brandId: orderBrand.id, brandName: orderBrand.name, brandLogo: orderBrand.logoUri, brandVerified: brandCheck(orderBrand) !== "none", recipientIds: recipients, orderId: id, contextId: id };
       openThread(base);
       const supportCase = await createSupportCase({ brandId: orderBrand.id, orderId: id, threadId: conversationId, pieceId: currentOrder.pieceId, buyerId, buyerName: currentOrder.address?.name || app.displayName || "Buyer", productName: currentOrder.pieceName, productPhoto: currentOrder.piecePhoto, subject: `Help with ${currentOrder.pieceName}`, category, priority: "normal" });
       openThread({ ...base, supportCaseId: supportCase.id });
