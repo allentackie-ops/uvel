@@ -147,7 +147,23 @@ export default function ProfileSetup() {
     }
   }
 
-  async function finish() {
+  async function keepPosted() {
+    setWantsUpdates(true);
+    go(5);
+    try {
+      if (app.uid) {
+        const { enablePush } = await import("../lib/push");
+        await enablePush(app.uid);
+      } else {
+        const Notifications = await import("expo-notifications");
+        await Notifications.requestPermissionsAsync({
+          ios: { allowAlert: true, allowBadge: true, allowSound: true },
+        });
+      }
+    } catch {
+      /* current TestFlight may not have the native module yet */
+    }
+  }
     if (asking) return;
     const normalized = normalizeUsername(username);
     if (!isValidUsername(normalized)) {
@@ -517,10 +533,11 @@ export default function ProfileSetup() {
                 ))}
               </View>
               <View style={{ flex: 1 }} />
-                <Pressable onPress={() => { setWantsUpdates(false); go(5); }} disabled={asking} style={styles.skipBtn}>
-                <Text style={styles.skipTxt}>No thanks</Text>
-              </Pressable>
-              <Pressable onPress={() => { setWantsUpdates(true); go(5); }} disabled={asking} style={styles.cta}>
+              <Pressable
+                onPress={() => void keepPosted()}
+                disabled={asking}
+                style={styles.cta}
+              >
                 <Text style={styles.ctaTxt}>Keep me posted</Text>
               </Pressable>
             </View>
