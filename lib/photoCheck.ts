@@ -1,7 +1,7 @@
 import type { Category } from "./catalog";
 import * as FileSystem from "expo-file-system";
-import { httpsCallable } from "firebase/functions";
-import { firebaseFunctions, firebaseReady } from "./firebase";
+import { getGenerativeModel } from "firebase/ai";
+import { firebaseAi } from "./firebase";
 
 export type PhotoReview = {
   ok: boolean;
@@ -106,39 +106,22 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-function mimeOf(uri: string) {
-  const u = uri.toLowerCase();
-  if (u.includes(".png") || u.startsWith("data:image/png")) return "image/png";
-  if (u.includes(".webp")) return "image/webp";
-  return "image/jpeg";
-}
-
-async function reviewOnServer(uri: string, mode: "listing" | "founder") {
-  if (!firebaseReady()) throw new Error("Photo checking is not connected yet.");
+async function reviewOnDeviceAi(uri: string, mode: "listing" | "founder") {
   const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
   if (!base64) throw new Error("That photo is empty.");
-  const call = httpsCallable(firebaseFunctions(), "reviewPhoto");
-  return (await call({ mode, mimeType: mimeOf(uri), base64 })).data as Record<string, unknown>;
+  const model = getGenerativeModel(firebaseAi(), { model: "gemini-2.5-flash" });
+  const schema = mode === "founder" ? "{\"ok\":boolean,\"headline\":string,\"reasons\":string[]}" : "{\"ok\":boolean,\"score\":number,\"issues\":string[],\"tip\":string,\"title\":string,\"brand\":string,\"category\":string,\"color\":string,\"conditionGuess\":string,\"material\":string,\"description\":string}";
+  const prompt = mode === "founder"
+    ? "You are the final Uvel Founder Studio gate, run only when the user presses Apply as a brand. Review this attached fashion photo, sketch, silhouette, or stylized design reference. Approve identifiable wearable fashion or a clear fashion design that could be manufactured. A dark background, typography, logo, monochrome styling, or abstract treatment is acceptable when it is clearly a fashion reference. Reject only unsafe content, ordinary screenshots/memes/receipts, unrelated graphics, or images too blurry/dark/cropped to judge. Return ONLY JSON matching " + schema + ". If approved, use headline This is the piece. and reasons []."
+    : "Review this Uvel listing image. Approve wearable fashion and identifiable fashion sketches/design references. Reject unsafe content, ordinary screenshots/memes/receipts, unrelated graphics, or images too blurry/dark/cropped to judge. Return ONLY JSON matching " + schema + ".";
+  const result = await model.generateContent([{ inlineData: { mimeType: mimeOf(uri), data: base64 } }, prompt]);
+  return parseJson(result.response.text());
 }
 
 export async function reviewListingPhoto(uri: string): Promise<PhotoReview> {
-  const parsed = await reviewOnServer(uri, "listing");
-  const issues = Array.isArray(parsed.issues) ? parsed.issues.map((x) => String(x)).filter(Boolean).slice(0, 2) : [];
+  const parsed = await reviewOnDeviceAi(uri, "listing");
   const ok = parsed.ok === true;
-  return {
-    ok,
-    score: Math.max(1, Math.min(10, Number(parsed.score) || (ok ? 7 : 3))),
-    issues,
-    tip: String(parsed.tip ?? ""),
-    title: String(parsed.title ?? ""),
-    brand: String(parsed.brand ?? ""),
-    category: asCat(parsed.category),
-    color: String(parsed.color ?? ""),
-    conditionGuess: String(parsed.conditionGuess ?? "Excellent"),
-    material: String(parsed.material ?? ""),
-    description: String(parsed.description ?? ""),
-    analysisStatus: "complete",
-  };
+  return { ok, score: Math.max(1, Math.min(10, Number(parsed.score) || (ok ? 7 : 3))), issues: Array.isArray(parsed.issues) ? parsed.issues.map(String).filter(Boolean).slice(0, 2) : [], tip: String(parsed.tip ?? ""), title: String(parsed.title ?? ""), brand: String(parsed.brand ?? ""), category: asCat(parsed.category), color: String(parsed.color ?? ""), conditionGuess: String(parsed.conditionGuess ?? "Excellent"), material: String(parsed.material ?? ""), description: String(parsed.description ?? ""), analysisStatus: "complete" };
 }
 
 export async function reviewListingForFeed(opts: {
@@ -237,14 +220,7 @@ reasons: 0–3 short sentences the seller can act on. Empty if ok.`,
 
 /** First-piece gate for Founder Studio. Fail closed. Sketches of clothes can pass. Random pics cannot. */
 export async function reviewFounderPiece(uri: string): Promise<FeedReview> {
-  const parsed = await reviewOnServer(uri, "founder");
-  const reasons = Array.isArray(parsed.reasons)
-    ? parsed.reasons.map((x) => String(x)).filter(Boolean).slice(0, 2)
-    : [];
+  const parsed = await reviewOnDeviceAi(uri, "founder");
   const ok = parsed.ok === true;
-  return {
-    ok,
-    reasons,
-    headline: String(parsed.headline ?? (ok ? "This is the piece." : "That isn’t the piece.")),
-  };
+  return { ok, reasons: Array.isArray(parsed.reasons) ? parsed.reasons.map(String).filter(Boolean).slice(0, 2) : [], headline: String(parsed.headline ?? (ok ? "This is the piece." : "That isn’t the piece.")) };
 }
