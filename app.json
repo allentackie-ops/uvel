@@ -19,6 +19,7 @@
     "ios": {
       "bundleIdentifier": "com.uvel.dressandshop",
       "supportsTablet": false,
+      "associatedDomains": ["applinks:uvel.app"],
       "buildNumber": "1",
       "googleServicesFile": "./GoogleService-Info.plist",
       "usesAppleSignIn": true,
@@ -51,6 +52,14 @@
     },
     "android": {
       "package": "com.uvel.dressandshop",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "category": ["BROWSABLE", "DEFAULT"],
+          "data": [{ "scheme": "https", "host": "uvel.app", "pathPrefix": "/brand/accept-invite" }]
+        }
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#2A320E",
         "foregroundImage": "./assets/android-icon-foreground.png",

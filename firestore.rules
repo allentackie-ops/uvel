@@ -121,7 +121,8 @@ service cloud.firestore {
 
     match /brandInvites/{inviteId} {
       allow read: if signedIn() &&
-        (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
+        (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid ||
+         (resource.data.status == "pending" && !resource.data.keys().hasAny(["toUid", "toEmail"])));
 
       allow create: if signedIn() &&
         isBrandOwner(get(/databases/$(database)/documents/brands/$(request.resource.data.brandId)).data) &&

@@ -110,7 +110,8 @@ export type Brand = {
 export type BrandPerson = {
   uid: string;
   name: string;
-  email: string;
+  username?: string;
+  email?: string;
   photo?: string;
 };
 
@@ -118,11 +119,11 @@ const KEY = "uvel-brands-v1";
 const INV = "uvel-brand-invites-v1";
 
 export const DIRECTORY: BrandPerson[] = [
-  { uid: "demo-ama", name: "Ama Mensah", email: "ama@uvel.app" },
-  { uid: "demo-kofi", name: "Kofi Boateng", email: "kofi@uvel.app" },
-  { uid: "demo-nana", name: "Nana Adjei", email: "nana@uvel.app" },
-  { uid: "demo-lina", name: "Lina Okoye", email: "lina@uvel.app" },
-  { uid: "demo-jules", name: "Jules Moreau", email: "jules@uvel.app" },
+  { uid: "demo-ama", name: "Ama Mensah", username: "ama", photo: "" },
+  { uid: "demo-kofi", name: "Kofi Boateng", username: "kofi", photo: "" },
+  { uid: "demo-nana", name: "Nana Adjei", username: "nana", photo: "" },
+  { uid: "demo-lina", name: "Lina Okoye", username: "lina", photo: "" },
+  { uid: "demo-jules", name: "Jules Moreau", username: "jules", photo: "" },
 ];
 
 const DEMO_BRAND_IDS = new Set(["maison-found", "archive-1982", "atelier-no4"]);
@@ -656,23 +657,17 @@ export function followedBrandIds(uid: string): string[] {
 }
 
 export async function findPeople(q: string): Promise<BrandPerson[]> {
-  const needle = q.trim().toLowerCase();
+  const needle = q.trim().toLowerCase().replace(/^@+/, "");
   if (!needle) return [];
   const local = DIRECTORY.filter(
-    (p) => p.name.toLowerCase().includes(needle) || p.email.toLowerCase().includes(needle),
+    (p) => p.name.toLowerCase().includes(needle) || String(p.username || "").toLowerCase().includes(needle),
   );
-  if (!firebaseReady() || !needle.includes("@")) return local;
+  if (!firebaseReady()) return local;
   try {
-    const snap = await getDocs(query(collection(firebaseDb(), "users"), where("email", "==", q.trim())));
-    const remote = snap.docs.map((d) => {
-      const data = d.data() as Record<string, unknown>;
-      return {
-        uid: d.id,
-        name: String(data.name || data.email || "Uvel member"),
-        email: String(data.email || ""),
-        photo: typeof data.photo === "string" ? data.photo : undefined,
-      };
-    });
+    const usernameSnap = await getDoc(doc(firebaseDb(), "usernames", needle));
+    const remote = usernameSnap.exists()
+      ? [{ uid: String(usernameSnap.data()?.uid || ""), name: String(usernameSnap.data()?.name || `@${needle}`), username: needle, photo: String(usernameSnap.data()?.photo || "") }].filter((p) => p.uid)
+      : [];
     const seen = new Set(remote.map((p) => p.uid));
     return [...remote, ...local.filter((p) => !seen.has(p.uid))];
   } catch {
@@ -724,6 +719,54 @@ export async function sendInvite(input: {
     }
   }
   return invite;
+}
+
+export async function createExternalInvite(input: {
+  brandId: string;
+  fromUid: string;
+  fromName: string;
+  role?: Exclude<MemberRole, "owner">;
+}) {
+  const brand = getBrand(input.brandId);
+  if (!brand) throw new Error("Brand missing.");
+  const invite: BrandInvite = {
+    id: `inv-${Date.now().toString(36)}`,
+    brandId: brand.id,
+    brandName: brand.name,
+    brandLogo: brand.logoUri,
+    fromUid: input.fromUid,
+    fromName: input.fromName,
+    role: input.role || "poster",
+    status: "pending",
+    createdAt: Date.now(),
+  };
+  invites = [invite, ...invites];
+  void persist();
+  void pushInvite(invite);
+  return invite;
+}
+
+export function inviteLink(inviteId: string) {
+  return `https://uvel.app/brand/accept-invite?id=${encodeURIComponent(inviteId)}`;
+}
+
+export function getInvite(id: string) {
+  return invites.find((invite) => invite.id === id);
+}
+
+export async function loadInvite(id: string) {
+  const local = getInvite(id);
+  if (local || !firebaseReady()) return local;
+  try {
+    const snap = await getDoc(doc(firebaseDb(), "brandInvites", id));
+    if (!snap.exists()) return undefined;
+    const invite = { id: snap.id, ...(snap.data() as Omit<BrandInvite, "id">) } as BrandInvite;
+    invites = [invite, ...invites.filter((item) => item.id !== id)];
+    emit();
+    return invite;
+  } catch {
+    return undefined;
+  }
 }
 
 export function pendingInvitesFor(uid: string, email?: string) {

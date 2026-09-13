@@ -1,4 +1,5 @@
 import { DarkTheme, Stack, ThemeProvider, router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -527,6 +528,14 @@ function AppStack() {
               contentStyle: { backgroundColor: colors.ink },
             }}
           />
+          <Stack.Screen
+            name="brand/accept-invite"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
         </Stack>
       </GestureHandlerRootView>
     </ThemeProvider>
@@ -579,6 +588,12 @@ export default function Root() {
   const gateReady = hydrated && profileChecked;
   const needProfile = Boolean(uid) && profileChecked && !profileDone;
   const signedIn = Boolean(uid);
+  useEffect(() => {
+    if (!signedIn || !profileDone || intro) return;
+    void AsyncStorage.getItem("uvel-pending-brand-invite").then((inviteId) => {
+      if (inviteId) router.replace({ pathname: "/brand/accept-invite", params: { id: inviteId } });
+    });
+  }, [signedIn, profileDone, intro]);
 
   useEffect(() => {
     if (!hydrated) return;
