@@ -92,6 +92,7 @@ void load().then(() => {
         memory = { ...memory, profileChecked: true };
         listeners.forEach((l) => l());
         sawAuth = true;
+        attachAccountStores("");
         return;
       }
       const restored = !sawAuth;
@@ -105,6 +106,11 @@ void load().then(() => {
     listeners.forEach((l) => l());
   }, 10000);
 });
+
+function attachAccountStores(uid: string) {
+  void import("./brands").then((m) => m.setBrandViewer(uid)).catch(() => undefined);
+  void import("./founder").then((m) => m.setFounderViewer(uid)).catch(() => undefined);
+}
 
 async function applyAccount(
   user: Session,
@@ -181,6 +187,7 @@ async function applyAccount(
     };
     listeners.forEach((l) => l());
     await persist();
+    attachAccountStores("");
     return;
   }
   if (!done) setupLive = true;
@@ -212,6 +219,7 @@ async function applyAccount(
   };
   listeners.forEach((l) => l());
   void persist();
+  attachAccountStores(user.uid);
   if (done) {
     void stashProfile();
     if (!remoteProfileFlag(remote)) {
@@ -422,6 +430,7 @@ export function useUvel() {
       const { signOut } = await import("./auth");
       await stashProfile();
       await signOut();
+      attachAccountStores("");
       await save({
         onboarded: false,
         signedInWith: "",

@@ -128,17 +128,36 @@ export const DIRECTORY: BrandPerson[] = [
 const DEMO_BRAND_IDS = new Set(["maison-found", "archive-1982", "atelier-no4"]);
 const DEMO_BRAND_OWNER_IDS = new Set(["house-maison", "house-archive", "house-atelier"]);
 
-let brands: Brand[] = [];
+let allBrands: Brand[] = [];
 let invites: BrandInvite[] = [];
 let brandsHydrated = false;
+let viewerUid = "";
 const listeners = new Set<() => void>();
 function emit() {
   listeners.forEach((l) => l());
 }
 
+function visibleBrands() {
+  return allBrands.filter((b) => {
+    if (DEMO_BRAND_IDS.has(b.id) || DEMO_BRAND_OWNER_IDS.has(b.ownerId)) return false;
+    if (b.status === "verified") return true;
+    if (!viewerUid) return false;
+    if (b.ownerId === viewerUid) return true;
+    if (b.members?.some((m) => m.uid === viewerUid)) return true;
+    if (b.memberIds?.includes(viewerUid)) return true;
+    return false;
+  });
+}
+
+export function setBrandViewer(uid: string) {
+  viewerUid = uid;
+  emit();
+  if (uid) void pullRemote();
+}
+
 async function persist() {
   emit();
-  await AsyncStorage.setItem(KEY, JSON.stringify(brands));
+  await AsyncStorage.setItem(KEY, JSON.stringify(allBrands));
   await AsyncStorage.setItem(INV, JSON.stringify(invites));
 }
 
@@ -151,9 +170,9 @@ async function hydrate() {
       ? (JSON.parse(raw) as Brand[]).filter((b) => !DEMO_BRAND_IDS.has(b.id) && !DEMO_BRAND_OWNER_IDS.has(b.ownerId))
       : [];
     invites = inv ? (JSON.parse(inv) as BrandInvite[]) : [];
-    brands = saved;
+    allBrands = saved;
   } catch {
-    brands = [];
+    allBrands = [];
   }
   brandsHydrated = true;
   emit();
@@ -191,11 +210,11 @@ async function pullRemote() {
     ];
     const brandSnaps = await Promise.all(brandQueries.map((brandQuery) => getDocs(brandQuery)));
     const remote = brandSnaps.flatMap((snap) => snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }) as Brand));
-    const byId = new Map(brands.map((b) => [b.id, b]));
+    const byId = new Map(allBrands.map((b) => [b.id, b]));
     for (const r of remote) {
       if (!DEMO_BRAND_IDS.has(r.id) && !DEMO_BRAND_OWNER_IDS.has(r.ownerId)) byId.set(r.id, { ...byId.get(r.id), ...r } as Brand);
     }
-    brands = Array.from(byId.values());
+    allBrands = Array.from(byId.values());
 
     const inviteQueries = [
       query(collection(firebaseDb(), "brandInvites"), where("toUid", "==", user.uid)),
@@ -231,7 +250,7 @@ export function useBrands() {
       listeners.delete(l);
     };
   }, []);
-  return brands;
+  return visibleBrands();
 }
 
 export function useInvites() {
@@ -243,11 +262,11 @@ export function useInvites() {
       listeners.delete(l);
     };
   }, []);
-  return invites;
+  return viewerUid ? invites.filter((i) => i.toUid === viewerUid || i.fromUid === viewerUid) : [];
 }
 
 export function getBrand(id: string) {
-  return brands.find((b) => b.id === id);
+  return visibleBrands().find((b) => b.id === id);
 }
 
 export function brandApproved(brand?: Brand | null) {
@@ -263,17 +282,17 @@ export function brandCheck(brand?: Brand | null): BrandCheck {
 }
 
 export function verifiedBrands() {
-  return brands.filter((b) => brandCheck(b) !== "none");
+  return visibleBrands().filter((b) => brandCheck(b) !== "none");
 }
 
 export function ownedBrand(uid: string) {
   if (!uid) return undefined;
-  return brands.find((b) => b.ownerId === uid);
+  return allBrands.find((b) => b.ownerId === uid);
 }
 
 export function memberBrands(uid: string) {
   if (!uid) return [];
-  return brands.filter((b) => b.members.some((m) => m.uid === uid));
+  return allBrands.filter((b) => b.members.some((m) => m.uid === uid));
 }
 
 export function roleOn(brand: Brand, uid: string): MemberRole | null {
@@ -399,7 +418,7 @@ function slugify(name: string) {
 
 export function handleFree(handle: string, exceptId?: string) {
   const h = handle.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return !brands.some((b) => b.handle === h && b.id !== exceptId);
+  return !allBrands.some((b) => b.handle === h && b.id !== exceptId);
 }
 
 export async function createBrand(input: {
@@ -466,7 +485,7 @@ export async function createBrand(input: {
     followers: [],
     createdAt: Date.now(),
   };
-  brands = [brand, ...brands];
+  allBrands = [brand, ...allBrands];
   void persist();
   void pushBrand(brand);
   return brand;
@@ -534,7 +553,7 @@ export async function openFounderBrand(input: {
 }
 
 export function updateBrand(id: string, patch: Partial<Brand>) {
-  brands = brands.map((b) => (b.id === id ? { ...b, ...patch } : b));
+  allBrands = allBrands.map((b) => (b.id === id ? { ...b, ...patch } : b));
   const next = getBrand(id);
   void persist();
   if (next) void pushBrand(next);
@@ -631,7 +650,7 @@ export function isFollowing(id: string, uid: string) {
 
 export function followedBrandIds(uid: string): string[] {
   if (!uid) return [];
-  return brands.filter((b) => (b.followers || []).includes(uid)).map((b) => b.id);
+  return allBrands.filter((b) => (b.followers || []).includes(uid)).map((b) => b.id);
 }
 
 export async function findPeople(q: string): Promise<BrandPerson[]> {
@@ -768,7 +787,7 @@ export function watchBrand(id: string, cb: (b: Brand | undefined) => void) {
     unsub = onSnapshot(doc(firebaseDb(), "brands", id), (snap) => {
       if (!snap.exists()) return;
       const remote = { id: snap.id, ...(snap.data() as object) } as Brand;
-      brands = brands.map((b) => (b.id === id ? { ...b, ...remote } : b));
+      allBrands = allBrands.map((b) => (b.id === id ? { ...b, ...remote } : b));
       cb(getBrand(id));
     });
   }

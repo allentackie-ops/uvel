@@ -132,6 +132,7 @@ export type FounderTask = {
 
 export type FounderProject = {
   id: string;
+  ownerId?: string;
   name: string;
   description: string;
   /** Founder projects are private planning records until explicitly handed off. */
@@ -195,23 +196,34 @@ function normalizeProject(project: FounderProject): FounderProject {
 }
 
 const KEY = "uvel-founder-projects-v1";
-let projects: FounderProject[] = [];
+let allProjects: FounderProject[] = [];
+let viewerUid = "";
 let hydrated = false;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((listener) => listener());
 const uid = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+function visibleProjects() {
+  if (!viewerUid) return [];
+  return allProjects.filter((project) => project.ownerId === viewerUid);
+}
+
+export function setFounderViewer(uidValue: string) {
+  viewerUid = uidValue;
+  emit();
+}
+
 async function persist() {
-  await AsyncStorage.setItem(KEY, JSON.stringify(projects));
+  await AsyncStorage.setItem(KEY, JSON.stringify(allProjects));
   emit();
 }
 
 async function hydrate() {
   try {
     const raw = await AsyncStorage.getItem(KEY);
-    projects = raw ? (JSON.parse(raw) as FounderProject[]).map(normalizeProject) : [];
+    allProjects = raw ? (JSON.parse(raw) as FounderProject[]).map(normalizeProject) : [];
   } catch {
-    projects = [];
+    allProjects = [];
   }
   hydrated = true;
   emit();
@@ -225,13 +237,14 @@ export function useFounderProjects() {
     listeners.add(listener);
     return () => { listeners.delete(listener); };
   }, []);
-  return { projects, hydrated };
+  return { projects: visibleProjects(), hydrated };
 }
 
-export function createFounderProject(name: string, description = "") {
+export function createFounderProject(name: string, description = "", ownerId = viewerUid) {
   const now = Date.now();
   const project: FounderProject = {
     id: uid("founder"),
+    ownerId: ownerId || viewerUid,
     name: name.trim() || "Untitled label",
     description: description.trim(),
     visibility: "private",
@@ -252,7 +265,7 @@ export function createFounderProject(name: string, description = "") {
     createdAt: now,
     updatedAt: now,
   };
-  projects = [project, ...projects];
+  allProjects = [project, ...allProjects];
   void persist();
   return project;
 }
@@ -276,7 +289,9 @@ export function simpleStageOf(stage: string): "idea" | "product" | "launch" {
 }
 
 export function getFounderProject(id?: string) {
-  return id ? projects.find((project) => project.id === id) : projects[0];
+  const mine = visibleProjects();
+  if (id) return mine.find((project) => project.id === id);
+  return mine[0];
 }
 
 export function archiveFounderProject(id: string, archived: boolean) {
@@ -299,7 +314,7 @@ export function saveFounderProduct(projectId: string, product: FounderProductBri
 
 export function updateFounderProject(id: string, patch: Partial<FounderProject>) {
   const now = Date.now();
-  projects = projects.map((project) => project.id === id ? { ...project, ...patch, updatedAt: now, auditLog: [...project.auditLog, { id: `audit-${now}-${Math.random().toString(36).slice(2, 6)}`, action: "project-update", fields: Object.keys(patch).filter((field) => field !== "auditLog"), createdAt: now }].slice(-100) } : project);
+  allProjects = allProjects.map((project) => project.id === id ? { ...project, ...patch, updatedAt: now, auditLog: [...project.auditLog, { id: `audit-${now}-${Math.random().toString(36).slice(2, 6)}`, action: "project-update", fields: Object.keys(patch).filter((field) => field !== "auditLog"), createdAt: now }].slice(-100) } : project);
   void persist();
 }
 
@@ -318,7 +333,7 @@ export function createFounderBoard(projectId: string, kind: FounderBoardKind, na
     createdAt: now,
     updatedAt: now,
   };
-  projects = projects.map((project) => project.id === projectId ? { ...project, boards: [board, ...project.boards], stage: "design", updatedAt: now } : project);
+  allProjects = allProjects.map((project) => project.id === projectId ? { ...project, boards: [board, ...project.boards], stage: "design", updatedAt: now } : project);
   void persist();
   return board;
 }
@@ -328,7 +343,7 @@ export function updateFounderProduction(projectId: string, production: FounderPr
 }
 
 export function updateFounderBoard(projectId: string, boardId: string, patch: Partial<FounderBoard>) {
-  projects = projects.map((project) => project.id !== projectId ? project : {
+  allProjects = allProjects.map((project) => project.id !== projectId ? project : {
     ...project,
     updatedAt: Date.now(),
     boards: project.boards.map((board) => board.id === boardId ? { ...board, ...patch, updatedAt: Date.now() } : board),
@@ -344,6 +359,6 @@ export function appendFounderReference(projectId: string, boardId: string, uri: 
 }
 
 export function replaceFounderProjects(next: FounderProject[]) {
-  projects = next;
+  allProjects = next;
   void persist();
 }

@@ -6,10 +6,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { importFounderWork, pickFromLibrary, saveFounderPhotoReference } from "../../lib/photo";
 import { workspaceStyles } from "./founder-workspace-styles";
 import { appendFounderReference, archiveFounderProject, applyReady, createFounderBoard, createFounderProject, getFounderProject, ideaReady, pieceReady, saveFounderProduct, simpleStageOf, updateFounderBoard, updateFounderProject, updateFounderProduction, updateFounderTask, useFounderProjects, type FounderBoard, type FounderCanvasTool, type FounderPoint, type FounderProduction, type FounderProject, type FounderSetup, type FounderStage, type FounderStroke, type FounderSupplier, type FounderSample, type FounderImportedWork } from "../../lib/founder";
+import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { founderCloudCapability, type FounderCloudCapability } from "../../lib/firebase";
 import { useBrands } from "../../lib/brands";
-import { useUvel } from "../../lib/store";
 import { startFounderDesk } from "../../lib/founderDesk";
 
 const STAGES: FounderStage[] = ["idea", "identity", "design", "product", "source", "launch"];
@@ -311,6 +311,7 @@ export function FounderStrategy({ project, colors }: { project: FounderProject; 
 export default function FounderStudio() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { projects, hydrated } = useFounderProjects();
+  const app = useUvel();
   const palette = useColors();
   const colors: FounderColors = { ...palette, ink: palette.bone, card: palette.surface, lineColor: palette.subtle, accent: palette.success, accentInk: palette.successInk };
   const stylesFor = make(colors);
@@ -330,6 +331,9 @@ export default function FounderStudio() {
   const project = activeProjects.find((item) => item.id === selectedId) || activeProjects[0];
   const board = project?.boards.find((item) => item.id === boardId) || project?.boards[0];
   useEffect(() => {
+    if (hydrated && !activeProjects.length) setShowCreate(true);
+  }, [hydrated, activeProjects.length]);
+  useEffect(() => {
     if (hydrated && project && !showCreate) router.replace({ pathname: "/brand/founder/[stage]", params: { stage: simpleStageOf(project.stage), id: project.id } });
   }, [hydrated, project?.id, project?.stage, showCreate]);
   useEffect(() => {
@@ -341,7 +345,7 @@ export default function FounderStudio() {
 
   function createProject() {
     if (!projectName.trim()) { Alert.alert("Name your project", "Give your first fashion idea a working name."); return; }
-    const created = createFounderProject(projectName, projectDescription);
+    const created = createFounderProject(projectName, projectDescription, app.uid);
     setSelectedId(created.id);
     setProjectName("");
     setProjectDescription("");

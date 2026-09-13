@@ -86,10 +86,19 @@ export default function FounderStagePage() {
     }
   }
 
-  if (!hydrated || !project) {
+  if (!hydrated) {
     return (
       <View style={[local.page, { backgroundColor: palette.ink, paddingTop: insets.top + 24 }]}>
         <Text style={{ color: palette.muted, paddingHorizontal: 20 }}>Loading your studio…</Text>
+      </View>
+    );
+  }
+
+  if (!project) {
+    router.replace("/brand/founder");
+    return (
+      <View style={[local.page, { backgroundColor: palette.ink, paddingTop: insets.top + 24 }]}>
+        <Text style={{ color: palette.muted, paddingHorizontal: 20 }}>Start your own label.</Text>
       </View>
     );
   }
