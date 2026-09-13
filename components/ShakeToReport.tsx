@@ -156,9 +156,9 @@ export function ShakeToReport() {
 
   return (
     <Modal visible={open} transparent animationType="slide" onRequestClose={close} statusBarTranslucent>
-      <View style={styles.modalRoot}>
-        <Pressable style={styles.scrim} onPress={close} accessibilityLabel="Close report problem" />
-        <View style={[styles.sheetWrap, { paddingBottom: keyboardHeight }]}>
+      <Pressable style={styles.modalRoot} onPress={close} accessibilityLabel="Close report problem">
+        <View style={styles.scrim} pointerEvents="none" />
+        <View onStartShouldSetResponder={() => true} style={[styles.sheetWrap, { paddingBottom: keyboardHeight }]}>
           <View style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: sheetPad }]}>
             <View onLayout={(e) => setChromeH(e.nativeEvent.layout.height)}>
               <View style={styles.grabber} />
@@ -240,7 +240,7 @@ export function ShakeToReport() {
             )}
           </View>
         </View>
-      </View>
+      </Pressable>
     </Modal>
   );
 }
