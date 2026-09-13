@@ -42,11 +42,15 @@ export function TodayListingOverlay({
   origin,
   onClose,
   onInteraction,
+  showDoubleTapHint = false,
+  onDoubleTapHintDismiss,
 }: {
   piece: ClosetPiece;
   origin: ListingOrigin;
   onClose: () => void;
   onInteraction?: (action: PersonalizationAction, piece: ClosetPiece, query?: string, dwellSeconds?: number) => void;
+  showDoubleTapHint?: boolean;
+  onDoubleTapHintDismiss?: () => void;
 }) {
   const colors = useColors();
   const styles = make(colors);
@@ -108,6 +112,12 @@ export function TodayListingOverlay({
     chrome.value = withTiming(1, { duration: 180 });
     sheet.value = withTiming(1, { duration: 220 });
   }, [backdrop, chrome, heroH, imgH, imgR, imgW, imgX, imgY, origin.height, origin.width, origin.x, origin.y, originH, originW, originX, originY, screenW, sheet]);
+
+  useEffect(() => {
+    if (!showDoubleTapHint || !onDoubleTapHintDismiss) return;
+    const timeout = setTimeout(onDoubleTapHintDismiss, 10000);
+    return () => clearTimeout(timeout);
+  }, [onDoubleTapHintDismiss, showDoubleTapHint]);
 
   const recordDwell = () => {
     if (dwellRecorded.current) return;
@@ -277,6 +287,7 @@ export function TodayListingOverlay({
   }));
 
   function doubleTapLike(x: number, y: number) {
+    onDoubleTapHintDismiss?.();
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     onInteraction?.("double_tap_like", piece);
     if (!liked) {
@@ -480,6 +491,13 @@ export function TodayListingOverlay({
         <Animated.View pointerEvents="none" style={[styles.photo, photoStyle]}>
           <Image source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
         </Animated.View>
+        {showDoubleTapHint ? (
+          <Animated.View pointerEvents="none" style={[styles.doubleTapHint, { top: chromeTop + heroH * 0.36 }, chromeStyle]}>
+            <Text style={styles.doubleTapHintTitle}>Double-tap the image</Text>
+            <Text style={styles.doubleTapHintBody}>to save or like this item</Text>
+            <Text style={styles.doubleTapHintHeart}>♥</Text>
+          </Animated.View>
+        ) : null}
         <Animated.View pointerEvents="box-none" style={[styles.topBar, { paddingTop: insets.top + 6 }, chromeStyle]}>
           <Pressable onPress={closeToPin} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel="Close listing">
             <Ionicons name="chevron-down" size={20} color={colors.ink} />
@@ -541,6 +559,10 @@ function make(colors: Colors) {
     heroHit: { flex: 1 },
     hero: { width: "100%", height: "100%", backgroundColor: colors.surface },
     heartPop: { position: "absolute", left: 0, top: 0, zIndex: 20, color: colors.success, fontSize: 68, lineHeight: 72, textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
+    doubleTapHint: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 7 },
+    doubleTapHintTitle: { color: colors.bone, fontSize: 20, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.7)", textShadowRadius: 8 },
+    doubleTapHintBody: { color: colors.bone, fontSize: 15, marginTop: 4, textShadowColor: "rgba(0,0,0,0.7)", textShadowRadius: 8 },
+    doubleTapHintHeart: { color: colors.success, fontSize: 54, lineHeight: 62, marginTop: 8, textShadowColor: "rgba(0,0,0,0.45)", textShadowRadius: 5 },
     topBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 8, paddingHorizontal: 18, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     back: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone },
     topActions: { flexDirection: "row", alignItems: "center", gap: 8 },

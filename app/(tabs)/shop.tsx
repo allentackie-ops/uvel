@@ -36,6 +36,7 @@ const MIN_REFRESH_MS = 1200;
 const ORBIT_SLOT = 96;
 const TODAY_SWIPE_HINT_KEY = "uvel-today-swipe-hint-seen-v1";
 const TODAY_SWIPE_HINT_MS = 10000;
+const TODAY_LISTING_OPENS_KEY = "uvel-today-listing-opens-v1";
 
 const swipeHintStyles = StyleSheet.create({
   swipeHint: { position: "absolute", top: 0, left: 0, right: 0, alignItems: "center", zIndex: 30 },
@@ -166,6 +167,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
   const [findHint, setFindHint] = useState(false);
   const [showSwipeHint, setShowSwipeHint] = useState(false);
+  const [showDoubleTapHint, setShowDoubleTapHint] = useState(false);
+  const listingOpensRef = useRef<number | null>(null);
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
@@ -174,14 +177,21 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const personalization = usePersonalization(app.uid || "guest");
   const firstFind = useFirstFind();
   const dismissSwipeHint = useCallback(() => setShowSwipeHint(false), []);
+  const dismissDoubleTapHint = useCallback(() => setShowDoubleTapHint(false), []);
   const dna = useMemo(
     () => dnaFrom(app),
     [app.archetype, app.palette, app.silhouette, app.styles, app.gender],
   );
-  const openTodayListing = useCallback((piece: ClosetPiece, origin: ListingOrigin) => {
+  const openTodayListing = useCallback(async (piece: ClosetPiece, origin: ListingOrigin) => {
     setOpenOrigin(origin);
     setOpenPiece(piece);
-  }, []);
+    if (!app.profileDone || listingOpensRef.current === 2) return;
+    const stored = listingOpensRef.current ?? Number(await AsyncStorage.getItem(TODAY_LISTING_OPENS_KEY) || 0);
+    const next = Math.min(stored + 1, 2);
+    listingOpensRef.current = next;
+    void AsyncStorage.setItem(TODAY_LISTING_OPENS_KEY, String(next));
+    if (next === 2) setShowDoubleTapHint(true);
+  }, [app.profileDone]);
   useEffect(() => {
     if (!findHint) return;
     const timer = setTimeout(() => setFindHint(false), 3200);
@@ -627,7 +637,10 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           onClose={() => {
             setOpenPiece(null);
             setOpenOrigin(null);
+            dismissDoubleTapHint();
           }}
+          showDoubleTapHint={showDoubleTapHint}
+          onDoubleTapHintDismiss={dismissDoubleTapHint}
           onInteraction={personalization.record}
         />
       ) : null}
