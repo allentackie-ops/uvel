@@ -48,7 +48,7 @@ function orderStatusLabel(order: Order) {
   if (order.fulfillmentStatus === "returned") return { tag: "Returned", kind: "canceled" };
   if (order.fulfillmentStatus === "shipped") return { tag: "Shipped", kind: "to_ship" };
   if (order.fulfillmentStatus === "packed") return { tag: "Packed", kind: "to_ship" };
-  if (order.fulfillmentStatus === "processing") return { tag: "Processing", kind: "to_ship" };
+  if (order.fulfillmentStatus === "processing" || (order.madeByUvel && (order.fulfillmentStatus === "unfulfilled" || order.fulfillmentStatus === "packed"))) return { tag: order.madeByUvel ? "Making" : "Processing", kind: "to_ship" };
   return order.status === "pending" ? { tag: "Payment pending", kind: "to_ship" } : { tag: "To process", kind: "to_ship" };
 }
 

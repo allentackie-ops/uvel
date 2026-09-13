@@ -98,6 +98,13 @@ export type Brand = {
   follows: number;
   followers?: string[];
   createdAt: number;
+  /** Uvel makes the clothes and the manufacturer sends them. */
+  madeByUvel?: boolean;
+  madeByUvelAt?: number;
+  trademarkStatus?: "none" | "filing" | "filed";
+  trademarkPaidCents?: number;
+  trademarkPaidAt?: number;
+  trademarkFiledAt?: number;
 };
 
 export type BrandPerson = {

@@ -464,6 +464,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="brand/trademark"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="brand/studio"
             options={{
               headerShown: false,

@@ -18,6 +18,8 @@ import { recordCampaignAttribution } from "../../lib/attribution";
 import { removeFromCart } from "../../lib/cart";
 import { payWithWallet, useWallet } from "../../lib/wallet";
 import { useFirstFind } from "../../lib/firstFind";
+import { getBrand } from "../../lib/brands";
+import { brandMakes } from "../../lib/brandMake";
 
 export default function Checkout() {
   const colors = useColors();
@@ -27,6 +29,7 @@ export default function Checkout() {
   useWardrobe();
   const marketplaceSync = useMarketplaceSyncState();
   const piece = getPiece(id);
+  const making = Boolean(piece?.brandId && brandMakes(getBrand(piece.brandId)));
   const selectedVariant = typeof variantParam === "string" ? variantParam : "";
   const selectedVariantLabel = typeof variantLabelParam === "string" ? variantLabelParam : selectedVariant;
   const app = useUvel();
@@ -162,6 +165,7 @@ export default function Checkout() {
         payMethod: method.label,
         delivery: ship,
         address,
+        madeByUvel: making,
       });
       if (piece.brandId && typeof campaignId === "string" && campaignId) void recordCampaignAttribution({ brandId: piece.brandId, campaignId, channel: campaignChannel === "shop" ? "shop" : "brand_page", collectionId: typeof collectionId === "string" ? collectionId : undefined, promotionId: typeof promotionId === "string" ? promotionId : undefined, type: "checkout_started", listingId: piece.id, orderId: order.id, currency: market.currency, eventId: `checkout_started_${order.id}` }).catch(() => undefined);
       if (walletCovers) {
@@ -366,7 +370,7 @@ export default function Checkout() {
             <Text style={styles.lineV}>{moneyExact(itemLocal, market.currency)}</Text>
           </View>
           <View style={styles.line}>
-            <Text style={styles.lineL}>Shipping</Text>
+            <Text style={styles.lineL}>{making ? "Delivery" : "Shipping"}</Text>
             <Text style={styles.lineV}>{moneyExact(shipCost, market.currency)}</Text>
           </View>
           <View style={styles.line}>

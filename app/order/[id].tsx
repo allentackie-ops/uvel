@@ -34,11 +34,14 @@ export default function OrderDone() {
   }, [id]);
 
   const confirmed = status === "paid";
-  const fulfillmentLabel = fulfillment === "processing" ? "Being prepared" : fulfillment === "packed" ? "Packed" : fulfillment === "shipped" ? "On the way" : fulfillment === "delivered" ? "Delivered" : fulfillment === "canceled" ? "Canceled" : fulfillment === "returned" ? "Returned" : "Awaiting fulfillment";
+  const orderBrand = currentOrder?.brandId ? getBrand(currentOrder.brandId) : undefined;
+  const made = Boolean(currentOrder?.madeByUvel || orderBrand?.madeByUvel);
+  const fulfillmentLabel = made && (fulfillment === "processing" || fulfillment === "unfulfilled" || fulfillment === "packed")
+    ? "Being made"
+    : fulfillment === "processing" ? "Being prepared" : fulfillment === "packed" ? "Packed" : fulfillment === "shipped" ? "On the way" : fulfillment === "delivered" ? "Delivered" : fulfillment === "canceled" ? "Canceled" : fulfillment === "returned" ? "Returned" : "Awaiting fulfillment";
   const orderStatusAppearance = semanticStatus(colors, statusToneFor(confirmed ? fulfillment : status));
   const resolution = currentOrder?.resolution;
   const shipment = currentOrder?.shipment;
-  const orderBrand = currentOrder?.brandId ? getBrand(currentOrder.brandId) : undefined;
   const canCancel = confirmed && ["unfulfilled", "processing", "packed"].includes(fulfillment || "unfulfilled") && !resolution;
   const canConfirm = confirmed && ["shipped", "delivered"].includes(fulfillment || "") && !currentOrder?.buyerConfirmedAt && !buyerHasConfirmed(id || "") && !resolution && currentOrder?.buyerId === app.uid;
   const canReturn = confirmed && fulfillment === "delivered" && !resolution;

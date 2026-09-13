@@ -63,6 +63,8 @@ export type Order = {
   pieceName: string;
   piecePhoto: string;
   brandId?: string;
+  /** This order is made by Uvel and sent by the manufacturer. */
+  madeByUvel?: boolean;
   /** Exact size or variant selected by the buyer, when the listing has variants. */
   variantKey?: string;
   variantLabel?: string;
@@ -257,7 +259,7 @@ export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status
     // A hosted checkout returning does not prove payment. Trusted payment
     // webhooks should be the only source that changes this to "paid".
     status: "pending",
-    fulfillmentStatus: "unfulfilled",
+    fulfillmentStatus: order.madeByUvel ? "processing" : "unfulfilled",
   };
   try {
     await setDoc(doc(firebaseDb(), "orders", full.id), {

@@ -604,6 +604,7 @@ export default function ClosetPiece() {
               </View>
               <Text style={styles.sellerP}>Ships from {ship.name}</Text>
               <Text style={styles.sellerP}>{shipsToLine(piece.country || app.country, piece.shipsTo)}</Text>
+              {owningBrand?.madeByUvel ? <Text style={styles.sellerP}>Made by Uvel. We send it.</Text> : null}
             </View>
           </Pressable>
         </View>
