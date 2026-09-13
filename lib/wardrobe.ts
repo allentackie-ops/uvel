@@ -14,6 +14,8 @@ export type ClosetPiece = {
   id: string;
   photo: string;
   photos: string[];
+  /** Optional 8–15s clip of the piece in motion. Local or remote URI. */
+  clipUri?: string;
   name: string;
   brand: string;
   category: Category;
@@ -177,6 +179,7 @@ function normalize(p: ClosetPiece): ClosetPiece {
     ...p,
     photos,
     photo: photos[0] ?? p.photo ?? "",
+    clipUri: p.clipUri || undefined,
     material: p.material ?? "",
     originalPriceCents: p.originalPriceCents ?? 0,
     sku: p.sku || undefined,
@@ -283,10 +286,15 @@ async function persist() {
 }
 
 async function persistRemote(piece: ClosetPiece) {
-  if (!firebaseReady() || !piece.brandId || !piece.listedByUid) return;
+  if (!firebaseReady()) return;
+  const listedByUid = piece.listedByUid || piece.ownerId;
+  if (!listedByUid) return;
   try {
     await setDoc(doc(firebaseDb(), "listings", piece.id), {
       ...piece,
+      listedByUid,
+      ownerId: piece.ownerId || listedByUid,
+      stockQuantity: typeof piece.stockQuantity === "number" ? piece.stockQuantity : piece.status === "sold" ? 0 : 1,
       updatedAt: serverTimestamp(),
     }, { merge: true });
   } catch {

@@ -1,13 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
   AppState,
   Alert,
-  Dimensions,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -19,16 +18,17 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
+import { MotionClip } from "../components/MotionClip";
 import type { Category } from "../lib/catalog";
 import { usd } from "../lib/catalog";
 import { uvelFeeCents } from "../lib/fees";
 import { getMarket, getMarketByCurrency, moneyExact } from "../lib/markets";
 import { takePendingListingPrice } from "../lib/listingPriceDraft";
 import { clearListingDraft, loadListingDraft, saveListingDraft } from "../lib/listingDraft";
-import { pickListingPhoto, takeListingPhoto } from "../lib/photo";
+import { pickListingClip, pickListingPhoto, takeListingClip, takeListingPhoto } from "../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
 import { encodeShipsTo, shipsToLabel, type ShipsTo } from "../lib/ships";
-import { SHOP_LOOKS } from "../lib/shopLook";
+import { SHOP_LOOKS, shopLookOf } from "../lib/shopLook";
 import { takePendingListingSelection } from "../lib/listingOptions";
 import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
@@ -36,8 +36,9 @@ import { useColors, type Colors } from "../lib/theme";
 import { addPiece, getPiece, listPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
 
 const MAX = 5;
-const W = Dimensions.get("window").width;
-const LISTING_RATIO = 4 / 5;
+const COVER_W = 112;
+const COVER_H = 140;
+const ADD_W = 64;
 const STAGES = [
   "Looking at the photos…",
   "Is this something we sell?",
@@ -56,6 +57,14 @@ type Gate =
   | { phase: "review"; line: string }
   | { phase: "block"; headline: string; reasons: string[] }
   | { phase: "pass" };
+
+type FromPhoto = {
+  title?: boolean;
+  notes?: boolean;
+  color?: boolean;
+  material?: boolean;
+  brand?: boolean;
+};
 
 export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const colors = useColors();
@@ -80,6 +89,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         ? [{ uri: existing.photo, status: "ok" }]
         : [],
   );
+  const [clipUri, setClipUri] = useState(existing?.clipUri || "");
   const [name, setName] = useState(existing?.name ?? "");
   const [brand, setBrand] = useState(existing?.brand && existing.brand !== "Unlabeled" ? existing.brand : "");
   const [category, setCategory] = useState<Category | null>(existing?.category ?? null);
@@ -96,6 +106,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   );
   const [fitsOpen, setFitsOpen] = useState(fits === "1");
   const [shopLook, setShopLook] = useState(existing?.shopLook || "uvel");
+  const [lookOpen, setLookOpen] = useState(false);
+  const [fromPhoto, setFromPhoto] = useState<FromPhoto>({});
   const [shipsTo, setShipsTo] = useState<ShipsTo>(
     existing?.shipsTo ?? encodeShipsTo(origin, "home"),
   );
@@ -104,11 +116,18 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const [draftReady, setDraftReady] = useState(draftParam !== "1");
   const [draftDisabled, setDraftDisabled] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const titleRef = useRef<TextInput>(null);
+  const notesRef = useRef<TextInput>(null);
+  const sizeRef = useRef<TextInput>(null);
+  const colorRef = useRef<TextInput>(null);
+  const materialRef = useRef<TextInput>(null);
   const priceKey = existing?.id || "new";
   const leaveSell = useCallback(() => {
     if (embedded) router.replace("/(tabs)/index");
     else router.back();
   }, [embedded]);
+  const currentLook = shopLookOf(shopLook);
 
   useEffect(() => {
     if (existing || draftParam !== "1") return;
@@ -120,6 +139,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         setDraftOrigin(saved.origin);
         setDraftCurrency(saved.currency);
         setPhotos(saved.photos.map((photo) => ({ uri: photo.uri, status: "ok" as const })));
+        setClipUri(saved.clipUri || "");
         setName(saved.name || "");
         setBrand(saved.brand || "");
         setCategory(saved.category || null);
@@ -158,6 +178,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     if (existing || !draftReady || draftDisabled) return;
     void saveListingDraft({
       photos: photos.map((photo) => ({ uri: photo.uri })),
+      clipUri: clipUri || undefined,
       name,
       brand,
       category,
@@ -174,7 +195,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       currency: listingCurrency,
       updatedAt: Date.now(),
     });
-  }, [existing?.id, draftReady, draftDisabled, photos, name, brand, category, color, size, condition, material, notes, price, was, shopLook, shipsTo, origin, listingCurrency]);
+  }, [existing?.id, draftReady, draftDisabled, photos, clipUri, name, brand, category, color, size, condition, material, notes, price, was, shopLook, shipsTo, origin, listingCurrency]);
 
   useEffect(() => {
     if (existing || !draftReady || draftDisabled) return;
@@ -212,57 +233,50 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const hasMaterial = Boolean(material.trim());
   const hasCond = Boolean(condition);
   const photoQualityReady = Boolean(hasPhoto && (existing || (cover?.status === "ok" && photoReadyForPricing)));
-  const canList =
-    hasPhoto &&
-    hasTitle &&
-    hasNotes &&
-    hasPrice &&
-    hasCat &&
-    hasSize &&
-    hasColor &&
-    hasMaterial &&
-    hasCond &&
-    !checking &&
-    gate.phase === "idle";
-  const progress = [hasPhoto, hasPrice, hasTitle, hasNotes, hasCat, hasSize, hasColor, hasMaterial, hasCond].filter(
-    Boolean,
-  ).length;
-  // Keep empty fields and placeholders readable in both themes. The previous
-  // literal "47" was not a valid React Native color, so light-mode hints
-  // disappeared instead of using the palette's muted text color.
+  const steps = [
+    { key: "photo", done: hasPhoto && !checking, label: checking ? "Checking photos…" : "Add a photo" },
+    { key: "title", done: hasTitle, label: "Add a title" },
+    { key: "notes", done: hasNotes, label: "Add a description" },
+    { key: "category", done: hasCat, label: "Pick a category" },
+    { key: "size", done: hasSize, label: "Add a size" },
+    { key: "color", done: hasColor, label: "Add a colour" },
+    { key: "material", done: hasMaterial, label: "Add a material" },
+    { key: "condition", done: hasCond, label: "Pick a condition" },
+    { key: "price", done: hasPrice, label: "Add a price" },
+  ] as const;
+  const nextStep = steps.find((step) => !step.done);
+  const canList = !nextStep && gate.phase === "idle";
+  const progress = steps.filter((step) => step.done).length;
   const ph = colors.muted;
-  const ctaLabel = checking
-    ? "Checking photos…"
-    : !hasPhoto
-      ? "Add a photo"
-      : !hasTitle
-        ? "Add a title"
-        : !hasNotes
-          ? "Add a description"
-          : !hasPrice
-          ? "Add a price"
-          : !hasCat
-            ? "Pick a category"
-            : !hasSize
-              ? "Add a size"
-              : !hasColor
-                ? "Add a colour"
-                : !hasMaterial
-                  ? "Add a material"
-                  : !hasCond
-                    ? "Pick a condition"
-                    : "Complete";
+  const ctaLabel = nextStep?.label ?? "Complete";
+  const ctaReady = gate.phase === "idle" && !checking;
 
   useEffect(() => {
     if (!existing && photos.length === 1 && photos[0].status === "ok" && photos[0].review) {
       const r = photos[0].review;
-      if (!name && r.title) setName(r.title);
-      if (!brand && r.brand) setBrand(r.brand);
-      if (!color && r.color) setColor(r.color);
-      if (!notes && r.description) setNotes(r.description);
-      if (!material && r.material) setMaterial(r.material);
+      const next: FromPhoto = {};
+      if (!name && r.title) {
+        setName(r.title);
+        next.title = true;
+      }
+      if (!brand && r.brand) {
+        setBrand(r.brand);
+        next.brand = true;
+      }
+      if (!color && r.color) {
+        setColor(r.color);
+        next.color = true;
+      }
+      if (!notes && r.description) {
+        setNotes(r.description);
+        next.notes = true;
+      }
+      if (!material && r.material) {
+        setMaterial(r.material);
+        next.material = true;
+      }
+      if (Object.keys(next).length) setFromPhoto((prev) => ({ ...prev, ...next }));
     }
-    // first photo only fills empty fields
   }, [photos]);
 
   useEffect(() => {
@@ -340,6 +354,49 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     setPhotos((prev) => prev.filter((p) => p.uri !== uri));
   }
 
+  async function fromClipCamera() {
+    Keyboard.dismiss();
+    try {
+      const uri = await takeListingClip();
+      if (uri) setClipUri(uri);
+    } catch (err) {
+      Alert.alert("Camera", err instanceof Error ? err.message : "Couldn’t record a clip.");
+    }
+  }
+
+  async function fromClipLibrary() {
+    Keyboard.dismiss();
+    try {
+      const uri = await pickListingClip();
+      if (uri) setClipUri(uri);
+    } catch (err) {
+      Alert.alert("Clip", err instanceof Error ? err.message : "Couldn’t add that clip.");
+    }
+  }
+
+  function chooseClip() {
+    Keyboard.dismiss();
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Record a clip", "Choose from library", "Cancel"],
+          cancelButtonIndex: 2,
+          userInterfaceStyle: "dark",
+        },
+        (i) => {
+          if (i === 0) void fromClipCamera();
+          else if (i === 1) void fromClipLibrary();
+        },
+      );
+      return;
+    }
+    Alert.alert("Add a clip", "Up to 15 seconds. You can trim it before it saves.", [
+      { text: "Record a clip", onPress: () => void fromClipCamera() },
+      { text: "Choose from library", onPress: () => void fromClipLibrary() },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
+
   function openCategory() {
     router.push({ pathname: "/sell-category", params: { selected: category || "" } });
   }
@@ -381,6 +438,54 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     });
   }
 
+  function focusField(input: { current: TextInput | null }) {
+    requestAnimationFrame(() => input.current?.focus());
+  }
+
+  function goNext() {
+    if (checking || gate.phase !== "idle") return;
+    if (!nextStep) {
+      void publish();
+      return;
+    }
+    if (nextStep.key === "photo") {
+      choosePhoto();
+      return;
+    }
+    if (nextStep.key === "title") {
+      focusField(titleRef);
+      return;
+    }
+    if (nextStep.key === "notes") {
+      focusField(notesRef);
+      return;
+    }
+    if (nextStep.key === "category") {
+      Keyboard.dismiss();
+      openCategory();
+      return;
+    }
+    if (nextStep.key === "size") {
+      focusField(sizeRef);
+      return;
+    }
+    if (nextStep.key === "color") {
+      focusField(colorRef);
+      return;
+    }
+    if (nextStep.key === "material") {
+      focusField(materialRef);
+      return;
+    }
+    if (nextStep.key === "condition") {
+      Keyboard.dismiss();
+      openCondition();
+      return;
+    }
+    Keyboard.dismiss();
+    openPrice();
+  }
+
   async function publish() {
     if (!canList) return;
     setGate({ phase: "review", line: STAGES[0] });
@@ -415,6 +520,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     const draft = {
       photo: uris[0],
       photos: uris,
+      clipUri: clipUri || undefined,
       name: name.trim(),
       brand: brand.trim() || "Unlabeled",
       category: category as Category,
@@ -468,6 +574,13 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     );
   }
 
+  function editField<K extends keyof FromPhoto>(key: K, set: (v: string) => void) {
+    return (value: string) => {
+      set(value);
+      setFromPhoto((prev) => (prev[key] ? { ...prev, [key]: false } : prev));
+    };
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -497,18 +610,23 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${(progress / 9) * 100}%` }]} />
         </View>
-        <Text style={styles.progressLbl}>{progress} of 9 ready</Text>
 
         <ScrollView
+          ref={scrollRef}
           style={{ flex: 1 }}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 232 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + (embedded ? 68 : 12) + 160 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={[styles.label, styles.photosLabel]}>Photos *</Text>
-          <View style={styles.photoGrid}>
+          <Text style={styles.photosLabel}>Photos</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.photoStrip}
+          >
             {photos.map((p, i) => (
-              <View key={p.uri} style={styles.photoTile}>
+              <View key={p.uri} style={[styles.photoTile, i === 0 ? styles.photoCover : styles.photoThumb]}>
                 <Image source={{ uri: p.uri }} style={styles.photoImage} contentFit="cover" accessibilityRole="image" accessibilityLabel={`Photo ${i + 1}${i === 0 ? ", main photo" : ""}`} />
                 {i === 0 ? (
                   <View style={styles.mainPhotoPill}>
@@ -522,8 +640,9 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                     <ActivityIndicator color="#16140F" />
                   </View>
                 ) : null}
-                <AccessiblePressable                  onPress={() => removePhoto(p.uri)}
-                  hitSlop={8}
+                <AccessiblePressable
+                  onPress={() => removePhoto(p.uri)}
+                  hitSlop={10}
                   style={({ pressed }) => [styles.photoX, pressed && { opacity: 0.92 }]}
                   accessibilityRole="button"
                   accessibilityLabel={`Remove photo ${i + 1}`}
@@ -534,18 +653,71 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               </View>
             ))}
             {photos.length < MAX ? (
-              <AccessiblePressable                onPress={choosePhoto}
-                style={({ pressed }) => [styles.photoTile, styles.photoAdd, pressed && { opacity: 0.92 }]}
+              <AccessiblePressable
+                onPress={choosePhoto}
+                style={({ pressed }) => [
+                  styles.photoAdd,
+                  photos.length === 0 ? styles.photoAddEmpty : styles.photoAddSlot,
+                  pressed && { opacity: 0.92 },
+                ]}
                 accessibilityRole="button"
                 accessibilityLabel={`Add photo, ${photos.length} of ${MAX} added`}
                 accessibilityHint="Double tap to choose a listing photo."
               >
-                <Text style={styles.photoAddIcon}>＋</Text>
-                <Text style={styles.photoAddTxt}>{C.addPhoto}</Text>
-                <Text style={styles.photoCount}>{photos.length}/{MAX}</Text>
+                <Ionicons name="add" size={photos.length ? 22 : 28} color={colors.bone} />
+                {photos.length === 0 ? (
+                  <>
+                    <Text style={styles.photoAddTxt}>{C.addPhoto}</Text>
+                    <Text style={styles.photoCount}>0/{MAX}</Text>
+                  </>
+                ) : null}
               </AccessiblePressable>
             ) : null}
-          </View>
+          </ScrollView>
+
+          <Text style={styles.photosLabel}>In motion</Text>
+          {clipUri ? (
+            <View style={styles.clipRow}>
+              <View style={styles.clipTile}>
+                <MotionClip uri={clipUri} style={styles.clipPreview} />
+                <View style={styles.mainPhotoPill}>
+                  <Text style={styles.mainPhotoTxt}>Up to 15s</Text>
+                </View>
+                <AccessiblePressable
+                  onPress={() => setClipUri("")}
+                  hitSlop={10}
+                  style={({ pressed }) => [styles.photoX, pressed && { opacity: 0.92 }]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove clip"
+                >
+                  <Text style={styles.photoXTxt}>×</Text>
+                </AccessiblePressable>
+              </View>
+              <AccessiblePressable
+                onPress={chooseClip}
+                style={({ pressed }) => [styles.clipSwap, pressed && { opacity: 0.92 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Replace clip"
+              >
+                <Text style={styles.clipSwapTxt}>Replace</Text>
+              </AccessiblePressable>
+            </View>
+          ) : (
+            <AccessiblePressable
+              onPress={chooseClip}
+              style={({ pressed }) => [styles.clipAdd, pressed && { opacity: 0.92 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Add a clip of the piece in motion"
+              accessibilityHint="Optional. Record or choose a clip up to 15 seconds. You can trim it."
+            >
+              <Ionicons name="videocam-outline" size={22} color={colors.bone} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.clipAddTitle}>Add a clip</Text>
+                <Text style={styles.clipAddBody}>Optional · up to 15 seconds · trim only</Text>
+              </View>
+              <Ionicons name="add" size={20} color={colors.subtle} />
+            </AccessiblePressable>
+          )}
 
           {fitsOpen && wardrobeUris.length ? (
             <View style={styles.picker}>
@@ -557,7 +729,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {wardrobeUris.map((uri) => (
-                  <AccessiblePressable                    key={uri}
+                  <AccessiblePressable
+                    key={uri}
                     onPress={() => {
                       setFitsOpen(false);
                       void addUri(uri);
@@ -579,7 +752,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 </Text>
               ))}
               {warn.review.tip ? <Text style={styles.warnTip}>{warn.review.tip}</Text> : null}
-              <AccessiblePressable                onPress={() => removePhoto(warn.uri)}
+              <AccessiblePressable
+                onPress={() => removePhoto(warn.uri)}
                 style={({ pressed }) => [pressed && { opacity: 0.92 }]}
                 accessibilityRole="button"
                 accessibilityLabel="Take another photo"
@@ -597,15 +771,124 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           ) : null}
 
           <View style={styles.sheet}>
-            <Text style={styles.priceLabel}>{C.price} *</Text>
-            <AccessiblePressable              onPress={openPrice}
+            <Text style={styles.sectionKicker}>THE PIECE</Text>
+            <TextInput
+              ref={titleRef}
+              style={styles.titleIn}
+              value={name}
+              onChangeText={editField("title", setName)}
+              placeholder="What’s the piece?"
+              placeholderTextColor={ph}
+              returnKeyType="next"
+              onSubmitEditing={() => notesRef.current?.focus()}
+              accessibilityLabel="Listing title"
+              accessibilityHint="Required. Enter the name buyers will see."
+            />
+            {fromPhoto.title ? <Text style={styles.fromPhoto}>From photo</Text> : null}
+            <TextInput
+              ref={notesRef}
+              style={styles.bodyIn}
+              value={notes}
+              onChangeText={editField("notes", setNotes)}
+              placeholder="Fit, fabric, any marks"
+              placeholderTextColor={ph}
+              accessibilityLabel="Listing description"
+              accessibilityHint="Required. Describe the fit, fabric, and any marks."
+              multiline
+            />
+            {fromPhoto.notes ? <Text style={styles.fromPhoto}>From photo</Text> : null}
+
+            <View style={styles.stack}>
+              <AccessiblePressable
+                onPress={openCategory}
+                style={({ pressed }) => [styles.choiceRow, pressed && { opacity: 0.92 }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Category: ${category || "not selected"}`}
+                accessibilityHint="Double tap to open the category picker."
+              >
+                <Text style={[styles.choiceValue, !category && styles.choicePlaceholder]}>{category || "Choose a category"}</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
+              </AccessiblePressable>
+
+              <TextInput
+                style={styles.field}
+                value={brand}
+                onChangeText={editField("brand", setBrand)}
+                placeholder="Brand · optional"
+                placeholderTextColor={ph}
+                accessibilityLabel="Brand, optional"
+              />
+              {fromPhoto.brand ? <Text style={styles.fromPhoto}>From photo</Text> : null}
+
+              <TextInput
+                ref={sizeRef}
+                style={styles.field}
+                value={size}
+                onChangeText={setSize}
+                placeholder="Size"
+                placeholderTextColor={ph}
+                returnKeyType="next"
+                onSubmitEditing={() => colorRef.current?.focus()}
+                accessibilityLabel="Size, required"
+              />
+
+              <TextInput
+                ref={colorRef}
+                style={styles.field}
+                value={color}
+                onChangeText={editField("color", setColor)}
+                placeholder="Colour"
+                placeholderTextColor={ph}
+                returnKeyType="next"
+                onSubmitEditing={() => materialRef.current?.focus()}
+                accessibilityLabel="Colour, required"
+              />
+              {fromPhoto.color ? <Text style={styles.fromPhoto}>From photo</Text> : null}
+
+              <TextInput
+                ref={materialRef}
+                style={styles.field}
+                value={material}
+                onChangeText={editField("material", setMaterial)}
+                placeholder="Material"
+                placeholderTextColor={ph}
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  Keyboard.dismiss();
+                  if (!condition) openCondition();
+                }}
+                accessibilityLabel="Material, required"
+              />
+              {fromPhoto.material ? <Text style={styles.fromPhoto}>From photo</Text> : null}
+
+              <AccessiblePressable
+                onPress={openCondition}
+                style={({ pressed }) => [styles.choiceRow, pressed && { opacity: 0.92 }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Condition: ${condition || "not selected"}`}
+                accessibilityHint="Double tap to open the condition picker."
+              >
+                <Text style={[styles.choiceValue, !condition && styles.choicePlaceholder]}>{condition || "Choose a condition"}</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
+              </AccessiblePressable>
+            </View>
+
+            <Text style={[styles.sectionKicker, styles.sectionKickerLater]}>SELLING</Text>
+            <AccessiblePressable
+              onPress={openPrice}
               style={({ pressed }) => [styles.priceRow, pressed && { opacity: 0.92 }]}
               accessibilityRole="button"
               accessibilityLabel={`Listing price: ${price ? `${listingMarket.symbol}${price}` : "not set"}`}
               accessibilityHint="Double tap to set the listing price."
             >
-              <Text style={[styles.dollar, !price && { color: ph }]}>{listingMarket.symbol}</Text>
-              <Text style={[styles.price, !price && { color: ph }]}>{price || "0"}</Text>
+              <View style={styles.priceValue}>
+                <Text style={[styles.dollar, !price && { color: ph }]}>{listingMarket.symbol}</Text>
+                <Text style={[styles.price, !price && { color: ph }]}>{price || "0"}</Text>
+              </View>
+              <View style={styles.priceHint}>
+                <Text style={styles.priceHintTxt}>{price ? "Change" : "Set price"}</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
+              </View>
             </AccessiblePressable>
             {Number(price) > 0 ? (
               <Text style={styles.feeNote}>
@@ -613,175 +896,92 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 Uvel fee at checkout. You receive the full {usd(Number(price) * 100, listingCurrency)}.
               </Text>
             ) : null}
-            <Text style={styles.label}>{C.title} *</Text>
+
             <TextInput
-              style={styles.titleIn}
-              value={name}
-              onChangeText={setName}
-              placeholder="What’s the piece?"
-              placeholderTextColor={ph}
-              accessibilityLabel="Listing title"
-              accessibilityHint="Required. Enter the name buyers will see."
-            />
-            <Text style={styles.label}>{C.description} *</Text>
-            <TextInput
-              style={styles.bodyIn}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Fit, fabric, any marks"
-              placeholderTextColor={ph}
-              accessibilityLabel="Listing description"
-              accessibilityHint="Required. Describe the fit, fabric, and any marks."
-              multiline
-            />
-
-            <Text style={styles.label}>{C.category} *</Text>
-            <AccessiblePressable
-              onPress={openCategory}
-              style={({ pressed }) => [styles.choiceRow, pressed && { opacity: 0.92 }]}
-              accessibilityRole="button"
-              accessibilityLabel={`Category: ${category || "not selected"}`}
-              accessibilityHint="Double tap to open the category picker."
-            >
-              <Text style={[styles.choiceValue, !category && styles.choicePlaceholder]}>{category || "Choose a category"}</Text>
-              <Text style={styles.choiceArrow}>›</Text>
-            </AccessiblePressable>
-
-            <View style={styles.row}>
-              <View style={{ flex: 1.2 }}>
-                <Text style={styles.label}>{C.brand}</Text>
-                <TextInput
-                  style={styles.field}
-                  value={brand}
-                  onChangeText={setBrand}
-                  placeholder="Optional"
-                  placeholderTextColor={ph}
-                  accessibilityLabel="Brand, optional"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>{C.size} *</Text>
-                <TextInput
-                  style={styles.field}
-                  value={size}
-                  onChangeText={setSize}
-                  placeholder=""
-                  placeholderTextColor={ph}
-                  accessibilityLabel="Size, required"
-                />
-              </View>
-            </View>
-
-            <View style={styles.row}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>{C.color}</Text>
-                <TextInput
-                  style={styles.field}
-                  value={color}
-                  onChangeText={setColor}
-                  placeholder=""
-                  placeholderTextColor={ph}
-                  accessibilityLabel="Colour, required"
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Material *</Text>
-                <TextInput
-                  style={styles.field}
-                  value={material}
-                  onChangeText={setMaterial}
-                  placeholder=""
-                  placeholderTextColor={ph}
-                  accessibilityLabel="Material, required"
-                />
-              </View>
-            </View>
-
-            <Text style={styles.label}>{C.condition} *</Text>
-            <AccessiblePressable
-              onPress={openCondition}
-              style={({ pressed }) => [styles.choiceRow, pressed && { opacity: 0.92 }]}
-              accessibilityRole="button"
-              accessibilityLabel={`Condition: ${condition || "not selected"}`}
-              accessibilityHint="Double tap to open the condition picker."
-            >
-              <Text style={[styles.choiceValue, !condition && styles.choicePlaceholder]}>{condition || "Choose a condition"}</Text>
-              <Text style={styles.choiceArrow}>›</Text>
-            </AccessiblePressable>
-            <Text style={styles.label}>Original price</Text>
-            <TextInput
-              style={styles.field}
+              style={[styles.field, styles.stackGap]}
               value={was}
               onChangeText={(v) => setWas(v.replace(/[^0-9]/g, ""))}
               keyboardType="number-pad"
-              placeholder="Optional"
+              placeholder="Original price · optional"
               placeholderTextColor={ph}
               accessibilityLabel="Original price, optional"
             />
 
-            <View>
-              <Text style={styles.label}>Where it sells</Text>
-              <Text style={styles.sellsLede}>Choose which countries can see this listing.</Text>
-              <AccessiblePressable
-                onPress={() => router.push({ pathname: "/sell-countries", params: { origin, selected: shipsTo === "all" ? "all" : Array.isArray(shipsTo) ? shipsTo.join(",") : origin } })}
-                style={({ pressed }) => [styles.choiceRow, pressed && { opacity: 0.92 }]}
-                accessibilityRole="button"
-                accessibilityLabel={`Choose countries. Currently ${shipsToLabel(origin, shipsTo)}.`}
-                accessibilityHint="Double tap to choose the countries where this listing can be seen."
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.choiceValue}>{shipsToLabel(origin, shipsTo)}</Text>
-                  <Text style={styles.choiceSub}>Choose countries</Text>
-                </View>
-                <Text style={styles.choiceArrow}>›</Text>
-              </AccessiblePressable>
-            </View>
+            <AccessiblePressable
+              onPress={() => router.push({ pathname: "/sell-countries", params: { origin, selected: shipsTo === "all" ? "all" : Array.isArray(shipsTo) ? shipsTo.join(",") : origin } })}
+              style={({ pressed }) => [styles.choiceRow, styles.stackGap, pressed && { opacity: 0.92 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Choose countries. Currently ${shipsToLabel(origin, shipsTo)}.`}
+              accessibilityHint="Double tap to choose the countries where this listing can be seen."
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.choiceValue}>{shipsToLabel(origin, shipsTo)}</Text>
+                <Text style={styles.choiceSub}>Where it sells</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
+            </AccessiblePressable>
 
-            <View style={styles.lookHead}>
-              <Text style={styles.label}>Shop look</Text>
-            </View>
-            <Text style={styles.lookLede}>
-              How buyers see this listing. Choose the presentation that best fits the piece.
-            </Text>
-            <View style={styles.lookGrid}>
-              {SHOP_LOOKS.map((look) => {
-                const on = shopLook === look.id;
-                const locked = false;
-                return (
-                  <AccessiblePressable                    key={look.id}
-                    onPress={() => {
-                      setShopLook(look.id);
-                      if (existing) updatePiece(existing.id, { shopLook: look.id });
-                    }}
-                    style={({ pressed }) => [
-                      styles.lookCard,
-                      { backgroundColor: look.surface, borderColor: on ? look.accent : look.page },
-                      on && styles.lookCardOn,
-                      locked && { opacity: 0.55 },
-                      pressed && { opacity: 0.92 },
-                    ]}
-                    accessibilityRole="radio"
-                    accessibilityLabel={look.name}
-                    accessibilityHint="Double tap to choose this Shop the look style."
-                    accessibilityState={{ selected: on, disabled: locked }}
-                  >
-                    <View style={[styles.lookSwatch, { backgroundColor: look.page, borderColor: look.accent }]}>
-                      <View style={[styles.lookSwatchSurface, { backgroundColor: look.surface }]} />
-                      <View style={styles.lookDots}>
-                        <View style={[styles.lookDot, { backgroundColor: look.bone }]} />
-                        <View style={[styles.lookDot, { backgroundColor: look.accent }]} />
+            <AccessiblePressable
+              onPress={() => setLookOpen((open) => !open)}
+              style={({ pressed }) => [styles.choiceRow, styles.stackGap, pressed && { opacity: 0.92 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Shop look: ${currentLook.name}`}
+              accessibilityHint="Double tap to choose how buyers see this listing."
+              accessibilityState={{ expanded: lookOpen }}
+            >
+              <View style={styles.lookRowLeft}>
+                <View style={[styles.lookChip, { backgroundColor: currentLook.page, borderColor: currentLook.accent }]} />
+                <View>
+                  <Text style={styles.choiceValue}>{currentLook.name}</Text>
+                  <Text style={styles.choiceSub}>Shop look</Text>
+                </View>
+              </View>
+              <Ionicons name={lookOpen ? "chevron-down" : "chevron-forward"} size={18} color={colors.subtle} />
+            </AccessiblePressable>
+
+            {lookOpen ? (
+              <View style={styles.lookGrid}>
+                {SHOP_LOOKS.map((look) => {
+                  const on = shopLook === look.id;
+                  return (
+                    <AccessiblePressable
+                      key={look.id}
+                      onPress={() => {
+                        setShopLook(look.id);
+                        setLookOpen(false);
+                        if (existing) updatePiece(existing.id, { shopLook: look.id });
+                      }}
+                      style={({ pressed }) => [
+                        styles.lookCard,
+                        { backgroundColor: look.surface, borderColor: on ? look.accent : look.page },
+                        on && styles.lookCardOn,
+                        pressed && { opacity: 0.92 },
+                      ]}
+                      accessibilityRole="radio"
+                      accessibilityLabel={look.name}
+                      accessibilityHint="Double tap to choose this Shop the look style."
+                      accessibilityState={{ selected: on }}
+                    >
+                      <View style={[styles.lookSwatch, { backgroundColor: look.page, borderColor: look.accent }]}>
+                        <View style={[styles.lookSwatchSurface, { backgroundColor: look.surface }]} />
+                        <View style={styles.lookDots}>
+                          <View style={[styles.lookDot, { backgroundColor: look.bone }]} />
+                          <View style={[styles.lookDot, { backgroundColor: look.accent }]} />
+                        </View>
                       </View>
-                    </View>
-                    <Text style={[styles.lookName, { color: look.bone }]}>{look.name}</Text>
-                    <Text style={[styles.lookLine, { color: look.muted }]} numberOfLines={1}>
-                      {look.line}
-                    </Text>
-                  </AccessiblePressable>
-                );
-              })}
-            </View>
+                      <Text style={[styles.lookName, { color: look.bone }]}>{look.name}</Text>
+                      <Text style={[styles.lookLine, { color: look.muted }]} numberOfLines={1}>
+                        {look.line}
+                      </Text>
+                    </AccessiblePressable>
+                  );
+                })}
+              </View>
+            ) : null}
+
             {existing ? (
-              <AccessiblePressable                onPress={() =>
+              <AccessiblePressable
+                onPress={() =>
                   router.push({
                     pathname: "/closet/[id]",
                     params: { id: existing.id, v: "buy" },
@@ -795,15 +995,16 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           </View>
         </ScrollView>
 
-        <View style={[styles.foot, { paddingBottom: keyboardVisible ? 8 : insets.bottom + (embedded ? 88 : 12) }]}>
-          <AccessiblePressable            onPress={() => void publish()}
-            disabled={!canList}
-            style={({ pressed }) => [styles.cta, !canList && styles.ctaOff, pressed && { opacity: 0.92 }]}
+        <View style={[styles.foot, { paddingBottom: keyboardVisible ? 8 : insets.bottom + (embedded ? 68 : 12) }]}>
+          <AccessiblePressable
+            onPress={goNext}
+            disabled={!ctaReady}
+            style={({ pressed }) => [styles.cta, !ctaReady && styles.ctaOff, pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
             accessibilityLabel={ctaLabel}
-            accessibilityState={{ disabled: !canList, busy: gate.phase === "review" }}
+            accessibilityState={{ disabled: !ctaReady, busy: gate.phase === "review" }}
           >
-            <Text style={[styles.ctaTxt, !canList && styles.ctaTxtOff]}>{ctaLabel}</Text>
+            <Text style={[styles.ctaTxt, !ctaReady && styles.ctaTxtOff]}>{ctaLabel}</Text>
           </AccessiblePressable>
         </View>
       </KeyboardAvoidingView>
@@ -828,7 +1029,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                   {r}
                 </Text>
               ))}
-              <AccessiblePressable                onPress={() => setGate({ phase: "idle" })}
+              <AccessiblePressable
+                onPress={() => setGate({ phase: "idle" })}
                 style={({ pressed }) => [styles.gateCta, pressed && { opacity: 0.92 }]}
                 accessibilityRole="button"
                 accessibilityLabel="Fix listing"
@@ -858,10 +1060,8 @@ function make(colors: Colors) {
       paddingHorizontal: 8,
       paddingBottom: 8,
     },
-    back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
     backPlaceholder: { width: 40, height: 40 },
     topButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: 20 },
-    backTxt: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
     topTitle: { color: colors.bone, fontSize: 16, fontWeight: "600" },
     deleteButton: { minWidth: 56, height: 40, alignItems: "flex-end", justifyContent: "center", borderRadius: 20 },
     deleteText: { color: colors.danger, fontSize: 14, fontWeight: "800" },
@@ -873,33 +1073,65 @@ function make(colors: Colors) {
       overflow: "hidden",
     },
     progressFill: { height: 3, backgroundColor: colors.success, borderRadius: 2 },
-    progressLbl: { color: colors.subtle, fontSize: 11, marginTop: 6, marginBottom: 8, marginLeft: 20 },
-    scrollContent: { flexGrow: 1 },
-    photosLabel: { marginTop: 16, marginLeft: 20 },
-    photoGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, paddingHorizontal: 20, paddingTop: 10 },
-    photoTile: { width: Math.round((W - 50) / 2), height: Math.round(((W - 50) / 2) * 1.25), borderRadius: 14, overflow: "hidden", backgroundColor: colors.surface, position: "relative" },
+    scrollContent: { flexGrow: 1, paddingBottom: 16 },
+    photosLabel: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 18, marginLeft: 20, marginBottom: 10 },
+    photoStrip: { paddingHorizontal: 20, gap: 8, paddingBottom: 4 },
+    photoTile: { height: COVER_H, borderRadius: 16, overflow: "hidden", backgroundColor: colors.surface },
+    photoCover: { width: COVER_W },
+    photoThumb: { width: ADD_W },
     photoImage: { width: "100%", height: "100%" },
-    photoAdd: { borderWidth: 1, borderStyle: "dashed", borderColor: colors.subtle + "88", alignItems: "center", justifyContent: "center" },
-    photoAddIcon: { color: colors.bone, fontSize: 34, lineHeight: 38 },
+    photoAdd: {
+      height: COVER_H,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: colors.subtle + "88",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surface,
+    },
+    photoAddEmpty: { width: COVER_W },
+    photoAddSlot: { width: ADD_W },
     photoAddTxt: { color: colors.bone, fontSize: 12, fontWeight: "600", marginTop: 4 },
     photoCount: { color: colors.subtle, fontSize: 11, marginTop: 4 },
-    mainPhotoPill: { position: "absolute", left: 10, bottom: 10, paddingHorizontal: 10, height: 28, borderRadius: 14, backgroundColor: `${colors.ink}C2`, alignItems: "center", justifyContent: "center" },
-    mainPhotoTxt: { color: colors.bone, fontSize: 12, fontWeight: "600" },
-    photoCheck: { ...StyleSheet.absoluteFill, backgroundColor: `${colors.success}85`, alignItems: "center", justifyContent: "center" },
-    focused: { borderWidth: 2, borderColor: colors.success },
-    photoX: { position: "absolute", top: 4, right: 4, minWidth: 44, minHeight: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
-    photoXTxt: { color: colors.ink, fontSize: 19, lineHeight: 21, fontWeight: "700", marginTop: -1 },
+    clipRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 20, marginBottom: 8 },
+    clipTile: { width: COVER_W, height: COVER_H, borderRadius: 16, overflow: "hidden", backgroundColor: colors.surface },
+    clipPreview: { width: "100%", height: "100%" },
+    clipSwap: { paddingVertical: 10, paddingHorizontal: 4 },
+    clipSwapTxt: { color: colors.bone, fontSize: 14, fontWeight: "700" },
+    clipAdd: {
+      marginHorizontal: 20,
+      marginBottom: 8,
+      minHeight: 64,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderStyle: "dashed",
+      borderColor: colors.subtle + "88",
+      backgroundColor: colors.surface,
+      paddingHorizontal: 14,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    clipAddTitle: { color: colors.bone, fontSize: 15, fontWeight: "700" },
+    clipAddBody: { color: colors.subtle, fontSize: 12, marginTop: 2 },
+    mainPhotoPill: { position: "absolute", left: 8, bottom: 8, paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: `${colors.ink}C2`, alignItems: "center", justifyContent: "center" },
+    mainPhotoTxt: { color: colors.bone, fontSize: 10, fontWeight: "600" },
+    photoCheck: { ...StyleSheet.absoluteFillObject, backgroundColor: `${colors.success}85`, alignItems: "center", justifyContent: "center" },
+    photoX: { position: "absolute", top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: `${colors.ink}CC`, alignItems: "center", justifyContent: "center" },
+    photoXTxt: { color: colors.bone, fontSize: 16, lineHeight: 18, fontWeight: "700", marginTop: -1 },
     unverifiedDot: {
       position: "absolute",
-      right: 4,
-      top: 4,
+      right: 8,
+      top: 38,
       width: 8,
       height: 8,
       borderRadius: 4,
       backgroundColor: colors.subtle,
     },
     analysisNotice: {
-      margin: 16,
+      marginHorizontal: 20,
+      marginTop: 14,
       padding: 14,
       borderRadius: 16,
       backgroundColor: colors.surface,
@@ -911,8 +1143,8 @@ function make(colors: Colors) {
     analysisCopy: { color: colors.muted, lineHeight: 20 },
     warnDot: {
       position: "absolute",
-      right: 4,
-      top: 4,
+      right: 8,
+      top: 38,
       width: 8,
       height: 8,
       borderRadius: 4,
@@ -923,7 +1155,8 @@ function make(colors: Colors) {
     fitLbl: { color: colors.subtle, fontSize: 12, marginTop: 4 },
     fit: { width: 64, height: 86, borderRadius: 10, marginRight: 8, marginTop: 8 },
     warnBox: {
-      margin: 16,
+      marginHorizontal: 20,
+      marginTop: 14,
       padding: 14,
       borderRadius: 16,
       backgroundColor: "rgba(196,92,38,0.12)",
@@ -933,39 +1166,23 @@ function make(colors: Colors) {
     warnP: { color: colors.muted, lineHeight: 20 },
     warnTip: { color: colors.bone, fontStyle: "italic" },
     warnCta: { color: colors.bone, fontWeight: "700", textDecorationLine: "underline", marginTop: 6 },
-    sheet: { paddingHorizontal: 20, paddingTop: 8 },
-    priceLabel: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 12, marginBottom: 6 },
-    priceRow: { minHeight: 48, flexDirection: "row", alignItems: "baseline", gap: 4, borderRadius: 10 },
-    feeNote: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 10 },
-    dollar: {
-      color: colors.bone,
-      fontWeight: "700",
-      fontSize: 34,
-      lineHeight: 40,
-      height: 40,
-      includeFontPadding: false,
-    },
-    price: {
-      flex: 1,
-      color: colors.bone,
-      fontWeight: "700",
-      fontSize: 34,
-      lineHeight: 40,
-      padding: 0,
-      includeFontPadding: false,
-    },
+    sheet: { paddingHorizontal: 20, paddingTop: 28 },
+    sectionKicker: { color: colors.subtle, fontSize: 11, letterSpacing: 1.6, fontWeight: "700" },
+    sectionKickerLater: { marginTop: 36 },
+    fromPhoto: { color: colors.subtle, fontSize: 11, marginTop: 6 },
     titleIn: {
       color: colors.bone,
-      fontFamily: "Georgia",
-      fontSize: 28,
-      lineHeight: 34,
-      marginTop: 8,
+      fontSize: 26,
+      fontWeight: "800",
+      lineHeight: 32,
+      marginTop: 14,
+      padding: 0,
     },
-    bodyIn: { color: colors.bone, fontSize: 16, lineHeight: 22, minHeight: 88, marginTop: 0, textAlignVertical: "top" },
-    label: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 20, marginBottom: 8 },
-    sellsLede: { color: colors.muted, fontSize: 14, lineHeight: 20, marginBottom: 10 },
+    bodyIn: { color: colors.bone, fontSize: 16, lineHeight: 22, minHeight: 72, marginTop: 14, padding: 0, textAlignVertical: "top" },
+    stack: { gap: 10, marginTop: 22 },
+    stackGap: { marginTop: 10 },
     field: {
-      height: 48,
+      height: 54,
       borderRadius: 14,
       paddingHorizontal: 14,
       color: colors.bone,
@@ -982,26 +1199,27 @@ function make(colors: Colors) {
       justifyContent: "space-between",
     },
     choiceValue: { color: colors.bone, fontSize: 16 },
-    choiceSub: { color: colors.muted, fontSize: 13, marginTop: 4 },
+    choiceSub: { color: colors.muted, fontSize: 13, marginTop: 3 },
     choicePlaceholder: { color: colors.subtle },
-    choiceArrow: { color: colors.subtle, fontSize: 28, lineHeight: 30, marginTop: -3 },
-    chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    chip: {
-      minHeight: 44,
-      borderWidth: 1,
-      borderColor: colors.subtle + "40",
-      borderRadius: 20,
-      paddingHorizontal: 12,
-      paddingVertical: 8,
+    priceRow: {
+      minHeight: 56,
+      marginTop: 14,
+      borderRadius: 14,
+      paddingHorizontal: 14,
+      backgroundColor: colors.surface,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
     },
-    chipOn: { backgroundColor: colors.success, borderColor: colors.success },
-    chipTxt: { color: colors.muted, fontSize: 13 },
-    chipTxtOn: { color: colors.successInk, fontWeight: "600" },
-    row: { flexDirection: "row", gap: 10 },
-    lookHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginTop: 8 },
-    plusTag: { color: colors.success, fontSize: 12, fontWeight: "700", letterSpacing: 0.6 },
-    lookLede: { color: colors.muted, fontSize: 13, lineHeight: 18, marginBottom: 12 },
-    lookGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    priceValue: { flexDirection: "row", alignItems: "baseline", gap: 4 },
+    dollar: { color: colors.bone, fontWeight: "700", fontSize: 22, lineHeight: 28 },
+    price: { color: colors.bone, fontWeight: "700", fontSize: 22, lineHeight: 28 },
+    priceHint: { flexDirection: "row", alignItems: "center", gap: 2 },
+    priceHintTxt: { color: colors.muted, fontSize: 14 },
+    feeNote: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 10 },
+    lookRowLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+    lookChip: { width: 32, height: 32, borderRadius: 8, borderWidth: 1 },
+    lookGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 12 },
     lookCard: {
       width: "48%",
       flexGrow: 1,
@@ -1018,7 +1236,7 @@ function make(colors: Colors) {
     lookDot: { width: 14, height: 14, borderRadius: 7 },
     lookName: { color: colors.bone, fontWeight: "700", fontSize: 14, marginTop: 8 },
     lookLine: { color: colors.muted, fontSize: 12, marginTop: 2 },
-    preview: { marginTop: 14, marginBottom: 8 },
+    preview: { marginTop: 18, marginBottom: 8 },
     previewTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
     foot: {
       paddingHorizontal: 16,
@@ -1036,7 +1254,7 @@ function make(colors: Colors) {
     ctaTxt: { color: colors.successInk, fontSize: 16, fontWeight: "600" },
     ctaTxtOff: { color: colors.muted },
     gate: {
-      ...StyleSheet.absoluteFill,
+      ...StyleSheet.absoluteFillObject,
       backgroundColor: "#12140A",
       alignItems: "center",
       justifyContent: "center",

@@ -22,15 +22,23 @@ export default function Settings() {
   const market = getMarket(app.country);
 
   async function toggleNotes(on: boolean) {
-    app.setStyle({ wantsUpdates: on });
-    if (!on) return;
-    try {
-      const Notifications = await import("expo-notifications");
-      const cur = await Notifications.getPermissionsAsync();
-      if (cur.status !== "granted") await Notifications.requestPermissionsAsync();
-    } catch {
-      await Linking.openSettings();
+    if (!on) {
+      app.setStyle({ wantsUpdates: false });
+      void import("../lib/engagement").then((m) => m.syncEngagement({ allowed: false, hasBag: false, hasFirstFind: false })).catch(() => undefined);
+      return;
     }
+    if (!app.uid) {
+      Alert.alert("Sign in first", "Notifications follow your account.");
+      return;
+    }
+    const { enablePush } = await import("../lib/push");
+    const result = await enablePush(app.uid);
+    if (result !== "granted") {
+      app.setStyle({ wantsUpdates: false });
+      Alert.alert("Turn notifications on", "iPhone Settings → Uvel → Notifications.");
+      return;
+    }
+    app.setStyle({ wantsUpdates: true });
   }
 
   function confirmDelete() {
@@ -68,10 +76,12 @@ export default function Settings() {
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
       <Text style={styles.section}>{C.support}</Text>
       <View style={styles.group}>
+        <Row label="How to use Uvel" onPress={() => router.push("/guide")} colors={colors} />
         <Row label={C.helpSupport} onPress={() => void Linking.openURL(HELP)} colors={colors} />
         <Row label="Report app issue" onPress={() => requestFeedback("compose")} colors={colors} />
         <Row label={C.privacyPolicy} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "privacy" } })} colors={colors} />
-        <Row label={C.terms} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "terms" } })} colors={colors} last />
+        <Row label={C.terms} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "terms" } })} colors={colors} />
+        <Row label="About Uvel" onPress={() => router.push("/about")} colors={colors} last />
       </View>
 
       <Text style={styles.section}>{C.account}</Text>

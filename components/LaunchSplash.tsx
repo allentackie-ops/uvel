@@ -1,11 +1,19 @@
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useRef } from "react";
-import { Dimensions, Image, StyleSheet, View } from "react-native";
+import { Dimensions, Image, StyleSheet } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 const HOLD_MS = 220;
+const FADE_MS = 280;
 
 export function LaunchSplash({
   onDone,
@@ -17,6 +25,7 @@ export function LaunchSplash({
   const { width, height } = Dimensions.get("window");
   const started = useRef(false);
   const mountedAt = useRef(Date.now());
+  const opacity = useSharedValue(1);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -30,20 +39,30 @@ export function LaunchSplash({
     const wait = Math.max(0, HOLD_MS - (Date.now() - mountedAt.current));
     const t = setTimeout(() => {
       started.current = true;
-      onDone();
+      opacity.value = withTiming(
+        0,
+        { duration: FADE_MS, easing: Easing.out(Easing.cubic) },
+        (finished) => {
+          if (finished) runOnJS(onDone)();
+        },
+      );
     }, wait);
     return () => clearTimeout(t);
-  }, [ready, onDone]);
+  }, [ready, onDone, opacity]);
+
+  const fade = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
 
   return (
-    <View pointerEvents="auto" style={[styles.root, { width, height }]}>
+    <Animated.View pointerEvents="auto" style={[styles.root, { width, height }, fade]}>
       <StatusBar style="light" />
       <Image
         source={require("../assets/splash.png")}
         style={{ width, height }}
         resizeMode="contain"
       />
-    </View>
+    </Animated.View>
   );
 }
 

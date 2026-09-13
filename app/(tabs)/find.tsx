@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionSheetIOS,
   Alert,
@@ -21,7 +21,8 @@ import { pickFromLibrary, takePhoto } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { dressPerson } from "../../lib/tryon";
-import { refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { refreshMarketplaceListings, shopFloor, getPiece, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { onMirrorPick } from "../../lib/mirrorPick";
 import { FriendShareSheet, type FriendSharePayload } from "../../components/FriendShareSheet";
 
 type GarmentPick =
@@ -47,6 +48,16 @@ export default function Mirror() {
   const [shareOpen, setShareOpen] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const sourceY = useRef(0);
+
+  useEffect(() => {
+    return onMirrorPick((id) => {
+      const piece = getPiece(id);
+      if (!piece) return;
+      setPicked({ kind: "uvel", piece });
+      setResult(null);
+      setErr("");
+    });
+  }, []);
 
   const garmentUri = picked?.kind === "uvel" ? picked.piece.photo : picked?.uri;
   const garmentName = picked?.kind === "uvel" ? picked.piece.name : picked?.name ?? "this look";
@@ -210,13 +221,13 @@ export default function Mirror() {
               <View style={styles.cameraPlaceholder}>
                 <Ionicons name="camera-outline" size={34} color={colors.success} />
               </View>
-              <Text style={styles.needH}>Add your full-length photo</Text>
-              <Text style={styles.needP}>Then see how a look works on you before you buy.</Text>
+              <Text style={styles.needH}>Add your full length photo</Text>
               <View style={styles.needRow}>
                 <Pressable onPress={() => void fromCamera()} style={styles.needBtn}>
                   <Text style={styles.needBtnTxt}>Add your photo</Text>
                 </Pressable>
-                <Pressable onPress={() => void fromLibrary()} style={styles.needBtnGhost}>
+                <Pressable onPress={() => void fromLibrary()} style={styles.needBtnGhost} accessibilityRole="button" accessibilityLabel="Choose from library">
+                  <Ionicons name="images-outline" size={18} color={colors.bone} />
                   <Text style={styles.needBtnGhostTxt}>Choose from library</Text>
                 </Pressable>
               </View>
@@ -278,7 +289,7 @@ export default function Mirror() {
         {live.length ? (
           <View style={styles.headRow}>
             <Text style={styles.h2}>From Uvel</Text>
-            <Pressable onPress={() => router.push("/(tabs)/shop")}>
+            <Pressable onPress={() => router.push("/mirror-browse")} hitSlop={8} accessibilityRole="button" accessibilityLabel="See all Uvel pieces">
               <Text style={styles.seeAll}>See all</Text>
             </Pressable>
           </View>
@@ -329,21 +340,12 @@ export default function Mirror() {
           </View>
         )}
 
-        {picked ? (
+        {picked?.kind === "photo" ? (
           <View style={styles.selected}>
-            {picked.kind === "photo" ? (
-              <View>
-                <Image source={{ uri: picked.uri }} style={styles.selectedImage} contentFit="cover" />
-                <Pressable onPress={clearGarment} style={styles.selectedRemove} accessibilityRole="button" accessibilityLabel="Remove selected clothing photo">
-                  <Ionicons name="close" size={18} color={colors.bone} />
-                </Pressable>
-              </View>
-            ) : null}
-            <View style={styles.selectedCopyWrap}>
-              <Text style={styles.selectedKicker}>READY TO TRY</Text>
-              <Text style={styles.selectedTitle}>{garmentName}</Text>
-              <Text style={styles.selectedCopy}>Your photo and this piece are ready for a preview.</Text>
-            </View>
+            <Image source={{ uri: picked.uri }} style={styles.selectedImage} contentFit="cover" />
+            <Pressable onPress={clearGarment} style={styles.selectedRemove} accessibilityRole="button" accessibilityLabel="Remove selected clothing photo">
+              <Ionicons name="close" size={18} color={colors.bone} />
+            </Pressable>
           </View>
         ) : null}
 
@@ -419,7 +421,7 @@ function make(colors: Colors) {
     shareResultTxt: { color: colors.successInk, fontWeight: "800", fontSize: 13 },
     need: { flex: 1, alignItems: "center", justifyContent: "center", padding: 28, gap: 8 },
     cameraPlaceholder: { width: 84, height: 84, borderRadius: 24, borderWidth: 1, borderColor: `${colors.success}80`, backgroundColor: `${colors.success}12`, alignItems: "center", justifyContent: "center", marginBottom: 8 },
-    needH: { color: colors.bone, fontFamily: "Georgia", fontSize: 26 },
+    needH: { color: colors.bone, fontSize: 24, fontWeight: "800" },
     needP: { color: `${colors.bone}9E`, textAlign: "center", marginBottom: 8 },
     needRow: { flexDirection: "row", gap: 10, marginTop: 8 },
     needBtn: {
@@ -433,11 +435,13 @@ function make(colors: Colors) {
     needBtnTxt: { color: colors.successInk, fontWeight: "700" },
     needBtnGhost: {
       height: 44,
-      paddingHorizontal: 20,
+      paddingHorizontal: 16,
       borderRadius: 22,
       backgroundColor: `${colors.surface}F2`,
+      flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
+      gap: 8,
     },
     needBtnGhostTxt: { color: colors.bone, fontWeight: "600" },
     spin: {
@@ -479,8 +483,8 @@ function make(colors: Colors) {
       marginTop: 26,
       marginBottom: 14,
     },
-    h2: { color: colors.bone, fontFamily: "Georgia", fontSize: 26 },
-    seeAll: { color: `${colors.bone}6B`, fontSize: 15 },
+    h2: { color: colors.bone, fontSize: 22, fontWeight: "800" },
+    seeAll: { color: colors.success, fontSize: 15, fontWeight: "700" },
     strip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
     uvelCard: {
       width: 168,

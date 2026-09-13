@@ -3,9 +3,11 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { VerifiedMark } from "../../components/VerifiedMark";
+import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { BrandHQSkeleton } from "../../components/ScreenSkeletons";
 import {
+  brandApproved,
+  brandCheck,
   canAccessHQ,
   canManageCatalog,
   canManageOrders,
@@ -30,11 +32,12 @@ import {
   canViewMarketing,
   updateMemberRole,
 } from "../../lib/brands";
+import { enrollMake, trademarkPriceLabel, trademarkStatus, brandMakes } from "../../lib/brandMake";
 import { usd } from "../../lib/catalog";
 import { financeTotals, requestBrandPayout, savePayoutProfile, settlementLedger, usePayoutProfile, usePayouts, type PayoutDestinationType, type SettlementEntry } from "../../lib/finance";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
-import { MARKETS, getMarket } from "../../lib/markets";
+import { MARKETS, getMarket, moneyExact } from "../../lib/markets";
 import { recordAuditEvent, useAudit, type AuditEvent } from "../../lib/audit";
 import { createOrderShipment, reviewOrderResolution, updateOrderFulfillment, updateOrderShipment, useOrders, watchBrandOrders, type FulfillmentStatus, type Order, type ShippingExceptionCode } from "../../lib/orders";
 import { addSupportInternalNote, updateSupportCase, useSupportCases, type SupportCase, type SupportStatus } from "../../lib/support";
@@ -47,7 +50,7 @@ import { analyticsCurrencyValue, analyticsDisplayState, analyticsDisclosure, ana
 import { semanticStatus, semanticLabel, statusToneFor } from "../../lib/status";
 import { saveBrandCampaign, saveBrandCollection, saveBrandPromotion, useMarketing, type BrandCampaign, type BrandCollection, type BrandPromotion, type MarketingState, type MarketingStatus } from "../../lib/marketing";
 
-type Section = "overview" | "catalog" | "orders" | "finance" | "marketing" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
+type Section = "overview" | "make" | "catalog" | "orders" | "finance" | "more" | "marketing" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
 
 type CatalogAuditInput = Parameters<typeof recordAuditEvent>[0];
 
@@ -58,20 +61,27 @@ function syncCatalogEdit(id: string, patch: Partial<ClosetPiece>, audit?: Catalo
 }
 type HQTheme = { bg: string; ink: string; muted: string; card: string; accent: string; accentInk: string; lineColor: string };
 
-const SECTIONS: Array<{ id: Section; label: string }> = [
+const PRIMARY: Array<{ id: Section; label: string }> = [
   { id: "overview", label: "Overview" },
+  { id: "make", label: "Make" },
   { id: "catalog", label: "Catalog" },
   { id: "orders", label: "Orders" },
-  { id: "finance", label: "Finance" },
-  { id: "marketing", label: "Marketing" },
-  { id: "growth", label: "Growth" },
-  { id: "support", label: "Support" },
-  { id: "inbox", label: "Inbox" },
-  { id: "analytics", label: "Analytics" },
-  { id: "audit", label: "Audit log" },
-  { id: "team", label: "Team" },
-  { id: "settings", label: "Settings" },
+  { id: "finance", label: "Money" },
+  { id: "more", label: "More" },
 ];
+
+const MORE_ROOMS: Array<{ id: Section; label: string; copy: string }> = [
+  { id: "marketing", label: "Marketing", copy: "Drops and codes" },
+  { id: "growth", label: "Growth", copy: "What’s working" },
+  { id: "support", label: "Support", copy: "Order problems" },
+  { id: "inbox", label: "Inbox", copy: "Buyer messages" },
+  { id: "analytics", label: "Analytics", copy: "The numbers" },
+  { id: "audit", label: "Audit log", copy: "Who changed what" },
+  { id: "team", label: "Team", copy: "Who can do what" },
+  { id: "settings", label: "Settings", copy: "Name, country, page" },
+];
+
+const MORE_IDS = new Set<Section>(["more", "marketing", "growth", "support", "inbox", "analytics", "audit", "team", "settings"]);
 
 const ROLE_OPTIONS: Array<Exclude<MemberRole, "owner">> = [
   "admin",
@@ -95,6 +105,7 @@ export default function BrandHQ() {
   const auditEvents = useAudit(id || "");
   const supportCases = useSupportCases(id || "");
   const marketing = useMarketing(id || "");
+  const payouts = usePayouts(id || "");
   const brand = getBrand(id);
   const theme: HQTheme = brand ? themeFor(brand) : { bg: colors.ink, ink: colors.bone, muted: colors.muted, card: colors.surface, accent: colors.pulse, accentInk: colors.ink, lineColor: colors.subtle };
   const styles = useMemo(() => make(theme), [theme]);
@@ -120,8 +131,11 @@ export default function BrandHQ() {
   const activeBrand = brand;
   const catalog = pieces.filter((piece) => piece.brandId === activeBrand.id);
   const activeCatalog = catalog.filter((piece) => piece.status === "listed");
-  const lowStock = activeCatalog.filter((piece) => typeof piece.stockQuantity === "number" && piece.stockQuantity > 0 && piece.stockQuantity <= 10);
   const brandOrders = orders.filter((order) => order.brandId === activeBrand.id);
+  const making = brandMakes(activeBrand);
+  const toShipCount = brandOrders.filter((order) => order.status === "paid" && ["unfulfilled", "processing", "packed"].includes(order.fulfillmentStatus || "unfulfilled")).length;
+  const moneyCurrency = getMarket(activeBrand.country).currency;
+  const money = financeTotals(settlementLedger(brandOrders, activeBrand.id), payouts, moneyCurrency);
   const manager = canManageTeam(activeBrand, app.uid);
   const orderViewer = canViewOrders(activeBrand, app.uid);
   const orderManager = canManageOrders(activeBrand, app.uid);
@@ -131,10 +145,6 @@ export default function BrandHQ() {
   function openSection(next: Section) {
     if (next === "inbox") {
       router.push("/inbox");
-      return;
-    }
-    if (next === "analytics") {
-      if (canSeeAnalytics(activeBrand, app.uid)) setSection("analytics");
       return;
     }
     setSection(next);
@@ -157,29 +167,19 @@ export default function BrandHQ() {
             <Text style={[styles.backTxt, { color: theme.ink }]}>‹</Text>
           </Pressable>
           <View style={styles.topBrand}>
-            <Text style={[styles.topKicker, { color: theme.muted }]}>BRAND WORKSPACE</Text>
             <View style={styles.topNameRow}>
               <Text style={[styles.topTitle, { color: theme.ink }]} numberOfLines={1}>{brand.name}</Text>
-              {brand.verified ? <VerifiedMark size={16} /> : null}
+              <BrandVerifiedMark brand={brand} size={16} />
             </View>
           </View>
           <View style={styles.topSpacer} />
         </View>
 
-        <View style={[styles.hero, { backgroundColor: theme.card }]}>
-          {brand.logoUri ? <Image source={{ uri: brand.logoUri }} style={styles.logo} contentFit="cover" /> : <View style={[styles.logo, { backgroundColor: theme.bg }]}><Text style={[styles.logoTxt, { color: theme.ink }]}>{brand.name[0]}</Text></View>}
-          <View style={styles.heroCopy}>
-            <Text style={[styles.heroTitle, { color: theme.ink }]}>Brand HQ</Text>
-            <Text style={[styles.heroP, { color: theme.muted }]}>Run {brand.name} with a shared team, catalog, and buyer workspace.</Text>
-          </View>
-        </View>
-
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.nav}>
-          {SECTIONS.map((item) => {
-            const active = section === item.id;
-            const unavailable = (item.id === "analytics" && !canSeeAnalytics(brand, app.uid)) || (item.id === "audit" && !canViewAudit(brand, app.uid));
+          {PRIMARY.map((item) => {
+            const active = item.id === "more" ? MORE_IDS.has(section) : section === item.id;
             return (
-              <Pressable key={item.id} onPress={() => openSection(item.id)} style={[styles.navChip, active && { backgroundColor: theme.accent, borderColor: theme.accent }, unavailable && { opacity: 0.45 }]}>
+              <Pressable key={item.id} onPress={() => openSection(item.id)} style={[styles.navChip, active && { backgroundColor: theme.accent, borderColor: theme.accent }]}>
                 <Text style={[styles.navTxt, { color: active ? theme.accentInk : theme.ink }]}>{item.label}</Text>
               </Pressable>
             );
@@ -187,11 +187,23 @@ export default function BrandHQ() {
         </ScrollView>
 
         {section === "overview" ? (
-          <Overview brand={brand} catalogCount={activeCatalog.length} lowStockCount={lowStock.length} teamCount={brand.members.length} inquiryCount={inquiryRecipients(brand).length} theme={theme} styles={styles} onSection={openSection} />
+          <Overview
+            brand={brand}
+            catalogCount={activeCatalog.length}
+            toShipCount={toShipCount}
+            making={making}
+            moneyLabel={moneyExact(money.availableCents, moneyCurrency)}
+            pendingLabel={money.pendingCents ? moneyExact(money.pendingCents, moneyCurrency) : ""}
+            theme={theme}
+            styles={styles}
+            onSection={openSection}
+          />
+        ) : section === "make" ? (
+          <MakeSection brand={brand} uid={app.uid} theme={theme} styles={styles} />
         ) : section === "catalog" ? (
           <CatalogSection brand={brand} items={catalog} canManage={catalogManager} theme={theme} styles={styles} />
         ) : section === "orders" ? (
-          <OrdersSection orders={brandOrders} viewer={orderViewer} manager={orderManager} reviewer={orderReviewer} theme={theme} styles={styles} />
+          <OrdersSection orders={brandOrders} madeByUvel={making} viewer={orderViewer} manager={orderManager} reviewer={orderReviewer} theme={theme} styles={styles} />
         ) : section === "finance" ? (
           <FinanceSection brand={activeBrand} orders={brandOrders} viewer={canViewFinance(activeBrand, app.uid)} manager={canManagePayouts(activeBrand, app.uid)} theme={theme} styles={styles} onPayoutFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
         ) : section === "marketing" ? (
@@ -204,6 +216,8 @@ export default function BrandHQ() {
           <SupportSection brand={activeBrand} cases={supportCases} manager={orderManager} theme={theme} styles={styles} viewerName={app.displayName || "Support agent"} />
         ) : section === "audit" ? (
           <AuditSection events={auditEvents} viewer={canViewAudit(activeBrand, app.uid)} theme={theme} styles={styles} />
+        ) : section === "more" ? (
+          <MoreSection brand={brand} uid={app.uid} theme={theme} styles={styles} onSection={openSection} />
         ) : section === "team" ? (
           <TeamSection brand={brand} manager={manager} theme={theme} styles={styles} onRole={changeRole} />
         ) : section === "settings" ? (
@@ -215,24 +229,165 @@ export default function BrandHQ() {
   );
 }
 
-function Overview({ brand, catalogCount, lowStockCount, teamCount, inquiryCount, theme, styles, onSection }: { brand: Brand; catalogCount: number; lowStockCount: number; teamCount: number; inquiryCount: number; theme: HQTheme; styles: ReturnType<typeof make>; onSection: (section: Section) => void }) {
+function Overview({
+  brand,
+  catalogCount,
+  toShipCount,
+  making,
+  moneyLabel,
+  pendingLabel,
+  theme,
+  styles,
+  onSection,
+}: {
+  brand: Brand;
+  catalogCount: number;
+  toShipCount: number;
+  making: boolean;
+  moneyLabel: string;
+  pendingLabel: string;
+  theme: HQTheme;
+  styles: ReturnType<typeof make>;
+  onSection: (section: Section) => void;
+}) {
   return (
     <View>
-      <Text style={[styles.sectionKicker, { color: theme.muted }]}>OPERATING PICTURE</Text>
+      {!brandApproved(brand) ? (
+        <Pressable onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })} style={[styles.hero, { backgroundColor: theme.card, marginBottom: 16 }]}>
+          <View style={styles.heroCopy}>
+            <Text style={[styles.heroTitle, { color: theme.ink }]}>In review</Text>
+            <Text style={[styles.heroP, { color: theme.muted }]}>Dress the page while we look at it. Logo, banner, look.</Text>
+          </View>
+        </Pressable>
+      ) : null}
       <View style={styles.stats}>
-        <Stat label="Active products" value={String(catalogCount)} theme={theme} styles={styles} />
-        <Stat label="Low stock" value={String(lowStockCount)} theme={theme} styles={styles} />
-        <Stat label="Team" value={String(teamCount)} theme={theme} styles={styles} />
-        <Stat label="Inquiry recipients" value={String(inquiryCount)} theme={theme} styles={styles} />
+        <Stat label="Listed" value={String(catalogCount)} theme={theme} styles={styles} />
+        <Stat label={making ? "Making" : "To ship"} value={String(toShipCount)} theme={theme} styles={styles} />
+        <Stat label="Money" value={moneyLabel} theme={theme} styles={styles} />
       </View>
-      <Text style={[styles.sectionTitle, { color: theme.ink }]}>Next actions</Text>
-      <ActionCard title="Manage catalog" copy="Review products, stock, prices, and listing status." button="Open catalog" onPress={() => onSection("catalog")} theme={theme} styles={styles} />
-      <ActionCard title="Team access" copy="Assign the right workspace role to every collaborator." button="Open team" onPress={() => onSection("team")} theme={theme} styles={styles} />
-      <ActionCard title="Buyer inbox" copy="Keep brand inquiries in one shared conversation stream." button="Open inbox" onPress={() => onSection("inbox")} theme={theme} styles={styles} />
-      <ActionCard title="Finance & settlements" copy="Review order-linked earnings, refunds, balances, and payout history." button="Open finance" onPress={() => onSection("finance")} theme={theme} styles={styles} />
-      <ActionCard title="Merchandising & marketing" copy="Build collections, schedule drops, and control brand promotions." button="Open marketing" onPress={() => onSection("marketing")} theme={theme} styles={styles} />
-      <ActionCard title="Support desk" copy="Work order-linked cases with assignment, escalation, and private team notes." button="Open support" onPress={() => onSection("support")} theme={theme} styles={styles} />
-      {brand.verified ? <Text style={[styles.note, { color: theme.muted }]}>Verified brand workspace · {brand.country} · {brand.legalName || brand.ownerName}</Text> : null}
+      {pendingLabel ? <Text style={[styles.note, { marginTop: 10, color: theme.muted }]}>{pendingLabel} still pending</Text> : null}
+      {brandApproved(brand) ? (
+        <>
+          <ActionCard title="Make" copy={making ? "Uvel makes it. The manufacturer sends it." : "We make the clothes. You don’t pack."} button="Make" onPress={() => onSection("make")} theme={theme} styles={styles} />
+          <ActionCard title="List a piece" copy="Add something to the shop." button="List" onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })} theme={theme} styles={styles} />
+          <ActionCard title="Orders" copy={making ? "What’s being made." : "Pack what’s sold."} button="Orders" onPress={() => onSection("orders")} theme={theme} styles={styles} />
+          <ActionCard title="Get paid" copy="Money from sales." button="Money" onPress={() => onSection("finance")} theme={theme} styles={styles} />
+        </>
+      ) : null}
+      {brandApproved(brand) ? <Text style={[styles.note, { color: theme.muted }]}>{brandCheck(brand) === "lime" ? `Green check · two sales · ${brand.country}` : brandCheck(brand) === "blue" ? `Verified brand · ${brand.country}` : `Sell two pieces. Then the green check goes on your name.`}</Text> : null}
+    </View>
+  );
+}
+
+function MakeSection({
+  brand,
+  uid,
+  theme,
+  styles,
+}: {
+  brand: Brand;
+  uid: string;
+  theme: HQTheme;
+  styles: ReturnType<typeof make>;
+}) {
+  const owner = roleOn(brand, uid) === "owner" || roleOn(brand, uid) === "admin";
+  const making = brandMakes(brand);
+  const mark = trademarkStatus(brand);
+  const price = trademarkPriceLabel(brand.country);
+  const approved = brandApproved(brand);
+
+  function turnOnMake() {
+    if (!owner || !approved) return;
+    Alert.alert("Make with Uvel", "We make the piece. The manufacturer sends it to the buyer. Delivery is paid at checkout. Production comes out of the sale.", [
+      { text: "Not now", style: "cancel" },
+      {
+        text: "Make with Uvel",
+        onPress: () => {
+          enrollMake(brand.id);
+          void recordAuditEvent({ brandId: brand.id, action: "make_enrolled", entity: "brand", entityId: brand.id, entityName: brand.name, summary: "Uvel makes this brand’s pieces." });
+        },
+      },
+    ]);
+  }
+
+  return (
+    <View>
+      <Text style={[styles.sectionTitle, { color: theme.ink }]}>Make</Text>
+      <Text style={[styles.sectionP, { color: theme.muted }]}>We make it. The manufacturer sends it. The buyer pays delivery.</Text>
+
+      <View style={[styles.makeCard, { backgroundColor: theme.card }]}>
+        <Text style={[styles.makeKicker, { color: theme.muted }]}>{making ? "ON" : "OFF"}</Text>
+        <Text style={[styles.makeTitle, { color: theme.ink }]}>We make your pieces</Text>
+        <Text style={[styles.makeCopy, { color: theme.muted }]}>
+          {making
+            ? "Listings from this brand are made to order. You don’t pack. When someone buys, we send it to the manufacturer and they ship it."
+            : "You don’t hold stock. Someone orders, we make it, they receive it. Turn this on to sell that way."}
+        </Text>
+        {making ? (
+          <Text style={[styles.makeStatus, { color: theme.ink }]}>Uvel is making for this brand.</Text>
+        ) : (
+          <Pressable
+            onPress={turnOnMake}
+            disabled={!owner || !approved}
+            style={[styles.makeBtn, { backgroundColor: theme.accent }, (!owner || !approved) && { opacity: 0.4 }]}
+          >
+            <Text style={[styles.makeBtnTxt, { color: theme.accentInk }]}>{approved ? "Make with Uvel" : "After you’re accepted"}</Text>
+          </Pressable>
+        )}
+      </View>
+
+      <View style={[styles.makeCard, { backgroundColor: theme.card }]}>
+        <Text style={[styles.makeKicker, { color: theme.muted }]}>OPTIONAL</Text>
+        <Text style={[styles.makeTitle, { color: theme.ink }]}>Protect your brand name through trademark</Text>
+        {mark === "none" ? (
+          <Pressable
+            onPress={() => router.push({ pathname: "/brand/trademark", params: { id: brand.id } })}
+            disabled={!owner}
+            style={[styles.makeBtn, { backgroundColor: theme.accent }, !owner && { opacity: 0.4 }]}
+          >
+            <Text style={[styles.makeBtnTxt, { color: theme.accentInk }]}>Register · {price}</Text>
+          </Pressable>
+        ) : (
+          <Text style={[styles.makeStatus, { color: theme.ink }]}>{mark === "filed" ? "Filed." : "In the works."}</Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function MoreSection({
+  brand,
+  uid,
+  theme,
+  styles,
+  onSection,
+}: {
+  brand: Brand;
+  uid: string;
+  theme: HQTheme;
+  styles: ReturnType<typeof make>;
+  onSection: (section: Section) => void;
+}) {
+  return (
+    <View>
+      {MORE_ROOMS.map((item) => {
+        const locked = (item.id === "analytics" && !canSeeAnalytics(brand, uid)) || (item.id === "audit" && !canViewAudit(brand, uid));
+        return (
+          <Pressable
+            key={item.id}
+            onPress={() => onSection(item.id)}
+            style={[styles.moreRow, { backgroundColor: theme.card }, locked && { opacity: 0.45 }]}
+            accessibilityRole="button"
+            accessibilityLabel={item.label}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.moreTitle, { color: theme.ink }]}>{item.label}</Text>
+              <Text style={[styles.moreCopy, { color: theme.muted }]}>{item.copy}</Text>
+            </View>
+            <Text style={[styles.moreGo, { color: theme.muted }]}>›</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -418,7 +573,7 @@ const ORDER_FILTERS: Array<{ id: OrderFilter; label: string }> = [
   { id: "canceled", label: "Canceled" },
 ];
 
-function OrdersSection({ orders, viewer, manager, reviewer, theme, styles }: { orders: Order[]; viewer: boolean; manager: boolean; reviewer: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
+function OrdersSection({ orders, madeByUvel, viewer, manager, reviewer, theme, styles }: { orders: Order[]; madeByUvel?: boolean; viewer: boolean; manager: boolean; reviewer: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const [filter, setFilter] = useState<OrderFilter>("all");
   if (!viewer) {
     return <View><Text style={[styles.sectionTitle, { color: theme.ink }]}>Orders</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Order operations are limited to the brand owner, admins, support, and finance team.</Text></View>;
@@ -435,15 +590,15 @@ function OrdersSection({ orders, viewer, manager, reviewer, theme, styles }: { o
   return (
     <View>
       <Text style={[styles.sectionTitle, { color: theme.ink }]}>Orders</Text>
-      <Text style={[styles.sectionP, { color: theme.muted }]}>Payment, fulfillment, tracking, and buyer context in one operating view.</Text>
+      <Text style={[styles.sectionP, { color: theme.muted }]}>{madeByUvel ? "Uvel makes these. The manufacturer sends them. Delivery is already paid." : "Payment, fulfillment, tracking, and buyer context in one operating view."}</Text>
       <View style={styles.orderStats}>
         <Stat label="All orders" value={String(orders.length)} theme={theme} styles={styles} />
-        <Stat label="Needs action" value={String(needsAction.length)} theme={theme} styles={styles} />
+        <Stat label={madeByUvel ? "Making" : "Needs action"} value={String(needsAction.length)} theme={theme} styles={styles} />
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.orderFilters}>
-        {ORDER_FILTERS.map((option) => <Pressable key={option.id} onPress={() => setFilter(option.id)} style={[styles.orderFilter, { borderColor: filter === option.id ? theme.accent : theme.lineColor, backgroundColor: filter === option.id ? theme.accent : theme.card }]}><Text style={[styles.orderFilterTxt, { color: filter === option.id ? theme.accentInk : theme.ink }]}>{option.label}</Text></Pressable>)}
+        {ORDER_FILTERS.map((option) => <Pressable key={option.id} onPress={() => setFilter(option.id)} style={[styles.orderFilter, { borderColor: filter === option.id ? theme.accent : theme.lineColor, backgroundColor: filter === option.id ? theme.accent : theme.card }]}><Text style={[styles.orderFilterTxt, { color: filter === option.id ? theme.accentInk : theme.ink }]}>{option.label === "Packed" && madeByUvel ? "Making" : option.label}</Text></Pressable>)}
       </ScrollView>
-      {filtered.length ? filtered.map((order) => <OrderCard key={order.id} order={order} manager={manager} reviewer={reviewer} theme={theme} styles={styles} />) : <Empty text={orders.length ? "No orders match this filter." : "No brand orders yet."} theme={theme} styles={styles} />}
+      {filtered.length ? filtered.map((order) => <OrderCard key={order.id} order={order} madeByUvel={Boolean(madeByUvel || order.madeByUvel)} manager={manager} reviewer={reviewer} theme={theme} styles={styles} />) : <Empty text={orders.length ? "No orders match this filter." : "No brand orders yet."} theme={theme} styles={styles} />}
     </View>
   );
 }
@@ -458,7 +613,18 @@ const FULFILLMENT_LABELS: Record<FulfillmentStatus, string> = {
   returned: "Returned",
 };
 
-function nextFulfillment(status: FulfillmentStatus): FulfillmentStatus | null {
+function fulfillmentLabel(status: FulfillmentStatus, made?: boolean) {
+  if (made && (status === "unfulfilled" || status === "processing" || status === "packed")) return "Making";
+  if (made && status === "shipped") return "Shipped";
+  return FULFILLMENT_LABELS[status];
+}
+
+function nextFulfillment(status: FulfillmentStatus, made?: boolean): FulfillmentStatus | null {
+  if (made) {
+    if (status === "unfulfilled" || status === "processing" || status === "packed") return "shipped";
+    if (status === "shipped") return "delivered";
+    return null;
+  }
   if (status === "unfulfilled") return "processing";
   if (status === "processing") return "packed";
   if (status === "packed") return "shipped";
@@ -466,7 +632,7 @@ function nextFulfillment(status: FulfillmentStatus): FulfillmentStatus | null {
   return null;
 }
 
-function OrderCard({ order, manager, reviewer, theme, styles }: { order: Order; manager: boolean; reviewer: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
+function OrderCard({ order, madeByUvel, manager, reviewer, theme, styles }: { order: Order; madeByUvel?: boolean; manager: boolean; reviewer: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const fulfillment = order.fulfillmentStatus || (order.status === "paid" ? "unfulfilled" : "canceled");
   const [expanded, setExpanded] = useState(false);
   const [carrier, setCarrier] = useState(order.carrier || "");
@@ -474,7 +640,8 @@ function OrderCard({ order, manager, reviewer, theme, styles }: { order: Order; 
   const [trackingUrl, setTrackingUrl] = useState(order.shipment?.trackingUrl || "");
   const [exceptionNote, setExceptionNote] = useState("");
   const [busy, setBusy] = useState(false);
-  const next = nextFulfillment(fulfillment);
+  const made = Boolean(madeByUvel || order.madeByUvel);
+  const next = nextFulfillment(fulfillment, made);
   const shipment = order.shipment;
   const shipmentStatus = shipment?.status || (order.trackingNumber ? "in_transit" : "label_pending");
   const buyer = order.address?.name || "Buyer";
@@ -483,14 +650,14 @@ function OrderCard({ order, manager, reviewer, theme, styles }: { order: Order; 
 
   async function advance() {
     if (!manager || !next) return;
-    if (next === "shipped" && !tracking.trim()) {
+    if (next === "shipped" && !made && !tracking.trim()) {
       Alert.alert("Tracking required", "Add a carrier and tracking number before marking this order shipped.");
       setExpanded(true);
       return;
     }
     setBusy(true);
     try {
-      if (next === "shipped") {
+      if (next === "shipped" && !made) {
         await createOrderShipment(order.id, { carrier: carrier.trim(), trackingNumber: tracking.trim(), trackingUrl: trackingUrl.trim() || undefined });
       } else if (next === "delivered" && shipment) {
         await updateOrderShipment(order.id, "delivered");
@@ -542,7 +709,7 @@ function OrderCard({ order, manager, reviewer, theme, styles }: { order: Order; 
         <View style={styles.orderCopy}>
           <Text style={[styles.orderName, { color: theme.ink }]} numberOfLines={2}>{order.pieceName}</Text>
           <Text style={[styles.orderMeta, { color: theme.muted }]}>{buyer} · {order.country} · {order.delivery}{order.variantLabel || order.variantKey ? ` · Size ${order.variantLabel || order.variantKey}` : ""}</Text>
-          <Text style={[styles.orderTotal, { color: theme.ink }]}>{usd(order.totalCents, order.currency)} · {order.status === "paid" ? FULFILLMENT_LABELS[fulfillment] : "Payment pending"}</Text>
+          <Text style={[styles.orderTotal, { color: theme.ink }]}>{usd(order.totalCents, order.currency)} · {order.status === "paid" ? fulfillmentLabel(fulfillment, made) : "Payment pending"}</Text>
         </View>
         <Text style={[styles.rowArrow, { color: theme.ink }]}>{expanded ? "⌃" : "›"}</Text>
       </Pressable>
@@ -553,13 +720,18 @@ function OrderCard({ order, manager, reviewer, theme, styles }: { order: Order; 
           <Text style={[styles.orderMeta, { color: theme.muted }]}>Payment: {order.status} · Method: {order.payMethod} · {new Date(order.createdAt).toLocaleDateString()}{order.variantLabel || order.variantKey ? ` · Size ${order.variantLabel || order.variantKey}` : ""}</Text>
           {shipment ? <View style={[styles.shipmentBox, { borderColor: theme.lineColor }]}><Text style={[styles.orderKicker, { color: theme.muted }]}>SHIPMENT · {shipmentStatus.replace("_", " ")}</Text><Text style={[styles.orderMeta, { color: theme.ink }]}>{shipment.carrier} · {shipment.trackingNumber}</Text>{shipment.trackingUrl ? <Pressable onPress={() => void Linking.openURL(shipment.trackingUrl || "")}><Text style={[styles.trackingLink, { color: theme.accent }]}>Open carrier tracking ↗</Text></Pressable> : null}{shipment.lastLocation ? <Text style={[styles.orderMeta, { color: theme.muted }]}>Last location: {shipment.lastLocation}</Text> : null}{shipment.status === "exception" ? <Text style={[styles.exceptionText, { color: theme.accent }]}>Exception: {shipment.exceptionCode?.replace("_", " ") || "Delivery issue"}{shipment.exceptionNote ? ` · ${shipment.exceptionNote}` : ""}</Text> : null}{manager && shipment.status !== "delivered" && shipment.status !== "returned" && shipment.status !== "exception" ? <><TextInput value={exceptionNote} onChangeText={setExceptionNote} placeholder="Optional exception note" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} /><Pressable disabled={busy} onPress={chooseException} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Report delivery exception</Text></Pressable></> : null}</View> : order.trackingNumber ? <Text style={[styles.orderMeta, { color: theme.muted }]}>Tracking: {order.carrier || "Carrier"} · {order.trackingNumber}</Text> : null}
           {resolution ? <View style={[styles.resolutionBox, { borderColor: theme.lineColor }]}><Text style={[styles.orderKicker, { color: theme.muted }]}>{resolutionLabel}</Text><Text style={[styles.orderMeta, { color: theme.muted }]}>Reason: {resolution.reason.replace("_", " ")}{resolution.note ? ` · ${resolution.note}` : ""}</Text>{reviewer && resolution.status === "requested" ? <View style={styles.orderActions}><Pressable disabled={busy} onPress={() => void review("reject")} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Reject</Text></Pressable><Pressable disabled={busy} onPress={() => void review("approve")} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Approve</Text></Pressable></View> : null}{reviewer && resolution.type === "return" && resolution.status === "item_sent" ? <View style={styles.orderActions}><Pressable disabled={busy} onPress={() => void review("reject")} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Reject</Text></Pressable><Pressable disabled={busy} onPress={() => void review("mark_received")} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Mark received</Text></Pressable></View> : null}{reviewer && resolution.type === "return" && resolution.status === "received" ? <View style={styles.orderActions}><Pressable disabled={busy} onPress={() => void review("skip_restock")} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Do not restock</Text></Pressable><Pressable disabled={busy} onPress={() => void review("confirm_restock")} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Restock item</Text></Pressable></View> : null}</View> : null}
+          {made ? <Text style={[styles.orderMeta, { color: theme.muted, marginTop: 8 }]}>Uvel is making this. The manufacturer sends it. Delivery is already paid.</Text> : null}
           {manager && order.status === "paid" && next ? (
             <>
-              <TextInput value={carrier} onChangeText={setCarrier} placeholder="Carrier" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} />
-              <TextInput value={tracking} onChangeText={setTracking} placeholder="Tracking number (required before shipping)" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} autoCapitalize="characters" />
-              <TextInput value={trackingUrl} onChangeText={setTrackingUrl} placeholder="Carrier tracking URL (optional)" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} autoCapitalize="none" keyboardType="url" />
+              {made && next === "shipped" ? null : (
+                <>
+                  <TextInput value={carrier} onChangeText={setCarrier} placeholder="Carrier" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} />
+                  <TextInput value={tracking} onChangeText={setTracking} placeholder="Tracking number (required before shipping)" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} autoCapitalize="characters" />
+                  <TextInput value={trackingUrl} onChangeText={setTrackingUrl} placeholder="Carrier tracking URL (optional)" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} autoCapitalize="none" keyboardType="url" />
+                </>
+              )}
               <View style={styles.orderActions}>
-                <Pressable disabled={busy} onPress={() => void advance()} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>{busy ? "Saving…" : FULFILLMENT_LABELS[next]}</Text></Pressable>
+                <Pressable disabled={busy} onPress={() => void advance()} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>{busy ? "Saving…" : made && next === "shipped" ? "Manufacturer shipped" : fulfillmentLabel(next, made)}</Text></Pressable>
               </View>
             </>
           ) : null}
@@ -1040,7 +1212,7 @@ function SettingsSection({ brand, theme, styles }: { brand: Brand; theme: HQThem
         <Detail label="Legal owner" value={brand.legalName || brand.ownerName} theme={theme} styles={styles} />
         <Detail label="Registration" value={brand.registrationId || "Not provided"} theme={theme} styles={styles} />
         <Detail label="Primary market" value={brand.country} theme={theme} styles={styles} />
-        <Detail label="Brand review" value={brand.reviewStatus === "uvel_reviewed" && brand.verified ? "Uvel-reviewed" : brand.reviewStatus === "human_review" ? "Human review needed" : brand.reviewStatus === "needs_information" ? "Information needed" : brand.status} theme={theme} styles={styles} />
+        <Detail label="Brand review" value={brandCheck(brand) === "lime" ? "Green check" : brandCheck(brand) === "blue" ? "Blue check" : brandApproved(brand) ? "On Uvel" : brand.reviewStatus === "human_review" ? "Human review needed" : brand.reviewStatus === "needs_information" ? "Information needed" : brand.status} theme={theme} styles={styles} />
         <Detail label="Payout status" value={brand.payoutStatus === "enabled" ? "Enabled" : brand.payoutStatus === "pending" ? "Pending provider review" : "Not started"} theme={theme} styles={styles} />
       </View>
     </View>
@@ -1074,8 +1246,8 @@ function make(theme: HQTheme) {
     topBrand: { flex: 1, alignItems: "center" },
     topSpacer: { width: 32 },
     topKicker: { fontSize: 9, letterSpacing: 1.6, fontWeight: "700" },
-    topNameRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 3 },
-    topTitle: { fontSize: 17, fontWeight: "700" },
+    topNameRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    topTitle: { fontSize: 20, fontWeight: "700" },
     hero: { borderRadius: 22, padding: 16, flexDirection: "row", alignItems: "center", marginTop: 12 },
     logo: { width: 58, height: 58, borderRadius: 16, alignItems: "center", justifyContent: "center" },
     logoTxt: { fontSize: 24, fontWeight: "800" },
@@ -1088,8 +1260,8 @@ function make(theme: HQTheme) {
     sectionKicker: { fontSize: 11, letterSpacing: 1.6, fontWeight: "700", marginTop: 4, marginBottom: 10 },
     sectionTitle: { fontFamily: "Georgia", fontSize: 27, marginTop: 10 },
     sectionP: { fontSize: 14, lineHeight: 20, marginTop: 5, marginBottom: 14 },
-    stats: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-    stat: { width: "48%", borderRadius: 16, padding: 14 },
+    stats: { flexDirection: "row", gap: 10 },
+    stat: { flex: 1, borderRadius: 16, padding: 14 },
     statValue: { fontSize: 24, fontWeight: "800" },
     statLabel: { fontSize: 12, marginTop: 5 },
     sectionHead: { flexDirection: "row", alignItems: "flex-end", gap: 10 },
@@ -1101,6 +1273,17 @@ function make(theme: HQTheme) {
     actionButton: { alignSelf: "flex-start", height: 34, paddingHorizontal: 12, borderRadius: 17, borderWidth: 1, justifyContent: "center", marginTop: 12 },
     actionButtonTxt: { fontSize: 12, fontWeight: "800" },
     note: { fontSize: 12, lineHeight: 18, marginTop: 18 },
+    makeCard: { borderRadius: 18, padding: 16, marginTop: 12 },
+    makeKicker: { fontSize: 10, letterSpacing: 1.4, fontWeight: "800" },
+    makeTitle: { fontSize: 18, fontWeight: "800", marginTop: 6 },
+    makeCopy: { fontSize: 14, lineHeight: 20, marginTop: 6 },
+    makeStatus: { fontSize: 13, fontWeight: "700", marginTop: 14 },
+    makeBtn: { alignSelf: "flex-start", height: 38, paddingHorizontal: 14, borderRadius: 19, alignItems: "center", justifyContent: "center", marginTop: 14 },
+    makeBtnTxt: { fontSize: 13, fontWeight: "800" },
+    moreRow: { marginTop: 10, borderRadius: 18, padding: 16, flexDirection: "row", alignItems: "center", gap: 12 },
+    moreTitle: { fontSize: 16, fontWeight: "700" },
+    moreCopy: { fontSize: 13, marginTop: 4 },
+    moreGo: { fontSize: 22, marginTop: -4 },
     marketKicker: { fontSize: 10, letterSpacing: 1.4, fontWeight: "800", marginTop: 2 },
     marketSummary: { fontSize: 17, fontWeight: "800", marginTop: 5 },
     marketPicker: { gap: 8, paddingVertical: 10 },

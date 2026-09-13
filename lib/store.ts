@@ -37,6 +37,7 @@ type State = {
 
 const KEY = "uvel-state-v1";
 const PROFILES = "uvel-profiles-v1";
+let setupLive = false;
 const defaults: State = {
   saved: [],
   archetype: "",
@@ -76,19 +77,27 @@ async function load() {
   setActiveMarket(memory.country);
   if ((memory.onboardVersion ?? 0) < 4) memory.onboarded = false;
   if (memory.uid && memory.profileDone) memory.profileChecked = true;
+  if (!memory.profileDone) {
+    memory = { ...memory, uid: "", email: "", signedInWith: "", onboarded: false };
+  }
   hydrated = true;
   listeners.forEach((l) => l());
 }
 
 void load().then(() => {
   void import("./auth").then(({ subscribeAuth }) => {
+    let sawAuth = false;
     subscribeAuth((user) => {
       if (!user) {
         memory = { ...memory, profileChecked: true };
         listeners.forEach((l) => l());
+        sawAuth = true;
+        attachAccountStores("");
         return;
       }
-      void applyAccount(user, { restored: true });
+      const restored = !sawAuth;
+      sawAuth = true;
+      void applyAccount(user, { restored });
     });
   });
   setTimeout(() => {
@@ -97,6 +106,11 @@ void load().then(() => {
     listeners.forEach((l) => l());
   }, 10000);
 });
+
+function attachAccountStores(uid: string) {
+  void import("./brands").then((m) => m.setBrandViewer(uid)).catch(() => undefined);
+  void import("./founder").then((m) => m.setFounderViewer(uid)).catch(() => undefined);
+}
 
 async function applyAccount(
   user: Session,
@@ -129,13 +143,16 @@ async function applyAccount(
       birthday: (stashed?.birthday as string) || memory.birthday,
       gender: (stashed?.gender as string) || memory.gender,
       styles: (stashed?.styles as string[]) || memory.styles,
+      archetype: (stashed?.archetype as string) || memory.archetype,
+      palette: (stashed?.palette as string) || memory.palette,
+      silhouette: (stashed?.silhouette as string) || memory.silhouette,
       wantsUpdates: Boolean(stashed?.wantsUpdates) || memory.wantsUpdates,
       accessibilityMode: typeof stashed?.accessibilityMode === "boolean" ? stashed.accessibilityMode : memory.accessibilityMode,
       locale: (typeof stashed?.locale === "string" && stashed.locale) || memory.locale,
       avatarUri: (stashed?.avatarUri as string) || memory.avatarUri,
     };
     listeners.forEach((l) => l());
-    void AsyncStorage.setItem(KEY, JSON.stringify(memory));
+    void persist();
   }
 
   let remote: Record<string, unknown> | null = null;
@@ -152,6 +169,28 @@ async function applyAccount(
     createdAt: user.createdAt,
     lastSignInAt: user.lastSignInAt,
   });
+  if (opts.restored && !done && !setupLive) {
+    try {
+      const { signOut } = await import("./auth");
+      await signOut();
+    } catch {
+      /* still dump them at sign-in */
+    }
+    memory = {
+      ...memory,
+      uid: "",
+      email: "",
+      signedInWith: "",
+      onboarded: false,
+      profileDone: false,
+      profileChecked: true,
+    };
+    listeners.forEach((l) => l());
+    await persist();
+    attachAccountStores("");
+    return;
+  }
+  if (!done) setupLive = true;
   memory = {
     ...memory,
     uid: user.uid,
@@ -170,13 +209,17 @@ async function applyAccount(
     birthday: (typeof remote?.birthday === "string" && remote.birthday) || (stashed?.birthday as string) || memory.birthday,
     gender: (typeof remote?.gender === "string" && remote.gender) || (stashed?.gender as string) || memory.gender,
     styles: (Array.isArray(remote?.styles) ? (remote.styles as string[]) : null) || (stashed?.styles as string[]) || memory.styles,
+    archetype: (typeof remote?.archetype === "string" && remote.archetype) || (stashed?.archetype as string) || memory.archetype,
+    palette: (typeof remote?.palette === "string" && remote.palette) || (stashed?.palette as string) || memory.palette,
+    silhouette: (typeof remote?.silhouette === "string" && remote.silhouette) || (stashed?.silhouette as string) || memory.silhouette,
     wantsUpdates: typeof remote?.wantsUpdates === "boolean" ? remote.wantsUpdates : typeof stashed?.wantsUpdates === "boolean" ? stashed.wantsUpdates : memory.wantsUpdates,
     accessibilityMode: typeof remote?.accessibilityMode === "boolean" ? remote.accessibilityMode : typeof stashed?.accessibilityMode === "boolean" ? stashed.accessibilityMode : memory.accessibilityMode,
     locale: typeof remote?.locale === "string" && remote.locale ? remote.locale : (typeof stashed?.locale === "string" && stashed.locale) || memory.locale,
     avatarUri: (stashed?.avatarUri as string) || memory.avatarUri,
   };
   listeners.forEach((l) => l());
-  void AsyncStorage.setItem(KEY, JSON.stringify(memory));
+  void persist();
+  attachAccountStores(user.uid);
   if (done) {
     void stashProfile();
     if (!remoteProfileFlag(remote)) {
@@ -188,6 +231,9 @@ async function applyAccount(
           birthday: memory.birthday,
           gender: memory.gender,
           styles: memory.styles,
+          archetype: memory.archetype,
+          palette: memory.palette,
+          silhouette: memory.silhouette,
           wantsUpdates: memory.wantsUpdates,
         }),
       );
@@ -212,6 +258,9 @@ async function stashProfile() {
       birthday: memory.birthday,
       gender: memory.gender,
       styles: memory.styles,
+      archetype: memory.archetype,
+      palette: memory.palette,
+      silhouette: memory.silhouette,
       wantsUpdates: memory.wantsUpdates,
       accessibilityMode: memory.accessibilityMode,
       locale: memory.locale,
@@ -236,11 +285,23 @@ export function snapshot() {
   return { ...memory };
 }
 
+async function persist() {
+  const disk: State = { ...memory };
+  if (!disk.profileDone) {
+    disk.uid = "";
+    disk.email = "";
+    disk.signedInWith = "";
+    disk.onboarded = false;
+  }
+  await AsyncStorage.setItem(KEY, JSON.stringify(disk));
+}
+
 async function save(next: Partial<State>) {
   memory = { ...memory, ...next };
   if (next.country) setActiveMarket(next.country);
+  if (memory.profileDone) setupLive = false;
   listeners.forEach((l) => l());
-  await AsyncStorage.setItem(KEY, JSON.stringify(memory));
+  await persist();
 }
 
 export function useUvel() {
@@ -283,7 +344,7 @@ export function useUvel() {
           if (!token) return;
           const who = memory.displayName || "Someone";
           void import("./push").then(({ sendPush }) =>
-            sendPush(token, "New like", `${who} liked ${piece.name}`, { pieceId: id }),
+            sendPush(token, `${who} liked your listing`, piece.name, { kind: "like", pieceId: id }),
           );
         }),
       );
@@ -332,9 +393,13 @@ export function useUvel() {
       birthday: string;
       gender: string;
       personUri: string | null;
+      avatarUri?: string | null;
       styles: string[];
       wardrobeUris: string[];
       wantsUpdates: boolean;
+      archetype?: string;
+      palette?: string;
+      silhouette?: string;
     }) => {
       void import("./auth").then(({ writeUserProfile }) => {
         if (!memory.uid) return;
@@ -346,6 +411,11 @@ export function useUvel() {
           gender: patch.gender,
           styles: patch.styles,
           wantsUpdates: patch.wantsUpdates,
+          username: patch.username,
+          avatarUri: patch.avatarUri || "",
+          archetype: patch.archetype || "",
+          palette: patch.palette || "",
+          silhouette: patch.silhouette || "",
         });
       });
       return save({
@@ -360,6 +430,7 @@ export function useUvel() {
       const { signOut } = await import("./auth");
       await stashProfile();
       await signOut();
+      attachAccountStores("");
       await save({
         onboarded: false,
         signedInWith: "",

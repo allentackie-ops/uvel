@@ -2,6 +2,11 @@ name: iOS Submit
 
 on:
   workflow_dispatch:
+    inputs:
+      build_id:
+        description: EAS iOS build ID to submit
+        required: false
+        type: string
 
 jobs:
   submit:
@@ -58,4 +63,9 @@ jobs:
           PY
 
       - name: Submit iOS IPA to App Store Connect
-        run: timeout 15m npx eas-cli submit --platform ios --latest --profile production --non-interactive --no-wait --verbose
+        run: |
+          if [ -n "${{ inputs.build_id }}" ]; then
+            timeout 20m npx eas-cli submit --platform ios --id "${{ inputs.build_id }}" --profile production --non-interactive --verbose
+          else
+            timeout 20m npx eas-cli submit --platform ios --latest --profile production --non-interactive --verbose
+          fi

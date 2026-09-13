@@ -14,12 +14,15 @@ import { httpsCallable } from "firebase/functions";
 import { useEffect, useState } from "react";
 import * as FileSystem from "expo-file-system/legacy";
 import { themeOf, type BrandTheme } from "./brandThemes";
-import { reviewBrand, type BrandFiling } from "./brandVerify";
+import { reviewBrand, type BrandFiling, type BrandReview } from "./brandVerify";
+import { reviewFounderBrand, type FounderFiling } from "./founderReview";
 import { firebaseAuth, firebaseDb, firebaseFunctions, firebaseReady } from "./firebase";
 import { listedPieces } from "./wardrobe";
 import { allOrders } from "./orders";
 
 export type BrandStatus = "draft" | "pending" | "verified" | "rejected";
+export type BrandOrigin = "founder" | "house";
+export type BrandCheck = "none" | "lime" | "blue";
 export type BrandReviewStatus = "not_started" | "review_pending" | "needs_information" | "human_review" | "uvel_reviewed" | "rejected";
 export type PayoutStatus = "not_started" | "pending" | "enabled" | "needs_attention" | "unavailable";
 export type MemberRole = "owner" | "admin" | "merchandiser" | "marketing" | "support" | "finance" | "viewer" | "poster";
@@ -68,6 +71,11 @@ export type Brand = {
   themeId: string;
   custom?: Partial<BrandTheme>;
   status: BrandStatus;
+  /** founder = started in Founder Studio. house = already-existing brand (website path). */
+  origin?: BrandOrigin;
+  /** Public check. Founders stay none until two successful sales. Houses get blue on approval. */
+  check?: BrandCheck;
+  checkAwardedAt?: number;
   verified: boolean;
   /** Uvel marketplace review state; this is not legal registration or trademark clearance. */
   reviewStatus?: BrandReviewStatus;
@@ -90,6 +98,13 @@ export type Brand = {
   follows: number;
   followers?: string[];
   createdAt: number;
+  /** Uvel makes the clothes and the manufacturer sends them. */
+  madeByUvel?: boolean;
+  madeByUvelAt?: number;
+  trademarkStatus?: "none" | "filing" | "filed";
+  trademarkPaidCents?: number;
+  trademarkPaidAt?: number;
+  trademarkFiledAt?: number;
 };
 
 export type BrandPerson = {
@@ -113,17 +128,36 @@ export const DIRECTORY: BrandPerson[] = [
 const DEMO_BRAND_IDS = new Set(["maison-found", "archive-1982", "atelier-no4"]);
 const DEMO_BRAND_OWNER_IDS = new Set(["house-maison", "house-archive", "house-atelier"]);
 
-let brands: Brand[] = [];
+let allBrands: Brand[] = [];
 let invites: BrandInvite[] = [];
 let brandsHydrated = false;
+let viewerUid = "";
 const listeners = new Set<() => void>();
 function emit() {
   listeners.forEach((l) => l());
 }
 
+function visibleBrands() {
+  return allBrands.filter((b) => {
+    if (DEMO_BRAND_IDS.has(b.id) || DEMO_BRAND_OWNER_IDS.has(b.ownerId)) return false;
+    if (b.status === "verified") return true;
+    if (!viewerUid) return false;
+    if (b.ownerId === viewerUid) return true;
+    if (b.members?.some((m) => m.uid === viewerUid)) return true;
+    if (b.memberIds?.includes(viewerUid)) return true;
+    return false;
+  });
+}
+
+export function setBrandViewer(uid: string) {
+  viewerUid = uid;
+  emit();
+  if (uid) void pullRemote();
+}
+
 async function persist() {
   emit();
-  await AsyncStorage.setItem(KEY, JSON.stringify(brands));
+  await AsyncStorage.setItem(KEY, JSON.stringify(allBrands));
   await AsyncStorage.setItem(INV, JSON.stringify(invites));
 }
 
@@ -136,9 +170,9 @@ async function hydrate() {
       ? (JSON.parse(raw) as Brand[]).filter((b) => !DEMO_BRAND_IDS.has(b.id) && !DEMO_BRAND_OWNER_IDS.has(b.ownerId))
       : [];
     invites = inv ? (JSON.parse(inv) as BrandInvite[]) : [];
-    brands = saved;
+    allBrands = saved;
   } catch {
-    brands = [];
+    allBrands = [];
   }
   brandsHydrated = true;
   emit();
@@ -176,11 +210,11 @@ async function pullRemote() {
     ];
     const brandSnaps = await Promise.all(brandQueries.map((brandQuery) => getDocs(brandQuery)));
     const remote = brandSnaps.flatMap((snap) => snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }) as Brand));
-    const byId = new Map(brands.map((b) => [b.id, b]));
+    const byId = new Map(allBrands.map((b) => [b.id, b]));
     for (const r of remote) {
       if (!DEMO_BRAND_IDS.has(r.id) && !DEMO_BRAND_OWNER_IDS.has(r.ownerId)) byId.set(r.id, { ...byId.get(r.id), ...r } as Brand);
     }
-    brands = Array.from(byId.values());
+    allBrands = Array.from(byId.values());
 
     const inviteQueries = [
       query(collection(firebaseDb(), "brandInvites"), where("toUid", "==", user.uid)),
@@ -216,7 +250,7 @@ export function useBrands() {
       listeners.delete(l);
     };
   }, []);
-  return brands;
+  return visibleBrands();
 }
 
 export function useInvites() {
@@ -228,25 +262,37 @@ export function useInvites() {
       listeners.delete(l);
     };
   }, []);
-  return invites;
+  return viewerUid ? invites.filter((i) => i.toUid === viewerUid || i.fromUid === viewerUid) : [];
 }
 
 export function getBrand(id: string) {
-  return brands.find((b) => b.id === id);
+  return visibleBrands().find((b) => b.id === id);
+}
+
+export function brandApproved(brand?: Brand | null) {
+  return Boolean(brand && brand.status === "verified");
+}
+
+export function brandCheck(brand?: Brand | null): BrandCheck {
+  if (!brand) return "none";
+  if (brand.check === "lime" || brand.check === "blue") return brand.check;
+  if (brand.origin === "founder") return "none";
+  if (brand.verified && brand.status === "verified") return "blue";
+  return "none";
 }
 
 export function verifiedBrands() {
-  return brands.filter((b) => b.verified && b.status === "verified");
+  return visibleBrands().filter((b) => brandCheck(b) !== "none");
 }
 
 export function ownedBrand(uid: string) {
   if (!uid) return undefined;
-  return brands.find((b) => b.ownerId === uid);
+  return allBrands.find((b) => b.ownerId === uid);
 }
 
 export function memberBrands(uid: string) {
   if (!uid) return [];
-  return brands.filter((b) => b.members.some((m) => m.uid === uid));
+  return allBrands.filter((b) => b.members.some((m) => m.uid === uid));
 }
 
 export function roleOn(brand: Brand, uid: string): MemberRole | null {
@@ -266,7 +312,7 @@ export function memberRoleLabel(role: MemberRole) {
 }
 
 export function canPost(brand: Brand, uid: string) {
-  return brand.verified && Boolean(roleOn(brand, uid));
+  return brandApproved(brand) && Boolean(roleOn(brand, uid));
 }
 
 export function canAccessHQ(brand: Brand, uid: string) {
@@ -372,7 +418,7 @@ function slugify(name: string) {
 
 export function handleFree(handle: string, exceptId?: string) {
   const h = handle.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return !brands.some((b) => b.handle === h && b.id !== exceptId);
+  return !allBrands.some((b) => b.handle === h && b.id !== exceptId);
 }
 
 export async function createBrand(input: {
@@ -415,6 +461,8 @@ export async function createBrand(input: {
     bannerUri: "",
     themeId: "ink",
     status: "draft",
+    origin: undefined,
+    check: "none",
     verified: false,
     reviewStatus: "not_started",
     payoutStatus: "not_started",
@@ -437,14 +485,75 @@ export async function createBrand(input: {
     followers: [],
     createdAt: Date.now(),
   };
-  brands = [brand, ...brands];
+  allBrands = [brand, ...allBrands];
   void persist();
   void pushBrand(brand);
   return brand;
 }
 
+export async function openFounderBrand(input: {
+  name: string;
+  audience?: string;
+  story?: string;
+  vertical?: string;
+  country: string;
+  ownerId: string;
+  ownerName: string;
+  ownerPhoto?: string;
+  logoUri?: string;
+}) {
+  const name = input.name.trim();
+  const base = slugify(name) || "label";
+  const existing = ownedBrand(input.ownerId);
+  let handle = existing?.handle || base;
+  if (!handleFree(handle, existing?.id)) {
+    let n = 1;
+    while (!handleFree(`${base}${n}`, existing?.id) && n < 99) n += 1;
+    handle = `${base}${n}`;
+  }
+  const patch = {
+    name,
+    handle,
+    tagline: (input.audience || "").trim(),
+    story: (input.story || input.audience || "").trim(),
+    vertical: input.vertical || "Unisex",
+    country: input.country,
+    status: "pending" as const,
+    origin: "founder" as const,
+    check: "none" as const,
+    verified: false,
+    reviewStatus: "review_pending" as const,
+  };
+  if (existing) {
+    return updateBrand(existing.id, {
+      ...patch,
+      ...(input.logoUri && !existing.logoUri ? { logoUri: input.logoUri } : {}),
+    })!;
+  }
+  const brand = await createBrand({
+    name,
+    handle,
+    tagline: patch.tagline,
+    story: patch.story,
+    vertical: patch.vertical,
+    website: "",
+    instagram: "",
+    phone: "",
+    whatsapp: "",
+    legalName: "",
+    registrationId: "",
+    contactEmail: "",
+    country: input.country,
+    logoUri: input.logoUri || "",
+    ownerId: input.ownerId,
+    ownerName: input.ownerName,
+    ownerPhoto: input.ownerPhoto,
+  });
+  return updateBrand(brand.id, patch)!;
+}
+
 export function updateBrand(id: string, patch: Partial<Brand>) {
-  brands = brands.map((b) => (b.id === id ? { ...b, ...patch } : b));
+  allBrands = allBrands.map((b) => (b.id === id ? { ...b, ...patch } : b));
   const next = getBrand(id);
   void persist();
   if (next) void pushBrand(next);
@@ -452,11 +561,13 @@ export function updateBrand(id: string, patch: Partial<Brand>) {
 }
 
 export async function submitForVerification(id: string, filing: BrandFiling) {
-  updateBrand(id, { status: "pending", reviewStatus: "review_pending", verified: false });
+  updateBrand(id, { status: "pending", reviewStatus: "review_pending", verified: false, origin: "house", check: "none" });
   const result = await reviewBrand(filing, id);
   if (result.decision === "uvel_reviewed" && result.ok) {
     updateBrand(id, {
       status: "verified",
+      origin: "house",
+      check: "blue",
       verified: true,
       reviewStatus: "uvel_reviewed",
       verifiedAt: Date.now(),
@@ -483,6 +594,48 @@ export async function submitForVerification(id: string, filing: BrandFiling) {
   return result;
 }
 
+export async function submitFounderReview(id: string, filing: FounderFiling, opts?: { apply?: boolean }) {
+  updateBrand(id, { status: "pending", reviewStatus: "review_pending", verified: false, rejectReasons: [], rejectHeadline: "" });
+  const result: BrandReview = await reviewFounderBrand({ ...filing, brandId: id });
+  if (opts?.apply !== false) applyFounderReviewResult(id, result);
+  return result;
+}
+
+export function applyFounderReviewResult(id: string, result: BrandReview) {
+  if (result.decision === "uvel_reviewed" && result.ok) {
+    updateBrand(id, {
+      status: "verified",
+      origin: "founder",
+      check: "none",
+      verified: false,
+      reviewStatus: "uvel_reviewed",
+      verifiedAt: Date.now(),
+      rejectReasons: [],
+      rejectHeadline: "",
+      madeByUvel: true,
+      madeByUvelAt: Date.now(),
+    });
+    return;
+  }
+  if (result.decision === "rejected") {
+    updateBrand(id, {
+      status: "rejected",
+      verified: false,
+      reviewStatus: "rejected",
+      rejectReasons: result.reasons,
+      rejectHeadline: result.headline,
+    });
+    return;
+  }
+  updateBrand(id, {
+    status: "pending",
+    verified: false,
+    reviewStatus: result.decision,
+    rejectReasons: result.reasons,
+    rejectHeadline: result.headline,
+  });
+}
+
 export function toggleFollow(id: string, uid: string) {
   const b = getBrand(id);
   if (!b || !uid) return false;
@@ -499,7 +652,7 @@ export function isFollowing(id: string, uid: string) {
 
 export function followedBrandIds(uid: string): string[] {
   if (!uid) return [];
-  return brands.filter((b) => (b.followers || []).includes(uid)).map((b) => b.id);
+  return allBrands.filter((b) => (b.followers || []).includes(uid)).map((b) => b.id);
 }
 
 export async function findPeople(q: string): Promise<BrandPerson[]> {
@@ -564,7 +717,7 @@ export async function sendInvite(input: {
       const token = snap.exists() ? String((snap.data() as { expoPushToken?: string }).expoPushToken || "") : "";
       if (token) {
         const { sendPush } = await import("./push");
-        void sendPush(token, "Brand invite", `${input.fromName} invited you to post on ${brand.name}`, { brandId: brand.id });
+        void sendPush(token, "Brand invite", `${input.fromName} invited you to post on ${brand.name}`, { kind: "brand_invite", brandId: brand.id });
       }
     } catch {
       /* ignore */
@@ -636,7 +789,7 @@ export function watchBrand(id: string, cb: (b: Brand | undefined) => void) {
     unsub = onSnapshot(doc(firebaseDb(), "brands", id), (snap) => {
       if (!snap.exists()) return;
       const remote = { id: snap.id, ...(snap.data() as object) } as Brand;
-      brands = brands.map((b) => (b.id === id ? { ...b, ...remote } : b));
+      allBrands = allBrands.map((b) => (b.id === id ? { ...b, ...remote } : b));
       cb(getBrand(id));
     });
   }

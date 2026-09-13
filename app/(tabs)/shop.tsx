@@ -4,21 +4,22 @@ import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
 import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayListingOverlay";
+import { TodayCartFab } from "../../components/TodayCartFab";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
-import { VerifiedMark } from "../../components/VerifiedMark";
-import { followedBrandIds, getBrand, verifiedBrands, useBrands } from "../../lib/brands";
+import { BrandVerifiedMark } from "../../components/VerifiedMark";
+import { followedBrandIds, getBrand, verifiedBrands, useBrands, brandCheck } from "../../lib/brands";
 import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
+import { dnaFrom } from "../../lib/styleDna";
 import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
-import { getMarket } from "../../lib/markets";
 import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
 import { useColors, type Colors } from "../../lib/theme";
@@ -27,8 +28,11 @@ import { useLiveShopCampaigns } from "../../lib/marketing";
 import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
 import { unreadFor, useInbox } from "../../lib/chat";
 import { usePersonalization } from "../../lib/personalization";
+import { useFirstFind } from "../../lib/firstFind";
+import { getMarket, moneyExact } from "../../lib/markets";
 
 const MIN_REFRESH_MS = 1200;
+const ORBIT_SLOT = 96;
 
 const orbitTop = {
   position: "absolute" as const,
@@ -108,18 +112,31 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const [scanning, setScanning] = useState(false);
   const [job, setJob] = useState<LookScan | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [feedEpoch, setFeedEpoch] = useState(0);
+  const frozenOrder = useRef<string[] | null>(null);
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
+  const [findHint, setFindHint] = useState(false);
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
   const followedIds = useMemo(() => followedBrandIds(app.uid), [brandState, app.uid]);
   const followedKey = followedIds.join("|");
   const personalization = usePersonalization(app.uid || "guest");
+  const firstFind = useFirstFind();
+  const dna = useMemo(
+    () => dnaFrom(app),
+    [app.archetype, app.palette, app.silhouette, app.styles, app.gender],
+  );
   const openTodayListing = useCallback((piece: ClosetPiece, origin: ListingOrigin) => {
     setOpenOrigin(origin);
     setOpenPiece(piece);
   }, []);
+  useEffect(() => {
+    if (!findHint) return;
+    const timer = setTimeout(() => setFindHint(false), 3200);
+    return () => clearTimeout(timer);
+  }, [findHint]);
   const houses = verifiedBrands();
 
   useEffect(() => {
@@ -160,6 +177,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         new Promise<void>((resolve) => setTimeout(resolve, MIN_REFRESH_MS)),
       ]);
     } finally {
+      frozenOrder.current = null;
+      setFeedEpoch((n) => n + 1);
       setRefreshing(false);
     }
   }, []);
@@ -257,9 +276,17 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       return live.filter((p) => hit.has(p.id)).filter(passQ);
     }
 
-    const rows = look ? matchListings(look, live, taste, followedIds) : forYou(live, taste, country, followedIds);
-    return personalization.rank(rows.filter(passQ), country);
-  }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey, personalization.rank]);
+    const liveIds = new Set(live.map((p) => p.id));
+    if (frozenOrder.current && frozenOrder.current.every((id) => !liveIds.has(id)) && live.length) {
+      frozenOrder.current = null;
+    }
+    if (!frozenOrder.current && live.length) {
+      const rows = look ? matchListings(look, live, taste, followedIds) : forYou(live, taste, country, followedIds);
+      frozenOrder.current = personalization.rank(rows, country, dna).map((p) => p.id);
+    }
+    const byId = new Map(live.map((p) => [p.id, p]));
+    return (frozenOrder.current || []).map((id) => byId.get(id)).filter((p): p is ClosetPiece => Boolean(p)).filter(passQ);
+  }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey, dna, personalization.rank, feedEpoch]);
 
   if (!wardrobeReady && !scanningLook) return <ShopSkeleton colors={colors} />;
 
@@ -267,7 +294,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     <View style={styles.page}>
       <ScrollView
         style={styles.page}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 + (orbitOn ? ORBIT_SLOT : 0) }]}
         alwaysBounceVertical
         bounces
         keyboardShouldPersistTaps="handled"
@@ -330,6 +357,20 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
             {market.name} shop · {market.currency}{" "}
           </Text>
           <Text style={styles.storeGo}>Change</Text>
+        </AccessiblePressable>
+      ) : null}
+
+      {todayHome && firstFind.remaining > 0 ? (
+        <AccessiblePressable
+          onPress={() => setFindHint(true)}
+          style={styles.findLine}
+          accessibilityRole="button"
+          accessibilityLabel={`First Find ${moneyExact(firstFind.remaining, firstFind.currency)} on a matching piece`}
+          accessibilityHint="Double tap to hear how First Find works."
+        >
+          <Text style={styles.findLineTxt}>
+            First Find · <Text style={styles.findLineAmt}>{moneyExact(firstFind.remaining, firstFind.currency)}</Text> on a matching piece
+          </Text>
         </AccessiblePressable>
       ) : null}
 
@@ -407,7 +448,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
                 onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })}
                 style={({ pressed }) => [styles.house, pressed && { opacity: 0.92 }]}
                 accessibilityRole="button"
-                accessibilityLabel={`Open ${b.name}${b.verified ? ", verified brand" : ""}`}
+                accessibilityLabel={`Open ${b.name}${brandCheck(b) !== "none" ? ", verified brand" : ""}`}
                 accessibilityHint="Double tap to open this brand."
               >
                 {b.logoUri ? (
@@ -420,7 +461,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
                     <Text style={styles.houseName} numberOfLines={1}>
                       {b.name}
                     </Text>
-                    <VerifiedMark size={12} />
+                    <BrandVerifiedMark brand={b} size={12} />
                   </View>
                   <Text style={styles.houseLine} numberOfLines={1}>
                     {b.tagline || b.vertical}
@@ -460,7 +501,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
                     <View style={styles.campaignBrandRow}>
                       {brand?.logoUri ? <Image source={{ uri: brand.logoUri }} style={styles.campaignLogo} contentFit="cover" /> : null}
                       <Text style={styles.campaignBrand} numberOfLines={1}>{brand?.name || "Brand drop"}</Text>
-                      {brand?.verified ? <VerifiedMark size={11} /> : null}
+                      <BrandVerifiedMark brand={brand} size={11} />
                     </View>
                     <Text style={styles.campaignTitle} numberOfLines={2}>{campaign.headline || campaign.name}</Text>
                     <Text style={styles.campaignBody} numberOfLines={2}>{campaign.body || "Explore the latest drop."}</Text>
@@ -481,27 +522,35 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         {scanning
           ? null
           : ranked.map((p) => (
-              <View key={p.id} style={styles.cell}>
-                <ListingCard piece={p} framed onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />
+              <View key={p.id} style={[styles.cell, openPiece?.id === p.id && { opacity: 0 }]}>
+                <ListingCard piece={p} framed firstFind={todayHome && firstFind.matches(p)} onFirstFind={todayHome ? () => setFindHint(true) : undefined} onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />
               </View>
             ))}
       </View>
 
       {!scanning && ranked.length === 0 ? (
-        marketplaceSync !== "confirmed" ? null : (
+        marketplaceSync !== "confirmed" ? null : scanningLook ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyKicker}>{scanningLook ? "LOOK SEARCH" : "THIS SHOP IS QUIET"}</Text>
-            <Text style={styles.emptyTitle}>{scanningLook ? "Nothing matches this look yet" : `Nothing is listed in the ${market.name} shop yet`}</Text>
-            <Text style={styles.emptyCopy}>{scanningLook ? "Try another frame or remove a filter to see more pieces." : "Explore the daily edit while verified houses bring new pieces online."}</Text>
-            <AccessiblePressable onPress={() => router.push("/")} style={styles.emptyPrimary} accessibilityRole="button" accessibilityLabel="Explore Today’s edit">
-              <Text style={styles.emptyPrimaryTxt}>Explore Today’s Edit</Text>
+            <Text style={styles.emptyTitle}>Nothing matches this look yet</Text>
+            <Text style={styles.emptyCopy}>Try another frame or take a filter off.</Text>
+          </View>
+        ) : todayHome ? (
+          <View style={styles.emptyQuiet}>
+            <Text style={styles.emptyQuietTxt}>Nothing new yet. Pull to refresh.</Text>
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>{`Nothing listed in the ${market.name} shop yet`}</Text>
+            <Text style={styles.emptyCopy}>Pull to refresh, or check Today.</Text>
+            <AccessiblePressable onPress={() => router.push("/")} style={styles.emptyPrimary} accessibilityRole="button" accessibilityLabel="Go to Today">
+              <Text style={styles.emptyPrimaryTxt}>Today</Text>
             </AccessiblePressable>
           </View>
         )
       ) : null}
       </ScrollView>
       {orbitOn ? (
-        <View style={[orbitTop, { paddingTop: insets.top + 10 }]} pointerEvents="none">
+        <View style={[orbitTop, { paddingTop: insets.top + 8 }]} pointerEvents="none">
           <OrbitLoader />
         </View>
       ) : null}
@@ -516,6 +565,13 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           onInteraction={personalization.record}
         />
       ) : null}
+      {todayHome ? <TodayCartFab lifted={Boolean(openPiece)} /> : null}
+      {findHint ? (
+        <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 68 }]} accessibilityLiveRegion="polite">
+          <Text style={styles.findToastK}>FIRST FIND</Text>
+          <Text style={styles.findToastTxt}>We’ll cover {moneyExact(firstFind.remaining, firstFind.currency)} of this piece at checkout.</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -527,6 +583,28 @@ function make(colors: Colors) {
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
     titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     todayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 56, marginBottom: 4 },
+    findLine: { alignSelf: "center", minHeight: 32, paddingHorizontal: 8, marginBottom: 6, justifyContent: "center" },
+    findLineTxt: { color: `${colors.bone}8C`, fontSize: 13, fontWeight: "600", textAlign: "center" },
+    findLineAmt: { color: colors.success, fontWeight: "800" },
+    findToast: {
+      position: "absolute",
+      left: 16,
+      right: 16,
+      zIndex: 80,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: `${colors.bone}1A`,
+      shadowColor: "#000",
+      shadowOpacity: 0.28,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 10,
+    },
+    findToastK: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.4, marginBottom: 4 },
+    findToastTxt: { color: colors.bone, fontSize: 15, fontWeight: "700", lineHeight: 20 },
     headerSide: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
     menuIcon: { width: 22, gap: 4 },
     menuLine: { height: 2, width: 22, borderRadius: 1, backgroundColor: colors.bone },
@@ -537,7 +615,8 @@ function make(colors: Colors) {
     messageBadge: { position: "absolute", right: -2, top: -3, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     messageBadgeText: { color: colors.successInk, fontSize: 9, fontWeight: "900" },
     emptyState: { marginTop: 22, padding: 22, borderRadius: 20, backgroundColor: colors.surface, alignItems: "center" },
-    emptyKicker: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
+    emptyQuiet: { paddingVertical: 28, alignItems: "center" },
+    emptyQuietTxt: { color: `${colors.bone}7A`, fontSize: 15, textAlign: "center" },
     emptyTitle: { color: colors.bone, fontSize: 19, fontWeight: "800", textAlign: "center", marginTop: 7 },
     emptyCopy: { color: `${colors.bone}94`, fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 6 },
     emptyPrimary: { marginTop: 16, minHeight: 44, paddingHorizontal: 18, borderRadius: 22, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },

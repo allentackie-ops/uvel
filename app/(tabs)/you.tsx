@@ -5,18 +5,22 @@ import { useEffect, useMemo, useState } from "react";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "../../components/ListingCard";
-import { VerifiedMark } from "../../components/VerifiedMark";
-import { GARMENTS, getGarment, usd } from "../../lib/catalog";
+import { BrandVerifiedMark } from "../../components/VerifiedMark";
+import { GARMENTS, getGarment, usd, CATEGORIES } from "../../lib/catalog";
+import { getMarket, moneyExact, moneyInMarket } from "../../lib/markets";
+import { useWallet } from "../../lib/wallet";
+import { useFirstFind } from "../../lib/firstFind";
 import {
   acceptInvite,
   declineInvite,
   memberBrands,
   ownedBrand,
+  brandApproved,
   pendingInvitesFor,
   useBrands,
   useInvites,
 } from "../../lib/brands";
-import { useOrders, type Order } from "../../lib/orders";
+import { useOrders, watchMyOrders, type Order } from "../../lib/orders";
 import { pickAvatar, takeAvatar } from "../../lib/photo";
 import { seedFromStyles } from "../../lib/styleDna";
 import { useUvel } from "../../lib/store";
@@ -44,7 +48,7 @@ function orderStatusLabel(order: Order) {
   if (order.fulfillmentStatus === "returned") return { tag: "Returned", kind: "canceled" };
   if (order.fulfillmentStatus === "shipped") return { tag: "Shipped", kind: "to_ship" };
   if (order.fulfillmentStatus === "packed") return { tag: "Packed", kind: "to_ship" };
-  if (order.fulfillmentStatus === "processing") return { tag: "Processing", kind: "to_ship" };
+  if (order.fulfillmentStatus === "processing" || (order.madeByUvel && (order.fulfillmentStatus === "unfulfilled" || order.fulfillmentStatus === "packed"))) return { tag: order.madeByUvel ? "Making" : "Processing", kind: "to_ship" };
   return order.status === "pending" ? { tag: "Payment pending", kind: "to_ship" } : { tag: "To process", kind: "to_ship" };
 }
 
@@ -57,6 +61,10 @@ export default function You() {
   const pieces = useWardrobe();
   const { draft } = useListingDraft();
   const orders = useOrders();
+  const market = getMarket(app.country);
+  const wallet = useWallet(market.currency);
+  const firstFind = useFirstFind();
+  useEffect(() => watchMyOrders(app.uid), [app.uid]);
   useBrands();
   useInvites();
   const mine = ownedBrand(app.uid);
@@ -100,7 +108,7 @@ export default function You() {
   }
 
   function changeFace() {
-    Alert.alert("Profile picture", "Buyers see this on your listings.", [
+    Alert.alert("Profile picture", "Buyers will see this when you sell. Friends will see this on your profile.", [
       { text: "Cancel", style: "cancel" },
       { text: "Take photo", onPress: () => void takeAvatar().then(setFace).catch(() => undefined) },
       { text: "Choose photo", onPress: () => void pickAvatar().then(setFace).catch(() => undefined) },
@@ -151,15 +159,17 @@ export default function You() {
     <ScrollView
       style={styles.page}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 108 }]}
+      showsVerticalScrollIndicator={false}
     >
       <View style={styles.top}>
         <View style={{ flex: 1, paddingRight: 12 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Text style={styles.title}>{app.displayName || "Your closet"}</Text>
-            {mine?.verified && mine.logoUri ? <Image source={{ uri: mine.logoUri }} style={styles.ownerBrandLogo} contentFit="cover" /> : null}
+            <BrandVerifiedMark brand={mine} size={18} />
+            {brandApproved(mine) && mine?.logoUri ? <Image source={{ uri: mine.logoUri }} style={styles.ownerBrandLogo} contentFit="cover" /> : null}
           </View>
           {mine ? (
-            <Text style={styles.ownerLine}>{mine.verified ? `Owner of ${mine.name}` : `Filing for ${mine.name}`}</Text>
+            <Text style={styles.ownerLine}>{brandApproved(mine) ? `Owner of ${mine.name}` : `Filing for ${mine.name}`}</Text>
           ) : teams[0] ? (
             <Text style={styles.ownerLine}>Team at {teams[0].name}</Text>
           ) : null}
@@ -199,7 +209,6 @@ export default function You() {
       ))}
 
 
-      <Text style={styles.sectionLabel}>YOUR ACTIVITY</Text>
       <View style={styles.tabs}>
         {(["shop", "sold", "purchases", "likes"] as const).map((id) => {
           const on = hub === id;
@@ -235,12 +244,34 @@ export default function You() {
         />
       )}
 
+      <View style={styles.moneyRow}>
+        <Pressable onPress={() => router.push("/wallet")} style={styles.moneyCell} accessibilityRole="button" accessibilityLabel="Open wallet">
+          <Text style={styles.walletK}>WALLET</Text>
+          <Text style={styles.moneyV}>{moneyExact(wallet.availableCents, wallet.currency)}</Text>
+          {wallet.pendingCents ? (
+            <Text style={styles.walletP}>{moneyExact(wallet.pendingCents, wallet.currency)} pending</Text>
+          ) : null}
+        </Pressable>
+        {firstFind.ready && firstFind.remaining > 0 ? (
+          <Pressable onPress={() => router.push("/")} style={styles.moneyCell} accessibilityRole="button" accessibilityLabel="Use First Find on Today">
+            <Text style={styles.walletK}>FIRST FIND</Text>
+            <Text style={styles.moneyV}>{moneyExact(firstFind.remaining, firstFind.currency)}</Text>
+          </Pressable>
+        ) : null}
+      </View>
 
       <Text style={[styles.sectionLabel, { marginTop: 30 }]}>TOOLS & PREFERENCES</Text>
       <Pressable onPress={() => router.push("/style-dna")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel={`Style DNA${dnaReady ? `: ${[app.archetype, app.palette, app.silhouette].filter(Boolean).join(", ")}` : ": not set"}`}>
         <View style={{ flex: 1 }}>
           <Text style={styles.dnaTitle}>Style DNA</Text>
-          <Text style={styles.dnaSum} numberOfLines={1}>{dnaReady ? [app.archetype, app.palette, app.silhouette].filter(Boolean).join("  ·  ") : "Set how your picks look on the Today page"}</Text>
+          <Text style={styles.dnaSum} numberOfLines={1}>{dnaReady ? [app.archetype, app.palette, app.silhouette].filter(Boolean).join("  ·  ") : "Unlocks First Find, and how Today looks"}</Text>
+        </View>
+        <Text style={styles.dnaChevron}>›</Text>
+      </Pressable>
+      <Pressable onPress={() => router.push("/invite")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Invite friends">
+        <View style={{ flex: 1 }}>
+          <Text style={styles.dnaTitle}>Invite friends</Text>
+          <Text style={styles.dnaSum} numberOfLines={1}>They get a first find</Text>
         </View>
         <Text style={styles.dnaChevron}>›</Text>
       </Pressable>
@@ -430,7 +461,70 @@ function LikesPane({
   garments: (typeof GARMENTS)[number][];
   styles: ReturnType<typeof make>;
 }) {
-  const hasSaved = pieces.length > 0 || garments.length > 0;
+  const app = useUvel();
+  const colors = useColors();
+  const market = getMarket(app.country);
+  const [cat, setCat] = useState("all");
+  const saved = useMemo(() => {
+    const rows: {
+      id: string;
+      name: string;
+      brand: string;
+      category: string;
+      priceCents: number;
+      currency: string;
+      photo?: string;
+      image?: (typeof GARMENTS)[number]["image"];
+      href: "/closet/[id]" | "/product/[id]";
+    }[] = [];
+    for (const id of app.saved) {
+      const piece = getPiece(id);
+      if (piece) {
+        rows.push({
+          id: piece.id,
+          name: piece.name,
+          brand: piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Unbranded",
+          category: piece.category || "Other",
+          priceCents: piece.listPriceCents,
+          currency: piece.currency || market.currency,
+          photo: piece.photo,
+          href: "/closet/[id]",
+        });
+        continue;
+      }
+      const garment = getGarment(id);
+      if (garment) {
+        rows.push({
+          id: garment.id,
+          name: garment.name,
+          brand: garment.brand || "Unbranded",
+          category: garment.category || "Other",
+          priceCents: garment.priceCents,
+          currency: "USD",
+          image: garment.image,
+          href: "/product/[id]",
+        });
+      }
+    }
+    return rows;
+  }, [app.saved, pieces, garments, market.currency]);
+
+  const catCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of saved) counts.set(row.category, (counts.get(row.category) || 0) + 1);
+    const known = CATEGORIES.filter((item) => item !== "All" && counts.has(item));
+    const extra = [...counts.keys()].filter((item) => item !== "Other" && !known.includes(item as (typeof CATEGORIES)[number]));
+    const ordered = [...known, ...extra];
+    if (counts.has("Other")) ordered.push("Other");
+    return ordered.map((item) => [item, counts.get(item) || 0] as const);
+  }, [saved]);
+
+  const filtered = cat === "all" ? saved : saved.filter((row) => row.category === cat);
+  const groups = cat === "all" && saved.length >= 8
+    ? catCounts.map(([name]) => ({ name, rows: saved.filter((row) => row.category === name) })).filter((group) => group.rows.length)
+    : [{ name: "", rows: filtered }];
+
+  const hasSaved = saved.length > 0;
   if (!received.length && !hasSaved) {
     return (
       <View style={styles.empty}>
@@ -439,11 +533,12 @@ function LikesPane({
       </View>
     );
   }
+
   return (
     <View>
       {received.length ? (
         <>
-          <Text style={styles.active}>Likes on your listings</Text>
+          <Text style={styles.active}>Likes on your listings · {received.length}</Text>
           {received.map((row) => (
             <Pressable
               key={`${row.uid}-${row.piece.id}-${row.at}`}
@@ -471,27 +566,56 @@ function LikesPane({
       ) : null}
       {hasSaved ? (
         <View>
-          <Text style={styles.active}>You liked</Text>
-          <View style={styles.grid}>
-            {pieces.map((p) => (
-              <View key={p.id} style={{ width: COL }}>
-                <ListingCard piece={p} framed wide={COL} />
-              </View>
-            ))}
-            {garments.map((g) => (
-              <Pressable
-                key={g.id}
-                onPress={() => router.push({ pathname: "/product/[id]", params: { id: g.id } })}
-                style={[styles.likeCard, { width: COL }]}
-                accessibilityRole="button"
-                accessibilityLabel={`Open liked item ${g.name}`}
-              >
-                <Image source={g.image} style={styles.likeImg} contentFit="cover" />
-                <Text style={styles.likeName} numberOfLines={2}>{g.name}</Text>
-                <Text style={styles.likePrice}>{usd(g.priceCents)}</Text>
+          <Text style={styles.active}>You liked · {saved.length}</Text>
+          {catCounts.length > 1 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+              <Pressable onPress={() => setCat("all")} style={[styles.chip, cat === "all" && styles.chipOn]}>
+                <Text style={[styles.chipTxt, cat === "all" && styles.chipTxtOn]}>All · {saved.length}</Text>
               </Pressable>
-            ))}
-          </View>
+              {catCounts.map(([name, count]) => {
+                const on = cat === name;
+                return (
+                  <Pressable key={name} onPress={() => setCat(name)} style={[styles.chip, on && styles.chipOn]}>
+                    <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{name} · {count}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : null}
+          {groups.map((group) => (
+            <View key={group.name || "all"}>
+              {group.name ? <Text style={styles.likeGroup}>{group.name} · {group.rows.length}</Text> : null}
+              {group.rows.map((row) => (
+                <Pressable
+                  key={row.id}
+                  onPress={() => router.push({ pathname: row.href, params: { id: row.id } })}
+                  style={styles.likeRow}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${row.brand} ${row.name}, ${moneyInMarket(row.priceCents, row.currency, market)}`}
+                >
+                  {row.photo ? (
+                    <Image source={{ uri: row.photo }} style={styles.likeThumb} contentFit="cover" />
+                  ) : (
+                    <Image source={row.image} style={styles.likeThumb} contentFit="cover" />
+                  )}
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.likeBrand} numberOfLines={1}>{row.brand.toUpperCase()}</Text>
+                    <Text style={styles.likeTitle} numberOfLines={2}>{row.name}</Text>
+                    <Text style={styles.likeAmt}>{moneyInMarket(row.priceCents, row.currency, market)}</Text>
+                  </View>
+                  <Pressable
+                    onPress={() => app.likePiece(row.id)}
+                    hitSlop={10}
+                    style={styles.likeHeart}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${row.name} from likes`}
+                  >
+                    <Ionicons name="heart" size={18} color={colors.success} />
+                  </Pressable>
+                </Pressable>
+              ))}
+            </View>
+          ))}
         </View>
       ) : null}
     </View>
@@ -513,8 +637,8 @@ function OrderRow({
     <Pressable
       onPress={() =>
         router.push({
-          pathname: sold ? "/closet/[id]" : "/order/[id]",
-          params: { id: sold ? row.pieceId : row.id },
+          pathname: sold && !row.id.startsWith("o-") ? "/closet/[id]" : "/order/[id]",
+          params: { id: sold && !row.id.startsWith("o-") ? row.pieceId : row.id },
         })
       }
       style={styles.order}
@@ -610,6 +734,13 @@ function make(colors: Colors) {
     inviteNoTxt: { color: colors.bone, fontWeight: "700", fontSize: 13 },
     brandArea: { marginBottom: 8 },
     sectionLabel: { color: `${colors.bone}6B`, letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 22, marginBottom: 9 },
+    walletCard: { marginTop: 2, marginBottom: 8, backgroundColor: colors.surface, borderRadius: 20, padding: 16, flexDirection: "row", alignItems: "center", gap: 12 },
+    walletK: { color: `${colors.bone}6B`, letterSpacing: 1.4, fontSize: 10, fontWeight: "800" },
+    walletV: { color: colors.success, fontWeight: "800", fontSize: 28, marginTop: 6, fontVariant: ["tabular-nums"] },
+    walletP: { color: `${colors.bone}80`, fontSize: 12, marginTop: 4, lineHeight: 16 },
+    moneyRow: { flexDirection: "row", gap: 10, marginTop: 28 },
+    moneyCell: { flex: 1, backgroundColor: colors.surface, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14 },
+    moneyV: { color: colors.success, fontWeight: "800", fontSize: 20, marginTop: 6, fontVariant: ["tabular-nums"] },
     brandAreaLabel: { color: `${colors.bone}6B`, letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 10, marginBottom: 9 },
     brandCard: {
       marginTop: 16,
@@ -700,7 +831,7 @@ function make(colors: Colors) {
     planGo: { color: colors.bone, fontWeight: "700", fontSize: 13 },
     tabs: {
       flexDirection: "row",
-      marginTop: 2,
+      marginTop: 18,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: `${colors.bone}1F`,
     },
@@ -794,6 +925,13 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     tagTxt: { color: `${colors.bone}B2`, fontSize: 11, fontWeight: "700" },
+    likeRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10 },
+    likeThumb: { width: 64, height: 80, borderRadius: 10, backgroundColor: colors.surface },
+    likeBrand: { color: `${colors.bone}6B`, fontSize: 11, fontWeight: "700", letterSpacing: 0.8 },
+    likeTitle: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 3 },
+    likeAmt: { color: colors.success, fontSize: 15, fontWeight: "800", marginTop: 5, fontVariant: ["tabular-nums"] },
+    likeHeart: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+    likeGroup: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 10, marginBottom: 2 },
     likeCard: { backgroundColor: colors.surface, borderRadius: 18, overflow: "hidden" },
     likeImg: { width: "100%", height: COL * 1.25, backgroundColor: colors.surface },
     likeName: { color: colors.bone, fontWeight: "600", fontSize: 13, paddingHorizontal: 10, paddingTop: 10 },

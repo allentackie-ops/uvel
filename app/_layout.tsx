@@ -10,16 +10,31 @@ import { ShakeToReport } from "../components/ShakeToReport";
 import { observeListing } from "../lib/alerts";
 import { useOtaReady } from "../lib/ota";
 import { armNotificationHandler, registerPushToken, watchLastSeen } from "../lib/push";
+import { syncEngagement } from "../lib/engagement";
+import { useCart } from "../lib/cart";
+import { useFirstFind } from "../lib/firstFind";
 import { useUvel } from "../lib/store";
 import { useColors, useResolvedAppearance } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
 import { pullLooks } from "../lib/trends";
 import { useWardrobe } from "../lib/wardrobe";
+import { watchMyOrders } from "../lib/orders";
 import { consumeListingDraftNotice } from "../lib/listingDraft";
+import { armFounderDesk, founderDeskRoute, getFounderDeskJob, revealFounderDesk } from "../lib/founderDesk";
+import { useFounderCheckSync } from "../lib/founderCheck";
+import { FounderDeskNotice } from "../components/FounderDeskNotice";
+import { FounderCheckNotice } from "../components/FounderCheckNotice";
 import Onboard from "./onboard";
 import ProfileSetup from "./setup";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
+function OrderSync() {
+  const { uid } = useUvel();
+  useEffect(() => watchMyOrders(uid), [uid]);
+  useFounderCheckSync(uid);
+  return null;
+}
 
 function LikesSync() {
   const app = useUvel();
@@ -52,7 +67,10 @@ function AlertSync() {
 }
 
 function PushSync() {
-  const { uid } = useUvel();
+  const app = useUvel();
+  const uid = app.uid;
+  const cart = useCart();
+  const find = useFirstFind();
   useEffect(() => {
     armNotificationHandler();
   }, []);
@@ -65,12 +83,40 @@ function PushSync() {
       .then((N) => {
         const handle = (res: { notification: { request: { content: { data?: Record<string, unknown> } } } }) => {
           const data = res.notification.request.content.data || {};
-          if (data.kind === "friend_request" || data.kind === "friend_accepted") {
+          const kind = String(data.kind || "");
+          if (kind === "founder_desk") {
+            void revealFounderDesk().then(() => {
+              const next = getFounderDeskJob();
+              if (next && next.phase !== "reviewing") router.push(founderDeskRoute(next));
+            });
+            return;
+          }
+          if (kind === "founder_check" && typeof data.brandId === "string") {
+            router.push({ pathname: "/brand/[id]", params: { id: data.brandId } });
+            return;
+          }
+          if (kind === "friend_request" || kind === "friend_accepted") {
             router.push("/inbox");
             return;
           }
-          if (data.kind === "friend_message" && typeof data.conversationId === "string") {
+          if (kind === "friend_message" && typeof data.conversationId === "string") {
             router.push({ pathname: "/friends/chat/[id]", params: { id: data.conversationId } });
+            return;
+          }
+          if (kind === "today" || kind === "first_find") {
+            router.push("/");
+            return;
+          }
+          if (kind === "cart") {
+            router.push("/cart");
+            return;
+          }
+          if (kind === "wallet") {
+            router.push("/wallet");
+            return;
+          }
+          if ((kind === "sold" || kind === "shipped" || kind === "delivered" || kind === "order") && typeof data.orderId === "string" && data.orderId) {
+            router.push({ pathname: "/order/[id]", params: { id: data.orderId } });
             return;
           }
           const pieceId = data.pieceId;
@@ -78,6 +124,10 @@ function PushSync() {
           const threadId = data.threadId;
           if (typeof pieceId === "string" && pieceId) {
             if (typeof alertId === "string" && alertId) {
+              router.push({ pathname: "/closet/[id]", params: { id: pieceId } });
+              return;
+            }
+            if (kind === "like") {
               router.push({ pathname: "/closet/[id]", params: { id: pieceId } });
               return;
             }
@@ -96,6 +146,14 @@ function PushSync() {
       sub?.remove();
     };
   }, [uid]);
+  useEffect(() => {
+    if (!uid) return;
+    void syncEngagement({
+      allowed: app.wantsUpdates,
+      hasBag: cart.count > 0,
+      hasFirstFind: find.remaining > 10,
+    });
+  }, [uid, app.wantsUpdates, cart.count, find.remaining]);
   return null;
 }
 
@@ -124,6 +182,7 @@ function AppStack() {
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
         <PushSync />
         <AlertSync />
+        <OrderSync />
         <LikesSync />
         <ShakeToReport />
         <StatusBar style={appearance === "dark" ? "light" : "dark"} />
@@ -140,6 +199,7 @@ function AppStack() {
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Closet", animation: "none" }} />
           <Stack.Screen name="mirror-camera" options={{ headerShown: false, animation: "slide_from_bottom", contentStyle: { backgroundColor: "#0B0A08" } }} />
+          <Stack.Screen name="mirror-browse" options={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: "#0B0A08" } }} />
           <Stack.Screen name="visual-search" options={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: "#0B0A08" } }} />
           <Stack.Screen name="onboard" options={{ headerShown: false, animation: "none" }} />
           <Stack.Screen
@@ -177,6 +237,22 @@ function AppStack() {
             name="settings"
             options={{
               headerTitle: C.settings,
+              headerTransparent: false,
+              headerShadowVisible: false,
+            }}
+          />
+          <Stack.Screen
+            name="about"
+            options={{
+              headerTitle: "About Uvel",
+              headerTransparent: false,
+              headerShadowVisible: false,
+            }}
+          />
+          <Stack.Screen
+            name="guide"
+            options={{
+              headerTitle: "How to use Uvel",
               headerTransparent: false,
               headerShadowVisible: false,
             }}
@@ -324,6 +400,30 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="wallet"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
+            name="invite"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
+            name="cart"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="address"
             options={{
               headerShown: false,
@@ -364,6 +464,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="brand/trademark"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="brand/studio"
             options={{
               headerShown: false,
@@ -382,13 +490,15 @@ function AppStack() {
           <Stack.Screen
             name="brand/founder/[stage]"
             options={{
-              headerShown: true,
-              title: "Founder Studio",
-              headerBackTitle: "",
-              headerTransparent: false,
-              headerStyle: { backgroundColor: colors.ink },
-              headerTintColor: colors.bone,
-              headerShadowVisible: false,
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
+            name="brand/decision"
+            options={{
+              headerShown: false,
               animation: "slide_from_right",
               contentStyle: { backgroundColor: colors.ink },
             }}
@@ -473,6 +583,7 @@ export default function Root() {
   useEffect(() => {
     if (!hydrated) return;
     void pullLooks();
+    void armFounderDesk();
   }, [hydrated]);
 
   return (
@@ -489,6 +600,8 @@ export default function Root() {
           )
         ) : null}
         {signedIn && gateReady && !intro ? <DraftResumeNotice /> : null}
+        {signedIn && gateReady && !intro ? <FounderDeskNotice /> : null}
+        {signedIn && gateReady && !intro ? <FounderCheckNotice /> : null}
         {intro || !gateReady ? <LaunchSplash ready={gateReady} onDone={dismiss} /> : null}
       </GestureHandlerRootView>
     </SafeAreaProvider>

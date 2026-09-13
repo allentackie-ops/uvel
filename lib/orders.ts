@@ -63,6 +63,8 @@ export type Order = {
   pieceName: string;
   piecePhoto: string;
   brandId?: string;
+  /** This order is made by Uvel and sent by the manufacturer. */
+  madeByUvel?: boolean;
   /** Exact size or variant selected by the buyer, when the listing has variants. */
   variantKey?: string;
   variantLabel?: string;
@@ -74,6 +76,7 @@ export type Order = {
   itemCents: number;
   feeCents: number;
   discountCents?: number;
+  creditCents?: number;
   promotionId?: string;
   promotionCode?: string;
   shipCents: number;
@@ -98,6 +101,12 @@ export type Order = {
   fulfillmentUpdatedAt?: number;
   resolution?: OrderResolution;
   paidAt?: number;
+  deliveredAt?: number;
+  buyerConfirmedAt?: number;
+  walletReleased?: boolean;
+  walletVoided?: boolean;
+  walletCredited?: boolean;
+  walletPendingCents?: number;
   createdAt: number;
 };
 
@@ -144,6 +153,8 @@ function remoteOrder(id: string, data: Record<string, unknown>): Order {
     shipment,
     createdAt: millis(data.createdAt),
     paidAt: data.paidAt == null ? undefined : millis(data.paidAt),
+    deliveredAt: data.deliveredAt == null ? undefined : millis(data.deliveredAt),
+    buyerConfirmedAt: data.buyerConfirmedAt == null ? undefined : millis(data.buyerConfirmedAt),
     fulfillmentUpdatedAt: data.fulfillmentUpdatedAt == null ? undefined : millis(data.fulfillmentUpdatedAt),
     inventoryReservationExpiresAt: data.inventoryReservationExpiresAt == null ? undefined : millis(data.inventoryReservationExpiresAt),
   });
@@ -164,6 +175,25 @@ export function watchBrandOrders(brandId: string) {
     return onSnapshot(ordersQuery, (snap) => {
       mergeRemoteOrders(snap.docs.map((item) => remoteOrder(item.id, item.data() as Record<string, unknown>)));
     }, () => undefined);
+  } catch {
+    return () => undefined;
+  }
+}
+
+export function watchMyOrders(uid: string) {
+  if (!uid || !firebaseReady() || !firebaseAuth().currentUser) return () => undefined;
+  try {
+    const db = firebaseDb();
+    const buyer = onSnapshot(query(collection(db, "orders"), where("buyerId", "==", uid)), (snap) => {
+      mergeRemoteOrders(snap.docs.map((item) => remoteOrder(item.id, item.data() as Record<string, unknown>)));
+    }, () => undefined);
+    const seller = onSnapshot(query(collection(db, "orders"), where("sellerId", "==", uid)), (snap) => {
+      mergeRemoteOrders(snap.docs.map((item) => remoteOrder(item.id, item.data() as Record<string, unknown>)));
+    }, () => undefined);
+    return () => {
+      buyer();
+      seller();
+    };
   } catch {
     return () => undefined;
   }
@@ -229,7 +259,7 @@ export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status
     // A hosted checkout returning does not prove payment. Trusted payment
     // webhooks should be the only source that changes this to "paid".
     status: "pending",
-    fulfillmentStatus: "unfulfilled",
+    fulfillmentStatus: order.madeByUvel ? "processing" : "unfulfilled",
   };
   try {
     await setDoc(doc(firebaseDb(), "orders", full.id), {
@@ -252,7 +282,7 @@ export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status
     const other = await readUserLite(order.sellerId);
     const token = typeof other?.expoPushToken === "string" ? other.expoPushToken : "";
     if (token) {
-      void sendPush(token, "Sold on Uvel", `${order.pieceName} just sold.`, { pieceId: order.pieceId });
+      void sendPush(token, "You sold something", `${order.pieceName} just sold.`, { kind: "sold", pieceId: order.pieceId, orderId: full.id });
     }
   }
   return full;

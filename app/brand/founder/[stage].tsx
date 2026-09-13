@@ -1,21 +1,22 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { createFounderBoard, getFounderProject, updateFounderProject, useFounderProjects, type FounderStage } from "../../../lib/founder";
+import { Image } from "expo-image";
+import { appendFounderReference, createFounderBoard, getFounderProject, ideaReady, pieceReady, saveFounderProduct, simpleStageOf, updateFounderProject, useFounderProjects } from "../../../lib/founder";
+import { pickFromLibrary, saveFounderPhotoReference } from "../../../lib/photo";
+import { reviewFounderPiece } from "../../../lib/photoCheck";
+import { brandApproved, ownedBrand, useBrands } from "../../../lib/brands";
+import { useUvel } from "../../../lib/store";
 import { useColors, type Colors } from "../../../lib/theme";
-import { FounderLaunchReview, FounderProductEditor, FounderProductionWorkspace, FounderSetupHub, FounderStrategy, SketchBoard, make } from "./../founder";
+import { FounderLaunchReview, FounderProductEditor, FounderStrategy, SketchBoard, make } from "./../founder";
 
-type JourneyStage = FounderStage | "production";
-const JOURNEY: JourneyStage[] = ["idea", "identity", "design", "product", "source", "production", "launch"];
+const JOURNEY = ["idea", "product", "launch"] as const;
+type JourneyStage = (typeof JOURNEY)[number];
 const TITLES: Record<JourneyStage, { kicker: string; title: string; body: string }> = {
-  idea: { kicker: "01 · THE IDEA", title: "Make the idea specific.", body: "Start with the person, promise, and story behind your label." },
-  identity: { kicker: "02 · IDENTITY", title: "Give the idea a direction.", body: "Choose the visual language that can carry the brand forward." },
-  design: { kicker: "03 · DESIGN", title: "Put the first silhouette on a board.", body: "Sketch freely or collect references. Nothing has to be final yet." },
-  product: { kicker: "04 · FIRST PRODUCT", title: "Turn the direction into one piece.", body: "Describe the first product clearly enough to discuss it with a maker." },
-  source: { kicker: "05 · FOUNDATIONS", title: "Set up the parts around the product.", body: "Review the digital, payment, shipping, and policy decisions ahead." },
-  production: { kicker: "06 · PRODUCTION", title: "Make the first run tangible.", body: "Compare supplier leads, track samples, and map production milestones." },
-  launch: { kicker: "07 · READY", title: "Know what is ready before you apply.", body: "Review the private work before opening the separate public application." },
+  idea: { kicker: "01 · IDEA", title: "What’s the label?", body: "A name and who it’s for. That’s enough to start." },
+  product: { kicker: "02 · MAKE IT", title: "One piece.", body: "A photo or a sketch of the clothes. A name. A category." },
+  launch: { kicker: "03 · READY", title: "Apply when this is true.", body: "Name + a real piece. After you’re accepted, Uvel makes it." },
 };
 type JourneyColors = Colors & { card: string; lineColor: string; accent: string; accentInk: string };
 
@@ -26,41 +27,184 @@ export default function FounderStagePage() {
   const colors: JourneyColors = { ...palette, ink: palette.bone, card: palette.surface, lineColor: palette.subtle, accent: palette.success, accentInk: palette.successInk };
   const styles = make(colors);
   const insets = useSafeAreaInsets();
+  const app = useUvel();
+  useBrands();
+  const mine = ownedBrand(app.uid);
   const project = getFounderProject(id) || projects[0];
-  const stage = (JOURNEY.includes(rawStage as JourneyStage) ? rawStage : project?.stage || "idea") as JourneyStage;
+  const stage = simpleStageOf(String(rawStage || project?.stage || "idea")) as JourneyStage;
   const index = JOURNEY.indexOf(stage);
   const [boardId, setBoardId] = useState("");
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoFail, setPhotoFail] = useState("");
   const board = project?.boards.find((item) => item.id === boardId) || project?.boards[0];
-  useEffect(() => { if (project && stage !== "production" && project.stage !== stage && stage !== "launch") updateFounderProject(project.id, { stage: stage as FounderStage }); }, [project?.id, stage]);
-  const title = TITLES[stage];
-  const next = () => {
-    if (!project || index >= JOURNEY.length - 1) return;
-    const nextStage = JOURNEY[index + 1];
-    updateFounderProject(project.id, { stage: nextStage === "production" ? "source" : nextStage as FounderStage });
-    router.push({ pathname: "/brand/founder/[stage]", params: { id: project.id, stage: nextStage } });
+  useEffect(() => {
+    if (!project) return;
+    if (project.stage !== stage && (stage === "idea" || stage === "product" || stage === "launch")) {
+      updateFounderProject(project.id, { stage });
+    }
+  }, [project?.id, stage]);
+
+  const goTo = (nextStage: JourneyStage) => {
+    if (!project) return;
+    updateFounderProject(project.id, { stage: nextStage });
+    router.replace({ pathname: "/brand/founder/[stage]", params: { id: project.id, stage: nextStage } });
   };
-  const back = () => index > 0 ? router.back() : router.replace("/brand/founder");
-  const createBoard = () => { if (!project) return; const created = createFounderBoard(project.id, "sketch"); setBoardId(created.id); };
-  if (!hydrated || !project) return <View style={[local.page, { backgroundColor: palette.ink, paddingTop: insets.top + 24 }]}><Text style={{ color: palette.muted }}>Loading your studio…</Text></View>;
-  return <View style={[local.page, { backgroundColor: palette.ink }]}> 
-    <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 42 }} keyboardShouldPersistTaps="handled">
-      <View style={local.progress}>
-<Text style={[local.progressCount, { color: palette.success }]}>{String(index + 1).padStart(2, "0")} / {String(JOURNEY.length).padStart(2, "0")}</Text><View style={local.progressLine}>{JOURNEY.map((item, itemIndex) => <View key={item} style={[local.progressDot, { backgroundColor: itemIndex <= index ? palette.success : palette.subtle }]} />)}</View></View>
-      <View style={local.hero}><Text style={[styles.kicker, { color: colors.accent }]}>{title.kicker}</Text><Text style={[styles.title, { color: colors.ink }]}>{title.title}</Text><Text style={[styles.lede, { color: colors.muted }]}>{title.body}</Text></View>
-      <View style={local.content}>
-        {stage === "idea" || stage === "identity" ? <FounderStrategy project={project} colors={colors} /> : null}
-        {stage === "design" ? <View style={styles.editor}><Text style={styles.cardTitle}>A board for the first direction</Text><Text style={styles.cardBody}>Draw a rough silhouette or keep a visual reference board. You can come back and change it.</Text>{board ? <SketchBoard board={board} projectId={project.id} colors={colors} /> : <View style={styles.emptyCard}><Text style={styles.emptyTitle}>No board yet</Text><Text style={styles.empty}>Create a sketch canvas to begin.</Text></View>}<Pressable onPress={createBoard} style={styles.primary}><Text style={styles.primaryText}>{board ? "Create another sketch" : "Create sketch canvas"}</Text></Pressable></View> : null}
-        {stage === "product" ? <FounderProductEditor project={project} colors={colors} /> : null}
-        {stage === "source" ? <FounderSetupHub project={project} colors={colors} /> : null}
-        {stage === "production" ? <FounderProductionWorkspace project={project} colors={colors} /> : null}
-        {stage === "launch" ? <FounderLaunchReview project={project} colors={colors} /> : null}
-        {stage !== "launch" ? <Pressable onPress={next} style={styles.primary} accessibilityRole="button"><Text style={styles.primaryText}>{stage === "production" ? "Continue to launch readiness" : "Save & continue"}</Text></Pressable> : null}
-        {stage !== "idea" ? <Pressable onPress={back} style={styles.secondary}><Text style={styles.secondaryText}>Back</Text></Pressable> : null}
-        {stage === "launch" ? <Text style={styles.handoffHint}>Your private work stays private until you choose to submit a separate public application.</Text> : <Text style={styles.saveHint}>Your progress saves locally as you work.</Text>}
+  const next = () => {
+    if (!project) return;
+    if (stage === "idea" && !ideaReady(project)) {
+      Alert.alert("Name it first", "A name and who it’s for.");
+      return;
+    }
+    if (stage === "product" && !pieceReady(project)) {
+      if (!project.product.photoOk) {
+        Alert.alert("The piece", "A photo or a sketch of the clothes. Random pictures don’t pass.");
+        return;
+      }
+      Alert.alert("One piece first", "Give the piece a name and a category.");
+      return;
+    }
+    if (index >= JOURNEY.length - 1) return;
+    goTo(JOURNEY[index + 1]);
+  };
+  const headerBack = () => {
+    if (index > 0) {
+      goTo(JOURNEY[index - 1]);
+      return;
+    }
+    if (router.canGoBack()) router.back();
+    else router.replace("/brand/founder");
+  };
+  const createBoard = () => {
+    if (!project) return;
+    const created = createFounderBoard(project.id, "sketch");
+    setBoardId(created.id);
+  };
+  async function addPhoto() {
+    if (!project || photoBusy) return;
+    try {
+      const uri = await pickFromLibrary();
+      if (!uri) return;
+      setPhotoBusy(true);
+      setPhotoFail("");
+      const saved = await saveFounderPhotoReference(uri);
+      const target = board || createFounderBoard(project.id, "moodboard", "First piece");
+      appendFounderReference(project.id, target.id, saved);
+      setBoardId(target.id);
+      const check = await reviewFounderPiece(saved);
+      const live = getFounderProject(project.id);
+      saveFounderProduct(project.id, { ...(live?.product || project.product), photoUri: saved, photoOk: check.ok });
+      if (!check.ok) {
+        setPhotoFail(check.reasons[0] || check.headline || "That isn’t the piece.");
+        Alert.alert(check.headline || "That isn’t the piece", check.reasons[0] || "Use a photo or a sketch of the clothes.");
+      }
+    } catch (error) {
+      setPhotoFail("Couldn’t check that photo.");
+      Alert.alert("Photo", error instanceof Error ? error.message : "Couldn’t add that photo.");
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  if (!hydrated) {
+    return (
+      <View style={[local.page, { backgroundColor: palette.ink, paddingTop: insets.top + 24 }]}>
+        <Text style={{ color: palette.muted, paddingHorizontal: 20 }}>Loading your studio…</Text>
       </View>
-    </ScrollView>
-  </View>;
+    );
+  }
+
+  if (!project) {
+    router.replace("/brand/founder");
+    return (
+      <View style={[local.page, { backgroundColor: palette.ink, paddingTop: insets.top + 24 }]}>
+        <Text style={{ color: palette.muted, paddingHorizontal: 20 }}>Start your own label.</Text>
+      </View>
+    );
+  }
+
+  const title = TITLES[stage];
+  const photo = project.product.photoUri || board?.references[0] || board?.imports.find((item) => item.kind === "image")?.uri;
+
+  return (
+    <View style={[local.page, { backgroundColor: palette.ink }]}>
+      <View style={[local.top, { paddingTop: insets.top + 4 }]}>
+        <Pressable onPress={headerBack} hitSlop={16} style={local.backBtn} accessibilityRole="button" accessibilityLabel={index > 0 ? "Back to previous step" : "Close studio"}>
+          <Text style={[local.back, { color: palette.bone }]}>‹</Text>
+        </Pressable>
+        <Text style={[local.topTitle, { color: palette.bone }]}>Founder Studio</Text>
+        <View style={local.backBtn} />
+      </View>
+      <ScrollView contentContainerStyle={{ paddingTop: 8, paddingBottom: insets.bottom + 36 }} keyboardShouldPersistTaps="handled">
+        <View style={local.progress}>
+          <Text style={[local.progressCount, { color: palette.success }]}>{String(index + 1).padStart(2, "0")} / 03</Text>
+          <View style={local.progressLine}>
+            {JOURNEY.map((item, itemIndex) => (
+              <Pressable
+                key={item}
+                onPress={() => { if (itemIndex <= index) goTo(item); }}
+                style={[local.progressDot, { backgroundColor: itemIndex <= index ? palette.success : palette.subtle }]}
+                accessibilityRole="button"
+                accessibilityLabel={TITLES[item].kicker}
+              />
+            ))}
+          </View>
+        </View>
+        {brandApproved(mine) ? (
+          <Pressable
+            onPress={() => router.push({ pathname: "/brand/hq", params: { id: mine.id } })}
+            style={[local.live, { borderColor: palette.success }]}
+          >
+            <Text style={[local.liveKicker, { color: palette.success }]}>YOUR BRAND IS ON UVEL</Text>
+            <Text style={[styles.cardTitle, { color: colors.ink }]}>{mine.name}</Text>
+            <Text style={[styles.cardBody, { color: colors.muted, marginBottom: 0 }]}>Shop, orders, inventory, and money live in Brand HQ.</Text>
+          </Pressable>
+        ) : null}
+        <View style={local.hero}>
+          <Text style={[styles.kicker, { color: colors.accent }]}>{title.kicker}</Text>
+        </View>
+        <View style={local.content}>
+          {stage === "idea" ? <FounderStrategy project={project} colors={colors} /> : null}
+          {stage === "product" ? (
+            <>
+              <FounderProductEditor project={project} colors={colors} />
+              <View style={styles.editor}>
+                <Text style={styles.cardTitle}>Photo or sketch</Text>
+                {photo ? <Image source={{ uri: photo }} style={[local.photo, !project.product.photoOk && !photoBusy && { opacity: 0.55 }]} contentFit="cover" /> : null}
+                {photoBusy ? <View style={local.photoWait}><ActivityIndicator color={palette.success} /><Text style={[styles.cardBody, { color: palette.muted, marginBottom: 0 }]}>Looking at the piece…</Text></View> : null}
+                {photoFail ? <Text style={[styles.cardBody, { color: palette.success }]}>{photoFail}</Text> : null}
+                <Pressable onPress={() => void addPhoto()} disabled={photoBusy} style={[local.ghost, { borderColor: palette.subtle, opacity: photoBusy ? 0.5 : 1 }]}><Text style={[styles.secondaryText, { color: palette.bone }]}>{photo ? "Replace photo" : "Add a photo"}</Text></Pressable>
+                {board && board.kind === "sketch" ? <SketchBoard board={board} projectId={project.id} colors={colors} /> : null}
+                <Pressable onPress={createBoard} style={styles.secondary}><Text style={styles.secondaryText}>{board ? "New sketch" : "Sketch instead"}</Text></Pressable>
+              </View>
+            </>
+          ) : null}
+          {stage === "launch" ? <FounderLaunchReview project={project} colors={colors} /> : null}
+          {stage !== "launch" ? (
+            <Pressable onPress={next} style={styles.primary} accessibilityRole="button">
+              <Text style={styles.primaryText}>{stage === "idea" ? "Make the first piece" : "This is enough"}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </ScrollView>
+    </View>
+  );
 }
 
 const local = StyleSheet.create({
-  page: { flex: 1 }, top: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingBottom: 8 }, back: { fontSize: 36, lineHeight: 38 }, topTitle: { fontSize: 17, fontWeight: "700" }, progress: { paddingHorizontal: 20, paddingTop: 6 }, progressCount: { fontSize: 11, fontWeight: "900", letterSpacing: 1.4 }, progressLine: { flexDirection: "row", gap: 6, marginTop: 10 }, progressDot: { height: 4, flex: 1, borderRadius: 2 }, hero: { padding: 20, paddingTop: 24, paddingBottom: 22 }, content: { paddingHorizontal: 20 } });
+  page: { flex: 1 },
+  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8, paddingBottom: 4 },
+  backBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  back: { fontSize: 36, lineHeight: 38, fontWeight: "300" },
+  topTitle: { fontSize: 17, fontWeight: "700" },
+  progress: { paddingHorizontal: 20, paddingTop: 4 },
+  progressCount: { fontSize: 11, fontWeight: "900", letterSpacing: 1.4 },
+  progressLine: { flexDirection: "row", gap: 6, marginTop: 10 },
+  progressDot: { height: 4, flex: 1, borderRadius: 2 },
+  hero: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10 },
+  content: { paddingHorizontal: 20 },
+  photo: { width: "100%", height: 220, borderRadius: 16, marginBottom: 10, backgroundColor: "#161512" },
+  photoWait: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
+  live: { marginHorizontal: 20, marginTop: 12, borderWidth: 1, borderRadius: 18, padding: 16 },
+  liveKicker: { fontSize: 11, fontWeight: "800", letterSpacing: 1.4, marginBottom: 6 },
+  ghost: { height: 50, borderRadius: 25, borderWidth: 1, alignItems: "center", justifyContent: "center", marginTop: 14 },
+});

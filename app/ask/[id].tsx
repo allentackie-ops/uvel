@@ -15,8 +15,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { VerifiedMark } from "../../components/VerifiedMark";
-import { getBrand, inquiryRecipients, useBrands } from "../../lib/brands";
+import { BrandVerifiedMark } from "../../components/VerifiedMark";
+import { brandCheck, getBrand, inquiryRecipients, useBrands } from "../../lib/brands";
 import { usd } from "../../lib/catalog";
 import {
   clock,
@@ -139,7 +139,7 @@ export default function Ask() {
       brandId: brand?.id,
       brandName: brand?.name,
       brandLogo: brand?.logoUri,
-      brandVerified: Boolean(brand?.verified && brand.status === "verified"),
+      brandVerified: brandCheck(brand) !== "none",
       recipientIds: brand ? brandRecipients : undefined,
       orderId: routeOrderId,
       supportCaseId: routeSupportCaseId,
@@ -224,7 +224,7 @@ export default function Ask() {
             brandId: brand?.id,
             brandName: brand?.name,
             brandLogo: brand?.logoUri,
-            brandVerified: Boolean(brand?.verified && brand.status === "verified"),
+            brandVerified: brandCheck(brand) !== "none",
             recipientIds: brand ? recipientIds : undefined,
             orderId: routeOrderId,
             supportCaseId: routeSupportCaseId,
@@ -317,7 +317,6 @@ export default function Ask() {
 
   const conversationBrand = brand || (activeThread?.brandId ? getBrand(activeThread.brandId) : undefined);
   const handle = conversationBrand?.name || sellerHandle.trim() || "Seller";
-  const brandIsVerified = Boolean(conversationBrand?.verified && conversationBrand.status === "verified");
   const visibleMsgs = searchQuery.trim() ? msgs.filter((message) => message.text.toLowerCase().includes(searchQuery.trim().toLowerCase())) : msgs;
 
   if (!piece) {
@@ -351,7 +350,7 @@ export default function Ask() {
             <Text style={styles.navTitle} numberOfLines={1}>
               {handle}
             </Text>
-            {brandIsVerified ? <VerifiedMark size={16} /> : null}
+            <BrandVerifiedMark brand={conversationBrand} size={16} />
           </View>
           <View style={styles.navActions}>
             <Pressable onPress={() => setSearchOpen((value) => !value)} hitSlop={12} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Search conversation"><Text style={styles.searchIcon}>⌕</Text></Pressable>
@@ -400,7 +399,7 @@ export default function Ask() {
             <View style={styles.helloCard}>
               <View style={styles.helloNameRow}>
                 <Text style={styles.helloHi}>Hi, I’m {handle}</Text>
-                {brandIsVerified ? <VerifiedMark size={18} /> : null}
+                <BrandVerifiedMark brand={conversationBrand} size={18} />
               </View>
               {place ? <Text style={styles.helloMeta}>{place}</Text> : null}
               <Text style={styles.helloMeta}>{seen || "Usually replies in a few hours"}</Text>

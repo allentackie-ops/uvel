@@ -1,5 +1,6 @@
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
+const { sendExpoPush, notifyUid } = require("./notify");
 
 const USERNAME_PATTERN = /^[a-z0-9_]{3,20}$/;
 const RESERVED = new Set(["admin", "support", "uvel", "official", "help", "null", "undefined"]);
@@ -39,15 +40,6 @@ async function isBlocked(db, fromUid, toUid) {
   return a.exists || b.exists;
 }
 
-async function sendExpoPush(token, title, body, data) {
-  if (!token) return;
-  try {
-    await fetch("https://exp.host/--/api/v2/push/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: token, title, body, data }) });
-  } catch {
-    // In-app notification remains authoritative if push delivery is unavailable.
-  }
-}
-
 exports.searchUsers = onCall(async (req) => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before searching for friends.");
   const term = String(req.data && req.data.term || "").trim().toLowerCase().slice(0, 40);
@@ -85,7 +77,7 @@ exports.sendFriendRequest = onCall(async (req) => {
     tx.set(requestRef, { fromUid: req.auth.uid, toUid, from, to, status: "pending", createdAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
     tx.set(notificationRef, { kind: "friend_request", requestId, actor: from, readAt: null, createdAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
   });
-  await sendExpoPush(toSnap.data().expoPushToken, `${from.displayName || "Someone"} added you`, `@${from.username || "uvel member"} wants to be friends.`, { kind: "friend_request", requestId });
+  await sendExpoPush(toSnap.data().expoPushToken, `${from.displayName || "Someone"} added you`, "They want to be friends on Uvel.", { kind: "friend_request", requestId });
   return { requestId, status: "pending" };
 });
 
@@ -108,6 +100,12 @@ exports.respondFriendRequest = onCall(async (req) => {
       tx.set(db.collection("users").doc(data.fromUid).collection("notifications").doc(`friend_${pair}`), { kind: "friend_accepted", requestId, actor: data.to, readAt: null, createdAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
     }
   });
+  if (action === "accepted") {
+    const snap = await requestRef.get();
+    const data = snap.data() || {};
+    const acceptor = data.to && data.to.displayName ? data.to.displayName : "Your friend";
+    await notifyUid(admin.firestore(), data.fromUid, `${acceptor} accepted`, "You’re friends on Uvel. Send a message.", { kind: "friend_accepted", requestId });
+  }
   return { requestId, status: action };
 });
 
@@ -157,8 +155,32 @@ exports.sendFriendMessage = onCall(async (req) => {
     tx.update(threadRef, { lastText: text || "Sent a photo", lastFrom: req.auth.uid, lastAt: now, updatedAt: now, [`unreadBy.${recipient}`]: admin.firestore.FieldValue.increment(1) });
   });
   const recipientSnap = recipient ? await db.collection("users").doc(recipient).get() : null;
-  await sendExpoPush(recipientSnap && recipientSnap.data().expoPushToken, "New friend message", text || "Sent a photo", { kind: "friend_message", conversationId });
+  const fromSnap = await db.collection("users").doc(req.auth.uid).get();
+  const fromName = publicUser(req.auth.uid, fromSnap.data() || {}).displayName || "A friend";
+  await sendExpoPush(recipientSnap && recipientSnap.data().expoPushToken, `${fromName} sent you a message`, text || "Sent a photo", { kind: "friend_message", conversationId });
   return { messageId: messageRef.id };
+});
+
+const { onSchedule } = require("firebase-functions/v2/scheduler");
+
+const TODAY_NUDGES = [
+  { title: "Today’s floor is up", body: "A few pieces landed that look like you." },
+  { title: "Come pick through Today", body: "Nothing loud. Just clothes." },
+  { title: "Your edit is waiting", body: "Open Uvel when you’ve got a minute." },
+];
+
+exports.nudgeQuietUsers = onSchedule({ schedule: "0 16 * * *", timeZone: "America/New_York" }, async () => {
+  const db = admin.firestore();
+  const cutoff = Date.now() - 36 * 60 * 60 * 1000;
+  const snap = await db.collection("users").where("wantsUpdates", "==", true).limit(400).get();
+  const pick = TODAY_NUDGES[Math.floor(Math.random() * TODAY_NUDGES.length)];
+  await Promise.all(snap.docs.map(async (doc) => {
+    const user = doc.data() || {};
+    if (!user.expoPushToken) return;
+    const last = typeof user.lastSeen === "number" ? user.lastSeen : 0;
+    if (last && last > cutoff) return;
+    await sendExpoPush(user.expoPushToken, pick.title, pick.body, { kind: "today" });
+  }));
 });
 
 exports.listFriendChats = onCall(async (req) => {

@@ -15,6 +15,11 @@ import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { getPiece, isRemoteListedPiece, useMarketplaceSyncState, useWardrobe } from "../../lib/wardrobe";
 import { recordCampaignAttribution } from "../../lib/attribution";
+import { removeFromCart } from "../../lib/cart";
+import { payWithWallet, useWallet } from "../../lib/wallet";
+import { useFirstFind } from "../../lib/firstFind";
+import { getBrand } from "../../lib/brands";
+import { brandMakes } from "../../lib/brandMake";
 
 export default function Checkout() {
   const colors = useColors();
@@ -24,6 +29,7 @@ export default function Checkout() {
   useWardrobe();
   const marketplaceSync = useMarketplaceSyncState();
   const piece = getPiece(id);
+  const making = Boolean(piece?.brandId && brandMakes(getBrand(piece.brandId)));
   const selectedVariant = typeof variantParam === "string" ? variantParam : "";
   const selectedVariantLabel = typeof variantLabelParam === "string" ? variantLabelParam : selectedVariant;
   const app = useUvel();
@@ -52,6 +58,9 @@ export default function Checkout() {
   const fee = piece ? uvelFeeCents(item, currency, market) : 0;
   const discountCents = Math.min(itemLocal, promotionQuote?.discountCents || 0);
   const discountedItem = Math.max(0, itemLocal - discountCents);
+  const firstFind = useFirstFind();
+  const creditCents = piece ? firstFind.applyTo(piece, discountedItem) : 0;
+  const billedItem = Math.max(0, discountedItem - creditCents);
   const sellsHere = piece ? listingVisibleIn({ origin: piece.country, shipsTo: piece.shipsTo, buyer: market.code }) : false;
   const addressOk = piece && address
     ? listingVisibleIn({ origin: piece.country, shipsTo: piece.shipsTo, buyer: address.country })
@@ -59,7 +68,9 @@ export default function Checkout() {
   const availabilityConfirmed = marketplaceSync === "confirmed" && isRemoteListedPiece(piece?.id || "");
   const same = Boolean(address && piece && address.country === (piece.country || market.code));
   const shipCost = address && addressOk ? shippingCents(same, ship === "express", market) : 0;
-  const total = discountedItem + fee + shipCost;
+  const total = billedItem + fee + shipCost;
+  const wallet = useWallet(market.currency);
+  const walletCovers = wallet.availableCents >= total && total > 0;
   const method = methods.find((m) => m.id === pay) ?? methods[0];
 
   useEffect(() => {
@@ -143,6 +154,7 @@ export default function Checkout() {
         itemCents: itemLocal,
         feeCents: fee,
         discountCents: discountCents || undefined,
+        creditCents: creditCents || undefined,
         promotionId: promotionQuote?.promotionId,
         promotionCode: promotionQuote?.code,
         shipCents: shipCost,
@@ -153,8 +165,15 @@ export default function Checkout() {
         payMethod: method.label,
         delivery: ship,
         address,
+        madeByUvel: making,
       });
       if (piece.brandId && typeof campaignId === "string" && campaignId) void recordCampaignAttribution({ brandId: piece.brandId, campaignId, channel: campaignChannel === "shop" ? "shop" : "brand_page", collectionId: typeof collectionId === "string" ? collectionId : undefined, promotionId: typeof promotionId === "string" ? promotionId : undefined, type: "checkout_started", listingId: piece.id, orderId: order.id, currency: market.currency, eventId: `checkout_started_${order.id}` }).catch(() => undefined);
+      if (walletCovers) {
+        await payWithWallet(order.id);
+        removeFromCart(piece.id);
+        router.replace({ pathname: "/order/[id]", params: { id: order.id } });
+        return;
+      }
       const session = await createCheckoutSession({
         amountCents: total,
         currency: market.currency,
@@ -177,6 +196,7 @@ export default function Checkout() {
       if (!ok) return;
       // Hosted checkout returning only means the payment page completed.
       // A trusted payment webhook must confirm payment before marking inventory sold.
+      removeFromCart(piece.id);
       router.replace({ pathname: "/order/[id]", params: { id: order.id } });
     } catch (e) {
       const raw = e instanceof Error ? e.message : String(e || "");
@@ -332,6 +352,7 @@ export default function Checkout() {
           </View>
 
           {discountCents > 0 ? <View style={styles.line}><Text style={styles.lineL}>Promotion · {promotionQuote?.code}</Text><Text style={styles.discountValue}>−{moneyExact(discountCents, market.currency)}</Text></View> : null}
+          {creditCents > 0 ? <View style={styles.line}><Text style={styles.lineL}>First Find</Text><Text style={styles.discountValue}>−{moneyExact(creditCents, market.currency)}</Text></View> : null}
           <View style={styles.line}>
             <AccessiblePressable              onPress={() => setFeeInfo(true)}
               style={({ pressed }) => [styles.feeL, pressed && { opacity: 0.92 }]}
@@ -349,13 +370,14 @@ export default function Checkout() {
             <Text style={styles.lineV}>{moneyExact(itemLocal, market.currency)}</Text>
           </View>
           <View style={styles.line}>
-            <Text style={styles.lineL}>Shipping</Text>
+            <Text style={styles.lineL}>{making ? "Delivery" : "Shipping"}</Text>
             <Text style={styles.lineV}>{moneyExact(shipCost, market.currency)}</Text>
           </View>
           <View style={styles.line}>
             <Text style={styles.lineL}>Sales tax</Text>
             <Text style={styles.muted}>To be confirmed</Text>
           </View>
+          {walletCovers ? <View style={styles.line}><Text style={styles.lineL}>Uvel balance</Text><Text style={styles.discountValue}>−{moneyExact(total, market.currency)}</Text></View> : wallet.availableCents > 0 ? <Text style={styles.protect}>Uvel balance {moneyExact(wallet.availableCents, market.currency)} — it pays in full when it covers the total.</Text> : null}
           <AccessiblePressable            onPress={() => setFeeInfo(true)}
             style={({ pressed }) => [pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
@@ -369,17 +391,17 @@ export default function Checkout() {
       <View style={[styles.dock, { paddingBottom: insets.bottom + 12 }]}>
         <View style={styles.totalRow}>
           <Text style={styles.totalL}>Total to pay</Text>
-          <Text style={styles.totalV}>{moneyExact(total, market.currency)}</Text>
+          <Text style={styles.totalV}>{moneyExact(walletCovers ? 0 : total, market.currency)}</Text>
         </View>
         <AccessiblePressable onPress={() => void payNow()}
           disabled={!ready || !availabilityConfirmed}
           style={({ pressed }) => [styles.payBtn, (!ready || !availabilityConfirmed) && { opacity: 0.4 }, pressed && { opacity: 0.92 }]}
           accessibilityRole="button"
-          accessibilityLabel={paying ? "Processing payment" : `Pay with ${method?.label || "selected method"}, ${moneyExact(total, market.currency)}`}
+          accessibilityLabel={paying ? "Processing payment" : walletCovers ? `Pay with Uvel balance, ${moneyExact(total, market.currency)}` : `Pay with ${method?.label || "selected method"}, ${moneyExact(total, market.currency)}`}
           accessibilityState={{ disabled: !ready || !availabilityConfirmed, busy: paying }}
         >
           <Text style={styles.payTxt}>
-            {paying ? "Paying…" : method?.kind === "apple" ? "Apple Pay" : `Pay with ${method?.label}`}
+            {paying ? "Paying…" : walletCovers ? "Pay with Uvel balance" : method?.kind === "apple" ? "Apple Pay" : `Pay with ${method?.label}`}
           </Text>
         </AccessiblePressable>
         <Text style={styles.lock}>Payment details are handled by the connected payment provider.</Text>

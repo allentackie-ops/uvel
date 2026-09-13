@@ -13,7 +13,6 @@ export default function StyleDna() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const dnaReady = Boolean(app.archetype || app.palette || app.silhouette);
 
   function pick(patch: { archetype?: string; palette?: string; silhouette?: string }) {
     app.setStyle(patch);
@@ -68,13 +67,6 @@ export default function StyleDna() {
           onPick={(value) => pick({ silhouette: value })}
           styles={styles}
         />
-
-        <View style={styles.savedNote} accessibilityLiveRegion="polite">
-          <Text style={styles.savedTitle}>{dnaReady ? "Style DNA saved" : "Style DNA is not set"}</Text>
-          <Text style={styles.savedCopy}>
-            {dnaReady ? "Change any choice whenever your taste shifts." : "Choose at least one option to start shaping Today."}
-          </Text>
-        </View>
       </ScrollView>
     </View>
   );

@@ -62,6 +62,8 @@ export type FounderProductBrief = {
   sampleStatus: "not-started" | "requested" | "received" | "changes-needed" | "approved";
   productionQuestions: string;
   boardId: string;
+  photoUri?: string;
+  photoOk?: boolean;
 };
 
 export type FounderProductSnapshot = FounderProductBrief & { version: number; savedAt: number };
@@ -132,6 +134,7 @@ export type FounderTask = {
 
 export type FounderProject = {
   id: string;
+  ownerId?: string;
   name: string;
   description: string;
   /** Founder projects are private planning records until explicitly handed off. */
@@ -145,7 +148,7 @@ export type FounderProject = {
   identity: FounderIdentity;
   product: FounderProductBrief;
   productVersions: FounderProductSnapshot[];
-  handoffStatus: "not-started" | "in-review" | "submitted";
+  handoffStatus: "not-started" | "in-review" | "submitted" | "rejected";
   cloudSyncStatus: "local-only" | "ready" | "synced" | "needs-auth" | "unavailable";
   lastSyncedAt?: number;
   auditLog: FounderAuditEvent[];
@@ -158,7 +161,7 @@ export type FounderProject = {
 
 export const emptyFounderBrief = (): FounderBrief => ({ audience: "", category: "", pricePosition: "not-set", promise: "", values: "", tone: "", story: "" });
 export const defaultFounderIdentity = (): FounderIdentity => ({ workingName: "", handleIdeas: "", tone: "", story: "", colors: ["#D6E27A", "#F4F0E6", "#161512"], typography: "Warm editorial sans", logoDirection: "", photographyDirection: "", packagingNotes: "" });
-export const emptyFounderProduct = (): FounderProductBrief => ({ name: "", category: "", silhouette: "", fit: "", materials: "", trims: "", colorway: "", sizes: "", measurements: "", construction: "", care: "", targetUnitCost: "", targetPrice: "", sampleQuantity: "", sampleStatus: "not-started", productionQuestions: "", boardId: "" });
+export const emptyFounderProduct = (): FounderProductBrief => ({ name: "", category: "", silhouette: "", fit: "", materials: "", trims: "", colorway: "", sizes: "", measurements: "", construction: "", care: "", targetUnitCost: "", targetPrice: "", sampleQuantity: "", sampleStatus: "not-started", productionQuestions: "", boardId: "", photoUri: "", photoOk: false });
 export const defaultFounderIntegrations = (): FounderIntegration[] => [
   { id: "domain-email", label: "Domain & email", outcome: "A recognizable web address and professional inbox", status: "not-started", notes: "" },
   { id: "storefront", label: "Storefront", outcome: "A place where products can be sold", status: "not-started", notes: "" },
@@ -185,10 +188,9 @@ export const emptyFounderProduction = (): FounderProduction => ({
 });
 
 export const defaultFounderTasks = (): FounderTask[] => [
-  { id: "idea-brief", title: "Write the idea brief", body: "Name the person, promise, and point of view behind the label.", stage: "idea", status: "todo" },
-  { id: "first-board", title: "Make the first board", body: "Collect references or sketch the first silhouette.", stage: "design", status: "todo" },
-  { id: "product-brief", title: "Describe the first product", body: "Turn the direction into one clear product brief.", stage: "product", status: "todo" },
-  { id: "launch-checklist", title: "Review launch setup", body: "See what still needs to happen before a public application.", stage: "launch", status: "todo" },
+  { id: "idea-brief", title: "Name the label", body: "A name and who it’s for.", stage: "idea", status: "todo" },
+  { id: "product-brief", title: "Make the first piece", body: "A photo, a name, and a category.", stage: "product", status: "todo" },
+  { id: "launch-checklist", title: "Apply as a brand", body: "When the name and the piece are there, apply.", stage: "launch", status: "todo" },
 ];
 
 function normalizeProject(project: FounderProject): FounderProject {
@@ -196,23 +198,34 @@ function normalizeProject(project: FounderProject): FounderProject {
 }
 
 const KEY = "uvel-founder-projects-v1";
-let projects: FounderProject[] = [];
+let allProjects: FounderProject[] = [];
+let viewerUid = "";
 let hydrated = false;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((listener) => listener());
 const uid = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
+function visibleProjects() {
+  if (!viewerUid) return [];
+  return allProjects.filter((project) => project.ownerId === viewerUid);
+}
+
+export function setFounderViewer(uidValue: string) {
+  viewerUid = uidValue;
+  emit();
+}
+
 async function persist() {
-  await AsyncStorage.setItem(KEY, JSON.stringify(projects));
+  await AsyncStorage.setItem(KEY, JSON.stringify(allProjects));
   emit();
 }
 
 async function hydrate() {
   try {
     const raw = await AsyncStorage.getItem(KEY);
-    projects = raw ? (JSON.parse(raw) as FounderProject[]).map(normalizeProject) : [];
+    allProjects = raw ? (JSON.parse(raw) as FounderProject[]).map(normalizeProject) : [];
   } catch {
-    projects = [];
+    allProjects = [];
   }
   hydrated = true;
   emit();
@@ -226,13 +239,14 @@ export function useFounderProjects() {
     listeners.add(listener);
     return () => { listeners.delete(listener); };
   }, []);
-  return { projects, hydrated };
+  return { projects: visibleProjects(), hydrated };
 }
 
-export function createFounderProject(name: string, description = "") {
+export function createFounderProject(name: string, description = "", ownerId = viewerUid) {
   const now = Date.now();
   const project: FounderProject = {
     id: uid("founder"),
+    ownerId: ownerId || viewerUid,
     name: name.trim() || "Untitled label",
     description: description.trim(),
     visibility: "private",
@@ -241,7 +255,7 @@ export function createFounderProject(name: string, description = "") {
     stage: "idea",
     tasks: defaultFounderTasks(),
     brief: emptyFounderBrief(),
-    identity: defaultFounderIdentity(),
+    identity: { ...defaultFounderIdentity(), workingName: name.trim() },
     product: emptyFounderProduct(),
     productVersions: [],
     handoffStatus: "not-started",
@@ -253,13 +267,33 @@ export function createFounderProject(name: string, description = "") {
     createdAt: now,
     updatedAt: now,
   };
-  projects = [project, ...projects];
+  allProjects = [project, ...allProjects];
   void persist();
   return project;
 }
 
+export function ideaReady(project: FounderProject) {
+  return Boolean((project.identity.workingName || project.name).trim() && project.brief.audience.trim());
+}
+
+export function pieceReady(project: FounderProject) {
+  return Boolean(project.product.name.trim() && project.product.category.trim() && project.product.photoUri && project.product.photoOk);
+}
+
+export function applyReady(project: FounderProject) {
+  return ideaReady(project) && pieceReady(project);
+}
+
+export function simpleStageOf(stage: string): "idea" | "product" | "launch" {
+  if (stage === "product" || stage === "design") return "product";
+  if (stage === "launch" || stage === "source") return "launch";
+  return "idea";
+}
+
 export function getFounderProject(id?: string) {
-  return id ? projects.find((project) => project.id === id) : projects[0];
+  const mine = visibleProjects();
+  if (id) return mine.find((project) => project.id === id);
+  return mine[0];
 }
 
 export function archiveFounderProject(id: string, archived: boolean) {
@@ -275,14 +309,19 @@ export function updateFounderTask(projectId: string, taskId: string, status: Fou
 export function saveFounderProduct(projectId: string, product: FounderProductBrief) {
   const project = getFounderProject(projectId);
   if (!project) return;
-  const changed = JSON.stringify(project.product) !== JSON.stringify(product);
+  const merged = { ...project.product, ...product };
+  if (!String(product.photoUri || "").trim()) {
+    merged.photoUri = project.product.photoUri;
+    merged.photoOk = project.product.photoOk;
+  }
+  const changed = JSON.stringify(project.product) !== JSON.stringify(merged);
   const nextVersion = project.productVersions.length ? Math.max(...project.productVersions.map((item) => item.version)) + 1 : 1;
-  updateFounderProject(projectId, { product, stage: "product", productVersions: changed ? [...project.productVersions, { ...product, version: nextVersion, savedAt: Date.now() }].slice(-10) : project.productVersions });
+  updateFounderProject(projectId, { product: merged, stage: "product", productVersions: changed ? [...project.productVersions, { ...merged, version: nextVersion, savedAt: Date.now() }].slice(-10) : project.productVersions });
 }
 
 export function updateFounderProject(id: string, patch: Partial<FounderProject>) {
   const now = Date.now();
-  projects = projects.map((project) => project.id === id ? { ...project, ...patch, updatedAt: now, auditLog: [...project.auditLog, { id: `audit-${now}-${Math.random().toString(36).slice(2, 6)}`, action: "project-update", fields: Object.keys(patch).filter((field) => field !== "auditLog"), createdAt: now }].slice(-100) } : project);
+  allProjects = allProjects.map((project) => project.id === id ? { ...project, ...patch, updatedAt: now, auditLog: [...project.auditLog, { id: `audit-${now}-${Math.random().toString(36).slice(2, 6)}`, action: "project-update", fields: Object.keys(patch).filter((field) => field !== "auditLog"), createdAt: now }].slice(-100) } : project);
   void persist();
 }
 
@@ -301,7 +340,7 @@ export function createFounderBoard(projectId: string, kind: FounderBoardKind, na
     createdAt: now,
     updatedAt: now,
   };
-  projects = projects.map((project) => project.id === projectId ? { ...project, boards: [board, ...project.boards], stage: "design", updatedAt: now } : project);
+  allProjects = allProjects.map((project) => project.id === projectId ? { ...project, boards: [board, ...project.boards], stage: "design", updatedAt: now } : project);
   void persist();
   return board;
 }
@@ -311,7 +350,7 @@ export function updateFounderProduction(projectId: string, production: FounderPr
 }
 
 export function updateFounderBoard(projectId: string, boardId: string, patch: Partial<FounderBoard>) {
-  projects = projects.map((project) => project.id !== projectId ? project : {
+  allProjects = allProjects.map((project) => project.id !== projectId ? project : {
     ...project,
     updatedAt: Date.now(),
     boards: project.boards.map((board) => board.id === boardId ? { ...board, ...patch, updatedAt: Date.now() } : board),
@@ -327,6 +366,6 @@ export function appendFounderReference(projectId: string, boardId: string, uri: 
 }
 
 export function replaceFounderProjects(next: FounderProject[]) {
-  projects = next;
+  allProjects = next;
   void persist();
 }

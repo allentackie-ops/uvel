@@ -7,8 +7,10 @@ import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { BrandBanner } from "../../components/BrandBanner";
 import { BrandPageSkeleton } from "../../components/ScreenSkeletons";
 import { ListingCard } from "../../components/ListingCard";
-import { VerifiedMark } from "../../components/VerifiedMark";
+import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import {
+  brandApproved,
+  brandCheck,
   brandListings,
   canAccessHQ,
   canManageTeam,
@@ -184,13 +186,28 @@ export default function BrandPage() {
         </View>
 
         <View style={{ paddingHorizontal: 20, paddingTop: 56 }}>
-          <Text style={[styles.kicker, { color: theme.muted }]}>{brand.reviewStatus === "uvel_reviewed" && brand.verified ? "UVEL-REVIEWED BRAND" : brand.reviewStatus === "human_review" ? "BRAND · HUMAN REVIEW" : brand.reviewStatus === "needs_information" ? "BRAND · INFORMATION NEEDED" : "BRAND · IN REVIEW"}</Text>
+          <Text style={[styles.kicker, { color: theme.muted }]}>{brandCheck(brand) === "lime" ? "VERIFIED FOUNDER" : brandCheck(brand) === "blue" ? "VERIFIED BRAND" : brandApproved(brand) ? "BRAND ON UVEL" : brand.reviewStatus === "human_review" ? "BRAND · HUMAN REVIEW" : brand.reviewStatus === "needs_information" ? "BRAND · INFORMATION NEEDED" : "BRAND · IN REVIEW"}</Text>
           <View style={styles.nameRow}>
             <Text style={[styles.name, { color: theme.ink }]}>{brand.name}</Text>
-            {brand.verified ? <VerifiedMark size={20} /> : null}
+            <BrandVerifiedMark brand={brand} size={20} />
           </View>
           <Text style={[styles.handle, { color: theme.muted }]}>@{brand.handle}</Text>
           {brand.tagline ? <Text style={[styles.tagline, { color: theme.ink }]}>{brand.tagline}</Text> : null}
+          {owner && !brandApproved(brand) ? (
+            <View style={[styles.reviewCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+              <Text style={[styles.reviewTitle, { color: theme.ink }]}>{brand.reviewStatus === "rejected" ? (brand.rejectHeadline || "Rejected") : "In review"}</Text>
+              {(brand.rejectReasons || []).map((reason) => (
+                <Text key={reason} style={[styles.reviewCopy, { color: theme.muted }]}>{reason}</Text>
+              ))}
+              {brand.reviewStatus === "rejected" ? (
+                <AccessiblePressable onPress={() => router.push({ pathname: "/brand/founder/[stage]", params: { stage: "launch" } })} style={{ marginTop: 10 }}>
+                  <Text style={[styles.ghostTxt, { color: theme.ink }]}>Change the name and send again</Text>
+                </AccessiblePressable>
+              ) : (
+                <Text style={[styles.reviewCopy, { color: theme.muted }]}>Dress this page while we look at it. Logo, banner, look.</Text>
+              )}
+            </View>
+          ) : null}
           <Text style={[styles.owner, { color: theme.muted }]}>
             Owner · {brand.legalName || brand.ownerName}
             {role === "poster" ? "  ·  You post here" : role === "owner" ? "  ·  You" : ""}
@@ -214,6 +231,16 @@ export default function BrandPage() {
             >
               <Text style={[styles.followTxt, { color: following ? theme.ink : theme.accentInk }]}>{following ? "Following" : "Follow"}</Text>
             </AccessiblePressable>
+            {owner ? (
+              <AccessiblePressable
+                onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })}
+                style={({ pressed }) => [styles.ghost, { borderColor: theme.lineColor }, pressed && { opacity: 0.92 }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Dress ${brand.name}`}
+              >
+                <Text style={[styles.ghostTxt, { color: theme.ink }]}>Dress this page</Text>
+              </AccessiblePressable>
+            ) : null}
             {poster ? (
               <AccessiblePressable                onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })}
                 style={({ pressed }) => [styles.ghost, { borderColor: theme.lineColor }, pressed && { opacity: 0.92 }]}
@@ -300,7 +327,7 @@ export default function BrandPage() {
           ))
         ) : (
           <Text style={[styles.empty, { color: theme.muted }]}>
-            {brand.verified && brand.reviewStatus === "uvel_reviewed" ? "Nothing listed yet." : "Uvel review is required before this brand can post publicly."}
+            {brandApproved(brand) ? "Nothing listed yet." : "Uvel review is required before this brand can post publicly."}
           </Text>
         )}
 
@@ -352,6 +379,9 @@ export default function BrandPage() {
 const styles = StyleSheet.create({
   missing: { flex: 1, backgroundColor: "#000000", paddingHorizontal: 20 },
   missingH: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, marginTop: 24 },
+  reviewCard: { marginTop: 16, borderRadius: 16, borderWidth: 1, padding: 14 },
+  reviewTitle: { fontSize: 16, fontWeight: "800" },
+  reviewCopy: { fontSize: 13, lineHeight: 18, marginTop: 4 },
   banner: { width: W, height: 280, backgroundColor: "#161512" },
   nav: {
     position: "absolute",

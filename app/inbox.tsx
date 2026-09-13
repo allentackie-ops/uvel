@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
-import { VerifiedMark } from "../components/VerifiedMark";
+import { BrandVerifiedMark } from "../components/VerifiedMark";
 import { getBrand, useBrands } from "../lib/brands";
 import { unreadFor, useInbox, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
@@ -189,7 +189,7 @@ function Row({
           <Text style={[styles.name, unread ? { fontWeight: "800" } : null]} numberOfLines={1}>
             {who}
           </Text>
-          {!iAmSeller && (brand?.verified || t.brandVerified) ? <VerifiedMark size={16} /> : null}
+          {!iAmSeller ? <BrandVerifiedMark brand={brand} size={16} /> : null}
           {t.lastAt ? <Text style={styles.time}>{when(t.lastAt)}</Text> : null}
         </View>
         <Text style={[styles.prev, unread ? { color: colors.bone } : null]} numberOfLines={1}>
@@ -218,9 +218,17 @@ function make(colors: Colors) {
     navBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
     navBack: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
     navTitle: { color: colors.bone, fontSize: 17, fontWeight: "700" },
-    navActions: { flexDirection: "row", alignItems: "center", gap: 4 },
-    iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-    searchTxt: { color: colors.bone, fontSize: 28 },
+    navActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+    iconBtn: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      borderWidth: 1,
+      borderColor: `${colors.bone}2E`,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    searchTxt: { color: colors.bone, fontSize: 26, lineHeight: 28, fontWeight: "600", marginTop: -1 },
     bell: {
       width: 44,
       height: 44,

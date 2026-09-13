@@ -581,7 +581,8 @@ export async function sendChat(opts: {
       const other = await readUserLite(uid);
       const token = typeof other?.expoPushToken === "string" ? other.expoPushToken : "";
       if (token) {
-        void sendPush(token, opts.fromName || "Uvel", msg.text, {
+        void sendPush(token, opts.fromName ? `${opts.fromName} sent you a message` : "New message on Uvel", msg.text || `Asked about ${opts.pieceName || "a listing"}`, {
+          kind: "listing_message",
           pieceId: opts.pieceId,
           threadId: opts.threadId,
           brandId: thread?.brandId || "",
