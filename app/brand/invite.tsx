@@ -13,7 +13,6 @@ const INVITE_ROLES: Array<{ id: Exclude<MemberRole, "owner">; detail: string }> 
   { id: "support", detail: "Handle buyers and orders" },
   { id: "finance", detail: "View orders and payouts" },
   { id: "viewer", detail: "View HQ without editing" },
-  { id: "poster", detail: "List products for the brand" },
 ];
 
 export default function BrandInvite() {
@@ -25,7 +24,7 @@ export default function BrandInvite() {
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<BrandPerson[]>([]);
   const [sent, setSent] = useState<string[]>([]);
-  const [role, setRole] = useState<Exclude<MemberRole, "owner">>("poster");
+  const [role, setRole] = useState<Exclude<MemberRole, "owner">>("viewer");
   const [external, setExternal] = useState("");
   const [copied, setCopied] = useState(false);
 
