@@ -1,5 +1,5 @@
 import type { Category } from "./catalog";
-import * as FileSystem from "expo-file-system";
+import { File } from "expo-file-system";
 import { getGenerativeModel } from "firebase/ai";
 import { firebaseAi } from "./firebase";
 
@@ -107,7 +107,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 }
 
 async function reviewOnDeviceAi(uri: string, mode: "listing" | "founder") {
-  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+  const base64 = await new File(uri).base64();
   if (!base64) throw new Error("That photo is empty.");
   const model = getGenerativeModel(firebaseAi(), { model: "gemini-2.5-flash" });
   const schema = mode === "founder" ? "{\"ok\":boolean,\"headline\":string,\"reasons\":string[]}" : "{\"ok\":boolean,\"score\":number,\"issues\":string[],\"tip\":string,\"title\":string,\"brand\":string,\"category\":string,\"color\":string,\"conditionGuess\":string,\"material\":string,\"description\":string}";
