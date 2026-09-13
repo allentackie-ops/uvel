@@ -338,14 +338,7 @@ function MakeSection({
 
       <View style={[styles.makeCard, { backgroundColor: theme.card }]}>
         <Text style={[styles.makeKicker, { color: theme.muted }]}>OPTIONAL</Text>
-        <Text style={[styles.makeTitle, { color: theme.ink }]}>Protect the name</Text>
-        <Text style={[styles.makeCopy, { color: theme.muted }]}>
-          {mark === "filed"
-            ? "The name is filed."
-            : mark === "filing"
-              ? "We’re registering it."
-              : `We register the name for you. ${price}.`}
-        </Text>
+        <Text style={[styles.makeTitle, { color: theme.ink }]}>Protect your brand name through trademark</Text>
         {mark === "none" ? (
           <Pressable
             onPress={() => router.push({ pathname: "/brand/trademark", params: { id: brand.id } })}
