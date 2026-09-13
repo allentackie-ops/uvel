@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
@@ -5,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Animated, Easing, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
@@ -33,6 +34,17 @@ import { getMarket, moneyExact } from "../../lib/markets";
 
 const MIN_REFRESH_MS = 1200;
 const ORBIT_SLOT = 96;
+const TODAY_SWIPE_HINT_KEY = "uvel-today-swipe-hint-seen-v1";
+const TODAY_SWIPE_HINT_MS = 10000;
+
+const swipeHintStyles = StyleSheet.create({
+  swipeHint: { position: "absolute", top: 0, left: 0, right: 0, alignItems: "center", zIndex: 30 },
+  swipeHintTitle: { color: "#F4F0E6", fontSize: 18, fontWeight: "800", textAlign: "center", marginHorizontal: 28, textShadowColor: "#000000", textShadowRadius: 8 },
+  swipeHintTrack: { height: 120, width: 100, alignItems: "center", justifyContent: "flex-end", marginTop: 10 },
+  swipeHintHand: { color: "#F4F0E6", fontSize: 58, lineHeight: 66, textShadowColor: "#000000", textShadowRadius: 8 },
+  swipeHintChevron: { position: "absolute", bottom: 0, alignItems: "center" },
+  swipeHintChevronText: { color: "#D6E27A", fontSize: 44, lineHeight: 40, fontWeight: "800", textShadowColor: "#000000", textShadowRadius: 8 },
+});
 
 const orbitTop = {
   position: "absolute" as const,
@@ -95,6 +107,42 @@ function FrozenClip({
   );
 }
 
+function TodaySwipeHint({ onDismiss }: { onDismiss: () => void }) {
+  const handY = useRef(new Animated.Value(-34)).current;
+  const handOpacity = useRef(new Animated.Value(0.35)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(handY, { toValue: 34, duration: 1050, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+          Animated.timing(handY, { toValue: -34, duration: 0, useNativeDriver: true }),
+        ]),
+        Animated.sequence([
+          Animated.timing(handOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
+          Animated.timing(handOpacity, { toValue: 0.35, duration: 700, useNativeDriver: true }),
+        ]),
+      ]),
+    );
+    animation.start();
+    const timeout = setTimeout(onDismiss, TODAY_SWIPE_HINT_MS);
+    return () => {
+      animation.stop();
+      clearTimeout(timeout);
+    };
+  }, [handOpacity, handY, onDismiss]);
+
+  return (
+    <View pointerEvents="none" style={swipeHintStyles.swipeHint}>
+      <Text style={swipeHintStyles.swipeHintTitle}>Swipe down to see more items</Text>
+      <View style={swipeHintStyles.swipeHintTrack}>
+        <Animated.Text style={[swipeHintStyles.swipeHintHand, { opacity: handOpacity, transform: [{ translateY: handY }] }]}>☝︎</Animated.Text>
+        <View style={swipeHintStyles.swipeHintChevron}><Text style={swipeHintStyles.swipeHintChevronText}>⌄</Text></View>
+      </View>
+    </View>
+  );
+}
+
 export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: boolean; onOpenTools?: () => void }) {
   const colors = useColors();
   const styles = make(colors);
@@ -117,6 +165,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
   const [findHint, setFindHint] = useState(false);
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
@@ -124,6 +173,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const followedKey = followedIds.join("|");
   const personalization = usePersonalization(app.uid || "guest");
   const firstFind = useFirstFind();
+  const dismissSwipeHint = useCallback(() => setShowSwipeHint(false), []);
   const dna = useMemo(
     () => dnaFrom(app),
     [app.archetype, app.palette, app.silhouette, app.styles, app.gender],
@@ -143,6 +193,20 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     if (!app.hydrated) return;
     app.seedSavedLikes();
   }, [app.hydrated, app.saved.join("|")]);
+
+  useEffect(() => {
+    if (!todayHome || !app.hydrated || !app.profileDone) return;
+    let active = true;
+    void AsyncStorage.getItem(TODAY_SWIPE_HINT_KEY).then((seen) => {
+      if (active && seen !== "1") {
+        setShowSwipeHint(true);
+        void AsyncStorage.setItem(TODAY_SWIPE_HINT_KEY, "1");
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [app.hydrated, app.profileDone, todayHome]);
 
   const look = useMemo(
     () => (typeof lookParam === "string" ? bundledLooks().find((l) => l.id === lookParam) : undefined),
@@ -298,6 +362,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         alwaysBounceVertical
         bounces
         keyboardShouldPersistTaps="handled"
+        onTouchStart={showSwipeHint ? dismissSwipeHint : undefined}
+        onScrollBeginDrag={showSwipeHint ? dismissSwipeHint : undefined}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -566,6 +632,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         />
       ) : null}
       {todayHome ? <TodayCartFab lifted={Boolean(openPiece)} /> : null}
+      {todayHome && showSwipeHint ? <TodaySwipeHint onDismiss={dismissSwipeHint} /> : null}
       {findHint ? (
         <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 68 }]} accessibilityLiveRegion="polite">
           <Text style={styles.findToastK}>FIRST FIND</Text>
