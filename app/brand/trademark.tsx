@@ -97,8 +97,7 @@ export default function TrademarkPay() {
       </View>
       <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: insets.bottom + 140 }} keyboardShouldPersistTaps="handled">
         <Text style={styles.brand}>{brand.name}</Text>
-        <Text style={styles.h}>Protect the name.</Text>
-        <Text style={styles.p}>We register it for you. That’s the whole cost.</Text>
+        <Text style={styles.h}>Protect the brand name through trademark</Text>
         <View style={styles.priceBox}>
           <Text style={styles.priceK}>TO PAY</Text>
           <Text style={styles.price}>{price}</Text>
