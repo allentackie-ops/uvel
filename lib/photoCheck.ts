@@ -1,5 +1,7 @@
-import { anthropicKey } from "./tryon";
 import type { Category } from "./catalog";
+import * as FileSystem from "expo-file-system";
+import { httpsCallable } from "firebase/functions";
+import { firebaseFunctions, firebaseReady } from "./firebase";
 
 export type PhotoReview = {
   ok: boolean;
@@ -104,87 +106,24 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-export async function reviewListingPhoto(uri: string): Promise<PhotoReview> {
-  const key = anthropicKey();
-  if (!key) {
-    return {
-      ok: true,
-      score: 7,
-      issues: [],
-      tip: "",
-      title: "",
-      brand: "",
-      category: "Tops",
-      color: "",
-      conditionGuess: "Excellent",
-      material: "",
-      description: "",
-      analysisStatus: "unavailable",
-    };
-  }
-
-  const { mime, data } = await uriToParts(uri);
-  const res = await withTimeout(
-    fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 500,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: mime, data } },
-              {
-                type: "text",
-                text: `You are the listing editor for Uvel, a secondhand clothes app. Buyers need a useful, honest view of the fashion item or design being submitted.
-
-Return ONLY JSON:
-{
-  "ok": boolean,
-  "score": 1-10,
-  "issues": string[],
-  "tip": string,
-  "title": string,
-  "brand": string,
-  "category": "Outerwear" | "Dresses" | "Tops" | "Trousers" | "Knitwear" | "Skirts" | "Shoes" | "Bags" | "Accessories" | "Jewelry" | "Watches" | "Hats" | "Belts" | "Sunglasses" | "Scarves" | "Hair" | "Lingerie" | "Swim" | "Activewear" | "Socks" | "Ties" | "Gloves",
-  "color": string,
-  "conditionGuess": "New with tags" | "Like new" | "Excellent" | "Good" | "Fair",
-  "material": string,
-  "description": string
+function mimeOf(uri: string) {
+  const u = uri.toLowerCase();
+  if (u.includes(".png") || u.startsWith("data:image/png")) return "image/png";
+  if (u.includes(".webp")) return "image/webp";
+  return "image/jpeg";
 }
 
-The upload field accepts both a photo and a sketch. Treat all of these as valid fashion references when the subject is identifiable and relevant to a wearable item: a real garment, flat lay, hanger photo, mirror photo, product/editorial image, fashion illustration, line drawing, silhouette, or stylized monochrome design reference. A dark or minimal background, dramatic contrast, typography, a brand mark, or a partially abstract/stylized treatment is not by itself a reason to reject it.
+async function reviewOnServer(uri: string, mode: "listing" | "founder") {
+  if (!firebaseReady()) throw new Error("Photo checking is not connected yet.");
+  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+  if (!base64) throw new Error("That photo is empty.");
+  const call = httpsCallable(firebaseFunctions(), "reviewPhoto");
+  return (await call({ mode, mimeType: mimeOf(uri), base64 })).data as Record<string, unknown>;
+}
 
-ok is false only when a buyer could not fairly judge what is being offered: genuinely unreadable blur, extreme darkness that hides the subject, item cropped or tiny, heavy clutter, an ordinary app/web screenshot or meme, an unrelated logo/graphic with no identifiable fashion item or design reference, not clothing/accessories, or the clothes/design are hidden. Do not require a photorealistic garment when the field allows a sketch.
-
-ok is true if the garment or fashion design/reference is the focus and sufficiently clear to identify its wearable purpose — on a hanger, flat lay, worn in a mirror pic, editorial image, or sketch is fine. Judge the submitted image itself, not assumptions about the camera or app that produced it.
-
-issues: max 2 short sentences, plain English, no jargon.
-tip: one sentence on how to reshoot if ok is false, else "".
-title: a sellable name like "Ivory silk slip" — empty if you cannot tell.
-description: 1-2 sentences a seller could post. Empty if unclear.
-brand: guess or "".`,
-              },
-            ],
-          },
-        ],
-      }),
-    }),
-    18000,
-  );
-
-  const json = (await res.json()) as { content?: { text?: string }[]; error?: { message?: string } };
-  if (!res.ok) throw new Error(json.error?.message || "Couldn’t check that photo.");
-  const parsed = parseJson(json.content?.[0]?.text ?? "{}");
+export async function reviewListingPhoto(uri: string): Promise<PhotoReview> {
+  const parsed = await reviewOnServer(uri, "listing");
   const issues = Array.isArray(parsed.issues) ? parsed.issues.map((x) => String(x)).filter(Boolean).slice(0, 2) : [];
-  // Require an actual JSON boolean. Boolean("false") is true and would turn a
-  // model rejection into an approval if a provider ever returns quoted JSON.
   const ok = parsed.ok === true;
   return {
     ok,
@@ -298,60 +237,7 @@ reasons: 0–3 short sentences the seller can act on. Empty if ok.`,
 
 /** First-piece gate for Founder Studio. Fail closed. Sketches of clothes can pass. Random pics cannot. */
 export async function reviewFounderPiece(uri: string): Promise<FeedReview> {
-  const key = anthropicKey();
-  if (!key) return { ok: false, reasons: ["Try the photo again in a moment."], headline: "Couldn’t check this yet" };
-
-  const img = await uriToParts(uri);
-  const res = await withTimeout(
-    fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 400,
-        messages: [
-          {
-            role: "user",
-            content: [
-              { type: "image", source: { type: "base64", media_type: img.mime, data: img.data } },
-              {
-                type: "text",
-                text: `You are the gate for a new fashion label on Uvel. Uvel will manufacture this piece when a buyer orders it. This image is supposed to be the first piece.
-
-Approve ONLY if the image clearly shows wearable fashion — a garment, shoes, bag, jewelry, hat, scarf, belt — OR a clear fashion sketch / flat technical drawing of one of those.
-
-ok MUST be false if ANY of these:
-- a selfie or portrait where clothes are not the subject
-- landscape, food, animal, car, room, meme, screenshot, receipt, document, random object
-- too blurry or dark to tell what the clothes are
-- nudes or sexual content
-- a famous-house product photo (Nike, Gucci, Chanel, etc.) that looks stolen from the internet
-- a doodle that is not recognizably a garment
-- nothing a clothing manufacturer could make from
-
-Be strict. A random camera roll photo is a fail. A messy but real shirt on a hanger, a mirror fit pic where the garment is obvious, or a pencil sketch of a dress is a pass.
-
-Return ONLY JSON:
-{ "ok": boolean, "headline": string, "reasons": string[] }
-
-headline: short, human. If ok: "This is the piece." If not: why in a few words.
-reasons: 0–2 short sentences they can act on. Empty if ok.`,
-              },
-            ],
-          },
-        ],
-      }),
-    }),
-    20000,
-  );
-
-  const json = (await res.json()) as { content?: { text?: string }[]; error?: { message?: string } };
-  if (!res.ok) throw new Error(json.error?.message || "Couldn’t check that photo.");
-  const parsed = parseJson(json.content?.[0]?.text ?? "{}");
+  const parsed = await reviewOnServer(uri, "founder");
   const reasons = Array.isArray(parsed.reasons)
     ? parsed.reasons.map((x) => String(x)).filter(Boolean).slice(0, 2)
     : [];
@@ -362,4 +248,3 @@ reasons: 0–2 short sentences they can act on. Empty if ok.`,
     headline: String(parsed.headline ?? (ok ? "This is the piece." : "That isn’t the piece.")),
   };
 }
-
