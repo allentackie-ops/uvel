@@ -168,6 +168,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const [findHint, setFindHint] = useState(false);
   const [showSwipeHint, setShowSwipeHint] = useState(false);
   const [showDoubleTapHint, setShowDoubleTapHint] = useState(false);
+  const [firstListingForHint, setFirstListingForHint] = useState(false);
   const listingOpensRef = useRef<number | null>(null);
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
@@ -190,6 +191,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     const next = Math.min(stored + 1, 2);
     listingOpensRef.current = next;
     void AsyncStorage.setItem(TODAY_LISTING_OPENS_KEY, String(next));
+    setFirstListingForHint(next === 1);
     if (next === 2) setShowDoubleTapHint(true);
   }, [app.profileDone]);
   useEffect(() => {
@@ -638,9 +640,11 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
             setOpenPiece(null);
             setOpenOrigin(null);
             dismissDoubleTapHint();
+            setFirstListingForHint(false);
           }}
           showDoubleTapHint={showDoubleTapHint}
           onDoubleTapHintDismiss={dismissDoubleTapHint}
+          firstListing={firstListingForHint}
           onInteraction={personalization.record}
         />
       ) : null}

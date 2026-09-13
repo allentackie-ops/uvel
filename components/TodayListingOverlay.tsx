@@ -44,6 +44,7 @@ export function TodayListingOverlay({
   onInteraction,
   showDoubleTapHint = false,
   onDoubleTapHintDismiss,
+  firstListing = false,
 }: {
   piece: ClosetPiece;
   origin: ListingOrigin;
@@ -51,6 +52,7 @@ export function TodayListingOverlay({
   onInteraction?: (action: PersonalizationAction, piece: ClosetPiece, query?: string, dwellSeconds?: number) => void;
   showDoubleTapHint?: boolean;
   onDoubleTapHintDismiss?: () => void;
+  firstListing?: boolean;
 }) {
   const colors = useColors();
   const styles = make(colors);
@@ -76,12 +78,14 @@ export function TodayListingOverlay({
   const dismissing = useSharedValue(0);
   const settled = useSharedValue(0);
   const scrollY = useSharedValue(0);
+  const tryOnHintTriggered = useSharedValue(0);
   const touchStartY = useSharedValue(0);
   const [coverTop, setCoverTop] = useState(0);
   const [activePhoto, setActivePhoto] = useState(0);
   const [measurementsOpen, setMeasurementsOpen] = useState(false);
   const [shippingOpen, setShippingOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [showTryOnHint, setShowTryOnHint] = useState(false);
   const cart = useCart();
   const inBag = cart.has(piece.id);
   const lastImageTap = useRef(0);
@@ -154,8 +158,18 @@ export function TodayListingOverlay({
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
       scrollY.value = event.contentOffset.y;
+      if (firstListing && event.contentOffset.y > 100 && !tryOnHintTriggered.value) {
+        tryOnHintTriggered.value = 1;
+        runOnJS(setShowTryOnHint)(true);
+      }
     },
   });
+
+  useEffect(() => {
+    if (!showTryOnHint) return;
+    const timeout = setTimeout(() => setShowTryOnHint(false), 6500);
+    return () => clearTimeout(timeout);
+  }, [showTryOnHint]);
 
   const pan = Gesture.Pan()
     .manualActivation(true)
@@ -468,10 +482,16 @@ export function TodayListingOverlay({
             ) : null}
           </View>
           <View style={styles.actions}>
-            <Pressable onPress={() => { onInteraction?.("try_on", piece); router.push({ pathname: "/try-on", params: { piece: piece.id } }); }} style={styles.tryAction} accessibilityRole="button" accessibilityLabel="Try this listing on">
+            <Pressable onPress={() => { setShowTryOnHint(false); onInteraction?.("try_on", piece); router.push({ pathname: "/try-on", params: { piece: piece.id } }); }} style={[styles.tryAction, showTryOnHint && styles.tryActionHighlighted]} accessibilityRole="button" accessibilityLabel="Try this listing on">
               <Ionicons name="body-outline" size={18} color={colors.bone} />
               <Text style={styles.tryText}>Try it on</Text>
             </Pressable>
+            {showTryOnHint ? (
+              <View pointerEvents="none" style={styles.tryOnHint}>
+                <Text style={styles.tryOnHintText}>See how this looks on you right now</Text>
+                <Text style={styles.tryOnHintArrow}>↓</Text>
+              </View>
+            ) : null}
             <Pressable
               onPress={() => {
                 if (inBag) return;
@@ -610,7 +630,11 @@ function make(colors: Colors) {
     expandBody: { color: colors.muted, fontSize: 13, lineHeight: 20 },
     actions: { flexDirection: "row", gap: 10, marginTop: 26 },
     tryAction: { flex: 1, minHeight: 52, borderRadius: 26, paddingHorizontal: 12, borderWidth: 1, borderColor: `${colors.bone}32`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+    tryActionHighlighted: { borderColor: colors.success, borderWidth: 2, backgroundColor: `${colors.success}22`, shadowColor: colors.success, shadowOpacity: 0.5, shadowRadius: 10, elevation: 6 },
     tryText: { color: colors.bone, fontSize: 14, fontWeight: "800" },
+    tryOnHint: { position: "absolute", left: 6, bottom: 62, width: 190, alignItems: "center" },
+    tryOnHintText: { color: colors.bone, fontSize: 13, lineHeight: 18, fontWeight: "700", textAlign: "center", textShadowColor: "rgba(0,0,0,0.7)", textShadowRadius: 6 },
+    tryOnHintArrow: { color: colors.success, fontSize: 34, lineHeight: 32, fontWeight: "800", marginTop: 2, textShadowColor: "rgba(0,0,0,0.5)", textShadowRadius: 5 },
     primaryAction: { flex: 1.3, minHeight: 52, borderRadius: 26, paddingHorizontal: 12, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     primaryText: { color: colors.successInk, fontSize: 14, fontWeight: "800" },
   });
