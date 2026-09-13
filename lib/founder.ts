@@ -277,7 +277,7 @@ export function ideaReady(project: FounderProject) {
 }
 
 export function pieceReady(project: FounderProject) {
-  return Boolean(project.product.name.trim() && project.product.category.trim() && project.product.photoUri && project.product.photoOk);
+  return Boolean(project.product.name.trim() && project.product.category.trim() && project.product.photoUri);
 }
 
 export function applyReady(project: FounderProject) {

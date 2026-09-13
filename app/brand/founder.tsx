@@ -11,6 +11,7 @@ import { useColors, type Colors } from "../../lib/theme";
 import { founderCloudCapability, type FounderCloudCapability } from "../../lib/firebase";
 import { useBrands } from "../../lib/brands";
 import { startFounderDesk } from "../../lib/founderDesk";
+import { reviewFounderPiece } from "../../lib/photoCheck";
 
 const STAGES: FounderStage[] = ["idea", "identity", "design", "product", "source", "launch"];
 const STAGE_LABELS: Record<FounderStage, string> = { idea: "Idea", identity: "Identity", design: "Design", product: "Product", source: "Source", launch: "Launch" };
@@ -229,6 +230,14 @@ export function FounderLaunchReview({ project, colors }: { project: FounderProje
     }
     setSending(true);
     try {
+      const latest = getFounderProject(project.id) || project;
+      const check = await reviewFounderPiece(latest.product.photoUri || "");
+      saveFounderProduct(project.id, { ...latest.product, photoOk: check.ok });
+      if (!check.ok) {
+        Alert.alert(check.headline || "The piece needs another look", check.reasons[0] || "Use a photo or sketch of the clothes.");
+        setSending(false);
+        return;
+      }
       await startFounderDesk({
         project,
         uid: app.uid,

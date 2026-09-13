@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { appendFounderReference, createFounderBoard, getFounderProject, ideaReady, pieceReady, saveFounderProduct, simpleStageOf, updateFounderProject, useFounderProjects } from "../../../lib/founder";
 import { pickFromLibrary, saveFounderPhotoReference } from "../../../lib/photo";
-import { reviewFounderPiece } from "../../../lib/photoCheck";
 import { brandApproved, ownedBrand, useBrands } from "../../../lib/brands";
 import { useUvel } from "../../../lib/store";
 import { useColors, type Colors } from "../../../lib/theme";
@@ -56,7 +55,7 @@ export default function FounderStagePage() {
       return;
     }
     if (stage === "product" && !pieceReady(project)) {
-      if (!project.product.photoOk) {
+      if (!project.product.photoUri) {
         Alert.alert("The piece", "A photo or a sketch of the clothes. Random pictures don’t pass.");
         return;
       }
@@ -85,20 +84,14 @@ export default function FounderStagePage() {
       const uri = await pickFromLibrary();
       if (!uri) return;
       setPhotoBusy(true);
-      setPhotoFail("");
       const saved = await saveFounderPhotoReference(uri);
       const target = board || createFounderBoard(project.id, "moodboard", "First piece");
       appendFounderReference(project.id, target.id, saved);
       setBoardId(target.id);
-      const check = await reviewFounderPiece(saved);
       const live = getFounderProject(project.id);
-      saveFounderProduct(project.id, { ...(live?.product || project.product), photoUri: saved, photoOk: check.ok });
-      if (!check.ok) {
-        setPhotoFail(check.reasons[0] || check.headline || "That isn’t the piece.");
-        Alert.alert(check.headline || "That isn’t the piece", check.reasons[0] || "Use a photo or a sketch of the clothes.");
-      }
+      saveFounderProduct(project.id, { ...(live?.product || project.product), photoUri: saved, photoOk: false });
     } catch (error) {
-      setPhotoFail("Couldn’t check that photo.");
+      setPhotoFail("Couldn’t save that photo.");
       Alert.alert("Photo", error instanceof Error ? error.message : "Couldn’t add that photo.");
     } finally {
       setPhotoBusy(false);
@@ -170,7 +163,7 @@ export default function FounderStagePage() {
               <View style={styles.editor}>
                 <Text style={styles.cardTitle}>Photo or sketch</Text>
                 {photo ? <Image source={{ uri: photo }} style={[local.photo, !project.product.photoOk && !photoBusy && { opacity: 0.55 }]} contentFit="cover" /> : null}
-                {photoBusy ? <View style={local.photoWait}><ActivityIndicator color={palette.success} /><Text style={[styles.cardBody, { color: palette.muted, marginBottom: 0 }]}>Looking at the piece…</Text></View> : null}
+                {photoBusy ? <View style={local.photoWait}><ActivityIndicator color={palette.success} /><Text style={[styles.cardBody, { color: palette.muted, marginBottom: 0 }]}>Saving the reference…</Text></View> : null}
                 {photoFail ? <Text style={[styles.cardBody, { color: palette.success }]}>{photoFail}</Text> : null}
                 <Pressable onPress={() => void addPhoto()} disabled={photoBusy} style={[local.ghost, { borderColor: palette.subtle, opacity: photoBusy ? 0.5 : 1 }]}><Text style={[styles.secondaryText, { color: palette.bone }]}>{photo ? "Replace photo" : "Add a photo"}</Text></Pressable>
                 {board && board.kind === "sketch" ? <SketchBoard board={board} projectId={project.id} colors={colors} /> : null}
