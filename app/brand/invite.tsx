@@ -74,7 +74,7 @@ export default function BrandInvite() {
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }} keyboardShouldPersistTaps="handled">
         <View style={styles.top}><Pressable onPress={() => router.back()} hitSlop={12} style={styles.back}><Text style={styles.backTxt}>‹</Text></Pressable><Text style={styles.topTitle}>Invite to {brand.name}</Text><View style={{ width: 40 }} /></View>
         <Text style={styles.title}>Bring the right people in.</Text>
-        <Text style={styles.p}>Search Uvel by name or username. Email invitations are not used here.</Text>
+        <Text style={styles.p}>Search Uvel by name or username.</Text>
         <Text style={styles.roleLabel}>Invite as</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roles}>{INVITE_ROLES.map((option) => <Pressable key={option.id} onPress={() => setRole(option.id)} style={[styles.roleChip, role === option.id && styles.roleChipOn]}><Text style={[styles.roleChipTxt, role === option.id && styles.roleChipTxtOn]}>{memberRoleLabel(option.id)}</Text></Pressable>)}</ScrollView>
         <Text style={styles.roleDetail}>{INVITE_ROLES.find((option) => option.id === role)?.detail}</Text>
@@ -86,7 +86,7 @@ export default function BrandInvite() {
         {q && !hits.length ? <Text style={styles.empty}>No Uvel profile found yet.</Text> : null}
         <View style={styles.divider} />
         <Text style={styles.section}>INVITE EXTERNALLY</Text>
-        <Text style={styles.p}>Create one link to send outside Uvel. New people can download and set up Uvel first; opening the link again takes them to this invite.</Text>
+        <Text style={styles.p}>Create one link to send outside Uvel. New people can download and set up Uvel first.</Text>
         {external ? <View style={styles.linkBox}><Text selectable style={styles.link}>{external}</Text><View style={styles.linkActions}><Pressable onPress={() => void copyExternal()}><Text style={styles.action}>{copied ? "Copied" : "Copy link"}</Text></Pressable><Pressable onPress={() => void shareExternal()}><Text style={styles.action}>Share</Text></Pressable></View></View> : <Pressable onPress={() => void makeExternalInvite()} style={styles.primary}><Text style={styles.primaryTxt}>Create invite link</Text></Pressable>}
       </ScrollView>
     </View>
