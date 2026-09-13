@@ -9,7 +9,7 @@ import { appendFounderReference, archiveFounderProject, applyReady, createFounde
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { founderCloudCapability, type FounderCloudCapability } from "../../lib/firebase";
-import { useBrands } from "../../lib/brands";
+import { ownedBrand, useBrands, useBrandsHydrated } from "../../lib/brands";
 import { startFounderDesk } from "../../lib/founderDesk";
 import { reviewFounderPiece } from "../../lib/photoCheck";
 
@@ -315,6 +315,8 @@ export default function FounderStudio() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { projects, hydrated } = useFounderProjects();
   const app = useUvel();
+  useBrands();
+  const brandsHydrated = useBrandsHydrated();
   const palette = useColors();
   const colors: FounderColors = { ...palette, ink: palette.bone, card: palette.surface, lineColor: palette.subtle, accent: palette.success, accentInk: palette.successInk };
   const stylesFor = make(colors);
@@ -333,6 +335,12 @@ export default function FounderStudio() {
   const archivedProjects = projects.filter((item) => item.archived);
   const project = activeProjects.find((item) => item.id === selectedId) || activeProjects[0];
   const board = project?.boards.find((item) => item.id === boardId) || project?.boards[0];
+  const existingBrand = app.uid ? ownedBrand(app.uid) : undefined;
+  useEffect(() => {
+    if (hydrated && brandsHydrated && existingBrand) {
+      router.replace({ pathname: "/brand/[id]", params: { id: existingBrand.id } });
+    }
+  }, [hydrated, brandsHydrated, existingBrand?.id]);
   useEffect(() => {
     if (hydrated && !activeProjects.length) setShowCreate(true);
   }, [hydrated, activeProjects.length]);
@@ -347,6 +355,10 @@ export default function FounderStudio() {
   const canvasWidth = Math.min(Math.max(width - 40, 280), 520);
 
   function createProject() {
+    if (existingBrand) {
+      router.replace({ pathname: "/brand/[id]", params: { id: existingBrand.id } });
+      return;
+    }
     if (!projectName.trim()) { Alert.alert("Name your project", "Give your first fashion idea a working name."); return; }
     const created = createFounderProject(projectName, projectDescription, app.uid);
     setSelectedId(created.id);
