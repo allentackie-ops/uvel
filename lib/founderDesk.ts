@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState } from "react-native";
 import { useEffect, useState } from "react";
 import { applyFounderReviewResult, openFounderBrand, submitFounderReview } from "./brands";
-import { updateFounderProject, type FounderProject } from "./founder";
+import { updateFounderProject, type FounderProject, pieceReady } from "./founder";
 import type { BrandReview } from "./brandVerify";
 import type { FounderFiling } from "./founderReview";
 import { armNotificationHandler, UVEL_SOUND } from "./push";
@@ -187,7 +187,10 @@ export async function startFounderDesk(input: {
 }) {
   await hydrate();
   const name = (input.project.identity.workingName || input.project.name).trim();
-  const photo = input.project.boards[0]?.references[0] || input.project.boards[0]?.imports.find((item) => item.kind === "image")?.uri;
+  const photo = input.project.product.photoUri || input.project.boards[0]?.references[0] || input.project.boards[0]?.imports.find((item) => item.kind === "image")?.uri;
+  if (!pieceReady(input.project) || !photo) {
+    throw new Error("A photo or a sketch of the clothes, a name, and a category.");
+  }
   updateFounderProject(input.project.id, {
     name,
     identity: { ...input.project.identity, workingName: name },

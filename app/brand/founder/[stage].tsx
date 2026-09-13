@@ -1,10 +1,11 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
-import { appendFounderReference, createFounderBoard, getFounderProject, ideaReady, pieceReady, simpleStageOf, updateFounderProject, useFounderProjects } from "../../../lib/founder";
+import { appendFounderReference, createFounderBoard, getFounderProject, ideaReady, pieceReady, saveFounderProduct, simpleStageOf, updateFounderProject, useFounderProjects } from "../../../lib/founder";
 import { pickFromLibrary, saveFounderPhotoReference } from "../../../lib/photo";
+import { reviewFounderPiece } from "../../../lib/photoCheck";
 import { brandApproved, ownedBrand, useBrands } from "../../../lib/brands";
 import { useUvel } from "../../../lib/store";
 import { useColors, type Colors } from "../../../lib/theme";
@@ -14,8 +15,8 @@ const JOURNEY = ["idea", "product", "launch"] as const;
 type JourneyStage = (typeof JOURNEY)[number];
 const TITLES: Record<JourneyStage, { kicker: string; title: string; body: string }> = {
   idea: { kicker: "01 · IDEA", title: "What’s the label?", body: "A name and who it’s for. That’s enough to start." },
-  product: { kicker: "02 · MAKE IT", title: "One piece.", body: "A photo, a name, and a category. Not a factory." },
-  launch: { kicker: "03 · READY", title: "Apply when this is true.", body: "Name + a piece. After you’re accepted, Brand HQ is shop, orders, and money." },
+  product: { kicker: "02 · MAKE IT", title: "One piece.", body: "A photo or a sketch of the clothes. A name. A category." },
+  launch: { kicker: "03 · READY", title: "Apply when this is true.", body: "Name + a real piece. After you’re accepted, Uvel makes it." },
 };
 type JourneyColors = Colors & { card: string; lineColor: string; accent: string; accentInk: string };
 
@@ -33,6 +34,8 @@ export default function FounderStagePage() {
   const stage = simpleStageOf(String(rawStage || project?.stage || "idea")) as JourneyStage;
   const index = JOURNEY.indexOf(stage);
   const [boardId, setBoardId] = useState("");
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoFail, setPhotoFail] = useState("");
   const board = project?.boards.find((item) => item.id === boardId) || project?.boards[0];
   useEffect(() => {
     if (!project) return;
@@ -53,6 +56,10 @@ export default function FounderStagePage() {
       return;
     }
     if (stage === "product" && !pieceReady(project)) {
+      if (!project.product.photoOk) {
+        Alert.alert("The piece", "A photo or a sketch of the clothes. Random pictures don’t pass.");
+        return;
+      }
       Alert.alert("One piece first", "Give the piece a name and a category.");
       return;
     }
@@ -73,16 +80,28 @@ export default function FounderStagePage() {
     setBoardId(created.id);
   };
   async function addPhoto() {
-    if (!project) return;
+    if (!project || photoBusy) return;
     try {
       const uri = await pickFromLibrary();
       if (!uri) return;
+      setPhotoBusy(true);
+      setPhotoFail("");
       const saved = await saveFounderPhotoReference(uri);
       const target = board || createFounderBoard(project.id, "moodboard", "First piece");
       appendFounderReference(project.id, target.id, saved);
       setBoardId(target.id);
+      const check = await reviewFounderPiece(saved);
+      const live = getFounderProject(project.id);
+      saveFounderProduct(project.id, { ...(live?.product || project.product), photoUri: saved, photoOk: check.ok });
+      if (!check.ok) {
+        setPhotoFail(check.reasons[0] || check.headline || "That isn’t the piece.");
+        Alert.alert(check.headline || "That isn’t the piece", check.reasons[0] || "Use a photo or a sketch of the clothes.");
+      }
     } catch (error) {
+      setPhotoFail("Couldn’t check that photo.");
       Alert.alert("Photo", error instanceof Error ? error.message : "Couldn’t add that photo.");
+    } finally {
+      setPhotoBusy(false);
     }
   }
 
@@ -104,7 +123,7 @@ export default function FounderStagePage() {
   }
 
   const title = TITLES[stage];
-  const photo = board?.references[0] || board?.imports.find((item) => item.kind === "image")?.uri;
+  const photo = project.product.photoUri || board?.references[0] || board?.imports.find((item) => item.kind === "image")?.uri;
 
   return (
     <View style={[local.page, { backgroundColor: palette.ink }]}>
@@ -150,10 +169,11 @@ export default function FounderStagePage() {
               <FounderProductEditor project={project} colors={colors} />
               <View style={styles.editor}>
                 <Text style={styles.cardTitle}>Photo or sketch</Text>
-                <Text style={styles.cardBody}>Optional. One still of the piece is enough.</Text>
-                {photo ? <Image source={{ uri: photo }} style={local.photo} contentFit="cover" /> : null}
+                {photo ? <Image source={{ uri: photo }} style={[local.photo, !project.product.photoOk && !photoBusy && { opacity: 0.55 }]} contentFit="cover" /> : null}
+                {photoBusy ? <View style={local.photoWait}><ActivityIndicator color={palette.success} /><Text style={[styles.cardBody, { color: palette.muted, marginBottom: 0 }]}>Looking at the piece…</Text></View> : null}
+                {photoFail ? <Text style={[styles.cardBody, { color: palette.success }]}>{photoFail}</Text> : null}
+                <Pressable onPress={() => void addPhoto()} disabled={photoBusy} style={[local.ghost, { borderColor: palette.subtle, opacity: photoBusy ? 0.5 : 1 }]}><Text style={[styles.secondaryText, { color: palette.bone }]}>{photo ? "Replace photo" : "Add a photo"}</Text></Pressable>
                 {board && board.kind === "sketch" ? <SketchBoard board={board} projectId={project.id} colors={colors} /> : null}
-                <Pressable onPress={() => void addPhoto()} style={[local.ghost, { borderColor: palette.subtle }]}><Text style={[styles.secondaryText, { color: palette.bone }]}>{photo ? "Replace photo" : "Add a photo"}</Text></Pressable>
                 <Pressable onPress={createBoard} style={styles.secondary}><Text style={styles.secondaryText}>{board ? "New sketch" : "Sketch instead"}</Text></Pressable>
               </View>
             </>
@@ -183,6 +203,7 @@ const local = StyleSheet.create({
   hero: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10 },
   content: { paddingHorizontal: 20 },
   photo: { width: "100%", height: 220, borderRadius: 16, marginBottom: 10, backgroundColor: "#161512" },
+  photoWait: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 },
   live: { marginHorizontal: 20, marginTop: 12, borderWidth: 1, borderRadius: 18, padding: 16 },
   liveKicker: { fontSize: 11, fontWeight: "800", letterSpacing: 1.4, marginBottom: 6 },
   ghost: { height: 50, borderRadius: 25, borderWidth: 1, alignItems: "center", justifyContent: "center", marginTop: 14 },

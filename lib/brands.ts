@@ -612,6 +612,8 @@ export function applyFounderReviewResult(id: string, result: BrandReview) {
       verifiedAt: Date.now(),
       rejectReasons: [],
       rejectHeadline: "",
+      madeByUvel: true,
+      madeByUvelAt: Date.now(),
     });
     return;
   }

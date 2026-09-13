@@ -217,11 +217,10 @@ export function FounderLaunchReview({ project, colors }: { project: FounderProje
   const name = (project.identity.workingName || project.name).trim();
   const piece = project.product.name.trim();
   const ready = applyReady(project);
-  const [more, setMore] = useState(false);
   const [sending, setSending] = useState(false);
   const openApplication = async () => {
     if (!ready || sending) {
-      if (!ready) Alert.alert("A name and a piece", [!ideaReady(project) ? "Name the label and who it’s for." : "", !pieceReady(project) ? "Add the first piece." : ""].filter(Boolean).join("\n"));
+      if (!ready) Alert.alert("A name and a piece", [!ideaReady(project) ? "Name the label and who it’s for." : "", !pieceReady(project) ? "A photo or a sketch of the clothes, a name, and a category." : ""].filter(Boolean).join("\n"));
       return;
     }
     if (!app.uid) {
@@ -246,15 +245,10 @@ export function FounderLaunchReview({ project, colors }: { project: FounderProje
   return <View style={styles.launchCard}>
     <View style={styles.launchChecks}>
       <View style={styles.launchCheck}><View style={[styles.taskCheck, ideaReady(project) && styles.taskCheckDone]}><Text style={styles.taskCheckText}>{ideaReady(project) ? "✓" : ""}</Text></View><View style={{ flex: 1 }}><Text style={styles.taskTitle}>{name || "Name the label"}</Text><Text style={styles.taskBody}>{project.brief.audience.trim() || "Who it’s for"}</Text></View></View>
-      <View style={styles.launchCheck}><View style={[styles.taskCheck, pieceReady(project) && styles.taskCheckDone]}><Text style={styles.taskCheckText}>{pieceReady(project) ? "✓" : ""}</Text></View><View style={{ flex: 1 }}><Text style={styles.taskTitle}>{piece || "First piece"}</Text><Text style={styles.taskBody}>{project.product.category || "A name and a category"}</Text></View></View>
+      <View style={styles.launchCheck}><View style={[styles.taskCheck, pieceReady(project) && styles.taskCheckDone]}><Text style={styles.taskCheckText}>{pieceReady(project) ? "✓" : ""}</Text></View><View style={{ flex: 1 }}><Text style={styles.taskTitle}>{piece || "First piece"}</Text><Text style={styles.taskBody}>{project.product.photoOk ? (project.product.category || "The piece") : "A photo or a sketch of the clothes"}</Text></View></View>
     </View>
     <Pressable onPress={() => void openApplication()} style={[styles.primary, (!ready || sending) && styles.primaryMuted]}><Text style={[styles.primaryText, (!ready || sending) && styles.primaryMutedText]}>{sending ? "Sending…" : ready ? "Apply as a brand" : "Finish the name and the piece"}</Text></Pressable>
-    <Pressable onPress={() => setMore((value) => !value)} style={styles.secondary}><Text style={styles.secondaryText}>{more ? "Hide more" : "More · makers and setup"}</Text></Pressable>
-    {more ? <>
-      <FounderSetupHub project={project} colors={colors} />
-      <FounderProductionWorkspace project={project} colors={colors} />
-    </> : null}
-    <Text style={styles.handoffHint}>We’ll take it from here. You’ll get a note when the review is done.</Text>
+    <Text style={styles.handoffHint}>Uvel makes it. You’ll get a note when the review is done.</Text>
   </View>;
 }
 
@@ -262,7 +256,7 @@ export function FounderProductEditor({ project, colors }: { project: FounderProj
   const styles = make(colors);
   const [product, setProduct] = useState(project.product);
   const [more, setMore] = useState(false);
-  useEffect(() => { setProduct(project.product); }, [project.id]);
+  useEffect(() => { setProduct(project.product); }, [project.id, project.product.photoUri, project.product.photoOk, project.product.name, project.product.category]);
   const setField = <K extends keyof typeof product>(key: K, value: (typeof product)[K]) => {
     setProduct((current) => {
       const next = { ...current, [key]: value };

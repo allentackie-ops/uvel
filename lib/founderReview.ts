@@ -2,6 +2,7 @@ import { httpsCallable } from "firebase/functions";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { firebaseFunctions, firebaseReady } from "./firebase";
 import type { BrandReview } from "./brandVerify";
+import { reviewFounderPiece } from "./photoCheck";
 
 export type FounderFiling = {
   name: string;
@@ -122,6 +123,24 @@ async function reviewFounderLocal(filing: FounderFiling): Promise<BrandReview> {
   }
   if (REPLICA_RE.test(copy)) {
     return { ok: false, decision: "rejected", headline: "Replica language", reasons: ["Uvel doesn’t take replica, 1:1, or “inspired by” famous-house listings. Take that language out and send again."], notes: "Replica language screen." };
+  }
+  const still = filing.photos.find(Boolean) || "";
+  if (!still) {
+    return { ok: false, decision: "needs_information", headline: "Need a photo of the first piece", reasons: ["Add a photo or a sketch of the clothes, then apply again."], notes: "Missing piece photo." };
+  }
+  try {
+    const piece = await reviewFounderPiece(still);
+    if (!piece.ok) {
+      return {
+        ok: false,
+        decision: "rejected",
+        headline: piece.headline || "That isn’t the piece",
+        reasons: piece.reasons.length ? piece.reasons : ["Use a photo or a sketch of the clothes."],
+        notes: "Piece photo screen.",
+      };
+    }
+  } catch {
+    return { ok: false, decision: "needs_information", headline: "Couldn’t check that photo", reasons: ["Try the piece photo again."], notes: "Piece photo check failed." };
   }
   const uspto = await searchUspto(name);
   const liveHit = uspto.find((item) => token(item.mark) === core && markLooksLive(item.status));

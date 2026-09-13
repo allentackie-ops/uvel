@@ -62,6 +62,8 @@ export type FounderProductBrief = {
   sampleStatus: "not-started" | "requested" | "received" | "changes-needed" | "approved";
   productionQuestions: string;
   boardId: string;
+  photoUri?: string;
+  photoOk?: boolean;
 };
 
 export type FounderProductSnapshot = FounderProductBrief & { version: number; savedAt: number };
@@ -159,7 +161,7 @@ export type FounderProject = {
 
 export const emptyFounderBrief = (): FounderBrief => ({ audience: "", category: "", pricePosition: "not-set", promise: "", values: "", tone: "", story: "" });
 export const defaultFounderIdentity = (): FounderIdentity => ({ workingName: "", handleIdeas: "", tone: "", story: "", colors: ["#D6E27A", "#F4F0E6", "#161512"], typography: "Warm editorial sans", logoDirection: "", photographyDirection: "", packagingNotes: "" });
-export const emptyFounderProduct = (): FounderProductBrief => ({ name: "", category: "", silhouette: "", fit: "", materials: "", trims: "", colorway: "", sizes: "", measurements: "", construction: "", care: "", targetUnitCost: "", targetPrice: "", sampleQuantity: "", sampleStatus: "not-started", productionQuestions: "", boardId: "" });
+export const emptyFounderProduct = (): FounderProductBrief => ({ name: "", category: "", silhouette: "", fit: "", materials: "", trims: "", colorway: "", sizes: "", measurements: "", construction: "", care: "", targetUnitCost: "", targetPrice: "", sampleQuantity: "", sampleStatus: "not-started", productionQuestions: "", boardId: "", photoUri: "", photoOk: false });
 export const defaultFounderIntegrations = (): FounderIntegration[] => [
   { id: "domain-email", label: "Domain & email", outcome: "A recognizable web address and professional inbox", status: "not-started", notes: "" },
   { id: "storefront", label: "Storefront", outcome: "A place where products can be sold", status: "not-started", notes: "" },
@@ -275,7 +277,7 @@ export function ideaReady(project: FounderProject) {
 }
 
 export function pieceReady(project: FounderProject) {
-  return Boolean(project.product.name.trim() && project.product.category.trim());
+  return Boolean(project.product.name.trim() && project.product.category.trim() && project.product.photoUri && project.product.photoOk);
 }
 
 export function applyReady(project: FounderProject) {
@@ -307,9 +309,14 @@ export function updateFounderTask(projectId: string, taskId: string, status: Fou
 export function saveFounderProduct(projectId: string, product: FounderProductBrief) {
   const project = getFounderProject(projectId);
   if (!project) return;
-  const changed = JSON.stringify(project.product) !== JSON.stringify(product);
+  const merged = { ...project.product, ...product };
+  if (!String(product.photoUri || "").trim()) {
+    merged.photoUri = project.product.photoUri;
+    merged.photoOk = project.product.photoOk;
+  }
+  const changed = JSON.stringify(project.product) !== JSON.stringify(merged);
   const nextVersion = project.productVersions.length ? Math.max(...project.productVersions.map((item) => item.version)) + 1 : 1;
-  updateFounderProject(projectId, { product, stage: "product", productVersions: changed ? [...project.productVersions, { ...product, version: nextVersion, savedAt: Date.now() }].slice(-10) : project.productVersions });
+  updateFounderProject(projectId, { product: merged, stage: "product", productVersions: changed ? [...project.productVersions, { ...merged, version: nextVersion, savedAt: Date.now() }].slice(-10) : project.productVersions });
 }
 
 export function updateFounderProject(id: string, patch: Partial<FounderProject>) {
