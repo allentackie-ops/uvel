@@ -142,7 +142,7 @@ export async function reviewListingPhoto(uri: string): Promise<PhotoReview> {
               { type: "image", source: { type: "base64", media_type: mime, data } },
               {
                 type: "text",
-                text: `You are the listing editor for Uvel, a secondhand clothes app. Buyers need a useful, honest view of the fashion item or design being submitted.
+                text: `You are the listing editor for Uvel, a secondhand clothes app. Buyers need to clearly see the garment.
 
 Return ONLY JSON:
 {
@@ -159,11 +159,9 @@ Return ONLY JSON:
   "description": string
 }
 
-The upload field accepts both a photo and a sketch. Treat all of these as valid fashion references when the subject is identifiable and relevant to a wearable item: a real garment, flat lay, hanger photo, mirror photo, product/editorial image, fashion illustration, line drawing, silhouette, or stylized monochrome design reference. A dark or minimal background, dramatic contrast, typography, a brand mark, or a partially abstract/stylized treatment is not by itself a reason to reject it.
+ok is false when a buyer could not fairly judge the piece: blurry, too dark, item cropped or tiny, heavy clutter, screenshot/meme, not clothing/accessories, or the clothes are hidden.
 
-ok is false only when a buyer could not fairly judge what is being offered: genuinely unreadable blur, extreme darkness that hides the subject, item cropped or tiny, heavy clutter, an ordinary app/web screenshot or meme, an unrelated logo/graphic with no identifiable fashion item or design reference, not clothing/accessories, or the clothes/design are hidden. Do not require a photorealistic garment when the field allows a sketch.
-
-ok is true if the garment or fashion design/reference is the focus and sufficiently clear to identify its wearable purpose — on a hanger, flat lay, worn in a mirror pic, editorial image, or sketch is fine. Judge the submitted image itself, not assumptions about the camera or app that produced it.
+ok is true if the garment is the focus and clearly visible — on a hanger, flat lay, or worn in a mirror pic is fine.
 
 issues: max 2 short sentences, plain English, no jargon.
 tip: one sentence on how to reshoot if ok is false, else "".
@@ -183,9 +181,7 @@ brand: guess or "".`,
   if (!res.ok) throw new Error(json.error?.message || "Couldn’t check that photo.");
   const parsed = parseJson(json.content?.[0]?.text ?? "{}");
   const issues = Array.isArray(parsed.issues) ? parsed.issues.map((x) => String(x)).filter(Boolean).slice(0, 2) : [];
-  // Require an actual JSON boolean. Boolean("false") is true and would turn a
-  // model rejection into an approval if a provider ever returns quoted JSON.
-  const ok = parsed.ok === true;
+  const ok = Boolean(parsed.ok);
   return {
     ok,
     score: Math.max(1, Math.min(10, Number(parsed.score) || (ok ? 7 : 3))),
@@ -251,16 +247,14 @@ Condition: ${opts.condition}
 Price: $${opts.price}
 Description: ${opts.notes || "(none)"}
 
-Approve ONLY wearable fashion: clothes, shoes, bags, jewelry, scarves, belts, hats, hair accessories, or a clearly identifiable fashion design/reference submitted through the photo-or-sketch field.
-
-The photo-or-sketch field intentionally accepts real garments as well as fashion illustrations, line drawings, silhouettes, product/editorial references, and stylized monochrome designs. A dark background, typography, brand mark, or abstract treatment is not by itself a violation when the image is clearly a fashion reference.
+Approve ONLY wearable fashion: clothes, shoes, bags, jewelry, scarves, belts, hats, hair accessories.
 
 ok must be false if ANY of these:
 - weapons, drugs, vapes, alcohol, tobacco, medicine
 - adult/sexual content, nudes, fetish
 - hate, violence, self-harm
 - live animals, food, plants as the product
-- trash, memes, ordinary app/web screenshots, receipts, or unrelated graphics with no identifiable fashion item/design
+- trash, memes, screenshots, receipts, not a real item
 - the photos don’t show the item
 - title is nonsense / doesn’t match the photos
 - counterfeit sold as authentic when it’s obviously fake packaging/tags
