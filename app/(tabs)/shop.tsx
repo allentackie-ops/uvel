@@ -35,7 +35,7 @@ import { getMarket, moneyExact } from "../../lib/markets";
 const MIN_REFRESH_MS = 1200;
 const ORBIT_SLOT = 96;
 // Bump this key to re-arm the hand gesture once for the current OTA test build.
-const TODAY_SWIPE_HINT_KEY = "uvel-today-swipe-hint-seen-v4";
+const TODAY_SWIPE_HINT_KEY = "uvel-today-swipe-hint-seen-v5";
 const TODAY_SWIPE_HINT_MS = 10000;
 const TODAY_LISTING_OPENS_KEY = "uvel-today-listing-opens-v1";
 const TODAY_DOUBLE_TAP_HINT_SHOWN_KEY = "uvel-today-double-tap-hint-shown-v1";
