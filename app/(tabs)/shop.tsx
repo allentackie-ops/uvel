@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
-import { FontAwesome6, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -44,7 +44,7 @@ const swipeHintStyles = StyleSheet.create({
   swipeHint: { position: "absolute", top: 250, left: 0, right: 0, alignItems: "center", zIndex: 30 },
   swipeHintTitle: { color: "#F4F0E6", fontSize: 22, fontWeight: "800", textAlign: "center", marginHorizontal: 28, textShadowColor: "#000000", textShadowRadius: 8 },
   swipeHintTrack: { height: 172, width: 150, alignItems: "center", marginTop: 10 },
-  swipeHintHand: { alignItems: "center", justifyContent: "center", height: 126, width: 126, textShadowColor: "#000000", textShadowRadius: 8 },
+  swipeHintHand: { alignItems: "center", justifyContent: "center", height: 142, width: 142, shadowColor: "#000000", shadowOpacity: 0.45, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
   swipeHintArrow: { position: "absolute", top: 0, alignItems: "center" },
   swipeHintArrowText: { color: "#F4F0E6", fontSize: 76, lineHeight: 70, fontWeight: "900", textShadowColor: "#000000", textShadowRadius: 8 },
 });
@@ -140,7 +140,7 @@ function TodaySwipeHint({ onDismiss }: { onDismiss: () => void }) {
       <Text style={swipeHintStyles.swipeHintTitle}>Swipe down to see more items</Text>
       <View style={swipeHintStyles.swipeHintTrack}>
         <Animated.View style={[swipeHintStyles.swipeHintHand, { opacity: handOpacity, transform: [{ translateY: handY }] }]}>
-          <FontAwesome6 name="hand-point-down" size={112} color="#F4F0E6" />
+          <Image source={require("../../assets/onboarding/today-swipe-hand-b.png")} style={{ width: 142, height: 142 }} contentFit="contain" />
         </Animated.View>
         <View style={swipeHintStyles.swipeHintArrow}>
           <Text style={swipeHintStyles.swipeHintArrowText}>↓</Text>
