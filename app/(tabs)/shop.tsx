@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, Easing, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Animated, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
@@ -43,10 +43,8 @@ const TODAY_DOUBLE_TAP_HINT_SHOWN_KEY = "uvel-today-double-tap-hint-shown-v1";
 const swipeHintStyles = StyleSheet.create({
   swipeHint: { position: "absolute", top: 250, left: 0, right: 0, alignItems: "center", zIndex: 30 },
   swipeHintTitle: { color: "#F4F0E6", fontSize: 22, fontWeight: "800", textAlign: "center", marginHorizontal: 28, textShadowColor: "#000000", textShadowRadius: 8 },
-  swipeHintTrack: { height: 172, width: 150, alignItems: "center", marginTop: 10 },
-  swipeHintHand: { alignItems: "center", justifyContent: "center", height: 142, width: 142, shadowColor: "#000000", shadowOpacity: 0.45, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
-  swipeHintArrow: { position: "absolute", top: 0, alignItems: "center" },
-  swipeHintArrowText: { color: "#F4F0E6", fontSize: 76, lineHeight: 70, fontWeight: "900", textShadowColor: "#000000", textShadowRadius: 8 },
+  swipeHintTrack: { height: 190, width: 150, alignItems: "center", marginTop: 10 },
+  swipeHintHand: { alignItems: "center", justifyContent: "center", height: 190, width: 150, shadowColor: "#000000", shadowOpacity: 0.45, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
 });
 
 const orbitTop = {
@@ -111,16 +109,11 @@ function FrozenClip({
 }
 
 function TodaySwipeHint({ onDismiss }: { onDismiss: () => void }) {
-  const handY = useRef(new Animated.Value(-34)).current;
   const handOpacity = useRef(new Animated.Value(0.35)).current;
 
   useEffect(() => {
     const animation = Animated.loop(
       Animated.parallel([
-        Animated.sequence([
-          Animated.timing(handY, { toValue: 34, duration: 1050, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-          Animated.timing(handY, { toValue: -34, duration: 0, useNativeDriver: true }),
-        ]),
         Animated.sequence([
           Animated.timing(handOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
           Animated.timing(handOpacity, { toValue: 0.35, duration: 700, useNativeDriver: true }),
@@ -133,18 +126,15 @@ function TodaySwipeHint({ onDismiss }: { onDismiss: () => void }) {
       animation.stop();
       clearTimeout(timeout);
     };
-  }, [handOpacity, handY, onDismiss]);
+  }, [handOpacity, onDismiss]);
 
   return (
     <View pointerEvents="none" style={swipeHintStyles.swipeHint}>
-      <Text style={swipeHintStyles.swipeHintTitle}>Swipe down to see more items</Text>
+      <Text style={swipeHintStyles.swipeHintTitle}>Swipe up to start watching</Text>
       <View style={swipeHintStyles.swipeHintTrack}>
-        <Animated.View style={[swipeHintStyles.swipeHintHand, { opacity: handOpacity, transform: [{ translateY: handY }] }]}>
-          <Image source={require("../../assets/onboarding/today-swipe-hand-b.png")} style={{ width: 142, height: 142 }} contentFit="contain" />
+        <Animated.View style={[swipeHintStyles.swipeHintHand, { opacity: handOpacity }]}>
+          <Image source={require("../../assets/onboarding/today-swipe-hand-recorded.gif")} style={{ width: 150, height: 190 }} contentFit="contain" />
         </Animated.View>
-        <View style={swipeHintStyles.swipeHintArrow}>
-          <Text style={swipeHintStyles.swipeHintArrowText}>↓</Text>
-        </View>
       </View>
     </View>
   );
