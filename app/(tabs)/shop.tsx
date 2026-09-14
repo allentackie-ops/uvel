@@ -37,6 +37,7 @@ const ORBIT_SLOT = 96;
 const TODAY_SWIPE_HINT_KEY = "uvel-today-swipe-hint-seen-v1";
 const TODAY_SWIPE_HINT_MS = 10000;
 const TODAY_LISTING_OPENS_KEY = "uvel-today-listing-opens-v1";
+const TODAY_DOUBLE_TAP_HINT_SHOWN_KEY = "uvel-today-double-tap-hint-shown-v1";
 
 const swipeHintStyles = StyleSheet.create({
   swipeHint: { position: "absolute", top: 0, left: 0, right: 0, alignItems: "center", zIndex: 30 },
@@ -170,6 +171,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const [showDoubleTapHint, setShowDoubleTapHint] = useState(false);
   const [firstListingForHint, setFirstListingForHint] = useState(false);
   const listingOpensRef = useRef<number | null>(null);
+  const doubleTapHintShownRef = useRef(false);
+  const listingOpenWorkRef = useRef(Promise.resolve());
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
@@ -186,13 +189,27 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const openTodayListing = useCallback(async (piece: ClosetPiece, origin: ListingOrigin) => {
     setOpenOrigin(origin);
     setOpenPiece(piece);
-    if (!app.profileDone || listingOpensRef.current === 2) return;
-    const stored = listingOpensRef.current ?? Number(await AsyncStorage.getItem(TODAY_LISTING_OPENS_KEY) || 0);
-    const next = Math.min(stored + 1, 2);
-    listingOpensRef.current = next;
-    void AsyncStorage.setItem(TODAY_LISTING_OPENS_KEY, String(next));
-    setFirstListingForHint(next === 1);
-    if (next === 2) setShowDoubleTapHint(true);
+    if (!app.profileDone) return;
+    listingOpenWorkRef.current = listingOpenWorkRef.current.then(async () => {
+      if (doubleTapHintShownRef.current) return;
+      const storedHintShown = await AsyncStorage.getItem(TODAY_DOUBLE_TAP_HINT_SHOWN_KEY);
+      if (storedHintShown === "1") {
+        doubleTapHintShownRef.current = true;
+        return;
+      }
+      const stored = listingOpensRef.current ?? Number(await AsyncStorage.getItem(TODAY_LISTING_OPENS_KEY) || 0);
+      listingOpensRef.current = stored;
+      if (stored >= 2) return;
+      const next = stored + 1;
+      listingOpensRef.current = next;
+      await AsyncStorage.setItem(TODAY_LISTING_OPENS_KEY, String(next));
+      setFirstListingForHint(next === 1);
+      if (next === 2) {
+        doubleTapHintShownRef.current = true;
+        await AsyncStorage.setItem(TODAY_DOUBLE_TAP_HINT_SHOWN_KEY, "1");
+        setShowDoubleTapHint(true);
+      }
+    }).catch(() => undefined);
   }, [app.profileDone]);
   useEffect(() => {
     if (!findHint) return;
