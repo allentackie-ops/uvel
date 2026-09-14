@@ -482,29 +482,34 @@ export function TodayListingOverlay({
             ) : null}
           </View>
           <View style={styles.actions}>
-            <Pressable onPress={() => { setShowTryOnHint(false); onInteraction?.("try_on", piece); router.push({ pathname: "/try-on", params: { piece: piece.id } }); }} style={[styles.tryAction, showTryOnHint && styles.tryActionHighlighted]} accessibilityRole="button" accessibilityLabel="Try this listing on">
-              <Ionicons name="body-outline" size={18} color={colors.bone} />
-              <Text style={styles.tryText}>Try it on</Text>
-            </Pressable>
             {showTryOnHint ? (
               <View pointerEvents="none" style={styles.tryOnHint}>
-                <Text style={styles.tryOnHintText}>See how this looks on you right now</Text>
-                <Text style={styles.tryOnHintArrow}>↓</Text>
+                <View style={styles.tryOnHintCopy}>
+                  <Text style={styles.tryOnHintText}>See how this looks on you right now</Text>
+                  <Text style={styles.tryOnHintSubtext}>Tap Try it on below</Text>
+                </View>
+                <Ionicons name="arrow-down" size={24} color={colors.success} />
               </View>
             ) : null}
-            <Pressable
-              onPress={() => {
-                if (inBag) return;
-                addToCart(piece.id);
-                void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
-              }}
-              style={styles.primaryAction}
-              accessibilityRole="button"
-              accessibilityLabel={inBag ? `${piece.name} is in your cart` : `Add ${piece.name} to cart`}
-            >
-              <Text style={styles.primaryText}>{inBag ? "In cart" : "Add to cart"}</Text>
-              <Ionicons name={inBag ? "checkmark" : "bag-handle-outline"} size={17} color={colors.successInk} />
-            </Pressable>
+            <View style={styles.actionRow}>
+              <Pressable onPress={() => { setShowTryOnHint(false); onInteraction?.("try_on", piece); router.push({ pathname: "/try-on", params: { piece: piece.id } }); }} style={[styles.tryAction, showTryOnHint && styles.tryActionHighlighted]} accessibilityRole="button" accessibilityLabel="Try this listing on">
+                <Ionicons name="body-outline" size={18} color={colors.bone} />
+                <Text style={styles.tryText}>Try it on</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  if (inBag) return;
+                  addToCart(piece.id);
+                  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+                }}
+                style={styles.primaryAction}
+                accessibilityRole="button"
+                accessibilityLabel={inBag ? `${piece.name} is in your cart` : `Add ${piece.name} to cart`}
+              >
+                <Text style={styles.primaryText}>{inBag ? "In cart" : "Add to cart"}</Text>
+                <Ionicons name={inBag ? "checkmark" : "bag-handle-outline"} size={17} color={colors.successInk} />
+              </Pressable>
+            </View>
           </View>
           </View>
         </AnimatedScrollView>
@@ -628,13 +633,15 @@ function make(colors: Colors) {
     expandContent: { paddingVertical: 14, gap: 10 },
     emptyDetail: { color: colors.muted, fontSize: 13, lineHeight: 20 },
     expandBody: { color: colors.muted, fontSize: 13, lineHeight: 20 },
-    actions: { flexDirection: "row", gap: 10, marginTop: 26 },
+    actions: { marginTop: 26 },
+    actionRow: { flexDirection: "row", gap: 10 },
     tryAction: { flex: 1, minHeight: 52, borderRadius: 26, paddingHorizontal: 12, borderWidth: 1, borderColor: `${colors.bone}32`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     tryActionHighlighted: { borderColor: colors.success, borderWidth: 2, backgroundColor: `${colors.success}22`, shadowColor: colors.success, shadowOpacity: 0.5, shadowRadius: 10, elevation: 6 },
     tryText: { color: colors.bone, fontSize: 14, fontWeight: "800" },
-    tryOnHint: { position: "absolute", left: 6, bottom: 62, width: 190, alignItems: "center" },
-    tryOnHintText: { color: colors.bone, fontSize: 13, lineHeight: 18, fontWeight: "700", textAlign: "center", textShadowColor: "rgba(0,0,0,0.7)", textShadowRadius: 6 },
-    tryOnHintArrow: { color: colors.success, fontSize: 34, lineHeight: 32, fontWeight: "800", marginTop: 2, textShadowColor: "rgba(0,0,0,0.5)", textShadowRadius: 5 },
+    tryOnHint: { minHeight: 62, marginBottom: 12, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: `${colors.success}88`, backgroundColor: `${colors.success}18`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12 },
+    tryOnHintCopy: { flex: 1 },
+    tryOnHintText: { color: colors.bone, fontSize: 14, lineHeight: 19, fontWeight: "800" },
+    tryOnHintSubtext: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 2 },
     primaryAction: { flex: 1.3, minHeight: 52, borderRadius: 26, paddingHorizontal: 12, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     primaryText: { color: colors.successInk, fontSize: 14, fontWeight: "800" },
   });
