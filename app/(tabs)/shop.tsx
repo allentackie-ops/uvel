@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
-import { Ionicons } from "@expo/vector-icons";
+import { FontAwesome6, Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -35,18 +35,18 @@ import { getMarket, moneyExact } from "../../lib/markets";
 const MIN_REFRESH_MS = 1200;
 const ORBIT_SLOT = 96;
 // Bump this key to re-arm the hand gesture once for the current OTA test build.
-const TODAY_SWIPE_HINT_KEY = "uvel-today-swipe-hint-seen-v3";
+const TODAY_SWIPE_HINT_KEY = "uvel-today-swipe-hint-seen-v4";
 const TODAY_SWIPE_HINT_MS = 10000;
 const TODAY_LISTING_OPENS_KEY = "uvel-today-listing-opens-v1";
 const TODAY_DOUBLE_TAP_HINT_SHOWN_KEY = "uvel-today-double-tap-hint-shown-v1";
 
 const swipeHintStyles = StyleSheet.create({
-  swipeHint: { position: "absolute", top: 0, left: 0, right: 0, alignItems: "center", zIndex: 30 },
-  swipeHintTitle: { color: "#F4F0E6", fontSize: 18, fontWeight: "800", textAlign: "center", marginHorizontal: 28, textShadowColor: "#000000", textShadowRadius: 8 },
-  swipeHintTrack: { height: 120, width: 100, alignItems: "center", justifyContent: "flex-end", marginTop: 10 },
-  swipeHintHand: { color: "#F4F0E6", fontSize: 58, lineHeight: 66, textShadowColor: "#000000", textShadowRadius: 8 },
-  swipeHintChevron: { position: "absolute", bottom: 0, alignItems: "center" },
-  swipeHintChevronText: { color: "#D6E27A", fontSize: 44, lineHeight: 40, fontWeight: "800", textShadowColor: "#000000", textShadowRadius: 8 },
+  swipeHint: { position: "absolute", top: 250, left: 0, right: 0, alignItems: "center", zIndex: 30 },
+  swipeHintTitle: { color: "#F4F0E6", fontSize: 22, fontWeight: "800", textAlign: "center", marginHorizontal: 28, textShadowColor: "#000000", textShadowRadius: 8 },
+  swipeHintTrack: { height: 172, width: 150, alignItems: "center", marginTop: 10 },
+  swipeHintHand: { alignItems: "center", justifyContent: "center", height: 126, width: 126, textShadowColor: "#000000", textShadowRadius: 8 },
+  swipeHintArrow: { position: "absolute", top: 0, alignItems: "center" },
+  swipeHintArrowText: { color: "#F4F0E6", fontSize: 76, lineHeight: 70, fontWeight: "900", textShadowColor: "#000000", textShadowRadius: 8 },
 });
 
 const orbitTop = {
@@ -139,8 +139,12 @@ function TodaySwipeHint({ onDismiss }: { onDismiss: () => void }) {
     <View pointerEvents="none" style={swipeHintStyles.swipeHint}>
       <Text style={swipeHintStyles.swipeHintTitle}>Swipe down to see more items</Text>
       <View style={swipeHintStyles.swipeHintTrack}>
-        <Animated.Text style={[swipeHintStyles.swipeHintHand, { opacity: handOpacity, transform: [{ translateY: handY }] }]}>☝︎</Animated.Text>
-        <View style={swipeHintStyles.swipeHintChevron}><Text style={swipeHintStyles.swipeHintChevronText}>⌄</Text></View>
+        <Animated.View style={[swipeHintStyles.swipeHintHand, { opacity: handOpacity, transform: [{ translateY: handY }] }]}>
+          <FontAwesome6 name="hand-point-down" size={112} color="#F4F0E6" />
+        </Animated.View>
+        <View style={swipeHintStyles.swipeHintArrow}>
+          <Text style={swipeHintStyles.swipeHintArrowText}>↓</Text>
+        </View>
       </View>
     </View>
   );
