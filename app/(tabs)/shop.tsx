@@ -35,7 +35,7 @@ import { getMarket, moneyExact } from "../../lib/markets";
 const MIN_REFRESH_MS = 1200;
 const ORBIT_SLOT = 96;
 // Bump this key to re-arm the hand gesture once for the current OTA test build.
-const TODAY_SWIPE_HINT_KEY = "uvel-today-swipe-hint-seen-v2";
+const TODAY_SWIPE_HINT_KEY = "uvel-today-swipe-hint-seen-v3";
 const TODAY_SWIPE_HINT_MS = 10000;
 const TODAY_LISTING_OPENS_KEY = "uvel-today-listing-opens-v1";
 const TODAY_DOUBLE_TAP_HINT_SHOWN_KEY = "uvel-today-double-tap-hint-shown-v1";
@@ -225,7 +225,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   }, [app.hydrated, app.saved.join("|")]);
 
   useEffect(() => {
-    if (!todayHome || !app.hydrated || !app.profileDone) return;
+    if (!todayHome || !app.hydrated) return;
     let active = true;
     void AsyncStorage.getItem(TODAY_SWIPE_HINT_KEY).then((seen) => {
       if (active && seen !== "1") {
@@ -236,7 +236,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     return () => {
       active = false;
     };
-  }, [app.hydrated, app.profileDone, todayHome]);
+  }, [app.hydrated, todayHome]);
 
   const look = useMemo(
     () => (typeof lookParam === "string" ? bundledLooks().find((l) => l.id === lookParam) : undefined),
