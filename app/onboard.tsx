@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -127,6 +128,48 @@ function DriftRow({
   );
 }
 
+function SwipeDownCoach({ top }: { top: number }) {
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    progress.value = withTiming(1, {
+      duration: 1350,
+      easing: Easing.inOut(Easing.cubic),
+    });
+    const loop = setInterval(() => {
+      progress.value = 0;
+      progress.value = withTiming(1, {
+        duration: 1350,
+        easing: Easing.inOut(Easing.cubic),
+      });
+    }, 1850);
+    return () => clearInterval(loop);
+  }, [progress]);
+
+  const handStyle = useAnimatedStyle(() => ({
+    opacity: progress.value < 0.08 ? progress.value / 0.08 : progress.value > 0.9 ? (1 - progress.value) / 0.1 : 1,
+    transform: [{ translateY: -26 + progress.value * 66 }, { scale: 1 + Math.sin(progress.value * Math.PI) * 0.035 }],
+  }));
+
+  const cueStyle = useAnimatedStyle(() => ({
+    opacity: 0.28 + progress.value * 0.58,
+    transform: [{ translateY: progress.value * 8 }],
+  }));
+
+  return (
+    <View pointerEvents="none" style={[styles.swipeCoach, { top }]} accessibilityLabel="Swipe down to see more items">
+      <Text style={styles.swipeCoachText}>Swipe down to see more items</Text>
+      <Animated.View style={[styles.swipeHand, handStyle]}>
+        <MaterialCommunityIcons name="gesture-swipe-down" size={112} color="#F4F0E6" />
+      </Animated.View>
+      <Animated.View style={[styles.swipeCue, cueStyle]}>
+        <MaterialCommunityIcons name="chevron-down" size={28} color="#D6E27A" />
+        <MaterialCommunityIcons name="chevron-down" size={28} color="#D6E27A" style={styles.swipeCueMiddle} />
+      </Animated.View>
+    </View>
+  );
+}
+
 function Catalog({
   onSignUp,
   onLogIn,
@@ -156,6 +199,7 @@ function Catalog({
         <View style={{ height: 10 }} />
         <DriftRow source={STRIP_B} height={tileH} duration={46000} reverse />
       </View>
+      <SwipeDownCoach top={gridTop + gridH * 0.27} />
       <View
         style={[
           styles.marketCopy,
@@ -955,6 +999,37 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#12140A" },
   market: { flex: 1, backgroundColor: "#12140A" },
   grid: { overflow: "hidden" },
+  swipeCoach: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 4,
+  },
+  swipeCoachText: {
+    color: "#F4F0E6",
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.35,
+    textAlign: "center",
+    textShadowColor: "rgba(0,0,0,0.3)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 5,
+  },
+  swipeHand: {
+    height: 116,
+    marginTop: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  swipeCue: {
+    height: 42,
+    marginTop: 3,
+    alignItems: "center",
+  },
+  swipeCueMiddle: {
+    marginTop: -17,
+  },
   marketCopy: { flex: 1, paddingHorizontal: 22, paddingTop: 22 },
   skip: { position: "absolute", right: 18, zIndex: 8 },
   skipText: { color: "rgba(255,255,255,0.82)", fontSize: 13, letterSpacing: 0.6 },
