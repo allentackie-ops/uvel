@@ -198,6 +198,7 @@ export async function startFounderDesk(input: {
   });
   const brand = await openFounderBrand({
     name,
+    handle: input.project.identity.username,
     audience: input.project.brief.audience,
     story: input.project.identity.story || input.project.brief.story || input.project.brief.audience,
     vertical: input.project.product.category || "Unisex",

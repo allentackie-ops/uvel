@@ -494,6 +494,7 @@ export async function createBrand(input: {
 
 export async function openFounderBrand(input: {
   name: string;
+  handle?: string;
   audience?: string;
   story?: string;
   vertical?: string;
@@ -506,7 +507,7 @@ export async function openFounderBrand(input: {
   const name = input.name.trim();
   const base = slugify(name) || "label";
   const existing = ownedBrand(input.ownerId);
-  let handle = existing?.handle || base;
+  let handle = existing?.handle || input.handle?.toLowerCase().replace(/[^a-z0-9]/g, "") || base;
   if (!handleFree(handle, existing?.id)) {
     let n = 1;
     while (!handleFree(`${base}${n}`, existing?.id) && n < 99) n += 1;

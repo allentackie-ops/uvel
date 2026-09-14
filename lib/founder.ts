@@ -34,6 +34,7 @@ export type FounderBrief = {
 
 export type FounderIdentity = {
   workingName: string;
+  username: string;
   handleIdeas: string;
   tone: string;
   story: string;
@@ -160,7 +161,7 @@ export type FounderProject = {
 };
 
 export const emptyFounderBrief = (): FounderBrief => ({ audience: "", category: "", pricePosition: "not-set", promise: "", values: "", tone: "", story: "" });
-export const defaultFounderIdentity = (): FounderIdentity => ({ workingName: "", handleIdeas: "", tone: "", story: "", colors: ["#D6E27A", "#F4F0E6", "#161512"], typography: "Warm editorial sans", logoDirection: "", photographyDirection: "", packagingNotes: "" });
+export const defaultFounderIdentity = (): FounderIdentity => ({ workingName: "", username: "", handleIdeas: "", tone: "", story: "", colors: ["#D6E27A", "#F4F0E6", "#161512"], typography: "Warm editorial sans", logoDirection: "", photographyDirection: "", packagingNotes: "" });
 export const emptyFounderProduct = (): FounderProductBrief => ({ name: "", category: "", silhouette: "", fit: "", materials: "", trims: "", colorway: "", sizes: "", measurements: "", construction: "", care: "", targetUnitCost: "", targetPrice: "", sampleQuantity: "", sampleStatus: "not-started", productionQuestions: "", boardId: "", photoUri: "", photoOk: false });
 export const defaultFounderIntegrations = (): FounderIntegration[] => [
   { id: "domain-email", label: "Domain & email", outcome: "A recognizable web address and professional inbox", status: "not-started", notes: "" },
@@ -273,7 +274,7 @@ export function createFounderProject(name: string, description = "", ownerId = v
 }
 
 export function ideaReady(project: FounderProject) {
-  return Boolean((project.identity.workingName || project.name).trim() && project.brief.audience.trim());
+  return Boolean((project.identity.workingName || project.name).trim() && project.identity.username.trim() && project.brief.audience.trim());
 }
 
 export function pieceReady(project: FounderProject) {

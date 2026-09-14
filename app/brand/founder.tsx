@@ -242,7 +242,7 @@ export function FounderLaunchReview({ project, colors }: { project: FounderProje
         project,
         uid: app.uid,
         displayName: app.displayName || "Owner",
-        avatarUri: app.avatarUri || app.personUri,
+        avatarUri: app.avatarUri || app.personUri || undefined,
         country: app.country,
       });
       router.replace("/");
@@ -307,6 +307,7 @@ export function FounderStrategy({ project, colors }: { project: FounderProject; 
   };
   return <View style={styles.strategyCard}>
     <TextInput value={identity.workingName} onChangeText={(workingName) => setIdentity((current) => { const next = { ...current, workingName }; persist(brief, next); return next; })} placeholder="Name" placeholderTextColor={colors.muted} style={[styles.input, { marginTop: 0 }]} />
+    <TextInput value={identity.username} onChangeText={(username) => setIdentity((current) => { const next = { ...current, username: username.replace(/^@/, "").replace(/[^a-zA-Z0-9_]/g, "").toLowerCase() }; persist(brief, next); return next; })} placeholder="Brand username · e.g. apion" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={styles.input} />
     <TextInput value={brief.audience} onChangeText={(value) => setBriefField("audience", value)} placeholder="Who it’s for" placeholderTextColor={colors.muted} style={styles.input} />
   </View>;
 }
