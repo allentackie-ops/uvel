@@ -1,11 +1,10 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandBanner } from "../../components/BrandBanner";
 import { BRAND_THEMES } from "../../lib/brandThemes";
-import { canStudio, getBrand, inquiryRecipients, memberRoleLabel, removeMember, themeFor, updateBrand, uploadBrandAsset, useBrands } from "../../lib/brands";
+import { canStudio, getBrand, themeFor, updateBrand, uploadBrandAsset, useBrands } from "../../lib/brands";
 import { pickBannerImage, pickBannerVideo, pickLogo } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
 
@@ -15,9 +14,6 @@ export default function BrandStudio() {
   const app = useUvel();
   const insets = useSafeAreaInsets();
   const brand = getBrand(id);
-  const [bg, setBg] = useState(brand?.custom?.bg ?? "");
-  const [ink, setInk] = useState(brand?.custom?.ink ?? "");
-  const [accent, setAccent] = useState(brand?.custom?.accent ?? "");
 
   if (!brand || !canStudio(brand, app.uid)) {
     return (
@@ -32,27 +28,6 @@ export default function BrandStudio() {
 
   const currentBrand = brand;
   const theme = themeFor(currentBrand);
-
-  function toggleInquiryRecipient(uid: string) {
-    const current = currentBrand.inquiryMemberIds?.length ? currentBrand.inquiryMemberIds : [currentBrand.ownerId];
-    const next = current.includes(uid) ? current.filter((id) => id !== uid) : [...current, uid];
-    if (!next.length) {
-      Alert.alert("Keep one recipient", "At least one team member must receive buyer inquiries.");
-      return;
-    }
-    updateBrand(currentBrand.id, { inquiryMemberIds: next });
-  }
-
-  function applyCustom() {
-    updateBrand(currentBrand.id, {
-      custom: {
-        ...(currentBrand.custom || {}),
-        ...(bg ? { bg } : {}),
-        ...(ink ? { ink } : {}),
-        ...(accent ? { accent } : {}),
-      },
-    });
-  }
 
   async function saveAsset(kind: "logo" | "banner", picker: () => Promise<string | null>, bannerKind?: "image" | "video") {
     try {
@@ -152,98 +127,6 @@ export default function BrandStudio() {
             })}
           </View>
 
-          <Text style={[styles.label, { color: theme.muted }]}>Custom hex — page</Text>
-          <TextInput
-            style={[styles.field, { color: theme.ink, backgroundColor: theme.card, borderColor: theme.lineColor }]}
-            value={bg}
-            autoCapitalize="none"
-            onChangeText={setBg}
-            onEndEditing={applyCustom}
-            placeholder="#000000"
-            placeholderTextColor={theme.muted}
-          />
-          <Text style={[styles.label, { color: theme.muted }]}>Custom hex — type</Text>
-          <TextInput
-            style={[styles.field, { color: theme.ink, backgroundColor: theme.card, borderColor: theme.lineColor }]}
-            value={ink}
-            autoCapitalize="none"
-            onChangeText={setInk}
-            onEndEditing={applyCustom}
-            placeholder="#F4F0E6"
-            placeholderTextColor={theme.muted}
-          />
-          <Text style={[styles.label, { color: theme.muted }]}>Custom hex — accent</Text>
-          <TextInput
-            style={[styles.field, { color: theme.ink, backgroundColor: theme.card, borderColor: theme.lineColor }]}
-            value={accent}
-            autoCapitalize="none"
-            onChangeText={setAccent}
-            onEndEditing={applyCustom}
-            placeholder="#D6E27A"
-            placeholderTextColor={theme.muted}
-          />
-
-          <View style={[styles.share, { backgroundColor: theme.card }]}>
-            <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={[styles.shareH, { color: theme.ink }]}>Share analytics with the team</Text>
-              <Text style={[styles.shareP, { color: theme.muted }]}>Posters see earnings, views, and likes. Off, only you.</Text>
-            </View>
-            <Switch
-              value={currentBrand.analyticsShared}
-              onValueChange={(v) => {
-                updateBrand(currentBrand.id, { analyticsShared: v });
-              }}
-              trackColor={{ false: "#2A2824", true: "#D6E27A" }}
-              thumbColor="#F4F0E6"
-            />
-          </View>
-
-          <Text style={[styles.h2, { color: theme.ink }]}>Inquiry messages</Text>
-          <Text style={[styles.p, { color: theme.muted }]}>Choose who on the team receives buyer questions about this brand. The owner receives them by default.</Text>
-          <View style={[styles.routingCard, { backgroundColor: theme.card }]}>
-            {currentBrand.members.map((m) => {
-              const selected = inquiryRecipients(currentBrand).includes(m.uid);
-              return (
-                <View key={`routing-${m.uid}`} style={styles.routingRow}>
-                  <View style={styles.routingCopy}>
-                    <Text style={[styles.memberN, { color: theme.ink }]}>{m.name}</Text>
-                    <Text style={[styles.memberR, { color: theme.muted }]}>{memberRoleLabel(m.role)}</Text>
-                  </View>
-                  <Switch
-                    value={selected}
-                    onValueChange={() => toggleInquiryRecipient(m.uid)}
-                    trackColor={{ false: "#2A2824", true: theme.accent }}
-                    thumbColor="#F4F0E6"
-                  />
-                </View>
-              );
-            })}
-          </View>
-
-          <Text style={[styles.h2, { color: theme.ink }]}>Team</Text>
-          {brand.members.map((m) => (
-            <View key={m.uid} style={styles.member}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.memberN, { color: theme.ink }]}>{m.name}</Text>
-                <Text style={[styles.memberR, { color: theme.muted }]}>{memberRoleLabel(m.role)}</Text>
-              </View>
-              {m.role !== "owner" ? (
-                <Pressable
-                  onPress={() =>
-                    Alert.alert("Remove", `${m.name} will lose posting on ${brand.name}.`, [
-                      { text: "Keep", style: "cancel" },
-                      { text: "Remove", style: "destructive", onPress: () => removeMember(brand.id, m.uid) },
-                    ])
-                  }
-                >
-                  <Text style={{ color: theme.muted }}>Remove</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ))}
-          <Pressable onPress={() => router.push({ pathname: "/brand/invite", params: { id: brand.id } })} style={[styles.cta, { backgroundColor: theme.accent }]}>
-            <Text style={[styles.ctaTxt, { color: theme.accentInk }]}>Invite someone</Text>
-          </Pressable>
         </View>
       </ScrollView>
     </View>
@@ -281,15 +164,4 @@ const styles = StyleSheet.create({
   swatch: { width: "48%", height: 72, borderRadius: 16, padding: 12, justifyContent: "space-between" },
   dot: { width: 14, height: 14, borderRadius: 7 },
   swatchName: { fontSize: 13, fontWeight: "700" },
-  share: { marginTop: 22, borderRadius: 18, padding: 16, flexDirection: "row", alignItems: "center" },
-  routingCard: { marginTop: 8, borderRadius: 18, paddingHorizontal: 16 },
-  routingRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },
-  routingCopy: { flex: 1 },
-  shareH: { fontWeight: "700", fontSize: 16 },
-  shareP: { fontSize: 13, marginTop: 4, lineHeight: 18 },
-  member: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },
-  memberN: { fontWeight: "700", fontSize: 16 },
-  memberR: { fontSize: 13, marginTop: 2 },
-  cta: { height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", marginTop: 12 },
-  ctaTxt: { fontWeight: "800", fontSize: 15 },
 });
