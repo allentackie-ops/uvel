@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { BrandHQSkeleton } from "../../components/ScreenSkeletons";
@@ -50,6 +50,7 @@ import { analyticsCurrencyValue, analyticsDisplayState, analyticsDisclosure, ana
 import { semanticStatus, semanticLabel, statusToneFor } from "../../lib/status";
 import { saveBrandCampaign, saveBrandCollection, saveBrandPromotion, useMarketing, type BrandCampaign, type BrandCollection, type BrandPromotion, type MarketingState, type MarketingStatus } from "../../lib/marketing";
 import { alertKindLabel, enableAlert, setAlertPreference, useAlertCenter, type AlertKind } from "../../lib/alerts";
+import { simpleStageOf, useFounderProjects, type FounderProject } from "../../lib/founder";
 
 type Section = "overview" | "make" | "catalog" | "orders" | "finance" | "more" | "marketing" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
 
@@ -99,6 +100,7 @@ export default function BrandHQ() {
   useBrands();
   const brandsReady = useBrandsHydrated();
   const app = useUvel();
+  const founderState = useFounderProjects();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const pieces = useWardrobe();
@@ -120,11 +122,31 @@ export default function BrandHQ() {
 
   if (!brandsReady) return <BrandHQSkeleton colors={colors} />;
 
-  if (!brand || !canAccessHQ(brand, app.uid)) {
+  const draftProject = founderState.projects.find((project) => !project.archived && project.handoffStatus !== "submitted") || founderState.projects.find((project) => !project.archived);
+
+  if (!brand) {
+    return (
+      <View style={[styles.page, { backgroundColor: colors.ink, paddingTop: insets.top + 6 }]}>
+        <Pressable onPress={() => router.back()} style={styles.entryBack}><Text style={[styles.backTxt, { color: colors.bone }]}>‹</Text></Pressable>
+        <FounderHQEntry project={draftProject} theme={{ bg: colors.ink, ink: colors.bone, muted: colors.muted, card: colors.surface, accent: colors.success, accentInk: colors.successInk, lineColor: colors.subtle }} styles={styles} />
+      </View>
+    );
+  }
+
+  if (!canAccessHQ(brand, app.uid)) {
     return (
       <View style={[styles.page, { paddingTop: insets.top + 20, paddingHorizontal: 20 }]}>
         <Pressable onPress={() => router.back()}><Text style={styles.backTxt}>‹ Back</Text></Pressable>
         <Text style={styles.title}>Brand HQ is for the brand team.</Text>
+      </View>
+    );
+  }
+
+  if (!brandApproved(brand)) {
+    return (
+      <View style={[styles.page, { backgroundColor: theme.bg, paddingTop: insets.top + 6 }]}>
+        <Pressable onPress={() => router.back()} style={styles.entryBack}><Text style={[styles.backTxt, { color: theme.ink }]}>‹</Text></Pressable>
+        <ReviewWaiting theme={theme} styles={styles} />
       </View>
     );
   }
@@ -226,6 +248,30 @@ export default function BrandHQ() {
         ) : null}
       </ScrollView>
       </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+function FounderHQEntry({ project, theme, styles }: { project?: FounderProject; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  const continueApplying = Boolean(project);
+  return (
+    <View style={styles.entryWrap}>
+      <View style={[styles.entryIcon, { backgroundColor: theme.card }]}><Text style={[styles.entryIconText, { color: theme.accent }]}>✦</Text></View>
+      <Text style={[styles.entryTitle, { color: theme.ink }]}>{continueApplying ? "Your brand idea is waiting" : "Interested in becoming a brand?"}</Text>
+      <Text style={[styles.entryCopy, { color: theme.muted }]}>{continueApplying ? "Pick up where you left off in Founder Studio and finish your application." : "Go from idea to brand in just seconds with Founder Studio."}</Text>
+      <Pressable onPress={() => project ? router.push({ pathname: "/brand/founder/[stage]", params: { id: project.id, stage: simpleStageOf(project.stage) } }) : router.push("/brand/founder")} style={[styles.entryButton, { backgroundColor: theme.accent }]}>
+        <Text style={[styles.entryButtonText, { color: theme.accentInk }]}>{continueApplying ? "Continue applying" : "Open Founder Studio"}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function ReviewWaiting({ theme, styles }: { theme: HQTheme; styles: ReturnType<typeof make> }) {
+  return (
+    <View style={styles.entryWrap}>
+      <View style={[styles.entryIcon, { backgroundColor: theme.card }]}><ActivityIndicator color={theme.accent} size="small" /></View>
+      <Text style={[styles.entryTitle, { color: theme.ink }]}>Your brand is in review</Text>
+      <Text style={[styles.entryCopy, { color: theme.muted }]}>We’re taking a look. Brand HQ will open when your review is complete.</Text>
     </View>
   );
 }
@@ -1279,6 +1325,14 @@ function make(theme: HQTheme) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: theme.bg },
     content: { paddingHorizontal: 20 },
+    entryBack: { width: 44, height: 44, alignItems: "center", justifyContent: "center", marginLeft: 12 },
+    entryWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 34, paddingBottom: 80 },
+    entryIcon: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center", marginBottom: 22 },
+    entryIconText: { fontSize: 28, fontWeight: "800" },
+    entryTitle: { fontSize: 26, lineHeight: 32, fontWeight: "800", textAlign: "center" },
+    entryCopy: { fontSize: 15, lineHeight: 22, textAlign: "center", marginTop: 10, maxWidth: 310 },
+    entryButton: { minHeight: 50, paddingHorizontal: 24, borderRadius: 25, alignItems: "center", justifyContent: "center", marginTop: 24 },
+    entryButtonText: { fontSize: 15, fontWeight: "800" },
     top: { flexDirection: "row", alignItems: "center", minHeight: 48 },
     back: { width: 40, height: 40, alignItems: "center", justifyContent: "center", marginLeft: -8 },
     backTxt: { fontSize: 34, lineHeight: 36, marginTop: -4 },
