@@ -159,11 +159,11 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     kicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.8, marginBottom: 10 },
-    lede: { color: colors.bone, fontFamily: "Georgia", fontSize: 28, lineHeight: 34, marginBottom: 18 },
+    lede: { color: colors.bone, fontSize: 28, fontWeight: "800", lineHeight: 34, marginBottom: 18 },
     h: { color: colors.bone, fontSize: 17, fontWeight: "700", marginTop: 22, marginBottom: 8 },
     p: { color: colors.muted, fontSize: 16, lineHeight: 24, marginBottom: 10 },
     faqKicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.8, marginTop: 28, marginBottom: 8 },
-    faqLede: { color: colors.bone, fontFamily: "Georgia", fontSize: 24, lineHeight: 30, marginBottom: 16 },
+    faqLede: { color: colors.bone, fontSize: 24, fontWeight: "800", lineHeight: 30, marginBottom: 16 },
     faq: { backgroundColor: colors.surface, borderRadius: 16, overflow: "hidden", marginBottom: 22 },
     item: { paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.ink },
     itemLast: { borderBottomWidth: 0 },
