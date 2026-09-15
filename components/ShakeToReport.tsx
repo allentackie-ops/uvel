@@ -110,10 +110,10 @@ export function ShakeToReport() {
     };
   }, [shakeEnabled]);
 
-  function close() {
+  function close(resetOffset = true) {
     if (submitting) return;
     openRef.current = false;
-    sheetTranslateY.setValue(0);
+    if (resetOffset) sheetTranslateY.setValue(0);
     setOpen(false);
     setCompose(false);
     setIncludeScreenshot(false);
@@ -164,7 +164,9 @@ export function ShakeToReport() {
     onPanResponderMove: (_, gesture) => sheetTranslateY.setValue(Math.max(0, gesture.dy)),
     onPanResponderRelease: (_, gesture) => {
       if (gesture.dy > 120 || gesture.vy > 1.2) {
-        close();
+        Animated.timing(sheetTranslateY, { toValue: sheetMaxHeight, duration: 220, useNativeDriver: true }).start(({ finished }) => {
+          if (finished) close(false);
+        });
       } else {
         Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
       }
@@ -174,8 +176,8 @@ export function ShakeToReport() {
 
   return (
     <Modal visible={open} transparent animationType="slide" onRequestClose={close} statusBarTranslucent>
-      <Pressable style={styles.modalRoot} onPress={close} accessibilityLabel="Close report problem">
-        <View style={styles.scrim} pointerEvents="none" />
+      <View style={styles.modalRoot}>
+        <Pressable style={styles.scrim} onPress={() => close()} accessibilityRole="button" accessibilityLabel="Close report problem" />
         <View style={[styles.sheetWrap, { paddingBottom: keyboardHeight }]}>
           <Animated.View {...sheetPan.panHandlers} style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: sheetPad, transform: [{ translateY: sheetTranslateY }] }]}>
             <View onLayout={(e) => setChromeH(e.nativeEvent.layout.height)}>
@@ -258,7 +260,7 @@ export function ShakeToReport() {
             )}
           </Animated.View>
         </View>
-      </Pressable>
+      </View>
     </Modal>
   );
 }
