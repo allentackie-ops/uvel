@@ -85,10 +85,11 @@ export default function BrandPage() {
     try {
       const uri = await picker();
       if (!uri) return;
+      updateBrand(activeBrand.id, kind === "logo" ? { logoUri: uri } : { bannerUri: uri, bannerKind: bannerKind || "image" });
       const remoteUri = await uploadBrandAsset(uri, activeBrand.id, kind);
       updateBrand(activeBrand.id, kind === "logo" ? { logoUri: remoteUri } : { bannerUri: remoteUri, bannerKind: bannerKind || "image" });
     } catch (error) {
-      Alert.alert("Couldn’t save brand media", error instanceof Error ? error.message : "Try again in a moment.");
+      Alert.alert("Brand media preview saved", error instanceof Error ? `${error.message} The selected media is still shown on this device; try again to sync it.` : "The selected media is still shown on this device; try again to sync it.");
     }
   }
 
