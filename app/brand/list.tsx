@@ -74,6 +74,7 @@ export default function BrandList() {
   }, [gate.phase]);
 
   const hasVariantStock = picked.length > 0 && picked.every((size) => Number(sizeStock[size]) > 0);
+  const readyCount = [photos.length > 0, Boolean(name.trim()), Boolean(notes.trim()), Boolean(category), picked.length > 0, Boolean(color.trim()), Boolean(material.trim()), Number(price) > 0, hasVariantStock].filter(Boolean).length;
   const canList =
     Boolean(brand && canPost(brand, app.uid)) &&
     contactReady &&
@@ -270,6 +271,8 @@ export default function BrandList() {
               <Text style={styles.topTitle}>List on {activeBrand.name}</Text>
           <View style={{ width: 40 }} />
         </View>
+        <View style={styles.progressMeta}><Text style={styles.progressKicker}>NEW PRODUCT</Text><Text style={styles.progressCopy}>{readyCount}/9 ready</Text></View>
+        <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${(readyCount / 9) * 100}%` }]} /></View>
           <ScrollView contentContainerStyle={{ paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
           {!contactReady ? (
             <View style={styles.contactGate}>
@@ -286,7 +289,8 @@ export default function BrandList() {
             ) : (
               <View style={styles.heroEmpty}>
                 <Text style={styles.heroPlus}>＋</Text>
-                <Text style={styles.heroHint}>Product photo</Text>
+                <Text style={styles.heroHint}>Show the piece clearly</Text>
+                <Text style={styles.heroSub}>Add a cover photo to start</Text>
               </View>
             )}
             {cover?.status === "checking" ? (
@@ -309,17 +313,18 @@ export default function BrandList() {
           </View>
 
           <View style={styles.sheet}>
+            <Text style={styles.sectionKicker}>THE PIECE</Text>
             <Text style={styles.label}>Price *</Text>
             <View style={styles.priceRow}>
               <Text style={styles.dollar}>{market.symbol}</Text>
               <TextInput style={styles.price} value={price} onChangeText={(v) => setPrice(v.replace(/[^0-9]/g, ""))} keyboardType="number-pad" placeholder="0" placeholderTextColor={ph} />
             </View>
-            <Text style={styles.label}>Title *</Text>
-            <TextInput style={styles.field} value={name} onChangeText={setName} placeholder="The piece" placeholderTextColor={ph} />
+            <TextInput style={styles.titleField} value={name} onChangeText={setName} placeholder="What’s the piece?" placeholderTextColor={ph} />
             <Text style={styles.label}>SKU *</Text>
             <Text style={styles.hint}>A unique product code for your team and inventory system.</Text>
             <TextInput style={styles.field} value={sku} onChangeText={(v) => setSku(v.replace(/[^a-z0-9-]/gi, "").toUpperCase())} placeholder="e.g. AT4-SLIP-001" placeholderTextColor={ph} autoCapitalize="characters" />
 
+            <Text style={styles.sectionKickerLater}>INVENTORY</Text>
             <Text style={styles.label}>Default units per size</Text>
             <Text style={styles.hint}>Optional shortcut used to prefill each selected size below.</Text>
             <TextInput
@@ -331,6 +336,7 @@ export default function BrandList() {
               placeholderTextColor={ph}
             />
 
+            <Text style={styles.sectionKickerLater}>SELLING</Text>
             <View style={styles.marketSection}>
               <ShipsPicker origin={origin} value={shipsTo} onChange={setShipsTo} />
             </View>
@@ -464,22 +470,30 @@ const styles = StyleSheet.create({
   back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   backTxt: { color: "#F4F0E6", fontSize: 34, lineHeight: 36, marginTop: -4 },
   topTitle: { color: "#F4F0E6", fontSize: 16, fontWeight: "600" },
+  progressMeta: { height: 34, paddingHorizontal: 20, backgroundColor: "#000000", flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  progressKicker: { color: "rgba(244,240,230,0.48)", fontSize: 10, letterSpacing: 1.6, fontWeight: "800" },
+  progressCopy: { color: "rgba(244,240,230,0.55)", fontSize: 12, fontWeight: "600" },
+  progressTrack: { height: 3, backgroundColor: "#2A2824", marginHorizontal: 20, borderRadius: 2, overflow: "hidden" },
+  progressFill: { height: 3, backgroundColor: "#D6E27A", borderRadius: 2 },
   contactGate: { marginHorizontal: 20, marginTop: 12, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: "#D6E27A66", backgroundColor: "#1A1C12" },
   contactGateTitle: { color: "#F4F0E6", fontWeight: "700", fontSize: 16 },
   contactGateText: { color: "rgba(244,240,230,0.6)", fontSize: 13, lineHeight: 18, marginTop: 6 },
   contactGateBtn: { marginTop: 12, alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 12, borderRadius: 16, backgroundColor: "#D6E27A" },
   contactGateBtnText: { color: "#16140F", fontSize: 13, fontWeight: "700" },
-  hero: { width: W, height: W * 1.15, backgroundColor: "#161512" },
+  hero: { width: W, height: W * 0.9, backgroundColor: "#161512" },
   heroImg: { width: "100%", height: "100%" },
-  heroEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
-  heroPlus: { color: "#F4F0E6", fontSize: 44 },
+  heroEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingBottom: 8 },
+  heroPlus: { color: "#F4F0E6", fontSize: 42, fontWeight: "300" },
   heroHint: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 22 },
+  heroSub: { color: "rgba(244,240,230,0.42)", fontSize: 12, marginTop: 2 },
   heroMask: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(214,226,122,0.5)", alignItems: "center", justifyContent: "center" },
   slotRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 12 },
   mini: { width: 56, height: 70, borderRadius: 8, backgroundColor: "#161512" },
   miniAdd: { width: 56, height: 70, borderRadius: 8, borderWidth: 1, borderColor: "rgba(244,240,230,0.16)", alignItems: "center", justifyContent: "center" },
   miniPlus: { color: "#F4F0E6", fontSize: 22 },
-  sheet: { paddingHorizontal: 20, paddingTop: 8 },
+  sheet: { paddingHorizontal: 20, paddingTop: 28 },
+  sectionKicker: { color: "rgba(244,240,230,0.48)", fontSize: 11, letterSpacing: 1.6, fontWeight: "800", marginBottom: 4 },
+  sectionKickerLater: { color: "rgba(244,240,230,0.48)", fontSize: 11, letterSpacing: 1.6, fontWeight: "800", marginTop: 34, marginBottom: 4 },
   marketSection: { marginTop: 8 },
   label: { color: "rgba(244,240,230,0.45)", fontSize: 12, marginTop: 16, letterSpacing: 0.3 },
   hint: { color: "rgba(244,240,230,0.4)", fontSize: 13, marginTop: 4 },
@@ -494,6 +508,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: 16,
   },
+  titleField: { color: "#F4F0E6", fontSize: 26, fontWeight: "800", lineHeight: 32, marginTop: 16, padding: 0 },
   body: {
     marginTop: 8,
     minHeight: 90,
