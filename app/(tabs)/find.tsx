@@ -44,6 +44,7 @@ export default function Mirror() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [showLink, setShowLink] = useState(false);
+  const [linkBusy, setLinkBusy] = useState(false);
   const [retryingMarketplace, setRetryingMarketplace] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
@@ -133,13 +134,43 @@ export default function Mirror() {
     await pickGarment(false);
   }
 
-  function useLink() {
-    const u = link.trim();
-    if (!u) return;
-    setPicked({ kind: "photo", uri: u, name: "this look" });
-    setShowLink(false);
-    setResult(null);
+  async function useLink() {
+    const raw = link.trim();
+    if (!raw) {
+      setErr("Paste an item link first.");
+      return;
+    }
+    let itemUrl: URL;
+    try {
+      itemUrl = new URL(raw);
+      if (!/^https?:$/.test(itemUrl.protocol)) throw new Error("unsupported");
+    } catch {
+      setErr("Paste a valid http or https item link.");
+      return;
+    }
+
+    setLinkBusy(true);
     setErr("");
+    try {
+      const response = await fetch(itemUrl.toString());
+      if (!response.ok) throw new Error("unavailable");
+      const contentType = response.headers.get("content-type")?.toLowerCase() || "";
+      let imageUrl = itemUrl.toString();
+      if (!contentType.startsWith("image/")) {
+        const html = await response.text();
+        const match = html.match(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]+content=["']([^"']+)["'][^>]*>/i)
+          || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["'](?:og:image|twitter:image)["'][^>]*>/i);
+        if (!match?.[1]) throw new Error("no-image");
+        imageUrl = new URL(match[1].replace(/&amp;/g, "&"), itemUrl).toString();
+      }
+      setPicked({ kind: "photo", uri: imageUrl, name: "Pasted item" });
+      setShowLink(false);
+      setResult(null);
+    } catch {
+      setErr("Couldn’t find an item photo at that link. Try a direct image or a product page with a visible item photo.");
+    } finally {
+      setLinkBusy(false);
+    }
   }
 
   function clearPerson() {
@@ -308,9 +339,8 @@ export default function Mirror() {
         <View style={styles.sourceCard} onLayout={(event) => { sourceY.current = event.nativeEvent.layout.y; }}>
           <View style={styles.sourceHead}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.sourceKicker}>START HERE</Text>
-              <Text style={styles.sourceTitle}>{person ? "Choose something to try" : "Add your photo to begin"}</Text>
-              <Text style={styles.sourceCopy}>{person ? "Bring in a look from anywhere, or choose a piece from Uvel." : "Once your photo is ready, choose a piece from Uvel or anywhere else."}</Text>
+              <Text style={styles.sourceKicker}>OR</Text>
+              <Text style={styles.sourceTitle}>{person ? "Choose something to try" : "Add your photo"}</Text>
             </View>
             {person ? <Text style={styles.step}>1 of 2</Text> : null}
           </View>
@@ -319,7 +349,7 @@ export default function Mirror() {
               <Text style={[styles.chipTxt, picked?.kind === "photo" && styles.chipTxtOn]}>Add clothing photo</Text>
             </Pressable>
             <Pressable onPress={() => setShowLink((v) => !v)} style={[styles.chip, showLink && styles.chipOn]}>
-              <Text style={[styles.chipTxt, showLink && styles.chipTxtOn]}>Paste product link</Text>
+              <Text style={[styles.chipTxt, showLink && styles.chipTxtOn]}>Paste item link</Text>
             </Pressable>
           </View>
           {showLink ? (
@@ -333,8 +363,8 @@ export default function Mirror() {
                 keyboardType="url"
                 style={styles.input}
               />
-              <Pressable onPress={useLink} style={styles.linkGo}>
-                <Text style={styles.linkGoTxt}>Use</Text>
+              <Pressable onPress={() => void useLink()} disabled={linkBusy} style={[styles.linkGo, linkBusy && styles.linkGoOff]}>
+                <Text style={styles.linkGoTxt}>{linkBusy ? "Checking…" : "Use"}</Text>
               </Pressable>
             </View>
           ) : null}
@@ -549,6 +579,7 @@ function make(colors: Colors) {
     },
     input: { flex: 1, color: colors.bone, height: 46, fontSize: 15 },
     linkGo: { paddingHorizontal: 16, height: 46, alignItems: "center", justifyContent: "center" },
+    linkGoOff: { opacity: 0.5 },
     linkGoTxt: { color: colors.success, fontWeight: "700" },
     err: { color: colors.danger, marginTop: 14, marginHorizontal: 20, fontSize: 14, lineHeight: 20 },
     cta: {
