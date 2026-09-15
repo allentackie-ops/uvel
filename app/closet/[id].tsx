@@ -172,7 +172,7 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
         {piece.clipUri ? (
           <MotionClip uri={piece.clipUri} style={StyleSheet.absoluteFill} />
         ) : (
-          <Image source={{ uri: gallery[0] }} style={StyleSheet.absoluteFill} contentFit="cover" />
+          <Image cachePolicy="memory-disk" source={{ uri: gallery[0] }} style={StyleSheet.absoluteFill} contentFit="cover" />
         )}
         <Pressable onPress={() => router.back()} style={[styles.iconBtn, { top: insets.top + 6 }]} hitSlop={8}>
           <Text style={styles.iconTxt}>‹</Text>
@@ -408,7 +408,7 @@ export default function ClosetPiece() {
                 {slide.kind === "clip" ? (
                   <MotionClip uri={slide.uri} muted={clipMuted} playing={page === 0} style={[styles.hero, { width: imgW, height: imgH, borderRadius: framed ? 4 : 0 }]} />
                 ) : (
-                  <Image
+                  <Image cachePolicy="memory-disk"
                     source={{ uri: slide.uri }}
                     style={[styles.hero, { width: imgW, height: imgH, borderRadius: framed ? 4 : 0 }]}
                     contentFit="cover"
@@ -590,7 +590,7 @@ export default function ClosetPiece() {
             style={styles.seller}
           >
             {sellerPhoto ? (
-              <Image source={{ uri: sellerPhoto }} style={styles.avatarImg} contentFit="cover" />
+              <Image cachePolicy="memory-disk" source={{ uri: sellerPhoto }} style={styles.avatarImg} contentFit="cover" />
             ) : (
               <View style={styles.avatar}>
                 <Text style={styles.avatarTxt}>{(seller[0] || "U").toUpperCase()}</Text>

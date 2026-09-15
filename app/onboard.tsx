@@ -266,7 +266,7 @@ function AuthBtn({
       ) : (
         <>
           <View style={styles.authIconWrap}>
-            <Image
+            <Image cachePolicy="memory-disk"
               source={icon}
               style={mark ? styles.authMark : styles.authIcon}
               contentFit="contain"

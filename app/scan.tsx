@@ -91,7 +91,7 @@ export default function ScanLook() {
         <Pressable onPress={() => void pick(source === "Camera")} style={{ marginTop: 16 }}>
           <Glass style={styles.well}>
             {preview ? (
-              <Image source={{ uri: preview }} style={styles.preview} contentFit="cover" />
+              <Image cachePolicy="memory-disk" source={{ uri: preview }} style={styles.preview} contentFit="cover" />
             ) : (
               <View style={styles.empty}>
                 <Text style={styles.h3}>Drop a look</Text>

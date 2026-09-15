@@ -61,7 +61,7 @@ export default function SavedLooks() {
                 return (
                   <View key={look.id} style={styles.card}>
                     <View style={styles.imageWrap}>
-                      {image ? <Image source={image} style={styles.image} contentFit="cover" /> : <View style={styles.imageFallback}><Text style={styles.imageFallbackText}>UVEL</Text></View>}
+                      {image ? <Image cachePolicy="memory-disk" source={image} style={styles.image} contentFit="cover" /> : <View style={styles.imageFallback}><Text style={styles.imageFallbackText}>UVEL</Text></View>}
                       <AccessiblePressable
                         onPress={() => scanLook(look)}
                         style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.8 }]}

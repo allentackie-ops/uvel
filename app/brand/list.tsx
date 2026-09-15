@@ -282,7 +282,7 @@ export default function BrandList() {
           ) : null}
           <Pressable onPress={cover ? undefined : choosePhoto} style={styles.hero}>
             {cover ? (
-              <Image source={{ uri: cover.uri }} style={styles.heroImg} contentFit="cover" />
+              <Image cachePolicy="memory-disk" source={{ uri: cover.uri }} style={styles.heroImg} contentFit="cover" />
             ) : (
               <View style={styles.heroEmpty}>
                 <Text style={styles.heroPlus}>＋</Text>
@@ -298,7 +298,7 @@ export default function BrandList() {
           <View style={styles.slotRow}>
             {photos.map((p) => (
               <Pressable key={p.uri} onPress={() => setPhotos((prev) => prev.filter((x) => x.uri !== p.uri))}>
-                <Image source={{ uri: p.uri }} style={styles.mini} contentFit="cover" />
+                <Image cachePolicy="memory-disk" source={{ uri: p.uri }} style={styles.mini} contentFit="cover" />
               </Pressable>
             ))}
             {photos.length < MAX ? (

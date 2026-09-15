@@ -47,7 +47,7 @@ export function TodayToolsDrawer({ onClose, onOpenSell }: TodayToolsDrawerProps)
         accessibilityLabel={handle ? `${name}, ${handle}` : name}
       >
         {photo ? (
-          <Image source={{ uri: photo }} style={styles.avatar} contentFit="cover" />
+          <Image cachePolicy="memory-disk" source={{ uri: photo }} style={styles.avatar} contentFit="cover" />
         ) : (
           <View style={styles.avatarFallback}>
             <Text style={styles.avatarInit}>{(name[0] || "U").toUpperCase()}</Text>

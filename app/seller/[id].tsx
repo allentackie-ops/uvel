@@ -54,7 +54,7 @@ export default function SellerProfile() {
           <Ionicons name="chevron-back" size={22} color={colors.bone} />
         </Pressable>
         <View style={styles.profileHeader}>
-          {sellerPhoto ? <Image source={{ uri: sellerPhoto }} style={styles.avatar} contentFit="cover" /> : <View style={styles.avatarFallback}><Text style={styles.avatarInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}
+          {sellerPhoto ? <Image cachePolicy="memory-disk" source={{ uri: sellerPhoto }} style={styles.avatar} contentFit="cover" /> : <View style={styles.avatarFallback}><Text style={styles.avatarInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}
           <Text style={styles.kicker}>UVEL SELLER</Text>
           <View style={styles.nameRow}>
             <Text style={styles.name}>{sellerName}</Text>

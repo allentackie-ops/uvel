@@ -134,11 +134,11 @@ export default function TryOn() {
 
         <View style={styles.hero}>
           {result ? (
-            <Image source={{ uri: result }} style={styles.fill} contentFit="contain" />
+            <Image cachePolicy="memory-disk" source={{ uri: result }} style={styles.fill} contentFit="contain" />
           ) : person ? (
-            <Image source={{ uri: person }} style={styles.fill} contentFit="cover" />
+            <Image cachePolicy="memory-disk" source={{ uri: person }} style={styles.fill} contentFit="cover" />
           ) : pieceImage ? (
-            <Image source={pieceImage} style={styles.fill} contentFit="cover" />
+            <Image cachePolicy="memory-disk" source={pieceImage} style={styles.fill} contentFit="cover" />
           ) : (
             <Text style={styles.placeholder}>Your photo</Text>
           )}

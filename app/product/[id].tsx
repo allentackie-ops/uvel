@@ -29,7 +29,7 @@ export default function Product() {
   return (
     <View style={styles.page}>
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-        <Image source={garment.image} style={styles.hero} contentFit="cover" />
+        <Image cachePolicy="memory-disk" source={garment.image} style={styles.hero} contentFit="cover" />
         <View style={styles.body}>
           <Text style={styles.brand}>{garment.brand.toUpperCase()}</Text>
           <Text style={styles.title}>{garment.name}</Text>

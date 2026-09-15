@@ -137,7 +137,7 @@ export function PhotoCrop({ uri, onCancel, onPreview, previewStatus = "idle", pr
       </View>
       <View style={styles.stage}>
         <View style={[styles.frame, { width: frame.w, height: frame.h }]}>
-          {natural ? <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" /> : <ActivityIndicator color="#D6E27A" />}
+          {natural ? <Image cachePolicy="memory-disk" source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" /> : <ActivityIndicator color="#D6E27A" />}
           <GestureDetector gesture={cropGesture}>
             <View style={styles.gestureSurface}>
               <Animated.View style={[styles.cropBox, cropStyle]}>

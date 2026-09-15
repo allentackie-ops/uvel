@@ -229,7 +229,7 @@ export function ShakeToReport() {
                   </View>
                   <View style={[styles.toggle, includeScreenshot && styles.toggleOn]}><View style={[styles.knob, includeScreenshot && styles.knobOn]} /></View>
                 </Pressable>
-                {screenshotUri ? <Image source={{ uri: screenshotUri }} style={styles.preview} contentFit="cover" /> : null}
+                {screenshotUri ? <Image cachePolicy="memory-disk" source={{ uri: screenshotUri }} style={styles.preview} contentFit="cover" /> : null}
                 <Pressable onPress={() => { const next = !shakeEnabled; setShakeEnabled(next); void saveShakeToReportEnabled(next); }} style={styles.optionRow} accessibilityRole="switch" accessibilityState={{ checked: shakeEnabled }}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.optionTitle}>Shake phone to report a problem</Text>

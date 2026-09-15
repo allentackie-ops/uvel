@@ -162,7 +162,7 @@ export default function FounderStagePage() {
               <FounderProductEditor project={project} colors={colors} />
               <View style={styles.editor}>
                 <Text style={styles.cardTitle}>Photo or sketch</Text>
-                {photo ? <Image source={{ uri: photo }} style={[local.photo, !project.product.photoOk && !photoBusy && { opacity: 0.55 }]} contentFit="cover" /> : null}
+                {photo ? <Image cachePolicy="memory-disk" source={{ uri: photo }} style={[local.photo, !project.product.photoOk && !photoBusy && { opacity: 0.55 }]} contentFit="cover" /> : null}
                 {photoBusy ? <View style={local.photoWait}><ActivityIndicator color={palette.success} /><Text style={[styles.cardBody, { color: palette.muted, marginBottom: 0 }]}>Saving the reference…</Text></View> : null}
                 {photoFail ? <Text style={[styles.cardBody, { color: palette.success }]}>{photoFail}</Text> : null}
                 <Pressable onPress={() => void addPhoto()} disabled={photoBusy} style={[local.ghost, { borderColor: palette.subtle, opacity: photoBusy ? 0.5 : 1 }]}><Text style={[styles.secondaryText, { color: palette.bone }]}>{photo ? "Replace photo" : "Add a photo"}</Text></Pressable>

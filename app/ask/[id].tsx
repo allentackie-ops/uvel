@@ -360,7 +360,7 @@ export default function Ask() {
 
         {searchOpen ? <View style={styles.searchBox}><TextInput value={searchQuery} onChangeText={setSearchQuery} autoFocus placeholder="Search messages" placeholderTextColor={colors.subtle} style={styles.searchInput} accessibilityLabel="Search messages" /><Pressable onPress={() => { setSearchQuery(""); setSearchOpen(false); }} accessibilityRole="button" accessibilityLabel="Close search"><Text style={styles.searchClose}>×</Text></Pressable></View> : null}
         <View style={styles.listing}>
-          <Image source={{ uri: piece.photo }} style={styles.thumb} contentFit="cover" />
+          <Image cachePolicy="memory-disk" source={{ uri: piece.photo }} style={styles.thumb} contentFit="cover" />
           <View style={{ flex: 1 }}>
             <Text style={styles.listName} numberOfLines={1}>
               {piece.name}
@@ -390,7 +390,7 @@ export default function Ask() {
           {hasOlder || msgs.length >= 80 ? <Pressable onPress={() => void loadOlder()} style={styles.loadOlder} accessibilityRole="button" accessibilityLabel="Load older messages"><Text style={styles.loadOlderTxt}>{loadingOlder ? "Loading…" : "Load older messages"}</Text></Pressable> : null}
           <View style={styles.hello}>
             {conversationBrand?.logoUri ? (
-              <Image source={{ uri: conversationBrand.logoUri }} style={styles.avatarImg} contentFit="cover" />
+              <Image cachePolicy="memory-disk" source={{ uri: conversationBrand.logoUri }} style={styles.avatarImg} contentFit="cover" />
             ) : (
               <View style={styles.avatar}>
                 <Text style={styles.avatarTxt}>{handle.slice(0, 1).toUpperCase()}</Text>
@@ -424,7 +424,7 @@ export default function Ask() {
                   </View>
                 ) : (
                   <View style={[styles.bubble, mineMsg ? styles.bubbleMine : styles.bubbleThem]}>
-                    {m.photoUrl ? <Image source={{ uri: m.photoUrl }} style={styles.msgPhoto} contentFit="cover" /> : null}
+                    {m.photoUrl ? <Image cachePolicy="memory-disk" source={{ uri: m.photoUrl }} style={styles.msgPhoto} contentFit="cover" /> : null}
                     <Text style={[styles.bubbleTxt, mineMsg && styles.bubbleTxtMine]}>{m.text}</Text>
                   </View>
                 )}
@@ -454,7 +454,7 @@ export default function Ask() {
           </View>
         ) : null}
 
-        {pendingPhoto ? <View style={styles.attachmentPreview}><Image source={{ uri: pendingPhoto }} style={styles.attachmentThumb} contentFit="cover" /><Text style={styles.attachmentLabel}>Photo ready to send</Text><Pressable onPress={() => setPendingPhoto(undefined)} accessibilityRole="button" accessibilityLabel="Remove attached photo"><Text style={styles.attachmentRemove}>×</Text></Pressable><Pressable onPress={() => { void send("Sent a photo", "text", undefined, pendingPhoto); setPendingPhoto(undefined); }} accessibilityRole="button" accessibilityLabel="Send attached photo"><Text style={styles.attachmentSend}>Send</Text></Pressable></View> : null}
+        {pendingPhoto ? <View style={styles.attachmentPreview}><Image cachePolicy="memory-disk" source={{ uri: pendingPhoto }} style={styles.attachmentThumb} contentFit="cover" /><Text style={styles.attachmentLabel}>Photo ready to send</Text><Pressable onPress={() => setPendingPhoto(undefined)} accessibilityRole="button" accessibilityLabel="Remove attached photo"><Text style={styles.attachmentRemove}>×</Text></Pressable><Pressable onPress={() => { void send("Sent a photo", "text", undefined, pendingPhoto); setPendingPhoto(undefined); }} accessibilityRole="button" accessibilityLabel="Send attached photo"><Text style={styles.attachmentSend}>Send</Text></Pressable></View> : null}
         <View style={[styles.composer, { paddingBottom: insets.bottom + 8 }]}>
           <Pressable onPress={() => void attach(false)} style={styles.icon} accessibilityRole="button" accessibilityLabel="Attach photo from library">
             <Text style={styles.iconTxt}>+</Text>

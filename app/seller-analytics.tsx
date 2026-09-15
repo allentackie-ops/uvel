@@ -70,7 +70,7 @@ export default function SellerAnalytics() {
                 accessibilityRole="button"
                 accessibilityLabel={`${piece.name}, ${pieceViews} views, ${saves} likes`}
               >
-                {piece.photo ? <Image source={{ uri: piece.photo }} style={styles.thumb} contentFit="cover" /> : <View style={styles.thumb} />}
+                {piece.photo ? <Image cachePolicy="memory-disk" source={{ uri: piece.photo }} style={styles.thumb} contentFit="cover" /> : <View style={styles.thumb} />}
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={styles.name} numberOfLines={1}>{piece.name}</Text>
                   <Text style={styles.meta}>{pieceViews} views · {saves} likes</Text>

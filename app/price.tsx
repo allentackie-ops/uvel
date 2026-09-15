@@ -28,7 +28,7 @@ function ComparableCard({ piece, currency }: { piece: ClosetPiece; currency: str
       style={({ pressed }) => [styles.comparable, pressed && { opacity: 0.75 }]}
     >
       {piece.photo ? (
-        <Image source={{ uri: piece.photo }} style={styles.comparableImage} contentFit="cover" />
+        <Image cachePolicy="memory-disk" source={{ uri: piece.photo }} style={styles.comparableImage} contentFit="cover" />
       ) : (
         <View style={[styles.comparableImage, styles.imageFallback]} />
       )}
@@ -170,7 +170,7 @@ export default function Price() {
                 <Text style={styles.itemTitle} numberOfLines={2}>{title}</Text>
                 {details ? <Text style={styles.itemDetails} numberOfLines={1}>{details}</Text> : null}
               </View>
-              {existing?.photo ? <Image source={{ uri: existing.photo }} style={styles.itemImage} contentFit="cover" /> : null}
+              {existing?.photo ? <Image cachePolicy="memory-disk" source={{ uri: existing.photo }} style={styles.itemImage} contentFit="cover" /> : null}
             </View>
 
             <View style={styles.sectionHead}>

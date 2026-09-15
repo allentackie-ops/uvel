@@ -174,7 +174,7 @@ export default function MirrorCamera() {
   if (photo) {
     return (
       <View style={styles.screen}>
-        <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        <Image cachePolicy="memory-disk" source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" />
         <View style={[styles.reviewTop, { paddingTop: insets.top + 10 }]}>
           <Pressable onPress={() => router.back()} hitSlop={12}><Text style={styles.close}>×</Text></Pressable>
           <Text style={styles.reviewTitle}>Review photo</Text>

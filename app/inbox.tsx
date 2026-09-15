@@ -176,9 +176,9 @@ function Row({
       style={styles.row}
     >
       {brand?.logoUri ? (
-        <Image source={{ uri: brand.logoUri }} style={styles.thumb} contentFit="cover" />
+        <Image cachePolicy="memory-disk" source={{ uri: brand.logoUri }} style={styles.thumb} contentFit="cover" />
       ) : t.piecePhoto ? (
-        <Image source={{ uri: t.piecePhoto }} style={styles.thumb} contentFit="cover" />
+        <Image cachePolicy="memory-disk" source={{ uri: t.piecePhoto }} style={styles.thumb} contentFit="cover" />
       ) : (
         <View style={[styles.thumb, styles.avatar]}>
           <Text style={styles.avatarTxt}>{who.slice(0, 1).toUpperCase()}</Text>
@@ -202,7 +202,7 @@ function Row({
 }
 
 function Avatar({ user }: { user: PublicUser }) {
-  return user.avatarUri ? <Image source={{ uri: user.avatarUri }} style={{ width: 44, height: 44, borderRadius: 22 }} contentFit="cover" /> : <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#2A320E", alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#D6E27A", fontWeight: "800" }}>{(user.displayName || user.username || "U").slice(0, 1).toUpperCase()}</Text></View>;
+  return user.avatarUri ? <Image cachePolicy="memory-disk" source={{ uri: user.avatarUri }} style={{ width: 44, height: 44, borderRadius: 22 }} contentFit="cover" /> : <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#2A320E", alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#D6E27A", fontWeight: "800" }}>{(user.displayName || user.username || "U").slice(0, 1).toUpperCase()}</Text></View>;
 }
 
 function make(colors: Colors) {

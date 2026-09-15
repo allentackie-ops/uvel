@@ -220,7 +220,7 @@ export default function LegalBrandApply() {
 
           <Pressable onPress={chooseLogo} style={styles.logoBtn}>
             {logoUri ? (
-              <Image source={{ uri: logoUri }} style={styles.logo} contentFit="cover" />
+              <Image cachePolicy="memory-disk" source={{ uri: logoUri }} style={styles.logo} contentFit="cover" />
             ) : (
               <View style={styles.logoEmpty}>
                 <Text style={styles.logoPlus}>＋</Text>

@@ -339,7 +339,7 @@ export default function Checkout() {
         <Text style={styles.h}>Order summary</Text>
         <View style={styles.sum}>
           <View style={styles.item}>
-            <Image source={{ uri: piece.photo }} style={styles.thumb} contentFit="cover" />
+            <Image cachePolicy="memory-disk" source={{ uri: piece.photo }} style={styles.thumb} contentFit="cover" />
             <View style={{ flex: 1 }}>
               <Text style={styles.itemN} numberOfLines={1}>
                 {piece.name}
@@ -472,7 +472,7 @@ function PayMark({ method }: { method: PayMethod }) {
   const card = method.icon === "card";
   return (
     <View style={[mark.wrap, apple && { backgroundColor: "transparent" }]}>
-      <Image
+      <Image cachePolicy="memory-disk"
         source={src}
         style={apple ? mark.apple : card ? mark.card : mark.sq}
         contentFit="contain"

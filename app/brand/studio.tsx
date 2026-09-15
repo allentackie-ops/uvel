@@ -115,7 +115,7 @@ export default function BrandStudio() {
             style={styles.logoRow}
           >
             {brand.logoUri ? (
-              <Image source={{ uri: brand.logoUri }} style={styles.logo} contentFit="cover" />
+              <Image cachePolicy="memory-disk" source={{ uri: brand.logoUri }} style={styles.logo} contentFit="cover" />
             ) : (
               <View style={[styles.logo, { backgroundColor: theme.card }]} />
             )}

@@ -166,7 +166,7 @@ export default function You() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Text style={styles.title}>{app.displayName || "Your closet"}</Text>
             <BrandVerifiedMark brand={mine} size={18} />
-            {brandApproved(mine) && mine?.logoUri ? <Image source={{ uri: mine.logoUri }} style={styles.ownerBrandLogo} contentFit="cover" /> : null}
+            {brandApproved(mine) && mine?.logoUri ? <Image cachePolicy="memory-disk" source={{ uri: mine.logoUri }} style={styles.ownerBrandLogo} contentFit="cover" /> : null}
           </View>
           {mine ? (
             <Text style={styles.ownerLine}>{brandApproved(mine) ? `Owner of ${mine.name}` : `Filing for ${mine.name}`}</Text>
@@ -176,7 +176,7 @@ export default function You() {
         </View>
         <Pressable onPress={changeFace} style={styles.faceBtn} accessibilityLabel="Change profile picture">
           {face ? (
-            <Image source={{ uri: face }} style={styles.avatar} contentFit="cover" />
+            <Image cachePolicy="memory-disk" source={{ uri: face }} style={styles.avatar} contentFit="cover" />
           ) : (
             <View style={styles.initials}>
               <Text style={styles.initialsTxt}>{initials}</Text>
@@ -329,7 +329,7 @@ function DraftCard({ draft, styles }: { draft: ListingDraft; styles: ReturnType<
   return (
     <Pressable onPress={() => router.push({ pathname: "/sell", params: { draft: "1" } })} style={styles.draftCard}>
       {photo ? (
-        <Image source={{ uri: photo }} style={styles.draftImg} contentFit="cover" />
+        <Image cachePolicy="memory-disk" source={{ uri: photo }} style={styles.draftImg} contentFit="cover" />
       ) : (
         <View style={styles.draftImgEmpty}>
           <Text style={styles.draftImgPlus}>＋</Text>
@@ -548,7 +548,7 @@ function LikesPane({
               accessibilityLabel={`${row.name} liked ${row.piece.name}`}
             >
               {row.photo ? (
-                <Image source={{ uri: row.photo }} style={styles.likerFace} contentFit="cover" />
+                <Image cachePolicy="memory-disk" source={{ uri: row.photo }} style={styles.likerFace} contentFit="cover" />
               ) : (
                 <View style={styles.likerFace}>
                   <Text style={styles.likerInit}>{(row.name[0] || "U").toUpperCase()}</Text>
@@ -559,7 +559,7 @@ function LikesPane({
                 <Text style={styles.likerP} numberOfLines={1}>liked {row.piece.name}</Text>
                 <Text style={styles.likerT}>{ago(row.at)}</Text>
               </View>
-              <Image source={{ uri: row.piece.photo }} style={styles.likerThumb} contentFit="cover" />
+              <Image cachePolicy="memory-disk" source={{ uri: row.piece.photo }} style={styles.likerThumb} contentFit="cover" />
             </Pressable>
           ))}
         </>
@@ -594,9 +594,9 @@ function LikesPane({
                   accessibilityLabel={`${row.brand} ${row.name}, ${moneyInMarket(row.priceCents, row.currency, market)}`}
                 >
                   {row.photo ? (
-                    <Image source={{ uri: row.photo }} style={styles.likeThumb} contentFit="cover" />
+                    <Image cachePolicy="memory-disk" source={{ uri: row.photo }} style={styles.likeThumb} contentFit="cover" />
                   ) : (
-                    <Image source={row.image} style={styles.likeThumb} contentFit="cover" />
+                    <Image cachePolicy="memory-disk" source={row.image} style={styles.likeThumb} contentFit="cover" />
                   )}
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.likeBrand} numberOfLines={1}>{row.brand.toUpperCase()}</Text>
@@ -643,7 +643,7 @@ function OrderRow({
       }
       style={styles.order}
     >
-      {row.photo ? <Image source={{ uri: row.photo }} style={styles.orderImg} contentFit="cover" /> : <View style={styles.orderImg} />}
+      {row.photo ? <Image cachePolicy="memory-disk" source={{ uri: row.photo }} style={styles.orderImg} contentFit="cover" /> : <View style={styles.orderImg} />}
       <View style={{ flex: 1 }}>
         <Text style={styles.orderName} numberOfLines={1}>
           {row.name}

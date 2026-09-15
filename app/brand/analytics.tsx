@@ -130,7 +130,7 @@ export default function BrandAnalytics() {
         <Text style={styles.h2}>Top pieces</Text>
         {data.top.map((p) => (
           <Pressable key={p.id} onPress={() => router.push({ pathname: "/closet/[id]", params: { id: p.id } })} style={styles.row}>
-            {p.photo ? <Image source={{ uri: p.photo }} style={styles.thumb} contentFit="cover" /> : <View style={styles.thumb} />}
+            {p.photo ? <Image cachePolicy="memory-disk" source={{ uri: p.photo }} style={styles.thumb} contentFit="cover" /> : <View style={styles.thumb} />}
             <View style={{ flex: 1 }}>
               <Text style={styles.rowN} numberOfLines={1}>
                 {p.name}

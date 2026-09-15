@@ -21,7 +21,7 @@ export function ProductCard({ garment }: { garment: Garment }) {
       accessibilityLabel={`Open ${garment.name} by ${local ? garment.brand : from.name}, ${usd(garment.priceCents)}`}
       accessibilityHint="Double tap to view this listing."
     >
-      <Image source={garment.image} style={styles.img} contentFit="cover" accessible={false} />
+      <Image cachePolicy="memory-disk" source={garment.image} style={styles.img} contentFit="cover" accessible={false} />
       <Text style={styles.brand} numberOfLines={1}>
         {local ? garment.brand : from.name}
       </Text>

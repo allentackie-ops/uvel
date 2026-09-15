@@ -34,7 +34,7 @@ export function BrandBanner({
   style: StyleProp<ViewStyle>;
 }) {
   if (kind === "video" && uri) return <LoopVideo uri={uri} style={style} />;
-  if (uri) return <Image source={{ uri }} style={style} contentFit="cover" />;
+  if (uri) return <Image cachePolicy="memory-disk" source={{ uri }} style={style} contentFit="cover" />;
   return <View style={[style, styles.fallback]} />;
 }
 

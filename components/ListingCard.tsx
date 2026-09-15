@@ -68,7 +68,7 @@ export function ListingCard({
       accessibilityHint="Double tap to view this listing."
     >
       <View ref={mediaRef}>
-        <Image
+        <Image cachePolicy="memory-disk"
           source={{ uri: live.photo }}
           style={[styles.img, wide ? { width: wide, borderRadius: framed ? 0 : 18 } : null, framed && styles.framedImg]}
           contentFit="cover"

@@ -400,7 +400,7 @@ export default function ProfileSetup() {
               <View style={[styles.stage, !photo && styles.stageNeed]}>
                 {photo ? (
                   <View style={styles.stageFill}>
-                    <Image source={{ uri: worn ?? photo }} style={styles.fullPic} contentFit="contain" />
+                    <Image cachePolicy="memory-disk" source={{ uri: worn ?? photo }} style={styles.fullPic} contentFit="contain" />
                     {rendering ? (
                       <View style={styles.spin}>
                         <ActivityIndicator color={INK} />
@@ -448,7 +448,7 @@ export default function ProfileSetup() {
                           }}
                           style={[styles.uvelCard, on && styles.uvelOn]}
                         >
-                          <Image source={{ uri: p.photo }} style={styles.uvelImg} contentFit="cover" />
+                          <Image cachePolicy="memory-disk" source={{ uri: p.photo }} style={styles.uvelImg} contentFit="cover" />
                           {on ? (
                             <View style={styles.trying}>
                               <Text style={styles.tryingTxt}>Trying</Text>
@@ -569,7 +569,7 @@ export default function ProfileSetup() {
               <Text style={styles.lede}>This is how friends will find you on Uvel. Your username is required and can’t be changed here.</Text>
               <Pressable onPress={pickFace} style={styles.face} accessibilityRole="button" accessibilityLabel="Add a profile picture">
                 {avatar ? (
-                  <Image source={{ uri: avatar }} style={styles.faceImg} contentFit="cover" />
+                  <Image cachePolicy="memory-disk" source={{ uri: avatar }} style={styles.faceImg} contentFit="cover" />
                 ) : (
                   <View style={styles.faceEmpty}>
                     <Ionicons name="camera-outline" size={26} color={OLIVE} />

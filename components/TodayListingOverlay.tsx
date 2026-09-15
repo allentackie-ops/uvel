@@ -381,7 +381,7 @@ export function TodayListingOverlay({
               accessibilityRole="image"
               accessibilityLabel={`Double tap to save ${piece.name}`}
             >
-              <Image source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
+              <Image cachePolicy="memory-disk" source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
               {gallery.length > 1 ? (
                 <View style={styles.photoCount} pointerEvents="none">
                   <Text style={styles.photoCountText}>{Math.min(activePhoto + 1, gallery.length)} / {gallery.length}</Text>
@@ -413,14 +413,14 @@ export function TodayListingOverlay({
                   accessibilityLabel={`View listing photo ${index + 1} of ${gallery.length}`}
                   accessibilityState={{ selected: index === activePhoto }}
                 >
-                  <Image source={{ uri: photo }} style={styles.thumbnailImage} contentFit="cover" />
+                  <Image cachePolicy="memory-disk" source={{ uri: photo }} style={styles.thumbnailImage} contentFit="cover" />
                 </Pressable>
               ))}
             </Animated.ScrollView>
           ) : null}
           <View style={styles.sellerCard}>
             {sellerPhoto ? (
-              <Image source={{ uri: sellerPhoto }} style={styles.avatarImage} contentFit="cover" />
+              <Image cachePolicy="memory-disk" source={{ uri: sellerPhoto }} style={styles.avatarImage} contentFit="cover" />
             ) : (
               <View style={styles.avatarFallback}>
                 <Text style={styles.avatarInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text>
@@ -514,7 +514,7 @@ export function TodayListingOverlay({
           </View>
         </AnimatedScrollView>
         <Animated.View pointerEvents="none" style={[styles.photo, photoStyle]}>
-          <Image source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
+          <Image cachePolicy="memory-disk" source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
         </Animated.View>
         {showDoubleTapHint ? (
           <Animated.View pointerEvents="none" style={[styles.doubleTapHint, { top: chromeTop + heroH * 0.36 }, chromeStyle]}>

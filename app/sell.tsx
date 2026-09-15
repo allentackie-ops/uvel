@@ -627,7 +627,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           >
             {photos.map((p, i) => (
               <View key={p.uri} style={[styles.photoTile, i === 0 ? styles.photoCover : styles.photoThumb]}>
-                <Image source={{ uri: p.uri }} style={styles.photoImage} contentFit="cover" accessibilityRole="image" accessibilityLabel={`Photo ${i + 1}${i === 0 ? ", main photo" : ""}`} />
+                <Image cachePolicy="memory-disk" source={{ uri: p.uri }} style={styles.photoImage} contentFit="cover" accessibilityRole="image" accessibilityLabel={`Photo ${i + 1}${i === 0 ? ", main photo" : ""}`} />
                 {i === 0 ? (
                   <View style={styles.mainPhotoPill}>
                     <Text style={styles.mainPhotoTxt}>Main</Text>
@@ -736,7 +736,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                       void addUri(uri);
                     }}
                   >
-                    <Image source={{ uri }} style={styles.fit} contentFit="cover" />
+                    <Image cachePolicy="memory-disk" source={{ uri }} style={styles.fit} contentFit="cover" />
                   </AccessiblePressable>
                 ))}
               </ScrollView>
@@ -1012,7 +1012,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       {gate.phase !== "idle" ? (
         <View style={[styles.gate, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 28 }]}>
           {cover ? (
-            <Image source={{ uri: cover.uri }} style={styles.gateImg} contentFit="cover" />
+            <Image cachePolicy="memory-disk" source={{ uri: cover.uri }} style={styles.gateImg} contentFit="cover" />
           ) : null}
           {gate.phase === "review" ? (
             <>

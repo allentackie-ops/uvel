@@ -213,9 +213,9 @@ export default function Mirror() {
         </View>
         <View style={[styles.hero, !person && styles.heroNeed]}>
           {result ? (
-            <Image source={{ uri: result }} style={styles.fill} contentFit="contain" />
+            <Image cachePolicy="memory-disk" source={{ uri: result }} style={styles.fill} contentFit="contain" />
           ) : person ? (
-            <Image source={{ uri: person }} style={styles.fill} contentFit="contain" />
+            <Image cachePolicy="memory-disk" source={{ uri: person }} style={styles.fill} contentFit="contain" />
           ) : (
             <View style={styles.need}>
               <View style={styles.cameraPlaceholder}>
@@ -309,7 +309,7 @@ export default function Mirror() {
                   style={[styles.uvelCard, on && styles.uvelOn]}
                 >
                   <View>
-                    <Image source={{ uri: p.photo }} style={styles.uvelImg} contentFit="cover" />
+                    <Image cachePolicy="memory-disk" source={{ uri: p.photo }} style={styles.uvelImg} contentFit="cover" />
                     {on ? (
                       <View style={styles.trying}>
                         <Text style={styles.tryingTxt}>Trying</Text>
@@ -342,7 +342,7 @@ export default function Mirror() {
 
         {picked?.kind === "photo" ? (
           <View style={styles.selected}>
-            <Image source={{ uri: picked.uri }} style={styles.selectedImage} contentFit="cover" />
+            <Image cachePolicy="memory-disk" source={{ uri: picked.uri }} style={styles.selectedImage} contentFit="cover" />
             <Pressable onPress={clearGarment} style={styles.selectedRemove} accessibilityRole="button" accessibilityLabel="Remove selected clothing photo">
               <Ionicons name="close" size={18} color={colors.bone} />
             </Pressable>

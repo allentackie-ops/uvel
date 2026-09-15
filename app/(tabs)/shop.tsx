@@ -133,7 +133,7 @@ function TodaySwipeHint({ onDismiss }: { onDismiss: () => void }) {
       <Text style={swipeHintStyles.swipeHintTitle}>Swipe up to start watching</Text>
       <View style={swipeHintStyles.swipeHintTrack}>
         <Animated.View style={[swipeHintStyles.swipeHintHand, { opacity: handOpacity }]}>
-          <Image source={require("../../assets/onboarding/today-swipe-hand-recorded.gif")} style={{ width: 150, height: 190 }} contentFit="contain" />
+          <Image cachePolicy="memory-disk" source={require("../../assets/onboarding/today-swipe-hand-recorded.gif")} style={{ width: 150, height: 190 }} contentFit="contain" />
         </Animated.View>
       </View>
     </View>
@@ -467,7 +467,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       {videoUrl ? (
         <FrozenClip uri={videoUrl} time={freezeAt} style={styles.frame} />
       ) : frame ? (
-        <Image source={{ uri: frame }} style={styles.frame} contentFit="contain" />
+        <Image cachePolicy="memory-disk" source={{ uri: frame }} style={styles.frame} contentFit="contain" />
       ) : null}
       {scanning ? (
         <View style={styles.orbitBox}>
@@ -542,7 +542,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
                 accessibilityHint="Double tap to open this brand."
               >
                 {b.logoUri ? (
-                  <Image source={{ uri: b.logoUri }} style={styles.houseLogo} contentFit="cover" />
+                  <Image cachePolicy="memory-disk" source={{ uri: b.logoUri }} style={styles.houseLogo} contentFit="cover" />
                 ) : (
                   <View style={styles.houseLogo} />
                 )}
@@ -586,10 +586,10 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
                   accessibilityLabel={`Shop ${brand?.name || "brand"} campaign ${campaign.headline || campaign.name}`}
                   accessibilityHint="Double tap to explore this drop."
                 >
-                  <Image source={{ uri: lead.photo }} style={styles.campaignImg} contentFit="cover" accessible={false} />
+                  <Image cachePolicy="memory-disk" source={{ uri: lead.photo }} style={styles.campaignImg} contentFit="cover" accessible={false} />
                   <View style={styles.campaignCopy}>
                     <View style={styles.campaignBrandRow}>
-                      {brand?.logoUri ? <Image source={{ uri: brand.logoUri }} style={styles.campaignLogo} contentFit="cover" /> : null}
+                      {brand?.logoUri ? <Image cachePolicy="memory-disk" source={{ uri: brand.logoUri }} style={styles.campaignLogo} contentFit="cover" /> : null}
                       <Text style={styles.campaignBrand} numberOfLines={1}>{brand?.name || "Brand drop"}</Text>
                       <BrandVerifiedMark brand={brand} size={11} />
                     </View>

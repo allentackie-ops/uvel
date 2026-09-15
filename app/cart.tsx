@@ -137,7 +137,7 @@ export default function Cart() {
               const brand = piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Unbranded";
               return (
                 <View key={piece.id} style={styles.card}>
-                  <Image source={{ uri: piece.photo }} style={styles.thumb} contentFit="cover" />
+                  <Image cachePolicy="memory-disk" source={{ uri: piece.photo }} style={styles.thumb} contentFit="cover" />
                   <View style={styles.copy}>
                     <Text style={styles.brand} numberOfLines={1}>{brand.toUpperCase()}</Text>
                     <Text style={styles.name} numberOfLines={2}>{piece.name}</Text>
