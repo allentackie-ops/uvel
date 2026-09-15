@@ -290,6 +290,56 @@ export function FounderProductEditor({ project, colors }: { project: FounderProj
   </View>;
 }
 
+const STARTER_TEMPLATES = [
+  { id: "tee", label: "Everyday tee", shape: "T-shirt", color: "#D9D0C0" },
+  { id: "hoodie", label: "Heavy hoodie", shape: "Hoodie", color: "#7C8790" },
+  { id: "tote", label: "Canvas tote", shape: "Tote", color: "#C4A77D" },
+  { id: "cap", label: "Low-profile cap", shape: "Cap", color: "#2A302D" },
+] as const;
+
+export function FounderPhaseOneStarter({ project, colors }: { project: FounderProject; colors: FounderColors }) {
+  const styles = make(colors);
+  const [product, setProduct] = useState(project.product);
+  const [uploading, setUploading] = useState(false);
+  useEffect(() => { setProduct(project.product); }, [project.id, project.product]);
+  const template = STARTER_TEMPLATES.find((item) => item.id === product.templateId) || STARTER_TEMPLATES[0];
+  const update = (patch: Partial<typeof product>) => {
+    const next = { ...product, ...patch };
+    setProduct(next);
+    saveFounderProduct(project.id, next);
+  };
+  const addArtwork = async () => {
+    if (uploading) return;
+    try {
+      setUploading(true);
+      const uri = await pickFromLibrary();
+      if (!uri) return;
+      const saved = await saveFounderPhotoReference(uri);
+      update({ photoUri: saved, photoOk: false });
+    } catch (error) {
+      Alert.alert("Artwork unavailable", error instanceof Error ? error.message : "We could not add that image.");
+    } finally {
+      setUploading(false);
+    }
+  };
+  return <View style={styles.productCard}>
+    <Text style={styles.sectionLabel}>PHASE 1 · MAKE THE IDEA REAL</Text>
+    <Text style={styles.cardTitle}>Start with one believable product.</Text>
+    <Text style={styles.cardBody}>Choose a simple product direction, add your artwork, and save a named version. This is a concept mockup, not a production promise.</Text>
+    <Text style={styles.fieldLabel}>PRODUCT TEMPLATE</Text>
+    <View style={styles.optionRow}>{STARTER_TEMPLATES.map((item) => <Pressable key={item.id} onPress={() => update({ templateId: item.id, category: product.category || item.shape })} style={[styles.option, template.id === item.id && styles.optionOn]}><Text style={[styles.optionText, template.id === item.id && styles.optionTextOn]}>{item.label}</Text></Pressable>)}</View>
+    <View style={{ minHeight: 220, borderRadius: 18, backgroundColor: colors.ink, borderWidth: 1, borderColor: colors.lineColor, alignItems: "center", justifyContent: "center", overflow: "hidden", marginTop: 16 }}>
+      {product.photoUri ? <Image cachePolicy="memory-disk" source={{ uri: product.photoUri }} style={{ position: "absolute", zIndex: 2, width: 110, height: 110, opacity: 0.9 }} contentFit="contain" /> : <Text style={{ position: "absolute", zIndex: 1, color: colors.muted, fontSize: 12 }}>Your artwork appears here</Text>}
+      <View style={{ width: 190, height: 170, borderRadius: 24, backgroundColor: template.color, alignItems: "center", justifyContent: "center", transform: [{ rotate: "-3deg" }] }}><Text style={{ color: "#161512", fontSize: 11, fontWeight: "900", letterSpacing: 1, textTransform: "uppercase" }}>{template.shape}</Text><Text style={{ color: "#161512", fontSize: 12, fontWeight: "900", marginTop: 12, opacity: 0.7 }}>{product.photoUri ? "YOUR MARK" : "ADD ARTWORK"}</Text></View>
+    </View>
+    <Pressable onPress={() => void addArtwork()} disabled={uploading} style={styles.secondary}><Text style={styles.secondaryText}>{uploading ? "Adding artwork…" : product.photoUri ? "Replace artwork" : "Upload artwork or photo"}</Text></Pressable>
+    <TextInput value={product.name} onChangeText={(name) => update({ name })} placeholder="Product name · e.g. Studio tee" placeholderTextColor={colors.muted} style={styles.input} />
+    <TextInput value={product.designVersionName} onChangeText={(designVersionName) => setProduct((current) => ({ ...current, designVersionName }))} placeholder="Version name · e.g. First black tee" placeholderTextColor={colors.muted} style={styles.input} />
+    <Pressable onPress={() => { const name = product.designVersionName.trim() || `Direction ${project.productVersions.length + 1}`; update({ designVersionName: name }); Alert.alert("Version saved", `${name} is saved privately in this project.`); }} style={styles.primary}><Text style={styles.primaryText}>Save design version</Text></Pressable>
+    <Text style={styles.saveHint}>{project.productVersions.length ? `${project.productVersions.length} saved version${project.productVersions.length === 1 ? "" : "s"} · private on this device` : "No saved versions yet"}</Text>
+  </View>;
+}
+
 export function FounderStrategy({ project, colors }: { project: FounderProject; colors: FounderColors }) {
   const styles = make(colors);
   const [brief, setBrief] = useState(project.brief);

@@ -48,6 +48,8 @@ export type FounderIdentity = {
 export type FounderProductBrief = {
   name: string;
   category: string;
+  templateId: string;
+  designVersionName: string;
   silhouette: string;
   fit: string;
   materials: string;
@@ -162,7 +164,7 @@ export type FounderProject = {
 
 export const emptyFounderBrief = (): FounderBrief => ({ audience: "", category: "", pricePosition: "not-set", promise: "", values: "", tone: "", story: "" });
 export const defaultFounderIdentity = (): FounderIdentity => ({ workingName: "", username: "", handleIdeas: "", tone: "", story: "", colors: ["#D6E27A", "#F4F0E6", "#161512"], typography: "Warm editorial sans", logoDirection: "", photographyDirection: "", packagingNotes: "" });
-export const emptyFounderProduct = (): FounderProductBrief => ({ name: "", category: "", silhouette: "", fit: "", materials: "", trims: "", colorway: "", sizes: "", measurements: "", construction: "", care: "", targetUnitCost: "", targetPrice: "", sampleQuantity: "", sampleStatus: "not-started", productionQuestions: "", boardId: "", photoUri: "", photoOk: false });
+export const emptyFounderProduct = (): FounderProductBrief => ({ name: "", category: "", templateId: "tee", designVersionName: "First direction", silhouette: "", fit: "", materials: "", trims: "", colorway: "", sizes: "", measurements: "", construction: "", care: "", targetUnitCost: "", targetPrice: "", sampleQuantity: "", sampleStatus: "not-started", productionQuestions: "", boardId: "", photoUri: "", photoOk: false });
 export const defaultFounderIntegrations = (): FounderIntegration[] => [
   { id: "domain-email", label: "Domain & email", outcome: "A recognizable web address and professional inbox", status: "not-started", notes: "" },
   { id: "storefront", label: "Storefront", outcome: "A place where products can be sold", status: "not-started", notes: "" },

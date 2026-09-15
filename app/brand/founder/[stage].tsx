@@ -8,7 +8,7 @@ import { pickFromLibrary, saveFounderPhotoReference } from "../../../lib/photo";
 import { brandApproved, ownedBrand, useBrands } from "../../../lib/brands";
 import { useUvel } from "../../../lib/store";
 import { useColors, type Colors } from "../../../lib/theme";
-import { FounderLaunchReview, FounderProductEditor, FounderStrategy, SketchBoard, make } from "./../founder";
+import { FounderLaunchReview, FounderPhaseOneStarter, FounderProductEditor, FounderStrategy, SketchBoard, make } from "./../founder";
 
 const JOURNEY = ["idea", "product", "launch"] as const;
 type JourneyStage = (typeof JOURNEY)[number];
@@ -142,7 +142,7 @@ export default function FounderStagePage() {
             ))}
           </View>
         </View>
-        {brandApproved(mine) ? (
+        {mine && brandApproved(mine) ? (
           <Pressable
             onPress={() => router.push({ pathname: "/brand/hq", params: { id: mine.id } })}
             style={[local.live, { borderColor: palette.success }]}
@@ -156,7 +156,7 @@ export default function FounderStagePage() {
           <Text style={[styles.kicker, { color: colors.accent }]}>{title.kicker}</Text>
         </View>
         <View style={local.content}>
-          {stage === "idea" ? <FounderStrategy project={project} colors={colors} /> : null}
+          {stage === "idea" ? <><FounderPhaseOneStarter project={project} colors={colors} /><FounderStrategy project={project} colors={colors} /></> : null}
           {stage === "product" ? (
             <>
               <FounderProductEditor project={project} colors={colors} />
