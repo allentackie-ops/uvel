@@ -73,13 +73,13 @@ jobs:
         run: |
           test -n "$IOS_GROUP_ID" || (echo "Missing ios_group_id" && exit 1)
           test -n "$ANDROID_GROUP_ID" || (echo "Missing android_group_id" && exit 1)
-      - name: Roll back iOS production update
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          CI: "1"
-        run: npx eas-cli@latest update:rollback "${{ inputs.ios_group_id }}" --platform ios --message "${{ inputs.message }}" --non-interactive
       - name: Roll back Android production update
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           CI: "1"
         run: npx eas-cli@latest update:rollback "${{ inputs.android_group_id }}" --platform android --message "${{ inputs.message }}" --non-interactive
+      - name: Roll back iOS production update
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: "1"
+        run: npx eas-cli@latest update:rollback "${{ inputs.ios_group_id }}" --platform ios --message "${{ inputs.message }}" --non-interactive
