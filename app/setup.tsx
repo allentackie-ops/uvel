@@ -571,14 +571,9 @@ export default function ProfileSetup() {
                 {avatar ? (
                   <Image cachePolicy="memory-disk" source={{ uri: avatar }} style={styles.faceImg} contentFit="cover" />
                 ) : (
-                  <>
-                    <View style={styles.faceEmpty}>
-                      <Ionicons name="camera-outline" size={26} color={OLIVE} />
-                    </View>
-                    <View style={styles.faceAddBadge}>
-                      <Ionicons name="add" size={18} color={OLIVE} />
-                    </View>
-                  </>
+                  <View style={styles.faceEmpty}>
+                    <Ionicons name="camera-outline" size={26} color={OLIVE} />
+                  </View>
                 )}
               </Pressable>
               <TextInput
@@ -668,32 +663,19 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
+    overflow: "hidden",
     alignSelf: "center",
     marginBottom: 18,
-    position: "relative",
+    backgroundColor: SOFT,
   },
-  faceImg: { width: "100%", height: "100%", borderRadius: 44 },
+  faceImg: { width: "100%", height: "100%" },
   faceEmpty: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: OLIVE,
+    borderColor: LINE,
     borderRadius: 44,
-    backgroundColor: LIME,
-  },
-  faceAddBadge: {
-    position: "absolute",
-    right: -2,
-    bottom: -2,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#fff",
-    borderWidth: 2,
-    borderColor: LIME,
   },
   cta: {
     marginTop: 28,
