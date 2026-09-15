@@ -216,7 +216,7 @@ export default function BrandPage() {
                   <Text style={{ color: theme.ink, fontWeight: "800", fontSize: 22 }}>{brand.name[0]}</Text>
                 </View>
               )}
-              <View style={styles.logoEdit}><Text style={styles.logoEditText}>＋</Text></View>
+              <View style={[styles.logoEdit, { backgroundColor: theme.accent }]}><Text style={[styles.logoEditText, { color: theme.accentInk }]}>＋</Text></View>
             </AccessiblePressable>
           ) : brand.logoUri ? (
             <Image cachePolicy="memory-disk" source={{ uri: brand.logoUri }} style={[styles.logo, { borderColor: theme.bg }]} contentFit="cover" />
@@ -455,8 +455,8 @@ const styles = StyleSheet.create({
   },
   logoPress: { position: "absolute", left: 20, bottom: -36, width: 88, height: 88 },
   logoInPress: { position: "relative", left: 0, bottom: 0 },
-  logoEdit: { position: "absolute", left: 30, top: 30, width: 28, height: 28, borderRadius: 14, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center" },
-  logoEditText: { color: "#16140F", fontSize: 18, fontWeight: "800", lineHeight: 20 },
+  logoEdit: { position: "absolute", left: 30, top: 30, width: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  logoEditText: { fontSize: 18, fontWeight: "800", lineHeight: 20 },
   kicker: { letterSpacing: 1.6, fontSize: 11, fontWeight: "700" },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
   name: { fontSize: 34, lineHeight: 38, fontWeight: "800", flexShrink: 1 },
