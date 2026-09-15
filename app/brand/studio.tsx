@@ -62,7 +62,7 @@ export default function BrandStudio() {
       const remoteUri = await uploadBrandAsset(uri, currentBrand.id, kind);
       updateBrand(currentBrand.id, kind === "logo" ? { logoUri: remoteUri } : { bannerUri: remoteUri, bannerKind: bannerKind || "image" });
     } catch (error) {
-      Alert.alert("Brand media preview saved", error instanceof Error ? `${error.message} The selected media is still shown on this device; try again to sync it.` : "The selected media is still shown on this device; try again to sync it.");
+      console.warn("Brand media sync failed after local preview", error);
     }
   }
 
