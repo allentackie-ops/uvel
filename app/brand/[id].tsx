@@ -9,7 +9,6 @@ import { BrandPageSkeleton } from "../../components/ScreenSkeletons";
 import { ListingCard } from "../../components/ListingCard";
 import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { brandApproved, brandCheck, brandListings, canAccessHQ, canManageTeam, canPost, canSeeAnalytics, canStudio, getBrand, updateBrand, uploadBrandAsset, useBrandsHydrated, isFollowing, roleOn, themeFor, toggleFollow, useBrands, } from "../../lib/brands";
-import { BRAND_THEMES } from "../../lib/brandThemes";
 import { pickBannerImage, pickBannerVideo, pickLogo } from "../../lib/photo";
 import { usd } from "../../lib/catalog";
 import { recordAnalyticsEvent } from "../../lib/analytics";
@@ -93,28 +92,6 @@ export default function BrandPage() {
     }
   }
 
-  function editColors() {
-    const options = [...BRAND_THEMES.map((item) => item.name), "Custom colors", "Cancel"];
-    const run = (label: string) => {
-      const selected = BRAND_THEMES.find((item) => item.name === label);
-      if (selected) {
-        updateBrand(activeBrand.id, { themeId: selected.id, custom: undefined });
-        return;
-      }
-      if (label === "Custom colors") router.push({ pathname: "/brand/studio", params: { id: activeBrand.id } });
-    };
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions({ options, cancelButtonIndex: options.length - 1, userInterfaceStyle: "dark" }, (i) => {
-        if (i >= 0 && options[i] !== "Cancel") run(options[i]);
-      });
-      return;
-    }
-    Alert.alert("Page colors", undefined, [
-      ...options.filter((item) => item !== "Cancel").map((item) => ({ text: item, onPress: () => run(item) })),
-      { text: "Cancel", style: "cancel" as const },
-    ]);
-  }
-
   function editBanner() {
     const options = ["Image banner", "Video banner", "Cancel"];
     const run = (label: string) => {
@@ -146,7 +123,7 @@ export default function BrandPage() {
         return;
       }
       if (label === "Page colors") {
-        editColors();
+        router.push({ pathname: "/brand/colors", params: { id: activeBrand.id } });
         return;
       }
       if (label === "Brand HQ") router.push({ pathname: "/brand/hq", params: { id: activeBrand.id } });
