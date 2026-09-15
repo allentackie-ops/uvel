@@ -3,14 +3,31 @@ name: Publish OTA update
 on:
   workflow_dispatch:
     inputs:
+      action:
+        description: "Publish a new update or roll back the latest production update"
+        required: true
+        default: publish
+        type: choice
+        options:
+          - publish
+          - rollback
       message:
         description: "OTA update message"
         required: true
         default: "Add Today visual search camera flow"
         type: string
+      ios_group_id:
+        description: "Required for rollback: latest iOS update group ID"
+        required: false
+        type: string
+      android_group_id:
+        description: "Required for rollback: latest Android update group ID"
+        required: false
+        type: string
 
 jobs:
   publish:
+    if: ${{ inputs.action == 'publish' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,3 +51,30 @@ jobs:
         run: |
           npx eas-cli@latest update --channel production --platform ios --message "${{ inputs.message }}"
           npx eas-cli@latest update --channel production --platform android --message "${{ inputs.message }}"
+  rollback:
+    if: ${{ inputs.action == 'rollback' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate rollback IDs
+        env:
+          IOS_GROUP_ID: ${{ inputs.ios_group_id }}
+          ANDROID_GROUP_ID: ${{ inputs.android_group_id }}
+        run: |
+          test -n "$IOS_GROUP_ID" || (echo "Missing ios_group_id" && exit 1)
+          test -n "$ANDROID_GROUP_ID" || (echo "Missing android_group_id" && exit 1)
+      - name: Roll back iOS production update
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: "1"
+        run: npx eas-cli@latest update:rollback "${{ inputs.ios_group_id }}" --platform ios --message "${{ inputs.message }}" --non-interactive
+      - name: Roll back Android production update
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          CI: "1"
+        run: npx eas-cli@latest update:rollback "${{ inputs.android_group_id }}" --platform android --message "${{ inputs.message }}" --non-interactive
