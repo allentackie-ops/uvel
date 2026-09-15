@@ -100,8 +100,9 @@ export async function registerPushToken(uid: string) {
 export async function enablePush(uid: string) {
   const ok = await registerPushToken(uid);
   if (!ok) return "denied" as const;
-  const { pingEnabled } = await import("./engagement");
-  await pingEnabled();
+  // Enabling notifications should not create an immediate local notification.
+  // The app's timed engagement reminders and real activity events are scheduled
+  // separately, after onboarding and settings changes have finished.
   return "granted" as const;
 }
 
