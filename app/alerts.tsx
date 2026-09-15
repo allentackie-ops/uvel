@@ -4,9 +4,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { alertKindLabel, markAlertRead, useAlertCenter } from "../lib/alerts";
 import { markActivityNotificationRead, useActivityNotifications } from "../lib/activityNotifications";
+import { usd } from "../lib/catalog";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
-import { getPiece, useWardrobe } from "../lib/wardrobe";
+import { getPiece, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 
 function ago(at: number) {
   const minutes = Math.max(1, Math.round((Date.now() - at) / 60_000));
@@ -14,6 +15,17 @@ function ago(at: number) {
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.round(hours / 24)}d ago`;
+}
+
+function stockLabel(piece?: ClosetPiece) {
+  if (!piece) return "Inventory unavailable";
+  const stock = typeof piece.stockQuantity === "number"
+    ? piece.stockQuantity
+    : piece.sizeStock
+      ? Object.values(piece.sizeStock).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0)
+      : null;
+  if (stock === null) return "Inventory not published";
+  return stock > 0 ? `${stock} in stock` : "Out of stock";
 }
 
 export default function Alerts() {
@@ -35,39 +47,10 @@ export default function Alerts() {
     <View style={styles.page}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
         <Header styles={styles} />
-        <Text style={styles.title}>Your Uvel notifications.</Text>
-        <Text style={styles.lede}>Activity from Today and alerts for your saved marketplace items appear here.</Text>
+        <Text style={styles.title}>Price & restock alerts</Text>
+        <Text style={styles.lede}>Track saved marketplace items and see when their recorded price drops or inventory returns.</Text>
 
-        <Text style={styles.sectionTitle}>Recent activity</Text>
-        {activity.length ? activity.slice(0, 20).map((item) => (
-          <Pressable
-            key={item.id}
-            onPress={() => {
-              void markActivityNotificationRead(app.uid || "guest", item.id);
-              if (item.target === "saved") router.push("/saved-looks");
-            }}
-            style={[styles.event, !item.read && styles.eventUnread]}
-            accessibilityRole="button"
-            accessibilityLabel={item.target === "saved" ? `${item.title}. Open Saved Fits.` : item.title}
-          >
-            {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.eventThumb} contentFit="cover" /> : <View style={styles.eventThumb} />}
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <View style={styles.eventTop}>
-                <Text style={styles.eventTitle} numberOfLines={1}>{item.title}</Text>
-                {!item.read ? <View style={styles.unread} /> : null}
-              </View>
-              <Text style={styles.eventBody} numberOfLines={2}>{item.body}</Text>
-              <Text style={styles.eventTime}>{ago(item.at)}</Text>
-            </View>
-          </Pressable>
-        )) : (
-          <View style={styles.panel}>
-            <Text style={styles.panelTitle}>No activity yet</Text>
-            <Text style={styles.panelCopy}>Your Today feedback and bookmarked looks will appear here.</Text>
-          </View>
-        )}
-
-        <Text style={styles.sectionTitle}>Watching</Text>
+        <Text style={styles.sectionTitle}>Watching · {preferences.length}</Text>
         {preferences.length ? preferences.map((preference) => {
           const piece = getPiece(preference.listingId) || pieces.find((item) => item.id === preference.listingId);
           return (
@@ -75,7 +58,7 @@ export default function Alerts() {
               {piece?.photo ? <Image source={{ uri: piece.photo }} style={styles.thumb} contentFit="cover" /> : <View style={styles.thumb} />}
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={styles.rowTitle} numberOfLines={1}>{piece?.name || "Saved listing"}</Text>
-                <Text style={styles.rowMeta}>{alertKindLabel(preference.kind)} · Watching</Text>
+                <Text style={styles.rowMeta}>{alertKindLabel(preference.kind)} · {piece ? usd(piece.listPriceCents, piece.currency || "USD") : "Price unavailable"} · {stockLabel(piece)}</Text>
               </View>
               <Text style={styles.chevron}>›</Text>
             </Pressable>
@@ -107,6 +90,35 @@ export default function Alerts() {
           </View>
         )}
 
+        <Text style={styles.sectionTitle}>Recent activity</Text>
+        {activity.length ? activity.slice(0, 20).map((item) => (
+          <Pressable
+            key={item.id}
+            onPress={() => {
+              void markActivityNotificationRead(app.uid || "guest", item.id);
+              if (item.target === "saved") router.push("/saved-looks");
+            }}
+            style={[styles.event, !item.read && styles.eventUnread]}
+            accessibilityRole="button"
+            accessibilityLabel={item.target === "saved" ? `${item.title}. Open Saved Fits.` : item.title}
+          >
+            {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.eventThumb} contentFit="cover" /> : <View style={styles.eventThumb} />}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={styles.eventTop}>
+                <Text style={styles.eventTitle} numberOfLines={1}>{item.title}</Text>
+                {!item.read ? <View style={styles.unread} /> : null}
+              </View>
+              <Text style={styles.eventBody} numberOfLines={2}>{item.body}</Text>
+              <Text style={styles.eventTime}>{ago(item.at)}</Text>
+            </View>
+          </Pressable>
+        )) : (
+          <View style={styles.panel}>
+            <Text style={styles.panelTitle}>No activity yet</Text>
+            <Text style={styles.panelCopy}>Your Today feedback and bookmarked looks will appear here.</Text>
+          </View>
+        )}
+
         <View style={styles.note}>
           <Text style={styles.noteText}>Uvel never turns an unconfirmed price, stock change, or notification into a marketplace-wide claim.</Text>
         </View>
@@ -121,7 +133,7 @@ function Header({ styles }: { styles: ReturnType<typeof make> }) {
       <Pressable onPress={() => router.back()} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel="Back">
         <Text style={styles.backText}>‹</Text>
       </Pressable>
-      <Text style={styles.headerTitle}>Notifications</Text>
+      <Text style={styles.headerTitle}>Price & restock alerts</Text>
       <View style={{ width: 40 }} />
     </View>
   );
