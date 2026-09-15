@@ -5,7 +5,6 @@ import {
   ActionSheetIOS,
   ActivityIndicator,
   Alert,
-  Dimensions,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
@@ -31,7 +30,8 @@ import { recordAuditEvent } from "../../lib/audit";
 import { addPiece, createBrandCatalogRemote } from "../../lib/wardrobe";
 import { firebaseReady } from "../../lib/firebase";
 
-const W = Dimensions.get("window").width;
+const COVER_W = 112;
+const COVER_H = 140;
 const MAX = 5;
 const STAGES = ["Looking at the photos…", "Is this fashion?", "Checking the listing…", "Looking for anything that shouldn’t be here…"];
 
@@ -285,7 +285,7 @@ export default function BrandList() {
           ) : null}
           <Pressable onPress={cover ? undefined : choosePhoto} style={styles.hero}>
             {cover ? (
-              <Image cachePolicy="memory-disk" source={{ uri: cover.uri }} style={styles.heroImg} contentFit="cover" />
+              <Image cachePolicy="memory-disk" source={{ uri: cover.uri }} style={styles.heroImg} contentFit="contain" />
             ) : (
               <View style={styles.heroEmpty}>
                 <Text style={styles.heroPlus}>＋</Text>
@@ -480,16 +480,16 @@ const styles = StyleSheet.create({
   contactGateText: { color: "rgba(244,240,230,0.6)", fontSize: 13, lineHeight: 18, marginTop: 6 },
   contactGateBtn: { marginTop: 12, alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 12, borderRadius: 16, backgroundColor: "#D6E27A" },
   contactGateBtnText: { color: "#16140F", fontSize: 13, fontWeight: "700" },
-  hero: { width: W, height: W * 0.9, backgroundColor: "#161512" },
+  hero: { width: COVER_W, height: COVER_H, marginHorizontal: 20, marginTop: 16, borderRadius: 16, overflow: "hidden", backgroundColor: "#161512" },
   heroImg: { width: "100%", height: "100%" },
-  heroEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8, paddingBottom: 8 },
-  heroPlus: { color: "#F4F0E6", fontSize: 42, fontWeight: "300" },
-  heroHint: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 22 },
-  heroSub: { color: "rgba(244,240,230,0.42)", fontSize: 12, marginTop: 2 },
+  heroEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4, paddingHorizontal: 8 },
+  heroPlus: { color: "#F4F0E6", fontSize: 30, fontWeight: "300" },
+  heroHint: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 14, textAlign: "center" },
+  heroSub: { color: "rgba(244,240,230,0.42)", fontSize: 10, textAlign: "center", marginTop: 2 },
   heroMask: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(214,226,122,0.5)", alignItems: "center", justifyContent: "center" },
   slotRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 12 },
-  mini: { width: 56, height: 70, borderRadius: 8, backgroundColor: "#161512" },
-  miniAdd: { width: 56, height: 70, borderRadius: 8, borderWidth: 1, borderColor: "rgba(244,240,230,0.16)", alignItems: "center", justifyContent: "center" },
+  mini: { width: 64, height: 80, borderRadius: 10, backgroundColor: "#161512" },
+  miniAdd: { width: 64, height: 80, borderRadius: 10, borderWidth: 1, borderColor: "rgba(244,240,230,0.16)", alignItems: "center", justifyContent: "center" },
   miniPlus: { color: "#F4F0E6", fontSize: 22 },
   sheet: { paddingHorizontal: 20, paddingTop: 28 },
   sectionKicker: { color: "rgba(244,240,230,0.48)", fontSize: 11, letterSpacing: 1.6, fontWeight: "800", marginBottom: 4 },
