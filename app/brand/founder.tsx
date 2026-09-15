@@ -1,11 +1,11 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Linking, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { Alert, Linking, PanResponder, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { importFounderWork, pickFromLibrary, saveFounderPhotoReference } from "../../lib/photo";
 import { workspaceStyles } from "./founder-workspace-styles";
-import { appendFounderReference, archiveFounderProject, applyReady, createFounderBoard, createFounderProject, getFounderProject, ideaReady, pieceReady, saveFounderProduct, simpleStageOf, updateFounderBoard, updateFounderProject, updateFounderProduction, updateFounderTask, useFounderProjects, type FounderBoard, type FounderCanvasTool, type FounderPoint, type FounderProduction, type FounderProject, type FounderSetup, type FounderStage, type FounderStroke, type FounderSupplier, type FounderSample, type FounderImportedWork } from "../../lib/founder";
+import { appendFounderReference, archiveFounderProject, applyReady, createFounderBoard, createFounderProject, founderProductBriefText, founderProductCompleteness, founderSuggestedPrice, getFounderProject, ideaReady, pieceReady, saveFounderProduct, simpleStageOf, updateFounderBoard, updateFounderProject, updateFounderProduction, updateFounderTask, useFounderProjects, type FounderBoard, type FounderCanvasTool, type FounderPoint, type FounderProduction, type FounderProject, type FounderSetup, type FounderStage, type FounderStroke, type FounderSupplier, type FounderSample, type FounderImportedWork } from "../../lib/founder";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { founderCloudCapability, type FounderCloudCapability } from "../../lib/firebase";
@@ -274,19 +274,34 @@ export function FounderProductEditor({ project, colors }: { project: FounderProj
     });
   };
   const categories = ["Outerwear", "Dresses", "Tops", "Trousers", "Knitwear", "Skirts", "Shoes", "Bags", "Accessories"];
+  const checks = founderProductCompleteness(product);
+  const completeCount = checks.filter((item) => item.complete).length;
+  const suggestedPrice = founderSuggestedPrice(product.targetUnitCost);
   return <View style={styles.productCard}>
+    <Text style={styles.sectionLabel}>PHASE 2 · PRODUCT BRIEF</Text>
+    <Text style={styles.cardTitle}>Make the concept shippable.</Text>
+    <Text style={styles.cardBody}>Capture the details a maker or future catalog draft needs. Missing fields stay visible instead of being guessed.</Text>
     <TextInput value={product.name} onChangeText={(value) => setField("name", value)} placeholder="What’s the piece?" placeholderTextColor={colors.muted} style={[styles.input, { marginTop: 0 }]} />
     <Text style={styles.fieldLabel}>CATEGORY</Text>
     <View style={styles.optionRow}>{categories.map((option) => <Pressable key={option} onPress={() => setField("category", option)} style={[styles.option, product.category === option && styles.optionOn]}><Text style={[styles.optionText, product.category === option && styles.optionTextOn]}>{option}</Text></Pressable>)}</View>
     <Pressable onPress={() => setMore((value) => !value)} style={styles.secondary}><Text style={styles.secondaryText}>{more ? "Hide extra spec" : "More · fit, fabric, maker notes"}</Text></Pressable>
     {more ? <>
       <TextInput value={product.silhouette} onChangeText={(value) => setField("silhouette", value)} placeholder="Silhouette" placeholderTextColor={colors.muted} style={styles.input} />
+      <TextInput value={product.fit} onChangeText={(value) => setField("fit", value)} placeholder="Fit · e.g. relaxed, cropped, tailored" placeholderTextColor={colors.muted} style={styles.input} />
       <TextInput value={product.materials} onChangeText={(value) => setField("materials", value)} placeholder="Materials" placeholderTextColor={colors.muted} style={styles.input} />
+      <TextInput value={product.trims} onChangeText={(value) => setField("trims", value)} placeholder="Trims or hardware" placeholderTextColor={colors.muted} style={styles.input} />
       <TextInput value={product.colorway} onChangeText={(value) => setField("colorway", value)} placeholder="Colorway" placeholderTextColor={colors.muted} style={styles.input} />
       <TextInput value={product.sizes} onChangeText={(value) => setField("sizes", value)} placeholder="Size range" placeholderTextColor={colors.muted} style={styles.input} />
+      <TextInput value={product.measurements} onChangeText={(value) => setField("measurements", value)} placeholder="Key measurements" placeholderTextColor={colors.muted} style={styles.input} />
+      <TextInput value={product.care} onChangeText={(value) => setField("care", value)} placeholder="Care notes" placeholderTextColor={colors.muted} style={styles.input} />
+      <TextInput value={product.targetUnitCost} onChangeText={(value) => setField("targetUnitCost", value)} placeholder="Target unit cost · e.g. 18" placeholderTextColor={colors.muted} keyboardType="decimal-pad" style={styles.input} />
       <TextInput value={product.targetPrice} onChangeText={(value) => setField("targetPrice", value)} placeholder="Target price" placeholderTextColor={colors.muted} style={styles.input} />
+      {suggestedPrice ? <Text style={styles.saveHint}>Planning suggestion: ${suggestedPrice} retail at a 2.5× cost multiple. Edit this freely; it is not a market quote.</Text> : null}
+      <TextInput value={product.sampleQuantity} onChangeText={(value) => setField("sampleQuantity", value)} placeholder="Sample quantity" placeholderTextColor={colors.muted} keyboardType="number-pad" style={styles.input} />
       <TextInput value={product.productionQuestions} onChangeText={(value) => setField("productionQuestions", value)} placeholder="Notes for a maker · later" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.longInput]} />
     </> : null}
+    <View style={{ marginTop: 16, padding: 13, borderRadius: 16, borderWidth: 1, borderColor: colors.lineColor, backgroundColor: colors.ink }}><View style={{ flexDirection: "row", justifyContent: "space-between" }}><Text style={styles.taskTitle}>Brief completeness</Text><Text style={styles.readinessCount}>{completeCount}/{checks.length}</Text></View>{checks.map((item) => <View key={item.key} style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }}><Text style={{ color: item.complete ? colors.accent : colors.muted, fontWeight: "900" }}>{item.complete ? "✓" : "○"}</Text><Text style={{ color: item.complete ? colors.ink : colors.muted, fontSize: 12 }}>{item.label}</Text></View>)}</View>
+    <Pressable onPress={() => void Share.share({ title: `${project.name} product brief`, message: founderProductBriefText({ ...project, product }) })} style={styles.secondary}><Text style={styles.secondaryText}>Share product brief</Text></Pressable>
   </View>;
 }
 

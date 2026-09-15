@@ -72,6 +72,52 @@ export type FounderProductBrief = {
 export type FounderProductSnapshot = FounderProductBrief & { version: number; savedAt: number };
 export type FounderAuditEvent = { id: string; action: string; fields: string[]; createdAt: number };
 
+export type FounderProductCompleteness = { label: string; key: keyof FounderProductBrief; complete: boolean };
+
+export function founderProductCompleteness(product: FounderProductBrief): FounderProductCompleteness[] {
+  return [
+    { label: "Product name", key: "name", complete: Boolean(product.name.trim()) },
+    { label: "Category", key: "category", complete: Boolean(product.category.trim()) },
+    { label: "Artwork or reference", key: "photoUri", complete: Boolean(product.photoUri) },
+    { label: "Materials", key: "materials", complete: Boolean(product.materials.trim()) },
+    { label: "Size range", key: "sizes", complete: Boolean(product.sizes.trim()) },
+    { label: "Care notes", key: "care", complete: Boolean(product.care.trim()) },
+    { label: "Target unit cost", key: "targetUnitCost", complete: Boolean(product.targetUnitCost.trim()) },
+    { label: "Target retail price", key: "targetPrice", complete: Boolean(product.targetPrice.trim()) },
+  ];
+}
+
+export function founderSuggestedPrice(targetUnitCost: string) {
+  const cost = Number.parseFloat(targetUnitCost.replace(/[^0-9.]/g, ""));
+  return Number.isFinite(cost) && cost > 0 ? (cost * 2.5).toFixed(2) : "";
+}
+
+export function founderProductBriefText(project: FounderProject) {
+  const product = project.product;
+  const checks = founderProductCompleteness(product);
+  const complete = checks.filter((item) => item.complete).length;
+  return [
+    `${project.name || "Founder project"} · Product brief`,
+    "",
+    `Product: ${product.name || "Untitled piece"}`,
+    `Category: ${product.category || "Not set"}`,
+    `Template: ${product.templateId || "Not set"}`,
+    `Version: ${product.designVersionName || "Unnamed direction"}`,
+    `Silhouette: ${product.silhouette || "Not set"}`,
+    `Materials: ${product.materials || "Not set"}`,
+    `Colorway: ${product.colorway || "Not set"}`,
+    `Sizes: ${product.sizes || "Not set"}`,
+    `Care: ${product.care || "Not set"}`,
+    `Target unit cost: ${product.targetUnitCost || "Not set"}`,
+    `Target retail price: ${product.targetPrice || "Not set"}`,
+    `Sample quantity: ${product.sampleQuantity || "Not set"}`,
+    `Production notes: ${product.productionQuestions || "None yet"}`,
+    "",
+    `Brief completeness: ${complete}/${checks.length}`,
+    "Planning document only · Uvel has not verified manufacturing, pricing, or legal availability.",
+  ].join("\n");
+}
+
 export type FounderSetup = {
   completedTaskIds: string[];
   notes: string;
