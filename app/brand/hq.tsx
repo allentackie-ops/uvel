@@ -49,6 +49,7 @@ import { summarizeCampaignAttributionByChannel, useCampaignAttributionReport } f
 import { analyticsCurrencyValue, analyticsDisplayState, analyticsDisclosure, analyticsValue, type AnalyticsDisplayState } from "../../lib/analyticsDisplay";
 import { semanticStatus, semanticLabel, statusToneFor } from "../../lib/status";
 import { saveBrandCampaign, saveBrandCollection, saveBrandPromotion, useMarketing, type BrandCampaign, type BrandCollection, type BrandPromotion, type MarketingState, type MarketingStatus } from "../../lib/marketing";
+import { alertKindLabel, enableAlert, setAlertPreference, useAlertCenter, type AlertKind } from "../../lib/alerts";
 
 type Section = "overview" | "make" | "catalog" | "orders" | "finance" | "more" | "marketing" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
 
@@ -404,8 +405,29 @@ const CATALOG_FILTERS: Array<{ id: CatalogFilter; label: string }> = [
 function CatalogSection({ brand, items, canManage, theme, styles }: { brand: Brand; items: ClosetPiece[]; canManage: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const [marketCode, setMarketCode] = useState(getMarket(brand.country).code);
   const [filter, setFilter] = useState<CatalogFilter>("all");
+  const [alertKind, setAlertKind] = useState<AlertKind>("both");
+  const [alertBusy, setAlertBusy] = useState(false);
+  const app = useUvel();
+  const { preferences } = useAlertCenter(app.uid);
   const market = getMarket(marketCode);
   const filteredItems = items.filter((item) => filter === "all" || (filter === "active" ? item.status === "listed" : item.status === filter));
+  const watchedIds = new Set(preferences.map((preference) => preference.listingId));
+
+  async function watchWholeCatalog() {
+    if (!app.uid || !items.length || alertBusy) return;
+    setAlertBusy(true);
+    try {
+      const first = items[0];
+      await enableAlert(app.uid, first, alertKind);
+      for (const item of items.slice(1)) {
+        await setAlertPreference(app.uid, item, alertKind);
+      }
+      Alert.alert("Catalog alerts enabled", `${alertKindLabel(alertKind)} are now watching all ${items.length} Founder Studio / Brand HQ product${items.length === 1 ? "" : "s"}. Changes recorded in the catalog will appear in Notifications.`);
+    } finally {
+      setAlertBusy(false);
+    }
+  }
+
   return (
     <View>
       <View style={styles.sectionHead}>
@@ -415,6 +437,26 @@ function CatalogSection({ brand, items, canManage, theme, styles }: { brand: Bra
         </View>
         {canManage ? <Pressable onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })} style={[styles.smallCta, { backgroundColor: theme.accent }]}><Text style={[styles.smallCtaTxt, { color: theme.accentInk }]}>Add product</Text></Pressable> : null}
       </View>
+      {canManage ? (
+        <View style={[styles.bulkCard, { backgroundColor: theme.card }]}>
+          <View style={styles.bulkHead}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.bulkTitle, { color: theme.ink }]}>Price & restock alerts</Text>
+              <Text style={[styles.bulkP, { color: theme.muted }]}>Watch the whole Founder Studio / Brand HQ catalog, not just one marketplace listing. {watchedIds.size}/{items.length} product{items.length === 1 ? " is" : "s are"} currently watched.</Text>
+            </View>
+          </View>
+          <View style={styles.catalogAlertOptions}>
+            {(["price_drop", "restock", "both"] as const).map((kind) => (
+              <Pressable key={kind} onPress={() => setAlertKind(kind)} style={[styles.orderFilter, { borderColor: alertKind === kind ? theme.accent : theme.lineColor, backgroundColor: alertKind === kind ? theme.accent : theme.card }]}>
+                <Text style={[styles.orderFilterTxt, { color: alertKind === kind ? theme.accentInk : theme.ink }]}>{kind === "price_drop" ? "Price drops" : kind === "restock" ? "Restocks" : "Both"}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Pressable onPress={() => void watchWholeCatalog()} disabled={alertBusy || !items.length} style={[styles.bulkButton, { backgroundColor: theme.accent, opacity: alertBusy || !items.length ? 0.55 : 1 }]}>
+            <Text style={[styles.bulkButtonTxt, { color: theme.accentInk }]}>{alertBusy ? "Enabling…" : "Watch whole catalog"}</Text>
+          </Pressable>
+        </View>
+      ) : null}
       <Text style={[styles.marketKicker, { color: theme.muted }]}>MANAGE A MARKET</Text>
       <Text style={[styles.marketSummary, { color: theme.ink }]}>{market.name} · {market.currency}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.marketPicker}>
@@ -1291,6 +1333,7 @@ function make(theme: HQTheme) {
     marketHint: { fontSize: 12, lineHeight: 17, marginBottom: 4 },
     bulkCard: { borderRadius: 18, padding: 14, marginTop: 14 },
     bulkHead: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+    catalogAlertOptions: { flexDirection: "row", gap: 8, marginTop: 12, marginBottom: 10 },
     bulkTitle: { fontSize: 14, fontWeight: "800" },
     bulkP: { fontSize: 12, lineHeight: 17, marginTop: 4 },
     bulkCurrency: { fontSize: 11, fontWeight: "800", letterSpacing: 1 },
