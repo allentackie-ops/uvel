@@ -163,7 +163,14 @@ export type FounderSetup = {
 };
 
 export type FounderIntegrationStatus = "not-started" | "preparing" | "connected" | "needs-attention" | "unavailable";
-export type FounderIntegration = { id: string; label: string; outcome: string; status: FounderIntegrationStatus; notes: string };
+export type FounderIntegration = { id: string; label: string; outcome: string; status: FounderIntegrationStatus; notes: string; category?: string; providerHint?: string; setupUrl?: string };
+
+export function founderSetupPriority(country: string) {
+  const market = country.trim().toLowerCase();
+  if (!market) return ["domain-email", "storefront", "payments", "shipping", "social", "support", "analytics"];
+  if (["us", "usa", "united states", "canada", "uk", "united kingdom"].includes(market)) return ["domain-email", "payments", "shipping", "storefront", "social", "support", "analytics"];
+  return ["domain-email", "storefront", "shipping", "payments", "social", "support", "analytics"];
+}
 
 export type FounderSupplierStatus = "researching" | "contacted" | "sample" | "shortlisted" | "passed";
 export type FounderSampleStatus = "not-requested" | "requested" | "received" | "approved" | "changes-needed";
@@ -249,13 +256,13 @@ export const emptyFounderBrief = (): FounderBrief => ({ audience: "", category: 
 export const defaultFounderIdentity = (): FounderIdentity => ({ workingName: "", username: "", handleIdeas: "", tone: "", story: "", colors: ["#D6E27A", "#F4F0E6", "#161512"], typography: "Warm editorial sans", logoDirection: "", photographyDirection: "", packagingNotes: "" });
 export const emptyFounderProduct = (): FounderProductBrief => ({ name: "", category: "", templateId: "tee", designVersionName: "First direction", silhouette: "", fit: "", materials: "", trims: "", colorway: "", sizes: "", measurements: "", construction: "", care: "", targetUnitCost: "", targetPrice: "", sampleQuantity: "", sampleStatus: "not-started", productionQuestions: "", boardId: "", photoUri: "", photoOk: false });
 export const defaultFounderIntegrations = (): FounderIntegration[] => [
-  { id: "domain-email", label: "Domain & email", outcome: "A recognizable web address and professional inbox", status: "not-started", notes: "" },
-  { id: "storefront", label: "Storefront", outcome: "A place where products can be sold", status: "not-started", notes: "" },
-  { id: "payments", label: "Payments", outcome: "A safe way to accept money", status: "not-started", notes: "" },
-  { id: "shipping", label: "Shipping & returns", outcome: "Rates, delivery, tracking, and returns", status: "not-started", notes: "" },
-  { id: "social", label: "Social profiles", outcome: "A consistent public identity", status: "not-started", notes: "" },
-  { id: "analytics", label: "Analytics", outcome: "Confirmed visits and purchases", status: "unavailable", notes: "Live analytics is unavailable until a real data connection exists." },
-  { id: "support", label: "Customer support", outcome: "A reliable buyer contact route", status: "not-started", notes: "" },
+  { id: "domain-email", label: "Domain & email", outcome: "A recognizable web address and professional inbox", status: "not-started", notes: "", category: "FOUNDATION", providerHint: "Choose a registrar and an email provider separately.", setupUrl: "https://www.icann.org/resources/pages/what-is-a-domain-name-2018-08-28-en" },
+  { id: "storefront", label: "Storefront", outcome: "A place where products can be sold", status: "not-started", notes: "", category: "SELL", providerHint: "Compare hosted commerce tools before committing.", setupUrl: "https://www.shopify.com/start" },
+  { id: "payments", label: "Payments", outcome: "A safe way to accept money", status: "not-started", notes: "", category: "MONEY", providerHint: "Provider onboarding, eligibility, and payout rules happen outside Uvel.", setupUrl: "https://stripe.com/connect" },
+  { id: "shipping", label: "Shipping & returns", outcome: "Rates, delivery, tracking, and returns", status: "not-started", notes: "", category: "OPERATIONS", providerHint: "Confirm destination coverage, delivery promises, and return costs.", setupUrl: "https://www.shopify.com/shipping" },
+  { id: "social", label: "Social profiles", outcome: "A consistent public identity", status: "not-started", notes: "", category: "AUDIENCE", providerHint: "Handle availability must be checked on each network.", setupUrl: "https://www.instagram.com/accounts/emailsignup/" },
+  { id: "analytics", label: "Analytics", outcome: "Confirmed visits and purchases", status: "unavailable", notes: "Live analytics is unavailable until a real data connection exists.", category: "LEARN", providerHint: "Unavailable until a real storefront and event connection exist." },
+  { id: "support", label: "Customer support", outcome: "A reliable buyer contact route", status: "not-started", notes: "", category: "TRUST", providerHint: "Set a monitored inbox and write a response/returns policy." },
 ];
 export const emptyFounderSetup = (): FounderSetup => ({ completedTaskIds: [], notes: "", launchDate: "", integrations: defaultFounderIntegrations() });
 export const emptyFounderProduction = (): FounderProduction => ({

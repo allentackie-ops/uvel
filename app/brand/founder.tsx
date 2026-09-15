@@ -5,7 +5,7 @@ import { Alert, Linking, PanResponder, Pressable, ScrollView, Share, StyleSheet,
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { importFounderWork, pickFromLibrary, saveFounderPhotoReference } from "../../lib/photo";
 import { workspaceStyles } from "./founder-workspace-styles";
-import { appendFounderReference, archiveFounderProject, applyReady, createFounderBoard, createFounderProject, founderIdentityCompleteness, founderIdentityText, founderProductBriefText, founderProductCompleteness, founderSuggestedPrice, getFounderProject, ideaReady, pieceReady, saveFounderProduct, simpleStageOf, updateFounderBoard, updateFounderProject, updateFounderProduction, updateFounderTask, useFounderProjects, type FounderBoard, type FounderCanvasTool, type FounderPoint, type FounderProduction, type FounderProject, type FounderSetup, type FounderStage, type FounderStroke, type FounderSupplier, type FounderSample, type FounderImportedWork } from "../../lib/founder";
+import { appendFounderReference, archiveFounderProject, applyReady, createFounderBoard, createFounderProject, founderIdentityCompleteness, founderIdentityText, founderProductBriefText, founderProductCompleteness, founderSetupPriority, founderSuggestedPrice, getFounderProject, ideaReady, pieceReady, saveFounderProduct, simpleStageOf, updateFounderBoard, updateFounderProject, updateFounderProduction, updateFounderTask, useFounderProjects, type FounderBoard, type FounderCanvasTool, type FounderPoint, type FounderProduction, type FounderProject, type FounderSetup, type FounderStage, type FounderStroke, type FounderSupplier, type FounderSample, type FounderImportedWork } from "../../lib/founder";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { founderCloudCapability, type FounderCloudCapability } from "../../lib/firebase";
@@ -117,7 +117,9 @@ export function SketchBoard({ board, projectId, colors }: { board: FounderBoard;
 export function FounderSetupHub({ project, colors }: { project: FounderProject; colors: FounderColors }) {
   const styles = make(colors);
   const [notes, setNotes] = useState(project.setup.notes);
+  const [market, setMarket] = useState(project.country);
   useEffect(() => { setNotes(project.setup.notes); }, [project.id]);
+  useEffect(() => { setMarket(project.country); }, [project.id, project.country]);
   const completed = new Set(project.setup.completedTaskIds);
   const toggleTask = (id: string) => {
     const next = completed.has(id) ? project.setup.completedTaskIds.filter((taskId) => taskId !== id) : [...project.setup.completedTaskIds, id];
@@ -138,10 +140,16 @@ export function FounderSetupHub({ project, colors }: { project: FounderProject; 
     }
   };
   const doneCount = SETUP_TASKS.filter((task) => completed.has(task.id)).length;
+  const priority = founderSetupPriority(project.country);
+  const integrations = [...project.setup.integrations].sort((a, b) => priority.indexOf(a.id) - priority.indexOf(b.id));
+  const openIntegration = async (url?: string) => { if (!url) return; try { if (await Linking.canOpenURL(url)) await Linking.openURL(url); } catch { Alert.alert("Resource unavailable", "This provider resource could not be opened right now."); } };
   return <View style={styles.setupCard}>
-    <Text style={styles.sectionLabel}>SOURCE & LAUNCH</Text>
+    <Text style={styles.sectionLabel}>PHASE 4 · SERVICES & LAUNCH</Text>
     <Text style={styles.cardTitle}>Build the parts around the product.</Text>
-    <Text style={styles.cardBody}>Use this as a guide. Uvel does not create provider accounts or claim that setup is complete for you.</Text>
+    <Text style={styles.cardBody}>A provider-neutral guide for domain, storefront, payments, shipping, audience, analytics, and support. Uvel does not create accounts or claim setup is complete for you.</Text>
+    <Text style={styles.fieldLabel}>STARTING MARKET</Text>
+    <TextInput value={market} onChangeText={setMarket} onBlur={() => updateFounderProject(project.id, { country: market.trim(), stage: "source" })} placeholder="Country or market · e.g. US, UK, Nigeria" placeholderTextColor={colors.muted} style={styles.input} />
+    <Text style={styles.saveHint}>This only changes checklist order and planning context; it does not determine eligibility, tax, or shipping availability.</Text>
     <View style={styles.readinessRow}><Text style={styles.saveHint}>Setup readiness</Text><Text style={styles.readinessCount}>{doneCount}/{SETUP_TASKS.length} complete</Text></View>
     <View style={styles.taskList}>{SETUP_TASKS.map((task) => <Pressable key={task.id} onPress={() => toggleTask(task.id)} style={[styles.setupTask, completed.has(task.id) && styles.setupTaskDone]}><View style={[styles.taskCheck, completed.has(task.id) && styles.taskCheckDone]}><Text style={styles.taskCheckText}>{completed.has(task.id) ? "✓" : ""}</Text></View><View style={{ flex: 1 }}><Text style={styles.taskCategory}>{task.category}</Text><Text style={styles.taskTitle}>{task.title}</Text><Text style={styles.taskBody}>{task.body}</Text></View></Pressable>)}</View>
     <Text style={styles.fieldLabel}>FOUNDER NOTES</Text>
@@ -150,8 +158,8 @@ export function FounderSetupHub({ project, colors }: { project: FounderProject; 
     <Text style={[styles.fieldLabel, { marginTop: 18 }]}>PLANNED LAUNCH DATE</Text>
     <TextInput value={project.setup.launchDate} onChangeText={(launchDate) => updateFounderProject(project.id, { setup: { ...project.setup, launchDate }, stage: "source" })} placeholder="YYYY-MM-DD · planning only" placeholderTextColor={colors.muted} style={styles.input} />
     <Text style={[styles.fieldLabel, { marginTop: 18 }]}>SERVICE SETUP GUIDE</Text>
-    <Text style={styles.cardBody}>Tap a service to cycle its planning state. “Connected” is a founder-entered planning state here, not proof that Uvel has a live provider connection.</Text>
-    <View style={styles.integrationList}>{project.setup.integrations.map((item) => <Pressable key={item.id} onPress={() => cycleIntegration(item.id)} style={styles.integrationRow}><View style={{ flex: 1 }}><Text style={styles.taskTitle}>{item.label}</Text><Text style={styles.resourceBody}>{item.outcome}</Text></View><Text style={styles.statusPill}>{statusLabel(item.status)}</Text></Pressable>)}</View>
+    <Text style={styles.cardBody}>Tap the status to record your planning state. “Connected” is founder-entered here, not proof that Uvel has a live provider connection.</Text>
+    <View style={styles.integrationList}>{integrations.map((item) => <View key={item.id} style={styles.integrationRow}><View style={{ flex: 1 }}><Text style={styles.taskCategory}>{item.category || "SETUP"}</Text><Text style={styles.taskTitle}>{item.label}</Text><Text style={styles.resourceBody}>{item.outcome}</Text><Text style={styles.saveHint}>{item.providerHint || item.notes}</Text><View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}><Pressable onPress={() => cycleIntegration(item.id)}><Text style={styles.statusPill}>{statusLabel(item.status)}</Text></Pressable>{item.setupUrl ? <Pressable onPress={() => void openIntegration(item.setupUrl)}><Text style={styles.resourceArrow}>Open guide ↗</Text></Pressable> : null}</View></View></View>)}</View>
     <Text style={[styles.fieldLabel, { marginTop: 18 }]}>STARTER RESOURCES</Text>
     {RESOURCES.map((resource) => <Pressable key={resource.url} onPress={() => void openResource(resource.url)} style={styles.resourceCard}><View style={{ flex: 1 }}><Text style={styles.resourceTitle}>{resource.title}</Text><Text style={styles.resourceBody}>{resource.body}</Text></View><Text style={styles.resourceArrow}>↗</Text></Pressable>)}
   </View>;
