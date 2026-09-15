@@ -4,9 +4,11 @@ import { usePathname } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   AppState,
   Keyboard,
   Modal,
+  PanResponder,
   Platform,
   Pressable,
   ScrollView,
@@ -42,6 +44,7 @@ export function ShakeToReport() {
   const [sent, setSent] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [chromeH, setChromeH] = useState(120);
+  const sheetTranslateY = useRef(new Animated.Value(0)).current;
   const lastShake = useRef(0);
   const listenerRef = useRef<{ remove: () => void } | null>(null);
   const activeRef = useRef(true);
@@ -49,6 +52,7 @@ export function ShakeToReport() {
 
   useEffect(() => {
     openRef.current = open;
+    if (!open) sheetTranslateY.setValue(0);
   }, [open]);
 
   useEffect(() => subscribeToFeedbackRequest((entry) => {
@@ -109,6 +113,7 @@ export function ShakeToReport() {
   function close() {
     if (submitting) return;
     openRef.current = false;
+    sheetTranslateY.setValue(0);
     setOpen(false);
     setCompose(false);
     setIncludeScreenshot(false);
@@ -153,13 +158,26 @@ export function ShakeToReport() {
   const sheetPad = keyboardHeight ? 12 : Math.max(insets.bottom, 12);
   const sheetMaxHeight = Math.max(280, windowHeight - keyboardHeight - Math.max(insets.top, 8) - 8);
   const formMaxHeight = Math.max(120, sheetMaxHeight - chromeH - sheetPad);
+  const sheetPan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+    onPanResponderMove: (_, gesture) => sheetTranslateY.setValue(Math.max(0, gesture.dy)),
+    onPanResponderRelease: (_, gesture) => {
+      if (gesture.dy > 120 || gesture.vy > 1.2) {
+        close();
+      } else {
+        Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+      }
+    },
+    onPanResponderTerminate: () => Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start(),
+  })).current;
 
   return (
     <Modal visible={open} transparent animationType="slide" onRequestClose={close} statusBarTranslucent>
       <Pressable style={styles.modalRoot} onPress={close} accessibilityLabel="Close report problem">
         <View style={styles.scrim} pointerEvents="none" />
-        <View onStartShouldSetResponder={() => true} style={[styles.sheetWrap, { paddingBottom: keyboardHeight }]}>
-          <View style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: sheetPad }]}>
+        <View style={[styles.sheetWrap, { paddingBottom: keyboardHeight }]}>
+          <Animated.View {...sheetPan.panHandlers} style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: sheetPad, transform: [{ translateY: sheetTranslateY }] }]}> 
             <View onLayout={(e) => setChromeH(e.nativeEvent.layout.height)}>
               <View style={styles.grabber} />
               <View style={styles.header}>
@@ -238,7 +256,7 @@ export function ShakeToReport() {
                 </Pressable>
               </>
             )}
-          </View>
+          </Animated.View>
         </View>
       </Pressable>
     </Modal>
