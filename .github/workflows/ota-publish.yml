@@ -63,6 +63,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
       - name: Validate rollback IDs
         env:
           IOS_GROUP_ID: ${{ inputs.ios_group_id }}
