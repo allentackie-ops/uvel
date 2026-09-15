@@ -251,41 +251,6 @@ export default function Mirror() {
           {result ? <Pressable onPress={() => setShareOpen(true)} style={styles.shareResult} accessibilityRole="button" accessibilityLabel="Share this Mirror fit with friends"><Ionicons name="share-outline" size={18} color={colors.successInk} /><Text style={styles.shareResultTxt}>Share with friends</Text></Pressable> : null}
         </View>
 
-        <View style={styles.sourceCard} onLayout={(event) => { sourceY.current = event.nativeEvent.layout.y; }}>
-          <View style={styles.sourceHead}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sourceKicker}>START HERE</Text>
-              <Text style={styles.sourceTitle}>{person ? "Choose something to try" : "Add your photo to begin"}</Text>
-              <Text style={styles.sourceCopy}>{person ? "Bring in a look from anywhere, or choose a piece from Uvel." : "Once your photo is ready, choose a piece from Uvel or anywhere else."}</Text>
-            </View>
-            {person ? <Text style={styles.step}>1 of 2</Text> : null}
-          </View>
-          <View style={styles.anywhere}>
-            <Pressable onPress={chooseGarmentPhoto} style={[styles.chip, picked?.kind === "photo" && styles.chipOn]}>
-              <Text style={[styles.chipTxt, picked?.kind === "photo" && styles.chipTxtOn]}>Add clothing photo</Text>
-            </Pressable>
-            <Pressable onPress={() => setShowLink((v) => !v)} style={[styles.chip, showLink && styles.chipOn]}>
-              <Text style={[styles.chipTxt, showLink && styles.chipTxtOn]}>Paste product link</Text>
-            </Pressable>
-          </View>
-          {showLink ? (
-            <View style={styles.linkRow}>
-              <TextInput
-                placeholder="Paste an image or product link"
-                placeholderTextColor={`59`}
-                value={link}
-                onChangeText={setLink}
-                autoCapitalize="none"
-                keyboardType="url"
-                style={styles.input}
-              />
-              <Pressable onPress={useLink} style={styles.linkGo}>
-                <Text style={styles.linkGoTxt}>Use</Text>
-              </Pressable>
-            </View>
-          ) : null}
-        </View>
-
         {live.length ? (
           <View style={styles.headRow}>
             <Text style={styles.h2}>From Uvel</Text>
@@ -339,6 +304,41 @@ export default function Mirror() {
             </Pressable>
           </View>
         )}
+
+        <View style={styles.sourceCard} onLayout={(event) => { sourceY.current = event.nativeEvent.layout.y; }}>
+          <View style={styles.sourceHead}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sourceKicker}>START HERE</Text>
+              <Text style={styles.sourceTitle}>{person ? "Choose something to try" : "Add your photo to begin"}</Text>
+              <Text style={styles.sourceCopy}>{person ? "Bring in a look from anywhere, or choose a piece from Uvel." : "Once your photo is ready, choose a piece from Uvel or anywhere else."}</Text>
+            </View>
+            {person ? <Text style={styles.step}>1 of 2</Text> : null}
+          </View>
+          <View style={styles.anywhere}>
+            <Pressable onPress={chooseGarmentPhoto} style={[styles.chip, picked?.kind === "photo" && styles.chipOn]}>
+              <Text style={[styles.chipTxt, picked?.kind === "photo" && styles.chipTxtOn]}>Add clothing photo</Text>
+            </Pressable>
+            <Pressable onPress={() => setShowLink((v) => !v)} style={[styles.chip, showLink && styles.chipOn]}>
+              <Text style={[styles.chipTxt, showLink && styles.chipTxtOn]}>Paste product link</Text>
+            </Pressable>
+          </View>
+          {showLink ? (
+            <View style={styles.linkRow}>
+              <TextInput
+                placeholder="Paste an image or product link"
+                placeholderTextColor={`59`}
+                value={link}
+                onChangeText={setLink}
+                autoCapitalize="none"
+                keyboardType="url"
+                style={styles.input}
+              />
+              <Pressable onPress={useLink} style={styles.linkGo}>
+                <Text style={styles.linkGoTxt}>Use</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
 
         {picked?.kind === "photo" ? (
           <View style={styles.selected}>
