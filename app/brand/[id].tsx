@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
   },
   logoPress: { position: "absolute", left: 20, bottom: -36, width: 88, height: 88 },
   logoInPress: { position: "relative", left: 0, bottom: 0 },
-  logoEdit: { position: "absolute", right: -2, bottom: -30, width: 28, height: 28, borderRadius: 14, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center" },
+  logoEdit: { position: "absolute", left: 30, top: 30, width: 28, height: 28, borderRadius: 14, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center" },
   logoEditText: { color: "#16140F", fontSize: 18, fontWeight: "800", lineHeight: 20 },
   kicker: { letterSpacing: 1.6, fontSize: 11, fontWeight: "700" },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
