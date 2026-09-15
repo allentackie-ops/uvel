@@ -47,9 +47,6 @@ export default function Alerts() {
     <View style={styles.page}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
         <Header styles={styles} />
-        <Text style={styles.title}>Price & restock alerts</Text>
-        <Text style={styles.lede}>Track saved marketplace items and see when their recorded price drops or inventory returns.</Text>
-
         <Text style={styles.sectionTitle}>Watching · {preferences.length}</Text>
         {preferences.length ? preferences.map((preference) => {
           const piece = getPiece(preference.listingId) || pieces.find((item) => item.id === preference.listingId);
