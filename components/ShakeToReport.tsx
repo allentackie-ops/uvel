@@ -177,7 +177,7 @@ export function ShakeToReport() {
       <Pressable style={styles.modalRoot} onPress={close} accessibilityLabel="Close report problem">
         <View style={styles.scrim} pointerEvents="none" />
         <View style={[styles.sheetWrap, { paddingBottom: keyboardHeight }]}>
-          <Animated.View {...sheetPan.panHandlers} style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: sheetPad, transform: [{ translateY: sheetTranslateY }] }]}> 
+          <Animated.View {...sheetPan.panHandlers} style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: sheetPad, transform: [{ translateY: sheetTranslateY }] }]}>
             <View onLayout={(e) => setChromeH(e.nativeEvent.layout.height)}>
               <View style={styles.grabber} />
               <View style={styles.header}>
