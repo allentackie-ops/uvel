@@ -45,6 +45,43 @@ export type FounderIdentity = {
   packagingNotes: string;
 };
 
+export type FounderIdentityCheck = { label: string; key: keyof FounderIdentity; complete: boolean };
+
+export function founderIdentityCompleteness(identity: FounderIdentity): FounderIdentityCheck[] {
+  return [
+    { label: "Working name", key: "workingName", complete: Boolean(identity.workingName.trim()) },
+    { label: "Username direction", key: "username", complete: Boolean(identity.username.trim() || identity.handleIdeas.trim()) },
+    { label: "Tone", key: "tone", complete: Boolean(identity.tone.trim()) },
+    { label: "Brand story", key: "story", complete: Boolean(identity.story.trim()) },
+    { label: "Color palette", key: "colors", complete: identity.colors.length > 0 },
+    { label: "Typography direction", key: "typography", complete: Boolean(identity.typography.trim()) },
+    { label: "Logo direction", key: "logoDirection", complete: Boolean(identity.logoDirection.trim()) },
+    { label: "Photography direction", key: "photographyDirection", complete: Boolean(identity.photographyDirection.trim()) },
+    { label: "Packaging notes", key: "packagingNotes", complete: Boolean(identity.packagingNotes.trim()) },
+  ];
+}
+
+export function founderIdentityText(project: FounderProject) {
+  const identity = project.identity;
+  const checks = founderIdentityCompleteness(identity);
+  return [
+    `${project.name || "Founder project"} · Identity starter kit`,
+    "",
+    `Working name: ${identity.workingName || "Not set"}`,
+    `Username direction: ${identity.username ? `@${identity.username}` : identity.handleIdeas || "Not set"}`,
+    `Tone: ${identity.tone || "Not set"}`,
+    `Story: ${identity.story || "Not set"}`,
+    `Palette: ${identity.colors.join(", ") || "Not set"}`,
+    `Typography: ${identity.typography || "Not set"}`,
+    `Logo direction: ${identity.logoDirection || "Not set"}`,
+    `Photography direction: ${identity.photographyDirection || "Not set"}`,
+    `Packaging notes: ${identity.packagingNotes || "Not set"}`,
+    "",
+    `Identity completeness: ${checks.filter((item) => item.complete).length}/${checks.length}`,
+    "Starter kit only · names, handles, and trademarks have not been legally checked.",
+  ].join("\n");
+}
+
 export type FounderProductBrief = {
   name: string;
   category: string;

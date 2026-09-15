@@ -5,7 +5,7 @@ import { Alert, Linking, PanResponder, Pressable, ScrollView, Share, StyleSheet,
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { importFounderWork, pickFromLibrary, saveFounderPhotoReference } from "../../lib/photo";
 import { workspaceStyles } from "./founder-workspace-styles";
-import { appendFounderReference, archiveFounderProject, applyReady, createFounderBoard, createFounderProject, founderProductBriefText, founderProductCompleteness, founderSuggestedPrice, getFounderProject, ideaReady, pieceReady, saveFounderProduct, simpleStageOf, updateFounderBoard, updateFounderProject, updateFounderProduction, updateFounderTask, useFounderProjects, type FounderBoard, type FounderCanvasTool, type FounderPoint, type FounderProduction, type FounderProject, type FounderSetup, type FounderStage, type FounderStroke, type FounderSupplier, type FounderSample, type FounderImportedWork } from "../../lib/founder";
+import { appendFounderReference, archiveFounderProject, applyReady, createFounderBoard, createFounderProject, founderIdentityCompleteness, founderIdentityText, founderProductBriefText, founderProductCompleteness, founderSuggestedPrice, getFounderProject, ideaReady, pieceReady, saveFounderProduct, simpleStageOf, updateFounderBoard, updateFounderProject, updateFounderProduction, updateFounderTask, useFounderProjects, type FounderBoard, type FounderCanvasTool, type FounderPoint, type FounderProduction, type FounderProject, type FounderSetup, type FounderStage, type FounderStroke, type FounderSupplier, type FounderSample, type FounderImportedWork } from "../../lib/founder";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { founderCloudCapability, type FounderCloudCapability } from "../../lib/firebase";
@@ -359,6 +359,7 @@ export function FounderStrategy({ project, colors }: { project: FounderProject; 
   const styles = make(colors);
   const [brief, setBrief] = useState(project.brief);
   const [identity, setIdentity] = useState(project.identity);
+  const [showKit, setShowKit] = useState(false);
   useEffect(() => { setBrief(project.brief); setIdentity(project.identity); }, [project.id]);
   const persist = (nextBrief: typeof brief, nextIdentity: typeof identity) => {
     updateFounderProject(project.id, { brief: nextBrief, identity: nextIdentity, name: nextIdentity.workingName.trim() || project.name, stage: "idea" });
@@ -370,10 +371,39 @@ export function FounderStrategy({ project, colors }: { project: FounderProject; 
       return next;
     });
   };
+  const setIdentityField = <K extends keyof typeof identity>(key: K, value: (typeof identity)[K]) => {
+    setIdentity((current) => {
+      const next = { ...current, [key]: value };
+      persist(brief, next);
+      return next;
+    });
+  };
+  const checks = founderIdentityCompleteness(identity);
+  const done = checks.filter((item) => item.complete).length;
+  const paletteOptions = ["#D6E27A", "#F4F0E6", "#161512", "#B77457", "#6D8795", "#C4A77D"];
+  const typographyOptions = ["Warm editorial sans", "Sharp modern grotesk", "Soft humanist serif", "Utility mono"];
   return <View style={styles.strategyCard}>
+    <Text style={styles.sectionLabel}>PHASE 3 · IDENTITY STARTER KIT</Text>
+    <Text style={styles.cardTitle}>Give the idea a recognizable shape.</Text>
+    <Text style={styles.cardBody}>Make early identity decisions without pretending the final name, handle, or trademark is legally available.</Text>
     <TextInput value={identity.workingName} onChangeText={(workingName) => setIdentity((current) => { const next = { ...current, workingName }; persist(brief, next); return next; })} placeholder="Name" placeholderTextColor={colors.muted} style={[styles.input, { marginTop: 0 }]} />
     <TextInput value={identity.username} onChangeText={(username) => setIdentity((current) => { const next = { ...current, username: username.replace(/^@/, "").replace(/[^a-zA-Z0-9_]/g, "").toLowerCase() }; persist(brief, next); return next; })} placeholder="Brand username · e.g. apion" placeholderTextColor={colors.muted} autoCapitalize="none" autoCorrect={false} style={styles.input} />
     <TextInput value={brief.audience} onChangeText={(value) => setBriefField("audience", value)} placeholder="Who it’s for" placeholderTextColor={colors.muted} style={styles.input} />
+    <TextInput value={identity.tone} onChangeText={(value) => setIdentityField("tone", value)} placeholder="Tone · e.g. direct, warm, considered" placeholderTextColor={colors.muted} style={styles.input} />
+    <TextInput value={identity.story} onChangeText={(value) => setIdentityField("story", value)} placeholder="One-sentence brand story" placeholderTextColor={colors.muted} multiline style={[styles.input, styles.longInput]} />
+    <View style={{ marginTop: 14, padding: 13, borderRadius: 16, borderWidth: 1, borderColor: colors.lineColor, backgroundColor: colors.ink }}><View style={{ flexDirection: "row", justifyContent: "space-between" }}><Text style={styles.taskTitle}>Identity progress</Text><Text style={styles.readinessCount}>{done}/{checks.length}</Text></View>{checks.map((item) => <View key={item.key} style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 }}><Text style={{ color: item.complete ? colors.accent : colors.muted, fontWeight: "900" }}>{item.complete ? "✓" : "○"}</Text><Text style={{ color: item.complete ? colors.ink : colors.muted, fontSize: 12 }}>{item.label}</Text></View>)}</View>
+    <Pressable onPress={() => setShowKit((value) => !value)} style={styles.secondary}><Text style={styles.secondaryText}>{showKit ? "Hide identity prompts" : "Continue identity kit · palette, logo, photography"}</Text></Pressable>
+    {showKit ? <>
+      <Text style={styles.fieldLabel}>COLOR PALETTE</Text>
+      <View style={styles.identitySwatches}>{paletteOptions.map((color) => <Pressable key={color} onPress={() => setIdentityField("colors", identity.colors.includes(color) ? identity.colors.filter((item) => item !== color) : [...identity.colors, color].slice(-6))} style={[styles.identitySwatch, { backgroundColor: color, borderWidth: identity.colors.includes(color) ? 3 : 1, borderColor: identity.colors.includes(color) ? colors.accent : colors.lineColor }]} accessibilityLabel={`Use ${color} in palette`} />)}</View>
+      <Text style={styles.fieldLabel}>TYPOGRAPHY DIRECTION</Text>
+      <View style={styles.optionRow}>{typographyOptions.map((option) => <Pressable key={option} onPress={() => setIdentityField("typography", option)} style={[styles.option, identity.typography === option && styles.optionOn]}><Text style={[styles.optionText, identity.typography === option && styles.optionTextOn]}>{option}</Text></Pressable>)}</View>
+      <TextInput value={identity.logoDirection} onChangeText={(value) => setIdentityField("logoDirection", value)} placeholder="Logo brief · what should it feel like?" placeholderTextColor={colors.muted} style={styles.input} />
+      <TextInput value={identity.photographyDirection} onChangeText={(value) => setIdentityField("photographyDirection", value)} placeholder="Photography direction · light, setting, energy" placeholderTextColor={colors.muted} style={[styles.input, styles.longInput]} multiline />
+      <TextInput value={identity.packagingNotes} onChangeText={(value) => setIdentityField("packagingNotes", value)} placeholder="Packaging notes · materials, unboxing, constraints" placeholderTextColor={colors.muted} style={[styles.input, styles.longInput]} multiline />
+      <Pressable onPress={() => void Share.share({ title: `${project.name} identity starter kit`, message: founderIdentityText({ ...project, identity }) })} style={styles.primary}><Text style={styles.primaryText}>Share identity handoff</Text></Pressable>
+      <Text style={styles.saveHint}>Starter kit only · Uvel has not checked trademark, domain, or handle availability.</Text>
+    </> : null}
   </View>;
 }
 
