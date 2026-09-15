@@ -8,23 +8,9 @@ import { BrandBanner } from "../../components/BrandBanner";
 import { BrandPageSkeleton } from "../../components/ScreenSkeletons";
 import { ListingCard } from "../../components/ListingCard";
 import { BrandVerifiedMark } from "../../components/VerifiedMark";
-import {
-  brandApproved,
-  brandCheck,
-  brandListings,
-  canAccessHQ,
-  canManageTeam,
-  canPost,
-  canSeeAnalytics,
-  canStudio,
-  getBrand,
-  useBrandsHydrated,
-  isFollowing,
-  roleOn,
-  themeFor,
-  toggleFollow,
-  useBrands,
-} from "../../lib/brands";
+import { brandApproved, brandCheck, brandListings, canAccessHQ, canManageTeam, canPost, canSeeAnalytics, canStudio, getBrand, updateBrand, uploadBrandAsset, useBrandsHydrated, isFollowing, roleOn, themeFor, toggleFollow, useBrands, } from "../../lib/brands";
+import { BRAND_THEMES } from "../../lib/brandThemes";
+import { pickBannerImage, pickBannerVideo, pickLogo } from "../../lib/photo";
 import { usd } from "../../lib/catalog";
 import { recordAnalyticsEvent } from "../../lib/analytics";
 import { useUvel } from "../../lib/store";
@@ -96,11 +82,71 @@ export default function BrandPage() {
 
   const activeBrand = brand;
 
+  async function saveAsset(kind: "logo" | "banner", picker: () => Promise<string | null>, bannerKind?: "image" | "video") {
+    try {
+      const uri = await picker();
+      if (!uri) return;
+      const remoteUri = await uploadBrandAsset(uri, activeBrand.id, kind);
+      updateBrand(activeBrand.id, kind === "logo" ? { logoUri: remoteUri } : { bannerUri: remoteUri, bannerKind: bannerKind || "image" });
+    } catch (error) {
+      Alert.alert("Couldn’t save brand media", error instanceof Error ? error.message : "Try again in a moment.");
+    }
+  }
+
+  function editColors() {
+    const options = [...BRAND_THEMES.map((item) => item.name), "Custom colors", "Cancel"];
+    const run = (label: string) => {
+      const selected = BRAND_THEMES.find((item) => item.name === label);
+      if (selected) {
+        updateBrand(activeBrand.id, { themeId: selected.id, custom: undefined });
+        return;
+      }
+      if (label === "Custom colors") router.push({ pathname: "/brand/studio", params: { id: activeBrand.id } });
+    };
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions({ options, cancelButtonIndex: options.length - 1, userInterfaceStyle: "dark" }, (i) => {
+        if (i >= 0 && options[i] !== "Cancel") run(options[i]);
+      });
+      return;
+    }
+    Alert.alert("Page colors", undefined, [
+      ...options.filter((item) => item !== "Cancel").map((item) => ({ text: item, onPress: () => run(item) })),
+      { text: "Cancel", style: "cancel" as const },
+    ]);
+  }
+
+  function editBanner() {
+    const options = ["Image banner", "Video banner", "Cancel"];
+    const run = (label: string) => {
+      if (label === "Image banner") void saveAsset("banner", pickBannerImage, "image");
+      if (label === "Video banner") void saveAsset("banner", pickBannerVideo, "video");
+    };
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions({ options, cancelButtonIndex: 2, userInterfaceStyle: "dark" }, (i) => {
+        if (i >= 0 && options[i] !== "Cancel") run(options[i]);
+      });
+      return;
+    }
+    Alert.alert("Update banner", undefined, [
+      { text: "Image banner", onPress: () => run("Image banner") },
+      { text: "Video banner", onPress: () => run("Video banner") },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
+
   function more() {
-    const options = ["Share", ...(workspace ? ["Brand HQ"] : []), ...(manager ? ["Invite team"] : []), ...(canSeeAnalytics(activeBrand, app.uid) ? ["Analytics"] : []), "Cancel"];
+    const options = ["Share", ...(owner ? ["Edit page", "Page colors"] : []), ...(workspace ? ["Brand HQ"] : []), ...(manager ? ["Invite team"] : []), ...(canSeeAnalytics(activeBrand, app.uid) ? ["Analytics"] : []), "Cancel"];
     const run = (label: string) => {
       if (label === "Share") {
         void Share.share({ message: `${activeBrand.name} on Uvel  uvel://brand/${activeBrand.id}` });
+        return;
+      }
+      if (label === "Edit page") {
+        router.push({ pathname: "/brand/studio", params: { id: activeBrand.id } });
+        return;
+      }
+      if (label === "Page colors") {
+        editColors();
         return;
       }
       if (label === "Brand HQ") router.push({ pathname: "/brand/hq", params: { id: activeBrand.id } });
@@ -159,7 +205,14 @@ export default function BrandPage() {
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false}>
         <View>
-          <BrandBanner uri={brand.bannerUri} kind={brand.bannerKind} style={[styles.banner, { backgroundColor: theme.bg }]} />
+          {owner ? (
+            <AccessiblePressable onPress={editBanner} accessibilityRole="button" accessibilityLabel="Change brand banner">
+              <BrandBanner uri={brand.bannerUri} kind={brand.bannerKind} style={[styles.banner, { backgroundColor: theme.bg }]} />
+              <View style={styles.editHint}><Text style={styles.editHintText}>Tap to edit banner</Text></View>
+            </AccessiblePressable>
+          ) : (
+            <BrandBanner uri={brand.bannerUri} kind={brand.bannerKind} style={[styles.banner, { backgroundColor: theme.bg }]} />
+          )}
           <View style={[styles.nav, { top: insets.top + 4 }]}>
             <AccessiblePressable              onPress={() => router.back()}
               style={({ pressed }) => [styles.orb, { backgroundColor: "rgba(0,0,0,0.42)" }, pressed && { opacity: 0.92 }]}
@@ -176,7 +229,18 @@ export default function BrandPage() {
               <Text style={[styles.orbTxt, { fontSize: 18, marginTop: -6 }]}>· · ·</Text>
             </AccessiblePressable>
           </View>
-          {brand.logoUri ? (
+          {owner ? (
+            <AccessiblePressable style={styles.logoPress} onPress={() => void saveAsset("logo", pickLogo)} accessibilityRole="button" accessibilityLabel="Change brand profile picture">
+              {brand.logoUri ? (
+                <Image cachePolicy="memory-disk" source={{ uri: brand.logoUri }} style={[styles.logo, styles.logoInPress, { borderColor: theme.bg }]} contentFit="cover" />
+              ) : (
+                <View style={[styles.logo, styles.logoInPress, { borderColor: theme.bg, backgroundColor: theme.card, alignItems: "center", justifyContent: "center" }]}>
+                  <Text style={{ color: theme.ink, fontWeight: "800", fontSize: 22 }}>{brand.name[0]}</Text>
+                </View>
+              )}
+              <View style={styles.logoEdit}><Text style={styles.logoEditText}>＋</Text></View>
+            </AccessiblePressable>
+          ) : brand.logoUri ? (
             <Image cachePolicy="memory-disk" source={{ uri: brand.logoUri }} style={[styles.logo, { borderColor: theme.bg }]} contentFit="cover" />
           ) : (
             <View style={[styles.logo, { borderColor: theme.bg, backgroundColor: theme.card, alignItems: "center", justifyContent: "center" }]}>
@@ -383,6 +447,8 @@ const styles = StyleSheet.create({
   reviewTitle: { fontSize: 16, fontWeight: "800" },
   reviewCopy: { fontSize: 13, lineHeight: 18, marginTop: 4 },
   banner: { width: W, height: 280, backgroundColor: "#161512" },
+  editHint: { position: "absolute", right: 18, bottom: 16, paddingHorizontal: 10, height: 28, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.58)", alignItems: "center", justifyContent: "center" },
+  editHintText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700" },
   nav: {
     position: "absolute",
     left: 16,
@@ -409,6 +475,10 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     backgroundColor: "#161512",
   },
+  logoPress: { position: "absolute", left: 20, bottom: -36, width: 88, height: 88 },
+  logoInPress: { position: "relative", left: 0, bottom: 0 },
+  logoEdit: { position: "absolute", right: -2, bottom: -30, width: 28, height: 28, borderRadius: 14, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center" },
+  logoEditText: { color: "#16140F", fontSize: 18, fontWeight: "800", lineHeight: 20 },
   kicker: { letterSpacing: 1.6, fontSize: 11, fontWeight: "700" },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
   name: { fontSize: 34, lineHeight: 38, fontWeight: "800", flexShrink: 1 },
