@@ -168,6 +168,14 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       if (pendingCategory) setCategory(pendingCategory);
       const pendingCondition = takePendingListingSelection("condition");
       if (pendingCondition) setCondition(pendingCondition);
+      const pendingBrand = takePendingListingSelection("brand");
+      if (pendingBrand !== undefined) setBrand(pendingBrand);
+      const pendingSize = takePendingListingSelection("size");
+      if (pendingSize) setSize(pendingSize);
+      const pendingColor = takePendingListingSelection("color");
+      if (pendingColor) setColor(pendingColor);
+      const pendingMaterial = takePendingListingSelection("material");
+      if (pendingMaterial) setMaterial(pendingMaterial);
       const pendingShipsTo = takePendingListingSelection("shipsTo");
       if (pendingShipsTo) setShipsTo(pendingShipsTo);
       return undefined;
@@ -404,6 +412,10 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   function openCondition() {
     router.push({ pathname: "/sell-condition", params: { selected: condition || "" } });
   }
+  function openOption(kind: "brand" | "size" | "color" | "material") {
+    const selected = kind === "brand" ? brand : kind === "size" ? size : kind === "color" ? color : material;
+    router.push({ pathname: "/sell-option", params: { kind, selected, category: category || "" } });
+  }
 
   function openPrice() {
     if (!hasPhoto) {
@@ -466,15 +478,18 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       return;
     }
     if (nextStep.key === "size") {
-      focusField(sizeRef);
+      Keyboard.dismiss();
+      openOption("size");
       return;
     }
     if (nextStep.key === "color") {
-      focusField(colorRef);
+      Keyboard.dismiss();
+      openOption("color");
       return;
     }
     if (nextStep.key === "material") {
-      focusField(materialRef);
+      Keyboard.dismiss();
+      openOption("material");
       return;
     }
     if (nextStep.key === "condition") {
@@ -805,55 +820,27 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
               </AccessiblePressable>
 
-              <TextInput
-                style={styles.field}
-                value={brand}
-                onChangeText={editField("brand", setBrand)}
-                placeholder="Brand · optional"
-                placeholderTextColor={ph}
-                accessibilityLabel="Brand, optional"
-              />
+              <AccessiblePressable onPress={() => openOption("brand")} style={({ pressed }) => [styles.choiceRow, pressed && { opacity: 0.92 }]} accessibilityRole="button" accessibilityLabel={`Brand: ${brand || "not selected"}`} accessibilityHint="Double tap to open the brand picker.">
+                <Text style={[styles.choiceValue, !brand && styles.choicePlaceholder]}>{brand || "Brand · optional"}</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
+              </AccessiblePressable>
               {fromPhoto.brand ? <Text style={styles.fromPhoto}>From photo</Text> : null}
 
-              <TextInput
-                ref={sizeRef}
-                style={styles.field}
-                value={size}
-                onChangeText={setSize}
-                placeholder="Size"
-                placeholderTextColor={ph}
-                returnKeyType="next"
-                onSubmitEditing={() => colorRef.current?.focus()}
-                accessibilityLabel="Size, required"
-              />
+              <AccessiblePressable onPress={() => openOption("size")} style={({ pressed }) => [styles.choiceRow, pressed && { opacity: 0.92 }]} accessibilityRole="button" accessibilityLabel={`Size: ${size || "not selected"}`} accessibilityHint="Double tap to open the size picker.">
+                <Text style={[styles.choiceValue, !size && styles.choicePlaceholder]}>{size || "Size"}</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
+              </AccessiblePressable>
 
-              <TextInput
-                ref={colorRef}
-                style={styles.field}
-                value={color}
-                onChangeText={editField("color", setColor)}
-                placeholder="Colour"
-                placeholderTextColor={ph}
-                returnKeyType="next"
-                onSubmitEditing={() => materialRef.current?.focus()}
-                accessibilityLabel="Colour, required"
-              />
+              <AccessiblePressable onPress={() => openOption("color")} style={({ pressed }) => [styles.choiceRow, pressed && { opacity: 0.92 }]} accessibilityRole="button" accessibilityLabel={`Colour: ${color || "not selected"}`} accessibilityHint="Double tap to open the colour picker.">
+                <Text style={[styles.choiceValue, !color && styles.choicePlaceholder]}>{color || "Colour"}</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
+              </AccessiblePressable>
               {fromPhoto.color ? <Text style={styles.fromPhoto}>From photo</Text> : null}
 
-              <TextInput
-                ref={materialRef}
-                style={styles.field}
-                value={material}
-                onChangeText={editField("material", setMaterial)}
-                placeholder="Material"
-                placeholderTextColor={ph}
-                returnKeyType="done"
-                onSubmitEditing={() => {
-                  Keyboard.dismiss();
-                  if (!condition) openCondition();
-                }}
-                accessibilityLabel="Material, required"
-              />
+              <AccessiblePressable onPress={() => openOption("material")} style={({ pressed }) => [styles.choiceRow, pressed && { opacity: 0.92 }]} accessibilityRole="button" accessibilityLabel={`Material: ${material || "not selected"}`} accessibilityHint="Double tap to open the material picker.">
+                <Text style={[styles.choiceValue, !material && styles.choicePlaceholder]}>{material || "Material"}</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
+              </AccessiblePressable>
               {fromPhoto.material ? <Text style={styles.fromPhoto}>From photo</Text> : null}
 
               <AccessiblePressable
@@ -1110,7 +1097,7 @@ function make(colors: Colors) {
     clipAddBody: { color: colors.subtle, fontSize: 12, marginTop: 2 },
     mainPhotoPill: { position: "absolute", left: 8, bottom: 8, paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: `${colors.ink}C2`, alignItems: "center", justifyContent: "center" },
     mainPhotoTxt: { color: colors.bone, fontSize: 10, fontWeight: "600" },
-    photoCheck: { ...StyleSheet.absoluteFillObject, backgroundColor: `${colors.success}85`, alignItems: "center", justifyContent: "center" },
+    photoCheck: { ...StyleSheet.absoluteFill, backgroundColor: `${colors.success}85`, alignItems: "center", justifyContent: "center" },
     photoX: { position: "absolute", top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: `${colors.ink}CC`, alignItems: "center", justifyContent: "center" },
     photoXTxt: { color: colors.bone, fontSize: 16, lineHeight: 18, fontWeight: "700", marginTop: -1 },
     unverifiedDot: {
@@ -1247,7 +1234,7 @@ function make(colors: Colors) {
     ctaTxt: { color: colors.successInk, fontSize: 16, fontWeight: "600" },
     ctaTxtOff: { color: colors.muted },
     gate: {
-      ...StyleSheet.absoluteFillObject,
+      ...StyleSheet.absoluteFill,
       backgroundColor: "#12140A",
       alignItems: "center",
       justifyContent: "center",

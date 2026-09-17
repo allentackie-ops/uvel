@@ -20,6 +20,8 @@ type PendingSelection = {
   category?: Category;
   condition?: ListingCondition;
   shipsTo?: ShipsTo;
+  brand?: string;
+  size?: string;
   color?: string;
   material?: string;
 };

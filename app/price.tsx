@@ -254,7 +254,7 @@ function make(colors: ReturnType<typeof useColors>) {
     currencyLine: { color: colors.subtle, fontSize: 12, marginHorizontal: 20, marginTop: 8 },
     itemContext: { marginHorizontal: 20, marginTop: 20, padding: 14, borderRadius: 16, backgroundColor: colors.surface, flexDirection: "row", alignItems: "center", gap: 12 },
     itemEyebrow: { color: colors.subtle, fontSize: 11, letterSpacing: 1, textTransform: "uppercase" },
-    itemTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 21, lineHeight: 25, marginTop: 5 },
+    itemTitle: { color: colors.bone, fontSize: 21, lineHeight: 25, fontWeight: "800", marginTop: 5 },
     itemDetails: { color: colors.muted, fontSize: 13, marginTop: 5 },
     itemImage: { width: 62, height: 78, borderRadius: 10, backgroundColor: colors.ink },
     sectionHead: { marginHorizontal: 20, marginTop: 28, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 },
