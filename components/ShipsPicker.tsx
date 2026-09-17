@@ -56,21 +56,21 @@ export function ShipsPicker({
         styles={styles}
         on={mode === "home"}
         title={`${home.name} only`}
-        body={`Default. Buyers in other stores never see it.`}
+        body="A buyer in another country's store won't see this."
         onPress={() => choose("home")}
       />
       <Choice
         styles={styles}
         on={mode === "all"}
         title="Every Uvel store"
-        body="You ship worldwide. Every country’s floor can show this piece."
+        body="You want to ship this item worldwide. Higher delivery fees will be given to buyers."
         onPress={() => choose("all")}
       />
       <Choice
         styles={styles}
         on={mode === "pick"}
         title="Choose countries"
-        body={mode === "pick" ? shipsToLabel(origin, value) : "Open extra floors yourself. Home stays on."}
+        body={mode === "pick" ? shipsToLabel(origin, value) : "Manually choose the specific countries you want this item to be available in."}
         onPress={() => choose("pick")}
       />
 
