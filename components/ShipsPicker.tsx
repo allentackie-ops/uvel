@@ -63,7 +63,7 @@ export function ShipsPicker({
         styles={styles}
         on={mode === "all"}
         title="Every Uvel store"
-        body="You want to ship this item worldwide. Higher delivery fees will be given to buyers."
+        body="You want to ship this item worldwide. Higher delivery fees will be given to buyers in different countries."
         onPress={() => choose("all")}
       />
       <Choice
