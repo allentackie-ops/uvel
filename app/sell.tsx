@@ -38,6 +38,7 @@ import { addPiece, getPiece, listPiece, updatePiece, useWardrobe } from "../lib/
 const MAX = 5;
 const COVER_W = 112;
 const COVER_H = 140;
+const ADD_W = 64;
 const STAGES = [
   "Looking at the photos…",
   "Is this something we sell?",
@@ -651,20 +652,25 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 </AccessiblePressable>
               </View>
             ))}
-            {photos.length === 0 ? (
+            {photos.length < MAX ? (
               <AccessiblePressable
                 onPress={choosePhoto}
                 style={({ pressed }) => [
                   styles.photoAdd,
-                  styles.photoAddEmpty,
+                  photos.length === 0 ? styles.photoAddEmpty : styles.photoAddSlot,
                   pressed && { opacity: 0.92 },
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={`Add photo, ${photos.length} of ${MAX} added`}
                 accessibilityHint="Double tap to choose a listing photo."
               >
-                <Ionicons name="add" size={28} color={colors.bone} />
-                <Text style={styles.photoAddTxt}>{C.addPhoto}</Text>
+                <Ionicons name="add" size={photos.length ? 22 : 28} color={colors.bone} />
+                {photos.length === 0 ? (
+                  <>
+                    <Text style={styles.photoAddTxt}>{C.addPhoto}</Text>
+                    <Text style={styles.photoCount}>0/{MAX}</Text>
+                  </>
+                ) : null}
               </AccessiblePressable>
             ) : null}
           </ScrollView>
@@ -1085,7 +1091,9 @@ function make(colors: Colors) {
       backgroundColor: colors.surface,
     },
     photoAddEmpty: { width: COVER_W },
+    photoAddSlot: { width: ADD_W },
     photoAddTxt: { color: colors.bone, fontSize: 12, fontWeight: "600", marginTop: 4 },
+    photoCount: { color: colors.subtle, fontSize: 11, marginTop: 4 },
     clipRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 20, marginBottom: 8 },
     clipTile: { width: COVER_W, height: COVER_H, borderRadius: 16, overflow: "hidden", backgroundColor: colors.surface },
     clipPreview: { width: "100%", height: "100%" },
