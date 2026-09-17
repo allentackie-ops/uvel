@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActionSheetIOS, Alert, Animated, Dimensions, Modal, PanResponder, Platform, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { ActionSheetIOS, Alert, Animated, Dimensions, Modal, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { BrandBanner } from "../../components/BrandBanner";
@@ -35,21 +35,22 @@ export default function BrandPage() {
   const [tick, setTick] = useState(0);
   const [actionsOpen, setActionsOpen] = useState(false);
   const menuY = useRef(new Animated.Value(0)).current;
-  const menuPan = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponderCapture: (_, gesture) => gesture.dy > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-    onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+  const menuPan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: (_, gesture) => gesture.dy > 2 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+    onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 4 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+    onPanResponderTerminationRequest: () => false,
     onPanResponderMove: (_, gesture) => menuY.setValue(Math.max(0, gesture.dy)),
     onPanResponderRelease: (_, gesture) => {
-      if (gesture.dy > 110 || gesture.vy > 1.1) {
-        Animated.timing(menuY, { toValue: 520, duration: 180, useNativeDriver: true }).start(() => setActionsOpen(false));
-        return;
+      if (gesture.dy > 120 || gesture.vy > 1.2) {
+        Animated.timing(menuY, { toValue: Dimensions.get("window").height, duration: 220, useNativeDriver: true }).start(({ finished }) => {
+          if (finished) setActionsOpen(false);
+        });
+      } else {
+        Animated.spring(menuY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
       }
-      Animated.spring(menuY, { toValue: 0, useNativeDriver: true, bounciness: 5 }).start();
     },
-    onPanResponderTerminationRequest: () => false,
-    onPanResponderTerminate: () => Animated.spring(menuY, { toValue: 0, useNativeDriver: true }).start(),
-  }), [menuY]);
+    onPanResponderTerminate: () => Animated.spring(menuY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start(),
+  })).current;
 
   useEffect(() => {
     if (!id || !app.uid) return;
@@ -446,12 +447,10 @@ export default function BrandPage() {
       </ScrollView>
       <Modal visible={actionsOpen} transparent animationType="slide" onRequestClose={() => setActionsOpen(false)}>
         <View style={styles.menuBackdrop}>
-          <AccessiblePressable style={styles.menuDismiss} onPress={() => setActionsOpen(false)} accessibilityRole="button" accessibilityLabel="Close brand actions" />
-          <Animated.View {...menuPan.panHandlers} style={[styles.menuSheet, { backgroundColor: theme.bg, borderColor: theme.lineColor, paddingBottom: insets.bottom + 18, transform: [{ translateY: menuY }] }]}>
-            <View style={styles.menuDragArea} {...menuPan.panHandlers}>
-              <View style={styles.menuHandle} />
-              <Text style={[styles.menuDragHint, { color: theme.muted }]}>Drag down to close</Text>
-            </View>
+          <Pressable style={styles.menuDismiss} onPress={() => setActionsOpen(false)} accessibilityRole="button" accessibilityLabel="Close brand actions" />
+          <View pointerEvents="box-none" style={styles.menuWrap}>
+            <Animated.View {...menuPan.panHandlers} style={[styles.menuSheet, { backgroundColor: theme.bg, borderColor: theme.lineColor, paddingBottom: insets.bottom + 18, transform: [{ translateY: menuY }] }]}>
+            <View style={styles.menuHandle} />
             <View style={styles.menuHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.menuEyebrow, { color: theme.muted }]}>BRAND PAGE</Text>
@@ -474,7 +473,8 @@ export default function BrandPage() {
                 </View>
               </View>
             ))}
-          </Animated.View>
+            </Animated.View>
+          </View>
         </View>
       </Modal>
     </View>
@@ -570,12 +570,11 @@ const styles = StyleSheet.create({
   rowSub: { fontSize: 13, marginTop: 3 },
   moreBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
   more: { fontSize: 16 },
-  menuBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.62)" },
+  menuBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.62)" },
   menuDismiss: { ...StyleSheet.absoluteFillObject },
+  menuWrap: { flex: 1, justifyContent: "flex-end" },
   menuSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, borderTopWidth: 1, paddingHorizontal: 20, paddingTop: 10, maxHeight: "82%" },
-  menuDragArea: { minHeight: 38, alignItems: "center", justifyContent: "flex-start" },
   menuHandle: { alignSelf: "center", width: 42, height: 4, borderRadius: 2, backgroundColor: "rgba(244,240,230,0.28)", marginBottom: 18 },
-  menuDragHint: { fontSize: 10, letterSpacing: 1.1, fontWeight: "700", textTransform: "uppercase", marginTop: -10, marginBottom: 12 },
   menuHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 },
   menuEyebrow: { fontSize: 10, letterSpacing: 1.5, fontWeight: "800" },
   menuTitle: { fontSize: 22, lineHeight: 27, fontWeight: "800", marginTop: 5 },
