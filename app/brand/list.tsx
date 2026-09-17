@@ -20,7 +20,7 @@ import { ShipsPicker } from "../../components/ShipsPicker";
 import { BRAND_CATEGORIES, usd, type Category } from "../../lib/catalog";
 import { hasBrandContact } from "../../lib/brandContact";
 import { BRAND_CONDITIONS, SIZE_SYSTEMS, sizesOf, systemFor, type SizeSystem } from "../../lib/brandSizes";
-import { brandApproved, canPost, getBrand, useBrands } from "../../lib/brands";
+import { brandApproved, canPost, getBrand, themeFor, useBrands } from "../../lib/brands";
 import { getMarket } from "../../lib/markets";
 import { pickListingPhoto, takeListingPhoto } from "../../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../../lib/photoCheck";
@@ -132,6 +132,7 @@ export default function BrandList() {
   }
 
   const activeBrand = brand;
+  const brandTheme = themeFor(activeBrand);
 
   async function addUri(uri: string) {
     if (photos.length >= MAX) return;
@@ -262,7 +263,7 @@ export default function BrandList() {
   }
 
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, { backgroundColor: brandTheme.bg }]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
           <Pressable onPress={() => router.back()} style={styles.back}>
@@ -271,8 +272,8 @@ export default function BrandList() {
               <Text style={styles.topTitle}>List on {activeBrand.name}</Text>
           <View style={{ width: 40 }} />
         </View>
-        <View style={styles.progressMeta}><Text style={styles.progressKicker}>NEW PRODUCT</Text><Text style={styles.progressCopy}>{readyCount}/9 ready</Text></View>
-        <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${(readyCount / 9) * 100}%` }]} /></View>
+        <View style={[styles.progressMeta, { backgroundColor: brandTheme.bg }]}><Text style={styles.progressKicker}>NEW PRODUCT</Text><Text style={styles.progressCopy}>{readyCount}/9 ready</Text></View>
+        <View style={[styles.progressTrack, { backgroundColor: brandTheme.lineColor }]}><View style={[styles.progressFill, { width: `${(readyCount / 9) * 100}%`, backgroundColor: brandTheme.accent }]} /></View>
           <ScrollView contentContainerStyle={{ paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
           {!contactReady ? (
             <View style={styles.contactGate}>
@@ -283,7 +284,7 @@ export default function BrandList() {
               </Pressable>
             </View>
           ) : null}
-          <Pressable onPress={cover ? undefined : choosePhoto} style={styles.hero}>
+          <Pressable onPress={cover ? undefined : choosePhoto} style={[styles.hero, { backgroundColor: brandTheme.card }]}>
             {cover ? (
               <Image cachePolicy="memory-disk" source={{ uri: cover.uri }} style={styles.heroImg} contentFit="contain" />
             ) : (
@@ -302,14 +303,9 @@ export default function BrandList() {
           <View style={styles.slotRow}>
             {photos.map((p) => (
               <Pressable key={p.uri} onPress={() => setPhotos((prev) => prev.filter((x) => x.uri !== p.uri))}>
-                <Image cachePolicy="memory-disk" source={{ uri: p.uri }} style={styles.mini} contentFit="cover" />
+                <Image cachePolicy="memory-disk" source={{ uri: p.uri }} style={[styles.mini, { backgroundColor: brandTheme.card }]} contentFit="cover" />
               </Pressable>
             ))}
-            {photos.length < MAX ? (
-              <Pressable onPress={choosePhoto} style={styles.miniAdd}>
-                <Text style={styles.miniPlus}>+</Text>
-              </Pressable>
-            ) : null}
           </View>
 
           <View style={styles.sheet}>
@@ -489,8 +485,6 @@ const styles = StyleSheet.create({
   heroMask: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(214,226,122,0.5)", alignItems: "center", justifyContent: "center" },
   slotRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 12 },
   mini: { width: 64, height: 80, borderRadius: 10, backgroundColor: "#161512" },
-  miniAdd: { width: 64, height: 80, borderRadius: 10, borderWidth: 1, borderColor: "rgba(244,240,230,0.16)", alignItems: "center", justifyContent: "center" },
-  miniPlus: { color: "#F4F0E6", fontSize: 22 },
   sheet: { paddingHorizontal: 20, paddingTop: 28 },
   sectionKicker: { color: "rgba(244,240,230,0.48)", fontSize: 11, letterSpacing: 1.6, fontWeight: "800", marginBottom: 4 },
   sectionKickerLater: { color: "rgba(244,240,230,0.48)", fontSize: 11, letterSpacing: 1.6, fontWeight: "800", marginTop: 34, marginBottom: 4 },
