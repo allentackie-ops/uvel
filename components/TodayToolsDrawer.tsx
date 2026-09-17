@@ -63,10 +63,13 @@ export function TodayToolsDrawer({ onClose, onOpenSell }: TodayToolsDrawerProps)
         {handle ? <Text style={styles.handle} numberOfLines={1}>{handle}</Text> : null}
       </Pressable>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <Text style={styles.sectionLabel}>BUILD</Text>
         {buildTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}
         <View style={styles.rule} />
+        <Text style={styles.sectionLabel}>BUSINESS</Text>
         {businessTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}
         <View style={styles.rule} />
+        <Text style={styles.sectionLabel}>ACCOUNT</Text>
         {accountTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}
       </ScrollView>
       <Pressable
@@ -113,6 +116,7 @@ function make(colors: Colors) {
     handle: { color: `${colors.bone}7A`, fontSize: 14, marginTop: 3 },
     content: { paddingBottom: 20, paddingTop: 6 },
     rule: { height: StyleSheet.hairlineWidth, backgroundColor: `${colors.bone}22`, marginVertical: 10, marginLeft: 2 },
+    sectionLabel: { color: `${colors.bone}7A`, fontSize: 11, fontWeight: "800", letterSpacing: 1.8, marginTop: 8, marginBottom: 2 },
     row: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: 16 },
     label: { color: colors.bone, fontSize: 18, fontWeight: "700" },
     signOutRow: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}22` },
