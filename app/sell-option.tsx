@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
 import { systemFor, sizesOf } from "../lib/brandSizes";
@@ -26,6 +26,7 @@ export default function SellOption() {
   const { kind: rawKind, selected: initialSelected, category } = useLocalSearchParams<{ kind?: string; selected?: string; category?: string }>();
   const kind: OptionKind = rawKind === "brand" || rawKind === "size" || rawKind === "color" || rawKind === "material" ? rawKind : "brand";
   const [value, setValue] = useState(String(initialSelected || ""));
+  const scrollRef = useRef<ScrollView>(null);
   const copy = COPY[kind];
   const options = kind === "brand" ? BRAND_OPTIONS : kind === "size" ? sizesOf(systemFor(String(category || "Tops"))) : kind === "color" ? COLOR_OPTIONS : MATERIAL_OPTIONS;
   const selected = value.trim().toLowerCase();
@@ -36,15 +37,15 @@ export default function SellOption() {
   }
 
   return (
-    <View style={[styles.page, { backgroundColor: colors.ink }]}> 
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
+    <KeyboardAvoidingView style={[styles.page, { backgroundColor: colors.ink }]} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={insets.top}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <AccessiblePressable onPress={() => router.back()} style={styles.back} accessibilityRole="button" accessibilityLabel="Back to listing">
           <Text style={styles.backText}>‹</Text>
         </AccessiblePressable>
         <Text style={styles.title}>{kind === "color" ? "Colour" : kind[0].toUpperCase() + kind.slice(1)}</Text>
         <View style={styles.back} />
       </View>
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 140 }]} keyboardShouldPersistTaps="handled" keyboardDismissMode="interactive" automaticallyAdjustKeyboardInsets showsVerticalScrollIndicator={false}>
         <Text style={styles.kicker}>LISTING DETAILS</Text>
         <Text style={styles.heading}>{copy.title}</Text>
         <Text style={styles.lede}>{copy.helper}</Text>
@@ -60,12 +61,12 @@ export default function SellOption() {
           })}
         </View>
         <Text style={styles.customLabel}>{copy.label}</Text>
-        <TextInput value={value} onChangeText={setValue} onSubmitEditing={() => value.trim() && choose(value.trim())} placeholder={copy.placeholder} placeholderTextColor={colors.muted} returnKeyType="done" style={styles.input} accessibilityLabel={copy.label} />
+        <TextInput value={value} onChangeText={setValue} onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 250)} onSubmitEditing={() => value.trim() && choose(value.trim())} placeholder={copy.placeholder} placeholderTextColor={colors.muted} returnKeyType="done" style={styles.input} accessibilityLabel={copy.label} />
         <Pressable onPress={() => value.trim() && choose(value.trim())} disabled={!value.trim()} style={[styles.done, !value.trim() && styles.doneDisabled]} accessibilityRole="button">
           <Text style={styles.doneText}>Use this {kind === "color" ? "colour" : kind}</Text>
         </Pressable>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
