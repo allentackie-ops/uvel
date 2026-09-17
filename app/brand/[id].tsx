@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActionSheetIOS, Alert, Dimensions, Platform,  ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { ActionSheetIOS, Alert, Dimensions, Modal, Platform, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { BrandBanner } from "../../components/BrandBanner";
@@ -33,6 +33,7 @@ export default function BrandPage() {
   const brand = getBrand(id);
   const liveCampaigns = useLiveCampaigns(id || "");
   const [tick, setTick] = useState(0);
+  const [actionsOpen, setActionsOpen] = useState(false);
 
   useEffect(() => {
     if (!id || !app.uid) return;
@@ -80,6 +81,27 @@ export default function BrandPage() {
   }
 
   const activeBrand = brand;
+  const actionSections = [
+    {
+      title: "Share and view",
+      items: [
+        { label: "Share", detail: "Send this brand page to someone." },
+        ...(owner ? [{ label: "Preview", detail: "See your page as customers see it." }] : []),
+      ],
+    },
+    {
+      title: "Manage your page",
+      items: [
+        ...(owner ? [
+          { label: "Edit page", detail: "Change your brand story and layout." },
+          { label: "Page colors", detail: "Choose the look and feel of your page." },
+        ] : []),
+        ...(workspace ? [{ label: "Brand HQ", detail: "Manage your brand workspace." }] : []),
+        ...(manager ? [{ label: "Invite team", detail: "Give teammates a role here." }] : []),
+        ...(canSeeAnalytics(activeBrand, app.uid) ? [{ label: "Analytics", detail: "See how people engage with your page." }] : []),
+      ],
+    },
+  ].filter((section) => section.items.length > 0);
 
   async function saveAsset(kind: "logo" | "banner", picker: () => Promise<string | null>, bannerKind?: "image" | "video") {
     try {
@@ -113,8 +135,11 @@ export default function BrandPage() {
   }
 
   function more() {
-    const options = ["Share", ...(owner ? ["Preview", "Edit page", "Page colors"] : []), ...(workspace ? ["Brand HQ"] : []), ...(manager ? ["Invite team"] : []), ...(canSeeAnalytics(activeBrand, app.uid) ? ["Analytics"] : []), "Cancel"];
-    const run = (label: string) => {
+    setActionsOpen(true);
+  }
+
+  function runAction(label: string) {
+    setActionsOpen(false);
       if (label === "Share") {
         void Share.share({ message: `${activeBrand.name} on Uvel  uvel://brand/${activeBrand.id}` });
         return;
@@ -134,17 +159,6 @@ export default function BrandPage() {
       if (label === "Brand HQ") router.push({ pathname: "/brand/hq", params: { id: activeBrand.id } });
       if (label === "Invite team") router.push({ pathname: "/brand/invite", params: { id: activeBrand.id } });
       if (label === "Analytics") router.push({ pathname: "/brand/analytics", params: { id: activeBrand.id } });
-    };
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions({ options, cancelButtonIndex: options.length - 1, userInterfaceStyle: "dark" }, (i) => {
-        if (i >= 0 && options[i] !== "Cancel") run(options[i]);
-      });
-      return;
-    }
-    Alert.alert(activeBrand.name, undefined, [
-      ...options.filter((o) => o !== "Cancel").map((o) => ({ text: o, onPress: () => run(o) })),
-      { text: "Cancel", style: "cancel" as const },
-    ]);
   }
 
   function openLatest() {
@@ -413,6 +427,36 @@ export default function BrandPage() {
           </View>
         ) : null}
       </ScrollView>
+      <Modal visible={actionsOpen} transparent animationType="slide" onRequestClose={() => setActionsOpen(false)}>
+        <View style={styles.menuBackdrop}>
+          <AccessiblePressable style={styles.menuDismiss} onPress={() => setActionsOpen(false)} accessibilityRole="button" accessibilityLabel="Close brand actions" />
+          <View style={[styles.menuSheet, { backgroundColor: theme.bg, borderColor: theme.lineColor, paddingBottom: insets.bottom + 18 }]}>
+            <View style={styles.menuHandle} />
+            <View style={styles.menuHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.menuEyebrow, { color: theme.muted }]}>BRAND PAGE</Text>
+                <Text style={[styles.menuTitle, { color: theme.ink }]}>What would you like to do?</Text>
+              </View>
+              <AccessiblePressable onPress={() => setActionsOpen(false)} style={[styles.menuClose, { borderColor: theme.lineColor }]} accessibilityRole="button" accessibilityLabel="Close brand actions">
+                <Text style={[styles.menuCloseTxt, { color: theme.ink }]}>×</Text>
+              </AccessiblePressable>
+            </View>
+            {actionSections.map((section) => (
+              <View key={section.title} style={styles.menuSection}>
+                <Text style={[styles.menuSectionTitle, { color: theme.muted }]}>{section.title}</Text>
+                <View style={styles.menuGrid}>
+                  {section.items.map((item) => (
+                    <AccessiblePressable key={item.label} onPress={() => runAction(item.label)} style={({ pressed }) => [styles.menuItem, { backgroundColor: theme.card, borderColor: theme.lineColor }, pressed && { opacity: 0.82 }]} accessibilityRole="button" accessibilityLabel={item.label} accessibilityHint={item.detail}>
+                      <Text style={[styles.menuItemTitle, { color: theme.ink }]}>{item.label}</Text>
+                      <Text style={[styles.menuItemDetail, { color: theme.muted }]}>{item.detail}</Text>
+                    </AccessiblePressable>
+                  ))}
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -506,6 +550,21 @@ const styles = StyleSheet.create({
   rowSub: { fontSize: 13, marginTop: 3 },
   moreBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
   more: { fontSize: 16 },
+  menuBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.62)" },
+  menuDismiss: { ...StyleSheet.absoluteFillObject },
+  menuSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, borderTopWidth: 1, paddingHorizontal: 20, paddingTop: 10, maxHeight: "82%" },
+  menuHandle: { alignSelf: "center", width: 42, height: 4, borderRadius: 2, backgroundColor: "rgba(244,240,230,0.28)", marginBottom: 18 },
+  menuHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 },
+  menuEyebrow: { fontSize: 10, letterSpacing: 1.5, fontWeight: "800" },
+  menuTitle: { fontSize: 22, lineHeight: 27, fontWeight: "800", marginTop: 5 },
+  menuClose: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  menuCloseTxt: { fontSize: 25, lineHeight: 27, fontWeight: "300", marginTop: -2 },
+  menuSection: { marginBottom: 18 },
+  menuSectionTitle: { fontSize: 11, letterSpacing: 1.4, fontWeight: "800", marginBottom: 9 },
+  menuGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  menuItem: { width: "48%", minHeight: 82, borderRadius: 16, borderWidth: 1, padding: 13, justifyContent: "center" },
+  menuItemTitle: { fontSize: 15, fontWeight: "800" },
+  menuItemDetail: { fontSize: 11, lineHeight: 15, marginTop: 5 },
   empty: { paddingHorizontal: 20, fontSize: 15, lineHeight: 22 },
   playlists: { paddingHorizontal: 16, gap: 12, paddingBottom: 8 },
   play: { width: 148, borderRadius: 14, overflow: "hidden" },
