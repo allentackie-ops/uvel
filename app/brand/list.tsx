@@ -334,7 +334,7 @@ export default function BrandList() {
 
             <Text style={styles.sectionKickerLater}>SELLING</Text>
             <View style={styles.marketSection}>
-              <ShipsPicker origin={origin} value={shipsTo} onChange={setShipsTo} />
+              <ShipsPicker origin={origin} value={shipsTo} onChange={setShipsTo} accent={brandTheme.accent} accentInk={brandTheme.accentInk} />
             </View>
             <Text style={styles.label}>Description *</Text>
             <TextInput style={styles.body} value={notes} onChangeText={setNotes} placeholder="Cloth, make, how it sits" placeholderTextColor={ph} multiline />
@@ -423,9 +423,15 @@ export default function BrandList() {
             </View>
           </View>
         </ScrollView>
-        <View style={[styles.foot, { paddingBottom: insets.bottom + 12 }]}>
-          <Pressable onPress={() => void publish()} disabled={!canList} style={[styles.cta, !canList && styles.ctaOff]}>
-            <Text style={[styles.ctaTxt, !canList && styles.ctaTxtOff]}>
+        <View style={[styles.foot, { paddingBottom: insets.bottom + 12, backgroundColor: brandTheme.bg }]}>
+          <Pressable
+            onPress={() => void publish()}
+            disabled={!canList}
+            style={[styles.cta, { backgroundColor: canList ? brandTheme.accent : `${brandTheme.accent}55` }]}
+          >
+            <Text
+              style={[styles.ctaTxt, { color: canList ? brandTheme.accentInk : `${brandTheme.accentInk}80` }]}
+            >
               {Number(price) > 0 ? `List for ${usd(Number(price) * 100, market.currency)}` : "List this item"}
             </Text>
           </Pressable>
@@ -436,7 +442,7 @@ export default function BrandList() {
         <View style={[styles.gate, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 28 }]}>
           {gate.phase === "review" ? (
             <>
-              <ActivityIndicator color="#D6E27A" />
+              <ActivityIndicator color={brandTheme.accent} />
               <Text style={styles.gateH}>{STAGES[stage]}</Text>
             </>
           ) : null}

@@ -10,13 +10,17 @@ export function ShipsPicker({
   origin,
   value,
   onChange,
+  accent,
+  accentInk,
 }: {
   origin: string;
   value: ShipsTo;
   onChange: (next: ShipsTo) => void;
+  accent?: string;
+  accentInk?: string;
 }) {
   const colors = useColors();
-  const styles = useMemo(() => make(colors), [colors]);
+  const styles = useMemo(() => make(colors, accent, accentInk), [colors, accent, accentInk]);
   const home = getMarket(origin);
   const [mode, setMode] = useState<Mode>(() => shipsMode(origin, value));
   const picked = Array.isArray(value) ? value.map((c) => c.toUpperCase()) : [];
@@ -130,7 +134,7 @@ function Choice({
   );
 }
 
-function make(colors: Colors) {
+function make(colors: Colors, accent = "#D6E27A", accentInk = "#16140F") {
   return StyleSheet.create({
     label: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 20, marginBottom: 8 },
     lede: { color: colors.muted, fontSize: 14, lineHeight: 20, marginBottom: 12 },
@@ -145,7 +149,7 @@ function make(colors: Colors) {
       marginBottom: 8,
       backgroundColor: colors.surface,
     },
-    choiceOn: { borderColor: "#D6E27A", backgroundColor: "rgba(214,226,122,0.1)" },
+    choiceOn: { borderColor: accent, backgroundColor: `${accent}1A` },
     choiceT: { color: colors.bone, fontSize: 16, fontWeight: "700" },
     choiceB: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 4 },
     radio: {
@@ -157,8 +161,8 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "center",
     },
-    radioOn: { borderColor: "#D6E27A" },
-    dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#D6E27A" },
+    radioOn: { borderColor: accent },
+    dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: accent },
     pick: { marginTop: 6, marginBottom: 8 },
     region: {
       color: colors.subtle,
@@ -176,7 +180,7 @@ function make(colors: Colors) {
       borderBottomColor: "rgba(244,240,230,0.08)",
     },
     rowName: { color: colors.bone, fontSize: 15, fontWeight: "600" },
-    rowOn: { color: "#D6E27A" },
+    rowOn: { color: accent },
     rowMeta: { color: colors.muted, fontSize: 12, marginTop: 2 },
     box: {
       width: 22,
@@ -187,7 +191,7 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "center",
     },
-    boxOn: { backgroundColor: "#D6E27A", borderColor: "#D6E27A" },
-    tick: { color: "#16140F", fontSize: 13, fontWeight: "800" },
+    boxOn: { backgroundColor: accent, borderColor: accent },
+    tick: { color: accentInk, fontSize: 13, fontWeight: "800" },
   });
 }
