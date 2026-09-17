@@ -133,6 +133,8 @@ export default function BrandList() {
 
   const activeBrand = brand;
   const brandTheme = themeFor(activeBrand);
+  const pageIndicator = { backgroundColor: brandTheme.accent, borderColor: brandTheme.accent };
+  const pageIndicatorText = { color: brandTheme.accentInk };
   const steps = [
     { key: "photo", done: photos.length > 0, label: "Add a photo" },
     { key: "title", done: Boolean(name.trim()), label: "Add an item name" },
@@ -305,8 +307,11 @@ export default function BrandList() {
             <View style={styles.contactGate}>
               <Text style={styles.contactGateTitle}>Add a brand contact first</Text>
               <Text style={styles.contactGateText}>Before publishing a listing, add at least one reachable phone, WhatsApp, Instagram, email, or website to this brand.</Text>
-              <Pressable onPress={() => router.push({ pathname: "/brand/hq", params: { id: activeBrand.id } })} style={styles.contactGateBtn}>
-                <Text style={styles.contactGateBtnText}>Open Brand HQ</Text>
+              <Pressable
+                onPress={() => router.push({ pathname: "/brand/hq", params: { id: activeBrand.id } })}
+                style={[styles.contactGateBtn, pageIndicator]}
+              >
+                <Text style={[styles.contactGateBtnText, pageIndicatorText]}>Open Brand HQ</Text>
               </Pressable>
             </View>
           ) : null}
@@ -321,7 +326,7 @@ export default function BrandList() {
               </View>
             )}
             {cover?.status === "checking" ? (
-              <View style={styles.heroMask}>
+              <View style={[styles.heroMask, { backgroundColor: `${brandTheme.accent}80` }]}>
                 <ActivityIndicator color="#16140F" />
               </View>
             ) : null}
@@ -369,8 +374,8 @@ export default function BrandList() {
             <Text style={styles.hint}>Clothes, shoes, jewelry, hats, swim, the whole rack.</Text>
             <View style={styles.chips}>
               {BRAND_CATEGORIES.map((c) => (
-                <Pressable key={c} onPress={() => pickCat(c)} style={[styles.chip, category === c && styles.chipOn]}>
-                  <Text style={[styles.chipTxt, category === c && styles.chipTxtOn]}>{c}</Text>
+                <Pressable key={c} onPress={() => pickCat(c)} style={[styles.chip, category === c && pageIndicator]}>
+                  <Text style={[styles.chipTxt, category === c && pageIndicatorText]}>{c}</Text>
                 </Pressable>
               ))}
             </View>
@@ -385,9 +390,9 @@ export default function BrandList() {
                     setPicked([]);
                     setSizeStock({});
                   }}
-                  style={[styles.chip, system === s.id && styles.chipOn]}
+                  style={[styles.chip, system === s.id && pageIndicator]}
                 >
-                  <Text style={[styles.chipTxt, system === s.id && styles.chipTxtOn]}>{s.label}</Text>
+                  <Text style={[styles.chipTxt, system === s.id && pageIndicatorText]}>{s.label}</Text>
                 </Pressable>
               ))}
             </View>
@@ -402,9 +407,9 @@ export default function BrandList() {
                       setPicked((prev) => (on ? prev.filter((x) => x !== s) : [...prev, s]));
                       if (!on) setSizeStock((prev) => ({ ...prev, [s]: prev[s] || stockQuantity }));
                     }}
-                    style={[styles.chip, on && styles.chipOn]}
+                    style={[styles.chip, on && pageIndicator]}
                   >
-                    <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{s}</Text>
+                    <Text style={[styles.chipTxt, on && pageIndicatorText]}>{s}</Text>
                   </Pressable>
                 );
               })}
@@ -442,8 +447,8 @@ export default function BrandList() {
             <Text style={styles.label}>Availability</Text>
             <View style={styles.chips}>
               {BRAND_CONDITIONS.map((c) => (
-                <Pressable key={c} onPress={() => setCondition(c)} style={[styles.chip, condition === c && styles.chipOn]}>
-                  <Text style={[styles.chipTxt, condition === c && styles.chipTxtOn]}>{c}</Text>
+                <Pressable key={c} onPress={() => setCondition(c)} style={[styles.chip, condition === c && pageIndicator]}>
+                  <Text style={[styles.chipTxt, condition === c && pageIndicatorText]}>{c}</Text>
                 </Pressable>
               ))}
             </View>
