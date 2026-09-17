@@ -513,6 +513,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="brand/list-option"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="brand/analytics"
             options={{
               headerShown: false,
