@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
-import { ActionSheetIOS, Alert, Dimensions, Modal, Platform, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ActionSheetIOS, Alert, Animated, Dimensions, Modal, PanResponder, Platform, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { BrandBanner } from "../../components/BrandBanner";
@@ -34,6 +34,20 @@ export default function BrandPage() {
   const liveCampaigns = useLiveCampaigns(id || "");
   const [tick, setTick] = useState(0);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const menuY = useRef(new Animated.Value(0)).current;
+  const menuPan = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 6,
+    onPanResponderMove: (_, gesture) => menuY.setValue(Math.max(0, gesture.dy)),
+    onPanResponderRelease: (_, gesture) => {
+      if (gesture.dy > 110 || gesture.vy > 1.1) {
+        Animated.timing(menuY, { toValue: 520, duration: 180, useNativeDriver: true }).start(() => setActionsOpen(false));
+        return;
+      }
+      Animated.spring(menuY, { toValue: 0, useNativeDriver: true, bounciness: 5 }).start();
+    },
+    onPanResponderTerminate: () => Animated.spring(menuY, { toValue: 0, useNativeDriver: true }).start(),
+  }), [menuY]);
 
   useEffect(() => {
     if (!id || !app.uid) return;
@@ -135,6 +149,7 @@ export default function BrandPage() {
   }
 
   function more() {
+    menuY.setValue(0);
     setActionsOpen(true);
   }
 
@@ -430,7 +445,7 @@ export default function BrandPage() {
       <Modal visible={actionsOpen} transparent animationType="slide" onRequestClose={() => setActionsOpen(false)}>
         <View style={styles.menuBackdrop}>
           <AccessiblePressable style={styles.menuDismiss} onPress={() => setActionsOpen(false)} accessibilityRole="button" accessibilityLabel="Close brand actions" />
-          <View style={[styles.menuSheet, { backgroundColor: theme.bg, borderColor: theme.lineColor, paddingBottom: insets.bottom + 18 }]}>
+          <Animated.View {...menuPan.panHandlers} style={[styles.menuSheet, { backgroundColor: theme.bg, borderColor: theme.lineColor, paddingBottom: insets.bottom + 18, transform: [{ translateY: menuY }] }]}>
             <View style={styles.menuHandle} />
             <View style={styles.menuHeader}>
               <View style={{ flex: 1 }}>
@@ -454,7 +469,7 @@ export default function BrandPage() {
                 </View>
               </View>
             ))}
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </View>
