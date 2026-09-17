@@ -8,7 +8,7 @@ import { BrandBanner } from "../../components/BrandBanner";
 import { BrandPageSkeleton } from "../../components/ScreenSkeletons";
 import { ListingCard } from "../../components/ListingCard";
 import { BrandVerifiedMark } from "../../components/VerifiedMark";
-import { brandApproved, brandCheck, brandListings, canAccessHQ, canManageTeam, canPost, canSeeAnalytics, canStudio, getBrand, updateBrand, uploadBrandAsset, useBrandsHydrated, isFollowing, roleOn, themeFor, toggleFollow, useBrands, } from "../../lib/brands";
+import { brandApproved, brandCheck, brandListings, canAccessHQ, canManageTeam, canPost, canSeeAnalytics, canStudio, getBrand, updateBrand, uploadBrandAsset, useBrandsHydrated, isFollowing, themeFor, toggleFollow, useBrands, } from "../../lib/brands";
 import { pickBannerImage, pickBannerVideo, pickLogo } from "../../lib/photo";
 import { usd } from "../../lib/catalog";
 import { recordAnalyticsEvent } from "../../lib/analytics";
@@ -60,7 +60,6 @@ export default function BrandPage() {
   const owner = !previewMode && brand ? canStudio(brand, app.uid) : false;
   const workspace = !previewMode && brand ? canAccessHQ(brand, app.uid) : false;
   const manager = !previewMode && brand ? canManageTeam(brand, app.uid) : false;
-  const role = brand ? roleOn(brand, app.uid) : null;
 
   useEffect(() => {
     if (!app.uid || !brand) return;
@@ -255,11 +254,6 @@ export default function BrandPage() {
               )}
             </View>
           ) : null}
-          <Text style={[styles.owner, { color: theme.muted }]}>
-            Owner · {role === "owner" ? "You" : brand.ownerName}
-            {role === "poster" ? "  ·  You post here" : ""}
-          </Text>
-
           <View style={styles.actions} accessibilityLabel={`${brand.name} actions`}>
             <AccessiblePressable              onPress={() => {
                 const nowFollowing = toggleFollow(brand.id, app.uid || "me");
