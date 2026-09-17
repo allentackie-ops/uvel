@@ -1,11 +1,12 @@
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ownedBrand, useBrands } from "../lib/brands";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
+import { useCopy } from "../lib/useCopy";
 
 export type TodayToolsDrawerProps = { onClose: () => void; onOpenSell: () => void };
 
@@ -20,6 +21,7 @@ export function TodayToolsDrawer({ onClose, onOpenSell }: TodayToolsDrawerProps)
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const app = useUvel();
+  const C = useCopy();
   useBrands();
   const mine = ownedBrand(app.uid);
   const name = app.displayName || "Uvel member";
@@ -33,6 +35,10 @@ export function TodayToolsDrawer({ onClose, onOpenSell }: TodayToolsDrawerProps)
     ...(!mine ? [{ icon: "stats-chart-outline" as const, label: "Your listings", onPress: () => router.push("/seller-analytics") }] : []),
     { icon: "add-circle-outline", label: "List an item", onPress: onOpenSell },
     { icon: "notifications-outline", label: "Price & restock alerts", onPress: () => router.push("/alerts") },
+  ];
+  const accountTools: Tool[] = [
+    { icon: "help-circle-outline", label: C.helpSupport, onPress: () => router.push("/guide") },
+    { icon: "settings-outline", label: C.settings, onPress: () => router.push("/settings") },
   ];
 
   return (
@@ -60,7 +66,21 @@ export function TodayToolsDrawer({ onClose, onOpenSell }: TodayToolsDrawerProps)
         {buildTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}
         <View style={styles.rule} />
         {businessTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}
+        <View style={styles.rule} />
+        {accountTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}
       </ScrollView>
+      <Pressable
+        onPress={() => Alert.alert(C.logOutTitle, C.logOutBody, [
+          { text: C.cancel, style: "cancel" },
+          { text: C.logOut, style: "destructive", onPress: () => { onClose(); void app.signOutAccount(); } },
+        ])}
+        style={({ pressed }) => [styles.signOutRow, pressed && { opacity: 0.72 }]}
+        accessibilityRole="button"
+        accessibilityLabel={C.logOut}
+      >
+        <Ionicons name="log-out-outline" size={22} color={styles.signOutLabel.color} />
+        <Text style={styles.signOutLabel}>{C.logOut}</Text>
+      </Pressable>
     </View>
   );
 }
@@ -95,6 +115,8 @@ function make(colors: Colors) {
     rule: { height: StyleSheet.hairlineWidth, backgroundColor: `${colors.bone}22`, marginVertical: 10, marginLeft: 2 },
     row: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: 16 },
     label: { color: colors.bone, fontSize: 18, fontWeight: "700" },
+    signOutRow: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}22` },
+    signOutLabel: { color: colors.bone, fontSize: 18, fontWeight: "700" },
   });
 }
 
