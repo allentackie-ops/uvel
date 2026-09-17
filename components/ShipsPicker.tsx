@@ -48,8 +48,11 @@ export function ShipsPicker({
     <View>
       <Text style={styles.label}>Where it sells</Text>
       <Text style={styles.lede}>
-        Each country is its own Uvel. This listing goes on the {home.name} floor. Buyers in other countries will not
-        see it unless you allow it.
+        {mode === "home"
+          ? `Each country is its own Uvel store. This listing goes in the ${home.name} store.`
+          : mode === "all"
+            ? "This item will be listed in every country's store."
+            : "This item will be displayed in the selected countries' stores."}
       </Text>
 
       <Choice
