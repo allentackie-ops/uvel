@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ShipsPicker } from "../../components/ShipsPicker";
-import { BRAND_CATEGORIES, usd, type Category } from "../../lib/catalog";
+import { BRAND_CATEGORIES, type Category } from "../../lib/catalog";
 import { hasBrandContact } from "../../lib/brandContact";
 import { BRAND_CONDITIONS, SIZE_SYSTEMS, sizesOf, systemFor, type SizeSystem } from "../../lib/brandSizes";
 import { brandApproved, canPost, getBrand, themeFor, useBrands } from "../../lib/brands";
@@ -62,6 +62,7 @@ export default function BrandList() {
   const [condition, setCondition] = useState<(typeof BRAND_CONDITIONS)[number]>("New");
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
+  const scrollRef = useRef<ScrollView>(null);
   const ph = "rgba(244,240,230,0.32)";
   const cover = photos[0];
   const contactReady = hasBrandContact(brand || {});
@@ -74,7 +75,6 @@ export default function BrandList() {
   }, [gate.phase]);
 
   const hasVariantStock = picked.length > 0 && picked.every((size) => Number(sizeStock[size]) > 0);
-  const readyCount = [photos.length > 0, Boolean(name.trim()), Boolean(notes.trim()), Boolean(category), picked.length > 0, Boolean(color.trim()), Boolean(material.trim()), Number(price) > 0, hasVariantStock].filter(Boolean).length;
   const canList =
     Boolean(brand && canPost(brand, app.uid)) &&
     contactReady &&
@@ -133,6 +133,32 @@ export default function BrandList() {
 
   const activeBrand = brand;
   const brandTheme = themeFor(activeBrand);
+  const steps = [
+    { key: "photo", done: photos.length > 0, label: "Add a photo" },
+    { key: "title", done: Boolean(name.trim()), label: "Add an item name" },
+    { key: "price", done: Number(price) > 0, label: "Add a price" },
+    { key: "sku", done: Boolean(sku.trim()), label: "Add an SKU" },
+    { key: "stock", done: hasVariantStock, label: "Add inventory" },
+    { key: "description", done: Boolean(notes.trim()), label: "Add a description" },
+    { key: "category", done: Boolean(category), label: "Pick a category" },
+    { key: "size", done: picked.length > 0, label: "Add a size" },
+    { key: "color", done: Boolean(color.trim()), label: "Add a colour" },
+    { key: "material", done: Boolean(material.trim()), label: "Add a material" },
+    { key: "condition", done: Boolean(condition), label: "Pick a condition" },
+  ] as const;
+  const nextStep = steps.find((step) => !step.done);
+  const progress = steps.filter((step) => step.done).length;
+  const ctaLabel = nextStep?.label ?? "Complete";
+  const ctaReady = gate.phase === "idle";
+
+  function goNext() {
+    if (!nextStep) {
+      void publish();
+      return;
+    }
+    const stepIndex = steps.indexOf(nextStep);
+    scrollRef.current?.scrollTo({ y: Math.max(0, stepIndex * 190), animated: true });
+  }
 
   async function addUri(uri: string) {
     if (photos.length >= MAX) return;
@@ -272,9 +298,9 @@ export default function BrandList() {
               <Text style={styles.topTitle}>List on {activeBrand.name}</Text>
           <View style={{ width: 40 }} />
         </View>
-        <View style={[styles.progressMeta, { backgroundColor: brandTheme.bg }]}><Text style={styles.progressKicker}>NEW PRODUCT</Text><Text style={styles.progressCopy}>{readyCount}/9 ready</Text></View>
-        <View style={[styles.progressTrack, { backgroundColor: brandTheme.lineColor }]}><View style={[styles.progressFill, { width: `${(readyCount / 9) * 100}%`, backgroundColor: brandTheme.accent }]} /></View>
-          <ScrollView contentContainerStyle={{ paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
+        <View style={[styles.progressMeta, { backgroundColor: brandTheme.bg }]}><Text style={styles.progressKicker}>NEW PRODUCT</Text><Text style={styles.progressCopy}>{progress}/{steps.length} ready</Text></View>
+        <View style={[styles.progressTrack, { backgroundColor: brandTheme.lineColor }]}><View style={[styles.progressFill, { width: `${(progress / steps.length) * 100}%`, backgroundColor: brandTheme.accent }]} /></View>
+          <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
           {!contactReady ? (
             <View style={styles.contactGate}>
               <Text style={styles.contactGateTitle}>Add a brand contact first</Text>
@@ -310,12 +336,12 @@ export default function BrandList() {
 
           <View style={styles.sheet}>
             <Text style={styles.sectionKicker}>THE PIECE</Text>
+            <TextInput style={styles.titleField} value={name} onChangeText={setName} placeholder="What’s the item called?" placeholderTextColor={ph} />
             <Text style={styles.label}>Price *</Text>
             <View style={styles.priceRow}>
               <Text style={styles.dollar}>{market.symbol}</Text>
               <TextInput style={styles.price} value={price} onChangeText={(v) => setPrice(v.replace(/[^0-9]/g, ""))} keyboardType="number-pad" placeholder="0" placeholderTextColor={ph} />
             </View>
-            <TextInput style={styles.titleField} value={name} onChangeText={setName} placeholder="What’s the piece?" placeholderTextColor={ph} />
             <Text style={styles.label}>SKU *</Text>
             <Text style={styles.hint}>A unique product code for your team and inventory system.</Text>
             <TextInput style={styles.field} value={sku} onChangeText={(v) => setSku(v.replace(/[^a-z0-9-]/gi, "").toUpperCase())} placeholder="e.g. AT4-SLIP-001" placeholderTextColor={ph} autoCapitalize="characters" />
@@ -425,15 +451,14 @@ export default function BrandList() {
         </ScrollView>
         <View style={[styles.foot, { paddingBottom: insets.bottom + 12, backgroundColor: brandTheme.bg }]}>
           <Pressable
-            onPress={() => void publish()}
-            disabled={!canList}
-            style={[styles.cta, { backgroundColor: canList ? brandTheme.accent : `${brandTheme.accent}55` }]}
+            onPress={goNext}
+            disabled={!ctaReady}
+            style={[styles.cta, { backgroundColor: ctaReady ? brandTheme.accent : `${brandTheme.accent}55` }]}
+            accessibilityRole="button"
+            accessibilityLabel={ctaLabel}
+            accessibilityState={{ disabled: !ctaReady, busy: gate.phase === "review" }}
           >
-            <Text
-              style={[styles.ctaTxt, { color: canList ? brandTheme.accentInk : `${brandTheme.accentInk}80` }]}
-            >
-              {Number(price) > 0 ? `List for ${usd(Number(price) * 100, market.currency)}` : "List this item"}
-            </Text>
+            <Text style={[styles.ctaTxt, { color: ctaReady ? brandTheme.accentInk : `${brandTheme.accentInk}80` }]}>{ctaLabel}</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>
