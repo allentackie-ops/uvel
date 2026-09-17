@@ -37,7 +37,8 @@ export default function BrandPage() {
   const menuY = useRef(new Animated.Value(0)).current;
   const menuPan = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 6,
+    onMoveShouldSetPanResponderCapture: (_, gesture) => gesture.dy > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+    onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
     onPanResponderMove: (_, gesture) => menuY.setValue(Math.max(0, gesture.dy)),
     onPanResponderRelease: (_, gesture) => {
       if (gesture.dy > 110 || gesture.vy > 1.1) {
@@ -46,6 +47,7 @@ export default function BrandPage() {
       }
       Animated.spring(menuY, { toValue: 0, useNativeDriver: true, bounciness: 5 }).start();
     },
+    onPanResponderTerminationRequest: () => false,
     onPanResponderTerminate: () => Animated.spring(menuY, { toValue: 0, useNativeDriver: true }).start(),
   }), [menuY]);
 
@@ -446,7 +448,10 @@ export default function BrandPage() {
         <View style={styles.menuBackdrop}>
           <AccessiblePressable style={styles.menuDismiss} onPress={() => setActionsOpen(false)} accessibilityRole="button" accessibilityLabel="Close brand actions" />
           <Animated.View {...menuPan.panHandlers} style={[styles.menuSheet, { backgroundColor: theme.bg, borderColor: theme.lineColor, paddingBottom: insets.bottom + 18, transform: [{ translateY: menuY }] }]}>
-            <View style={styles.menuHandle} />
+            <View style={styles.menuDragArea} {...menuPan.panHandlers}>
+              <View style={styles.menuHandle} />
+              <Text style={[styles.menuDragHint, { color: theme.muted }]}>Drag down to close</Text>
+            </View>
             <View style={styles.menuHeader}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.menuEyebrow, { color: theme.muted }]}>BRAND PAGE</Text>
@@ -568,7 +573,9 @@ const styles = StyleSheet.create({
   menuBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.62)" },
   menuDismiss: { ...StyleSheet.absoluteFillObject },
   menuSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, borderTopWidth: 1, paddingHorizontal: 20, paddingTop: 10, maxHeight: "82%" },
+  menuDragArea: { minHeight: 38, alignItems: "center", justifyContent: "flex-start" },
   menuHandle: { alignSelf: "center", width: 42, height: 4, borderRadius: 2, backgroundColor: "rgba(244,240,230,0.28)", marginBottom: 18 },
+  menuDragHint: { fontSize: 10, letterSpacing: 1.1, fontWeight: "700", textTransform: "uppercase", marginTop: -10, marginBottom: 12 },
   menuHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 },
   menuEyebrow: { fontSize: 10, letterSpacing: 1.5, fontWeight: "800" },
   menuTitle: { fontSize: 22, lineHeight: 27, fontWeight: "800", marginTop: 5 },
