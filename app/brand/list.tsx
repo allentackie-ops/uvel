@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
-import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActionSheetIOS,
   ActivityIndicator,
@@ -29,6 +29,7 @@ import { useUvel } from "../../lib/store";
 import { recordAuditEvent } from "../../lib/audit";
 import { addPiece, createBrandCatalogRemote } from "../../lib/wardrobe";
 import { firebaseReady } from "../../lib/firebase";
+import { takePendingListingSelection } from "../../lib/listingOptions";
 
 const COVER_W = 112;
 const COVER_H = 140;
@@ -73,6 +74,13 @@ export default function BrandList() {
     const t = setInterval(() => setStage((n) => (n + 1) % STAGES.length), 4200);
     return () => clearInterval(t);
   }, [gate.phase]);
+
+  useFocusEffect(useCallback(() => {
+    const selectedColor = takePendingListingSelection("color");
+    const selectedMaterial = takePendingListingSelection("material");
+    if (selectedColor) setColor(selectedColor);
+    if (selectedMaterial) setMaterial(selectedMaterial);
+  }, []));
 
   const hasVariantStock = picked.length > 0 && picked.every((size) => Number(sizeStock[size]) > 0);
   const canList =
@@ -437,11 +445,27 @@ export default function BrandList() {
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.label}>Colour *</Text>
-                <TextInput style={styles.field} value={color} onChangeText={setColor} placeholderTextColor={ph} />
+                <Pressable
+                  onPress={() => router.push({ pathname: "/brand/list-option", params: { id: activeBrand.id, kind: "color", value: color } })}
+                  style={[styles.selectionField, { borderColor: color ? brandTheme.accent : brandTheme.lineColor, backgroundColor: brandTheme.card }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={color ? `Colour, ${color}` : "Choose a colour"}
+                >
+                  <Text style={[styles.selectionValue, { color: color ? brandTheme.ink : ph }]} numberOfLines={1}>{color || "Choose colour"}</Text>
+                  <Text style={[styles.selectionArrow, { color: brandTheme.accent }]}>›</Text>
+                </Pressable>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.label}>Material *</Text>
-                <TextInput style={styles.field} value={material} onChangeText={setMaterial} placeholderTextColor={ph} />
+                <Pressable
+                  onPress={() => router.push({ pathname: "/brand/list-option", params: { id: activeBrand.id, kind: "material", value: material } })}
+                  style={[styles.selectionField, { borderColor: material ? brandTheme.accent : brandTheme.lineColor, backgroundColor: brandTheme.card }]}
+                  accessibilityRole="button"
+                  accessibilityLabel={material ? `Material, ${material}` : "Choose a material"}
+                >
+                  <Text style={[styles.selectionValue, { color: material ? brandTheme.ink : ph }]} numberOfLines={1}>{material || "Choose material"}</Text>
+                  <Text style={[styles.selectionArrow, { color: brandTheme.accent }]}>›</Text>
+                </Pressable>
               </View>
             </View>
             <Text style={styles.label}>Availability</Text>
@@ -569,6 +593,9 @@ const styles = StyleSheet.create({
   chipTxt: { color: "#F4F0E6", fontSize: 13, fontWeight: "600" },
   chipTxtOn: { color: "#16140F" },
   row: { flexDirection: "row", gap: 10 },
+  selectionField: { marginTop: 8, minHeight: 48, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  selectionValue: { flex: 1, fontSize: 15, fontWeight: "600" },
+  selectionArrow: { fontSize: 26, lineHeight: 26, marginLeft: 6, fontWeight: "300" },
   variantStockBlock: { marginTop: 2 },
   variantStockRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
   variantStockSize: { color: "#F4F0E6", fontSize: 14, fontWeight: "700" },

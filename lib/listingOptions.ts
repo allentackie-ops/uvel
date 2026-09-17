@@ -20,6 +20,8 @@ type PendingSelection = {
   category?: Category;
   condition?: ListingCondition;
   shipsTo?: ShipsTo;
+  color?: string;
+  material?: string;
 };
 
 let pending: PendingSelection = {};
