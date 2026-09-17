@@ -22,7 +22,8 @@ const W = Dimensions.get("window").width;
 const COL = (W - 48) / 2;
 
 export default function BrandPage() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, preview } = useLocalSearchParams<{ id: string; preview?: string }>();
+  const previewMode = preview === "1";
   useBrands();
   const brandsReady = useBrandsHydrated();
   useWardrobe();
@@ -55,10 +56,10 @@ export default function BrandPage() {
   const featured = collections[0]?.items[0];
   const visibleCampaigns = liveCampaigns.filter((campaign) => campaign.channel === "brand_page" && (!campaign.startAt || campaign.startAt <= Date.now()) && (!campaign.endAt || campaign.endAt >= Date.now()));
   const following = brand ? isFollowing(brand.id, app.uid) : false;
-  const poster = brand ? canPost(brand, app.uid) : false;
-  const owner = brand ? canStudio(brand, app.uid) : false;
-  const workspace = brand ? canAccessHQ(brand, app.uid) : false;
-  const manager = brand ? canManageTeam(brand, app.uid) : false;
+  const poster = !previewMode && brand ? canPost(brand, app.uid) : false;
+  const owner = !previewMode && brand ? canStudio(brand, app.uid) : false;
+  const workspace = !previewMode && brand ? canAccessHQ(brand, app.uid) : false;
+  const manager = !previewMode && brand ? canManageTeam(brand, app.uid) : false;
   const role = brand ? roleOn(brand, app.uid) : null;
 
   useEffect(() => {
@@ -113,10 +114,14 @@ export default function BrandPage() {
   }
 
   function more() {
-    const options = ["Share", ...(owner ? ["Edit page", "Page colors"] : []), ...(workspace ? ["Brand HQ"] : []), ...(manager ? ["Invite team"] : []), ...(canSeeAnalytics(activeBrand, app.uid) ? ["Analytics"] : []), "Cancel"];
+    const options = ["Share", ...(owner ? ["Preview", "Edit page", "Page colors"] : []), ...(workspace ? ["Brand HQ"] : []), ...(manager ? ["Invite team"] : []), ...(canSeeAnalytics(activeBrand, app.uid) ? ["Analytics"] : []), "Cancel"];
     const run = (label: string) => {
       if (label === "Share") {
         void Share.share({ message: `${activeBrand.name} on Uvel  uvel://brand/${activeBrand.id}` });
+        return;
+      }
+      if (label === "Preview") {
+        router.push({ pathname: "/brand/[id]", params: { id: activeBrand.id, preview: "1" } });
         return;
       }
       if (label === "Edit page") {
