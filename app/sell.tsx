@@ -772,7 +772,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               style={styles.titleIn}
               value={name}
               onChangeText={editField("title", setName)}
-              placeholder="What’s the piece?"
+              placeholder="What’s the item called?"
               placeholderTextColor={ph}
               returnKeyType="next"
               onSubmitEditing={() => notesRef.current?.focus()}
@@ -785,7 +785,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               style={styles.bodyIn}
               value={notes}
               onChangeText={editField("notes", setNotes)}
-              placeholder="Fit, fabric, any marks"
+              placeholder="Description"
               placeholderTextColor={ph}
               accessibilityLabel="Listing description"
               accessibilityHint="Required. Describe the fit, fabric, and any marks."
