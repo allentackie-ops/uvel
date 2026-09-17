@@ -37,6 +37,7 @@ export default function BrandPage() {
   const menuY = useRef(new Animated.Value(0)).current;
   const menuPan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: (_, gesture) => gesture.dy > 2 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+    onMoveShouldSetPanResponderCapture: (_, gesture) => gesture.dy > 2 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
     onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 4 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
     onPanResponderTerminationRequest: () => false,
     onPanResponderMove: (_, gesture) => menuY.setValue(Math.max(0, gesture.dy)),
@@ -448,8 +449,7 @@ export default function BrandPage() {
       <Modal visible={actionsOpen} transparent animationType="slide" onRequestClose={() => setActionsOpen(false)}>
         <View style={styles.menuBackdrop}>
           <Pressable style={styles.menuDismiss} onPress={() => setActionsOpen(false)} accessibilityRole="button" accessibilityLabel="Close brand actions" />
-          <View pointerEvents="box-none" style={styles.menuWrap}>
-            <Animated.View {...menuPan.panHandlers} style={[styles.menuSheet, { backgroundColor: theme.bg, borderColor: theme.lineColor, paddingBottom: insets.bottom + 18, transform: [{ translateY: menuY }] }]}>
+          <Animated.View {...menuPan.panHandlers} style={[styles.menuSheet, { backgroundColor: theme.bg, borderColor: theme.lineColor, paddingBottom: insets.bottom + 18, transform: [{ translateY: menuY }] }]}>
             <View style={styles.menuHandle} />
             <View style={styles.menuHeader}>
               <View style={{ flex: 1 }}>
@@ -473,8 +473,7 @@ export default function BrandPage() {
                 </View>
               </View>
             ))}
-            </Animated.View>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
     </View>
@@ -570,9 +569,8 @@ const styles = StyleSheet.create({
   rowSub: { fontSize: 13, marginTop: 3 },
   moreBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
   more: { fontSize: 16 },
-  menuBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.62)" },
-  menuDismiss: { ...StyleSheet.absoluteFillObject },
-  menuWrap: { flex: 1, justifyContent: "flex-end" },
+  menuBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.62)" },
+  menuDismiss: { ...StyleSheet.absoluteFill },
   menuSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, borderTopWidth: 1, paddingHorizontal: 20, paddingTop: 10, maxHeight: "82%" },
   menuHandle: { alignSelf: "center", width: 42, height: 4, borderRadius: 2, backgroundColor: "rgba(244,240,230,0.28)", marginBottom: 18 },
   menuHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 },
