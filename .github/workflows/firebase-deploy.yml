@@ -57,9 +57,14 @@ jobs:
 
       - name: Deploy Firestore rules and Functions
         run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            DEPLOY_TARGET="${{ github.event.inputs.only }}"
+          else
+            DEPLOY_TARGET="firestore:rules,functions"
+          fi
           # Storage is intentionally excluded here because this deploy identity
-          # cannot inspect the Storage API. Analytics and account deletion do not
-          # depend on Storage rules being deployed in the same run.
+          # cannot inspect the Storage API. Functions are included so Firestore
+          # event triggers stay in sync with the rules and app code.
           npx firebase-tools deploy \
             --project uvel-32d32 \
-            --only firestore:rules
+            --only "$DEPLOY_TARGET"
