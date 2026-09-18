@@ -99,6 +99,17 @@ export default function BrandPage() {
   }
 
   const activeBrand = brand;
+  const statusLabel = brandCheck(brand) === "lime"
+    ? "VERIFIED FOUNDER"
+    : brandCheck(brand) === "blue"
+      ? "VERIFIED BRAND"
+      : brandApproved(brand)
+        ? ""
+        : brand.reviewStatus === "human_review"
+          ? "BRAND · HUMAN REVIEW"
+          : brand.reviewStatus === "needs_information"
+            ? "BRAND · INFORMATION NEEDED"
+            : "BRAND · IN REVIEW";
   const actionSections = [
     {
       title: "Share and view",
@@ -265,7 +276,7 @@ export default function BrandPage() {
         </View>
 
         <View style={{ paddingHorizontal: 20, paddingTop: 56 }}>
-          <Text style={[styles.kicker, { color: theme.muted }]}>{brandCheck(brand) === "lime" ? "VERIFIED FOUNDER" : brandCheck(brand) === "blue" ? "VERIFIED BRAND" : brandApproved(brand) ? "BRAND ON UVEL" : brand.reviewStatus === "human_review" ? "BRAND · HUMAN REVIEW" : brand.reviewStatus === "needs_information" ? "BRAND · INFORMATION NEEDED" : "BRAND · IN REVIEW"}</Text>
+          {statusLabel ? <Text style={[styles.kicker, { color: theme.muted }]}>{statusLabel}</Text> : null}
           <View style={styles.nameRow}>
             <Text style={[styles.name, { color: theme.ink }]}>{brand.name}</Text>
             <BrandVerifiedMark brand={brand} size={20} />
