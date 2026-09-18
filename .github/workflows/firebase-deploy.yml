@@ -55,6 +55,16 @@ jobs:
         working-directory: functions
         run: npm install
 
+      - name: Configure admin bridge parameters
+        env:
+          UVEL_ADMIN_PORTAL_URL: ${{ vars.UVEL_ADMIN_PORTAL_URL }}
+          UVEL_ADMIN_BRIDGE_SECRET: ${{ secrets.UVEL_ADMIN_BRIDGE_SECRET }}
+        run: |
+          test -n "$UVEL_ADMIN_PORTAL_URL" || (echo "::error::UVEL_ADMIN_PORTAL_URL repository variable is missing" && exit 1)
+          test -n "$UVEL_ADMIN_BRIDGE_SECRET" || (echo "::error::UVEL_ADMIN_BRIDGE_SECRET repository secret is missing" && exit 1)
+          printf 'UVEL_ADMIN_PORTAL_URL=%s\n' "$UVEL_ADMIN_PORTAL_URL" > functions/.env.uvel-32d32
+          printf '%s\n' "$UVEL_ADMIN_BRIDGE_SECRET" | npx firebase-tools functions:secrets:set UVEL_ADMIN_BRIDGE_SECRET --project uvel-32d32
+
       - name: Deploy Firestore rules and Functions
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
