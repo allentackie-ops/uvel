@@ -57,7 +57,7 @@ jobs:
 
       - name: Configure admin bridge parameters
         env:
-          UVEL_ADMIN_PORTAL_URL: ${{ vars.UVEL_ADMIN_PORTAL_URL }}
+          UVEL_ADMIN_PORTAL_URL: https://uveladmin-cuadvxxc.manus.space
           UVEL_ADMIN_BRIDGE_SECRET: ${{ secrets.UVEL_ADMIN_BRIDGE_SECRET }}
         run: |
           test -n "$UVEL_ADMIN_PORTAL_URL" || (echo "::error::UVEL_ADMIN_PORTAL_URL repository variable is missing" && exit 1)
