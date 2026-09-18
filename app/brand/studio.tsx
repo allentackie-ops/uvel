@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: 16,
   },
-  h2: { fontFamily: "Georgia", fontSize: 26, marginTop: 28 },
+  h2: { fontSize: 26, lineHeight: 32, fontWeight: "800", marginTop: 28 },
   p: { fontSize: 14, lineHeight: 20, marginTop: 6, marginBottom: 12 },
   swatches: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   swatch: { width: "48%", height: 72, borderRadius: 16, padding: 12, justifyContent: "space-between" },
