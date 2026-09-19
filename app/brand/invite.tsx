@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Alert, Image, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { canManageTeam, createExternalInvite, findPeople, getBrand, inviteLink, memberRoleLabel, sendInvite, useBrands, type BrandPerson, type MemberRole } from "../../lib/brands";
+import { canManageTeam, createExternalInvite, findPeople, getBrand, inviteLink, memberRoleLabel, sendInvite, themeFor, useBrands, type BrandPerson, type MemberRole } from "../../lib/brands";
 import { useUvel } from "../../lib/store";
 
 const INVITE_ROLES: Array<{ id: Exclude<MemberRole, "owner">; detail: string }> = [
@@ -27,20 +27,22 @@ export default function BrandInvite() {
   const [role, setRole] = useState<Exclude<MemberRole, "owner">>("viewer");
   const [external, setExternal] = useState("");
   const [copied, setCopied] = useState(false);
+  const theme = brand ? themeFor(brand) : null;
 
   if (!brand || !canManageTeam(brand, app.uid)) {
     return <View style={[styles.page, { paddingTop: insets.top + 20, paddingHorizontal: 20 }]}><Pressable onPress={() => router.back()}><Text style={styles.backTxt}>‹ Back</Text></Pressable><Text style={styles.title}>Only brand managers send invites.</Text></View>;
   }
+  const activeBrand = brand;
 
   async function search(value: string) {
     setQ(value);
     const people = await findPeople(value);
-    setHits(people.filter((p) => p.uid !== app.uid && !brand.members.some((m) => m.uid === p.uid)));
+    setHits(people.filter((p) => p.uid !== app.uid && !activeBrand.members.some((m) => m.uid === p.uid)));
   }
 
   async function invite(person: BrandPerson) {
     try {
-      await sendInvite({ brandId: brand.id, fromUid: app.uid, fromName: app.displayName || "Owner", person, role });
+      await sendInvite({ brandId: activeBrand.id, fromUid: app.uid, fromName: app.displayName || "Owner", person, role });
       setSent((items) => [...items, person.uid]);
     } catch (err) {
       Alert.alert("Invite", err instanceof Error ? err.message : "Couldn’t send that.");
@@ -49,7 +51,7 @@ export default function BrandInvite() {
 
   async function makeExternalInvite() {
     try {
-      const invite = await createExternalInvite({ brandId: brand.id, fromUid: app.uid, fromName: app.displayName || "Owner", role });
+      const invite = await createExternalInvite({ brandId: activeBrand.id, fromUid: app.uid, fromName: app.displayName || "Owner", role });
       setExternal(inviteLink(invite.id));
     } catch (err) {
       Alert.alert("Invite link", err instanceof Error ? err.message : "Couldn’t create that link.");
@@ -58,7 +60,7 @@ export default function BrandInvite() {
 
   async function shareExternal() {
     if (!external) return;
-    try { await Share.share({ message: `Join ${brand.name} on Uvel: ${external}`, title: `Join ${brand.name}` }); } catch { /* cancelled */ }
+    try { await Share.share({ message: `Join ${activeBrand.name} on Uvel: ${external}`, title: `Join ${activeBrand.name}` }); } catch { /* cancelled */ }
   }
 
   async function copyExternal() {
@@ -69,24 +71,24 @@ export default function BrandInvite() {
   }
 
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, { backgroundColor: theme?.bg }]}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 6, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }} keyboardShouldPersistTaps="handled">
-        <View style={styles.top}><Pressable onPress={() => router.back()} hitSlop={12} style={styles.back}><Text style={styles.backTxt}>‹</Text></Pressable><Text style={styles.topTitle}>Invite to {brand.name}</Text><View style={{ width: 40 }} /></View>
-        <Text style={styles.title}>Bring the right people in.</Text>
-        <Text style={styles.p}>Search Uvel by name or username.</Text>
-        <Text style={styles.roleLabel}>Invite as</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roles}>{INVITE_ROLES.map((option) => <Pressable key={option.id} onPress={() => setRole(option.id)} style={[styles.roleChip, role === option.id && styles.roleChipOn]}><Text style={[styles.roleChipTxt, role === option.id && styles.roleChipTxtOn]}>{memberRoleLabel(option.id)}</Text></Pressable>)}</ScrollView>
-        <Text style={styles.roleDetail}>{INVITE_ROLES.find((option) => option.id === role)?.detail}</Text>
-        <TextInput style={styles.field} value={q} onChangeText={(value) => void search(value)} placeholder="Name or @username" placeholderTextColor="rgba(244,240,230,0.32)" autoCapitalize="none" autoCorrect={false} />
+        <View style={styles.top}><Pressable onPress={() => router.back()} hitSlop={12} style={styles.back}><Text style={[styles.backTxt, { color: theme?.ink }]}>‹</Text></Pressable><Text style={[styles.topTitle, { color: theme?.ink }]}>Invite to {activeBrand.name}</Text><View style={{ width: 40 }} /></View>
+        <Text style={[styles.title, { color: theme?.ink }]}>Bring the right people in.</Text>
+        <Text style={[styles.p, { color: theme?.muted }]}>Search Uvel by name or username.</Text>
+        <Text style={[styles.roleLabel, { color: theme?.muted }]}>Invite as</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.roles}>{INVITE_ROLES.map((option) => <Pressable key={option.id} onPress={() => setRole(option.id)} style={[styles.roleChip, { borderColor: theme?.lineColor }, role === option.id && { backgroundColor: theme?.accent, borderColor: theme?.accent }]}><Text style={[styles.roleChipTxt, { color: theme?.muted }, role === option.id && { color: theme?.accentInk }]}>{memberRoleLabel(option.id)}</Text></Pressable>)}</ScrollView>
+        <Text style={[styles.roleDetail, { color: theme?.muted }]}>{INVITE_ROLES.find((option) => option.id === role)?.detail}</Text>
+        <TextInput style={[styles.field, { backgroundColor: theme?.card, borderColor: theme?.lineColor, color: theme?.ink }]} value={q} onChangeText={(value) => void search(value)} placeholder="Name or @username" placeholderTextColor={theme?.muted} autoCapitalize="none" autoCorrect={false} />
         {hits.map((person) => {
           const done = sent.includes(person.uid);
-          return <View key={person.uid} style={styles.row}>{person.photo ? <Image source={{ uri: person.photo }} style={styles.face} /> : <View style={styles.face}><Text style={styles.init}>{(person.name[0] || "U").toUpperCase()}</Text></View>}<View style={{ flex: 1 }}><Text style={styles.name}>{person.name}</Text><Text style={styles.handle}>{person.username ? `@${person.username}` : "Uvel member"}</Text></View><Pressable disabled={done} onPress={() => void invite(person)} style={[styles.btn, done && styles.btnOff]}><Text style={[styles.btnTxt, done && styles.btnTxtOff]}>{done ? "Sent" : "Invite"}</Text></Pressable></View>;
+          return <View key={person.uid} style={styles.row}>{person.photo ? <Image source={{ uri: person.photo }} style={styles.face} /> : <View style={[styles.face, { backgroundColor: theme?.accent }]}><Text style={[styles.init, { color: theme?.accentInk }]}>{(person.name[0] || "U").toUpperCase()}</Text></View>}<View style={{ flex: 1 }}><Text style={[styles.name, { color: theme?.ink }]}>{person.name}</Text><Text style={[styles.handle, { color: theme?.muted }]}>{person.username ? `@${person.username}` : "Uvel member"}</Text></View><Pressable disabled={done} onPress={() => void invite(person)} style={[styles.btn, { backgroundColor: theme?.accent }, done && { backgroundColor: theme?.card }]}><Text style={[styles.btnTxt, { color: theme?.accentInk }, done && { color: theme?.muted }]}>{done ? "Sent" : "Invite"}</Text></Pressable></View>;
         })}
-        {q && !hits.length ? <Text style={styles.empty}>No Uvel profile found yet.</Text> : null}
-        <View style={styles.divider} />
-        <Text style={styles.section}>INVITE EXTERNALLY</Text>
-        <Text style={styles.p}>Create one link to send outside Uvel. New people can download and set up Uvel first.</Text>
-        {external ? <View style={styles.linkBox}><Text selectable style={styles.link}>{external}</Text><View style={styles.linkActions}><Pressable onPress={() => void copyExternal()}><Text style={styles.action}>{copied ? "Copied" : "Copy link"}</Text></Pressable><Pressable onPress={() => void shareExternal()}><Text style={styles.action}>Share</Text></Pressable></View></View> : <Pressable onPress={() => void makeExternalInvite()} style={styles.primary}><Text style={styles.primaryTxt}>Create invite link</Text></Pressable>}
+        {q && !hits.length ? <Text style={[styles.empty, { color: theme?.muted }]}>No Uvel profile found yet.</Text> : null}
+        <View style={[styles.divider, { backgroundColor: theme?.lineColor }]} />
+        <Text style={[styles.section, { color: theme?.muted }]}>INVITE EXTERNALLY</Text>
+        <Text style={[styles.p, { color: theme?.muted }]}>Create one link to send outside Uvel. New people can download and set up Uvel first.</Text>
+        {external ? <View style={[styles.linkBox, { backgroundColor: theme?.card }]}><Text selectable style={[styles.link, { color: theme?.muted }]}>{external}</Text><View style={styles.linkActions}><Pressable onPress={() => void copyExternal()}><Text style={[styles.action, { color: theme?.accent }]}>{copied ? "Copied" : "Copy link"}</Text></Pressable><Pressable onPress={() => void shareExternal()}><Text style={[styles.action, { color: theme?.accent }]}>Share</Text></Pressable></View></View> : <Pressable onPress={() => void makeExternalInvite()} style={[styles.primary, { backgroundColor: theme?.accent }]}><Text style={[styles.primaryTxt, { color: theme?.accentInk }]}>Create invite link</Text></Pressable>}
       </ScrollView>
     </View>
   );
