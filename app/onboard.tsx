@@ -690,7 +690,7 @@ export default function Onboard() {
               />
               <View style={styles.orRow}>
                 <View style={styles.orLine} />
-                <Text style={styles.orText}>or</Text>
+                <Text style={styles.orText}>{C.orWord}</Text>
                 <View style={styles.orLine} />
               </View>
               <AuthBtn
@@ -824,9 +824,9 @@ export default function Onboard() {
                   setBusy("reset");
                   try {
                     await resetPassword(email);
-                    setNote("Check your email for a reset link.");
+                    setNote(C.resetEmailSent);
                   } catch (err) {
-                    setError(err instanceof Error ? err.message : "Couldn’t send it.");
+                    setError(err instanceof Error ? err.message : C.resetEmailFailed);
                   } finally {
                     setBusy(null);
                   }

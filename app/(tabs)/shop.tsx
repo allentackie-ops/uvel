@@ -109,6 +109,7 @@ function FrozenClip({
 }
 
 function TodaySwipeHint({ onDismiss }: { onDismiss: () => void }) {
+  const C = useCopy();
   const handOpacity = useRef(new Animated.Value(0.35)).current;
 
   useEffect(() => {
@@ -130,7 +131,7 @@ function TodaySwipeHint({ onDismiss }: { onDismiss: () => void }) {
 
   return (
     <View pointerEvents="none" style={swipeHintStyles.swipeHint}>
-      <Text style={swipeHintStyles.swipeHintTitle}>Swipe up to start watching</Text>
+      <Text style={swipeHintStyles.swipeHintTitle}>{C.swipeUpToStart}</Text>
       <View style={swipeHintStyles.swipeHintTrack}>
         <Animated.View style={[swipeHintStyles.swipeHintHand, { opacity: handOpacity }]}>
           <Image cachePolicy="memory-disk" source={require("../../assets/onboarding/today-swipe-hand-recorded.gif")} style={{ width: 150, height: 190 }} contentFit="contain" />
@@ -148,6 +149,13 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const C = useCopy();
   const { country, styles: taste } = app;
   const market = getMarket(country);
+  const categoryLabels: Record<string, string> = {
+    All: C.all, Outerwear: C.outerwear, Dresses: C.dresses, Tops: C.tops, Trousers: C.trousers,
+    Knitwear: C.knitwear, Shoes: C.shoes, Skirts: C.skirts, Bags: C.bags, Accessories: C.accessories,
+    Jewelry: C.jewelry, Watches: C.watches, Hats: C.hats, Belts: C.belts, Sunglasses: C.sunglasses,
+    Scarves: C.scarves, Hair: C.hair, Lingerie: C.lingerie, Swim: C.swim, Activewear: C.activewear,
+    Socks: C.socks, Ties: C.ties, Gloves: C.gloves,
+  };
   const { q: qParam, look: lookParam, scan } = useLocalSearchParams<{ q?: string; look?: string; scan?: string }>();
   const chats = useInbox(app.uid || "me");
   const unread = chats.reduce((count, thread) => count + unreadFor(thread, app.uid || "me"), 0);
@@ -272,9 +280,9 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   }, []);
 
   const openVisualSearch = useCallback(() => {
-    Alert.alert("Search with a photo", "Take a picture or choose a fit from your camera roll.", [
+    Alert.alert(C.searchWithPhoto, C.takePictureOrChooseFit, [
       {
-        text: "Take a photo",
+        text: C.takePhoto,
         onPress: () => {
           void ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.85, allowsEditing: false }).then((result) => {
             const image = result.canceled ? undefined : result.assets[0];
@@ -283,7 +291,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         },
       },
       {
-        text: "Choose from camera roll",
+        text: C.chooseFromCameraRoll,
         onPress: () => {
           void ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.85, allowsEditing: false }).then((result) => {
             const image = result.canceled ? undefined : result.assets[0];
@@ -291,7 +299,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           }).catch(() => undefined);
         },
       },
-      { text: "Cancel", style: "cancel" },
+      { text: C.cancel, style: "cancel" },
     ]);
   }, []);
 
@@ -404,7 +412,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
             onPress={() => onOpenTools?.()}
             style={({ pressed }) => [styles.headerSide, pressed && { opacity: 0.72 }]}
             accessibilityRole="button"
-            accessibilityLabel="Open your Uvel workspace"
+            accessibilityLabel={C.openWorkspace}
             accessibilityHint="Open Founder Studio, Brand HQ, and seller tools."
           >
             <View style={styles.menuIcon}><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View>
@@ -413,7 +421,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
             onPress={() => router.push("/store")}
             style={({ pressed }) => [styles.wordmarkButton, pressed && { opacity: 0.78 }]}
             accessibilityRole="button"
-            accessibilityLabel="Uvel marketplace"
+            accessibilityLabel={C.marketplace}
             accessibilityHint="Double tap to view marketplace settings."
           >
             <Text style={styles.wordmark}>uvel</Text>
@@ -423,7 +431,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
             onPress={() => router.push("/inbox")}
             style={({ pressed }) => [styles.messageButton, pressed && { opacity: 0.84 }]}
             accessibilityRole="button"
-            accessibilityLabel={`Messages${unread ? `, ${unread} unread` : ""}`}
+            accessibilityLabel={`${C.messages}${unread ? `, ${unread} unread` : ""}`}
           >
             <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.bone} />
             {unread ? <View style={styles.messageBadge}><Text style={styles.messageBadgeText}>{unread > 9 ? "9+" : unread}</Text></View> : null}
@@ -459,7 +467,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           accessibilityHint="Double tap to hear how First Find works."
         >
           <Text style={styles.findLineTxt}>
-            First Find · <Text style={styles.findLineAmt}>{moneyExact(firstFind.remaining, firstFind.currency)}</Text> on a matching piece
+            {C.firstFind} · <Text style={styles.findLineAmt}>{moneyExact(firstFind.remaining, firstFind.currency)}</Text> {C.matchingPiece}
           </Text>
         </AccessiblePressable>
       ) : null}
@@ -478,8 +486,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       <View style={styles.search}>
         <Text style={styles.searchIcon} accessible={false}>⌕</Text>
         <TextInput
-          accessibilityLabel={scanningLook ? "Narrow this look" : "Search listings"}
-          placeholder={scanningLook ? "Narrow this look" : "Search what’s listed"}
+          accessibilityLabel={scanningLook ? C.narrowThisLook : C.searchListings}
+          placeholder={scanningLook ? C.narrowThisLook : C.searchListed}
           placeholderTextColor={colors.subtle}
           value={q}
           onChangeText={setQ}
@@ -492,7 +500,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
             hitSlop={8}
             style={({ pressed }) => [styles.clearBtn, pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
-            accessibilityLabel="Clear search"
+            accessibilityLabel={C.clearSearch}
           >
             <Text style={styles.clear}>×</Text>
           </AccessiblePressable>
@@ -520,7 +528,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
               accessibilityLabel={`${c} category`}
               accessibilityState={{ selected: on }}
             >
-              <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{c}</Text>
+              <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{categoryLabels[c] || c}</Text>
             </AccessiblePressable>
           );
         })}
@@ -529,7 +537,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       {!scanningLook && houses.length ? (
         <View>
           <View style={styles.brandHead}>
-            <Text style={styles.brandHeadTxt}>Brands</Text>
+        <Text style={styles.brandHeadTxt}>{C.brands}</Text>
             <Text style={styles.brandHeadGo}>›</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.brandRail}>
@@ -567,10 +575,10 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         <View style={styles.campaignSection}>
           <View style={styles.campaignHead}>
             <View style={{ flex: 1 }}>
-              <Text style={styles.campaignKicker}>SHOP CAMPAIGNS</Text>
-              <Text style={styles.campaignSub}>Live drops from brands in this shop</Text>
+              <Text style={styles.campaignKicker}>{C.shopCampaigns}</Text>
+              <Text style={styles.campaignSub}>{C.liveDrops}</Text>
             </View>
-            <Text style={styles.campaignLive}>LIVE</Text>
+            <Text style={styles.campaignLive}>{C.live}</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.campaignRail}>
             {shopCampaignRows.map(({ campaign, lead }) => {
@@ -594,8 +602,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
                       <BrandVerifiedMark brand={brand} size={11} />
                     </View>
                     <Text style={styles.campaignTitle} numberOfLines={2}>{campaign.headline || campaign.name}</Text>
-                    <Text style={styles.campaignBody} numberOfLines={2}>{campaign.body || "Explore the latest drop."}</Text>
-                    <Text style={styles.campaignGo}>Shop the drop →</Text>
+                    <Text style={styles.campaignBody} numberOfLines={2}>{campaign.body || C.exploreLatestDrop}</Text>
+                    <Text style={styles.campaignGo}>{C.shopTheDrop}</Text>
                   </View>
                 </AccessiblePressable>
               );
@@ -605,7 +613,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       ) : null}
 
       {scanning ? (
-        <Text style={styles.count}>Looking at the clothes in this frame</Text>
+        <Text style={styles.count}>{C.lookingAtFrame}</Text>
       ) : null}
 
       <View style={[styles.grid, !scanning && { marginTop: 14 }]}>
@@ -621,19 +629,19 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       {!scanning && ranked.length === 0 ? (
         marketplaceSync !== "confirmed" ? null : scanningLook ? (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>Nothing matches this look yet</Text>
-            <Text style={styles.emptyCopy}>Try another frame or take a filter off.</Text>
+            <Text style={styles.emptyTitle}>{C.nothingMatchesLook}</Text>
+            <Text style={styles.emptyCopy}>{C.tryAnotherFrame}</Text>
           </View>
         ) : todayHome ? (
           <View style={styles.emptyQuiet}>
-            <Text style={styles.emptyQuietTxt}>Nothing new yet. Pull to refresh.</Text>
+            <Text style={styles.emptyQuietTxt}>{C.nothingNew}</Text>
           </View>
         ) : (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>{`Nothing listed in the ${market.name} shop yet`}</Text>
-            <Text style={styles.emptyCopy}>Pull to refresh, or check Today.</Text>
-            <AccessiblePressable onPress={() => router.push("/")} style={styles.emptyPrimary} accessibilityRole="button" accessibilityLabel="Go to Today">
-              <Text style={styles.emptyPrimaryTxt}>Today</Text>
+            <Text style={styles.emptyTitle}>{`${C.nothingListedInShop} · ${market.name}`}</Text>
+            <Text style={styles.emptyCopy}>{C.pullToRefresh}</Text>
+            <AccessiblePressable onPress={() => router.push("/")} style={styles.emptyPrimary} accessibilityRole="button" accessibilityLabel={C.goToToday}>
+              <Text style={styles.emptyPrimaryTxt}>{C.today}</Text>
             </AccessiblePressable>
           </View>
         )
@@ -664,8 +672,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       {todayHome && showSwipeHint ? <TodaySwipeHint onDismiss={dismissSwipeHint} /> : null}
       {findHint ? (
         <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 68 }]} accessibilityLiveRegion="polite">
-          <Text style={styles.findToastK}>FIRST FIND</Text>
-          <Text style={styles.findToastTxt}>We’ll cover {moneyExact(firstFind.remaining, firstFind.currency)} of this piece at checkout.</Text>
+          <Text style={styles.findToastK}>{C.firstFind}</Text>
+          <Text style={styles.findToastTxt}>{C.matchingPiece} · {moneyExact(firstFind.remaining, firstFind.currency)}</Text>
         </View>
       ) : null}
     </View>

@@ -28,14 +28,14 @@ export default function Settings() {
       return;
     }
     if (!app.uid) {
-      Alert.alert("Sign in first", "Notifications follow your account.");
+      Alert.alert(C.signInFirst, C.notificationsFollow);
       return;
     }
     const { enablePush } = await import("../lib/push");
     const result = await enablePush(app.uid);
     if (result !== "granted") {
       app.setStyle({ wantsUpdates: false });
-      Alert.alert("Turn notifications on", "iPhone Settings → Uvel → Notifications.");
+      Alert.alert(C.turnNotificationsOn, C.notificationsSettings);
       return;
     }
     app.setStyle({ wantsUpdates: true });
@@ -66,7 +66,7 @@ export default function Settings() {
       await app.deleteAccount();
       router.replace("/setup");
     } catch (err) {
-      Alert.alert(C.deleteAccount, err instanceof Error ? err.message : "Sign in again, then try.");
+      Alert.alert(C.deleteAccount, err instanceof Error ? err.message : C.signInAgainTry);
     } finally {
       setBusy(false);
     }
@@ -76,20 +76,20 @@ export default function Settings() {
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
       <Text style={styles.section}>{C.support}</Text>
       <View style={styles.group}>
-        <Row label="How to use Uvel" onPress={() => router.push("/guide")} colors={colors} />
+        <Row label={C.howToUse} onPress={() => router.push("/guide")} colors={colors} />
         <Row label={C.helpSupport} onPress={() => void Linking.openURL(HELP)} colors={colors} />
-        <Row label="Report app issue" onPress={() => requestFeedback("compose")} colors={colors} />
+        <Row label={C.reportIssue} onPress={() => requestFeedback("compose")} colors={colors} />
         <Row label={C.privacyPolicy} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "privacy" } })} colors={colors} />
         <Row label={C.terms} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "terms" } })} colors={colors} />
-        <Row label="About Uvel" onPress={() => router.push("/about")} colors={colors} last />
+        <Row label={C.about} onPress={() => router.push("/about")} colors={colors} last />
       </View>
 
       <Text style={styles.section}>{C.account}</Text>
       <View style={styles.group}>
         <View style={styles.account}>
-          <Text style={styles.name}>{app.displayName || (app.uid ? "Uvel member" : C.guest)}</Text>
+          <Text style={styles.name}>{app.displayName || (app.uid ? C.uvelMember : C.guest)}</Text>
           <Text style={styles.hint}>
-            {app.email || (app.signedInWith ? `Signed in with ${app.signedInWith}` : C.notSignedIn)}
+            {app.email || (app.signedInWith ? `${C.signedInWith} ${app.signedInWith}` : C.notSignedIn)}
           </Text>
         </View>
       </View>
@@ -98,13 +98,13 @@ export default function Settings() {
       <View style={styles.group}>
         <Row
           label={C.appearance}
-          hint={app.appearance === "system" ? "System" : app.appearance === "dark" ? C.dark : C.light}
+          hint={app.appearance === "system" ? C.system : app.appearance === "dark" ? C.dark : C.light}
           onPress={() => router.push("/appearance")}
           colors={colors}
         />
         <Row
-          label="Today personalization"
-          hint="Shape your edit with activity controls"
+          label={C.todayPersonalization}
+          hint={C.todayPersonalizationHint}
           onPress={() => router.push("/personalization")}
           colors={colors}
         />

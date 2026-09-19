@@ -11,5 +11,6 @@ __v0_jsx-dev-runtime.ts
 
 # Common ignores
 node_modules
+.localization-packs.json
 .next/
 .DS_Store

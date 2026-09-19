@@ -2,17 +2,19 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View, useColorScheme } from "react-native";
 import { useUvel } from "../lib/store";
 import { palettes, resolveAppearance, useColors } from "../lib/theme";
+import { useCopy } from "../lib/useCopy";
 
 export default function Appearance() {
   const app = useUvel();
   const colors = useColors();
+  const C = useCopy();
   const current = resolveAppearance(app.appearance, useColorScheme());
   const styles = makeStyles(colors);
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Choose your look</Text>
-      <Text style={styles.intro}>Pick a look for Uvel, or let it follow the appearance set on your phone.</Text>
+      <Text style={styles.title}>{C.chooseYourLook}</Text>
+      <Text style={styles.intro}>{C.appearanceIntro}</Text>
 
       <View style={styles.options} accessibilityRole="radiogroup">
         <ThemeCard
@@ -36,19 +38,19 @@ export default function Appearance() {
           <Ionicons name="phone-portrait-outline" size={20} color={colors.bone} />
         </View>
         <View style={styles.systemCopy}>
-          <Text style={styles.systemTitle}>Match system</Text>
-          <Text style={styles.systemHint}>Automatically match your phone’s light or dark mode</Text>
+          <Text style={styles.systemTitle}>{C.matchSystem}</Text>
+          <Text style={styles.systemHint}>{C.matchSystemHint}</Text>
         </View>
         <Switch
           value={app.appearance === "system"}
           onValueChange={(enabled) => void app.setAppearance(enabled ? "system" : current)}
           trackColor={{ false: colors.neutral, true: colors.success }}
           thumbColor={app.appearance === "system" ? colors.successInk : "#FFFFFF"}
-          accessibilityLabel="Match system"
-          accessibilityHint="Automatically match your phone's light or dark mode"
+          accessibilityLabel={C.matchSystem}
+          accessibilityHint={C.matchSystemHint}
         />
       </View>
-      {app.appearance === "system" ? <Text style={styles.activeHint}>Following your phone’s current appearance</Text> : null}
+      {app.appearance === "system" ? <Text style={styles.activeHint}>{C.followingSystem}</Text> : null}
     </ScrollView>
   );
 }

@@ -3,16 +3,18 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { LANGS, langLabel } from "../lib/i18n";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
+import { useCopy } from "../lib/useCopy";
 
 export default function Language() {
   const app = useUvel();
   const colors = useColors();
+  const C = useCopy();
   const styles = make(colors);
   return <View style={styles.page}>
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.eyebrow}>LANGUAGE</Text>
-      <Text style={styles.title}>Choose your language.</Text>
-      <Text style={styles.body}>Uvel updates the app as soon as you make a choice. Your preference is saved for next time.</Text>
+      <Text style={styles.eyebrow}>{C.language.toUpperCase()}</Text>
+      <Text style={styles.title}>{C.chooseLanguage}</Text>
+      <Text style={styles.body}>{C.languageSavedHint}</Text>
       <View style={styles.list}>
         {LANGS.map((language) => {
           const selected = language.id === app.locale;
@@ -22,7 +24,7 @@ export default function Language() {
           </Pressable>;
         })}
       </View>
-      <Text style={styles.current}>Current language · {langLabel(app.locale || "en-US")}</Text>
+      <Text style={styles.current}>{C.currentLanguage} · {langLabel(app.locale || "en-US")}</Text>
     </ScrollView>
   </View>;
 }

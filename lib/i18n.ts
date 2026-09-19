@@ -1,3 +1,5 @@
+import { GENERATED_COPY } from "./generatedCopy";
+
 export type Copy = {
   skip: string;
   next: string;
@@ -115,6 +117,121 @@ export type Copy = {
   appearance: string;
   dark: string;
   light: string;
+  system: string;
+  howToUse: string;
+  reportIssue: string;
+  about: string;
+  todayPersonalization: string;
+  todayPersonalizationHint: string;
+  uvelMember: string;
+  signedInWith: string;
+  searchListed: string;
+  all: string;
+  activeListings: string;
+  noActiveListings: string;
+  listItemDiscover: string;
+  startSelling: string;
+  walletLabel: string;
+  firstFind: string;
+  toolsPreferences: string;
+  styleDna: string;
+  styleDnaHint: string;
+  inviteFriends: string;
+  firstFindInvite: string;
+  changeProfilePicture: string;
+  profilePicture: string;
+  buyersSeeProfilePicture: string;
+  friendsSeeProfilePicture: string;
+  takePhoto: string;
+  choosePhoto: string;
+  join: string;
+  no: string;
+  invitedToPost: string;
+  team: string;
+  youPostOnThisHouse: string;
+  open: string;
+  signInFirst: string;
+  notificationsFollow: string;
+  turnNotificationsOn: string;
+  notificationsSettings: string;
+  signInAgainTry: string;
+  chooseLanguage: string;
+  languageSavedHint: string;
+  currentLanguage: string;
+  draft: string;
+  drafts: string;
+  tapToContinue: string;
+  untitledListing: string;
+  listingDetailsNotFinished: string;
+  earnings: string;
+  toShip: string;
+  inTransit: string;
+  inProgress: string;
+  completed: string;
+  yourSalesShow: string;
+  yourOrdersShow: string;
+  noLikesYet: string;
+  savedItemsHere: string;
+  likesOnOwnListings: string;
+  likesOnListings: string;
+  youLiked: string;
+  removeFromLikes: string;
+  justNow: string;
+  swipeUpToStart: string;
+  searchWithPhoto: string;
+  takePictureOrChooseFit: string;
+  chooseFromCameraRoll: string;
+  narrowThisLook: string;
+  searchListings: string;
+  clearSearch: string;
+  brands: string;
+  shopCampaigns: string;
+  liveDrops: string;
+  live: string;
+  exploreLatestDrop: string;
+  shopTheDrop: string;
+  lookingAtFrame: string;
+  nothingMatchesLook: string;
+  tryAnotherFrame: string;
+  nothingNew: string;
+  pullToRefresh: string;
+  nothingListedInShop: string;
+  checkToday: string;
+  goToToday: string;
+  matchingPiece: string;
+  openWorkspace: string;
+  marketplace: string;
+  messages: string;
+  outerwear: string;
+  dresses: string;
+  tops: string;
+  trousers: string;
+  knitwear: string;
+  shoes: string;
+  skirts: string;
+  bags: string;
+  accessories: string;
+  jewelry: string;
+  watches: string;
+  hats: string;
+  belts: string;
+  sunglasses: string;
+  scarves: string;
+  hair: string;
+  lingerie: string;
+  swim: string;
+  activewear: string;
+  socks: string;
+  ties: string;
+  gloves: string;
+  chooseYourLook: string;
+  appearanceIntro: string;
+  matchSystem: string;
+  matchSystemHint: string;
+  followingSystem: string;
+  orWord: string;
+  resetEmailSent: string;
+  resetEmailFailed: string;
 };
 
 export const LANGS: { id: string; label: string }[] = [
@@ -280,6 +397,121 @@ const en: Copy = {
   appearance: "Appearance",
   dark: "Dark",
   light: "Light",
+  system: "System",
+  howToUse: "How to use Uvel",
+  reportIssue: "Report app issue",
+  about: "About Uvel",
+  todayPersonalization: "Today personalization",
+  todayPersonalizationHint: "Shape your edit with activity controls",
+  uvelMember: "Uvel member",
+  signedInWith: "Signed in with",
+  searchListed: "Search what’s listed",
+  all: "All",
+  activeListings: "Active",
+  noActiveListings: "No active listings",
+  listItemDiscover: "List an item so buyers can discover your shop.",
+  startSelling: "Start selling",
+  walletLabel: "WALLET",
+  firstFind: "FIRST FIND",
+  toolsPreferences: "TOOLS & PREFERENCES",
+  styleDna: "Style DNA",
+  styleDnaHint: "Unlocks First Find, and how Today looks",
+  inviteFriends: "Invite friends",
+  firstFindInvite: "They get a first find",
+  changeProfilePicture: "Change profile picture",
+  profilePicture: "Profile picture",
+  buyersSeeProfilePicture: "Buyers will see this when you sell.",
+  friendsSeeProfilePicture: "Friends will see this on your profile.",
+  takePhoto: "Take photo",
+  choosePhoto: "Choose photo",
+  join: "Join",
+  no: "No",
+  invitedToPost: "invited you to post on this brand.",
+  team: "TEAM",
+  youPostOnThisHouse: "You post on this house",
+  open: "Open",
+  signInFirst: "Sign in first",
+  notificationsFollow: "Notifications follow your account.",
+  turnNotificationsOn: "Turn notifications on",
+  notificationsSettings: "iPhone Settings → Uvel → Notifications.",
+  signInAgainTry: "Sign in again, then try.",
+  chooseLanguage: "Choose your language.",
+  languageSavedHint: "Uvel updates the app as soon as you make a choice. Your preference is saved for next time.",
+  currentLanguage: "Current language",
+  draft: "Draft",
+  drafts: "Drafts",
+  tapToContinue: "Tap to continue",
+  untitledListing: "Untitled listing",
+  listingDetailsNotFinished: "Listing details not finished",
+  earnings: "Earnings",
+  toShip: "To ship",
+  inTransit: "In transit",
+  inProgress: "In progress",
+  completed: "Completed",
+  yourSalesShow: "Your sales will show up here",
+  yourOrdersShow: "Your orders will show up here",
+  noLikesYet: "No likes yet",
+  savedItemsHere: "Items you save appear here.",
+  likesOnOwnListings: "Likes on your own listings will appear when someone likes them.",
+  likesOnListings: "Likes on your listings",
+  youLiked: "You liked",
+  removeFromLikes: "Remove from likes",
+  justNow: "just now",
+  swipeUpToStart: "Swipe up to start watching",
+  searchWithPhoto: "Search with a photo",
+  takePictureOrChooseFit: "Take a picture or choose a fit from your camera roll.",
+  chooseFromCameraRoll: "Choose from camera roll",
+  narrowThisLook: "Narrow this look",
+  searchListings: "Search listings",
+  clearSearch: "Clear search",
+  brands: "Brands",
+  shopCampaigns: "SHOP CAMPAIGNS",
+  liveDrops: "Live drops from brands in this shop",
+  live: "LIVE",
+  exploreLatestDrop: "Explore the latest drop.",
+  shopTheDrop: "Shop the drop →",
+  lookingAtFrame: "Looking at the clothes in this frame",
+  nothingMatchesLook: "Nothing matches this look yet",
+  tryAnotherFrame: "Try another frame or take a filter off.",
+  nothingNew: "Nothing new yet. Pull to refresh.",
+  pullToRefresh: "Pull to refresh, or check Today.",
+  nothingListedInShop: "Nothing listed in this shop yet",
+  checkToday: "Check Today",
+  goToToday: "Go to Today",
+  matchingPiece: "on a matching piece",
+  openWorkspace: "Open your Uvel workspace",
+  marketplace: "Uvel marketplace",
+  messages: "Messages",
+  outerwear: "Outerwear",
+  dresses: "Dresses",
+  tops: "Tops",
+  trousers: "Trousers",
+  knitwear: "Knitwear",
+  shoes: "Shoes",
+  skirts: "Skirts",
+  bags: "Bags",
+  accessories: "Accessories",
+  jewelry: "Jewelry",
+  watches: "Watches",
+  hats: "Hats",
+  belts: "Belts",
+  sunglasses: "Sunglasses",
+  scarves: "Scarves",
+  hair: "Hair",
+  lingerie: "Lingerie",
+  swim: "Swim",
+  activewear: "Activewear",
+  socks: "Socks",
+  ties: "Ties",
+  gloves: "Gloves",
+  chooseYourLook: "Choose your look",
+  appearanceIntro: "Pick a look for Uvel, or let it follow the appearance set on your phone.",
+  matchSystem: "Match system",
+  matchSystemHint: "Automatically match your phone’s light or dark mode",
+  followingSystem: "Following your phone’s current appearance",
+  orWord: "or",
+  resetEmailSent: "Check your email for a reset link.",
+  resetEmailFailed: "Couldn’t send it.",
 };
 
 function pack(p: Partial<Copy>): Copy {
@@ -498,9 +730,6 @@ export const COPY: Record<string, Copy> = {
     todayEmptyTitle: "Enséñale a Uvel tu estilo.",
     todayEmptyBody: "Guarda algunos looks o define tu ADN de estilo. Tu próxima selección se parecerá más a ti.",
     todayEmptyAction: "Moldea tu selección",
-    appearance: "Apariencia",
-    dark: "Oscuro",
-    light: "Claro",
   }),
   "pt-BR": pack({
     skip: "Pular",
@@ -1750,6 +1979,7 @@ export const COPY: Record<string, Copy> = {
     language: "שפה",
     search: "חיפוש",
   }),
+  ...GENERATED_COPY,
 };
 
 export function guessLocale() {

@@ -108,10 +108,10 @@ export default function You() {
   }
 
   function changeFace() {
-    Alert.alert("Profile picture", "Buyers will see this when you sell. Friends will see this on your profile.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Take photo", onPress: () => void takeAvatar().then(setFace).catch(() => undefined) },
-      { text: "Choose photo", onPress: () => void pickAvatar().then(setFace).catch(() => undefined) },
+    Alert.alert(C.profilePicture, `${C.buyersSeeProfilePicture} ${C.friendsSeeProfilePicture}`, [
+      { text: C.cancel, style: "cancel" },
+      { text: C.takePhoto, onPress: () => void takeAvatar().then(setFace).catch(() => undefined) },
+      { text: C.choosePhoto, onPress: () => void pickAvatar().then(setFace).catch(() => undefined) },
     ]);
   }
   const earned = soldPieces.reduce((n, p) => n + (p.listPriceCents || 0), 0) + soldOrders.reduce((n, o) => n + o.itemCents, 0);
@@ -174,7 +174,7 @@ export default function You() {
             <Text style={styles.ownerLine}>Team at {teams[0].name}</Text>
           ) : null}
         </View>
-        <Pressable onPress={changeFace} style={styles.faceBtn} accessibilityLabel="Change profile picture">
+        <Pressable onPress={changeFace} style={styles.faceBtn} accessibilityLabel={C.changeProfilePicture}>
           {face ? (
             <Image cachePolicy="memory-disk" source={{ uri: face }} style={styles.avatar} contentFit="cover" />
           ) : (
@@ -223,7 +223,7 @@ export default function You() {
       </View>
 
       {hub === "shop" ? (
-        <ShopPane listed={listed} draft={draft} styles={styles} />
+        <ShopPane listed={listed} draft={draft} styles={styles} copy={C} />
       ) : hub === "sold" ? (
         <SoldPane
           rows={soldRows}
@@ -232,21 +232,23 @@ export default function You() {
           earned={earned}
           colors={colors}
           styles={styles}
+          copy={C}
         />
       ) : hub === "purchases" ? (
-        <BuyPane rows={buyRows} filter={buyFilter} setFilter={setBuyFilter} colors={colors} styles={styles} />
+        <BuyPane rows={buyRows} filter={buyFilter} setFilter={setBuyFilter} colors={colors} styles={styles} copy={C} />
       ) : (
         <LikesPane
           received={likesOnMine(app.uid)}
           pieces={likedPieces}
           garments={likedGarments}
           styles={styles}
+          copy={C}
         />
       )}
 
       <View style={styles.moneyRow}>
         <Pressable onPress={() => router.push("/wallet")} style={styles.moneyCell} accessibilityRole="button" accessibilityLabel="Open wallet">
-          <Text style={styles.walletK}>WALLET</Text>
+          <Text style={styles.walletK}>{C.walletLabel}</Text>
           <Text style={styles.moneyV}>{moneyExact(wallet.availableCents, wallet.currency)}</Text>
           {wallet.pendingCents ? (
             <Text style={styles.walletP}>{moneyExact(wallet.pendingCents, wallet.currency)} pending</Text>
@@ -254,24 +256,24 @@ export default function You() {
         </Pressable>
         {firstFind.ready && firstFind.remaining > 0 ? (
           <Pressable onPress={() => router.push("/")} style={styles.moneyCell} accessibilityRole="button" accessibilityLabel="Use First Find on Today">
-            <Text style={styles.walletK}>FIRST FIND</Text>
+            <Text style={styles.walletK}>{C.firstFind}</Text>
             <Text style={styles.moneyV}>{moneyExact(firstFind.remaining, firstFind.currency)}</Text>
           </Pressable>
         ) : null}
       </View>
 
-      <Text style={[styles.sectionLabel, { marginTop: 30 }]}>TOOLS & PREFERENCES</Text>
-      <Pressable onPress={() => router.push("/style-dna")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel={`Style DNA${dnaReady ? `: ${[app.archetype, app.palette, app.silhouette].filter(Boolean).join(", ")}` : ": not set"}`}>
+      <Text style={[styles.sectionLabel, { marginTop: 30 }]}>{C.toolsPreferences}</Text>
+      <Pressable onPress={() => router.push("/style-dna")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel={`${C.styleDna}${dnaReady ? `: ${[app.archetype, app.palette, app.silhouette].filter(Boolean).join(", ")}` : ""}`}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.dnaTitle}>Style DNA</Text>
-          <Text style={styles.dnaSum} numberOfLines={1}>{dnaReady ? [app.archetype, app.palette, app.silhouette].filter(Boolean).join("  ·  ") : "Unlocks First Find, and how Today looks"}</Text>
+          <Text style={styles.dnaTitle}>{C.styleDna}</Text>
+          <Text style={styles.dnaSum} numberOfLines={1}>{dnaReady ? [app.archetype, app.palette, app.silhouette].filter(Boolean).join("  ·  ") : C.styleDnaHint}</Text>
         </View>
         <Text style={styles.dnaChevron}>›</Text>
       </Pressable>
-      <Pressable onPress={() => router.push("/invite")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel="Invite friends">
+      <Pressable onPress={() => router.push("/invite")} style={styles.toolRow} accessibilityRole="button" accessibilityLabel={C.inviteFriends}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.dnaTitle}>Invite friends</Text>
-          <Text style={styles.dnaSum} numberOfLines={1}>They get a first find</Text>
+          <Text style={styles.dnaTitle}>{C.inviteFriends}</Text>
+          <Text style={styles.dnaSum} numberOfLines={1}>{C.firstFindInvite}</Text>
         </View>
         <Text style={styles.dnaChevron}>›</Text>
       </Pressable>
@@ -285,20 +287,20 @@ export default function You() {
   );
 }
 
-function ShopPane({ listed, draft, styles }: { listed: ClosetPiece[]; draft: ListingDraft | null; styles: ReturnType<typeof make> }) {
+function ShopPane({ listed, draft, styles, copy }: { listed: ClosetPiece[]; draft: ListingDraft | null; styles: ReturnType<typeof make>; copy: ReturnType<typeof useCopy> }) {
   return (
     <View>
       {draft ? (
         <View style={styles.draftSection}>
           <View style={styles.draftHead}>
-            <Text style={styles.active}>Drafts (1)</Text>
-            <Text style={styles.draftHint}>Tap to continue</Text>
+            <Text style={styles.active}>{copy.drafts} (1)</Text>
+            <Text style={styles.draftHint}>{copy.tapToContinue}</Text>
           </View>
-          <DraftCard draft={draft} styles={styles} />
+          <DraftCard draft={draft} styles={styles} copy={copy} />
         </View>
       ) : null}
       <View style={styles.activeRow}>
-        <Text style={styles.active}>Active ({listed.length} listing{listed.length === 1 ? "" : "s"})</Text>
+        <Text style={styles.active}>{copy.activeListings} ({listed.length})</Text>
       </View>
       {listed.length ? (
         <View style={styles.grid}>
@@ -311,10 +313,10 @@ function ShopPane({ listed, draft, styles }: { listed: ClosetPiece[]; draft: Lis
       ) : (
         <View style={styles.empty}>
           <Rack />
-          <Text style={styles.emptyH}>No active listings</Text>
-          <Text style={styles.emptyP}>List an item so buyers can discover your shop.</Text>
+          <Text style={styles.emptyH}>{copy.noActiveListings}</Text>
+          <Text style={styles.emptyP}>{copy.listItemDiscover}</Text>
           <Pressable onPress={() => router.navigate("/closet")} style={styles.start}>
-            <Text style={styles.startTxt}>Start selling</Text>
+            <Text style={styles.startTxt}>{copy.startSelling}</Text>
           </Pressable>
         </View>
       )}
@@ -322,9 +324,9 @@ function ShopPane({ listed, draft, styles }: { listed: ClosetPiece[]; draft: Lis
   );
 }
 
-function DraftCard({ draft, styles }: { draft: ListingDraft; styles: ReturnType<typeof make> }) {
+function DraftCard({ draft, styles, copy }: { draft: ListingDraft; styles: ReturnType<typeof make>; copy: ReturnType<typeof useCopy> }) {
   const photo = draft.photos[0]?.uri;
-  const title = draft.name.trim() || "Untitled listing";
+  const title = draft.name.trim() || copy.untitledListing;
   const details = [draft.category, draft.size, draft.condition].filter(Boolean).join(" · ");
   return (
     <Pressable onPress={() => router.push({ pathname: "/sell", params: { draft: "1" } })} style={styles.draftCard}>
@@ -337,10 +339,10 @@ function DraftCard({ draft, styles }: { draft: ListingDraft; styles: ReturnType<
       )}
       <View style={styles.draftMeta}>
         <View style={styles.draftTag}>
-          <Text style={styles.draftTagTxt}>Draft</Text>
+        <Text style={styles.draftTagTxt}>{copy.draft}</Text>
         </View>
         <Text style={styles.draftName} numberOfLines={2}>{title}</Text>
-        <Text style={styles.draftDetails} numberOfLines={1}>{details || "Listing details not finished"}</Text>
+        <Text style={styles.draftDetails} numberOfLines={1}>{details || copy.listingDetailsNotFinished}</Text>
         <Text style={styles.draftProgress}>{draftProgress(draft)}</Text>
       </View>
       <Text style={styles.draftArrow}>›</Text>
@@ -355,6 +357,7 @@ function SoldPane({
   earned,
   colors,
   styles,
+  copy,
 }: {
   rows: { id: string; pieceId: string; photo: string; name: string; cents: number; currency: string; tag: string; kind: string }[];
   filter: string;
@@ -362,21 +365,22 @@ function SoldPane({
   earned: number;
   colors: Colors;
   styles: ReturnType<typeof make>;
+  copy: ReturnType<typeof useCopy>;
 }) {
   return (
     <View>
       {earned > 0 ? (
         <View style={styles.earn}>
-          <Text style={styles.earnTxt}>Earnings  {usd(earned)}</Text>
+          <Text style={styles.earnTxt}>{copy.earnings}  {usd(earned)}</Text>
         </View>
       ) : null}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         {[
-          ["all", "All"],
-          ["to_ship", "To ship"],
-          ["in_transit", "In transit"],
-          ["canceled", "Canceled"],
-          ["completed", "Completed"],
+          ["all", copy.all],
+          ["to_ship", copy.toShip],
+          ["in_transit", copy.inTransit],
+          ["canceled", copy.cancel],
+          ["completed", copy.completed],
         ].map(([id, label]) => {
           const on = filter === id;
           return (
@@ -391,7 +395,7 @@ function SoldPane({
       ) : (
         <View style={styles.empty}>
           <Stack />
-          <Text style={styles.emptyP}>Your sales will show up here</Text>
+          <Text style={styles.emptyP}>{copy.yourSalesShow}</Text>
         </View>
       )}
     </View>
@@ -404,21 +408,23 @@ function BuyPane({
   setFilter,
   colors,
   styles,
+  copy,
 }: {
   rows: { id: string; pieceId: string; photo: string; name: string; cents: number; currency: string; tag: string; kind: string }[];
   filter: string;
   setFilter: (v: string) => void;
   colors: Colors;
   styles: ReturnType<typeof make>;
+  copy: ReturnType<typeof useCopy>;
 }) {
   return (
     <View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         {[
-          ["all", "All"],
-          ["in_progress", "In progress"],
-          ["canceled", "Canceled"],
-          ["completed", "Completed"],
+          ["all", copy.all],
+          ["in_progress", copy.inProgress],
+          ["canceled", copy.cancel],
+          ["completed", copy.completed],
         ].map(([id, label]) => {
           const on = filter === id;
           return (
@@ -433,7 +439,7 @@ function BuyPane({
       ) : (
         <View style={styles.empty}>
           <Receipt />
-          <Text style={styles.emptyP}>Your orders will show up here</Text>
+          <Text style={styles.emptyP}>{copy.yourOrdersShow}</Text>
         </View>
       )}
     </View>
@@ -455,11 +461,13 @@ function LikesPane({
   pieces,
   garments,
   styles,
+  copy,
 }: {
   received: ReturnType<typeof likesOnMine>;
   pieces: ClosetPiece[];
   garments: (typeof GARMENTS)[number][];
   styles: ReturnType<typeof make>;
+  copy: ReturnType<typeof useCopy>;
 }) {
   const app = useUvel();
   const colors = useColors();
@@ -528,8 +536,8 @@ function LikesPane({
   if (!received.length && !hasSaved) {
     return (
       <View style={styles.empty}>
-        <Text style={styles.emptyH}>No likes yet</Text>
-        <Text style={styles.emptyP}>Items you save appear here. Likes on your own listings will appear when someone likes them.</Text>
+        <Text style={styles.emptyH}>{copy.noLikesYet}</Text>
+        <Text style={styles.emptyP}>{copy.savedItemsHere} {copy.likesOnOwnListings}</Text>
       </View>
     );
   }
