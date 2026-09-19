@@ -1,4 +1,5 @@
 const { onCall, onRequest, HttpsError } = require("firebase-functions/v2/https");
+const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const crypto = require("crypto");
 const { defineSecret } = require("firebase-functions/params");
@@ -1760,7 +1761,7 @@ exports.recordAuditEvent = onCall(async (req) => {
 });
 
 const CATALOG_EDIT_ROLES = new Set(["owner", "admin", "merchandiser", "poster"]);
-const CATALOG_STATUS_VALUES = new Set(["owned", "draft", "listed", "archived", "sold"]);
+const CATALOG_STATUS_VALUES = new Set(["owned", "draft", "review_pending", "listed", "archived", "sold", "rejected"]);
 const CATALOG_FIELDS = new Set(["photo", "photos", "name", "brand", "category", "color", "size", "sizes", "sizeStock", "sku", "condition", "material", "notes", "listPriceCents", "originalPriceCents", "status", "stockQuantity", "marketPrices", "marketAvailability", "shipsTo", "shopLook"]);
 
 function safeCatalogPatch(input) {
@@ -1792,8 +1793,16 @@ exports.updateBrandCatalog = onCall(async (req) => {
   if (!current.brandId) throw new HttpsError("failed-precondition", "Only brand products can be managed in Brand HQ.");
   const role = await brandMemberRole(db, current.brandId, req.auth.uid);
   if (!role || !CATALOG_EDIT_ROLES.has(role)) throw new HttpsError("permission-denied", "Your role cannot edit this catalog.");
+  const brandSnap = await db.collection("brands").doc(String(current.brandId)).get();
+  const brand = brandSnap.data() || {};
   const patch = safeCatalogPatch(req.data?.patch);
   const next = { ...current, ...patch };
+  if (next.status === "listed" && brand.verified !== true) {
+    patch.status = "review_pending";
+    patch.moderationStatus = "review_pending";
+    patch.moderationSubmittedAt = admin.firestore.FieldValue.serverTimestamp();
+    next.status = "review_pending";
+  }
   if (["listed", "draft", "owned"].includes(String(next.status || "")) && Number(next.stockQuantity) <= 0) throw new HttpsError("failed-precondition", "A catalog product must retain at least one unit before publishing or drafting.");
   if (next.status === "sold" && Number(next.stockQuantity) !== 0) throw new HttpsError("failed-precondition", "Sold products must have zero available stock.");
   await listingRef.set({ ...patch, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
@@ -1812,15 +1821,119 @@ exports.createBrandCatalog = onCall(async (req) => {
   if (!brandId) throw new HttpsError("invalid-argument", "Brand is required.");
   const role = await brandMemberRole(db, brandId, req.auth.uid);
   if (!role || !CATALOG_EDIT_ROLES.has(role)) throw new HttpsError("permission-denied", "Your role cannot create catalog products.");
-  const patch = safeCatalogPatch(piece);
-  if (! ["draft", "listed"].includes(String(patch.status || "draft"))) throw new HttpsError("failed-precondition", "New team catalog products must start as drafts or listed items.");
-  if (patch.status === "listed" && Number(patch.stockQuantity) <= 0) throw new HttpsError("failed-precondition", "A listed product must have inventory.");
   const brandSnap = await db.collection("brands").doc(brandId).get();
   const brand = brandSnap.data() || {};
-  const product = { ...patch, brandId, ownerId: String(brand.ownerId || req.auth.uid), listedByUid: req.auth.uid, listedByName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+  const patch = safeCatalogPatch(piece);
+  const unverifiedBrand = brand.verified !== true;
+  if (! ["draft", "review_pending", "listed"].includes(String(patch.status || "draft"))) throw new HttpsError("failed-precondition", "New team catalog products must start as drafts or listed items.");
+  if (patch.status === "listed" && Number(patch.stockQuantity) <= 0) throw new HttpsError("failed-precondition", "A listed product must have inventory.");
+  if (unverifiedBrand && patch.status === "listed") patch.status = "review_pending";
+  if (patch.status === "review_pending" && Number(patch.stockQuantity) <= 0) throw new HttpsError("failed-precondition", "A product in review must have inventory.");
+  const product = { ...patch, brandId, ownerId: String(brand.ownerId || req.auth.uid), listedByUid: req.auth.uid, listedByName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), moderationStatus: patch.status === "review_pending" ? "review_pending" : patch.status === "listed" ? "approved" : "not_required", moderationSubmittedAt: patch.status === "review_pending" ? admin.firestore.FieldValue.serverTimestamp() : null, createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() };
   await db.collection("listings").doc(listingId).set(product, { merge: false });
-  await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: patch.status === "listed" ? "product_published" : "product_duplicated", entity: "product", entityId: listingId, entityName: String(product.name || "Product"), summary: patch.status === "listed" ? "Product published to the brand catalog." : "Product created as a catalog draft." });
+  await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand team member"), action: patch.status === "listed" ? "product_published" : "product_duplicated", entity: "product", entityId: listingId, entityName: String(product.name || "Product"), summary: patch.status === "review_pending" ? "Product submitted for automated safety review." : patch.status === "listed" ? "Product published to the brand catalog." : "Product created as a catalog draft." });
   return { ok: true, listingId, status: patch.status || "draft" };
+});
+
+exports.uploadListingAsset = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const brandId = String(req.data?.brandId || "").trim();
+  const contentType = String(req.data?.contentType || "").trim().toLowerCase();
+  const extension = String(req.data?.extension || "jpg").trim().toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8) || "jpg";
+  const base64 = String(req.data?.base64 || "");
+  if (!brandId || !["image/jpeg", "image/png", "image/webp"].includes(contentType) || !base64 || base64.length > 8 * 1024 * 1024) throw new HttpsError("invalid-argument", "Invalid listing asset.");
+  const db = admin.firestore();
+  const role = await brandMemberRole(db, brandId, req.auth.uid);
+  if (!role || !CATALOG_EDIT_ROLES.has(role)) throw new HttpsError("permission-denied", "Your role cannot upload listing media.");
+  const path = `listings/${brandId}/${Date.now().toString(36)}-${crypto.randomBytes(8).toString("hex")}.${extension}`;
+  const file = admin.storage().bucket().file(path);
+  await file.save(Buffer.from(base64, "base64"), { resumable: false, metadata: { contentType, metadata: { uploadedByUid: req.auth.uid, brandId } } });
+  const [url] = await file.getSignedUrl({ action: "read", expires: "2500-01-01" });
+  return { ok: true, url, path };
+});
+
+async function listingImageParts(urls) {
+  const parts = [];
+  for (const url of Array.isArray(urls) ? urls.slice(0, 3) : []) {
+    if (!/^https?:\/\//i.test(String(url || ""))) continue;
+    const response = await fetch(String(url));
+    if (!response.ok) continue;
+    const contentType = String(response.headers.get("content-type") || "image/jpeg").split(";")[0];
+    if (!["image/jpeg", "image/png", "image/webp"].includes(contentType)) continue;
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (!bytes.length || bytes.length > 8 * 1024 * 1024) continue;
+    parts.push({ type: "image", source: { type: "base64", media_type: contentType, data: bytes.toString("base64") } });
+  }
+  return parts;
+}
+
+async function notifyListingReview(db, listingId, listing, title, body, status, reasons = []) {
+  const uid = String(listing.listedByUid || listing.ownerId || "");
+  if (!uid) return;
+  const notificationId = `listing-review-${listingId}-${status}`;
+  await db.collection("userNotifications").doc(uid).collection("items").doc(notificationId).set({
+    id: notificationId,
+    kind: "listing_review",
+    title,
+    body,
+    listingId,
+    status,
+    reasons: Array.isArray(reasons) ? reasons.slice(0, 3) : [],
+    read: false,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+  await notifyUid(db, uid, title, body, { kind: "listing_review", listingId, status });
+}
+
+exports.reviewUnverifiedBrandListing = onDocumentWritten({ document: "listings/{listingId}", secrets: [anthropicSecret], timeoutSeconds: 120 }, async (event) => {
+  const snapshot = event.data?.after;
+  if (!snapshot) return;
+  const listing = snapshot.data() || {};
+  if (listing.moderationStatus !== "review_pending" || listing.status !== "review_pending") return;
+  const before = event.data?.before?.data() || {};
+  if (before.moderationStatus === "review_pending") return;
+  const db = admin.firestore();
+  const listingRef = snapshot.ref;
+  const startedAt = admin.firestore.FieldValue.serverTimestamp();
+  await listingRef.set({ moderationStatus: "checking", moderationStartedAt: startedAt, updatedAt: startedAt }, { merge: true });
+  try {
+    const key = anthropicSecret.value();
+    if (!key) throw new Error("Listing safety check is not configured.");
+    const content = await listingImageParts(listing.photos || [listing.photo]);
+    if (!content.length) throw new Error("The listing photo could not be checked.");
+    content.push({ type: "text", text: `You are Uvel's marketplace safety reviewer. Review this brand listing before it becomes public.
+
+Title: ${String(listing.name || "")}
+Brand: ${String(listing.brand || "")}
+Category: ${String(listing.category || "")}
+Colour: ${String(listing.color || "")}
+Material: ${String(listing.material || "")}
+Condition: ${String(listing.condition || "")}
+Description: ${String(listing.notes || "")}
+
+Approve ordinary wearable fashion and original fashion sketches/design references. Reject only if the image or text contains weapons, drugs, vapes, alcohol, tobacco, medicine, adult or sexual content, nudity, hate, violence, self-harm, live animals, food, plants, unrelated screenshots/receipts/memes, no identifiable fashion item, obvious counterfeit/replica language, stolen logos/watermarks, or a clearly unsafe marketplace item.
+
+Return ONLY JSON: { "ok": boolean, "headline": string, "reasons": string[] }. If clean, ok must be true and reasons must be [].` });
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 400, messages: [{ role: "user", content }] }),
+    });
+    const json = await response.json();
+    if (!response.ok) throw new Error(json.error?.message || "The listing safety check failed.");
+    const parsed = parseJson(json.content?.[0]?.text || "{}");
+    const ok = parsed.ok === true;
+    const reasons = Array.isArray(parsed.reasons) ? parsed.reasons.map(String).filter(Boolean).slice(0, 3) : [];
+    const nextStatus = ok ? "listed" : "rejected";
+    const headline = String(parsed.headline || (ok ? "Your item has been accepted." : "Your item could not be accepted."));
+    await listingRef.set({ status: nextStatus, moderationStatus: ok ? "approved" : "rejected", moderationHeadline: headline, moderationReasons: reasons, moderatedAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    await writeAudit(db, { brandId: String(listing.brandId || ""), actorUid: "system", actorName: "Uvel safety review", action: ok ? "product_published" : "product_updated", entity: "product", entityId: event.params.listingId, entityName: String(listing.name || "Product"), summary: ok ? "Automated safety review accepted the product." : "Automated safety review rejected the product.", metadata: { moderationStatus: ok ? "approved" : "rejected", reasons } });
+    await notifyListingReview(db, event.params.listingId, listing, ok ? "Your item has been accepted" : "Your item needs changes", ok ? "Your item has been accepted and posted on your brand page." : `${headline}${reasons.length ? ` ${reasons[0]}` : ""}`, ok ? "approved" : "rejected", reasons);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The listing needs a closer review.";
+    await listingRef.set({ status: "review_pending", moderationStatus: "manual_review", moderationHeadline: "Your item needs a closer review.", moderationReasons: [message], updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    await notifyListingReview(db, event.params.listingId, listing, "Your item is still in review", "We need a closer look before posting it. We’ll notify you when the review is complete.", "manual_review", []);
+  }
 });
 
 const SHIPMENT_TRANSITIONS = {

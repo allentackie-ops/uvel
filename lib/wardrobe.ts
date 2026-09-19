@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image as RNImage } from "react-native";
 import { useEffect, useState } from "react";
+import * as FileSystem from "expo-file-system";
 import { collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { GARMENTS, type Category } from "./catalog";
 import { firebaseAuth, firebaseDb, firebaseFunctions, firebaseReady } from "./firebase";
@@ -8,7 +9,7 @@ import { httpsCallable } from "firebase/functions";
 import { reviewListingPhoto } from "./photoCheck";
 import { listingVisibleIn, type ShipsTo } from "./ships";
 
-export type ClosetStatus = "owned" | "draft" | "listed" | "sold" | "archived";
+export type ClosetStatus = "owned" | "draft" | "review_pending" | "listed" | "sold" | "archived" | "rejected";
 
 export type ClosetPiece = {
   id: string;
@@ -424,7 +425,7 @@ export function addPiece(
   };
   pieces = [piece, ...pieces];
   void persist();
-  void persistRemote(piece);
+  if (piece.status !== "review_pending") void persistRemote(piece);
   return piece;
 }
 
@@ -562,9 +563,26 @@ export async function updateBrandCatalogRemote(id: string, patch: Partial<Closet
   return true;
 }
 
-export async function createBrandCatalogRemote(piece: ClosetPiece) {
+export async function uploadListingAsset(uri: string, brandId: string) {
+  if (!firebaseReady() || !firebaseAuth().currentUser) throw new Error("Listing media upload requires a signed-in connection to Uvel.");
+  const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+  if (!base64 || base64.length > 8 * 1024 * 1024) throw new Error("Choose a smaller listing image.");
+  const extension = uri.split("?")[0].split(".").pop()?.toLowerCase() || "jpg";
+  const contentType = extension === "png" ? "image/png" : extension === "webp" ? "image/webp" : "image/jpeg";
+  const result = await httpsCallable(firebaseFunctions(), "uploadListingAsset")({ brandId, contentType, extension, base64 });
+  const url = String((result.data as { url?: string })?.url || "");
+  if (!url) throw new Error("Listing media upload did not return a URL.");
+  return url;
+}
+
+export async function createBrandCatalogRemote(piece: ClosetPiece, options?: { uploadMedia?: boolean }) {
   if (!firebaseReady() || !firebaseAuth().currentUser) return false;
+  let remotePiece = piece;
+  if (options?.uploadMedia) {
+    const photos = await Promise.all((piece.photos || [piece.photo]).map(async (uri) => /^https?:\/\//i.test(uri) ? uri : uploadListingAsset(uri, String(piece.brandId || ""))));
+    remotePiece = { ...piece, photo: photos[0] || piece.photo, photos };
+  }
   const call = httpsCallable(firebaseFunctions(), "createBrandCatalog");
-  await call({ listingId: piece.id, piece: serializable(piece) });
+  await call({ listingId: piece.id, piece: serializable(remotePiece) });
   return true;
 }

@@ -20,7 +20,7 @@ import { ShipsPicker } from "../../components/ShipsPicker";
 import { BRAND_CATEGORIES, type Category } from "../../lib/catalog";
 import { hasBrandContact } from "../../lib/brandContact";
 import { BRAND_CONDITIONS, SIZE_SYSTEMS, sizesOf, systemFor, type SizeSystem } from "../../lib/brandSizes";
-import { brandApproved, canPost, getBrand, themeFor, useBrands } from "../../lib/brands";
+import { canPost, getBrand, themeFor, useBrands } from "../../lib/brands";
 import { getMarket } from "../../lib/markets";
 import { pickListingPhoto, takeListingPhoto } from "../../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../../lib/photoCheck";
@@ -108,15 +108,15 @@ export default function BrandList() {
     );
   }
 
-  if (!brandApproved(brand)) {
+  if (brand.status === "rejected") {
     return (
       <View style={[styles.page, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => router.back()} style={styles.back}>
           <Text style={styles.backTxt}>‹</Text>
         </Pressable>
         <View style={styles.center}>
-          <Text style={styles.big}>Verification first</Text>
-          <Text style={styles.p}>A brand posts after it is accepted. Open Brand HQ.</Text>
+          <Text style={styles.big}>Brand review needed</Text>
+          <Text style={styles.p}>Open Brand HQ to update this brand before listing an item.</Text>
           <Pressable onPress={() => router.push({ pathname: "/brand/hq", params: { id: brand.id } })} style={styles.cta}>
             <Text style={styles.ctaTxt}>Open Brand HQ</Text>
           </Pressable>
@@ -219,29 +219,32 @@ export default function BrandList() {
 
   async function publish() {
     if (!canList || !category) return;
-    setGate({ phase: "review", line: STAGES[0] });
+    const needsReview = activeBrand.verified !== true;
+    if (!needsReview) setGate({ phase: "review", line: STAGES[0] });
     const started = Date.now();
     let result;
-    try {
-      result = await reviewListingForFeed({
-        photos: photos.map((p) => p.uri),
-        name: name.trim(),
-        notes: notes.trim(),
-        category,
-        brand: activeBrand.name,
-        color: color.trim(),
-        size: picked.join(", "),
-        condition,
-        price,
-      });
-    } catch {
-      result = { ok: false, headline: "Couldn’t finish the check", reasons: ["Try again in a moment."] };
-    }
-    const wait = Math.max(0, 16000 - (Date.now() - started));
-    if (wait) await new Promise((r) => setTimeout(r, wait));
-    if (!result.ok) {
-      setGate({ phase: "block", headline: result.headline, reasons: result.reasons });
-      return;
+    if (!needsReview) {
+      try {
+        result = await reviewListingForFeed({
+          photos: photos.map((p) => p.uri),
+          name: name.trim(),
+          notes: notes.trim(),
+          category,
+          brand: activeBrand.name,
+          color: color.trim(),
+          size: picked.join(", "),
+          condition,
+          price,
+        });
+      } catch {
+        result = { ok: false, headline: "Couldn’t finish the check", reasons: ["Try again in a moment."] };
+      }
+      const wait = Math.max(0, 16000 - (Date.now() - started));
+      if (wait) await new Promise((r) => setTimeout(r, wait));
+      if (!result.ok) {
+        setGate({ phase: "block", headline: result.headline, reasons: result.reasons });
+        return;
+      }
     }
     const uris = photos.map((p) => p.uri);
     const variantStock = Object.fromEntries(
@@ -279,19 +282,23 @@ export default function BrandList() {
         ownerPhoto: activeBrand.logoUri,
         listedByUid: app.uid,
         listedByName: app.displayName,
-        status: "listed",
+        status: needsReview ? "review_pending" : "listed",
       });
       if (firebaseReady()) {
-        const synced = await createBrandCatalogRemote(created);
+        const synced = await createBrandCatalogRemote(created, { uploadMedia: needsReview });
         if (!synced) throw new Error("The product was not connected to the brand catalog. Check your connection and try again.");
       }
-      void recordAuditEvent({ brandId: activeBrand.id, action: "product_created", entity: "product", entityId: created.id, entityName: created.name, summary: "Product published from the brand listing form.", metadata: { sku: created.sku || "", stockUnits: created.stockQuantity || 0 } });
+      void recordAuditEvent({ brandId: activeBrand.id, action: "product_created", entity: "product", entityId: created.id, entityName: created.name, summary: needsReview ? "Product submitted for automated safety review." : "Product published from the brand listing form.", metadata: { sku: created.sku || "", stockUnits: created.stockQuantity || 0, moderationStatus: needsReview ? "review_pending" : "approved" } });
     } catch (err) {
       setGate({
         phase: "block",
         headline: "Couldn’t list this",
         reasons: [err instanceof Error ? err.message : "Try again in a moment."],
       });
+      return;
+    }
+    if (needsReview) {
+      Alert.alert("Your item is in review", "It only takes a few moments.", [{ text: "Done", onPress: () => router.replace({ pathname: "/brand/[id]", params: { id: activeBrand.id } }) }]);
       return;
     }
     setGate({ phase: "pass" });

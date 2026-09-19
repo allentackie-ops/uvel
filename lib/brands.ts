@@ -313,7 +313,8 @@ export function memberRoleLabel(role: MemberRole) {
 }
 
 export function canPost(brand: Brand, uid: string) {
-  return brandApproved(brand) && Boolean(roleOn(brand, uid));
+  const reviewEligible = brandApproved(brand) || brand.origin === "founder" || brand.madeByUvel === true;
+  return reviewEligible && brand.status !== "rejected" && Boolean(roleOn(brand, uid));
 }
 
 export function canAccessHQ(brand: Brand, uid: string) {
