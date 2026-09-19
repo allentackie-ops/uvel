@@ -646,7 +646,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               accessibilityLabel="Start selling"
             >
               <Text style={styles.welcomeCtaText}>Start selling</Text>
-              <Ionicons name="arrow-forward" size={18} color={colors.successInk} />
             </AccessiblePressable>
           </View>
         </View>
