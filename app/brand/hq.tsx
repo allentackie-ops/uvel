@@ -260,7 +260,7 @@ function FounderHQEntry({ project, theme, styles }: { project?: FounderProject; 
   const continueApplying = Boolean(project);
   return (
     <View style={styles.entryWrap}>
-      <View style={[styles.entryIcon, { backgroundColor: theme.card }]}><Text style={[styles.entryIconText, { color: theme.accent }]}>✦</Text></View>
+      <View style={[styles.entryIcon, { backgroundColor: theme.card }]}><Image source={require("../../assets/icon.png")} style={styles.entryIconImage} contentFit="cover" accessible={false} /></View>
       <Text style={[styles.entryTitle, { color: theme.ink }]}>{continueApplying ? "Your brand idea is waiting" : "Interested in becoming a brand?"}</Text>
       <Text style={[styles.entryCopy, { color: theme.muted }]}>{continueApplying ? "Pick up where you left off in Founder Studio and finish your application." : "Go from idea to brand in just seconds with Founder Studio."}</Text>
       <Pressable onPress={() => project ? router.push({ pathname: "/brand/founder/[stage]", params: { id: project.id, stage: simpleStageOf(project.stage) } }) : router.push("/brand/founder")} style={[styles.entryButton, { backgroundColor: theme.accent }]}>
@@ -1331,8 +1331,8 @@ function make(theme: HQTheme) {
     content: { paddingHorizontal: 20 },
     entryBack: { width: 44, height: 44, alignItems: "center", justifyContent: "center", marginLeft: 12 },
     entryWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 34, paddingBottom: 80 },
-    entryIcon: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center", marginBottom: 22 },
-    entryIconText: { fontSize: 28, fontWeight: "800" },
+    entryIcon: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center", marginBottom: 22, overflow: "hidden" },
+    entryIconImage: { width: 64, height: 64 },
     entryTitle: { fontSize: 26, lineHeight: 32, fontWeight: "800", textAlign: "center" },
     entryCopy: { fontSize: 15, lineHeight: 22, textAlign: "center", marginTop: 10, maxWidth: 310 },
     entryButton: { minHeight: 50, paddingHorizontal: 24, borderRadius: 25, alignItems: "center", justifyContent: "center", marginTop: 24 },
