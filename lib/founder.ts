@@ -305,6 +305,11 @@ function visibleProjects() {
 
 export function setFounderViewer(uidValue: string) {
   viewerUid = uidValue;
+  if (uidValue && allProjects.some((project) => !project.ownerId)) {
+    allProjects = allProjects.map((project) => project.ownerId ? project : { ...project, ownerId: uidValue, updatedAt: project.updatedAt || Date.now() });
+    void persist();
+    return;
+  }
   emit();
 }
 
@@ -333,6 +338,27 @@ export function useFounderProjects() {
     return () => { listeners.delete(listener); };
   }, []);
   return { projects: visibleProjects(), hydrated };
+}
+
+export async function refreshFounderProjects() {
+  try {
+    const raw = await AsyncStorage.getItem(KEY);
+    if (raw) allProjects = (JSON.parse(raw) as FounderProject[]).map(normalizeProject);
+    if (viewerUid && allProjects.some((project) => !project.ownerId)) {
+      allProjects = allProjects.map((project) => project.ownerId ? project : { ...project, ownerId: viewerUid, updatedAt: project.updatedAt || Date.now() });
+      await persist();
+      return;
+    }
+  } catch {
+    // Keep the in-memory copy if storage is temporarily unavailable.
+  }
+  emit();
+}
+
+export function latestFounderDraft(projects: FounderProject[]) {
+  const byRecent = (items: FounderProject[]) => [...items].sort((a, b) => (b.updatedAt || b.createdAt) - (a.updatedAt || a.createdAt));
+  return byRecent(projects.filter((project) => !project.archived && project.handoffStatus !== "submitted"))[0]
+    || byRecent(projects.filter((project) => !project.archived))[0];
 }
 
 export function createFounderProject(name: string, description = "", ownerId = viewerUid) {

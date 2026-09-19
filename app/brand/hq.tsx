@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
-import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandVerifiedMark } from "../../components/VerifiedMark";
@@ -50,7 +50,7 @@ import { analyticsCurrencyValue, analyticsDisplayState, analyticsDisclosure, ana
 import { semanticStatus, semanticLabel, statusToneFor } from "../../lib/status";
 import { saveBrandCampaign, saveBrandCollection, saveBrandPromotion, useMarketing, type BrandCampaign, type BrandCollection, type BrandPromotion, type MarketingState, type MarketingStatus } from "../../lib/marketing";
 import { alertKindLabel, enableAlert, setAlertPreference, useAlertCenter, type AlertKind } from "../../lib/alerts";
-import { simpleStageOf, useFounderProjects, type FounderProject } from "../../lib/founder";
+import { latestFounderDraft, refreshFounderProjects, simpleStageOf, useFounderProjects, type FounderProject } from "../../lib/founder";
 
 type Section = "overview" | "make" | "catalog" | "orders" | "finance" | "more" | "marketing" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
 
@@ -115,6 +115,10 @@ export default function BrandHQ() {
   const [section, setSection] = useState<Section>("overview");
   const hqScroller = useRef<ScrollView>(null);
 
+  useFocusEffect(useCallback(() => {
+    void refreshFounderProjects();
+  }, []));
+
   useEffect(() => {
     if (!id) return;
     return watchBrandOrders(id);
@@ -122,7 +126,7 @@ export default function BrandHQ() {
 
   if (!brandsReady) return <BrandHQSkeleton colors={colors} />;
 
-  const draftProject = founderState.projects.find((project) => !project.archived && project.handoffStatus !== "submitted") || founderState.projects.find((project) => !project.archived);
+  const draftProject = latestFounderDraft(founderState.projects);
 
   if (!brand) {
     return (
