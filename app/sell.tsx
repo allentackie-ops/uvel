@@ -625,22 +625,20 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       {showSellWelcome ? (
         <View style={styles.welcome}>
           <Image source={SELL_WELCOME_IMAGE} style={styles.welcomeImage} contentFit="cover" />
-          <View style={styles.welcomeShade} />
           <View style={[styles.welcomeTop, { paddingTop: insets.top + 26 }]}>
             <Text style={styles.welcomeTitle}>Sell on </Text>
             <Image source={UVEL_ICON} style={styles.welcomeIcon} contentFit="contain" />
             <Text style={styles.welcomeTitle}>vel</Text>
           </View>
-          <View style={[styles.welcomeBottom, { paddingBottom: insets.bottom + 22 }]}>
-            <Text style={styles.welcomeIntro}>Give your pieces a second life.</Text>
-            <AccessiblePressable
-              onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "terms" } })}
-              style={({ pressed }) => [styles.welcomeTerms, pressed && { opacity: 0.78 }]}
-              accessibilityRole="link"
-              accessibilityLabel="By continuing you agree to our terms and conditions"
-            >
-              <Text style={styles.welcomeTermsText}>By continuing you agree to our terms and conditions</Text>
-            </AccessiblePressable>
+          <View style={[styles.welcomeBottom, { bottom: embedded ? 86 : 0, paddingBottom: insets.bottom + 18 }] }>
+            <Text style={styles.welcomeTermsText}>
+              By continuing you agree to our <Text
+                onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "terms" } })}
+                accessibilityRole="link"
+                accessibilityLabel="Terms and conditions"
+                style={styles.welcomeTermsLink}
+              >terms and conditions</Text>
+            </Text>
             <AccessiblePressable
               onPress={startSelling}
               style={({ pressed }) => [styles.welcomeCta, pressed && { opacity: 0.9 }]}
@@ -1317,14 +1315,21 @@ function make(colors: Colors) {
     green: { width: 14, height: 14, borderRadius: 7, backgroundColor: colors.success, marginBottom: 6 },
     welcome: { ...StyleSheet.absoluteFill, zIndex: 10, backgroundColor: colors.ink },
     welcomeImage: { ...StyleSheet.absoluteFill },
-    welcomeShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.38)" },
     welcomeTop: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: 24,
     },
-    welcomeTitle: { color: "#FFFFFF", fontSize: 30, fontWeight: "800", letterSpacing: -0.7 },
+    welcomeTitle: {
+      color: "#FFFFFF",
+      fontSize: 30,
+      fontWeight: "800",
+      letterSpacing: -0.7,
+      textShadowColor: "rgba(0,0,0,0.45)",
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 4,
+    },
     welcomeIcon: { width: 31, height: 31, borderRadius: 9, marginHorizontal: 3 },
     welcomeBottom: {
       position: "absolute",
@@ -1332,12 +1337,18 @@ function make(colors: Colors) {
       right: 0,
       bottom: 0,
       paddingHorizontal: 22,
-      paddingTop: 42,
-      backgroundColor: "rgba(0,0,0,0.72)",
+      paddingTop: 20,
     },
-    welcomeIntro: { color: "#FFFFFF", fontSize: 20, fontWeight: "700", marginBottom: 16 },
-    welcomeTerms: { alignSelf: "flex-start", marginBottom: 18 },
-    welcomeTermsText: { color: "#FFFFFF", fontSize: 13, lineHeight: 20, textDecorationLine: "underline" },
+    welcomeTermsText: {
+      color: "#FFFFFF",
+      fontSize: 13,
+      lineHeight: 20,
+      marginBottom: 18,
+      textShadowColor: "rgba(0,0,0,0.55)",
+      textShadowOffset: { width: 0, height: 1 },
+      textShadowRadius: 3,
+    },
+    welcomeTermsLink: { color: colors.success, textDecorationLine: "underline" },
     welcomeCta: {
       height: 54,
       borderRadius: 27,
