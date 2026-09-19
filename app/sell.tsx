@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -36,6 +37,9 @@ import { useColors, type Colors } from "../lib/theme";
 import { addPiece, getPiece, listPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
 
 const MAX = 5;
+const SELL_WELCOME_SEEN_KEY = "uvel.sell-welcome-seen";
+const SELL_WELCOME_IMAGE = require("../assets/sell-welcome.png");
+const UVEL_ICON = require("../assets/icon.png");
 const COVER_W = 112;
 const COVER_H = 140;
 const ADD_W = 64;
@@ -116,6 +120,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const [draftReady, setDraftReady] = useState(draftParam !== "1");
   const [draftDisabled, setDraftDisabled] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [showSellWelcome, setShowSellWelcome] = useState<boolean | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const titleRef = useRef<TextInput>(null);
   const notesRef = useRef<TextInput>(null);
@@ -128,6 +133,20 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     else router.back();
   }, [embedded]);
   const currentLook = shopLookOf(shopLook);
+
+  useEffect(() => {
+    if (existing || draftParam === "1") {
+      setShowSellWelcome(false);
+      return;
+    }
+    let active = true;
+    void AsyncStorage.getItem(SELL_WELCOME_SEEN_KEY).then((seen) => {
+      if (active) setShowSellWelcome(seen !== "1");
+    });
+    return () => {
+      active = false;
+    };
+  }, [existing?.id, draftParam]);
 
   useEffect(() => {
     if (existing || draftParam !== "1") return;
@@ -596,8 +615,44 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     };
   }
 
+  function startSelling() {
+    void AsyncStorage.setItem(SELL_WELCOME_SEEN_KEY, "1");
+    setShowSellWelcome(false);
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
+      {showSellWelcome ? (
+        <View style={styles.welcome}>
+          <Image source={SELL_WELCOME_IMAGE} style={styles.welcomeImage} contentFit="cover" />
+          <View style={styles.welcomeShade} />
+          <View style={[styles.welcomeTop, { paddingTop: insets.top + 26 }]}>
+            <Text style={styles.welcomeTitle}>Sell on </Text>
+            <Image source={UVEL_ICON} style={styles.welcomeIcon} contentFit="contain" />
+            <Text style={styles.welcomeTitle}>vel</Text>
+          </View>
+          <View style={[styles.welcomeBottom, { paddingBottom: insets.bottom + 22 }]}>
+            <Text style={styles.welcomeIntro}>Give your pieces a second life.</Text>
+            <AccessiblePressable
+              onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "terms" } })}
+              style={({ pressed }) => [styles.welcomeTerms, pressed && { opacity: 0.78 }]}
+              accessibilityRole="link"
+              accessibilityLabel="By continuing you agree to our terms and conditions"
+            >
+              <Text style={styles.welcomeTermsText}>By continuing you agree to our terms and conditions</Text>
+            </AccessiblePressable>
+            <AccessiblePressable
+              onPress={startSelling}
+              style={({ pressed }) => [styles.welcomeCta, pressed && { opacity: 0.9 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Start selling"
+            >
+              <Text style={styles.welcomeCtaText}>Start selling</Text>
+              <Ionicons name="arrow-forward" size={18} color={colors.successInk} />
+            </AccessiblePressable>
+          </View>
+        </View>
+      ) : null}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
           {draftParam === "1" ? (
@@ -1260,5 +1315,38 @@ function make(colors: Colors) {
       justifyContent: "center",
     },
     green: { width: 14, height: 14, borderRadius: 7, backgroundColor: colors.success, marginBottom: 6 },
+    welcome: { ...StyleSheet.absoluteFill, zIndex: 10, backgroundColor: colors.ink },
+    welcomeImage: { ...StyleSheet.absoluteFill },
+    welcomeShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.38)" },
+    welcomeTop: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      paddingHorizontal: 24,
+    },
+    welcomeTitle: { color: "#FFFFFF", fontSize: 30, fontWeight: "800", letterSpacing: -0.7 },
+    welcomeIcon: { width: 31, height: 31, borderRadius: 9, marginHorizontal: 3 },
+    welcomeBottom: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      paddingHorizontal: 22,
+      paddingTop: 42,
+      backgroundColor: "rgba(0,0,0,0.72)",
+    },
+    welcomeIntro: { color: "#FFFFFF", fontSize: 20, fontWeight: "700", marginBottom: 16 },
+    welcomeTerms: { alignSelf: "flex-start", marginBottom: 18 },
+    welcomeTermsText: { color: "#FFFFFF", fontSize: 13, lineHeight: 20, textDecorationLine: "underline" },
+    welcomeCta: {
+      height: 54,
+      borderRadius: 27,
+      backgroundColor: colors.success,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+    },
+    welcomeCtaText: { color: colors.successInk, fontSize: 16, fontWeight: "800" },
   });
 }
