@@ -164,7 +164,7 @@ exports.sendFriendMessage = onCall(async (req) => {
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 
 const TODAY_NUDGES = [
-  { title: "Today’s floor is up", body: "A few pieces landed that look like you." },
+  { title: "Today’s store is up 🛍️", body: "A few pieces landed that look like you." },
   { title: "Come pick through Today", body: "Nothing loud. Just clothes." },
   { title: "Your edit is waiting", body: "Open Uvel when you’ve got a minute." },
 ];

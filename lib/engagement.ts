@@ -27,7 +27,7 @@ export async function syncEngagement(opts: { allowed: boolean; hasBag: boolean; 
     await N.scheduleNotificationAsync({
       identifier: TODAY_ID,
       content: {
-        title: "Today’s floor is up",
+        title: "Today’s store is up 🛍️",
         body: "A few pieces landed that look like you.",
         sound: UVEL_SOUND,
         data: { kind: "today" },
