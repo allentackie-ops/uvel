@@ -45,7 +45,7 @@ const defaults: State = {
   silhouette: "",
   personUri: null,
   avatarUri: null,
-  appearance: "dark",
+  appearance: "system",
   onboarded: false,
   onboardVersion: 0,
   signedInWith: "",
