@@ -125,7 +125,7 @@ function make(colors: Colors) {
     title: { color: colors.bone, fontSize: 16, fontWeight: "600" },
     content: { paddingHorizontal: 20, paddingTop: 20 },
     kicker: { color: colors.subtle, fontSize: 11, letterSpacing: 1.8, fontWeight: "600" },
-    heading: { color: colors.bone, fontFamily: "Georgia", fontSize: 30, lineHeight: 36, marginTop: 12 },
+    heading: { color: colors.bone, fontSize: 30, lineHeight: 36, fontWeight: "800", fontStyle: "normal", marginTop: 12 },
     lede: { color: colors.muted, fontSize: 15, lineHeight: 22, marginTop: 10 },
     group: { marginTop: 30 },
     groupLabel: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginBottom: 10 },
