@@ -12,9 +12,7 @@ export default function Language() {
   const styles = make(colors);
   return <View style={styles.page}>
     <ScrollView contentContainerStyle={styles.content}>
-      <Text style={styles.eyebrow}>{C.language.toUpperCase()}</Text>
       <Text style={styles.title}>{C.chooseLanguage}</Text>
-      <Text style={styles.body}>{C.languageSavedHint}</Text>
       <View style={styles.list}>
         {LANGS.map((language) => {
           const selected = language.id === app.locale;
