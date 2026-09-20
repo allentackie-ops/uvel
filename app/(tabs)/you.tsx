@@ -288,6 +288,9 @@ export default function You() {
 }
 
 function ShopPane({ listed, draft, styles, copy }: { listed: ClosetPiece[]; draft: ListingDraft | null; styles: ReturnType<typeof make>; copy: ReturnType<typeof useCopy> }) {
+  const [showAll, setShowAll] = useState(false);
+  const preview = showAll ? listed : listed.slice(0, 4);
+
   return (
     <View>
       {draft ? (
@@ -302,19 +305,34 @@ function ShopPane({ listed, draft, styles, copy }: { listed: ClosetPiece[]; draf
       <View style={styles.activeRow}>
         <Text style={styles.active}>{copy.activeListings} ({listed.length})</Text>
       </View>
-          {listed.length ? (
-        <View style={styles.grid}>
-          {listed.map((p) => (
-            <View key={p.id} style={{ width: COL }}>
-              <ListingCard
-                piece={p}
-                framed
-                wide={COL}
-                onOpen={(piece) => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })}
-              />
-            </View>
-          ))}
-        </View>
+      {listed.length ? (
+        <>
+          <View style={styles.grid}>
+            {preview.map((p) => (
+              <View key={p.id} style={{ width: COL }}>
+                <ListingCard
+                  piece={p}
+                  framed
+                  wide={COL}
+                  onOpen={(piece) => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })}
+                />
+              </View>
+            ))}
+          </View>
+          {listed.length > 4 ? (
+            <Pressable
+              onPress={() => setShowAll((current) => !current)}
+              style={styles.listingsToggle}
+              accessibilityRole="button"
+              accessibilityLabel={showAll ? "Show fewer active listings" : `View all ${listed.length} active listings`}
+            >
+              <Text style={styles.listingsToggleTxt}>
+                {showAll ? "Show less" : `View all ${listed.length} listings`}
+              </Text>
+              <Text style={styles.listingsToggleArrow}>{showAll ? "⌃" : "⌄"}</Text>
+            </Pressable>
+          ) : null}
+        </>
       ) : (
         <View style={styles.empty}>
           <Rack />
@@ -854,6 +872,9 @@ function make(colors: Colors) {
     tabLine: { position: "absolute", bottom: 0, height: 2, left: 8, right: 8, backgroundColor: colors.bone, borderRadius: 1 },
     activeRow: { marginTop: 18, marginBottom: 8 },
     active: { color: colors.bone, fontSize: 16, fontWeight: "700", marginTop: 16, marginBottom: 8 },
+    listingsToggle: { marginTop: 14, minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: `${colors.bone}2E`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+    listingsToggleTxt: { color: colors.bone, fontSize: 14, fontWeight: "700" },
+    listingsToggleArrow: { color: `${colors.bone}A8`, fontSize: 18, lineHeight: 18, marginTop: -3 },
     draftSection: { marginTop: 14 },
     draftHead: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" },
     draftHint: { color: colors.warning, fontSize: 12, fontWeight: "600" },
