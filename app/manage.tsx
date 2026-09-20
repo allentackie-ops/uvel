@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { claimUsername, updateAccountProfile } from "../lib/auth";
 import { pickAvatar, takeAvatar } from "../lib/photo";
@@ -101,7 +102,7 @@ export default function Manage() {
       <Text style={styles.section}>Profile</Text>
       <View style={styles.group}>
         <Pressable onPress={changePhoto} style={styles.photoRow} accessibilityRole="button" accessibilityLabel="Change profile picture">
-          {face ? <Image source={{ uri: face }} style={styles.avatar} /> : <View style={styles.initials}><Text style={styles.initialsText}>{initials}</Text></View>}
+          {face ? <Image key={face} cachePolicy="memory-disk" source={{ uri: face }} style={styles.avatar} contentFit="cover" /> : <View style={styles.initials}><Text style={styles.initialsText}>{initials}</Text></View>}
           <View style={{ flex: 1 }}><Text style={styles.rowLabel}>Profile picture</Text><Text style={styles.hint}>Change photo</Text></View>
           <Text style={styles.chevron}>›</Text>
         </Pressable>
