@@ -215,7 +215,7 @@ function DrawerAwarePager({
 function routeIndex(pathname: string): number | null {
   if (pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/")) return 0;
   if (pathname.includes("/find")) return 1;
-  if (pathname.includes("/closet")) return 2;
+  if (pathname === "/closet" || pathname.endsWith("/(tabs)/closet")) return 2;
   if (pathname.includes("/you")) return 3;
   return null;
 }
@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   stage: { flex: 1, overflow: "hidden" },
   pager: { flex: 1 },
   page: { flex: 1, backgroundColor: "#000000" },
-  cardHit: { ...StyleSheet.absoluteFillObject, zIndex: 5 },
+  cardHit: { ...StyleSheet.absoluteFill, zIndex: 5 },
   barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 4, backgroundColor: "#000000", zIndex: 3 },
   bar: { minHeight: 60, borderRadius: 0, borderWidth: 0, backgroundColor: "#000000", flexDirection: "row", alignItems: "center", paddingHorizontal: 10 },
   tab: { flex: 1, minHeight: 52, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 2 },
