@@ -55,9 +55,6 @@ export default function Settings() {
       <View style={styles.group}>
         <View style={styles.account}>
           <Text style={styles.name}>{app.displayName || (app.uid ? C.uvelMember : C.guest)}</Text>
-          <Text style={styles.hint}>
-            {app.email || (app.signedInWith ? `${C.signedInWith} ${app.signedInWith}` : C.notSignedIn)}
-          </Text>
         </View>
         {app.uid ? <Row label="Manage" onPress={() => router.push("/manage")} colors={colors} last /> : null}
       </View>
