@@ -425,6 +425,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
             accessibilityHint="Double tap to view marketplace settings."
           >
             <Text style={styles.wordmark}>uvel</Text>
+            <View style={styles.wordmarkUnderline} />
             <Text style={styles.wordmarkChevron}>⌄</Text>
           </AccessiblePressable>
           <AccessiblePressable
@@ -686,7 +687,7 @@ function make(colors: Colors) {
     content: { paddingHorizontal: 16, paddingBottom: 108 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
     titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-    todayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 56, marginBottom: 4 },
+    todayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 96, marginBottom: 10, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}24` },
     findLine: { alignSelf: "center", minHeight: 32, paddingHorizontal: 8, marginBottom: 6, justifyContent: "center" },
     findLineTxt: { color: `${colors.bone}8C`, fontSize: 13, fontWeight: "600", textAlign: "center" },
     findLineAmt: { color: colors.success, fontWeight: "800" },
@@ -712,10 +713,11 @@ function make(colors: Colors) {
     headerSide: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
     menuIcon: { width: 22, gap: 4 },
     menuLine: { height: 2, width: 22, borderRadius: 1, backgroundColor: colors.bone },
-    wordmarkButton: { minHeight: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 10, gap: 4 },
-    wordmark: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, fontStyle: "italic", fontWeight: "700", letterSpacing: 0, lineHeight: 42 },
-    wordmarkChevron: { color: `${colors.bone}B8`, fontSize: 19, fontWeight: "700", marginTop: 0 },
-    messageButton: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, borderColor: `${colors.bone}55`, backgroundColor: `${colors.bone}14`, alignItems: "center", justifyContent: "center" },
+    wordmarkButton: { minHeight: 76, flexDirection: "column", alignItems: "center", justifyContent: "center", paddingHorizontal: 18 },
+    wordmark: { color: colors.bone, fontFamily: "Georgia", fontSize: 43, fontStyle: "normal", fontWeight: "400", letterSpacing: 1.5, lineHeight: 48 },
+    wordmarkUnderline: { width: 82, height: 2, borderRadius: 2, backgroundColor: colors.success, opacity: 0.82, marginTop: 2, marginBottom: 1 },
+    wordmarkChevron: { color: `${colors.success}D9`, fontSize: 18, fontWeight: "700", lineHeight: 18 },
+    messageButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
     messageBadge: { position: "absolute", right: -2, top: -3, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     messageBadgeText: { color: colors.successInk, fontSize: 9, fontWeight: "900" },
     emptyState: { marginTop: 22, padding: 22, borderRadius: 20, backgroundColor: colors.surface, alignItems: "center" },
