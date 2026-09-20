@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, Dimensions, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Animated, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
@@ -34,7 +34,6 @@ import { getMarket, moneyExact } from "../../lib/markets";
 
 const MIN_REFRESH_MS = 1200;
 const ORBIT_SLOT = 96;
-const PREVIEW_ORIGIN: ListingOrigin = { x: Dimensions.get("window").width / 2, y: 0, width: 1, height: 1 };
 // Bump this key to re-arm the hand gesture once for the current OTA test build.
 const TODAY_SWIPE_HINT_KEY = "uvel-today-swipe-hint-seen-v5";
 const TODAY_SWIPE_HINT_MS = 10000;
@@ -186,7 +185,6 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const firstFind = useFirstFind();
   const dismissSwipeHint = useCallback(() => setShowSwipeHint(false), []);
   const dismissDoubleTapHint = useCallback(() => setShowDoubleTapHint(false), []);
-  const previewOpenedRef = useRef(false);
   const dna = useMemo(
     () => dnaFrom(app),
     [app.archetype, app.palette, app.silhouette, app.styles, app.gender],
@@ -386,14 +384,14 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     return (frozenOrder.current || []).map((id) => byId.get(id)).filter((p): p is ClosetPiece => Boolean(p)).filter(passQ);
   }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey, dna, personalization.rank, feedEpoch]);
 
-  useEffect(() => {
-    if (!previewId || previewOpenedRef.current || !wardrobeReady || scanningLook || openPiece) return;
-    const previewPiece = live.find((piece) => piece.id === previewId) || getPiece(previewId);
-    if (!previewPiece) return;
-    previewOpenedRef.current = true;
-    setOpenOrigin(PREVIEW_ORIGIN);
-    setOpenPiece(previewPiece);
-  }, [live, openPiece, previewId, scanningLook, wardrobeReady]);
+  const previewPiece = useMemo(
+    () => (typeof previewId === "string" ? live.find((piece) => piece.id === previewId) || getPiece(previewId) : undefined),
+    [live, previewId],
+  );
+  const visibleRanked = useMemo(
+    () => (previewPiece ? [previewPiece, ...ranked.filter((piece) => piece.id !== previewPiece.id)] : ranked),
+    [previewPiece, ranked],
+  );
 
   if (!wardrobeReady && !scanningLook) return <ShopSkeleton colors={colors} />;
 
@@ -631,7 +629,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       <View style={[styles.grid, !scanning && { marginTop: 14 }]}>
         {scanning
           ? null
-          : ranked.map((p) => (
+          : visibleRanked.map((p) => (
               <View key={p.id} style={[styles.cell, openPiece?.id === p.id && { opacity: 0 }]}>
                 <ListingCard piece={p} framed firstFind={todayHome && firstFind.matches(p)} onFirstFind={todayHome ? () => setFindHint(true) : undefined} onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />
               </View>

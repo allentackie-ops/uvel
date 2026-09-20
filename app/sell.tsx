@@ -1029,7 +1029,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               <AccessiblePressable
                 onPress={() =>
                   router.push({
-                    pathname: "/",
+                    pathname: "/(tabs)/index",
                     params: { previewId: existing.id },
                   })
                 }
