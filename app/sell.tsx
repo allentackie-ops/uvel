@@ -1029,8 +1029,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               <AccessiblePressable
                 onPress={() =>
                   router.push({
-                    pathname: "/",
-                    params: { previewId: existing.id },
+                    pathname: "/closet/[id]",
+                    params: { id: existing.id, v: "buy" },
                   })
                 }
                 style={styles.preview}
