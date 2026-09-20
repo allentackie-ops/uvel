@@ -302,11 +302,16 @@ function ShopPane({ listed, draft, styles, copy }: { listed: ClosetPiece[]; draf
       <View style={styles.activeRow}>
         <Text style={styles.active}>{copy.activeListings} ({listed.length})</Text>
       </View>
-      {listed.length ? (
+          {listed.length ? (
         <View style={styles.grid}>
           {listed.map((p) => (
             <View key={p.id} style={{ width: COL }}>
-              <ListingCard piece={p} framed wide={COL} />
+              <ListingCard
+                piece={p}
+                framed
+                wide={COL}
+                onOpen={(piece) => router.push({ pathname: "/closet/[id]", params: { id: piece.id, from: "you" } })}
+              />
             </View>
           ))}
         </View>

@@ -42,6 +42,7 @@ export function TodayListingOverlay({
   origin,
   onClose,
   onInteraction,
+  previewOnly = false,
   showDoubleTapHint = false,
   onDoubleTapHintDismiss,
   firstListing = false,
@@ -50,6 +51,7 @@ export function TodayListingOverlay({
   origin: ListingOrigin;
   onClose: () => void;
   onInteraction?: (action: PersonalizationAction, piece: ClosetPiece, query?: string, dwellSeconds?: number) => void;
+  previewOnly?: boolean;
   showDoubleTapHint?: boolean;
   onDoubleTapHintDismiss?: () => void;
   firstListing?: boolean;
@@ -492,22 +494,24 @@ export function TodayListingOverlay({
               </View>
             ) : null}
             <View style={styles.actionRow}>
-              <Pressable onPress={() => { setShowTryOnHint(false); onInteraction?.("try_on", piece); router.push({ pathname: "/try-on", params: { piece: piece.id } }); }} style={[styles.tryAction, showTryOnHint && styles.tryActionHighlighted]} accessibilityRole="button" accessibilityLabel="Try this listing on">
-                <Ionicons name="body-outline" size={18} color={colors.bone} />
-                <Text style={styles.tryText}>Try it on</Text>
+              <Pressable onPress={previewOnly ? undefined : () => { setShowTryOnHint(false); onInteraction?.("try_on", piece); router.push({ pathname: "/try-on", params: { piece: piece.id } }); }} disabled={previewOnly} style={[styles.tryAction, previewOnly && styles.actionDisabled, showTryOnHint && styles.tryActionHighlighted]} accessibilityRole="button" accessibilityState={{ disabled: previewOnly }} accessibilityLabel="Try this listing on">
+                <Ionicons name="body-outline" size={18} color={previewOnly ? colors.muted : colors.bone} />
+                <Text style={[styles.tryText, previewOnly && styles.actionTextDisabled]}>Try it on</Text>
               </Pressable>
               <Pressable
-                onPress={() => {
+                onPress={previewOnly ? undefined : () => {
                   if (inBag) return;
                   addToCart(piece.id);
                   void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
                 }}
-                style={styles.primaryAction}
+                disabled={previewOnly}
+                style={[styles.primaryAction, previewOnly && styles.actionDisabled]}
                 accessibilityRole="button"
+                accessibilityState={{ disabled: previewOnly }}
                 accessibilityLabel={inBag ? `${piece.name} is in your cart` : `Add ${piece.name} to cart`}
               >
-                <Text style={styles.primaryText}>{inBag ? "In cart" : "Add to cart"}</Text>
-                <Ionicons name={inBag ? "checkmark" : "bag-handle-outline"} size={17} color={colors.successInk} />
+                <Text style={[styles.primaryText, previewOnly && styles.primaryTextDisabled]}>{inBag ? "In cart" : "Add to cart"}</Text>
+                <Ionicons name={inBag ? "checkmark" : "bag-handle-outline"} size={17} color={previewOnly ? colors.muted : colors.successInk} />
               </Pressable>
             </View>
           </View>
@@ -636,6 +640,8 @@ function make(colors: Colors) {
     actions: { marginTop: 26 },
     actionRow: { flexDirection: "row", gap: 10 },
     tryAction: { flex: 1, minHeight: 52, borderRadius: 26, paddingHorizontal: 12, borderWidth: 1, borderColor: `${colors.bone}32`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+    actionDisabled: { opacity: 0.42 },
+    actionTextDisabled: { color: colors.muted },
     tryActionHighlighted: { borderColor: colors.success, borderWidth: 2, backgroundColor: `${colors.success}22`, shadowColor: colors.success, shadowOpacity: 0.5, shadowRadius: 10, elevation: 6 },
     tryText: { color: colors.bone, fontSize: 14, fontWeight: "800" },
     tryOnHint: { minHeight: 62, marginBottom: 12, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: `${colors.success}88`, backgroundColor: `${colors.success}18`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12 },
@@ -644,5 +650,6 @@ function make(colors: Colors) {
     tryOnHintSubtext: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 2 },
     primaryAction: { flex: 1.3, minHeight: 52, borderRadius: 26, paddingHorizontal: 12, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     primaryText: { color: colors.successInk, fontSize: 14, fontWeight: "800" },
+    primaryTextDisabled: { color: colors.muted },
   });
 }

@@ -133,7 +133,7 @@ function AlertPanel({
   );
 }
 
-function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: number; bottom: number } }) {
+function OwnerListing({ piece, insets, onBack }: { piece: ClosetPiece; insets: { top: number; bottom: number }; onBack: () => void }) {
   const colors = useColors();
   const app = useUvel();
   const styles = useMemo(() => ownerStyles(colors), [colors]);
@@ -177,7 +177,7 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
             <Image cachePolicy="memory-disk" source={{ uri: gallery[0] }} style={StyleSheet.absoluteFill} contentFit="cover" />
           )}
           <View style={styles.heroScrim} pointerEvents="none" />
-          <Pressable onPress={() => router.back()} style={[styles.iconBtn, { top: 8 }]} hitSlop={8} accessibilityRole="button" accessibilityLabel="Go back">
+          <Pressable onPress={onBack} style={[styles.iconBtn, { top: 8 }]} hitSlop={8} accessibilityRole="button" accessibilityLabel="Go back">
             <Text style={styles.iconTxt}>‹</Text>
           </Pressable>
           <View style={[styles.badge, { top: 16 }]}>
@@ -248,7 +248,7 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
 
 export default function ClosetPiece() {
   const insets = useSafeAreaInsets();
-  const { id, v, campaignId, collectionId, promotionId, campaignChannel } = useLocalSearchParams<{ id: string; v?: string; campaignId?: string; collectionId?: string; promotionId?: string; campaignChannel?: string }>();
+  const { id, v, from, campaignId, collectionId, promotionId, campaignChannel } = useLocalSearchParams<{ id: string; v?: string; from?: string; campaignId?: string; collectionId?: string; promotionId?: string; campaignChannel?: string }>();
   useWardrobe();
   const marketplaceSync = useMarketplaceSyncState();
   useBrands();
@@ -366,13 +366,25 @@ export default function ClosetPiece() {
         piece={piece}
         origin={{ x: W / 2, y: insets.top, width: 1, height: 1 }}
         onClose={() => router.back()}
-        onInteraction={undefined}
+        previewOnly
       />
     );
   }
 
   if (isMine(piece, app.uid) && !preview) {
-    return <OwnerListing piece={piece} insets={insets} />;
+    return (
+      <OwnerListing
+        piece={piece}
+        insets={insets}
+        onBack={() => {
+          if (from === "you") {
+            router.replace("/(tabs)/you");
+          } else {
+            router.back();
+          }
+        }}
+      />
+    );
   }
 
   const onFloor = piece.status === "listed";
