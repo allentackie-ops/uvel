@@ -53,9 +53,6 @@ export default function Settings() {
 
       <Text style={styles.section}>{C.account}</Text>
       <View style={styles.group}>
-        <View style={styles.account}>
-          <Text style={styles.name}>{app.displayName || (app.uid ? C.uvelMember : C.guest)}</Text>
-        </View>
         {app.uid ? <Row label="Manage" onPress={() => router.push("/manage")} colors={colors} last /> : null}
       </View>
 
