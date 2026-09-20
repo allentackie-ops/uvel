@@ -170,18 +170,17 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
     <View style={styles.page}>
       <StatusBar style={colors.bone === "#F4F0E6" ? "light" : "dark"} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
-        <View style={styles.heroWrap}>
+        <View style={[styles.heroWrap, { marginTop: insets.top }]}>
           {piece.clipUri ? (
             <MotionClip uri={piece.clipUri} style={StyleSheet.absoluteFill} />
           ) : (
             <Image cachePolicy="memory-disk" source={{ uri: gallery[0] }} style={StyleSheet.absoluteFill} contentFit="cover" />
           )}
           <View style={styles.heroScrim} pointerEvents="none" />
-          <Pressable onPress={() => router.back()} style={[styles.iconBtn, { top: insets.top + 8 }]} hitSlop={8} accessibilityRole="button" accessibilityLabel="Go back">
+          <Pressable onPress={() => router.back()} style={[styles.iconBtn, { top: 8 }]} hitSlop={8} accessibilityRole="button" accessibilityLabel="Go back">
             <Text style={styles.iconTxt}>‹</Text>
           </Pressable>
-          <View style={[styles.badge, { top: insets.top + 16 }]}>
-            <View style={styles.statusDot} />
+          <View style={[styles.badge, { top: 16 }]}>
             <Text style={styles.badgeTxt}>{status}</Text>
           </View>
           {piece.brandId && typeof piece.stockQuantity === "number" && piece.stockQuantity > 0 && piece.stockQuantity <= 10 ? (
@@ -192,10 +191,6 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
         </View>
 
         <View style={styles.body}>
-          <View style={styles.kickerRow}>
-            <Text style={styles.kicker}>Your closet</Text>
-            <View style={styles.kickerRule} />
-          </View>
           <Text style={styles.title}>{piece.name}</Text>
           <View style={styles.priceRow}>
             <Text style={styles.price}>{usd(piece.listPriceCents, piece.currency || "USD")}</Text>
@@ -211,7 +206,7 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
               <Text style={styles.metaValue}>{piece.condition || "Not added"}</Text>
             </View>
           </View>
-          <Text style={styles.shipping}>{shipsToLine(piece.country || app.country, piece.shipsTo)}</Text>
+          <Text style={styles.shipping}>In the {getMarket(piece.country || app.country).name} store.</Text>
           {piece.shopLook && piece.shopLook !== "uvel" ? <Text style={styles.look}>Shop look · {look.name}</Text> : null}
 
           <View style={styles.managementCard}>
@@ -671,7 +666,7 @@ export default function ClosetPiece() {
       {onFloor && !onThisFloor && !mine ? (
         <View style={[styles.dock, { paddingBottom: insets.bottom + 10 }]}>
           <Text style={styles.p}>
-            This piece is on the {ship.name} floor. It isn’t for sale in {getMarket(app.country).name}.
+            This piece is in the {ship.name} store. It isn’t for sale in {getMarket(app.country).name}.
           </Text>
           <Pressable
             onPress={() => {
@@ -716,14 +711,10 @@ function ownerStyles(colors: Colors) {
       gap: 6,
     },
     badgeTxt: { color: "#16140F", fontSize: 11, fontWeight: "700", letterSpacing: 0.4 },
-    statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#4D641E" },
     stockBadge: { position: "absolute", left: 16, backgroundColor: "rgba(18,17,14,0.72)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, zIndex: 4 },
     stockBadgeTxt: { color: "#F4F0E6", fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
     body: { paddingHorizontal: 20, paddingTop: 24 },
-    kickerRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-    kicker: { color: colors.subtle, fontSize: 10, letterSpacing: 2.2, fontWeight: "700", textTransform: "uppercase" },
-    kickerRule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.success, opacity: 0.55 },
-    title: { color: colors.bone, fontFamily: "Georgia", fontSize: 32, lineHeight: 38, marginTop: 12 },
+    title: { color: colors.bone, fontSize: 30, lineHeight: 36, fontWeight: "800", marginTop: 0 },
     priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 10 },
     price: { color: colors.bone, fontWeight: "800", fontSize: 28, letterSpacing: -0.4 },
     priceLabel: { color: colors.muted, fontSize: 12 },
