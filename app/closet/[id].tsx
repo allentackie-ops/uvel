@@ -5,7 +5,7 @@ import { alertKindLabel, enableAlert, setAlertPreference, type AlertKind, useAle
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useRef, useEffect, useMemo, useState } from "react";
-import { Alert, Animated, BackHandler, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usd } from "../../lib/catalog";
 import { recordAnalyticsEvent } from "../../lib/analytics";
@@ -140,13 +140,6 @@ function OwnerListing({ piece, insets, onBack }: { piece: ClosetPiece; insets: {
   const look = shopLookOf(piece.shopLook);
   const gallery = piece.photos?.length ? piece.photos : piece.photo ? [piece.photo] : [];
 
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      onBack();
-      return true;
-    });
-    return () => subscription.remove();
-  }, [onBack]);
   const onFloor = piece.status === "listed";
   const sold = piece.status === "sold";
   const status = sold ? "Sold" : onFloor ? "In the shop" : "Not listed";
@@ -256,7 +249,7 @@ function OwnerListing({ piece, insets, onBack }: { piece: ClosetPiece; insets: {
 
 export default function ClosetPiece() {
   const insets = useSafeAreaInsets();
-  const { id, v, from, campaignId, collectionId, promotionId, campaignChannel } = useLocalSearchParams<{ id: string; v?: string; from?: string; campaignId?: string; collectionId?: string; promotionId?: string; campaignChannel?: string }>();
+  const { id, v, campaignId, collectionId, promotionId, campaignChannel } = useLocalSearchParams<{ id: string; v?: string; campaignId?: string; collectionId?: string; promotionId?: string; campaignChannel?: string }>();
   useWardrobe();
   const marketplaceSync = useMarketplaceSyncState();
   useBrands();
@@ -384,13 +377,7 @@ export default function ClosetPiece() {
       <OwnerListing
         piece={piece}
         insets={insets}
-        onBack={() => {
-          if (from === "you") {
-            router.replace("/(tabs)/you");
-          } else {
-            router.back();
-          }
-        }}
+        onBack={() => router.back()}
       />
     );
   }

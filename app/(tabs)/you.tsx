@@ -310,7 +310,7 @@ function ShopPane({ listed, draft, styles, copy }: { listed: ClosetPiece[]; draf
                 piece={p}
                 framed
                 wide={COL}
-                onOpen={(piece) => router.replace({ pathname: "/closet/[id]", params: { id: piece.id, from: "you" } })}
+                onOpen={(piece) => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })}
               />
             </View>
           ))}
