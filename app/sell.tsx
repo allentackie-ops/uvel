@@ -43,6 +43,8 @@ const UVEL_ICON = require("../assets/icon.png");
 const COVER_W = 112;
 const COVER_H = 140;
 const ADD_W = 64;
+// Temporary testing switch: set to true when sell-page verification should be restored.
+const SELL_VERIFICATION_ENABLED = false;
 const STAGES = [
   "Looking at the photos…",
   "Is this something we sell?",
@@ -250,7 +252,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const warn = photos.find((p) => p.status === "warn");
   const checking = photos.some((p) => p.status === "checking");
   const hasPhoto = photos.length > 0;
-  const photoReadyForPricing = photos.some((photo) => photo.review?.analysisStatus === "complete" && photo.review.ok);
+  const photoReadyForPricing = !SELL_VERIFICATION_ENABLED || photos.some((photo) => photo.review?.analysisStatus === "complete" && photo.review.ok);
   const hasTitle = Boolean(name.trim());
   const hasNotes = Boolean(notes.trim());
   const hasPrice = Number(price) > 0;
@@ -316,6 +318,10 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   async function addUri(uri: string) {
     if (photos.length >= MAX) return;
     if (photos.some((p) => p.uri === uri)) return;
+    if (!SELL_VERIFICATION_ENABLED) {
+      setPhotos((prev) => [...prev, { uri, status: "ok" }]);
+      return;
+    }
     setPhotos((prev) => [...prev, { uri, status: "checking" }]);
     try {
       const review = await reviewListingPhoto(uri);
@@ -445,7 +451,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       Alert.alert("Analyzing your photo", "Price recommendations will be available after the AI review finishes.");
       return;
     }
-    if (!photoReadyForPricing) {
+    if (SELL_VERIFICATION_ENABLED && !photoReadyForPricing) {
       Alert.alert("Photo analysis required", "Add a clear product photo that passes the AI review before opening price recommendations.");
       return;
     }
@@ -522,33 +528,35 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
 
   async function publish() {
     if (!canList) return;
-    setGate({ phase: "review", line: STAGES[0] });
-    const started = Date.now();
-    let result;
-    try {
-      result = await reviewListingForFeed({
-        photos: photos.map((p) => p.uri),
-        name: name.trim(),
-        notes: notes.trim(),
-        category: category ?? "Tops",
-        brand: brand.trim() || "Unlabeled",
-        color: color.trim(),
-        size: size.trim(),
-        condition: condition || "Excellent",
-        price,
-      });
-    } catch {
-      result = {
-        ok: false,
-        headline: "Couldn’t finish the check",
-        reasons: ["Try again in a moment. Nothing went on the floor."],
-      };
-    }
-    const wait = Math.max(0, 20000 - (Date.now() - started));
-    if (wait) await new Promise((r) => setTimeout(r, wait));
-    if (!result.ok) {
-      setGate({ phase: "block", headline: result.headline, reasons: result.reasons });
-      return;
+    if (SELL_VERIFICATION_ENABLED) {
+      setGate({ phase: "review", line: STAGES[0] });
+      const started = Date.now();
+      let result;
+      try {
+        result = await reviewListingForFeed({
+          photos: photos.map((p) => p.uri),
+          name: name.trim(),
+          notes: notes.trim(),
+          category: category ?? "Tops",
+          brand: brand.trim() || "Unlabeled",
+          color: color.trim(),
+          size: size.trim(),
+          condition: condition || "Excellent",
+          price,
+        });
+      } catch {
+        result = {
+          ok: false,
+          headline: "Couldn’t finish the check",
+          reasons: ["Try again in a moment. Nothing went on the floor."],
+        };
+      }
+      const wait = Math.max(0, 20000 - (Date.now() - started));
+      if (wait) await new Promise((r) => setTimeout(r, wait));
+      if (!result.ok) {
+        setGate({ phase: "block", headline: result.headline, reasons: result.reasons });
+        return;
+      }
     }
     const uris = photos.map((p) => p.uri);
     const draft = {
@@ -586,8 +594,12 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       void clearListingDraft();
       addPiece({ ...listed, status: "listed" });
     }
-    setGate({ phase: "pass" });
-    setTimeout(() => router.replace(embedded ? "/(tabs)/index" : "/(tabs)/closet"), 1100);
+    if (SELL_VERIFICATION_ENABLED) {
+      setGate({ phase: "pass" });
+      setTimeout(() => router.replace(embedded ? "/(tabs)/index" : "/(tabs)/closet"), 1100);
+    } else {
+      router.replace(embedded ? "/(tabs)/index" : "/(tabs)/closet");
+    }
   }
 
   function confirmDeleteDraft() {
@@ -805,7 +817,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             </View>
           ) : null}
 
-          {warn?.review ? (
+          {SELL_VERIFICATION_ENABLED && warn?.review ? (
             <View style={styles.warnBox} accessibilityLiveRegion="polite">
               <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={styles.warnTitle}>Warning: this photo won’t sell it</Text>
               {warn.review.issues.map((line) => (
@@ -825,7 +837,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             </View>
           ) : null}
 
-          {hasPhoto && !photoReadyForPricing && !checking ? (
+          {SELL_VERIFICATION_ENABLED && hasPhoto && !photoReadyForPricing && !checking ? (
             <View style={styles.analysisNotice} accessibilityLiveRegion="polite">
               <Text style={styles.analysisTitle}>AI review required for price recommendations</Text>
               <Text style={styles.analysisCopy}>Uvel will show recommendations only after a product photo has been analyzed successfully.</Text>
