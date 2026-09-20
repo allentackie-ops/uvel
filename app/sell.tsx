@@ -5,7 +5,6 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionSheetIOS,
-  ActivityIndicator,
   AppState,
   Alert,
   Keyboard,
@@ -17,6 +16,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { OrbitLoader } from "../components/OrbitLoader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
 import { MotionClip } from "../components/MotionClip";
@@ -704,7 +704,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 {p.status === "unverified" ? <View style={styles.unverifiedDot} /> : null}
                 {p.status === "checking" ? (
                   <View style={styles.photoCheck}>
-                    <ActivityIndicator color="#16140F" />
+                    <OrbitLoader size={24} />
                   </View>
                 ) : null}
                 <AccessiblePressable
@@ -1050,7 +1050,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           ) : null}
           {gate.phase === "review" ? (
             <>
-              <ActivityIndicator color="#D6E27A" />
+              <OrbitLoader size={24} />
               <Text style={styles.gateH}>{STAGES[stage]}</Text>
               <Text style={styles.gateP}>About 20 seconds. Nothing goes live until this is clean.</Text>
             </>

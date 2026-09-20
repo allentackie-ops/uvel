@@ -1,11 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { acceptInvite, getInvite, loadInvite, useBrands } from "../../lib/brands";
 import { useUvel } from "../../lib/store";
 
+import { OrbitLoader } from "../../components/OrbitLoader";
 const PENDING_INVITE = "uvel-pending-brand-invite";
 
 export default function AcceptBrandInvite() {
@@ -40,7 +41,7 @@ export default function AcceptBrandInvite() {
     })();
   }, [app.uid, id, invite?.id]);
 
-  if (pending && app.uid && invite) return <View style={[styles.page, { paddingTop: insets.top + 40 }]}><ActivityIndicator color="#D6E27A" /><Text style={styles.wait}>Joining {invite.brandName}…</Text></View>;
+  if (pending && app.uid && invite) return <View style={[styles.page, { paddingTop: insets.top + 40 }]}><OrbitLoader size={24} /><Text style={styles.wait}>Joining {invite.brandName}…</Text></View>;
   if (!invite) return <View style={[styles.page, { paddingTop: insets.top + 40 }]}><Text style={styles.kicker}>BRAND INVITE</Text><Text style={styles.title}>This invite is unavailable.</Text><Text style={styles.body}>It may have expired or already been accepted.</Text><Pressable onPress={() => router.replace("/")} style={styles.primary}><Text style={styles.primaryTxt}>Go to Uvel</Text></Pressable></View>;
   return <View style={[styles.page, { paddingTop: insets.top + 40 }]}>{invite.brandLogo ? <Image source={{ uri: invite.brandLogo }} style={styles.logo} /> : null}<Text style={styles.kicker}>BRAND INVITE</Text><Text style={styles.title}>{invite.fromName} invited you to join {invite.brandName}.</Text><Text style={styles.body}>Create or sign in to your Uvel account, then open this link again to accept the invite and enter Brand HQ.</Text><Pressable onPress={() => router.push("/onboard")} style={styles.primary}><Text style={styles.primaryTxt}>Set up Uvel</Text></Pressable><Pressable onPress={() => router.push("/onboard")} style={styles.secondary}><Text style={styles.secondaryTxt}>I already have an account</Text></Pressable></View>;
 }

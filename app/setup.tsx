@@ -2,7 +2,6 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -13,6 +12,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { OrbitLoader } from "../components/OrbitLoader";
 import { StatusBar } from "expo-status-bar";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -403,7 +403,7 @@ export default function ProfileSetup() {
                     <Image cachePolicy="memory-disk" source={{ uri: worn ?? photo }} style={styles.fullPic} contentFit="contain" />
                     {rendering ? (
                       <View style={styles.spin}>
-                        <ActivityIndicator color={INK} />
+                        <OrbitLoader size={24} />
                       </View>
                     ) : (
                       <View style={styles.changeWrap}>

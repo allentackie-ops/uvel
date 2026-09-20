@@ -12,6 +12,7 @@ import { founderCloudCapability, type FounderCloudCapability } from "../../lib/f
 import { ownedBrand, useBrands, useBrandsHydrated } from "../../lib/brands";
 import { startFounderDesk } from "../../lib/founderDesk";
 import { reviewFounderPiece } from "../../lib/photoCheck";
+import { OrbitLoader } from "../../components/OrbitLoader";
 
 const STAGES: FounderStage[] = ["idea", "identity", "design", "product", "source", "launch"];
 const STAGE_LABELS: Record<FounderStage, string> = { idea: "Idea", identity: "Identity", design: "Design", product: "Product", source: "Source", launch: "Launch" };
@@ -503,7 +504,7 @@ export default function FounderStudio() {
     }
   }
 
-  if (!hydrated) return <View style={[stylesFor.page, { backgroundColor: palette.ink, paddingTop: insets.top + 24 }]}><Text style={stylesFor.muted}>Loading your studio…</Text></View>;
+  if (!hydrated) return <View style={[stylesFor.page, { backgroundColor: palette.ink, paddingTop: insets.top + 24, alignItems: "center", justifyContent: "center" }]}><OrbitLoader /></View>;
 
   return <View style={[stylesFor.page, { backgroundColor: palette.ink }]}>
 

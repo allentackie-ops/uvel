@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { appendFounderReference, createFounderBoard, getFounderProject, ideaReady, pieceReady, saveFounderProduct, simpleStageOf, updateFounderProject, useFounderProjects } from "../../../lib/founder";
@@ -10,6 +10,7 @@ import { useUvel } from "../../../lib/store";
 import { useColors, type Colors } from "../../../lib/theme";
 import { FounderLaunchReview, FounderPhaseOneStarter, FounderProductEditor, FounderStrategy, SketchBoard, make } from "./../founder";
 
+import { OrbitLoader } from "../../../components/OrbitLoader";
 const JOURNEY = ["idea", "product", "launch"] as const;
 type JourneyStage = (typeof JOURNEY)[number];
 const TITLES: Record<JourneyStage, { kicker: string; title: string; body: string }> = {
@@ -101,7 +102,7 @@ export default function FounderStagePage() {
   if (!hydrated) {
     return (
       <View style={[local.page, { backgroundColor: palette.ink, paddingTop: insets.top + 24 }]}>
-        <Text style={{ color: palette.muted, paddingHorizontal: 20 }}>Loading your studio…</Text>
+        <OrbitLoader />
       </View>
     );
   }
@@ -163,7 +164,7 @@ export default function FounderStagePage() {
               <View style={styles.editor}>
                 <Text style={styles.cardTitle}>Photo or sketch</Text>
                 {photo ? <Image cachePolicy="memory-disk" source={{ uri: photo }} style={[local.photo, !project.product.photoOk && !photoBusy && { opacity: 0.55 }]} contentFit="cover" /> : null}
-                {photoBusy ? <View style={local.photoWait}><ActivityIndicator color={palette.success} /><Text style={[styles.cardBody, { color: palette.muted, marginBottom: 0 }]}>Saving the reference…</Text></View> : null}
+                {photoBusy ? <View style={local.photoWait}><OrbitLoader size={24} /><Text style={[styles.cardBody, { color: palette.muted, marginBottom: 0 }]}>Saving the reference…</Text></View> : null}
                 {photoFail ? <Text style={[styles.cardBody, { color: palette.success }]}>{photoFail}</Text> : null}
                 <Pressable onPress={() => void addPhoto()} disabled={photoBusy} style={[local.ghost, { borderColor: palette.subtle, opacity: photoBusy ? 0.5 : 1 }]}><Text style={[styles.secondaryText, { color: palette.bone }]}>{photo ? "Replace photo" : "Add a photo"}</Text></Pressable>
                 {board && board.kind === "sketch" ? <SketchBoard board={board} projectId={project.id} colors={colors} /> : null}

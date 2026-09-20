@@ -4,12 +4,13 @@ import { router } from "expo-router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS, useSharedValue } from "react-native-reanimated";
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useUvel } from "../lib/store";
 import type { LightSensorMeasurement } from "expo-sensors";
 
+import { OrbitLoader } from "../components/OrbitLoader";
 const BG = "#0B0A08";
 const INK = "#F4F0E6";
 const MUTED = "rgba(244,240,230,0.68)";
@@ -147,7 +148,7 @@ export default function MirrorCamera() {
   }
 
   if (!permission) {
-    return <View style={styles.center}><ActivityIndicator color={ACCENT} /></View>;
+    return <View style={styles.center}><OrbitLoader size={24} /></View>;
   }
 
   if (!permission.granted) {
@@ -334,7 +335,7 @@ export default function MirrorCamera() {
             ) : null}
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Take full-length photo" onPress={() => void capture()} style={styles.shutterOuter}>
-            <View style={styles.shutterInner}>{busy && countdown === null ? <ActivityIndicator color={BG} /> : null}</View>
+            <View style={styles.shutterInner}>{busy && countdown === null ? <OrbitLoader size={24} /> : null}</View>
           </Pressable>
           <View style={styles.captureSide} />
         </View>

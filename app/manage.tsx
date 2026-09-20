@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { claimUsername, updateAccountProfile } from "../lib/auth";
 import { pickAvatar, takeAvatar } from "../lib/photo";
@@ -9,6 +9,7 @@ import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { isValidUsername, normalizeUsername } from "../lib/username";
 
+import { OrbitLoader } from "../components/OrbitLoader";
 const YEAR_MS = 365 * 24 * 60 * 60 * 1000;
 
 export default function Manage() {
@@ -117,14 +118,14 @@ export default function Manage() {
         </View>
       </View>
       <Pressable onPress={() => void save()} disabled={saving} style={[styles.save, saving && styles.saveDisabled]}>
-        {saving ? <ActivityIndicator color={colors.ink} /> : <Text style={styles.saveText}>Save changes</Text>}
+        {saving ? <OrbitLoader size={24} /> : <Text style={styles.saveText}>Save changes</Text>}
       </Pressable>
 
       <Text style={styles.section}>Account</Text>
       <View style={styles.group}>
         <View style={styles.accountRow}><Text style={styles.rowLabel}>Email</Text><Text style={styles.hint}>{app.email || "Not available"}</Text></View>
         <Pressable onPress={confirmDelete} disabled={busy} style={[styles.deleteRow, styles.last]}>
-          {busy ? <ActivityIndicator color={colors.danger} /> : <Text style={styles.deleteText}>Delete account</Text>}
+          {busy ? <OrbitLoader size={24} /> : <Text style={styles.deleteText}>Delete account</Text>}
         </Pressable>
       </View>
     </ScrollView>

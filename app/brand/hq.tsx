@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { BrandHQSkeleton } from "../../components/ScreenSkeletons";
@@ -32,6 +32,7 @@ import {
   canViewMarketing,
   updateMemberRole,
 } from "../../lib/brands";
+import { OrbitLoader } from "../../components/OrbitLoader";
 import { enrollMake, trademarkPriceLabel, trademarkStatus, brandMakes } from "../../lib/brandMake";
 import { usd } from "../../lib/catalog";
 import { financeTotals, requestBrandPayout, savePayoutProfile, settlementLedger, usePayoutProfile, usePayouts, type PayoutDestinationType, type SettlementEntry } from "../../lib/finance";
@@ -273,7 +274,7 @@ function FounderHQEntry({ project, theme, styles }: { project?: FounderProject; 
 function ReviewWaiting({ theme, styles }: { theme: HQTheme; styles: ReturnType<typeof make> }) {
   return (
     <View style={styles.entryWrap}>
-      <View style={[styles.entryIcon, { backgroundColor: theme.card }]}><ActivityIndicator color={theme.accent} size="small" /></View>
+      <View style={[styles.entryIcon, { backgroundColor: theme.card }]}><OrbitLoader size={24} /></View>
       <Text style={[styles.entryTitle, { color: theme.ink }]}>Your brand is in review</Text>
       <Text style={[styles.entryCopy, { color: theme.muted }]}>We’re taking a look. Brand HQ will open when your review is complete.</Text>
     </View>

@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Animated, Easing, StyleSheet, Text, View } from "react-native";
 
-const SIZE = 84;
-const DOT = 14;
-const RADIUS = 32;
-const CENTER = SIZE / 2;
+const DEFAULT_SIZE = 58;
 const SPIN_MS = 2400;
 const ease = Easing.bezier(0.65, 0, 0.35, 1);
 
@@ -14,11 +11,12 @@ const DOTS = [
   { key: "snapchat", color: "#FFFC00", angle: 240, delay: 600 },
 ] as const;
 
-function xy(deg: number) {
+function xy(deg: number, size: number, dot: number, radius: number) {
   const rad = (deg * Math.PI) / 180;
+  const center = size / 2;
   return {
-    left: CENTER + RADIUS * Math.cos(rad) - DOT / 2,
-    top: CENTER + RADIUS * Math.sin(rad) - DOT / 2,
+    left: center + radius * Math.cos(rad) - dot / 2,
+    top: center + radius * Math.sin(rad) - dot / 2,
   };
 }
 
@@ -27,28 +25,20 @@ function PulseDot({
   delay,
   left,
   top,
+  size,
 }: {
   color: string;
   delay: number;
   left: number;
   top: number;
+  size: number;
 }) {
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 1,
-          duration: 1200,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulse, {
-          toValue: 0,
-          duration: 1200,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
+        Animated.timing(pulse, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
       ]),
     );
     const start = setTimeout(() => loop.start(), delay);
@@ -65,6 +55,9 @@ function PulseDot({
         {
           left,
           top,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
           backgroundColor: color,
           opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }),
           transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.15] }) }],
@@ -97,36 +90,25 @@ export function useMinHold(on: boolean, ms = 1100) {
 export function OrbitLoader({
   label,
   caption,
+  size = DEFAULT_SIZE,
 }: {
   label?: string;
   caption?: string;
+  size?: number;
 }) {
   const spin = useRef(new Animated.Value(0)).current;
   const core = useRef(new Animated.Value(0)).current;
+  const dot = Math.max(5, Math.round(size * 0.155));
+  const radius = size * 0.37;
+  const center = size / 2;
+  const coreSize = Math.max(4, Math.round(size * 0.095));
 
   useEffect(() => {
-    const rotate = Animated.loop(
-      Animated.timing(spin, {
-        toValue: 1,
-        duration: SPIN_MS,
-        easing: ease,
-        useNativeDriver: true,
-      }),
-    );
+    const rotate = Animated.loop(Animated.timing(spin, { toValue: 1, duration: SPIN_MS, easing: ease, useNativeDriver: true }));
     const glow = Animated.loop(
       Animated.sequence([
-        Animated.timing(core, {
-          toValue: 1,
-          duration: 1200,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(core, {
-          toValue: 0,
-          duration: 1200,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
+        Animated.timing(core, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(core, { toValue: 0, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
       ]),
     );
     rotate.start();
@@ -140,23 +122,11 @@ export function OrbitLoader({
   return (
     <View style={[styles.wrap, !label && !caption ? styles.wrapTight : null]} accessibilityRole="progressbar">
       {label ? <Text style={styles.label}>{label}</Text> : null}
-      <Animated.View
-        style={[
-          styles.orbit,
-          { transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }] },
-        ]}
-      >
-        <Animated.View
-          style={[
-            styles.core,
-            {
-              opacity: core.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }),
-            },
-          ]}
-        />
-        {DOTS.map((d) => {
-          const p = xy(d.angle);
-          return <PulseDot key={d.key} color={d.color} delay={d.delay} left={p.left} top={p.top} />;
+      <Animated.View style={[styles.orbit, { width: size, height: size, transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }] }]}>
+        <Animated.View style={[styles.core, { top: center - coreSize / 2, left: center - coreSize / 2, width: coreSize, height: coreSize, borderRadius: coreSize / 2, opacity: core.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }]} />
+        {DOTS.map((item) => {
+          const point = xy(item.angle, size, dot, radius);
+          return <PulseDot key={item.key} color={item.color} delay={item.delay} left={point.left} top={point.top} size={dot} />;
         })}
       </Animated.View>
       {caption ? <Text style={styles.caption}>{caption}</Text> : null}
@@ -167,33 +137,9 @@ export function OrbitLoader({
 const styles = StyleSheet.create({
   wrap: { alignItems: "center", gap: 16 },
   wrapTight: { gap: 0 },
-  orbit: { width: SIZE, height: SIZE },
-  core: {
-    position: "absolute",
-    top: CENTER - 4,
-    left: CENTER - 4,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#F2EFEA",
-  },
-  dot: {
-    position: "absolute",
-    width: DOT,
-    height: DOT,
-    borderRadius: DOT / 2,
-  },
-  label: {
-    fontSize: 13,
-    letterSpacing: 1.8,
-    textTransform: "uppercase",
-    color: "#8C8880",
-  },
-  caption: {
-    fontSize: 11,
-    letterSpacing: 1.4,
-    textTransform: "uppercase",
-    color: "#8C8880",
-    opacity: 0.5,
-  },
+  orbit: {},
+  core: { position: "absolute", backgroundColor: "#F2EFEA" },
+  dot: { position: "absolute" },
+  label: { fontSize: 13, letterSpacing: 1.8, textTransform: "uppercase", color: "#8C8880" },
+  caption: { fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", color: "#8C8880", opacity: 0.5 },
 });

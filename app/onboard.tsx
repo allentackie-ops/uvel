@@ -2,7 +2,6 @@ import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   AppState,
   Dimensions,
   FlatList,
@@ -20,6 +19,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { OrbitLoader } from "../components/OrbitLoader";
 import Animated, {
   Easing,
   runOnJS,
@@ -262,7 +262,7 @@ function AuthBtn({
       style={[styles.authBtn, filled ? styles.authFilled : styles.authOutline]}
     >
       {busy ? (
-        <ActivityIndicator color={filled ? "#111" : "#fff"} />
+        <OrbitLoader size={24} />
       ) : (
         <>
           <View style={styles.authIconWrap}>
@@ -809,7 +809,7 @@ export default function Onboard() {
               disabled={busy !== null}
             >
               {busy === "email" ? (
-                <ActivityIndicator color="#111" />
+                <OrbitLoader size={24} />
               ) : (
                 <Text style={[styles.authLabel, styles.authLabelDark]}>
                   {isLogin ? C.logIn : C.continue}

@@ -1,12 +1,13 @@
 import { Image } from "expo-image";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Dimensions, Image as RNImage, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Dimensions, Image as RNImage, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "./ListingCard";
 import type { ClosetPiece } from "../lib/wardrobe";
 
+import { OrbitLoader } from "./OrbitLoader";
 const { width: SW, height: SH } = Dimensions.get("window");
 const MIN_CROP_SIZE = 92;
 const HANDLE_HIT_SIZE = 64;
@@ -137,7 +138,7 @@ export function PhotoCrop({ uri, onCancel, onPreview, previewStatus = "idle", pr
       </View>
       <View style={styles.stage}>
         <View style={[styles.frame, { width: frame.w, height: frame.h }]}>
-          {natural ? <Image cachePolicy="memory-disk" source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" /> : <ActivityIndicator color="#D6E27A" />}
+          {natural ? <Image cachePolicy="memory-disk" source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" /> : <OrbitLoader size={24} />}
           <GestureDetector gesture={cropGesture}>
             <View style={styles.gestureSurface}>
               <Animated.View style={[styles.cropBox, cropStyle]}>
@@ -155,7 +156,7 @@ export function PhotoCrop({ uri, onCancel, onPreview, previewStatus = "idle", pr
           <View style={styles.sheetGrip} />
           <View style={styles.sheetHeader}>
             <View><Text style={styles.sheetTitle}>Live matches</Text><Text style={styles.sheetSubhead}>{liveText || "Move the crop to begin"}</Text></View>
-            {previewStatus === "searching" ? <ActivityIndicator color="#D6E27A" /> : null}
+            {previewStatus === "searching" ? <OrbitLoader size={24} /> : null}
           </View>
           {previewItems.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.resultsRail} nestedScrollEnabled>
             {previewItems.map((piece) => <ListingCard key={piece.id} piece={piece} wide={164} framed />)}

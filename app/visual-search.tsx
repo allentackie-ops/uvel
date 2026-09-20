@@ -1,10 +1,11 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { PhotoCrop } from "../components/PhotoCrop";
 import { lensScan } from "../lib/lookMatch";
 import { useWardrobe } from "../lib/wardrobe";
 
+import { OrbitLoader } from "../components/OrbitLoader";
 export default function VisualSearch() {
   const { uri } = useLocalSearchParams<{ uri?: string }>();
   const pieces = useWardrobe();
@@ -37,7 +38,7 @@ export default function VisualSearch() {
   if (!uri) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color="#D6E27A" />
+        <OrbitLoader size={24} />
       </View>
     );
   }

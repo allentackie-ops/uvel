@@ -15,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { OrbitLoader } from "../../components/OrbitLoader";
 import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { brandCheck, getBrand, inquiryRecipients, useBrands } from "../../lib/brands";
 import { usd } from "../../lib/catalog";
@@ -387,7 +388,7 @@ export default function Ask() {
           }}
           scrollEventThrottle={250}
         >
-          {hasOlder || msgs.length >= 80 ? <Pressable onPress={() => void loadOlder()} style={styles.loadOlder} accessibilityRole="button" accessibilityLabel="Load older messages"><Text style={styles.loadOlderTxt}>{loadingOlder ? "Loading…" : "Load older messages"}</Text></Pressable> : null}
+          {hasOlder || msgs.length >= 80 ? <Pressable onPress={() => void loadOlder()} style={styles.loadOlder} accessibilityRole="button" accessibilityLabel="Load older messages">{loadingOlder ? <OrbitLoader size={24} /> : <Text style={styles.loadOlderTxt}>Load older messages</Text>}</Pressable> : null}
           <View style={styles.hello}>
             {conversationBrand?.logoUri ? (
               <Image cachePolicy="memory-disk" source={{ uri: conversationBrand.logoUri }} style={styles.avatarImg} contentFit="cover" />

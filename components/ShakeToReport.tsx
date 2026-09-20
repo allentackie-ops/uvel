@@ -3,7 +3,6 @@ import { Image } from "expo-image";
 import { usePathname } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Animated,
   AppState,
   Keyboard,
@@ -18,6 +17,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { OrbitLoader } from "./OrbitLoader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { loadShakeToReportEnabled, requestFeedback, saveShakeToReportEnabled, submitFeedback, subscribeToFeedbackRequest } from "../lib/feedback";
 import { pickFromLibrary } from "../lib/photo";
@@ -239,7 +239,7 @@ export function ShakeToReport() {
                   <View style={[styles.toggle, shakeEnabled && styles.toggleOn]}><View style={[styles.knob, shakeEnabled && styles.knobOn]} /></View>
                 </Pressable>
                 <Pressable onPress={() => void send()} disabled={!body.trim() || submitting} style={[styles.primary, (!body.trim() || submitting) && styles.primaryDisabled]} accessibilityRole="button" accessibilityState={{ disabled: !body.trim() || submitting }}>
-                  {submitting ? <ActivityIndicator color={colors.successInk} /> : <Text style={styles.primaryText}>Send report</Text>}
+                  {submitting ? <OrbitLoader size={24} /> : <Text style={styles.primaryText}>Send report</Text>}
                 </Pressable>
                 <Pressable onPress={() => setCompose(false)} disabled={submitting} style={styles.cancel} accessibilityRole="button">
                   <Text style={styles.cancelText}>Back</Text>

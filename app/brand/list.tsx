@@ -3,7 +3,6 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActionSheetIOS,
-  ActivityIndicator,
   Alert,
   Keyboard,
   KeyboardAvoidingView,
@@ -15,6 +14,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { OrbitLoader } from "../../components/OrbitLoader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ShipsPicker } from "../../components/ShipsPicker";
 import { BRAND_CATEGORIES, type Category } from "../../lib/catalog";
@@ -342,7 +342,7 @@ export default function BrandList() {
             )}
             {cover?.status === "checking" ? (
               <View style={[styles.heroMask, { backgroundColor: `${brandTheme.accent}80` }]}>
-                <ActivityIndicator color="#16140F" />
+                <OrbitLoader size={24} />
               </View>
             ) : null}
           </Pressable>
@@ -503,7 +503,7 @@ export default function BrandList() {
         <View style={[styles.gate, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 28 }]}>
           {gate.phase === "review" ? (
             <>
-              <ActivityIndicator color={brandTheme.accent} />
+              <OrbitLoader size={24} />
               <Text style={styles.gateH}>{STAGES[stage]}</Text>
             </>
           ) : null}
