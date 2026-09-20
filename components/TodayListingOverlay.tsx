@@ -597,7 +597,7 @@ function make(colors: Colors) {
     photoCount: { position: "absolute", right: 18, bottom: 18, minWidth: 48, height: 28, paddingHorizontal: 9, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.58)", alignItems: "center", justifyContent: "center" },
     photoCountText: { color: colors.bone, fontSize: 11, fontWeight: "800", fontVariant: ["tabular-nums"] },
     kicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.8 },
-    title: { color: colors.bone, fontFamily: "Georgia", fontSize: 30, lineHeight: 36, marginTop: 7 },
+    title: { color: colors.bone, fontSize: 28, lineHeight: 34, fontWeight: "800", letterSpacing: -0.35, marginTop: 7 },
     priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 12, flexWrap: "wrap" },
     price: { color: colors.success, fontSize: 19, fontWeight: "800", marginTop: 12 },
     was: { color: `${colors.bone}66`, fontSize: 16, fontWeight: "600", textDecorationLine: "line-through", fontVariant: ["tabular-nums"] },
