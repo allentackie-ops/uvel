@@ -169,60 +169,84 @@ function OwnerListing({ piece, insets }: { piece: ClosetPiece; insets: { top: nu
   return (
     <View style={styles.page}>
       <StatusBar style={colors.bone === "#F4F0E6" ? "light" : "dark"} />
-      <View style={styles.heroWrap}>
-        {piece.clipUri ? (
-          <MotionClip uri={piece.clipUri} style={StyleSheet.absoluteFill} />
-        ) : (
-          <Image cachePolicy="memory-disk" source={{ uri: gallery[0] }} style={StyleSheet.absoluteFill} contentFit="cover" />
-        )}
-        <Pressable onPress={() => router.back()} style={[styles.iconBtn, { top: insets.top + 6 }]} hitSlop={8}>
-          <Text style={styles.iconTxt}>‹</Text>
-        </Pressable>
-        <View style={[styles.badge, { top: insets.top + 14 }]}>
-          <Text style={styles.badgeTxt}>{status}</Text>
-        </View>
-        {piece.brandId && typeof piece.stockQuantity === "number" && piece.stockQuantity > 0 && piece.stockQuantity <= 10 ? (
-          <View style={[styles.stockBadge, { top: insets.top + 58 }]}>
-            <Text style={styles.stockBadgeTxt}>{piece.stockQuantity} remaining</Text>
-          </View>
-        ) : null}
-      </View>
-
-      <View style={styles.body}>
-        <Text style={styles.kicker}>Your listing</Text>
-        <Text style={styles.title}>{piece.name}</Text>
-        <Text style={styles.price}>{usd(piece.listPriceCents, piece.currency || "USD")}</Text>
-        <Text style={styles.meta}>{[piece.size, piece.color, piece.condition].filter(Boolean).join("  ·  ")}</Text>
-        <Text style={styles.meta}>{shipsToLine(piece.country || app.country, piece.shipsTo)}</Text>
-        {piece.shopLook && piece.shopLook !== "uvel" ? <Text style={styles.look}>Shop look · {look.name}</Text> : null}
-      </View>
-
-      <View style={[styles.dock, { paddingBottom: insets.bottom + 10 }]}>
-        <Pressable onPress={() => router.push({ pathname: "/sell", params: { id: piece.id } })} style={styles.edit}>
-          <Text style={styles.editTxt}>Edit listing</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id, v: "buy" } })}
-          style={styles.preview}
-        >
-          <Text style={styles.previewTxt}>Preview as buyer</Text>
-        </Pressable>
-        {onFloor ? (
-          <View style={styles.row}>
-            <Pressable onPress={takeDown} style={styles.ghost}>
-              <Text style={styles.ghostTxt}>Take down</Text>
-            </Pressable>
-            <Pressable onPress={soldIt} style={styles.ghost}>
-              <Text style={styles.ghostTxt}>Mark sold</Text>
-            </Pressable>
-          </View>
-        ) : null}
-        {!sold && piece.status === "owned" ? (
-          <Pressable onPress={() => router.push({ pathname: "/sell", params: { id: piece.id } })} style={styles.ghost}>
-            <Text style={styles.ghostTxt}>List this piece</Text>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
+        <View style={styles.heroWrap}>
+          {piece.clipUri ? (
+            <MotionClip uri={piece.clipUri} style={StyleSheet.absoluteFill} />
+          ) : (
+            <Image cachePolicy="memory-disk" source={{ uri: gallery[0] }} style={StyleSheet.absoluteFill} contentFit="cover" />
+          )}
+          <View style={styles.heroScrim} pointerEvents="none" />
+          <Pressable onPress={() => router.back()} style={[styles.iconBtn, { top: insets.top + 8 }]} hitSlop={8} accessibilityRole="button" accessibilityLabel="Go back">
+            <Text style={styles.iconTxt}>‹</Text>
           </Pressable>
-        ) : null}
-      </View>
+          <View style={[styles.badge, { top: insets.top + 16 }]}>
+            <View style={styles.statusDot} />
+            <Text style={styles.badgeTxt}>{status}</Text>
+          </View>
+          {piece.brandId && typeof piece.stockQuantity === "number" && piece.stockQuantity > 0 && piece.stockQuantity <= 10 ? (
+            <View style={[styles.stockBadge, { bottom: 14 }]}>
+              <Text style={styles.stockBadgeTxt}>{piece.stockQuantity} remaining</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.body}>
+          <View style={styles.kickerRow}>
+            <Text style={styles.kicker}>Your closet</Text>
+            <View style={styles.kickerRule} />
+          </View>
+          <Text style={styles.title}>{piece.name}</Text>
+          <View style={styles.priceRow}>
+            <Text style={styles.price}>{usd(piece.listPriceCents, piece.currency || "USD")}</Text>
+            <Text style={styles.priceLabel}>asking price</Text>
+          </View>
+          <View style={styles.metaGrid}>
+            <View style={styles.metaCard}>
+              <Text style={styles.metaLabel}>Details</Text>
+              <Text style={styles.metaValue}>{[piece.size, piece.color].filter(Boolean).join(" · ") || "Not added"}</Text>
+            </View>
+            <View style={styles.metaCard}>
+              <Text style={styles.metaLabel}>Condition</Text>
+              <Text style={styles.metaValue}>{piece.condition || "Not added"}</Text>
+            </View>
+          </View>
+          <Text style={styles.shipping}>{shipsToLine(piece.country || app.country, piece.shipsTo)}</Text>
+          {piece.shopLook && piece.shopLook !== "uvel" ? <Text style={styles.look}>Shop look · {look.name}</Text> : null}
+
+          <View style={styles.managementCard}>
+            <Text style={styles.managementKicker}>Manage listing</Text>
+            <Text style={styles.managementCopy}>Update the details, check the buyer view, or change its shop status.</Text>
+            <Pressable onPress={() => router.push({ pathname: "/sell", params: { id: piece.id } })} style={styles.edit} accessibilityRole="button" accessibilityLabel="Edit listing">
+              <Text style={styles.editTxt}>Edit listing</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id, v: "buy" } })}
+              style={styles.preview}
+              accessibilityRole="button"
+              accessibilityLabel="Preview as buyer"
+            >
+              <Text style={styles.previewTxt}>Preview as buyer</Text>
+              <Text style={styles.previewArrow}>→</Text>
+            </Pressable>
+            {onFloor ? (
+              <View style={styles.row}>
+                <Pressable onPress={takeDown} style={styles.ghost} accessibilityRole="button" accessibilityLabel="Take down listing">
+                  <Text style={styles.ghostTxt}>Take down</Text>
+                </Pressable>
+                <Pressable onPress={soldIt} style={styles.ghost} accessibilityRole="button" accessibilityLabel="Mark listing as sold">
+                  <Text style={styles.ghostTxt}>Mark sold</Text>
+                </Pressable>
+              </View>
+            ) : null}
+            {!sold && piece.status === "owned" ? (
+              <Pressable onPress={() => router.push({ pathname: "/sell", params: { id: piece.id } })} style={styles.ghost} accessibilityRole="button" accessibilityLabel="List this piece">
+                <Text style={styles.ghostTxt}>List this piece</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -666,7 +690,9 @@ export default function ClosetPiece() {
 function ownerStyles(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    heroWrap: { flex: 1, backgroundColor: colors.surface, overflow: "hidden" },
+    content: { paddingBottom: 24 },
+    heroWrap: { height: Math.round(W * 1.05), backgroundColor: colors.surface, overflow: "hidden" },
+    heroScrim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.12)" },
     iconBtn: {
       position: "absolute",
       left: 16,
@@ -685,51 +711,61 @@ function ownerStyles(colors: Colors) {
       borderRadius: 999,
       paddingHorizontal: 10,
       paddingVertical: 5,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
     },
     badgeTxt: { color: "#16140F", fontSize: 11, fontWeight: "700", letterSpacing: 0.4 },
-    stockBadge: { position: "absolute", left: 16, backgroundColor: "#D6E27A", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, zIndex: 4 },
-    stockBadgeTxt: { color: "#16140F", fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
-    body: { paddingHorizontal: 22, paddingTop: 16, paddingBottom: 12 },
-    kicker: { color: colors.subtle, fontSize: 11, letterSpacing: 1.8, textTransform: "uppercase" },
-    title: { color: colors.bone, fontFamily: "Georgia", fontSize: 28, lineHeight: 34, marginTop: 8 },
-    price: { color: colors.bone, fontWeight: "700", fontSize: 24, marginTop: 10 },
-    meta: { color: colors.muted, fontSize: 14, marginTop: 8 },
-    look: { color: colors.subtle, fontSize: 13, marginTop: 10 },
-    dock: {
-      paddingHorizontal: 16,
-      paddingTop: 10,
-      gap: 8,
-      backgroundColor: colors.ink,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: "rgba(244,240,230,0.12)",
-    },
+    statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#4D641E" },
+    stockBadge: { position: "absolute", left: 16, backgroundColor: "rgba(18,17,14,0.72)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, zIndex: 4 },
+    stockBadgeTxt: { color: "#F4F0E6", fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
+    body: { paddingHorizontal: 20, paddingTop: 24 },
+    kickerRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+    kicker: { color: colors.subtle, fontSize: 10, letterSpacing: 2.2, fontWeight: "700", textTransform: "uppercase" },
+    kickerRule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.success, opacity: 0.55 },
+    title: { color: colors.bone, fontFamily: "Georgia", fontSize: 32, lineHeight: 38, marginTop: 12 },
+    priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 10 },
+    price: { color: colors.bone, fontWeight: "800", fontSize: 28, letterSpacing: -0.4 },
+    priceLabel: { color: colors.muted, fontSize: 12 },
+    metaGrid: { flexDirection: "row", gap: 8, marginTop: 22 },
+    metaCard: { flex: 1, minHeight: 70, borderRadius: 16, backgroundColor: colors.surface, padding: 12 },
+    metaLabel: { color: colors.subtle, fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: "700" },
+    metaValue: { color: colors.bone, fontSize: 14, fontWeight: "700", marginTop: 8 },
+    shipping: { color: colors.muted, fontSize: 13, marginTop: 14 },
+    look: { color: colors.subtle, fontSize: 12, marginTop: 8 },
+    managementCard: { marginTop: 28, padding: 16, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}14`, gap: 10 },
+    managementKicker: { color: colors.bone, fontSize: 15, fontWeight: "800" },
+    managementCopy: { color: colors.muted, fontSize: 12, lineHeight: 18, marginBottom: 4 },
     edit: {
       height: 52,
       borderRadius: 26,
-      backgroundColor: "#D6E27A",
+      backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
     },
-    editTxt: { color: "#16140F", fontWeight: "700", fontSize: 16 },
+    editTxt: { color: colors.successInk, fontWeight: "800", fontSize: 16 },
     preview: {
       height: 48,
       borderRadius: 24,
       borderWidth: 1,
-      borderColor: "rgba(244,240,230,0.28)",
+      borderColor: `${colors.bone}38`,
+      paddingHorizontal: 16,
+      flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
+      justifyContent: "space-between",
     },
-    previewTxt: { color: colors.bone, fontWeight: "600", fontSize: 15 },
+    previewTxt: { color: colors.bone, fontWeight: "700", fontSize: 15 },
+    previewArrow: { color: colors.success, fontSize: 22, fontWeight: "700" },
     row: { flexDirection: "row", gap: 8 },
     ghost: {
       flex: 1,
       height: 44,
       borderRadius: 22,
-      backgroundColor: colors.surface,
+      backgroundColor: colors.ink,
       alignItems: "center",
       justifyContent: "center",
     },
-    ghostTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
+    ghostTxt: { color: colors.muted, fontWeight: "700", fontSize: 13 },
   });
 }
 
