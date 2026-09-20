@@ -17,6 +17,7 @@ import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { MotionClip } from "../../components/MotionClip";
+import { TodayListingOverlay } from "../../components/TodayListingOverlay";
 import { getPiece, isRemoteListedPiece, likeCount, markSold, recordPieceView, unlistPiece, updatePiece, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
@@ -337,6 +338,17 @@ export default function ClosetPiece() {
       <View style={[styles.page, { paddingTop: insets.top + 24, paddingHorizontal: 20 }]}>
         <Text style={styles.p}>That piece isn’t on the floor.</Text>
       </View>
+    );
+  }
+
+  if (isMine(piece, app.uid) && preview) {
+    return (
+      <TodayListingOverlay
+        piece={piece}
+        origin={{ x: W / 2, y: insets.top, width: 1, height: 1 }}
+        onClose={() => router.back()}
+        onInteraction={undefined}
+      />
     );
   }
 
