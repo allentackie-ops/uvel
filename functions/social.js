@@ -18,15 +18,24 @@ exports.claimUsername = onCall(async (req) => {
   const db = admin.firestore();
   const usernameRef = db.collection("usernames").doc(username);
   const userRef = db.collection("users").doc(req.auth.uid);
+  const userSnap = await userRef.get();
+  const previous = userSnap.exists ? userSnap.data() || {} : {};
+  const currentUsername = normalizeUsername(previous.username);
+  const changedAt = Number(previous.usernameChangedAt || 0);
+  const yearMs = 365 * 24 * 60 * 60 * 1000;
+  if (currentUsername && currentUsername !== username && changedAt && Date.now() - changedAt < yearMs) {
+    throw new HttpsError("failed-precondition", `You can change your username again on ${new Date(changedAt + yearMs).toLocaleDateString()}.`);
+  }
+  const usernameChangedAt = currentUsername === username ? changedAt || Date.now() : Date.now();
   await db.runTransaction(async (tx) => {
     const existing = await tx.get(usernameRef);
     if (existing.exists && existing.data().uid !== req.auth.uid) {
       throw new HttpsError("already-exists", "That username is already taken.");
     }
     tx.set(usernameRef, { uid: req.auth.uid, username, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-    tx.set(userRef, { username, usernameNormalized: username, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    tx.set(userRef, { username, usernameNormalized: username, usernameChangedAt, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
   });
-  return { username };
+  return { username, usernameChangedAt };
 });
 
 function publicUser(uid, data) {

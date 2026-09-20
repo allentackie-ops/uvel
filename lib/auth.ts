@@ -152,7 +152,7 @@ export async function writeUserProfile(uid: string, data: Record<string, unknown
   }
 }
 
-export async function claimUsername(value: string) {
+export async function claimUsername(value: string): Promise<{ username: string; usernameChangedAt: number }> {
   needFirebase();
   const username = normalizeUsername(value);
   if (!isValidUsername(username)) {
@@ -161,9 +161,9 @@ export async function claimUsername(value: string) {
   const uid = firebaseAuth().currentUser?.uid;
   if (!uid) throw new Error("Couldn’t save that username. Try again.");
   try {
-    const call = httpsCallable<{ username: string }, { username: string }>(firebaseFunctions(), "claimUsername");
+    const call = httpsCallable<{ username: string }, { username: string; usernameChangedAt?: number }>(firebaseFunctions(), "claimUsername");
     const result = await call({ username });
-    return result.data.username;
+    return { username: result.data.username, usernameChangedAt: result.data.usernameChangedAt || Date.now() };
   } catch (err) {
     if (!isMissingFunction(err)) throw usernameError(err);
     return claimUsernameOnClient(username, uid);
@@ -191,6 +191,15 @@ async function claimUsernameOnClient(username: string, uid: string) {
   const usernameRef = doc(db, "usernames", username);
   const userRef = doc(db, "users", uid);
   try {
+    const profile = await getDoc(userRef);
+    const previous = profile.exists() ? profile.data() : {};
+    const currentUsername = normalizeUsername(String(previous.username || ""));
+    const changedAt = Number(previous.usernameChangedAt || 0);
+    const yearMs = 365 * 24 * 60 * 60 * 1000;
+    if (currentUsername && currentUsername !== username && changedAt && Date.now() - changedAt < yearMs) {
+      throw new Error(`You can change your username again on ${new Date(changedAt + yearMs).toLocaleDateString()}.`);
+    }
+    const usernameChangedAt = currentUsername === username ? changedAt || Date.now() : Date.now();
     await runTransaction(db, async (tx) => {
       const existing = await tx.get(usernameRef);
       if (existing.exists() && existing.data()?.uid !== uid) {
@@ -198,11 +207,19 @@ async function claimUsernameOnClient(username: string, uid: string) {
       }
       tx.set(usernameRef, { uid, username, updatedAt: serverTimestamp() }, { merge: true });
     });
-    await setDoc(userRef, { username, usernameNormalized: username, updatedAt: serverTimestamp() }, { merge: true });
-    return username;
+    await setDoc(userRef, { username, usernameNormalized: username, usernameChangedAt, updatedAt: serverTimestamp() }, { merge: true });
+    return { username, usernameChangedAt };
   } catch (err) {
     throw usernameError(err);
   }
+}
+
+export async function updateAccountProfile(data: { name: string }) {
+  needFirebase();
+  const user = firebaseAuth().currentUser;
+  if (!user) throw new Error("Sign in first.");
+  await updateProfile(user, { displayName: data.name });
+  await writeUserProfile(user.uid, { name: data.name });
 }
 
 function needFirebase() {

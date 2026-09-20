@@ -1,7 +1,6 @@
 import Constants from "expo-constants";
 import { router } from "expo-router";
-import { useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { LANGS } from "../lib/i18n";
 import { getMarket } from "../lib/markets";
 import { requestFeedback } from "../lib/feedback";
@@ -17,7 +16,6 @@ export default function Settings() {
   const C = useCopy();
   const colors = useColors();
   const styles = make(colors);
-  const [busy, setBusy] = useState(false);
   const localeLabel = LANGS.find((l) => l.id === app.locale)?.label ?? "English, US";
   const market = getMarket(app.country);
 
@@ -41,37 +39,6 @@ export default function Settings() {
     app.setStyle({ wantsUpdates: true });
   }
 
-  function confirmDelete() {
-    Alert.alert(
-      C.deleteAccountTitle,
-      C.deleteAccountBody,
-      [
-        { text: C.keepAccount, style: "cancel" },
-        {
-          text: C.deleteAccount,
-          style: "destructive",
-          onPress: () =>
-            Alert.alert(C.deleteForever, C.deleteConfirm, [
-              { text: C.cancel, style: "cancel" },
-              { text: C.deleteAccount, style: "destructive", onPress: () => void runDelete() },
-            ]),
-        },
-      ],
-    );
-  }
-
-  async function runDelete() {
-    setBusy(true);
-    try {
-      await app.deleteAccount();
-      router.replace("/setup");
-    } catch (err) {
-      Alert.alert(C.deleteAccount, err instanceof Error ? err.message : C.signInAgainTry);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
       <Text style={styles.section}>{C.support}</Text>
@@ -92,6 +59,7 @@ export default function Settings() {
             {app.email || (app.signedInWith ? `${C.signedInWith} ${app.signedInWith}` : C.notSignedIn)}
           </Text>
         </View>
+        {app.uid ? <Row label="Manage" onPress={() => router.push("/manage")} colors={colors} last /> : null}
       </View>
 
       <Text style={styles.section}>{C.preferences}</Text>
@@ -157,22 +125,6 @@ export default function Settings() {
         >
           <Text style={styles.outText}>{C.logOut}</Text>
         </Pressable>
-      ) : null}
-
-      {app.uid ? (
-        <View style={styles.dangerBox}>
-          <Text style={styles.dangerTitle}>{C.accountRemoval}</Text>
-          <Text style={styles.dangerHint}>{C.accountRemovalHint}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={C.deleteAccount}
-            onPress={confirmDelete}
-            disabled={busy}
-            style={styles.deleteBtn}
-          >
-            {busy ? <ActivityIndicator color="#C45C4A" /> : <Text style={styles.deleteText}>{C.deleteAccount}</Text>}
-          </Pressable>
-        </View>
       ) : null}
 
       <Text style={styles.ver}>Uvel {VERSION}</Text>

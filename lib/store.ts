@@ -23,6 +23,7 @@ type State = {
   email: string;
   displayName: string;
   username: string;
+  usernameChangedAt: number;
   locale: string;
   country: string;
   profileDone: boolean;
@@ -53,6 +54,7 @@ const defaults: State = {
   email: "",
   displayName: "",
   username: "",
+  usernameChangedAt: 0,
   locale: "",
   country: "",
   profileDone: false,
@@ -135,6 +137,7 @@ async function applyAccount(
       email: user.email,
       displayName: (stashed?.displayName as string) || user.name || memory.displayName,
       username: (stashed?.username as string) || memory.username,
+      usernameChangedAt: typeof stashed?.usernameChangedAt === "number" ? stashed.usernameChangedAt : memory.usernameChangedAt,
       signedInWith: user.provider,
       onboarded: true,
       onboardVersion: Math.max(memory.onboardVersion ?? 0, 4),
@@ -201,6 +204,7 @@ async function applyAccount(
       user.name ||
       memory.displayName,
     username: (typeof remote?.username === "string" && remote.username) || (stashed?.username as string) || memory.username,
+    usernameChangedAt: typeof remote?.usernameChangedAt === "number" ? remote.usernameChangedAt : typeof stashed?.usernameChangedAt === "number" ? stashed.usernameChangedAt : memory.usernameChangedAt,
     signedInWith: user.provider,
     onboarded: true,
     onboardVersion: Math.max(memory.onboardVersion ?? 0, 4),
@@ -254,6 +258,7 @@ async function stashProfile() {
       profileDone: true,
       displayName: memory.displayName,
       username: memory.username,
+      usernameChangedAt: memory.usernameChangedAt,
       avatarUri: memory.avatarUri,
       birthday: memory.birthday,
       gender: memory.gender,
@@ -439,6 +444,7 @@ export function useUvel() {
         email: "",
         displayName: "",
         username: "",
+        usernameChangedAt: 0,
         profileDone: false,
         profileChecked: true,
         birthday: "",
