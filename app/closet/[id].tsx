@@ -213,7 +213,7 @@ function OwnerListing({ piece, insets, onBack }: { piece: ClosetPiece; insets: {
           <View style={styles.managementCard}>
             <Text style={styles.managementKicker}>Manage listing</Text>
             <Text style={styles.managementCopy}>Update the details, check the buyer view, or change its shop status.</Text>
-            <Pressable onPress={() => router.push({ pathname: "/sell", params: { id: piece.id } })} style={styles.edit} accessibilityRole="button" accessibilityLabel="Edit listing">
+            <Pressable onPress={() => router.push({ pathname: "/sell", params: { id: piece.id, returnTo: "listing" } })} style={styles.edit} accessibilityRole="button" accessibilityLabel="Edit listing">
               <Text style={styles.editTxt}>Edit listing</Text>
             </Pressable>
             <Pressable

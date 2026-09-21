@@ -76,7 +76,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { id, fits, draft: draftParam } = useLocalSearchParams<{ id?: string; fits?: string; draft?: string }>();
+  const { id, fits, draft: draftParam, returnTo } = useLocalSearchParams<{ id?: string; fits?: string; draft?: string; returnTo?: string }>();
   useWardrobe();
   const existing = id ? getPiece(id) : undefined;
   const { wardrobeUris, uid, displayName, country, personUri, avatarUri } = useUvel();
@@ -135,6 +135,13 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     else router.back();
   }, [embedded]);
   const currentLook = shopLookOf(shopLook);
+  function completeNavigation(listingId?: string) {
+    if (returnTo === "listing" && listingId) {
+      router.replace({ pathname: "/closet/[id]", params: { id: listingId } });
+      return;
+    }
+    router.replace(embedded ? "/(tabs)/index" : "/(tabs)/closet");
+  }
 
   useEffect(() => {
     if (existing || draftParam === "1") {
@@ -596,9 +603,9 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     }
     if (SELL_VERIFICATION_ENABLED) {
       setGate({ phase: "pass" });
-      setTimeout(() => router.replace(embedded ? "/(tabs)/index" : "/(tabs)/closet"), 1100);
+      setTimeout(() => completeNavigation(existing?.id), 1100);
     } else {
-      router.replace(embedded ? "/(tabs)/index" : "/(tabs)/closet");
+      completeNavigation(existing?.id);
     }
   }
 
