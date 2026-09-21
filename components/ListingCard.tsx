@@ -9,6 +9,7 @@ import { useFirstFind } from "../lib/firstFind";
 import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
+import { shopLookOf } from "../lib/shopLook";
 import { getPiece, isRemoteListedPiece, likeCount, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { BrandVerifiedMark } from "./VerifiedMark";
 import type { PersonalizationAction } from "../lib/personalization";
@@ -46,6 +47,8 @@ export function ListingCard({
   const house = live.brandId ? getBrand(live.brandId) : undefined;
   const brand = house?.name || (live.brand && live.brand !== "Unlabeled" ? live.brand : "Unbranded");
   const itemCurrency = live.currency || getMarket(live.country || app.country).currency;
+  const shopLook = shopLookOf(live.shopLook);
+  const hasCustomLook = Boolean(live.shopLook);
   const find = useFirstFind();
   const localPriceCents = convertCents(live.listPriceCents, itemCurrency, here);
   const credit = firstFind ? find.applyTo(live, localPriceCents) : 0;
@@ -62,15 +65,15 @@ export function ListingCard({
       }
       mediaRef.current?.measureInWindow((x, y, width, height) => onOpen(live, { x, y, width, height }));
     }}
-      style={({ pressed }) => [styles.wrap, wide ? { width: wide, flex: undefined } : null, framed && styles.framed, pressed && app.accessibilityMode && styles.focused]}
+      style={({ pressed }) => [styles.wrap, hasCustomLook && { backgroundColor: shopLook.surface, borderColor: shopLook.page, borderWidth: 1 }, wide ? { width: wide, flex: undefined } : null, framed && styles.framed, pressed && app.accessibilityMode && styles.focused]}
       accessibilityRole="button"
       accessibilityLabel={`${brand} ${live.name}, ${credit > 0 ? `${moneyInMarket(saleCents, here.currency, here)} with First Find, was ${moneyInMarket(localPriceCents, itemCurrency, here)}` : moneyInMarket(live.listPriceCents, itemCurrency, here)}${typeof live.stockQuantity === "number" ? live.stockQuantity === 0 ? ", sold out" : live.stockQuantity <= 10 ? `, ${live.stockQuantity} remaining` : "" : ""}${!confirmed ? ", availability not confirmed" : ""}`}
       accessibilityHint="Double tap to view this listing."
     >
       <View ref={mediaRef}>
-        <Image cachePolicy="memory-disk"
-          source={{ uri: live.photo }}
-          style={[styles.img, wide ? { width: wide, borderRadius: framed ? 0 : 18 } : null, framed && styles.framedImg]}
+          <Image cachePolicy="memory-disk"
+            source={{ uri: live.photo }}
+            style={[styles.img, hasCustomLook && { backgroundColor: shopLook.page }, wide ? { width: wide, borderRadius: framed ? 0 : 18 } : null, framed && styles.framedImg]}
           contentFit="cover"
           accessible={false}
         />
@@ -123,25 +126,25 @@ export function ListingCard({
           <Text style={styles.heartsN}>{hearts}</Text>
         </AccessiblePressable>
       </View>
-      <View style={framed ? styles.framedMeta : undefined}>
+      <View style={[framed ? styles.framedMeta : undefined, hasCustomLook && { backgroundColor: shopLook.surface, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12 }]}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-          <Text style={[styles.brand, framed && styles.brandFramed, { flexShrink: 1 }]} numberOfLines={1}>
+          <Text style={[styles.brand, framed && styles.brandFramed, hasCustomLook && { color: shopLook.muted }, { flexShrink: 1 }]} numberOfLines={1}>
             {brand.toUpperCase()}
           </Text>
           <BrandVerifiedMark brand={house} size={11} />
         </View>
-        <Text style={[styles.name, framed && styles.nameFramed]} numberOfLines={2}>
+        <Text style={[styles.name, framed && styles.nameFramed, hasCustomLook && { color: shopLook.bone }]} numberOfLines={2}>
           {piece.name}
         </Text>
         {credit > 0 ? (
           <View style={styles.priceRow}>
             <Text style={styles.was}>{moneyInMarket(localPriceCents, here.currency, here)}</Text>
-            <Text style={[styles.price, framed && styles.priceFramed]}>{moneyInMarket(saleCents, here.currency, here)}</Text>
+            <Text style={[styles.price, framed && styles.priceFramed, hasCustomLook && { color: shopLook.accent }]}>{moneyInMarket(saleCents, here.currency, here)}</Text>
           </View>
         ) : (
-          <Text style={[styles.price, framed && styles.priceFramed]}>{moneyInMarket(live.listPriceCents, itemCurrency, here)}</Text>
+          <Text style={[styles.price, framed && styles.priceFramed, hasCustomLook && { color: shopLook.accent }]}>{moneyInMarket(live.listPriceCents, itemCurrency, here)}</Text>
         )}
-        <Text style={[styles.sizeLine, framed && styles.brandFramed]} numberOfLines={1}>
+        <Text style={[styles.sizeLine, framed && styles.brandFramed, hasCustomLook && { color: shopLook.muted }]} numberOfLines={1}>
           {[live.size || live.sizes?.[0] || "One size", live.condition || "Condition not listed"].join(" · ")}
         </Text>
       </View>

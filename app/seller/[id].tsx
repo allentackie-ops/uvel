@@ -7,6 +7,7 @@ import { ListingCard } from "../../components/ListingCard";
 import { getMarket } from "../../lib/markets";
 import { hydrateFollowedSellers, isSellerFollowed, toggleSellerFollow } from "../../lib/sellers";
 import { useUvel } from "../../lib/store";
+import { shopLookOf } from "../../lib/shopLook";
 import { useColors, type Colors } from "../../lib/theme";
 import { useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
@@ -23,6 +24,8 @@ export default function SellerProfile() {
     [id, pieces],
   );
   const seller = listings[0];
+  const shopLook = shopLookOf(seller?.shopLook);
+  const hasCustomLook = Boolean(seller?.shopLook);
   const sellerName = seller?.ownerName || seller?.listedByName || "Uvel seller";
   const sellerPhoto = seller?.ownerPhoto;
   const sellerLocation = seller?.country ? getMarket(seller.country).name : "Independent seller";
@@ -48,34 +51,34 @@ export default function SellerProfile() {
   }
 
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, hasCustomLook && { backgroundColor: shopLook.page }]}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => router.back()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back">
-          <Ionicons name="chevron-back" size={22} color={colors.bone} />
+        <Pressable onPress={() => router.back()} style={[styles.backButton, hasCustomLook && { borderColor: `${shopLook.bone}40` }]} accessibilityRole="button" accessibilityLabel="Go back">
+          <Ionicons name="chevron-back" size={22} color={hasCustomLook ? shopLook.bone : colors.bone} />
         </Pressable>
         <View style={styles.profileHeader}>
-          {sellerPhoto ? <Image cachePolicy="memory-disk" source={{ uri: sellerPhoto }} style={styles.avatar} contentFit="cover" /> : <View style={styles.avatarFallback}><Text style={styles.avatarInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}
-          <Text style={styles.kicker}>UVEL SELLER</Text>
+          {sellerPhoto ? <Image cachePolicy="memory-disk" source={{ uri: sellerPhoto }} style={[styles.avatar, hasCustomLook && { backgroundColor: shopLook.surface }]} contentFit="cover" /> : <View style={[styles.avatarFallback, hasCustomLook && { backgroundColor: shopLook.accent }]}><Text style={[styles.avatarInitial, hasCustomLook && { color: shopLook.accentInk }]}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}
+          <Text style={[styles.kicker, hasCustomLook && { color: shopLook.accent }]}>UVEL SELLER</Text>
           <View style={styles.nameRow}>
-            <Text style={styles.name}>{sellerName}</Text>
+            <Text style={[styles.name, hasCustomLook && { color: shopLook.bone }]}>{sellerName}</Text>
           </View>
-          <Text style={styles.location}>{sellerLocation} · {listings.length} {listings.length === 1 ? "listing" : "listings"}</Text>
-          <Text style={styles.bio}>Independent seller on Uvel. Ask a question about fit, condition, or shipping before you buy.</Text>
+          <Text style={[styles.location, hasCustomLook && { color: shopLook.muted }]}>{sellerLocation} · {listings.length} {listings.length === 1 ? "listing" : "listings"}</Text>
+          <Text style={[styles.bio, hasCustomLook && { color: shopLook.muted }]}>Independent seller on Uvel. Ask a question about fit, condition, or shipping before you buy.</Text>
           <View style={styles.actions}>
-            <Pressable onPress={toggle} style={[styles.followButton, followed && styles.followingButton]} accessibilityRole="button" accessibilityLabel={followed ? `Unfollow ${sellerName}` : `Follow ${sellerName}`} accessibilityState={{ selected: followed }}>
-              <Ionicons name={followed ? "checkmark" : "add"} size={17} color={followed ? colors.bone : colors.ink} />
-              <Text style={[styles.followText, followed && styles.followingText]}>{followed ? "Following" : "Follow"}</Text>
+            <Pressable onPress={toggle} style={[styles.followButton, hasCustomLook && { backgroundColor: shopLook.accent }, followed && styles.followingButton]} accessibilityRole="button" accessibilityLabel={followed ? `Unfollow ${sellerName}` : `Follow ${sellerName}`} accessibilityState={{ selected: followed }}>
+              <Ionicons name={followed ? "checkmark" : "add"} size={17} color={followed ? (hasCustomLook ? shopLook.bone : colors.bone) : (hasCustomLook ? shopLook.accentInk : colors.ink)} />
+              <Text style={[styles.followText, hasCustomLook && { color: shopLook.accentInk }, followed && styles.followingText]}>{followed ? "Following" : "Follow"}</Text>
             </Pressable>
-            <Pressable onPress={() => router.push({ pathname: "/ask/[id]", params: { id: seller.id } })} style={styles.messageButton} accessibilityRole="button" accessibilityLabel={`Message ${sellerName}`}>
-              <Ionicons name="chatbubble-outline" size={17} color={colors.bone} />
-              <Text style={styles.messageText}>Message</Text>
+            <Pressable onPress={() => router.push({ pathname: "/ask/[id]", params: { id: seller.id } })} style={[styles.messageButton, hasCustomLook && { borderColor: `${shopLook.bone}50` }]} accessibilityRole="button" accessibilityLabel={`Message ${sellerName}`}>
+              <Ionicons name="chatbubble-outline" size={17} color={hasCustomLook ? shopLook.bone : colors.bone} />
+              <Text style={[styles.messageText, hasCustomLook && { color: shopLook.bone }]}>Message</Text>
             </Pressable>
           </View>
         </View>
-        <View style={styles.rule} />
+        <View style={[styles.rule, hasCustomLook && { backgroundColor: `${shopLook.bone}30` }]} />
         <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>From {sellerName}</Text>
-          <Text style={styles.sectionCount}>{listings.length}</Text>
+          <Text style={[styles.sectionTitle, hasCustomLook && { color: shopLook.bone }]}>From {sellerName}</Text>
+          <Text style={[styles.sectionCount, hasCustomLook && { color: shopLook.muted }]}>{listings.length}</Text>
         </View>
         <View style={styles.grid}>
           {listings.map((piece) => <View key={piece.id} style={styles.gridCell}><ListingCard piece={piece} framed /></View>)}
