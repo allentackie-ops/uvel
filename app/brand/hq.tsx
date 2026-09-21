@@ -53,7 +53,7 @@ import { saveBrandCampaign, saveBrandCollection, saveBrandPromotion, useMarketin
 import { alertKindLabel, enableAlert, setAlertPreference, useAlertCenter, type AlertKind } from "../../lib/alerts";
 import { latestFounderDraft, refreshFounderProjects, simpleStageOf, useFounderProjects, type FounderProject } from "../../lib/founder";
 
-type Section = "overview" | "make" | "catalog" | "orders" | "finance" | "more" | "marketing" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
+type Section = "overview" | "make" | "catalog" | "orders" | "finance" | "more" | "marketing" | "promoCodes" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
 
 type CatalogAuditInput = Parameters<typeof recordAuditEvent>[0];
 
@@ -75,6 +75,7 @@ const PRIMARY: Array<{ id: Section; label: string }> = [
 
 const MORE_ROOMS: Array<{ id: Section; label: string; copy: string }> = [
   { id: "marketing", label: "Marketing", copy: "Drops and codes" },
+  { id: "promoCodes", label: "Promo codes", copy: "Discount codes for your brand" },
   { id: "growth", label: "Growth", copy: "What’s working" },
   { id: "support", label: "Support", copy: "Order problems" },
   { id: "inbox", label: "Inbox", copy: "Buyer messages" },
@@ -84,7 +85,7 @@ const MORE_ROOMS: Array<{ id: Section; label: string; copy: string }> = [
   { id: "settings", label: "Settings", copy: "Name, country, page" },
 ];
 
-const MORE_IDS = new Set<Section>(["more", "marketing", "growth", "support", "inbox", "analytics", "audit", "team", "settings"]);
+const MORE_IDS = new Set<Section>(["more", "marketing", "promoCodes", "growth", "support", "inbox", "analytics", "audit", "team", "settings"]);
 
 const ROLE_OPTIONS: Array<Exclude<MemberRole, "owner">> = [
   "admin",
@@ -236,6 +237,8 @@ export default function BrandHQ() {
           <FinanceSection brand={activeBrand} orders={brandOrders} viewer={canViewFinance(activeBrand, app.uid)} manager={canManagePayouts(activeBrand, app.uid)} theme={theme} styles={styles} onPayoutFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
         ) : section === "marketing" ? (
           <MarketingSection brand={activeBrand} pieces={catalog} state={marketing} viewer={canViewMarketing(activeBrand, app.uid)} manager={canManageMarketing(activeBrand, app.uid)} theme={theme} colors={colors} styles={styles} onFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
+        ) : section === "promoCodes" ? (
+          <MarketingSection brand={activeBrand} pieces={catalog} state={marketing} viewer={canViewMarketing(activeBrand, app.uid)} manager={canManageMarketing(activeBrand, app.uid)} theme={theme} colors={colors} styles={styles} initialTab="promotions" onFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
         ) : section === "growth" ? (
           <GrowthToolsSection brand={activeBrand} orders={brandOrders} pieces={catalog} marketing={marketing} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />
         ) : section === "analytics" ? (
@@ -1024,8 +1027,8 @@ function AdvancedAnalyticsSection({ brand, orders, pieces, marketing, viewer, th
 function formatAnalyticsCount(value: number) { return value >= 1000 ? `${(value / 1000).toFixed(1).replace(/\.0$/, "")}k` : String(value); }
 function channelLabel(channel: "brand_page" | "shop" | "today") { return channel === "brand_page" ? "Brand Page" : channel === "shop" ? "Shop" : "Today"; }
 
-function MarketingSection({ brand, pieces, state, viewer, manager, theme, colors, styles, onFocus }: { brand: Brand; pieces: ClosetPiece[]; state: MarketingState; viewer: boolean; manager: boolean; theme: HQTheme; colors: Colors; styles: ReturnType<typeof make>; onFocus: () => void }) {
-  const [tab, setTab] = useState<"collections" | "campaigns" | "promotions">("collections");
+function MarketingSection({ brand, pieces, state, viewer, manager, theme, colors, styles, initialTab = "collections", onFocus }: { brand: Brand; pieces: ClosetPiece[]; state: MarketingState; viewer: boolean; manager: boolean; theme: HQTheme; colors: Colors; styles: ReturnType<typeof make>; initialTab?: "collections" | "campaigns" | "promotions"; onFocus: () => void }) {
+  const [tab, setTab] = useState<"collections" | "campaigns" | "promotions">(initialTab);
   const [collectionName, setCollectionName] = useState("");
   const [collectionDescription, setCollectionDescription] = useState("");
   const [campaignName, setCampaignName] = useState("");

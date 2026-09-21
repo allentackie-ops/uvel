@@ -331,6 +331,13 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="promo-codes"
+            options={{
+              headerTitle: "",
+              headerShadowVisible: false,
+            }}
+          />
+          <Stack.Screen
             name="sell"
             options={{
               headerShown: false,

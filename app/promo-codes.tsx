@@ -101,9 +101,7 @@ export default function PromoCodes() {
     <View style={styles.page}>
       <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
-        <AccessiblePressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Go back">
-          <Text style={styles.navBack}>‹</Text>
-        </AccessiblePressable>
+        <View style={styles.navBtn} />
         <Text style={styles.navTitle}>Promo codes</Text>
         <View style={styles.navBtn} />
       </View>
