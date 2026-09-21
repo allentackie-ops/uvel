@@ -333,7 +333,7 @@ function AppStack() {
           <Stack.Screen
             name="promo-codes"
             options={{
-              headerTitle: "",
+              headerTitle: "Promo codes",
               headerShadowVisible: false,
             }}
           />
