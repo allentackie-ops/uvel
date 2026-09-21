@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Animated, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
@@ -154,6 +154,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const [scanning, setScanning] = useState(false);
   const [job, setJob] = useState<LookScan | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const refreshTriggered = useRef(false);
   const [feedEpoch, setFeedEpoch] = useState(0);
   const frozenOrder = useRef<string[] | null>(null);
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
@@ -268,6 +269,15 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     }
   }, []);
 
+  const onScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
+    const y = event.nativeEvent.contentOffset.y;
+    if (y > -10) refreshTriggered.current = false;
+    if (y < -48 && !refreshing && !refreshTriggered.current) {
+      refreshTriggered.current = true;
+      void onRefresh();
+    }
+  }, [onRefresh, refreshing]);
+
   const openVisualSearch = useCallback(() => {
     Alert.alert(C.searchWithPhoto, C.takePictureOrChooseFit, [
       {
@@ -379,25 +389,18 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     <View style={styles.page}>
       <ScrollView
         style={styles.page}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
         alwaysBounceVertical
         bounces
         keyboardShouldPersistTaps="handled"
+        scrollEventThrottle={16}
+        onScroll={onScroll}
         onTouchStart={showSwipeHint ? dismissSwipeHint : undefined}
         onScrollBeginDrag={showSwipeHint ? dismissSwipeHint : undefined}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => void onRefresh()}
-            tintColor="transparent"
-            colors={["transparent"]}
-            progressViewOffset={insets.top}
-          />
-        }
       >
       {orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
       {todayHome ? (
-        <View style={[styles.todayHeader, { paddingTop: 2 }]}>
+        <View style={styles.todayHeader}>
           <AccessiblePressable
             onPress={() => onOpenTools?.()}
             style={({ pressed }) => [styles.headerSide, pressed && { opacity: 0.72 }]}

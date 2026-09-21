@@ -1,8 +1,8 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
 import { BrandVerifiedMark } from "../components/VerifiedMark";
@@ -35,6 +35,7 @@ export default function Inbox() {
   const threads = useInbox(me);
   const [filter, setFilter] = useState<Filter>("All");
   const [refreshing, setRefreshing] = useState(false);
+  const refreshTriggered = useRef(false);
   const [friendSearchOpen, setFriendSearchOpen] = useState(false);
   const [friendTerm, setFriendTerm] = useState("");
   const [friendResults, setFriendResults] = useState<PublicUser[]>([]);
@@ -70,6 +71,14 @@ export default function Inbox() {
     await new Promise<void>((resolve) => setTimeout(resolve, MIN_REFRESH_MS));
     setRefreshing(false);
   }, []);
+  const onScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
+    const y = event.nativeEvent.contentOffset.y;
+    if (y > -10) refreshTriggered.current = false;
+    if (y < -48 && !refreshing && !refreshTriggered.current) {
+      refreshTriggered.current = true;
+      void onRefresh();
+    }
+  }, [onRefresh, refreshing]);
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
 
   const visible = useMemo(() => {
@@ -147,7 +156,10 @@ export default function Inbox() {
         renderItem={({ item }) => <Row thread={item} uid={me} colors={colors} />}
         ListHeaderComponent={orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
         ListEmptyComponent={<Text style={styles.empty}>{empty}</Text>}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} tintColor="transparent" colors={["transparent"]} />}
+        alwaysBounceVertical
+        bounces
+        scrollEventThrottle={16}
+        onScroll={onScroll}
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
         style={styles.list}
       />
