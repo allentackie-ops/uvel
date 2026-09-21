@@ -52,7 +52,7 @@ export default function DeleteAccount() {
     setBusy(true);
     try {
       await app.deleteAccount();
-      router.replace("/setup");
+      router.replace({ pathname: "/setup", params: { deletionNotice: "1" } });
     } catch (error) {
       Alert.alert("Delete account", error instanceof Error ? error.message : "Sign in again and try once more.");
     } finally {

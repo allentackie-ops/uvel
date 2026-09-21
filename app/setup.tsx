@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -25,6 +26,7 @@ import { pickAvatar, pickFromLibrary, takeAvatar, takePhoto } from "../lib/photo
 import { shopFloor, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { claimUsername } from "../lib/auth";
 import { isValidUsername, normalizeUsername } from "../lib/username";
+import { useLocalSearchParams } from "expo-router";
 
 const BG = "#FFFFFF";
 const INK = "#16140F";
@@ -62,6 +64,7 @@ function ageOf(dt: Date) {
 export default function ProfileSetup() {
   const insets = useSafeAreaInsets();
   const app = useUvel();
+  const { deletionNotice } = useLocalSearchParams<{ deletionNotice?: string }>();
   useWardrobe();
   const [step, setStep] = useState(0);
   const [name, setName] = useState(app.displayName);
@@ -82,6 +85,7 @@ export default function ProfileSetup() {
   const [pal, setPal] = useState("");
   const [sil, setSil] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
+  const [showDeletionNotice, setShowDeletionNotice] = useState(deletionNotice === "1");
   const mmRef = useRef<TextInput>(null);
   const ddRef = useRef<TextInput>(null);
   const yyRef = useRef<TextInput>(null);
@@ -597,12 +601,31 @@ export default function ProfileSetup() {
           ) : null}
         </Animated.View>
       </KeyboardAvoidingView>
+      <Modal visible={showDeletionNotice} transparent animationType="fade" onRequestClose={() => setShowDeletionNotice(false)}>
+        <View style={styles.noticeBackdrop}>
+          <View style={styles.noticeCard}>
+            <Text style={styles.noticeTitle}>Account deactivated</Text>
+            <Text style={styles.noticeBody}>
+              If you delete your account, it will be deactivated immediately.{"\n\n"}Deactivated accounts are only visible to Team Uvel before they are permanently deleted. The deletion takes place within the time frames indicated in Uvel’s Privacy Policy.
+            </Text>
+            <Pressable onPress={() => setShowDeletionNotice(false)} style={styles.noticeButton} accessibilityRole="button" accessibilityLabel="Continue to sign up">
+              <Text style={styles.noticeButtonText}>Continue</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: BG },
+  noticeBackdrop: { flex: 1, backgroundColor: "rgba(22,20,15,0.48)", alignItems: "center", justifyContent: "center", padding: 24 },
+  noticeCard: { width: "100%", maxWidth: 360, borderRadius: 24, backgroundColor: "#fff", padding: 24 },
+  noticeTitle: { color: INK, fontSize: 22, fontWeight: "800" },
+  noticeBody: { color: INK, fontSize: 15, lineHeight: 22, marginTop: 14 },
+  noticeButton: { height: 50, borderRadius: 25, backgroundColor: LIME, alignItems: "center", justifyContent: "center", marginTop: 22 },
+  noticeButtonText: { color: INK, fontSize: 16, fontWeight: "700" },
   head: {
     flexDirection: "row",
     alignItems: "center",
