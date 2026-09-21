@@ -11,6 +11,13 @@ import { getPiece, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "..
 import { listListingPromotions, saveListingPromotion, type ListingPromotion } from "../lib/promotions";
 
 const SUGGESTIONS = [10, 20, 30];
+const EXPIRY_OPTIONS = [
+  { days: 1 as const, label: "Within 1 day" },
+  { days: 3 as const, label: "Within 3 days" },
+  { days: 7 as const, label: "Within a week" },
+  { days: 30 as const, label: "Within a month" },
+  { days: 365 as const, label: "Within a year" },
+];
 
 export default function PromoCodes() {
   const colors = useColors();
@@ -22,6 +29,7 @@ export default function PromoCodes() {
   const [selectedId, setSelectedId] = useState("");
   const [code, setCode] = useState("");
   const [percentage, setPercentage] = useState("");
+  const [expiryDays, setExpiryDays] = useState<1 | 3 | 7 | 30 | 365>(7);
   const [promotions, setPromotions] = useState<ListingPromotion[]>([]);
   const [busy, setBusy] = useState(false);
   const [loadingPromotions, setLoadingPromotions] = useState(false);
@@ -51,6 +59,8 @@ export default function PromoCodes() {
     const existing = promotions.find((promotion) => promotion.listingId === piece.id && promotion.status === "live");
     setCode(existing?.code || "");
     setPercentage(existing ? String(existing.value) : "");
+    const remainingDays = existing?.endAt ? Math.max(1, Math.round((existing.endAt - Date.now()) / 86400000)) : 7;
+    setExpiryDays((EXPIRY_OPTIONS.reduce((closest, option) => Math.abs(option.days - remainingDays) < Math.abs(closest.days - remainingDays) ? option : closest, EXPIRY_OPTIONS[2])).days);
   }
 
   function suggestCode() {
@@ -76,7 +86,7 @@ export default function PromoCodes() {
     setBusy(true);
     setMessage("");
     try {
-      const saved = await saveListingPromotion({ listingId: selected.id, code: normalizedCode, value: numericPercentage });
+      const saved = await saveListingPromotion({ listingId: selected.id, code: normalizedCode, value: numericPercentage, expiresInDays: expiryDays });
       setPromotions((current) => [saved, ...current.filter((item) => item.listingId !== saved.listingId)]);
       setCode(saved.code);
       setPercentage(String(saved.value));
@@ -177,6 +187,14 @@ export default function PromoCodes() {
                   </Pressable>
                 ))}
               </View>
+              <Text style={styles.label}>Expires</Text>
+              <View style={styles.expiryOptions}>
+                {EXPIRY_OPTIONS.map((option) => (
+                  <Pressable key={option.days} onPress={() => setExpiryDays(option.days)} style={[styles.expiryOption, expiryDays === option.days && styles.suggestionOn]} accessibilityRole="button" accessibilityLabel={option.label}>
+                    <Text style={[styles.suggestionText, expiryDays === option.days && styles.suggestionTextOn]}>{option.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
               {message ? <Text style={styles.error} accessibilityRole="alert">{message}</Text> : null}
               <AccessiblePressable onPress={() => void createPromo()} disabled={busy} style={({ pressed }) => [styles.primary, busy && { opacity: 0.5 }, pressed && { opacity: 0.9 }]} accessibilityRole="button" accessibilityLabel={busy ? "Saving promo code" : "Save promo code"}>
                 <Text style={styles.primaryText}>{busy ? "Saving…" : selectedPromotion ? "Save changes" : "Create promo code"}</Text>
@@ -221,6 +239,8 @@ function make(colors: Colors) {
     suggestionOn: { backgroundColor: colors.success, borderColor: colors.success },
     suggestionText: { color: colors.bone, fontSize: 13, fontWeight: "700" },
     suggestionTextOn: { color: colors.successInk },
+    expiryOptions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 2 },
+    expiryOption: { paddingHorizontal: 12, minHeight: 36, borderRadius: 18, borderWidth: 1, borderColor: `${colors.bone}35`, alignItems: "center", justifyContent: "center" },
     error: { color: colors.danger, fontSize: 13, lineHeight: 18, marginTop: 12 },
     primary: { minHeight: 48, borderRadius: 24, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", paddingHorizontal: 18, marginTop: 18 },
     primaryText: { color: colors.successInk, fontSize: 14, fontWeight: "800" },

@@ -2366,7 +2366,9 @@ exports.saveListingPromotion = onCall(async (req) => {
   const listingId = marketingText(input.listingId, 160);
   const code = marketingText(input.code, 32).toUpperCase().replace(/[^A-Z0-9_-]/g, "");
   const value = Number(input.value);
+  const expiresInDays = Number(input.expiresInDays);
   if (!listingId || code.length < 3 || !Number.isFinite(value) || value <= 0 || value > 70) throw new HttpsError("invalid-argument", "Promo codes max out at 70%.");
+  if (![1, 3, 7, 30, 365].includes(expiresInDays)) throw new HttpsError("invalid-argument", "Choose a valid promo expiry.");
   const db = admin.firestore();
   const listingSnap = await db.collection("listings").doc(listingId).get();
   const listing = listingSnap.data() || {};
@@ -2377,7 +2379,8 @@ exports.saveListingPromotion = onCall(async (req) => {
   if (duplicate && duplicate.data()?.ownerId !== req.auth.uid) throw new HttpsError("already-exists", "That promo code is already in use.");
   const current = existingSnap.docs.find((snap) => snap.data()?.ownerId === req.auth.uid) || null;
   const id = current?.id || `listing-promo-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}`;
-  const record = { id, listingId, ownerId, code, kind: "percentage", value: Math.round(value * 100) / 100, status: "live", usageCount: Number(current?.data()?.usageCount || 0), createdAt: current?.data()?.createdAt || admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() };
+  const endAt = Date.now() + expiresInDays * 24 * 60 * 60 * 1000;
+  const record = { id, listingId, ownerId, code, kind: "percentage", value: Math.round(value * 100) / 100, status: "live", endAt, usageCount: Number(current?.data()?.usageCount || 0), createdAt: current?.data()?.createdAt || admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() };
   await db.collection("listingPromotions").doc(id).set(record, { merge: true });
   return { ...record, createdAt: Date.now(), updatedAt: Date.now() };
 });
