@@ -4,7 +4,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ListingCard } from "../../components/ListingCard";
 import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { GARMENTS, getGarment, usd, CATEGORIES } from "../../lib/catalog";
 import { getMarket, moneyExact, moneyInMarket } from "../../lib/markets";
@@ -288,8 +287,6 @@ export default function You() {
 }
 
 function ShopPane({ listed, draft, styles, copy }: { listed: ClosetPiece[]; draft: ListingDraft | null; styles: ReturnType<typeof make>; copy: ReturnType<typeof useCopy> }) {
-  const [showAll, setShowAll] = useState(false);
-  const preview = showAll ? listed : listed.slice(0, 4);
 
   return (
     <View>
@@ -306,33 +303,7 @@ function ShopPane({ listed, draft, styles, copy }: { listed: ClosetPiece[]; draf
         <Text style={styles.active}>{copy.activeListings} ({listed.length})</Text>
       </View>
       {listed.length ? (
-        <>
-          <View style={styles.grid}>
-            {preview.map((p) => (
-              <View key={p.id} style={{ width: COL }}>
-                <ListingCard
-                  piece={p}
-                  framed
-                  wide={COL}
-                  onOpen={(piece) => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })}
-                />
-              </View>
-            ))}
-          </View>
-          {listed.length > 4 ? (
-            <Pressable
-              onPress={() => setShowAll((current) => !current)}
-              style={styles.listingsToggle}
-              accessibilityRole="button"
-              accessibilityLabel={showAll ? "Show fewer active listings" : `View all ${listed.length} active listings`}
-            >
-              <Text style={styles.listingsToggleTxt}>
-                {showAll ? "Show less" : `View all ${listed.length} listings`}
-              </Text>
-              <Text style={styles.listingsToggleArrow}>{showAll ? "⌃" : "⌄"}</Text>
-            </Pressable>
-          ) : null}
-        </>
+        <ActiveListingsSummary listed={listed} styles={styles} />
       ) : (
         <View style={styles.empty}>
           <Rack />
@@ -343,6 +314,48 @@ function ShopPane({ listed, draft, styles, copy }: { listed: ClosetPiece[]; draf
           </Pressable>
         </View>
       )}
+    </View>
+  );
+}
+
+function ActiveListingsSummary({ listed, styles }: { listed: ClosetPiece[]; styles: ReturnType<typeof make> }) {
+  const preview = listed.slice(0, 4);
+
+  return (
+    <View style={styles.listingsSummary}>
+      <View style={styles.listingsThumbGrid}>
+        {preview.map((piece) => (
+          <Pressable
+            key={piece.id}
+            onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })}
+            style={styles.listingsThumbButton}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${piece.name}`}
+          >
+            <Image cachePolicy="memory-disk" source={{ uri: piece.photo }} style={styles.listingsThumb} contentFit="cover" />
+          </Pressable>
+        ))}
+        {listed.length > preview.length ? (
+          <View style={styles.listingsMoreThumb} pointerEvents="none">
+            <Text style={styles.listingsMoreNumber}>+{listed.length - preview.length}</Text>
+            <Text style={styles.listingsMoreLabel}>more</Text>
+          </View>
+        ) : null}
+      </View>
+      <View style={styles.listingsSummaryCopy}>
+        <Text style={styles.listingsSummaryKicker}>YOUR SHOP</Text>
+        <Text style={styles.listingsSummaryTitle}>{listed.length} live {listed.length === 1 ? "listing" : "listings"}</Text>
+        <Text style={styles.listingsSummaryHint}>Keep your storefront tidy while you manage the full rack.</Text>
+        <Pressable
+          onPress={() => router.navigate("/closet")}
+          style={styles.manageListings}
+          accessibilityRole="button"
+          accessibilityLabel={`Manage all ${listed.length} active listings`}
+        >
+          <Text style={styles.manageListingsText}>Manage listings</Text>
+          <Text style={styles.manageListingsArrow}>›</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -872,6 +885,20 @@ function make(colors: Colors) {
     tabLine: { position: "absolute", bottom: 0, height: 2, left: 8, right: 8, backgroundColor: colors.bone, borderRadius: 1 },
     activeRow: { marginTop: 18, marginBottom: 8 },
     active: { color: colors.bone, fontSize: 16, fontWeight: "700", marginTop: 16, marginBottom: 8 },
+    listingsSummary: { marginTop: 8, padding: 12, borderRadius: 20, backgroundColor: colors.surface, flexDirection: "row", gap: 14 },
+    listingsThumbGrid: { width: 116, flexDirection: "row", flexWrap: "wrap", gap: 4, alignContent: "flex-start" },
+    listingsThumbButton: { width: 54, height: 68, borderRadius: 10, overflow: "hidden", backgroundColor: colors.ink },
+    listingsThumb: { width: "100%", height: "100%" },
+    listingsMoreThumb: { width: 54, height: 68, borderRadius: 10, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center" },
+    listingsMoreNumber: { color: colors.success, fontSize: 17, fontWeight: "800" },
+    listingsMoreLabel: { color: `${colors.bone}80`, fontSize: 10, fontWeight: "700", marginTop: 1 },
+    listingsSummaryCopy: { flex: 1, minWidth: 0, justifyContent: "center", paddingVertical: 2 },
+    listingsSummaryKicker: { color: `${colors.bone}6B`, fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
+    listingsSummaryTitle: { color: colors.bone, fontSize: 18, fontWeight: "800", marginTop: 5 },
+    listingsSummaryHint: { color: `${colors.bone}80`, fontSize: 12, lineHeight: 17, marginTop: 4 },
+    manageListings: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 5, marginTop: 10, paddingVertical: 3 },
+    manageListingsText: { color: colors.success, fontSize: 13, fontWeight: "800" },
+    manageListingsArrow: { color: colors.success, fontSize: 21, lineHeight: 18, marginTop: -2 },
     listingsToggle: { marginTop: 14, minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: `${colors.bone}2E`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     listingsToggleTxt: { color: colors.bone, fontSize: 14, fontWeight: "700" },
     listingsToggleArrow: { color: `${colors.bone}A8`, fontSize: 18, lineHeight: 18, marginTop: -3 },
