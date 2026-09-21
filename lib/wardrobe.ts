@@ -50,6 +50,8 @@ export type ClosetPiece = {
   brandId?: string;
   listedByUid?: string;
   listedByName?: string;
+  /** Seller-controlled pause for normal marketplace listings; brand catalog items do not use this. */
+  sellerPaused?: boolean;
   views?: number;
   /** Available units remaining after active checkout reservations. */
   stockQuantity?: number;
@@ -356,7 +358,7 @@ export function allPieces() {
 
 /** Public marketplace listings confirmed by the latest remote snapshot. */
 export function listedPieces() {
-  return pieces.filter((p) => p.status === "listed" && remoteListingIds.has(p.id));
+  return pieces.filter((p) => p.status === "listed" && !p.sellerPaused && remoteListingIds.has(p.id));
 }
 
 /** Live listings a buyer in this country is allowed to see. */

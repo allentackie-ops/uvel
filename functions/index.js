@@ -162,6 +162,13 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
   if (normalizedBrandId && order.brandId !== normalizedBrandId) {
     throw new HttpsError("invalid-argument", "Order brand changed.");
   }
+  if (order.pieceId) {
+    const listingSnap = await admin.firestore().collection("listings").doc(String(order.pieceId)).get();
+    const listing = listingSnap.data() || {};
+    if (!listingSnap.exists || listing.status !== "listed" || listing.sellerPaused === true) {
+      throw new HttpsError("failed-precondition", "This listing is currently unavailable.");
+    }
+  }
   let reserved = false;
   let checkoutAttribution = null;
   if (order.brandId && normalizedCampaignId) {
@@ -477,7 +484,7 @@ async function resolvePromotionQuote(db, input) {
   if (!listingId || !currency || !Number.isSafeInteger(itemCents) || itemCents <= 0 || (!promotionId && !code)) return null;
   const listingSnap = await db.collection("listings").doc(listingId).get();
   const listing = listingSnap.data() || {};
-  if (!listingSnap.exists || listing.status !== "listed") return null;
+  if (!listingSnap.exists || listing.status !== "listed" || listing.sellerPaused === true) return null;
   if (brandId && listing.brandId !== brandId) return null;
   let promotionSnap = null;
   let source = "brand";

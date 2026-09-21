@@ -123,6 +123,10 @@ export default function Checkout() {
 
   async function payNow() {
     if (!address || !piece) return;
+    if (piece.sellerPaused) {
+      Alert.alert("Listing unavailable", "This listing is currently unavailable while the seller has paused their listings.");
+      return;
+    }
     if (!availabilityConfirmed) {
       Alert.alert("Availability unavailable", marketplaceSync === "loading" ? "Uvel is still checking this listing. Try again in a moment." : "Uvel could not confirm this listing with the marketplace service. Checkout is paused.");
       return;

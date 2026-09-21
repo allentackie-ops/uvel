@@ -338,6 +338,13 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="selling-availability"
+            options={{
+              headerTitle: "Selling availability",
+              headerShadowVisible: false,
+            }}
+          />
+          <Stack.Screen
             name="sell"
             options={{
               headerShown: false,
