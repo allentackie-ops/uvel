@@ -21,7 +21,6 @@ export default function Manage() {
   const [name, setName] = useState(app.displayName);
   const [username, setUsername] = useState(app.username);
   const [saving, setSaving] = useState(false);
-  const [busy, setBusy] = useState(false);
   const usernameLocked = Boolean(app.usernameChangedAt && Date.now() - app.usernameChangedAt < YEAR_MS);
   const nextUsernameDate = useMemo(() => {
     if (!app.usernameChangedAt) return "";
@@ -71,28 +70,6 @@ export default function Manage() {
     ]);
   }
 
-  function confirmDelete() {
-    Alert.alert("Delete account?", "This permanently deletes your Uvel account, profile, saved styles, and listings. This can’t be undone.", [
-      { text: "Keep account", style: "cancel" },
-      { text: "Delete account", style: "destructive", onPress: () => Alert.alert("Delete forever?", "You won’t be able to recover this account.", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete account", style: "destructive", onPress: () => void runDelete() },
-      ]) },
-    ]);
-  }
-
-  async function runDelete() {
-    setBusy(true);
-    try {
-      await app.deleteAccount();
-      router.replace("/setup");
-    } catch (error) {
-      Alert.alert("Delete account", error instanceof Error ? error.message : "Sign in again and try once more.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <ScrollView style={styles.page} contentContainerStyle={[styles.content, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40 }]} keyboardShouldPersistTaps="handled">
       <Pressable onPress={() => router.back()} style={styles.back} accessibilityRole="button" accessibilityLabel="Go back">
@@ -125,8 +102,8 @@ export default function Manage() {
       <Text style={styles.section}>Account</Text>
       <View style={styles.group}>
         <View style={styles.accountRow}><Text style={styles.rowLabel}>Email</Text><Text style={styles.hint}>{app.email || "Not available"}</Text></View>
-        <Pressable onPress={confirmDelete} disabled={busy} style={[styles.deleteRow, styles.last]}>
-          {busy ? <OrbitLoader size={24} /> : <Text style={styles.deleteText}>Delete account</Text>}
+        <Pressable onPress={() => router.push("/delete-account")} style={[styles.deleteRow, styles.last]}>
+          <Text style={styles.deleteText}>Delete account</Text>
         </Pressable>
       </View>
     </ScrollView>
