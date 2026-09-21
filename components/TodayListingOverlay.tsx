@@ -17,11 +17,12 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { getBrand } from "../lib/brands";
+import { getBrand, themeFor } from "../lib/brands";
 import { addToCart, useCart } from "../lib/cart";
 import { useFirstFind } from "../lib/firstFind";
 import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
 import { shipsToLabel } from "../lib/ships";
+import { shopLookOf } from "../lib/shopLook";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { type ClosetPiece } from "../lib/wardrobe";
@@ -56,9 +57,29 @@ export function TodayListingOverlay({
   onDoubleTapHintDismiss?: () => void;
   firstListing?: boolean;
 }) {
-  const colors = useColors();
-  const styles = make(colors);
+  const baseColors = useColors();
   const app = useUvel();
+  const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
+  const customLook = piece.shopLook || brandRecord
+    ? shopLookOf(piece.shopLook, brandRecord ? themeFor(brandRecord) : null)
+    : null;
+  // Keep the expanded sheet on the same page as its listing card instead of
+  // falling back to the app's default black background.
+  const colors: Colors = customLook
+    ? {
+        ...baseColors,
+        ink: customLook.page,
+        surface: customLook.surface,
+        bone: customLook.bone,
+        muted: customLook.muted,
+        subtle: customLook.muted,
+        pulse: customLook.accent,
+        pulseInk: customLook.accentInk,
+        success: customLook.accent,
+        successInk: customLook.accentInk,
+      }
+    : baseColors;
+  const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
   const heroH = Math.round(Math.min(Math.max(screenH * 0.62, 420), 620));
@@ -270,8 +291,7 @@ export function TodayListingOverlay({
   const chromeStyle = useAnimatedStyle(() => ({ opacity: chrome.value }));
   const pageStyle = useAnimatedStyle(() => ({ opacity: sheet.value }));
 
-  const brand = piece.brandId ? getBrand(piece.brandId)?.name : piece.brand;
-  const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
+  const brand = brandRecord?.name || piece.brand;
   const sellerName = brandRecord?.name || piece.ownerName || piece.listedByName || "Uvel seller";
   const sellerPhoto = brandRecord?.logoUri || piece.ownerPhoto || null;
   const sellerLocation = piece.country ? getMarket(piece.country).name : getMarket(app.country).name;
