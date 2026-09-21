@@ -2,8 +2,10 @@ import { useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { saveBrandPromotion, type BrandPromotion, type MarketingState, type MarketingStatus } from "../lib/marketing";
 import type { Brand } from "../lib/brands";
-import { useColors, type Colors } from "../lib/theme";
 import { getMarket } from "../lib/markets";
+import type { BrandTheme } from "../lib/brandThemes";
+
+type BrandPalette = Pick<BrandTheme, "bg" | "ink" | "muted" | "card" | "accent" | "accentInk" | "lineColor">;
 
 type ExpiryDays = 1 | 3 | 30 | 365;
 
@@ -21,9 +23,8 @@ const STATUS_OPTIONS: Array<{ value: MarketingStatus; label: string }> = [
   { value: "ended", label: "Ended" },
 ];
 
-export function BrandPromoCodes({ brand, state, viewer, manager }: { brand: Brand; state: MarketingState; viewer: boolean; manager: boolean }) {
-  const colors = useColors();
-  const styles = useMemo(() => make(colors), [colors]);
+export function BrandPromoCodes({ brand, theme, state, viewer, manager }: { brand: Brand; theme: BrandPalette; state: MarketingState; viewer: boolean; manager: boolean }) {
+  const styles = useMemo(() => make(theme), [theme]);
   const [selectedId, setSelectedId] = useState("");
   const [code, setCode] = useState("");
   const [percentage, setPercentage] = useState("");
@@ -112,9 +113,9 @@ export function BrandPromoCodes({ brand, state, viewer, manager }: { brand: Bran
             <Text style={styles.editorTitle}>{selected ? "Update promo code" : "Create promo code"}</Text>
             {selected ? <Pressable onPress={reset} accessibilityRole="button"><Text style={styles.reset}>New</Text></Pressable> : null}
           </View>
-          <TextInput value={code} onChangeText={(value) => setCode(value.toUpperCase())} placeholder="e.g. UVEL10" placeholderTextColor={colors.subtle} autoCapitalize="characters" autoCorrect={false} style={styles.input} editable={!busy} accessibilityLabel="Promo code" />
+          <TextInput value={code} onChangeText={(value) => setCode(value.toUpperCase())} placeholder="e.g. UVEL10" placeholderTextColor={theme.muted} autoCapitalize="characters" autoCorrect={false} style={styles.input} editable={!busy} accessibilityLabel="Promo code" />
           <Text style={styles.label}>Percentage off</Text>
-          <TextInput value={percentage} onChangeText={(value) => setPercentage(value.replace(/[^0-9]/g, ""))} placeholder="Enter a percentage" placeholderTextColor={colors.subtle} keyboardType="number-pad" style={styles.input} editable={!busy} accessibilityLabel="Percentage off" />
+          <TextInput value={percentage} onChangeText={(value) => setPercentage(value.replace(/[^0-9]/g, ""))} placeholder="Enter a percentage" placeholderTextColor={theme.muted} keyboardType="number-pad" style={styles.input} editable={!busy} accessibilityLabel="Percentage off" />
           <View style={styles.chips}>
             {SUGGESTIONS.map((value) => <Pressable key={value} onPress={() => setPercentage(String(value))} style={[styles.chip, percentage === String(value) && styles.chipOn]} accessibilityRole="button"><Text style={[styles.chipText, percentage === String(value) && styles.chipTextOn]}>{value}%</Text></Pressable>)}
           </View>
@@ -133,33 +134,33 @@ export function BrandPromoCodes({ brand, state, viewer, manager }: { brand: Bran
   );
 }
 
-function make(colors: Colors) {
+function make(colors: BrandPalette) {
   return StyleSheet.create({
     page: { paddingTop: 4 },
-    title: { color: colors.bone, fontSize: 26, fontWeight: "800" },
+    title: { color: colors.ink, fontSize: 26, fontWeight: "800" },
     intro: { color: colors.muted, fontSize: 14, lineHeight: 20, marginTop: 6, marginBottom: 16 },
-    promotion: { flexDirection: "row", alignItems: "center", padding: 14, marginBottom: 10, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: "transparent" },
-    promotionOn: { borderColor: colors.success },
+    promotion: { flexDirection: "row", alignItems: "center", padding: 14, marginBottom: 10, borderRadius: 16, backgroundColor: colors.card, borderWidth: 1, borderColor: "transparent" },
+    promotionOn: { borderColor: colors.accent },
     promotionCopy: { flex: 1 },
-    promotionCode: { color: colors.bone, fontSize: 16, fontWeight: "800" },
+    promotionCode: { color: colors.ink, fontSize: 16, fontWeight: "800" },
     promotionMeta: { color: colors.muted, fontSize: 12, marginTop: 5, textTransform: "capitalize" },
-    chev: { color: colors.success, fontSize: 22, paddingHorizontal: 5 },
-    editor: { marginTop: 10, padding: 16, borderRadius: 18, backgroundColor: colors.surface },
+    chev: { color: colors.accent, fontSize: 22, paddingHorizontal: 5 },
+    editor: { marginTop: 10, padding: 16, borderRadius: 18, backgroundColor: colors.card },
     editorHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    editorTitle: { color: colors.bone, fontSize: 19, fontWeight: "800" },
-    reset: { color: colors.success, fontSize: 13, fontWeight: "800" },
-    input: { minHeight: 48, borderRadius: 12, backgroundColor: colors.ink, color: colors.bone, paddingHorizontal: 13, fontSize: 16, borderWidth: 1, borderColor: `${colors.bone}24`, marginTop: 12 },
-    label: { color: colors.bone, fontSize: 13, fontWeight: "800", marginTop: 16, marginBottom: 7 },
+    editorTitle: { color: colors.ink, fontSize: 19, fontWeight: "800" },
+    reset: { color: colors.accent, fontSize: 13, fontWeight: "800" },
+    input: { minHeight: 48, borderRadius: 12, backgroundColor: colors.bg, color: colors.ink, paddingHorizontal: 13, fontSize: 16, borderWidth: 1, borderColor: colors.lineColor, marginTop: 12 },
+    label: { color: colors.ink, fontSize: 13, fontWeight: "800", marginTop: 16, marginBottom: 7 },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    chip: { paddingHorizontal: 14, minHeight: 36, borderRadius: 18, borderWidth: 1, borderColor: `${colors.bone}35`, alignItems: "center", justifyContent: "center" },
-    chipOn: { backgroundColor: colors.success, borderColor: colors.success },
-    chipText: { color: colors.bone, fontSize: 13, fontWeight: "700" },
-    chipTextOn: { color: colors.successInk },
-    primary: { minHeight: 48, borderRadius: 24, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", paddingHorizontal: 18, marginTop: 20 },
-    primaryText: { color: colors.successInk, fontSize: 14, fontWeight: "800" },
+    chip: { paddingHorizontal: 14, minHeight: 36, borderRadius: 18, borderWidth: 1, borderColor: colors.lineColor, alignItems: "center", justifyContent: "center" },
+    chipOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+    chipText: { color: colors.ink, fontSize: 13, fontWeight: "700" },
+    chipTextOn: { color: colors.accentInk },
+    primary: { minHeight: 48, borderRadius: 24, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", paddingHorizontal: 18, marginTop: 20 },
+    primaryText: { color: colors.accentInk, fontSize: 14, fontWeight: "800" },
     muted: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 16 },
     empty: { paddingVertical: 10 },
-    emptyTitle: { color: colors.bone, fontSize: 20, fontWeight: "800" },
+    emptyTitle: { color: colors.ink, fontSize: 20, fontWeight: "800" },
     emptyText: { color: colors.muted, fontSize: 14, lineHeight: 20, marginTop: 6 },
   });
 }
