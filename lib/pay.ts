@@ -28,6 +28,7 @@ export type PromotionQuote = {
   currency: string;
   discountCents: number;
   minimumOrderCents: number;
+  source?: "brand" | "listing";
 };
 
 export type CheckoutPay = {
@@ -62,7 +63,7 @@ export async function createCheckoutSession(input: CheckoutPay): Promise<Checkou
   return res.data;
 }
 
-export async function validatePromotion(input: { brandId: string; listingId: string; promotionId?: string; code?: string; currency: string; itemCents: number }): Promise<PromotionQuote> {
+export async function validatePromotion(input: { brandId?: string; listingId: string; promotionId?: string; code?: string; currency: string; itemCents: number }): Promise<PromotionQuote> {
   if (!firebaseReady()) throw new Error("Promotion validation is not connected yet.");
   const call = httpsCallable<typeof input, PromotionQuote>(firebaseFunctions(), "validatePromotion");
   const res = await call(input);

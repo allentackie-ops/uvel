@@ -56,6 +56,15 @@ export default function Settings() {
         {app.uid ? <Row label="Manage" onPress={() => router.push("/manage")} colors={colors} last /> : null}
       </View>
 
+      {app.uid ? (
+        <>
+          <Text style={styles.section}>Selling</Text>
+          <View style={styles.group}>
+            <Row label="Promo codes" hint="Create discounts for your listings" onPress={() => router.push("/promo-codes")} colors={colors} last />
+          </View>
+        </>
+      ) : null}
+
       <Text style={styles.section}>{C.preferences}</Text>
       <View style={styles.group}>
         <Row

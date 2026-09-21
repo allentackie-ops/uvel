@@ -79,6 +79,7 @@ export type Order = {
   creditCents?: number;
   promotionId?: string;
   promotionCode?: string;
+  promotionSource?: "brand" | "listing";
   shipCents: number;
   taxCents: number;
   totalCents: number;

@@ -75,16 +75,16 @@ export default function Checkout() {
 
   useEffect(() => {
     const linkedPromotionId = typeof promotionId === "string" ? promotionId.trim() : "";
-    if (!linkedPromotionId || !piece?.brandId || promotionQuote || promotionBusy) return;
+    if (!linkedPromotionId || !piece || promotionQuote || promotionBusy) return;
     setPromotionBusy(true);
-    void validatePromotion({ brandId: piece.brandId, listingId: piece.id, promotionId: linkedPromotionId, currency: market.currency, itemCents: itemLocal })
+    void validatePromotion({ brandId: piece.brandId || "", listingId: piece.id, promotionId: linkedPromotionId, currency: market.currency, itemCents: itemLocal })
       .then((quote) => { setPromotionQuote(quote); setPromotionCode(quote.code); setPromotionMessage(`${quote.code} applied · ${quote.kind === "percentage" ? `${quote.value}% off` : `${moneyExact(quote.discountCents, market.currency)} off`}`); })
       .catch(() => setPromotionMessage("The campaign promotion is not active for this listing."))
       .finally(() => setPromotionBusy(false));
   }, [promotionId, piece?.brandId, piece?.id, market.currency, itemLocal]);
 
   async function applyPromotion() {
-    if (!piece?.brandId || promotionBusy) return;
+    if (!piece || promotionBusy) return;
     const code = promotionCode.trim().toUpperCase();
     const linkedPromotionId = !code && typeof promotionId === "string" ? promotionId.trim() : "";
     if (!code && !linkedPromotionId) {
@@ -94,7 +94,7 @@ export default function Checkout() {
     setPromotionBusy(true);
     setPromotionMessage("");
     try {
-      const quote = await validatePromotion({ brandId: piece.brandId, listingId: piece.id, promotionId: linkedPromotionId || undefined, code: code || undefined, currency: market.currency, itemCents: itemLocal });
+      const quote = await validatePromotion({ brandId: piece.brandId || "", listingId: piece.id, promotionId: linkedPromotionId || undefined, code: code || undefined, currency: market.currency, itemCents: itemLocal });
       setPromotionQuote(quote);
       setPromotionCode(quote.code);
       setPromotionMessage(`${quote.code} applied · ${quote.kind === "percentage" ? `${quote.value}% off` : `${moneyExact(quote.discountCents, market.currency)} off`}`);
@@ -157,6 +157,7 @@ export default function Checkout() {
         creditCents: creditCents || undefined,
         promotionId: promotionQuote?.promotionId,
         promotionCode: promotionQuote?.code,
+        promotionSource: promotionQuote?.source,
         shipCents: shipCost,
         taxCents: 0,
         totalCents: total,

@@ -270,6 +270,14 @@ async function payWithWalletHandler(req) {
       payMethod: "Uvel balance",
       paidAt,
     }, { merge: true });
+    if (order.promotionId) {
+      const collectionName = order.promotionSource === "listing" || !order.brandId ? "listingPromotions" : "brandPromotions";
+      const promotionRef = db.collection(collectionName).doc(String(order.promotionId));
+      const promotionSnap = await tx.get(promotionRef);
+      const promotion = promotionSnap.data() || {};
+      const belongsToOrder = collectionName === "listingPromotions" ? promotion.listingId === order.pieceId : promotion.brandId === order.brandId;
+      if (promotionSnap.exists && belongsToOrder) tx.set(promotionRef, { usageCount: increment(1), updatedAt: paidAt }, { merge: true });
+    }
   });
   await creditSellerPending(orderId);
   return { ok: true, orderId, processor: "wallet" };
