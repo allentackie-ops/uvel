@@ -127,7 +127,6 @@ export default function PromoCodes() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 36 }]} keyboardShouldPersistTaps="handled">
-          <Text style={styles.intro}>Create and manage discount codes for your listings.</Text>
           <View style={styles.sectionTabs}>
             <Pressable onPress={() => setView("promotion")} style={[styles.sectionTab, view === "promotion" && styles.sectionTabOn]} accessibilityRole="tab"><Text style={[styles.sectionTabText, view === "promotion" && styles.sectionTabTextOn]}>Promotion</Text></Pressable>
             <Pressable onPress={() => setView("status")} style={[styles.sectionTab, view === "status" && styles.sectionTabOn]} accessibilityRole="tab"><Text style={[styles.sectionTabText, view === "status" && styles.sectionTabTextOn]}>Status</Text></Pressable>
