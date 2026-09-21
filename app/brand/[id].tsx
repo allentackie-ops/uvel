@@ -330,16 +330,6 @@ export default function BrandPage() {
                 <Text style={[styles.ghostTxt, { color: theme.ink }]}>Dress this page</Text>
               </AccessiblePressable>
             ) : null}
-            {owner ? (
-              <AccessiblePressable
-                onPress={() => router.push({ pathname: "/brand/hq", params: { id: brand.id, section: "marketing" } })}
-                style={({ pressed }) => [styles.ghost, { borderColor: theme.lineColor }, pressed && { opacity: 0.92 }]}
-                accessibilityRole="button"
-                accessibilityLabel={`Manage promo codes for ${brand.name}`}
-              >
-                <Text style={[styles.ghostTxt, { color: theme.ink }]}>Promo codes</Text>
-              </AccessiblePressable>
-            ) : null}
             {poster ? (
               <AccessiblePressable                onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })}
                 style={({ pressed }) => [styles.ghost, { borderColor: theme.lineColor }, pressed && { opacity: 0.92 }]}
