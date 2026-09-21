@@ -33,8 +33,6 @@ import { useFirstFind } from "../../lib/firstFind";
 import { getMarket, moneyExact } from "../../lib/markets";
 
 const MIN_REFRESH_MS = 1200;
-// Keep only a compact slot for the 58px orbit loader while refreshing.
-const ORBIT_SLOT = 64;
 // Bump this key to re-arm the hand gesture once for the current OTA test build.
 const TODAY_SWIPE_HINT_KEY = "uvel-today-swipe-hint-seen-v5";
 const TODAY_SWIPE_HINT_MS = 10000;
@@ -47,16 +45,6 @@ const swipeHintStyles = StyleSheet.create({
   swipeHintTrack: { height: 190, width: 150, alignItems: "center", marginTop: 10 },
   swipeHintHand: { alignItems: "center", justifyContent: "center", height: 190, width: 150, shadowColor: "#000000", shadowOpacity: 0.45, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
 });
-
-const orbitTop = {
-  position: "absolute" as const,
-  top: 0,
-  left: 0,
-  right: 0,
-  alignItems: "center" as const,
-  zIndex: 40,
-  elevation: 40,
-};
 
 function FrozenClip({
   uri,
@@ -391,7 +379,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     <View style={styles.page}>
       <ScrollView
         style={styles.page}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 + (orbitOn ? ORBIT_SLOT : 0) }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 8 }]}
         alwaysBounceVertical
         bounces
         keyboardShouldPersistTaps="handled"
@@ -407,6 +395,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           />
         }
       >
+      {orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
       {todayHome ? (
         <View style={[styles.todayHeader, { paddingTop: 2 }]}>
           <AccessiblePressable
@@ -649,11 +638,6 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         )
       ) : null}
       </ScrollView>
-      {orbitOn ? (
-        <View style={[orbitTop, { paddingTop: insets.top + 8 }]} pointerEvents="none">
-          <OrbitLoader />
-        </View>
-      ) : null}
       {todayHome && openPiece && openOrigin ? (
         <TodayListingOverlay
           piece={openPiece}
@@ -686,6 +670,7 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     content: { paddingHorizontal: 16, paddingBottom: 108 },
+    refreshOrbit: { height: 58, alignItems: "center", justifyContent: "flex-start" },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
     titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     todayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 84, marginBottom: 2 },
