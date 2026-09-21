@@ -278,7 +278,8 @@ function make(colors: Colors) {
     chipTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
     chipTxtOn: { color: colors.successInk },
     empty: { color: colors.muted, padding: 24, lineHeight: 22, fontSize: 15 },
-    refreshOrbit: { height: 148, alignItems: "center", justifyContent: "flex-start", paddingTop: 16 },
+    // Keep the refresh orbit visible without reserving a large blank block above the inbox rows.
+    refreshOrbit: { height: 64, alignItems: "center", justifyContent: "flex-start", paddingTop: 4 },
     list: { flex: 1 },
     row: {
       flexDirection: "row",
