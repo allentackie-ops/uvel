@@ -100,7 +100,7 @@ export default function PromoCodes() {
   return (
     <View style={styles.page}>
       <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
-      <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
+      <View style={[styles.nav, { paddingTop: 4 }]}>
         <View style={styles.navBtn} />
         <Text style={styles.navTitle}>Promo codes</Text>
         <View style={styles.navBtn} />
