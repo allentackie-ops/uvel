@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usd } from "../../lib/catalog";
 import { recordAnalyticsEvent } from "../../lib/analytics";
 import { getMarket } from "../../lib/markets";
-import { getBrand, useBrands } from "../../lib/brands";
+import { getBrand, themeFor, useBrands } from "../../lib/brands";
 import { listingVisibleIn, shipsToLine } from "../../lib/ships";
 import { shopLookOf, type ShopLook } from "../../lib/shopLook";
 import { useUvel } from "../../lib/store";
@@ -260,7 +260,8 @@ export default function ClosetPiece() {
   const [selectedSize, setSelectedSize] = useState("");
   const piece = getPiece(id);
   const alertPreference = useAlertPreference(app.uid, piece?.id || "");
-  const look = shopLookOf(piece?.shopLook);
+  const owningBrand = piece?.brandId ? getBrand(piece.brandId) : undefined;
+  const look = shopLookOf(piece?.shopLook, owningBrand ? themeFor(owningBrand) : null);
 
   useEffect(() => {
     const sizes = piece?.sizes?.length ? piece.sizes : piece?.size ? [piece.size] : [];
@@ -403,7 +404,6 @@ export default function ClosetPiece() {
   const brand = piece.brand !== "Unlabeled" ? piece.brand : "Uvel closet";
   const chip = swatchOf(piece.color);
   const mine = isMine(piece, app.uid);
-  const owningBrand = piece.brandId ? getBrand(piece.brandId) : undefined;
   const seller = owningBrand?.name || (mine && app.displayName) || piece.ownerName || "Uvel member";
   const sellerPhoto = owningBrand?.logoUri || ((mine && (app.avatarUri || app.personUri)) || piece.ownerPhoto || null);
   const sellerLabel = owningBrand ? "Sold by brand" : "Sold by";

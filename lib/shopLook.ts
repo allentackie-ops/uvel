@@ -1,3 +1,5 @@
+import type { BrandTheme } from "./brandThemes";
+
 export type ShopLookId = "uvel" | "ivory" | "noir" | "atelier" | "runway" | "oxblood" | "gold" | "pulse";
 
 export type ShopLook = {
@@ -102,6 +104,35 @@ export const SHOP_LOOKS: ShopLook[] = [
   },
 ];
 
-export function shopLookOf(id?: string | null): ShopLook {
-  return SHOP_LOOKS.find((l) => l.id === id) ?? SHOP_LOOKS[0];
+function isLightPage(color: string) {
+  const match = color.match(/^#([0-9a-f]{6})$/i);
+  if (!match) return false;
+  const value = Number.parseInt(match[1], 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  return (r * 299 + g * 587 + b * 114) / 1000 > 160;
+}
+
+function shopLookFromBrandTheme(theme: BrandTheme): ShopLook {
+  const light = isLightPage(theme.bg);
+  return {
+    id: "uvel",
+    name: theme.name,
+    line: theme.line,
+    plus: false,
+    page: theme.bg,
+    bone: theme.ink,
+    muted: theme.muted,
+    accent: theme.accent,
+    accentInk: theme.accentInk,
+    surface: theme.card,
+    photo: light ? "frame" : "bleed",
+    status: light ? "dark" : "light",
+  };
+}
+
+/** A listing-specific look wins; otherwise inherit the seller's brand page theme. */
+export function shopLookOf(id?: string | null, brandTheme?: BrandTheme | null): ShopLook {
+  return SHOP_LOOKS.find((l) => l.id === id) ?? (brandTheme ? shopLookFromBrandTheme(brandTheme) : SHOP_LOOKS[0]);
 }
