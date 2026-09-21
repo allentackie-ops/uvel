@@ -557,8 +557,24 @@ exports.recordCampaignAttribution = onCall(async (req) => {
 
 exports.validatePromotion = onCall(async (req) => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before applying a promotion.");
-  const quote = await resolvePromotionQuote(admin.firestore(), req.data || {});
-  if (!quote) throw new HttpsError("failed-precondition", "That promotion is invalid, expired, unavailable, or does not apply to this listing.");
+  const input = req.data || {};
+  const db = admin.firestore();
+  const quote = await resolvePromotionQuote(db, input);
+  if (!quote) {
+    const code = String(input.code || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
+    const brandId = String(input.brandId || "").trim();
+    const listingId = String(input.listingId || "").trim();
+    const candidates = [];
+    if (brandId && code) candidates.push(...(await db.collection("brandPromotions").where("brandId", "==", brandId).get()).docs);
+    if (listingId && code) candidates.push(...(await db.collection("listingPromotions").where("listingId", "==", listingId).get()).docs);
+    const matched = candidates.find((snap) => String(snap.data()?.code || "").toUpperCase() === code);
+    if (matched) {
+      const promotion = matched.data() || {};
+      if (promotion.status === "ended" || (promotion.endAt && timestampMillis(promotion.endAt) < Date.now())) throw new HttpsError("failed-precondition", "This promo code has ended.");
+      if (promotion.status !== "live" || (promotion.startAt && timestampMillis(promotion.startAt) > Date.now())) throw new HttpsError("failed-precondition", "This promo code isn't active right now.");
+    }
+    throw new HttpsError("failed-precondition", "That promo code is invalid or does not apply to this listing.");
+  }
   return quote;
 });
 
@@ -2376,8 +2392,11 @@ exports.saveListingPromotion = onCall(async (req) => {
   if (!listingSnap.exists || listing.status !== "listed" || ownerId !== req.auth.uid) throw new HttpsError("permission-denied", "Choose one of your live listings.");
   const existingSnap = await db.collection("listingPromotions").where("listingId", "==", listingId).get();
   const duplicate = existingSnap.docs.find((snap) => String(snap.data()?.code || "").toUpperCase() === code);
-  if (duplicate && duplicate.data()?.ownerId !== req.auth.uid) throw new HttpsError("already-exists", "That promo code is already in use.");
-  const current = existingSnap.docs.find((snap) => snap.data()?.ownerId === req.auth.uid) || null;
+  if (duplicate && duplicate.id !== String(input.promotionId || "") && duplicate.data()?.ownerId !== req.auth.uid) throw new HttpsError("already-exists", "This promo code has been used.");
+  const listingCodeMatches = (await db.collection("listingPromotions").get()).docs.some((snap) => snap.id !== String(input.promotionId || "") && String(snap.data()?.code || "").toUpperCase() === code);
+  const brandCodeMatches = (await db.collection("brandPromotions").get()).docs.some((snap) => String(snap.data()?.code || "").toUpperCase() === code);
+  if (listingCodeMatches || brandCodeMatches) throw new HttpsError("already-exists", "This promo code has been used.");
+  const current = existingSnap.docs.find((snap) => snap.id === String(input.promotionId || "")) || existingSnap.docs.find((snap) => snap.data()?.ownerId === req.auth.uid && snap.data()?.status !== "ended") || null;
   const id = current?.id || `listing-promo-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}`;
   const endAt = Date.now() + expiresInDays * 24 * 60 * 60 * 1000;
   const record = { id, listingId, ownerId, code, kind: "percentage", value: Math.round(value * 100) / 100, status: "live", endAt, usageCount: Number(current?.data()?.usageCount || 0), createdAt: current?.data()?.createdAt || admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() };
@@ -2389,6 +2408,20 @@ exports.listMyListingPromotions = onCall(async (req) => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
   const snap = await admin.firestore().collection("listingPromotions").where("ownerId", "==", req.auth.uid).get();
   return snap.docs.map((item) => ({ id: item.id, ...item.data() }));
+});
+
+exports.updateListingPromotionStatus = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const promotionId = marketingText(req.data?.promotionId, 160);
+  const status = String(req.data?.status || "");
+  if (!promotionId || !["live", "paused", "ended"].includes(status)) throw new HttpsError("invalid-argument", "Choose a valid promo status.");
+  const ref = admin.firestore().collection("listingPromotions").doc(promotionId);
+  const snap = await ref.get();
+  const promotion = snap.data() || {};
+  if (!snap.exists || String(promotion.ownerId || "") !== req.auth.uid) throw new HttpsError("permission-denied", "You can only manage your own promo codes.");
+  if (promotion.status === "ended" && status !== "ended") throw new HttpsError("failed-precondition", "This promo code has ended and cannot be reactivated.");
+  await ref.set({ status, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  return { id: snap.id, ...promotion, status, updatedAt: Date.now() };
 });
 
 exports.saveBrandCollection = onCall((req) => saveMarketingRecord(req, "brandCollections", "collection", "collection_saved", req.data || {}, async (db, brandId, id, input) => {
@@ -2432,7 +2465,10 @@ exports.saveBrandPromotion = onCall((req) => saveMarketingRecord(req, "brandProm
   const usageLimit = input.usageLimit == null || input.usageLimit === "" ? undefined : Number(input.usageLimit);
   if (code.length < 3 || !["percentage", "fixed"].includes(kind) || !Number.isFinite(value) || value <= 0 || (kind === "percentage" && value > 70) || (usageLimit != null && (!Number.isSafeInteger(usageLimit) || usageLimit <= 0))) throw new HttpsError("invalid-argument", "Promo codes max out at 70%.");
   const duplicateSnap = await db.collection("brandPromotions").where("brandId", "==", brandId).get();
-  if (duplicateSnap.docs.some((snap) => snap.id !== id && String(snap.data()?.code || "").toUpperCase() === code)) throw new HttpsError("already-exists", "That promotion code is already in use by this brand.");
+  if (duplicateSnap.docs.some((snap) => snap.id !== id && String(snap.data()?.code || "").toUpperCase() === code)) throw new HttpsError("already-exists", "This promo code has been used.");
+  const listingCodeMatches = (await db.collection("listingPromotions").get()).docs.some((snap) => String(snap.data()?.code || "").toUpperCase() === code);
+  const otherBrandCodeMatches = (await db.collection("brandPromotions").get()).docs.some((snap) => snap.id !== id && String(snap.data()?.code || "").toUpperCase() === code);
+  if (listingCodeMatches || otherBrandCodeMatches) throw new HttpsError("already-exists", "This promo code has been used.");
   const startAt = marketingTime(input.startAt);
   const endAt = marketingTime(input.endAt);
   if (startAt && endAt && endAt <= startAt) throw new HttpsError("invalid-argument", "Promotion end time must be after its start time.");

@@ -8,7 +8,7 @@ import { AccessiblePressable } from "../components/AccessiblePressable";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { getPiece, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../lib/wardrobe";
-import { listListingPromotions, saveListingPromotion, type ListingPromotion } from "../lib/promotions";
+import { listListingPromotions, saveListingPromotion, updateListingPromotionStatus, type ListingPromotion } from "../lib/promotions";
 
 const SUGGESTIONS = [10, 20, 30];
 const EXPIRY_OPTIONS = [
@@ -17,6 +17,8 @@ const EXPIRY_OPTIONS = [
   { days: 30 as const, label: "1 month" },
   { days: 365 as const, label: "1 year" },
 ];
+const STATUS_OPTIONS = ["live", "paused", "ended"] as const;
+type PromoStatus = "live" | "paused" | "ended";
 
 export default function PromoCodes() {
   const colors = useColors();
@@ -33,13 +35,18 @@ export default function PromoCodes() {
   const [busy, setBusy] = useState(false);
   const [loadingPromotions, setLoadingPromotions] = useState(false);
   const [message, setMessage] = useState("");
+  const [view, setView] = useState<"promotion" | "status">("promotion");
+  const [statusFilter, setStatusFilter] = useState<PromoStatus>("live");
+  const [statusBusy, setStatusBusy] = useState("");
 
   const listings = useMemo(
     () => pieces.filter((piece) => (piece.ownerId === app.uid || piece.listedByUid === app.uid) && piece.status === "listed"),
     [pieces, app.uid],
   );
   const selected = listings.find((piece) => piece.id === selectedId);
-  const selectedPromotion = promotions.find((promotion) => promotion.listingId === selectedId && promotion.status === "live");
+  const normalizedPromotions = useMemo(() => promotions.map((promotion) => ({ ...promotion, status: (promotion.status === "ended" || (promotion.endAt && promotion.endAt < Date.now()) ? "ended" : promotion.status) as PromoStatus })), [promotions]);
+  const selectedPromotion = normalizedPromotions.find((promotion) => promotion.listingId === selectedId && promotion.status === "live");
+  const statusPromotions = normalizedPromotions.filter((promotion) => promotion.status === statusFilter);
   const numericPercentage = Number(percentage);
   const percentageValid = Number.isFinite(numericPercentage) && numericPercentage > 0 && numericPercentage <= 70;
 
@@ -55,7 +62,7 @@ export default function PromoCodes() {
   function selectListing(piece: ClosetPiece) {
     setSelectedId(piece.id);
     setMessage("");
-    const existing = promotions.find((promotion) => promotion.listingId === piece.id && promotion.status === "live");
+    const existing = normalizedPromotions.find((promotion) => promotion.listingId === piece.id && promotion.status === "live");
     setCode(existing?.code || "");
     setPercentage(existing ? String(existing.value) : "");
     const remainingDays = existing?.endAt ? Math.max(1, Math.round((existing.endAt - Date.now()) / 86400000)) : 1;
@@ -85,7 +92,7 @@ export default function PromoCodes() {
     setBusy(true);
     setMessage("");
     try {
-      const saved = await saveListingPromotion({ listingId: selected.id, code: normalizedCode, value: numericPercentage, expiresInDays: expiryDays });
+      const saved = await saveListingPromotion({ listingId: selected.id, promotionId: selectedPromotion?.id, code: normalizedCode, value: numericPercentage, expiresInDays: expiryDays });
       setPromotions((current) => [saved, ...current.filter((item) => item.listingId !== saved.listingId)]);
       setCode(saved.code);
       setPercentage(String(saved.value));
@@ -94,6 +101,19 @@ export default function PromoCodes() {
       setMessage(error instanceof Error ? error.message : "Couldn’t create that promo code.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function changeStatus(promotion: ListingPromotion, next: PromoStatus) {
+    if (statusBusy) return;
+    setStatusBusy(promotion.id);
+    try {
+      const saved = await updateListingPromotionStatus({ promotionId: promotion.id, status: next });
+      setPromotions((current) => current.map((item) => item.id === saved.id ? { ...item, status: saved.status } : item));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Couldn’t update that promo code.");
+    } finally {
+      setStatusBusy("");
     }
   }
 
@@ -107,8 +127,27 @@ export default function PromoCodes() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 36 }]} keyboardShouldPersistTaps="handled">
-          <Text style={styles.intro}>Choose one of your live listings to create a discount code for it.</Text>
+          <Text style={styles.intro}>Create and manage discount codes for your listings.</Text>
+          <View style={styles.sectionTabs}>
+            <Pressable onPress={() => setView("promotion")} style={[styles.sectionTab, view === "promotion" && styles.sectionTabOn]} accessibilityRole="tab"><Text style={[styles.sectionTabText, view === "promotion" && styles.sectionTabTextOn]}>Promotion</Text></Pressable>
+            <Pressable onPress={() => setView("status")} style={[styles.sectionTab, view === "status" && styles.sectionTabOn]} accessibilityRole="tab"><Text style={[styles.sectionTabText, view === "status" && styles.sectionTabTextOn]}>Status</Text></Pressable>
+          </View>
           {!hydrated || loadingPromotions ? <Text style={styles.muted}>Loading your listings…</Text> : null}
+          {view === "status" ? (
+            <View>
+              <Text style={styles.sectionTitle}>Promo status</Text>
+              <Text style={styles.sectionCopy}>See which codes are live, paused, or ended, and control whether a code can be used.</Text>
+              <View style={styles.statusOptions}>
+                {STATUS_OPTIONS.map((option) => <Pressable key={option} onPress={() => setStatusFilter(option)} style={[styles.statusOption, statusFilter === option && styles.statusOptionOn]}><Text style={[styles.statusOptionText, statusFilter === option && styles.statusOptionTextOn]}>{option[0].toUpperCase() + option.slice(1)}</Text></Pressable>)}
+              </View>
+              {statusPromotions.length ? statusPromotions.map((promotion) => {
+                const piece = pieces.find((item) => item.id === promotion.listingId);
+                return <View key={promotion.id} style={styles.statusCard}><View style={styles.listingCopy}><Text style={styles.listingName}>{promotion.code}</Text><Text style={styles.listingMeta}>{piece?.name || "Listing"} · {promotion.value}% off</Text><Text style={styles.promoMeta}>{promotion.status}</Text></View>{promotion.status === "ended" ? <Text style={styles.endedText}>Ended</Text> : <Pressable onPress={() => void changeStatus(promotion, promotion.status === "live" ? "paused" : "live")} disabled={statusBusy === promotion.id} style={styles.statusAction}><Text style={styles.statusActionText}>{statusBusy === promotion.id ? "Saving…" : promotion.status === "live" ? "Pause" : "Make live"}</Text></Pressable>}{promotion.status !== "ended" ? <Pressable onPress={() => void changeStatus(promotion, "ended")} disabled={statusBusy === promotion.id} style={styles.endAction}><Text style={styles.endActionText}>End</Text></Pressable> : null}</View>;
+              }) : <Text style={styles.muted}>No {statusFilter} promo codes yet.</Text>}
+            </View>
+          ) : null}
+          {view !== "status" ? (
+          <>
           {!listings.length && hydrated ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>List something first</Text>
@@ -120,7 +159,7 @@ export default function PromoCodes() {
           ) : null}
           {listings.map((piece) => {
             const active = selectedId === piece.id;
-            const promotion = promotions.find((item) => item.listingId === piece.id && item.status === "live");
+            const promotion = normalizedPromotions.find((item) => item.listingId === piece.id && item.status === "live");
             return (
               <AccessiblePressable
                 key={piece.id}
@@ -193,6 +232,8 @@ export default function PromoCodes() {
               </AccessiblePressable>
             </View>
           ) : null}
+          </>
+          ) : null}
         </ScrollView>
       )}
     </View>
@@ -208,6 +249,24 @@ function make(colors: Colors) {
     navTitle: { color: colors.bone, fontSize: 17, fontWeight: "700" },
     content: { paddingHorizontal: 20, paddingTop: 10 },
     intro: { color: colors.muted, fontSize: 14, lineHeight: 20, marginBottom: 16 },
+    sectionTabs: { flexDirection: "row", gap: 8, marginBottom: 16 },
+    sectionTab: { minHeight: 38, paddingHorizontal: 16, borderRadius: 19, borderWidth: 1, borderColor: `${colors.bone}35`, alignItems: "center", justifyContent: "center" },
+    sectionTabOn: { backgroundColor: colors.success, borderColor: colors.success },
+    sectionTabText: { color: colors.bone, fontSize: 13, fontWeight: "800" },
+    sectionTabTextOn: { color: colors.successInk },
+    sectionTitle: { color: colors.bone, fontSize: 19, fontWeight: "800" },
+    sectionCopy: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 5, marginBottom: 14 },
+    statusOptions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 },
+    statusOption: { minHeight: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, borderColor: `${colors.bone}35`, alignItems: "center", justifyContent: "center" },
+    statusOptionOn: { backgroundColor: colors.success, borderColor: colors.success },
+    statusOptionText: { color: colors.bone, fontSize: 13, fontWeight: "700" },
+    statusOptionTextOn: { color: colors.successInk },
+    statusCard: { flexDirection: "row", alignItems: "center", padding: 12, marginTop: 10, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}18` },
+    statusAction: { paddingHorizontal: 10, paddingVertical: 8, borderRadius: 16, backgroundColor: `${colors.success}22` },
+    statusActionText: { color: colors.success, fontSize: 12, fontWeight: "800" },
+    endAction: { paddingHorizontal: 8, paddingVertical: 8 },
+    endActionText: { color: colors.danger, fontSize: 12, fontWeight: "800" },
+    endedText: { color: colors.muted, fontSize: 12, fontWeight: "700" },
     muted: { color: colors.muted, fontSize: 13, marginBottom: 12 },
     listing: { flexDirection: "row", alignItems: "center", gap: 12, padding: 10, marginBottom: 10, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: "transparent" },
     listingOn: { borderColor: colors.success },
