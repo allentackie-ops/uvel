@@ -2396,7 +2396,7 @@ exports.saveListingPromotion = onCall(async (req) => {
   const listingCodeMatches = (await db.collection("listingPromotions").get()).docs.some((snap) => snap.id !== String(input.promotionId || "") && String(snap.data()?.code || "").toUpperCase() === code);
   const brandCodeMatches = (await db.collection("brandPromotions").get()).docs.some((snap) => String(snap.data()?.code || "").toUpperCase() === code);
   if (listingCodeMatches || brandCodeMatches) throw new HttpsError("already-exists", "This promo code has been used.");
-  const current = existingSnap.docs.find((snap) => snap.id === String(input.promotionId || "")) || existingSnap.docs.find((snap) => snap.data()?.ownerId === req.auth.uid && snap.data()?.status !== "ended") || null;
+  const current = existingSnap.docs.find((snap) => snap.id === String(input.promotionId || "") && snap.data()?.status !== "ended" && (!snap.data()?.endAt || timestampMillis(snap.data()?.endAt) >= Date.now())) || existingSnap.docs.find((snap) => snap.data()?.ownerId === req.auth.uid && snap.data()?.status !== "ended" && (!snap.data()?.endAt || timestampMillis(snap.data()?.endAt) >= Date.now())) || null;
   const id = current?.id || `listing-promo-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}`;
   const endAt = Date.now() + expiresInDays * 24 * 60 * 60 * 1000;
   const record = { id, listingId, ownerId, code, kind: "percentage", value: Math.round(value * 100) / 100, status: "live", endAt, usageCount: Number(current?.data()?.usageCount || 0), createdAt: current?.data()?.createdAt || admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() };
@@ -2419,7 +2419,7 @@ exports.updateListingPromotionStatus = onCall(async (req) => {
   const snap = await ref.get();
   const promotion = snap.data() || {};
   if (!snap.exists || String(promotion.ownerId || "") !== req.auth.uid) throw new HttpsError("permission-denied", "You can only manage your own promo codes.");
-  if (promotion.status === "ended" && status !== "ended") throw new HttpsError("failed-precondition", "This promo code has ended and cannot be reactivated.");
+  if ((promotion.status === "ended" || (promotion.endAt && timestampMillis(promotion.endAt) < Date.now())) && status !== "ended") throw new HttpsError("failed-precondition", "This promo code has ended and cannot be reactivated.");
   await ref.set({ status, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
   return { id: snap.id, ...promotion, status, updatedAt: Date.now() };
 });
