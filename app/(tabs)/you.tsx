@@ -347,7 +347,7 @@ function ActiveListingsSummary({ listed, styles }: { listed: ClosetPiece[]; styl
         <Text style={styles.listingsSummaryTitle}>{listed.length} live {listed.length === 1 ? "listing" : "listings"}</Text>
         <Text style={styles.listingsSummaryHint}>Keep your storefront tidy while you manage the full rack.</Text>
         <Pressable
-          onPress={() => router.navigate("/closet")}
+          onPress={() => router.push("/active-listings")}
           style={styles.manageListings}
           accessibilityRole="button"
           accessibilityLabel={`Manage all ${listed.length} active listings`}
@@ -885,8 +885,8 @@ function make(colors: Colors) {
     tabLine: { position: "absolute", bottom: 0, height: 2, left: 8, right: 8, backgroundColor: colors.bone, borderRadius: 1 },
     activeRow: { marginTop: 18, marginBottom: 8 },
     active: { color: colors.bone, fontSize: 16, fontWeight: "700", marginTop: 16, marginBottom: 8 },
-    listingsSummary: { marginTop: 8, padding: 12, borderRadius: 20, backgroundColor: colors.surface, flexDirection: "row", gap: 14 },
-    listingsThumbGrid: { width: 116, flexDirection: "row", flexWrap: "wrap", gap: 4, alignContent: "flex-start" },
+    listingsSummary: { marginTop: 8, padding: 10, borderRadius: 20, backgroundColor: colors.surface, flexDirection: "row", gap: 10 },
+    listingsThumbGrid: { width: 112, flexDirection: "row", flexWrap: "wrap", gap: 4, alignContent: "flex-start" },
     listingsThumbButton: { width: 54, height: 68, borderRadius: 10, overflow: "hidden", backgroundColor: colors.ink },
     listingsThumb: { width: "100%", height: "100%" },
     listingsMoreThumb: { width: 54, height: 68, borderRadius: 10, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center" },
@@ -898,7 +898,7 @@ function make(colors: Colors) {
     listingsSummaryHint: { color: `${colors.bone}80`, fontSize: 12, lineHeight: 17, marginTop: 4 },
     manageListings: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 5, marginTop: 10, paddingVertical: 3 },
     manageListingsText: { color: colors.success, fontSize: 13, fontWeight: "800" },
-    manageListingsArrow: { color: colors.success, fontSize: 21, lineHeight: 18, marginTop: -2 },
+    manageListingsArrow: { color: colors.success, fontSize: 20, lineHeight: 18 },
     listingsToggle: { marginTop: 14, minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: `${colors.bone}2E`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     listingsToggleTxt: { color: colors.bone, fontSize: 14, fontWeight: "700" },
     listingsToggleArrow: { color: `${colors.bone}A8`, fontSize: 18, lineHeight: 18, marginTop: -3 },

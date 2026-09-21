@@ -259,6 +259,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="active-listings"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="about"
             options={{
               headerTitle: "About Uvel",
