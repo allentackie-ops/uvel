@@ -402,7 +402,7 @@ const en: Copy = {
   reportIssue: "Report app issue",
   about: "About Uvel",
   todayPersonalization: "Today personalization",
-  todayPersonalizationHint: "Shape your edit with activity controls",
+  todayPersonalizationHint: "Shape your today feed with activity controls",
   uvelMember: "Uvel member",
   signedInWith: "Signed in with",
   searchListed: "Search what’s listed",
