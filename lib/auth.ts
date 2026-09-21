@@ -8,7 +8,6 @@ import {
   User,
   UserCredential,
   createUserWithEmailAndPassword,
-  deleteUser,
   fetchSignInMethodsForEmail,
   getAdditionalUserInfo,
   onAuthStateChanged,
@@ -18,7 +17,7 @@ import {
   signOut as fbSignOut,
   updateProfile,
 } from "firebase/auth";
-import { deleteDoc, doc, getDoc, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firebaseAuth, firebaseDb, firebaseExtra, firebaseFunctions, firebaseReady } from "./firebase";
 import type { AuthVia } from "./sessionPath";
@@ -96,6 +95,7 @@ function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
 
 async function afterAuth(cred: UserCredential, provider: string, _mode: AuthVia) {
   const returning = await isReturningUser(cred);
+  await restoreDeactivatedAccount();
   void remember(cred.user, provider);
   return session(cred.user, returning ? "login" : "signup");
 }
@@ -267,6 +267,7 @@ export async function signInEmail(email: string, password: string) {
   needFirebase();
   try {
     const cred = await signInWithEmailAndPassword(firebaseAuth(), email.trim(), password);
+    await restoreDeactivatedAccount();
     void remember(cred.user, "email");
     return session(cred.user, "login");
   } catch (err) {
@@ -295,27 +296,20 @@ export async function deleteAccount() {
   try {
     const call = httpsCallable(firebaseFunctions(), "deleteAccount");
     await call();
+    await fbSignOut(firebaseAuth());
     return;
   } catch (err) {
-    const code = typeof err === "object" && err && "code" in err ? String((err as { code: string }).code) : "";
-    const missing =
-      code.includes("not-found") ||
-      code.includes("unimplemented") ||
-      code.includes("functions/not-found") ||
-      /not found|does not exist|not been deployed/i.test(err instanceof Error ? err.message : String(err));
-    if (!missing) {
-      // Function ran or rejected for a real reason — still try client cleanup.
-      if (code.includes("unauthenticated")) throw new Error("Sign in first.");
-    }
+    if (isMissingFunction(err)) throw new Error("Account deletion is temporarily unavailable. Try again in a moment.");
+    throw new Error(nice(err));
   }
+}
+
+async function restoreDeactivatedAccount() {
   try {
-    await deleteDoc(doc(firebaseDb(), "users", user.uid));
-  } catch {
-    /* rules or already gone */
-  }
-  try {
-    await deleteUser(user);
+    const call = httpsCallable(firebaseFunctions(), "restoreAccount");
+    await call();
   } catch (err) {
+    if (isMissingFunction(err)) return;
     throw new Error(nice(err));
   }
 }
@@ -496,6 +490,7 @@ export async function signInFacebook() {
   if (!token) throw new Error("Facebook didn’t return a sign-in token.");
   try {
     const cred = await signInWithCredential(firebaseAuth(), FacebookAuthProvider.credential(token));
+    await restoreDeactivatedAccount();
     void remember(cred.user, "facebook");
     return session(cred.user, "login");
   } catch (err) {

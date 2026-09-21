@@ -9,7 +9,7 @@ export type LegalDoc = {
 
 export const privacy: LegalDoc = {
   title: "Privacy Policy",
-  updated: "22 August 2026",
+  updated: "21 September 2026",
   sections: [
     {
       heading: "Who we are",
@@ -50,7 +50,14 @@ export const privacy: LegalDoc = {
     {
       heading: "Your rights",
       body: [
-        "You can access, correct, or delete your data from You → Settings → Delete account, or email himforson@gmail.com. We keep data while your account is open and delete it, usually within 30 days, after you ask.",
+        "You can access, correct, or delete your data from You → Settings → Delete account, or email himforson@gmail.com.",
+      ],
+    },
+    {
+      heading: "Account deactivation and deletion",
+      body: [
+        "When you delete your account, it is deactivated immediately and remains deactivated for 30 days. During this period, your account is not visible to other Uvel users, and you can sign in to restore it.",
+        "After 30 days, the account and associated data are permanently deleted and cannot be recovered. Some records may be retained where required by law or needed for fraud, safety, dispute, or accounting purposes.",
       ],
     },
     {

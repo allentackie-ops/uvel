@@ -26,7 +26,7 @@ import { pickAvatar, pickFromLibrary, takeAvatar, takePhoto } from "../lib/photo
 import { shopFloor, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { claimUsername } from "../lib/auth";
 import { isValidUsername, normalizeUsername } from "../lib/username";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
 const BG = "#FFFFFF";
 const INK = "#16140F";
@@ -606,7 +606,7 @@ export default function ProfileSetup() {
           <View style={styles.noticeCard}>
             <Text style={styles.noticeTitle}>Account deactivated</Text>
             <Text style={styles.noticeBody}>
-              If you delete your account, it will be deactivated immediately.{"\n\n"}Deactivated accounts are only visible to Team Uvel before they are permanently deleted. The deletion takes place within the time frames indicated in Uvel’s Privacy Policy.
+              If you delete your account, it will be deactivated immediately and remain deactivated for 30 days.{"\n\n"}Deactivated accounts are only visible to Team Uvel during this window. You can come back to restore your account within 30 days. After that, it will be permanently deleted and cannot be recovered. Read the <Text onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "privacy" } })} style={styles.noticeLink} accessibilityRole="link">Privacy Policy</Text>.
             </Text>
             <Pressable onPress={() => setShowDeletionNotice(false)} style={styles.noticeButton} accessibilityRole="button" accessibilityLabel="Continue to sign up">
               <Text style={styles.noticeButtonText}>Continue</Text>
@@ -624,6 +624,7 @@ const styles = StyleSheet.create({
   noticeCard: { width: "100%", maxWidth: 360, borderRadius: 24, backgroundColor: "#fff", padding: 24 },
   noticeTitle: { color: INK, fontSize: 22, fontWeight: "800" },
   noticeBody: { color: INK, fontSize: 15, lineHeight: 22, marginTop: 14 },
+  noticeLink: { color: OLIVE, textDecorationLine: "underline", fontWeight: "700" },
   noticeButton: { height: 50, borderRadius: 25, backgroundColor: LIME, alignItems: "center", justifyContent: "center", marginTop: 22 },
   noticeButtonText: { color: INK, fontSize: 16, fontWeight: "700" },
   head: {

@@ -18,6 +18,7 @@ const { notifyUid } = require("./notify");
 
 const PAYSTACK = new Set(["GH", "NG", "KE", "ZA"]);
 const RESERVATION_MINUTES = 30;
+const ACCOUNT_DELETION_MS = 30 * 24 * 60 * 60 * 1000;
 
 function timestampMillis(value) {
   if (typeof value === "number") return value;
@@ -1397,13 +1398,132 @@ exports.reviewFounderBrand = onCall({ secrets: [anthropicSecret], timeoutSeconds
   return review;
 });
 
+async function accountListingRefs(uid) {
+  const db = admin.firestore();
+  const [ownerSnap, listedBySnap] = await Promise.all([
+    db.collection("listings").where("ownerId", "==", uid).get(),
+    db.collection("listings").where("listedByUid", "==", uid).get(),
+  ]);
+  const refs = new Map();
+  for (const snap of [ownerSnap, listedBySnap]) {
+    snap.docs.forEach((item) => refs.set(item.id, item.ref));
+  }
+  return [...refs.values()];
+}
+
+async function archiveAccountListings(uid, deletionAt) {
+  const db = admin.firestore();
+  const refs = await accountListingRefs(uid);
+  for (let start = 0; start < refs.length; start += 450) {
+    const batch = db.batch();
+    for (const ref of refs.slice(start, start + 450)) {
+      const snap = await ref.get();
+      if (!snap.exists) continue;
+      const listing = snap.data() || {};
+      if (["listed", "owned", "draft", "review_pending", "rejected"].includes(listing.status)) {
+        batch.set(ref, {
+          status: "archived",
+          deletionPreviousStatus: listing.status,
+          deletionRequestedAt: deletionAt,
+        }, { merge: true });
+      }
+    }
+    await batch.commit();
+  }
+}
+
+async function restoreAccountListings(uid) {
+  const db = admin.firestore();
+  const refs = await accountListingRefs(uid);
+  for (let start = 0; start < refs.length; start += 450) {
+    const batch = db.batch();
+    for (const ref of refs.slice(start, start + 450)) {
+      const snap = await ref.get();
+      if (!snap.exists) continue;
+      const listing = snap.data() || {};
+      if (listing.status === "archived" && typeof listing.deletionPreviousStatus === "string") {
+        batch.set(ref, {
+          status: listing.deletionPreviousStatus,
+          deletionPreviousStatus: admin.firestore.FieldValue.delete(),
+          deletionRequestedAt: admin.firestore.FieldValue.delete(),
+        }, { merge: true });
+      }
+    }
+    await batch.commit();
+  }
+}
+
+async function purgeAccount(uid) {
+  const db = admin.firestore();
+  const listingRefs = await accountListingRefs(uid);
+  const usernameSnap = await db.collection("usernames").where("uid", "==", uid).get();
+  const refs = [
+    ...listingRefs,
+    ...usernameSnap.docs.map((item) => item.ref),
+    db.collection("users").doc(uid),
+  ];
+  while (refs.length) {
+    const batch = db.batch();
+    refs.splice(0, 450).forEach((ref) => batch.delete(ref));
+    await batch.commit();
+  }
+  await admin.auth().deleteUser(uid).catch((error) => {
+    if (error?.code !== "auth/user-not-found") throw error;
+  });
+}
+
 exports.deleteAccount = onCall(async (req) => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
   const uid = req.auth.uid;
   const db = admin.firestore();
-  await db.collection("users").doc(uid).delete().catch(() => undefined);
-  await admin.auth().deleteUser(uid);
-  return { ok: true };
+  const userRef = db.collection("users").doc(uid);
+  const userSnap = await userRef.get();
+  const user = userSnap.exists ? userSnap.data() || {} : {};
+  if (user.deletionStatus === "deactivated" && timestampMillis(user.deletionScheduledFor) > Date.now()) {
+    return { ok: true, status: "deactivated", scheduledFor: timestampMillis(user.deletionScheduledFor) };
+  }
+  const requestedAt = admin.firestore.Timestamp.now();
+  const scheduledFor = admin.firestore.Timestamp.fromMillis(Date.now() + ACCOUNT_DELETION_MS);
+  await userRef.set({
+    deletionStatus: "deactivated",
+    deletionRequestedAt: requestedAt,
+    deletionScheduledFor: scheduledFor,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+  await archiveAccountListings(uid, requestedAt);
+  return { ok: true, status: "deactivated", scheduledFor: scheduledFor.toMillis() };
+});
+
+exports.restoreAccount = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
+  const uid = req.auth.uid;
+  const db = admin.firestore();
+  const userRef = db.collection("users").doc(uid);
+  const userSnap = await userRef.get();
+  const user = userSnap.exists ? userSnap.data() || {} : {};
+  if (user.deletionStatus !== "deactivated") return { ok: true, status: "active" };
+  const deadline = timestampMillis(user.deletionScheduledFor);
+  if (!deadline || deadline <= Date.now()) {
+    await purgeAccount(uid);
+    throw new HttpsError("failed-precondition", "This account was permanently deleted after 30 days.");
+  }
+  await restoreAccountListings(uid);
+  await userRef.set({
+    deletionStatus: "active",
+    deletionRequestedAt: admin.firestore.FieldValue.delete(),
+    deletionScheduledFor: admin.firestore.FieldValue.delete(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+  return { ok: true, status: "active" };
+});
+
+exports.purgeDeactivatedAccounts = onSchedule("every 60 minutes", async () => {
+  const db = admin.firestore();
+  const snapshot = await db.collection("users").where("deletionStatus", "==", "deactivated").limit(100).get();
+  const now = Date.now();
+  await Promise.all(snapshot.docs
+    .filter((item) => timestampMillis(item.data()?.deletionScheduledFor) > 0 && timestampMillis(item.data()?.deletionScheduledFor) <= now)
+    .map((item) => purgeAccount(item.id).catch(() => undefined)));
 });
 
 exports.expireInventoryReservations = onSchedule("every 15 minutes", async () => {
