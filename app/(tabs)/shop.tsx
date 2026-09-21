@@ -33,7 +33,8 @@ import { useFirstFind } from "../../lib/firstFind";
 import { getMarket, moneyExact } from "../../lib/markets";
 
 const MIN_REFRESH_MS = 1200;
-const ORBIT_SLOT = 96;
+// Keep only a compact slot for the 58px orbit loader while refreshing.
+const ORBIT_SLOT = 64;
 // Bump this key to re-arm the hand gesture once for the current OTA test build.
 const TODAY_SWIPE_HINT_KEY = "uvel-today-swipe-hint-seen-v5";
 const TODAY_SWIPE_HINT_MS = 10000;
