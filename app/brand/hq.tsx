@@ -52,6 +52,7 @@ import { semanticStatus, semanticLabel, statusToneFor } from "../../lib/status";
 import { saveBrandCampaign, saveBrandCollection, saveBrandPromotion, useMarketing, type BrandCampaign, type BrandCollection, type BrandPromotion, type MarketingState, type MarketingStatus } from "../../lib/marketing";
 import { alertKindLabel, enableAlert, setAlertPreference, useAlertCenter, type AlertKind } from "../../lib/alerts";
 import { latestFounderDraft, refreshFounderProjects, simpleStageOf, useFounderProjects, type FounderProject } from "../../lib/founder";
+import BrandPromoCodes from "../../components/BrandPromoCodes";
 
 type Section = "overview" | "make" | "catalog" | "orders" | "finance" | "more" | "marketing" | "promoCodes" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
 
@@ -238,7 +239,7 @@ export default function BrandHQ() {
         ) : section === "marketing" ? (
           <MarketingSection brand={activeBrand} pieces={catalog} state={marketing} viewer={canViewMarketing(activeBrand, app.uid)} manager={canManageMarketing(activeBrand, app.uid)} theme={theme} colors={colors} styles={styles} onFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
         ) : section === "promoCodes" ? (
-          <MarketingSection brand={activeBrand} pieces={catalog} state={marketing} viewer={canViewMarketing(activeBrand, app.uid)} manager={canManageMarketing(activeBrand, app.uid)} theme={theme} colors={colors} styles={styles} initialTab="promotions" onFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
+          <BrandPromoCodes brand={activeBrand} state={marketing} viewer={canViewMarketing(activeBrand, app.uid)} manager={canManageMarketing(activeBrand, app.uid)} />
         ) : section === "growth" ? (
           <GrowthToolsSection brand={activeBrand} orders={brandOrders} pieces={catalog} marketing={marketing} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />
         ) : section === "analytics" ? (
