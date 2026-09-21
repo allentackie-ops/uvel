@@ -144,14 +144,19 @@ export default function FounderStagePage() {
           </View>
         </View>
         {mine && brandApproved(mine) ? (
-          <Pressable
-            onPress={() => router.push({ pathname: "/brand/hq", params: { id: mine.id } })}
-            style={[local.live, { borderColor: palette.success }]}
-          >
+          <View style={[local.live, { borderColor: palette.success }]}>
             <Text style={[local.liveKicker, { color: palette.success }]}>YOUR BRAND IS ON UVEL</Text>
             <Text style={[styles.cardTitle, { color: colors.ink }]}>{mine.name}</Text>
             <Text style={[styles.cardBody, { color: colors.muted, marginBottom: 0 }]}>Shop, orders, inventory, and money live in Brand HQ.</Text>
-          </Pressable>
+            <Pressable
+              onPress={() => router.push({ pathname: "/brand/hq", params: { id: mine.id, section: "marketing" } })}
+              style={[local.liveAction, { borderColor: palette.success }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Open promo codes for ${mine.name}`}
+            >
+              <Text style={[local.liveActionText, { color: palette.success }]}>Open promo codes</Text>
+            </Pressable>
+          </View>
         ) : null}
         <View style={local.hero}>
           <Text style={[styles.kicker, { color: colors.accent }]}>{title.kicker}</Text>
@@ -201,4 +206,6 @@ const local = StyleSheet.create({
   live: { marginHorizontal: 20, marginTop: 12, borderWidth: 1, borderRadius: 18, padding: 16 },
   liveKicker: { fontSize: 11, fontWeight: "800", letterSpacing: 1.4, marginBottom: 6 },
   ghost: { height: 50, borderRadius: 25, borderWidth: 1, alignItems: "center", justifyContent: "center", marginTop: 14 },
+  liveAction: { alignSelf: "flex-start", borderWidth: 1, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9, marginTop: 12 },
+  liveActionText: { fontSize: 13, fontWeight: "800" },
 });

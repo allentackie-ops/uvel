@@ -20,7 +20,7 @@ type SaveListingPromotionInput = {
   listingId: string;
   code: string;
   value: number;
-  expiresInDays: 1 | 3 | 7 | 30 | 365;
+  expiresInDays: 1 | 3 | 30 | 365;
 };
 
 export async function saveListingPromotion(input: SaveListingPromotionInput): Promise<ListingPromotion> {

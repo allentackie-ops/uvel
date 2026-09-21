@@ -12,11 +12,10 @@ import { listListingPromotions, saveListingPromotion, type ListingPromotion } fr
 
 const SUGGESTIONS = [10, 20, 30];
 const EXPIRY_OPTIONS = [
-  { days: 1 as const, label: "Within 1 day" },
-  { days: 3 as const, label: "Within 3 days" },
-  { days: 7 as const, label: "Within a week" },
-  { days: 30 as const, label: "Within a month" },
-  { days: 365 as const, label: "Within a year" },
+  { days: 1 as const, label: "1 day" },
+  { days: 3 as const, label: "3 days" },
+  { days: 30 as const, label: "1 month" },
+  { days: 365 as const, label: "1 year" },
 ];
 
 export default function PromoCodes() {
@@ -29,7 +28,7 @@ export default function PromoCodes() {
   const [selectedId, setSelectedId] = useState("");
   const [code, setCode] = useState("");
   const [percentage, setPercentage] = useState("");
-  const [expiryDays, setExpiryDays] = useState<1 | 3 | 7 | 30 | 365>(7);
+  const [expiryDays, setExpiryDays] = useState<1 | 3 | 30 | 365>(1);
   const [promotions, setPromotions] = useState<ListingPromotion[]>([]);
   const [busy, setBusy] = useState(false);
   const [loadingPromotions, setLoadingPromotions] = useState(false);
@@ -59,8 +58,8 @@ export default function PromoCodes() {
     const existing = promotions.find((promotion) => promotion.listingId === piece.id && promotion.status === "live");
     setCode(existing?.code || "");
     setPercentage(existing ? String(existing.value) : "");
-    const remainingDays = existing?.endAt ? Math.max(1, Math.round((existing.endAt - Date.now()) / 86400000)) : 7;
-    setExpiryDays((EXPIRY_OPTIONS.reduce((closest, option) => Math.abs(option.days - remainingDays) < Math.abs(closest.days - remainingDays) ? option : closest, EXPIRY_OPTIONS[2])).days);
+    const remainingDays = existing?.endAt ? Math.max(1, Math.round((existing.endAt - Date.now()) / 86400000)) : 1;
+    setExpiryDays((EXPIRY_OPTIONS.reduce((closest, option) => Math.abs(option.days - remainingDays) < Math.abs(closest.days - remainingDays) ? option : closest, EXPIRY_OPTIONS[0])).days);
   }
 
   function suggestCode() {

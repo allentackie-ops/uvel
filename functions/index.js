@@ -2368,7 +2368,7 @@ exports.saveListingPromotion = onCall(async (req) => {
   const value = Number(input.value);
   const expiresInDays = Number(input.expiresInDays);
   if (!listingId || code.length < 3 || !Number.isFinite(value) || value <= 0 || value > 70) throw new HttpsError("invalid-argument", "Promo codes max out at 70%.");
-  if (![1, 3, 7, 30, 365].includes(expiresInDays)) throw new HttpsError("invalid-argument", "Choose a valid promo expiry.");
+  if (![1, 3, 30, 365].includes(expiresInDays)) throw new HttpsError("invalid-argument", "Choose a valid promo expiry.");
   const db = admin.firestore();
   const listingSnap = await db.collection("listings").doc(listingId).get();
   const listing = listingSnap.data() || {};

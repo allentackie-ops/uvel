@@ -186,6 +186,10 @@ export default function BrandPage() {
         router.push({ pathname: "/brand/colors", params: { id: activeBrand.id } });
         return;
       }
+      if (label === "Promo codes") {
+        router.push({ pathname: "/brand/hq", params: { id: activeBrand.id, section: "marketing" } });
+        return;
+      }
       if (label === "Brand HQ") router.push({ pathname: "/brand/hq", params: { id: activeBrand.id } });
       if (label === "Invite team") router.push({ pathname: "/brand/invite", params: { id: activeBrand.id } });
       if (label === "Analytics") router.push({ pathname: "/brand/analytics", params: { id: activeBrand.id } });
@@ -324,6 +328,16 @@ export default function BrandPage() {
                 accessibilityLabel={`Dress ${brand.name}`}
               >
                 <Text style={[styles.ghostTxt, { color: theme.ink }]}>Dress this page</Text>
+              </AccessiblePressable>
+            ) : null}
+            {owner ? (
+              <AccessiblePressable
+                onPress={() => router.push({ pathname: "/brand/hq", params: { id: brand.id, section: "marketing" } })}
+                style={({ pressed }) => [styles.ghost, { borderColor: theme.lineColor }, pressed && { opacity: 0.92 }]}
+                accessibilityRole="button"
+                accessibilityLabel={`Manage promo codes for ${brand.name}`}
+              >
+                <Text style={[styles.ghostTxt, { color: theme.ink }]}>Promo codes</Text>
               </AccessiblePressable>
             ) : null}
             {poster ? (

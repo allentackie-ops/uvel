@@ -97,7 +97,7 @@ const ROLE_OPTIONS: Array<Exclude<MemberRole, "owner">> = [
 ];
 
 export default function BrandHQ() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, section: requestedSection } = useLocalSearchParams<{ id: string; section?: string }>();
   useBrands();
   const brandsReady = useBrandsHydrated();
   const app = useUvel();
@@ -113,7 +113,7 @@ export default function BrandHQ() {
   const brand = getBrand(id);
   const theme: HQTheme = brand ? themeFor(brand) : { bg: colors.ink, ink: colors.bone, muted: colors.muted, card: colors.surface, accent: colors.pulse, accentInk: colors.ink, lineColor: colors.subtle };
   const styles = useMemo(() => make(theme), [theme]);
-  const [section, setSection] = useState<Section>("overview");
+  const [section, setSection] = useState<Section>(requestedSection === "marketing" ? "marketing" : "overview");
   const hqScroller = useRef<ScrollView>(null);
 
   useFocusEffect(useCallback(() => {
