@@ -267,6 +267,22 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="privacy-settings"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
+            name="manage-account-data"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="about"
             options={{
               headerTitle: "About Uvel",

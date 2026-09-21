@@ -65,6 +65,12 @@ export default function Settings() {
           colors={colors}
         />
         <Row
+          label="Privacy settings"
+          hint="Control personalization, notifications, and data"
+          onPress={() => router.push("/privacy-settings")}
+          colors={colors}
+        />
+        <Row
           label={C.todayPersonalization}
           hint={C.todayPersonalizationHint}
           onPress={() => router.push("/personalization")}
