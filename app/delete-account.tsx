@@ -28,9 +28,10 @@ export default function DeleteAccount() {
   const inputRef = useRef<TextInput>(null);
   const [selected, setSelected] = useState<Reason | null>(null);
   const [customReason, setCustomReason] = useState("");
+  const [ordersConfirmed, setOrdersConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const customSelected = selected === "My reason isn’t listed";
-  const canDelete = Boolean(selected && (!customSelected || customReason.trim()));
+  const canDelete = Boolean(selected && (!customSelected || customReason.trim()) && ordersConfirmed);
 
   function choose(reason: Reason) {
     setSelected(reason);
@@ -114,6 +115,17 @@ export default function DeleteAccount() {
             );
           })}
         </View>
+        <Pressable
+          onPress={() => setOrdersConfirmed((current) => !current)}
+          style={styles.confirmRow}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: ordersConfirmed }}
+        >
+          <View style={[styles.checkbox, ordersConfirmed && styles.checkboxOn]}>
+            {ordersConfirmed ? <Ionicons name="checkmark" size={20} color={colors.ink} /> : null}
+          </View>
+          <Text style={styles.confirmText}>I confirm that all my orders are complete.</Text>
+        </Pressable>
       </ScrollView>
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <Pressable
@@ -149,6 +161,10 @@ function make(colors: Colors) {
     optionText: { flex: 1, color: colors.bone, fontSize: 16, lineHeight: 22 },
     customBox: { marginLeft: 48, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}55` },
     customInput: { minHeight: 84, borderRadius: 14, backgroundColor: colors.surface, color: colors.bone, fontSize: 16, lineHeight: 22, paddingHorizontal: 14, paddingVertical: 12 },
+    confirmRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 26, paddingVertical: 8 },
+    checkbox: { width: 26, height: 26, borderRadius: 6, borderWidth: 2, borderColor: colors.bone, alignItems: "center", justifyContent: "center" },
+    checkboxOn: { backgroundColor: colors.success, borderColor: colors.success },
+    confirmText: { flex: 1, color: colors.bone, fontSize: 15, lineHeight: 21 },
     footer: { paddingHorizontal: 20, paddingTop: 12, backgroundColor: colors.ink },
     deleteButton: { minHeight: 54, borderRadius: 28, backgroundColor: colors.danger, alignItems: "center", justifyContent: "center" },
     deleteButtonDisabled: { backgroundColor: `${colors.bone}55` },
