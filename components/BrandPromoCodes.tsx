@@ -4,6 +4,7 @@ import { saveBrandPromotion, type BrandPromotion, type MarketingState, type Mark
 import type { Brand } from "../lib/brands";
 import { getMarket } from "../lib/markets";
 import type { BrandTheme } from "../lib/brandThemes";
+import type { ClosetPiece } from "../lib/wardrobe";
 
 type BrandPalette = Pick<BrandTheme, "bg" | "ink" | "muted" | "card" | "accent" | "accentInk" | "lineColor">;
 
@@ -22,19 +23,25 @@ const STATUS_OPTIONS: Array<{ value: MarketingStatus; label: string }> = [
   { value: "paused", label: "Paused" },
   { value: "ended", label: "Ended" },
 ];
+type PromoView = "promotion" | "status";
+type StatusFilter = "draft" | "live" | "paused" | "ended";
 
-export function BrandPromoCodes({ brand, theme, state, viewer, manager }: { brand: Brand; theme: BrandPalette; state: MarketingState; viewer: boolean; manager: boolean }) {
+export function BrandPromoCodes({ brand, theme, state, pieces, viewer, manager }: { brand: Brand; theme: BrandPalette; state: MarketingState; pieces: ClosetPiece[]; viewer: boolean; manager: boolean }) {
   const styles = useMemo(() => make(theme), [theme]);
   const [selectedId, setSelectedId] = useState("");
   const [code, setCode] = useState("");
   const [percentage, setPercentage] = useState("");
   const [expiryDays, setExpiryDays] = useState<ExpiryDays>(1);
   const [status, setStatus] = useState<MarketingStatus>("draft");
+  const [view, setView] = useState<PromoView>("promotion");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("live");
   const [busy, setBusy] = useState(false);
   const promotions = state.promotions;
   const selected = promotions.find((promotion) => promotion.id === selectedId);
   const numericPercentage = Number(percentage);
   const percentageValid = Number.isFinite(numericPercentage) && numericPercentage > 0 && numericPercentage <= 70;
+  const brandListings = pieces.filter((piece) => piece.brandId === brand.id);
+  const statusPromotions = promotions.filter((promotion) => (promotion.status === "scheduled" ? "live" : promotion.status) === statusFilter);
 
   function selectPromotion(promotion: BrandPromotion) {
     setSelectedId(promotion.id);
@@ -87,6 +94,12 @@ export function BrandPromoCodes({ brand, theme, state, viewer, manager }: { bran
     }
   }
 
+  function listingSummary() {
+    if (!brandListings.length) return "No listings yet";
+    if (brandListings.length === 1) return brandListings[0].name;
+    return `${brandListings[0].name} + ${brandListings.length - 1} more listings`;
+  }
+
   if (!viewer) {
     return <View style={styles.empty}><Text style={styles.emptyTitle}>Promo codes</Text><Text style={styles.emptyText}>Promo codes are restricted to the brand team.</Text></View>;
   }
@@ -95,7 +108,26 @@ export function BrandPromoCodes({ brand, theme, state, viewer, manager }: { bran
     <View style={styles.page}>
       <Text style={styles.title}>Promo codes</Text>
       <Text style={styles.intro}>Create a discount code for your brand.</Text>
-      {promotions.map((promotion) => {
+      <View style={styles.sectionTabs}>
+        <Pressable onPress={() => setView("promotion")} style={[styles.sectionTab, view === "promotion" && styles.sectionTabOn]} accessibilityRole="tab" accessibilityState={{ selected: view === "promotion" }}><Text style={[styles.sectionTabText, view === "promotion" && styles.sectionTabTextOn]}>Promotion</Text></Pressable>
+        <Pressable onPress={() => setView("status")} style={[styles.sectionTab, view === "status" && styles.sectionTabOn]} accessibilityRole="tab" accessibilityState={{ selected: view === "status" }}><Text style={[styles.sectionTabText, view === "status" && styles.sectionTabTextOn]}>Status</Text></Pressable>
+      </View>
+      {view === "status" ? (
+        <View style={styles.statusSection}>
+          <Text style={styles.sectionTitle}>Promo status</Text>
+          <Text style={styles.sectionCopy}>Browse your brand promo codes by their current status and see the listings they apply to.</Text>
+          <View style={styles.chips}>
+            {STATUS_OPTIONS.map((option) => <Pressable key={option.value} onPress={() => setStatusFilter(option.value as StatusFilter)} style={[styles.chip, statusFilter === option.value && styles.chipOn]} accessibilityRole="button"><Text style={[styles.chipText, statusFilter === option.value && styles.chipTextOn]}>{option.label}</Text></Pressable>)}
+          </View>
+          {statusPromotions.length ? statusPromotions.map((promotion) => (
+            <View key={promotion.id} style={styles.statusCard}>
+              <View style={styles.promotionCopy}><Text style={styles.promotionCode}>{promotion.code}</Text><Text style={styles.promotionMeta}>{promotion.value}% off · {promotion.status === "scheduled" ? "live" : promotion.status}</Text><Text style={styles.listingMeta}>{listingSummary()}</Text></View>
+              <Text style={styles.chev}>›</Text>
+            </View>
+          )) : <Text style={styles.muted}>No {statusFilter} promo codes yet.</Text>}
+        </View>
+      ) : null}
+      {view === "promotion" ? promotions.map((promotion) => {
         const active = selectedId === promotion.id;
         return (
           <Pressable key={promotion.id} onPress={() => selectPromotion(promotion)} style={[styles.promotion, active && styles.promotionOn]} accessibilityRole="radio" accessibilityState={{ selected: active }}>
@@ -106,8 +138,8 @@ export function BrandPromoCodes({ brand, theme, state, viewer, manager }: { bran
             <Text style={styles.chev}>{active ? "✓" : "›"}</Text>
           </Pressable>
         );
-      })}
-      {manager ? (
+      }) : null}
+      {view === "promotion" && manager ? (
         <View style={styles.editor}>
           <View style={styles.editorHead}>
             <Text style={styles.editorTitle}>{selected ? "Update promo code" : "Create promo code"}</Text>
@@ -123,13 +155,9 @@ export function BrandPromoCodes({ brand, theme, state, viewer, manager }: { bran
           <View style={styles.chips}>
             {EXPIRY_OPTIONS.map((option) => <Pressable key={option.days} onPress={() => setExpiryDays(option.days)} style={[styles.chip, expiryDays === option.days && styles.chipOn]} accessibilityRole="button"><Text style={[styles.chipText, expiryDays === option.days && styles.chipTextOn]}>{option.label}</Text></Pressable>)}
           </View>
-          <Text style={styles.label}>Status</Text>
-          <View style={styles.chips}>
-            {STATUS_OPTIONS.map((option) => <Pressable key={option.value} onPress={() => setStatus(option.value)} style={[styles.chip, status === option.value && styles.chipOn]} accessibilityRole="button"><Text style={[styles.chipText, status === option.value && styles.chipTextOn]}>{option.label}</Text></Pressable>)}
-          </View>
           <Pressable onPress={() => void save()} disabled={busy} style={[styles.primary, busy && { opacity: 0.5 }]} accessibilityRole="button"><Text style={styles.primaryText}>{busy ? "Saving…" : selected ? "Save changes" : "Create promo code"}</Text></Pressable>
         </View>
-      ) : <Text style={styles.muted}>You can view promo codes, but only brand managers can create or edit them.</Text>}
+      ) : view === "promotion" ? <Text style={styles.muted}>You can view promo codes, but only brand managers can create or edit them.</Text> : null}
     </View>
   );
 }
@@ -139,11 +167,21 @@ function make(colors: BrandPalette) {
     page: { paddingTop: 4 },
     title: { color: colors.ink, fontSize: 26, fontWeight: "800" },
     intro: { color: colors.muted, fontSize: 14, lineHeight: 20, marginTop: 6, marginBottom: 16 },
+    sectionTabs: { flexDirection: "row", gap: 8, marginBottom: 16 },
+    sectionTab: { minHeight: 38, paddingHorizontal: 16, borderRadius: 19, borderWidth: 1, borderColor: colors.lineColor, alignItems: "center", justifyContent: "center" },
+    sectionTabOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+    sectionTabText: { color: colors.ink, fontSize: 13, fontWeight: "800" },
+    sectionTabTextOn: { color: colors.accentInk },
+    statusSection: { marginTop: 2 },
+    sectionTitle: { color: colors.ink, fontSize: 19, fontWeight: "800" },
+    sectionCopy: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 5, marginBottom: 14 },
     promotion: { flexDirection: "row", alignItems: "center", padding: 14, marginBottom: 10, borderRadius: 16, backgroundColor: colors.card, borderWidth: 1, borderColor: "transparent" },
     promotionOn: { borderColor: colors.accent },
     promotionCopy: { flex: 1 },
     promotionCode: { color: colors.ink, fontSize: 16, fontWeight: "800" },
     promotionMeta: { color: colors.muted, fontSize: 12, marginTop: 5, textTransform: "capitalize" },
+    listingMeta: { color: colors.muted, fontSize: 12, marginTop: 7 },
+    statusCard: { flexDirection: "row", alignItems: "center", padding: 14, marginTop: 10, borderRadius: 16, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.lineColor },
     chev: { color: colors.accent, fontSize: 22, paddingHorizontal: 5 },
     editor: { marginTop: 10, padding: 16, borderRadius: 18, backgroundColor: colors.card },
     editorHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
