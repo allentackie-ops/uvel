@@ -60,9 +60,7 @@ export default function Settings() {
         <>
           <Text style={styles.section}>Selling</Text>
           <View style={styles.group}>
-            <Row label="Promo codes" hint="Create discounts for your listings" onPress={() => router.push("/promo-codes")} colors={colors} last />
-          </View>
-          <View style={styles.group}>
+            <Row label="Promo codes" hint="Create discounts for your listings" onPress={() => router.push("/promo-codes")} colors={colors} />
             <Row label="Selling availability" hint="Pause your normal listings" onPress={() => router.push("/selling-availability")} colors={colors} last />
           </View>
         </>
