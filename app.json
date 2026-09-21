@@ -19,7 +19,9 @@
     "ios": {
       "bundleIdentifier": "com.uvel.dressandshop",
       "supportsTablet": false,
-      "associatedDomains": ["applinks:uvel.app"],
+      "associatedDomains": [
+        "applinks:uvel.app"
+      ],
       "buildNumber": "1",
       "googleServicesFile": "./GoogleService-Info.plist",
       "usesAppleSignIn": true,
@@ -29,7 +31,9 @@
         "NSPhotoLibraryUsageDescription": "Uvel reads photos and screenshots you pick so it can find the clothes and try them on you.",
         "NSMicrophoneUsageDescription": "Video looks from TikTok, Reels, and Snapchat may include sound.",
         "UIUserInterfaceStyle": "Automatic",
-        "UIBackgroundModes": ["remote-notification"],
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
@@ -56,8 +60,17 @@
         {
           "action": "VIEW",
           "autoVerify": true,
-          "category": ["BROWSABLE", "DEFAULT"],
-          "data": [{ "scheme": "https", "host": "uvel.app", "pathPrefix": "/brand/accept-invite" }]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
+          "data": [
+            {
+              "scheme": "https",
+              "host": "uvel.app",
+              "pathPrefix": "/brand/accept-invite"
+            }
+          ]
         }
       ],
       "adaptiveIcon": {
@@ -113,10 +126,13 @@
         {
           "icon": "./assets/icon.png",
           "color": "#2A320E",
-          "sounds": ["./assets/sounds/uvel.wav"]
+          "sounds": [
+            "./assets/sounds/uvel.wav"
+          ]
         }
       ],
-      "expo-tracking-transparency"
+      "expo-tracking-transparency",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true
