@@ -1,0 +1,20 @@
+name: Cancel EAS submission
+
+on:
+  workflow_dispatch:
+    inputs:
+      submission_id:
+        description: EAS submission ID to cancel
+        required: true
+        type: string
+
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Cancel EAS submission
+        run: npx eas-cli submit:cancel "${{ inputs.submission_id }}" --non-interactive
