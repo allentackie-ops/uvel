@@ -22,6 +22,8 @@ Set this GitHub Actions repository secret before the native build or OTA publish
 
 The Stripe platform must have Connect enabled, Uvel's branding configured, the US business profile completed, and a production webhook endpoint pointed at the deployed `stripeWebhook` Firebase function. Subscribe the endpoint to account, payment, transfer, payout, and refund events used by `functions/index.js` and `functions/stripeConnect.js`.
 
+For iOS distribution, the Apple Developer team must have the merchant identifier `merchant.com.uvel.dressandshop` registered and configured for Apple Pay. The CI certificate script now enables **Apple Pay**, associates that merchant identifier, and enables **Associated Domains** on the App ID before generating `Uvel App Store`. Apple requires the merchant identifier and Apple Pay payment-processing setup to exist first; if the identifier does not exist or the Apple Developer API key lacks Account Holder/Admin rights, the certificate step will fail with the Apple API response instead of producing an invalid profile.
+
 ## Buyer UI
 
 `app/checkout/[id].tsx` uses PaymentSheet for US orders. The screen keeps the existing shipping address, delivery, promotion, inventory, and Uvel-wallet checks. After PaymentSheet returns success, the app navigates to the order, but the webhook remains the source of truth for paid state. A missing publishable key produces a clear unavailable state instead of collecting payment through an untrusted fallback.

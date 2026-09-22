@@ -193,27 +193,44 @@ def main() -> None:
     bundle_res_id = bundles["data"][0]["id"]
     print("Bundle id resource", bundle_res_id)
 
-    try:
-        api(
-            "POST",
-            "/bundleIdCapabilities",
-            jwt_token,
-            json={
-                "data": {
-                    "type": "bundleIdCapabilities",
-                    "attributes": {"capabilityType": "PUSH_NOTIFICATIONS"},
-                    "relationships": {
-                        "bundleId": {"data": {"type": "bundleIds", "id": bundle_res_id}}
-                    },
-                }
-            },
-        )
-        print("Enabled Push Notifications on", BUNDLE_ID)
-    except AppleApiError as exc:
-        if exc.status in {409, 422}:
-            print("Push Notifications already on", BUNDLE_ID)
-        else:
-            die("Couldn’t enable Push Notifications", exc.body)
+    def enable_capability(capability_type: str, settings: list[dict] | None = None) -> None:
+        attributes: dict[str, object] = {"capabilityType": capability_type}
+        if settings:
+            attributes["settings"] = settings
+        try:
+            api(
+                "POST",
+                "/bundleIdCapabilities",
+                jwt_token,
+                json={
+                    "data": {
+                        "type": "bundleIdCapabilities",
+                        "attributes": attributes,
+                        "relationships": {
+                            "bundleId": {"data": {"type": "bundleIds", "id": bundle_res_id}}
+                        },
+                    }
+                },
+            )
+            print("Enabled", capability_type, "on", BUNDLE_ID)
+        except AppleApiError as exc:
+            if exc.status == 409:
+                print(capability_type, "already enabled or unchanged on", BUNDLE_ID)
+            else:
+                die(f"Couldn’t enable {capability_type}", exc.body)
+
+    enable_capability("PUSH_NOTIFICATIONS")
+    enable_capability("ASSOCIATED_DOMAINS")
+    merchant_id = os.environ.get("APPLE_PAY_MERCHANT_ID", "merchant.com.uvel.dressandshop").strip()
+    if not merchant_id:
+        die("APPLE_PAY_MERCHANT_ID is required to enable Apple Pay")
+    enable_capability(
+        "APPLE_PAY",
+        [{
+            "key": "APPLE_PAY_MERCHANT_IDENTIFIERS_MULTISELECT",
+            "options": [{"key": merchant_id, "enabled": True}],
+        }],
+    )
 
     existing = api("GET", f"/profiles?filter[name]={requests.utils.quote(PROFILE_NAME)}&limit=20", jwt_token)
     for prof in (existing or {}).get("data", []):
