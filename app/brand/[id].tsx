@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { router, Stack, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActionSheetIOS, Alert, Animated, Dimensions, Modal, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -132,17 +132,6 @@ export default function BrandPage() {
     },
   ].filter((section) => section.items.length > 0);
 
-  const previewScreenOptions = previewMode
-    ? {
-        headerShown: false,
-        presentation: "card" as const,
-        animation: "simple_push" as const,
-        gestureEnabled: true,
-        fullScreenGestureEnabled: false,
-        contentStyle: { backgroundColor: theme.bg },
-      }
-    : undefined;
-
   async function saveAsset(kind: "logo" | "banner", picker: () => Promise<string | null>, bannerKind?: "image" | "video") {
     try {
       const uri = await picker();
@@ -244,7 +233,6 @@ export default function BrandPage() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
-      <Stack.Screen options={previewScreenOptions} />
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 120 }} showsVerticalScrollIndicator={false}>
         <View>
           {owner ? (

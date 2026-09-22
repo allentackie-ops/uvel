@@ -156,6 +156,11 @@ export function TodayListingOverlay({
   const finishClose = () => onClose();
 
   const closeToPin = () => {
+    if (previewOnly) {
+      recordDwell();
+      onClose();
+      return;
+    }
     if (closing.value) return;
     closing.value = 1;
     dismissing.value = 1;
@@ -250,6 +255,11 @@ export function TodayListingOverlay({
     .onEnd((event) => {
       if (closing.value || !dismissing.value) return;
       if (dragY.value > 48 || event.velocityY > 600) {
+        if (previewOnly) {
+          runOnJS(recordDwell)();
+          runOnJS(finishClose)();
+          return;
+        }
         closing.value = 1;
         runOnJS(recordDwell)();
         chrome.value = withTiming(0, { duration: 70 });
@@ -548,8 +558,8 @@ export function TodayListingOverlay({
           </Animated.View>
         ) : null}
         <Animated.View pointerEvents="box-none" style={[styles.topBar, { paddingTop: insets.top + 6 }, chromeStyle]}>
-          <Pressable onPress={closeToPin} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel="Close listing">
-            <Ionicons name="chevron-down" size={20} color={colors.ink} />
+          <Pressable onPress={closeToPin} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel={previewOnly ? "Go back" : "Close listing"}>
+            <Ionicons name={previewOnly ? "chevron-back" : "chevron-down"} size={20} color={colors.ink} />
           </Pressable>
           <View style={styles.topActions} pointerEvents="box-none">
             <Pressable
