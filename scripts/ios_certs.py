@@ -285,13 +285,12 @@ def main() -> None:
     merchant_id = os.environ.get("APPLE_PAY_MERCHANT_ID", "merchant.com.uvel.dressandshop").strip()
     if not merchant_id:
         die("APPLE_PAY_MERCHANT_ID is required to enable Apple Pay")
-    enable_capability(
-        "APPLE_PAY",
-        [{
-            "key": "APPLE_PAY_MERCHANT_IDENTIFIERS_MULTISELECT",
-            "options": [{"key": merchant_id, "enabled": True}],
-        }],
-    )
+    # Apple’s current App Store Connect API does not expose Merchant ID
+    # association settings for APPLE_PAY. The merchant must be associated
+    # with the App ID in Certificates, Identifiers & Profiles first; the
+    # regenerated profile will then carry com.apple.developer.in-app-payments.
+    enable_capability("APPLE_PAY")
+    print("Apple Pay merchant association required in the Developer portal:", merchant_id)
 
     existing = api("GET", f"/profiles?filter[name]={requests.utils.quote(PROFILE_NAME)}&limit=20", jwt_token)
     for prof in (existing or {}).get("data", []):
