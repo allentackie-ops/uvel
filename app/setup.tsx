@@ -91,6 +91,12 @@ export default function ProfileSetup() {
   const yyRef = useRef<TextInput>(null);
 
   const first = (name.trim().split(" ")[0] || "").trim();
+  const initials = (app.displayName || "U")
+    .split(" ")
+    .map((word) => word[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
   const liveLooks = shopFloor(app.country)
     .map((p) => ({ p, s: genderBoost(p, gender) }))
     .sort((a, b) => b.s - a.s || b.p.createdAt - a.p.createdAt)
@@ -575,10 +581,13 @@ export default function ProfileSetup() {
                 {avatar ? (
                   <Image cachePolicy="memory-disk" source={{ uri: avatar }} style={styles.faceImg} contentFit="cover" />
                 ) : (
-                  <View style={styles.faceEmpty}>
-                    <Ionicons name="camera-outline" size={26} color={OLIVE} />
+                  <View style={styles.faceInitials}>
+                    <Text style={styles.faceInitialsTxt}>{initials}</Text>
                   </View>
                 )}
+                <View style={styles.faceDot}>
+                  <Text style={styles.faceDotTxt}>+</Text>
+                </View>
               </Pressable>
               <TextInput
                 value={username}
@@ -687,20 +696,31 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    overflow: "hidden",
     alignSelf: "center",
     marginBottom: 18,
-    backgroundColor: SOFT,
   },
-  faceImg: { width: "100%", height: "100%" },
-  faceEmpty: {
-    flex: 1,
+  faceImg: { width: "100%", height: "100%", borderRadius: 44 },
+  faceInitials: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 44,
+    backgroundColor: LIME,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: LINE,
-    borderRadius: 44,
   },
+  faceInitialsTxt: { color: INK, fontSize: 26, fontWeight: "800" },
+  faceDot: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: LIME,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  faceDotTxt: { color: INK, fontSize: 19, fontWeight: "800", lineHeight: 22, marginTop: -1 },
   cta: {
     marginTop: 28,
     height: 54,
