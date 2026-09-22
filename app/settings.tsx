@@ -21,7 +21,7 @@ export default function Settings() {
 
   async function toggleNotes(on: boolean) {
     if (!on) {
-      app.setStyle({ wantsUpdates: false });
+      void app.setWantsUpdates(false);
       void import("../lib/engagement").then((m) => m.syncEngagement({ allowed: false, hasBag: false, hasFirstFind: false })).catch(() => undefined);
       return;
     }
@@ -29,14 +29,15 @@ export default function Settings() {
       Alert.alert(C.signInFirst, C.notificationsFollow);
       return;
     }
+    void app.setWantsUpdates(true);
     const { enablePush } = await import("../lib/push");
     const result = await enablePush(app.uid);
     if (result !== "granted") {
-      app.setStyle({ wantsUpdates: false });
+      await app.setWantsUpdates(false);
       Alert.alert(C.turnNotificationsOn, C.notificationsSettings);
       return;
     }
-    app.setStyle({ wantsUpdates: true });
+    void import("../lib/engagement").then((m) => m.syncEngagement({ allowed: true, hasBag: false, hasFirstFind: false })).catch(() => undefined);
   }
 
   return (

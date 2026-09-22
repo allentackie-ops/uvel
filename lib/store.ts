@@ -376,6 +376,14 @@ export function useUvel() {
       }
       return save({ accessibilityMode }).then(() => stashProfile());
     },
+    setWantsUpdates: (wantsUpdates: boolean) => {
+      if (memory.uid) {
+        void import("./auth").then(({ writeUserProfile }) =>
+          writeUserProfile(memory.uid, { wantsUpdates }),
+        );
+      }
+      return save({ wantsUpdates }).then(() => stashProfile());
+    },
     setLocale: (locale: string) => {
       if (memory.uid) {
         void import("./auth").then(({ writeUserProfile }) => writeUserProfile(memory.uid, { locale }));
