@@ -246,7 +246,37 @@ def main() -> None:
             print("Enabled", capability_type, "on", BUNDLE_ID)
         except AppleApiError as exc:
             if exc.status == 409:
-                print(capability_type, "already enabled or unchanged on", BUNDLE_ID)
+                if not settings:
+                    print(capability_type, "already enabled on", BUNDLE_ID)
+                    return
+                refreshed = api(
+                    "GET",
+                    f"/bundleIds/{bundle_res_id}/bundleIdCapabilities",
+                    jwt_token,
+                )
+                existing = next(
+                    (
+                        item
+                        for item in (refreshed or {}).get("data", [])
+                        if (item.get("attributes") or {}).get("capabilityType") == capability_type
+                    ),
+                    None,
+                )
+                if not existing:
+                    die(f"{capability_type} is reported as enabled but cannot be read back", exc.body)
+                api(
+                    "PATCH",
+                    f"/bundleIdCapabilities/{existing['id']}",
+                    jwt_token,
+                    json={
+                        "data": {
+                            "type": "bundleIdCapabilities",
+                            "id": existing["id"],
+                            "attributes": attributes,
+                        }
+                    },
+                )
+                print("Updated", capability_type, "settings after existing-capability conflict on", BUNDLE_ID)
             else:
                 die(f"Couldn’t enable {capability_type}", exc.body)
 
