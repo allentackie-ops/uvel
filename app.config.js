@@ -5,6 +5,7 @@ module.exports = () => {
   const payments = expo.extra?.payments || {};
   return {
     ...expo,
+    owner: "allentackie",
     extra: {
       ...expo.extra,
       payments: {
