@@ -4,7 +4,11 @@ on:
     inputs:
       build_id:
         description: EAS build ID to cancel
-        required: true
+        required: false
+        type: string
+      submission_id:
+        description: EAS submission ID to cancel
+        required: false
         type: string
 jobs:
   cancel:
@@ -14,4 +18,13 @@ jobs:
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
-      - run: npx eas-cli build:cancel "${{ github.event.inputs.build_id }}" --non-interactive
+      - name: Cancel EAS operation
+        run: |
+          if [ -n "${{ inputs.submission_id }}" ]; then
+            npx eas-cli submit:cancel "${{ inputs.submission_id }}" --non-interactive
+          elif [ -n "${{ inputs.build_id }}" ]; then
+            npx eas-cli build:cancel "${{ inputs.build_id }}" --non-interactive
+          else
+            echo "Provide either build_id or submission_id"
+            exit 1
+          fi
