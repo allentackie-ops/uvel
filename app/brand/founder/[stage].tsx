@@ -149,7 +149,7 @@ export default function FounderStagePage() {
             <Text style={[styles.cardTitle, { color: colors.ink }]}>{mine.name}</Text>
             <Text style={[styles.cardBody, { color: colors.muted, marginBottom: 0 }]}>Shop, orders, inventory, and money live in Brand HQ.</Text>
             <Pressable
-              onPress={() => router.push({ pathname: "/brand/hq", params: { id: mine.id, section: "marketing" } })}
+              onPress={() => router.push({ pathname: "/brand/hq", params: { id: mine.id, section: "promoCodes" } })}
               style={[local.liveAction, { borderColor: palette.success }]}
               accessibilityRole="button"
               accessibilityLabel={`Open promo codes for ${mine.name}`}

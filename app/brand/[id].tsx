@@ -187,7 +187,7 @@ export default function BrandPage() {
         return;
       }
       if (label === "Promo codes") {
-        router.push({ pathname: "/brand/hq", params: { id: activeBrand.id, section: "marketing" } });
+        router.push({ pathname: "/brand/hq", params: { id: activeBrand.id, section: "promoCodes" } });
         return;
       }
       if (label === "Brand HQ") router.push({ pathname: "/brand/hq", params: { id: activeBrand.id } });

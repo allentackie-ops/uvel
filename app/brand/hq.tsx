@@ -54,7 +54,7 @@ import { alertKindLabel, enableAlert, setAlertPreference, useAlertCenter, type A
 import { latestFounderDraft, refreshFounderProjects, simpleStageOf, useFounderProjects, type FounderProject } from "../../lib/founder";
 import BrandPromoCodes from "../../components/BrandPromoCodes";
 
-type Section = "overview" | "make" | "catalog" | "orders" | "finance" | "more" | "marketing" | "promoCodes" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
+type Section = "overview" | "make" | "catalog" | "orders" | "finance" | "more" | "promoCodes" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
 
 type CatalogAuditInput = Parameters<typeof recordAuditEvent>[0];
 
@@ -75,7 +75,6 @@ const PRIMARY: Array<{ id: Section; label: string }> = [
 ];
 
 const MORE_ROOMS: Array<{ id: Section; label: string; copy: string }> = [
-  { id: "marketing", label: "Marketing", copy: "Drops and codes" },
   { id: "promoCodes", label: "Promo codes", copy: "Discount codes for your brand" },
   { id: "growth", label: "Growth", copy: "What’s working" },
   { id: "support", label: "Support", copy: "Order problems" },
@@ -86,7 +85,7 @@ const MORE_ROOMS: Array<{ id: Section; label: string; copy: string }> = [
   { id: "settings", label: "Settings", copy: "Name, country, page" },
 ];
 
-const MORE_IDS = new Set<Section>(["more", "marketing", "promoCodes", "growth", "support", "inbox", "analytics", "audit", "team", "settings"]);
+const MORE_IDS = new Set<Section>(["more", "promoCodes", "growth", "support", "inbox", "analytics", "audit", "team", "settings"]);
 
 const ROLE_OPTIONS: Array<Exclude<MemberRole, "owner">> = [
   "admin",
@@ -115,7 +114,7 @@ export default function BrandHQ() {
   const brand = getBrand(id);
   const theme: HQTheme = brand ? themeFor(brand) : { bg: colors.ink, ink: colors.bone, muted: colors.muted, card: colors.surface, accent: colors.pulse, accentInk: colors.ink, lineColor: colors.subtle };
   const styles = useMemo(() => make(theme), [theme]);
-  const [section, setSection] = useState<Section>(requestedSection === "marketing" ? "marketing" : "overview");
+  const [section, setSection] = useState<Section>(requestedSection === "promoCodes" ? "promoCodes" : "overview");
   const hqScroller = useRef<ScrollView>(null);
 
   useFocusEffect(useCallback(() => {
@@ -236,8 +235,6 @@ export default function BrandHQ() {
           <OrdersSection orders={brandOrders} madeByUvel={making} viewer={orderViewer} manager={orderManager} reviewer={orderReviewer} theme={theme} styles={styles} />
         ) : section === "finance" ? (
           <FinanceSection brand={activeBrand} orders={brandOrders} viewer={canViewFinance(activeBrand, app.uid)} manager={canManagePayouts(activeBrand, app.uid)} theme={theme} styles={styles} onPayoutFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
-        ) : section === "marketing" ? (
-          <MarketingSection brand={activeBrand} pieces={catalog} state={marketing} viewer={canViewMarketing(activeBrand, app.uid)} manager={canManageMarketing(activeBrand, app.uid)} theme={theme} colors={colors} styles={styles} onFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
         ) : section === "promoCodes" ? (
           <BrandPromoCodes brand={activeBrand} theme={theme} state={marketing} pieces={catalog} viewer={canViewMarketing(activeBrand, app.uid)} manager={canManageMarketing(activeBrand, app.uid)} />
         ) : section === "growth" ? (
@@ -876,8 +873,6 @@ function GrowthToolsSection({ brand, orders, pieces, marketing, viewer, theme, s
 
   if (!liveListings.length) actions.push({ id: "publish", title: "Publish your first product", detail: "A live catalog gives shoppers something real to discover.", button: "Open catalog", section: "catalog" });
   if (lowStock.length) actions.push({ id: "stock", title: "Review low-stock products", detail: `${lowStock.length} live listing${lowStock.length === 1 ? "" : "s"} need an inventory decision before demand outpaces supply.`, button: "Review stock", section: "catalog" });
-  if (!liveCampaigns.length) actions.push({ id: "campaign", title: "Create a channel campaign", detail: "Choose Today, Shop, or Brand Page and give a live product a focused reason to be seen.", button: "Open marketing", section: "marketing" });
-  if (!livePromotions.length && liveListings.length) actions.push({ id: "promotion", title: "Prepare a promotion", detail: "A verified offer can give a campaign a clear customer action.", button: "Open marketing", section: "marketing" });
   if (!actions.length) actions.push({ id: "learn", title: "Keep learning from confirmed activity", detail: "Your operating basics are in place. Review channel results as trusted events arrive.", button: "View analytics", section: "analytics" });
 
   return (
