@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { BrandHQSkeleton } from "../../components/ScreenSkeletons";
@@ -15,6 +15,7 @@ import {
   canManageTeam,
   canViewOrders,
   canSeeAnalytics,
+  canStudio,
   getBrand,
   inquiryRecipients,
   memberRoleLabel,
@@ -238,7 +239,7 @@ export default function BrandHQ() {
         ) : section === "promoCodes" ? (
           <BrandPromoCodes brand={activeBrand} theme={theme} state={marketing} pieces={catalog} viewer={canViewMarketing(activeBrand, app.uid)} manager={canManageMarketing(activeBrand, app.uid)} />
         ) : section === "growth" ? (
-          <GrowthToolsSection brand={activeBrand} orders={brandOrders} pieces={catalog} marketing={marketing} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />
+          <GrowthToolsSection brand={activeBrand} uid={app.uid} orders={brandOrders} pieces={catalog} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />
         ) : section === "analytics" ? (
           <AdvancedAnalyticsSection brand={activeBrand} orders={brandOrders} pieces={catalog} marketing={marketing} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} />
         ) : section === "support" ? (
@@ -861,54 +862,58 @@ function TeamSection({ brand, manager, theme, styles, onRole }: { brand: Brand; 
   );
 }
 
-function GrowthToolsSection({ brand, orders, pieces, marketing, viewer, theme, styles, onSection }: { brand: Brand; orders: Order[]; pieces: ClosetPiece[]; marketing: MarketingState; viewer: boolean; theme: HQTheme; styles: ReturnType<typeof make>; onSection: (section: Section) => void }) {
-  const attributionReport = useCampaignAttributionReport(brand.id);
-  const channelReports = useMemo(() => summarizeCampaignAttributionByChannel(attributionReport.rows, (row) => marketing.campaigns.find((item) => item.id === row.campaignId)?.channel), [attributionReport.rows, marketing.campaigns]);
+function GrowthToolsSection({ brand, uid, orders, pieces, viewer, theme, styles, onSection }: { brand: Brand; uid: string; orders: Order[]; pieces: ClosetPiece[]; viewer: boolean; theme: HQTheme; styles: ReturnType<typeof make>; onSection: (section: Section) => void }) {
   const liveListings = pieces.filter((piece) => piece.status === "listed");
   const lowStock = liveListings.filter((piece) => typeof piece.stockQuantity === "number" && piece.stockQuantity > 0 && piece.stockQuantity <= 10);
-  const liveCampaigns = marketing.campaigns.filter((item) => item.status === "live");
-  const livePromotions = marketing.promotions.filter((item) => item.status === "live");
-  const paidOrderRecords = orders.filter((order) => order.status === "paid").length;
-  const actions: Array<{ id: string; title: string; detail: string; button: string; section: Section }> = [];
-
-  if (!liveListings.length) actions.push({ id: "publish", title: "Publish your first product", detail: "A live catalog gives shoppers something real to discover.", button: "Open catalog", section: "catalog" });
-  if (lowStock.length) actions.push({ id: "stock", title: "Review low-stock products", detail: `${lowStock.length} live listing${lowStock.length === 1 ? "" : "s"} need an inventory decision before demand outpaces supply.`, button: "Review stock", section: "catalog" });
-  if (!actions.length) actions.push({ id: "learn", title: "Keep learning from confirmed activity", detail: "Your operating basics are in place. Review channel results as trusted events arrive.", button: "View analytics", section: "analytics" });
+  const paidOrders = orders.filter((order) => order.status === "paid").length;
+  const pageReady = Boolean(brand.logoUri && ((brand.tagline || "").trim() || (brand.story || "").trim()));
+  const canEditPage = canStudio(brand, uid);
+  const canAddProduct = canManageCatalog(brand, uid);
+  const completedCount = Number(pageReady) + Number(liveListings.length > 0);
+  const shareBrand = () => void Share.share({ title: `${brand.name} on Uvel`, message: `${brand.name} on Uvel  uvel://brand/${brand.id}` });
+  const primary = !pageReady
+    ? { title: "Finish your brand page", detail: "Add your logo and a short story so shoppers know who you are.", button: canEditPage ? "Edit page" : "Owner only", onPress: canEditPage ? () => router.push({ pathname: "/brand/studio", params: { id: brand.id } }) : undefined }
+    : !liveListings.length
+      ? { title: "Add your first product", detail: "Give shoppers something real to discover.", button: canAddProduct ? "Add product" : "Manager only", onPress: canAddProduct ? () => router.push({ pathname: "/brand/list", params: { id: brand.id } }) : undefined }
+      : { title: "Share your brand", detail: "Send your brand page to people who might love it.", button: "Share brand", onPress: shareBrand };
+  const steps = [
+    { id: "page", title: "Finish your brand page", detail: "Logo and story", done: pageReady, onPress: canEditPage ? () => router.push({ pathname: "/brand/studio", params: { id: brand.id } }) : undefined },
+    { id: "product", title: "Add your first product", detail: liveListings.length ? `${liveListings.length} live product${liveListings.length === 1 ? "" : "s"}` : "Nothing live yet", done: liveListings.length > 0, onPress: canAddProduct ? () => router.push({ pathname: "/brand/list", params: { id: brand.id } }) : undefined },
+    { id: "share", title: "Share your brand", detail: paidOrders ? `${paidOrders} paid order${paidOrders === 1 ? "" : "s"} so far` : "Help the right people find you", done: false, onPress: shareBrand },
+  ];
 
   return (
     <View>
       <View style={styles.sectionHead}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.sectionTitle, { color: theme.ink }]}>Brand growth tools</Text>
-          <Text style={[styles.sectionP, { color: theme.muted }]}>Turn the next clear opportunity into an action across your catalog, channels, and promotions.</Text>
+          <Text style={[styles.sectionTitle, { color: theme.ink }]}>Next steps</Text>
+          <Text style={[styles.sectionP, { color: theme.muted }]}>A simple path to get your brand ready and keep it moving.</Text>
         </View>
       </View>
-      <View style={[styles.analyticsPanel, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
-        <Text style={[styles.financeBreakdownTitle, { color: theme.ink }]}>Growth readiness</Text>
-        <Text style={[styles.financeLine, { color: theme.muted }]}>Live listings <Text style={{ color: theme.ink }}>{liveListings.length}</Text></Text>
-        <Text style={[styles.financeLine, { color: theme.muted }]}>Live campaigns <Text style={{ color: theme.ink }}>{liveCampaigns.length}</Text></Text>
-        <Text style={[styles.financeLine, { color: theme.muted }]}>Live promotions <Text style={{ color: theme.ink }}>{livePromotions.length}</Text></Text>
-        <Text style={[styles.financeLine, { color: theme.muted }]}>Paid order records <Text style={{ color: theme.ink }}>{paidOrderRecords}</Text></Text>
-        <Text style={[styles.growthNote, { color: theme.muted }]}>Catalog and order counts are available workspace records, not platform-wide forecasts.</Text>
+      <View style={[styles.growthHero, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+        <Text style={[styles.growthEyebrow, { color: theme.accent }]}>YOUR BRAND PLAN</Text>
+        <Text style={[styles.growthHeroTitle, { color: theme.ink }]}>{completedCount === 2 ? "Your brand is ready to grow" : `${completedCount} of 2 steps complete`}</Text>
+        <Text style={[styles.growthHeroCopy, { color: theme.muted }]}>{completedCount === 2 ? "Keep sharing your brand and watch what shoppers respond to." : "Complete these basics so shoppers can find you and understand what you make."}</Text>
+        <View style={[styles.growthProgressTrack, { backgroundColor: theme.lineColor }]}><View style={[styles.growthProgressFill, { width: `${(completedCount / 2) * 100}%`, backgroundColor: theme.accent }]} /></View>
       </View>
-      <Text style={[styles.financeHeading, { color: theme.ink }]}>Next best moves</Text>
-      {actions.map((action) => (
-        <View key={action.id} style={[styles.growthTool, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.analyticsRecommendationTitle, { color: theme.ink }]}>{action.title}</Text>
-            <Text style={[styles.financeLine, { color: theme.muted }]}>{action.detail}</Text>
+      <View style={[styles.growthPrimary, { backgroundColor: theme.accent }]}>
+        <Text style={[styles.growthPrimaryLabel, { color: theme.accentInk }]}>YOUR NEXT STEP</Text>
+        <Text style={[styles.growthPrimaryTitle, { color: theme.accentInk }]}>{primary.title}</Text>
+        <Text style={[styles.growthPrimaryCopy, { color: theme.accentInk }]}>{primary.detail}</Text>
+        <Pressable disabled={!primary.onPress} onPress={primary.onPress} style={[styles.growthPrimaryButton, { backgroundColor: theme.accentInk }, !primary.onPress && { opacity: 0.55 }]}><Text style={[styles.growthPrimaryButtonText, { color: theme.accent }]}>{primary.button}</Text></Pressable>
+      </View>
+      <Text style={[styles.financeHeading, { color: theme.ink }]}>Keep things moving</Text>
+      <View style={[styles.growthChecklist, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+        {steps.map((step, index) => (
+          <View key={step.id} style={[styles.growthStep, index < steps.length - 1 && { borderBottomColor: theme.lineColor, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+            <View style={[styles.growthStepIcon, { backgroundColor: step.done ? theme.accent : theme.bg }]}><Text style={[styles.growthStepIconText, { color: step.done ? theme.accentInk : theme.muted }]}>{step.done ? "✓" : String(index + 1)}</Text></View>
+            <View style={{ flex: 1 }}><Text style={[styles.growthStepTitle, { color: theme.ink }]}>{step.title}</Text><Text style={[styles.growthStepCopy, { color: theme.muted }]}>{step.detail}</Text></View>
+            {step.onPress ? <Pressable onPress={step.onPress} style={[styles.growthStepAction, { borderColor: theme.lineColor }]}><Text style={[styles.growthStepActionText, { color: theme.ink }]}>{step.done ? "View" : "Open"}</Text></Pressable> : null}
           </View>
-          <Pressable onPress={() => onSection(action.section)} style={[styles.smallCta, { backgroundColor: theme.accent }]}><Text style={[styles.smallCtaTxt, { color: theme.accentInk }]}>{action.button}</Text></Pressable>
-        </View>
-      ))}
-      <Text style={[styles.financeHeading, { color: theme.ink }]}>Confirmed channel signals</Text>
-      <View style={[styles.analyticsPanel, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
-        <Text style={[styles.financeLine, { color: theme.muted }]}>{viewer ? attributionReport.state === "loading" ? "Checking confirmed campaign activity…" : attributionReport.state === "unavailable" ? "Channel signals are unavailable until backend attribution is connected." : attributionReport.state === "no_activity" ? "No confirmed channel activity yet." : "Confirmed campaign activity by placement." : "Channel signals are restricted to the brand analytics permission."}</Text>
-        {viewer && attributionReport.state === "confirmed" ? channelReports.map((report) => {
-          const hasActivity = report.impressions + report.engagements + report.checkoutStarted + report.purchases + Object.values(report.revenueByCurrency).reduce((sum, value) => sum + value, 0) > 0;
-          return <Text key={report.channel} style={[styles.financeLine, { color: theme.ink }]}>{channelLabel(report.channel)} · {hasActivity ? `${report.impressions} impressions · ${report.purchases} confirmed purchases` : "No confirmed activity"}</Text>;
-        }) : null}
+        ))}
       </View>
+      {lowStock.length ? <Pressable onPress={() => onSection("catalog")} style={[styles.growthNotice, { borderColor: theme.lineColor }]}><Text style={[styles.growthNoticeTitle, { color: theme.ink }]}>You have {lowStock.length} low-stock product{lowStock.length === 1 ? "" : "s"}</Text><Text style={[styles.growthNoticeCopy, { color: theme.muted }]}>Review your catalog before shoppers find an item that may sell out.</Text><Text style={[styles.growthNoticeAction, { color: theme.accent }]}>Review catalog ›</Text></Pressable> : null}
+      {viewer ? <Pressable onPress={() => onSection("analytics")} style={[styles.growthAnalyticsLink, { borderColor: theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.growthStepTitle, { color: theme.ink }]}>See how people are responding</Text><Text style={[styles.growthStepCopy, { color: theme.muted }]}>Open Analytics when you want the detail.</Text></View><Text style={[styles.growthNoticeAction, { color: theme.accent }]}>Analytics ›</Text></Pressable> : null}
     </View>
   );
 }
@@ -1486,6 +1491,31 @@ function make(theme: HQTheme) {
     analyticsMarket: { borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 8, flexDirection: "row", alignItems: "center", gap: 10 },
     analyticsCampaign: { borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 8, flexDirection: "row", alignItems: "center", gap: 10 },
     growthTool: { borderWidth: 1, borderRadius: 14, padding: 12, marginTop: 8, flexDirection: "row", alignItems: "center", gap: 10 },
+    growthHero: { borderWidth: 1, borderRadius: 18, padding: 16, marginTop: 10 },
+    growthEyebrow: { fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+    growthHeroTitle: { fontSize: 21, fontWeight: "900", marginTop: 7 },
+    growthHeroCopy: { fontSize: 13, lineHeight: 19, marginTop: 6 },
+    growthProgressTrack: { height: 7, borderRadius: 4, overflow: "hidden", marginTop: 15 },
+    growthProgressFill: { height: "100%", borderRadius: 4 },
+    growthPrimary: { borderRadius: 18, padding: 16, marginTop: 10 },
+    growthPrimaryLabel: { fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+    growthPrimaryTitle: { fontSize: 20, fontWeight: "900", marginTop: 7 },
+    growthPrimaryCopy: { fontSize: 13, lineHeight: 19, marginTop: 5 },
+    growthPrimaryButton: { minHeight: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", paddingHorizontal: 18, marginTop: 14, alignSelf: "flex-start" },
+    growthPrimaryButtonText: { fontSize: 13, fontWeight: "900" },
+    growthChecklist: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 13, marginTop: 8 },
+    growthStep: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 11 },
+    growthStepIcon: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
+    growthStepIconText: { fontSize: 13, fontWeight: "900" },
+    growthStepTitle: { fontSize: 13, fontWeight: "900" },
+    growthStepCopy: { fontSize: 11, lineHeight: 16, marginTop: 3 },
+    growthStepAction: { minHeight: 34, borderWidth: 1, borderRadius: 17, justifyContent: "center", paddingHorizontal: 12 },
+    growthStepActionText: { fontSize: 11, fontWeight: "900" },
+    growthNotice: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 12 },
+    growthNoticeTitle: { fontSize: 13, fontWeight: "900" },
+    growthNoticeCopy: { fontSize: 12, lineHeight: 17, marginTop: 4 },
+    growthNoticeAction: { fontSize: 12, fontWeight: "900", marginTop: 8 },
+    growthAnalyticsLink: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 12, flexDirection: "row", alignItems: "center", gap: 10 },
     growthNote: { fontSize: 11, lineHeight: 16, marginTop: 8 },
     channelReportRow: { paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", gap: 10 },
     channelReportName: { fontSize: 13, fontWeight: "900" },
