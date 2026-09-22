@@ -1,13 +1,16 @@
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMarket, moneyExact } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import {
   requestSellerPayout,
+  createConnectAccountLink,
+  getConnectAccountStatus,
+  requestConnectPayout,
   saveUserPayoutProfile,
   useWallet,
   type WalletEntry,
@@ -27,12 +30,25 @@ export default function Wallet() {
   const [destination, setDestination] = useState("");
   const [kind, setKind] = useState<"bank" | "mobile_money">(wallet.profile?.destinationType === "mobile_money" && market.code === "GH" ? "mobile_money" : "bank");
   const [busy, setBusy] = useState(false);
+  const [payoutMode, setPayoutMode] = useState<"standard" | "instant">("standard");
+  const [connectStatus, setConnectStatus] = useState<Awaited<ReturnType<typeof getConnectAccountStatus>> | null>(null);
   const showMobileMoney = market.code === "GH";
+  const isUS = market.code === "US";
+
+  useEffect(() => {
+    if (!isUS) return;
+    void getConnectAccountStatus().then(setConnectStatus).catch(() => undefined);
+  }, [isUS]);
 
   async function savePayout() {
     if (busy) return;
     setBusy(true);
     try {
+      if (isUS) {
+        const link = await createConnectAccountLink();
+        await Linking.openURL(link.url);
+        return;
+      }
       await saveUserPayoutProfile({
         destinationType: showMobileMoney ? kind : "bank",
         country: market.code,
@@ -62,8 +78,13 @@ export default function Wallet() {
     }
     setBusy(true);
     try {
-      await requestSellerPayout(wallet.currency, wallet.availableCents);
-      Alert.alert("Withdrawal requested", "Uvel will send this to your account. Bank transfers usually take a few business days.");
+      if (isUS) {
+        await requestConnectPayout(wallet.currency, wallet.availableCents, payoutMode);
+        Alert.alert("Withdrawal started", payoutMode === "instant" ? "Your eligible debit card payout should arrive within about 30 minutes." : "Your standard payout is processing and usually arrives in 1–2 business days.");
+      } else {
+        await requestSellerPayout(wallet.currency, wallet.availableCents);
+        Alert.alert("Withdrawal requested", "Uvel will send this to your account. Bank transfers usually take a few business days.");
+      }
     } catch (error) {
       Alert.alert("Couldn’t withdraw", error instanceof Error ? error.message : "Try again in a moment.");
     } finally {
@@ -108,7 +129,26 @@ export default function Wallet() {
         </Pressable>
 
         <Text style={styles.h}>Payout account</Text>
-        {showMobileMoney ? (
+        {isUS ? (
+          <View>
+            <Text style={styles.hint}>{connectStatus?.payoutsEnabled ? "Stripe has verified your payout account." : "Stripe securely verifies your identity and bank or debit-card details. Uvel never sees your full account number."}</Text>
+            {connectStatus?.requirements?.length ? <Text style={styles.warning}>More information is required before you can withdraw.</Text> : null}
+            {connectStatus?.disabledReason ? <Text style={styles.warning}>Payouts are temporarily restricted. Open Stripe setup to resolve this.</Text> : null}
+            <Pressable onPress={() => void savePayout()} disabled={busy} style={styles.save}>
+              <Text style={styles.saveTxt}>{busy ? "Opening…" : connectStatus?.payoutsEnabled ? "Manage payout account" : "Set up payouts securely"}</Text>
+            </Pressable>
+            <Text style={styles.h}>Withdrawal speed</Text>
+            <View style={styles.kinds}>
+              <Pressable onPress={() => setPayoutMode("standard")} style={[styles.kind, payoutMode === "standard" && styles.kindOn]}>
+                <Text style={[styles.kindTxt, payoutMode === "standard" && styles.kindTxtOn]}>Standard · Free</Text>
+              </Pressable>
+              <Pressable onPress={() => setPayoutMode("instant")} style={[styles.kind, payoutMode === "instant" && styles.kindOn]}>
+                <Text style={[styles.kindTxt, payoutMode === "instant" && styles.kindTxtOn]}>Instant · fee may apply</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+        {!isUS && showMobileMoney ? (
           <View style={styles.kinds}>
             <Pressable onPress={() => setKind("bank")} style={[styles.kind, kind === "bank" && styles.kindOn]}>
               <Text style={[styles.kindTxt, kind === "bank" && styles.kindTxtOn]}>Bank</Text>
@@ -118,13 +158,15 @@ export default function Wallet() {
             </Pressable>
           </View>
         ) : null}
-        {wallet.profile ? <Text style={styles.saved}>On file · {wallet.profile.institutionName} ·••{wallet.profile.destinationLast4}</Text> : null}
-        <TextInput value={holder} onChangeText={setHolder} placeholder="Account holder name" placeholderTextColor={`${colors.bone}55`} style={styles.input} />
-        <TextInput value={institution} onChangeText={setInstitution} placeholder={kind === "mobile_money" ? "Network (MTN, Telecel, M-Pesa…)" : "Bank name"} placeholderTextColor={`${colors.bone}55`} style={styles.input} />
-        <TextInput value={destination} onChangeText={setDestination} placeholder={kind === "mobile_money" ? "Mobile money number" : "Account number"} placeholderTextColor={`${colors.bone}55`} keyboardType="number-pad" style={styles.input} />
-        <Pressable onPress={() => void savePayout()} disabled={busy} style={styles.save}>
-          <Text style={styles.saveTxt}>{wallet.profile ? "Update account" : "Save account"}</Text>
-        </Pressable>
+        {!isUS && wallet.profile ? <Text style={styles.saved}>On file · {wallet.profile.institutionName} ·••{wallet.profile.destinationLast4}</Text> : null}
+        {!isUS ? <>
+          <TextInput value={holder} onChangeText={setHolder} placeholder="Account holder name" placeholderTextColor={`${colors.bone}55`} style={styles.input} />
+          <TextInput value={institution} onChangeText={setInstitution} placeholder={kind === "mobile_money" ? "Network (MTN, Telecel, M-Pesa…)" : "Bank name"} placeholderTextColor={`${colors.bone}55`} style={styles.input} />
+          <TextInput value={destination} onChangeText={setDestination} placeholder={kind === "mobile_money" ? "Mobile money number" : "Account number"} placeholderTextColor={`${colors.bone}55`} keyboardType="number-pad" style={styles.input} />
+          <Pressable onPress={() => void savePayout()} disabled={busy} style={styles.save}>
+            <Text style={styles.saveTxt}>{wallet.profile ? "Update account" : "Save account"}</Text>
+          </Pressable>
+        </> : null}
 
         {wallet.entries.length ? (
           <>
@@ -175,6 +217,7 @@ function make(colors: Colors) {
     kindTxt: { color: colors.bone, fontWeight: "700", fontSize: 13 },
     kindTxtOn: { color: colors.successInk },
     saved: { color: colors.muted, fontSize: 13, marginTop: 10 },
+    warning: { color: colors.warning, fontSize: 13, lineHeight: 19, marginTop: 10 },
     input: { marginTop: 10, minHeight: 48, borderRadius: 14, paddingHorizontal: 14, backgroundColor: colors.surface, color: colors.bone, fontSize: 15 },
     save: { marginTop: 12, minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: `${colors.bone}29`, alignItems: "center", justifyContent: "center" },
     saveTxt: { color: colors.bone, fontWeight: "800", fontSize: 15 },

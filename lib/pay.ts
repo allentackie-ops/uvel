@@ -56,10 +56,22 @@ export type CheckoutSession = {
   reference: string;
 };
 
+export type StripePaymentIntent = {
+  clientSecret: string;
+  paymentIntentId: string;
+};
+
 export async function createCheckoutSession(input: CheckoutPay): Promise<CheckoutSession> {
   if (!firebaseReady()) throw new Error("Payments aren’t connected yet.");
   const call = httpsCallable<CheckoutPay, CheckoutSession>(firebaseFunctions(), "createCheckout");
   const res = await call(input);
+  return res.data;
+}
+
+export async function createStripePaymentIntent(orderId: string): Promise<StripePaymentIntent> {
+  if (!firebaseReady()) throw new Error("Payments aren’t connected yet.");
+  const call = httpsCallable<{ orderId: string }, StripePaymentIntent>(firebaseFunctions(), "createStripePaymentIntent");
+  const res = await call({ orderId });
   return res.data;
 }
 

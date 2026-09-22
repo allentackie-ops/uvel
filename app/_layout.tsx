@@ -1,4 +1,5 @@
 import { DarkTheme, Stack, ThemeProvider, router } from "expo-router";
+import { StripeProvider } from "@stripe/stripe-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -19,6 +20,7 @@ import { useColors, useResolvedAppearance } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
 import { pullLooks } from "../lib/trends";
 import { useWardrobe } from "../lib/wardrobe";
+import { MERCHANT_ID, paymentsExtra } from "../lib/pay";
 import { watchMyOrders } from "../lib/orders";
 import { consumeListingDraftNotice } from "../lib/listingDraft";
 import { armFounderDesk, founderDeskRoute, getFounderDeskJob, revealFounderDesk } from "../lib/founderDesk";
@@ -179,8 +181,9 @@ function AppStack() {
     [appearance, colors],
   );
   return (
-    <ThemeProvider value={navTheme}>
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
+    <StripeProvider publishableKey={paymentsExtra.stripePk || "pk_test_not_configured"} merchantIdentifier={MERCHANT_ID} urlScheme="uvel">
+      <ThemeProvider value={navTheme}>
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
         <PushSync />
         <AlertSync />
         <OrderSync />
@@ -615,8 +618,9 @@ function AppStack() {
             }}
           />
         </Stack>
-      </GestureHandlerRootView>
-    </ThemeProvider>
+        </GestureHandlerRootView>
+      </ThemeProvider>
+    </StripeProvider>
   );
 }
 

@@ -45,6 +45,22 @@ export type UserPayoutProfile = {
   accountHolderName: string;
   institutionName: string;
   destinationLast4: string;
+  provider?: "stripe_connect" | "legacy";
+  stripeAccountId?: string;
+  payoutsEnabled?: boolean;
+  currentlyDue?: string[];
+  disabledReason?: string | null;
+};
+
+export type ConnectAccountStatus = {
+  connected: boolean;
+  accountId?: string;
+  payoutsEnabled: boolean;
+  chargesEnabled: boolean;
+  detailsSubmitted?: boolean;
+  requirements: string[];
+  disabledReason?: string | null;
+  externalAccounts?: Array<{ id: string; type: "bank" | "card"; last4?: string; bankName?: string | null; brand?: string | null; availablePayoutMethods: string[] }>;
 };
 
 export type WalletSnapshot = {
@@ -116,10 +132,10 @@ export function orderWalletStatus(order: Order): WalletEntryStatus | null {
 function derivedSales(uid: string): WalletEntry[] {
   return allOrders()
     .filter((order) => order.sellerId === uid && order.buyerId !== uid)
-    .map((order) => {
+    .flatMap((order): WalletEntry[] => {
       const status = orderWalletStatus(order);
-      if (!status) return null;
-      return {
+      if (!status) return [];
+      return [{
         id: `sale-${order.id}`,
         uid,
         orderId: order.id,
@@ -129,10 +145,9 @@ function derivedSales(uid: string): WalletEntry[] {
         currency: (order.currency || "USD").toUpperCase(),
         pieceName: order.pieceName,
         piecePhoto: order.piecePhoto,
-        createdAt: order.paidAt || order.createdAt,
-      };
-    })
-    .filter((row): row is WalletEntry => Boolean(row));
+        createdAt: Number(order.paidAt || order.createdAt || Date.now()),
+      }];
+    });
 }
 
 export function buildWallet(uid: string, currency: string): WalletSnapshot {
@@ -281,6 +296,27 @@ export async function requestSellerPayout(currency: string, amountCents: number)
     emit();
   }
   return payout;
+}
+
+export async function createConnectAccountLink() {
+  if (!firebaseReady() || !firebaseAuth().currentUser) throw new Error("Sign in before setting up payouts.");
+  const call = httpsCallable<undefined, { accountId: string; url: string; expiresAt: number }>(firebaseFunctions(), "createConnectAccount");
+  const res = await call(undefined);
+  return res.data;
+}
+
+export async function getConnectAccountStatus(): Promise<ConnectAccountStatus> {
+  if (!firebaseReady() || !firebaseAuth().currentUser) return { connected: false, payoutsEnabled: false, chargesEnabled: false, requirements: [] };
+  const call = httpsCallable<undefined, ConnectAccountStatus>(firebaseFunctions(), "getConnectAccountStatus");
+  const res = await call(undefined);
+  return res.data;
+}
+
+export async function requestConnectPayout(currency: string, amountCents: number, mode: "standard" | "instant") {
+  if (!firebaseReady() || !firebaseAuth().currentUser) throw new Error("Sign in before withdrawing.");
+  const call = httpsCallable<{ currency: string; amountCents: number; mode: "standard" | "instant" }, { payoutId: string; status: string; mode: string }>(firebaseFunctions(), "requestConnectPayout");
+  const res = await call({ currency, amountCents, mode });
+  return res.data;
 }
 
 export async function payWithWallet(orderId: string) {

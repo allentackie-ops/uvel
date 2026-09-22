@@ -14,6 +14,7 @@ const paystackWebhookSecret = defineSecret("PAYSTACK_WEBHOOK_SECRET");
 
 if (!admin.apps.length) admin.initializeApp({ storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "uvel-32d32.firebasestorage.app" });
 const wallet = require("./wallet");
+const stripeConnect = require("./stripeConnect");
 const { notifyUid } = require("./notify");
 
 const PAYSTACK = new Set(["GH", "NG", "KE", "ZA"]);
@@ -291,6 +292,50 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
     return { processor: "stripe", url: session.url, reference: session.id };
   } catch (error) {
     if (reserved) await releaseOrderReservation(normalizedOrderId).catch(() => undefined);
+    throw error;
+  }
+});
+
+exports.createStripePaymentIntent = onCall({ secrets: [stripeSecret] }, async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before checking out.");
+  const orderId = String(req.data?.orderId || "").trim();
+  if (!/^[a-zA-Z0-9._:-]{1,120}$/.test(orderId)) throw new HttpsError("invalid-argument", "Invalid order.");
+  const db = admin.firestore();
+  const orderRef = db.collection("orders").doc(orderId);
+  const orderSnap = await orderRef.get();
+  if (!orderSnap.exists) throw new HttpsError("not-found", "Order not found.");
+  const order = orderSnap.data() || {};
+  if (order.buyerId !== req.auth.uid || order.status !== "pending") throw new HttpsError("failed-precondition", "Order is not available for payment.");
+  const amountCents = Math.floor(Number(order.totalCents || 0));
+  const currency = String(order.currency || "USD").toUpperCase();
+  if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || currency !== "USD") throw new HttpsError("failed-precondition", "Stripe PaymentSheet is currently available for US-dollar orders only.");
+  const stripe = require("stripe")(stripeSecret.value());
+  if (order.paymentIntentId) {
+    const existing = await stripe.paymentIntents.retrieve(String(order.paymentIntentId));
+    if (["requires_payment_method", "requires_confirmation", "requires_action"].includes(existing.status)) return { clientSecret: existing.client_secret, paymentIntentId: existing.id };
+  }
+  const listingId = String(order.pieceId || "");
+  let reserved = false;
+  if (listingId && order.brandId) {
+    const listingSnap = await db.collection("listings").doc(listingId).get();
+    const listing = listingSnap.data() || {};
+    if (!listingSnap.exists || listing.status !== "listed" || listing.sellerPaused === true) throw new HttpsError("failed-precondition", "This listing is currently unavailable.");
+    await reserveOrderInventory(orderId, listingId, String(order.brandId), String(order.variantKey || ""));
+    reserved = true;
+  }
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountCents,
+      currency: "usd",
+      automatic_payment_methods: { enabled: true },
+      receipt_email: String(req.auth.token.email || "") || undefined,
+      metadata: { orderId, listingId, brandId: String(order.brandId || ""), sellerId: String(order.sellerId || ""), buyerId: req.auth.uid },
+      transfer_group: `order_${orderId}`,
+    }, { idempotencyKey: `payment-intent-${orderId}` });
+    await orderRef.set({ paymentProvider: "stripe", paymentReference: paymentIntent.id, paymentIntentId: paymentIntent.id, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    return { clientSecret: paymentIntent.client_secret, paymentIntentId: paymentIntent.id };
+  } catch (error) {
+    if (reserved) await releaseOrderReservation(orderId, "payment_intent_failed").catch(() => undefined);
     throw error;
   }
 });
@@ -795,6 +840,15 @@ function stripeWebhook() {
       const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : "";
       const result = await markOrderPaid(metadata.orderId, "stripe", session.id, session.amount_total, session.currency, paymentIntentId, "", { brandId: metadata.brandId, campaignId: metadata.campaignId, collectionId: metadata.collectionId, promotionId: metadata.promotionId, listingId: metadata.listingId, valueCents: session.amount_total });
       if (!result.ok && !result.duplicate) return res.status(400).json(result);
+    }
+    if (event.type === "payment_intent.succeeded") {
+      const paymentIntent = event.data.object;
+      const metadata = paymentIntent.metadata || {};
+      const result = await markOrderPaid(metadata.orderId, "stripe", paymentIntent.id, paymentIntent.amount_received || paymentIntent.amount, paymentIntent.currency, paymentIntent.id, "", { brandId: metadata.brandId, listingId: metadata.listingId, valueCents: paymentIntent.amount_received || paymentIntent.amount });
+      if (!result.ok && !result.duplicate) return res.status(400).json(result);
+    }
+    if (["account.updated", "account.external_account.updated", "transfer.created", "transfer.failed", "transfer.reversed", "payout.paid", "payout.failed", "payout.canceled"].includes(event.type)) {
+      await stripeConnect.handleConnectEvent(event);
     }
     if (event.type === "refund.created" || event.type === "refund.updated") {
       const refund = event.data.object || {};
@@ -2487,6 +2541,9 @@ exports.saveBrandPromotion = onCall((req) => saveMarketingRecord(req, "brandProm
 exports.confirmOrderReceived = onCall(wallet.confirmOrderReceivedHandler);
 exports.saveUserPayoutProfile = onCall(wallet.saveUserPayoutProfileHandler);
 exports.requestSellerPayout = onCall(wallet.requestSellerPayoutHandler);
+exports.createConnectAccount = onCall({ secrets: [stripeConnect.stripeSecret] }, stripeConnect.createConnectAccountHandler);
+exports.getConnectAccountStatus = onCall({ secrets: [stripeConnect.stripeSecret] }, stripeConnect.getConnectAccountStatusHandler);
+exports.requestConnectPayout = onCall({ secrets: [stripeConnect.stripeSecret] }, stripeConnect.requestConnectPayoutHandler);
 exports.payWithWallet = onCall(wallet.payWithWalletHandler);
 exports.releaseDueWallets = onSchedule("every 60 minutes", async () => {
   await wallet.releaseDueWalletsHandler();

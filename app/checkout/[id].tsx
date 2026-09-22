@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useStripe } from "@stripe/stripe-react-native";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert,  ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -10,7 +11,7 @@ import { payMethods, shippingCents, uvelFeeCents, type PayMethod } from "../../l
 import { getMarket, moneyExact, convertCents } from "../../lib/markets";
 import { listingVisibleIn, shipsToLine } from "../../lib/ships";
 import { loadAddress, placeOrder, type Address } from "../../lib/orders";
-import { createCheckoutSession, openHostedPay, processorFor, validatePromotion, type PromotionQuote } from "../../lib/pay";
+import { createCheckoutSession, createStripePaymentIntent, openHostedPay, paymentsExtra, processorFor, validatePromotion, type PromotionQuote } from "../../lib/pay";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { getPiece, isRemoteListedPiece, useMarketplaceSyncState, useWardrobe } from "../../lib/wardrobe";
@@ -33,6 +34,7 @@ export default function Checkout() {
   const selectedVariant = typeof variantParam === "string" ? variantParam : "";
   const selectedVariantLabel = typeof variantLabelParam === "string" ? variantLabelParam : selectedVariant;
   const app = useUvel();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const market = getMarket(app.country);
   const methods = payMethods(market.code);
   const [address, setAddress] = useState<Address | null>(null);
@@ -175,6 +177,23 @@ export default function Checkout() {
       if (piece.brandId && typeof campaignId === "string" && campaignId) void recordCampaignAttribution({ brandId: piece.brandId, campaignId, channel: campaignChannel === "shop" ? "shop" : "brand_page", collectionId: typeof collectionId === "string" ? collectionId : undefined, promotionId: typeof promotionId === "string" ? promotionId : undefined, type: "checkout_started", listingId: piece.id, orderId: order.id, currency: market.currency, eventId: `checkout_started_${order.id}` }).catch(() => undefined);
       if (walletCovers) {
         await payWithWallet(order.id);
+        removeFromCart(piece.id);
+        router.replace({ pathname: "/order/[id]", params: { id: order.id } });
+        return;
+      }
+      if (market.code === "US") {
+        if (!paymentsExtra.stripePk) throw new Error("Stripe checkout is not configured yet.");
+        const intent = await createStripePaymentIntent(order.id);
+        const initialized = await initPaymentSheet({
+          merchantDisplayName: "Uvel",
+          paymentIntentClientSecret: intent.clientSecret,
+          allowsDelayedPaymentMethods: false,
+          defaultBillingDetails: { email: app.email || undefined, name: address.name },
+          applePay: { merchantCountryCode: "US" },
+        });
+        if (initialized.error) throw new Error(initialized.error.message);
+        const presented = await presentPaymentSheet();
+        if (presented.error) throw new Error(presented.error.message);
         removeFromCart(piece.id);
         router.replace({ pathname: "/order/[id]", params: { id: order.id } });
         return;
