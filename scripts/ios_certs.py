@@ -197,6 +197,37 @@ def main() -> None:
         attributes: dict[str, object] = {"capabilityType": capability_type}
         if settings:
             attributes["settings"] = settings
+        existing_capabilities = api(
+            "GET",
+            f"/bundleIds/{bundle_res_id}/bundleIdCapabilities",
+            jwt_token,
+        )
+        existing = next(
+            (
+                item
+                for item in (existing_capabilities or {}).get("data", [])
+                if (item.get("attributes") or {}).get("capabilityType") == capability_type
+            ),
+            None,
+        )
+        if existing:
+            if settings:
+                api(
+                    "PATCH",
+                    f"/bundleIdCapabilities/{existing['id']}",
+                    jwt_token,
+                    json={
+                        "data": {
+                            "type": "bundleIdCapabilities",
+                            "id": existing["id"],
+                            "attributes": attributes,
+                        }
+                    },
+                )
+                print("Updated", capability_type, "settings on", BUNDLE_ID)
+            else:
+                print(capability_type, "already enabled on", BUNDLE_ID)
+            return
         try:
             api(
                 "POST",
