@@ -251,7 +251,7 @@ export default function BrandHQ() {
         ) : section === "team" ? (
           <TeamSection brand={brand} manager={manager} theme={theme} styles={styles} onRole={changeRole} />
         ) : section === "settings" ? (
-          <SettingsSection brand={brand} theme={theme} styles={styles} />
+          <SettingsSection brand={brand} uid={app.uid} theme={theme} styles={styles} onSection={openSection} />
         ) : null}
       </ScrollView>
       </KeyboardAvoidingView>
@@ -1286,21 +1286,40 @@ function AuditSection({ events, viewer, theme, styles, onSection }: { events: Au
   );
 }
 
-function SettingsSection({ brand, theme, styles }: { brand: Brand; theme: HQTheme; styles: ReturnType<typeof make> }) {
+function SettingsSection({ brand, uid, theme, styles, onSection }: { brand: Brand; uid: string; theme: HQTheme; styles: ReturnType<typeof make>; onSection: (section: Section) => void }) {
+  const market = getMarket(brand.country);
+  const owner = brand.ownerId === uid;
+  const profileReady = Boolean(brand.logoUri && ((brand.tagline || "").trim() || (brand.story || "").trim()));
+  const socialCount = [brand.website, brand.instagram, brand.whatsapp].filter((value) => Boolean(value?.trim())).length;
+  const reviewLabel = brandCheck(brand) === "lime" ? "Green check" : brandCheck(brand) === "blue" ? "Blue check" : brandApproved(brand) ? "Approved on Uvel" : brand.reviewStatus === "human_review" ? "Human review needed" : brand.reviewStatus === "needs_information" ? "Information needed" : "Not reviewed yet";
+  const trademarkLabel = brand.trademarkStatus === "filed" ? "Filed" : brand.trademarkStatus === "filing" ? "In progress" : "Not started";
+  const payoutLabel = brand.payoutStatus === "enabled" ? "Ready for payouts" : brand.payoutStatus === "pending" ? "Under review" : brand.payoutStatus === "needs_attention" ? "Needs attention" : "Not set up";
   return (
     <View>
       <Text style={[styles.sectionTitle, { color: theme.ink }]}>Settings</Text>
-      <Text style={[styles.sectionP, { color: theme.muted }]}>Brand identity, legal details, market setup, and presentation.</Text>
-      <ActionCard title="Brand Studio" copy="Edit the page, theme, analytics sharing, and inquiry routing." button="Open settings" onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })} theme={theme} styles={styles} />
-      <View style={[styles.detailCard, { backgroundColor: theme.card }]}>
-        <Detail label="Legal owner" value={brand.legalName || brand.ownerName} theme={theme} styles={styles} />
-        <Detail label="Registration" value={brand.registrationId || "Not provided"} theme={theme} styles={styles} />
-        <Detail label="Primary market" value={brand.country} theme={theme} styles={styles} />
-        <Detail label="Brand review" value={brandCheck(brand) === "lime" ? "Green check" : brandCheck(brand) === "blue" ? "Blue check" : brandApproved(brand) ? "On Uvel" : brand.reviewStatus === "human_review" ? "Human review needed" : brand.reviewStatus === "needs_information" ? "Information needed" : brand.status} theme={theme} styles={styles} />
-        <Detail label="Payout status" value={brand.payoutStatus === "enabled" ? "Enabled" : brand.payoutStatus === "pending" ? "Pending provider review" : "Not started"} theme={theme} styles={styles} />
-      </View>
+      <Text style={[styles.sectionP, { color: theme.muted }]}>Manage your brand information, workspace preferences, and access.</Text>
+      <View style={[styles.settingsProfile, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={[styles.settingsLogo, { backgroundColor: theme.bg }]}>{brand.logoUri ? <Image cachePolicy="memory-disk" source={{ uri: brand.logoUri }} style={styles.settingsLogoImage} contentFit="cover" /> : <Text style={[styles.settingsLogoText, { color: theme.muted }]}>{brand.name.slice(0, 1).toUpperCase()}</Text>}</View><View style={{ flex: 1 }}><Text style={[styles.settingsProfileName, { color: theme.ink }]}>{brand.name}</Text><Text style={[styles.settingsProfileHandle, { color: theme.muted }]}>@{brand.handle || "brand"}</Text><Text style={[styles.settingsProfileStatus, { color: profileReady ? theme.accent : theme.muted }]}>{profileReady ? "Public profile ready" : "Public profile needs finishing"}</Text></View></View>
+      <Pressable onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })} style={[styles.settingsPrimary, { backgroundColor: theme.accent }]}><View style={{ flex: 1 }}><Text style={[styles.settingsPrimaryTitle, { color: theme.accentInk }]}>Edit brand profile</Text><Text style={[styles.settingsPrimaryCopy, { color: theme.accentInk }]}>Logo, story, theme, links, and buyer messages.</Text></View><Text style={[styles.settingsPrimaryArrow, { color: theme.accentInk }]}>›</Text></Pressable>
+
+      <Text style={[styles.settingsHeading, { color: theme.ink }]}>Brand setup</Text>
+      <View style={[styles.settingsCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><SettingsRow label="Public profile" value={profileReady ? "Ready" : "Needs finishing"} onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })} theme={theme} styles={styles} /><SettingsRow label="Market" value={`${market.name} · ${market.currency}`} theme={theme} styles={styles} /><SettingsRow label="Buyer messages" value={`${brand.inquiryMemberIds?.length || 0} recipient${brand.inquiryMemberIds?.length === 1 ? "" : "s"}`} onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })} theme={theme} styles={styles} /><SettingsRow label="Social links" value={socialCount ? `${socialCount} connected` : "Not added"} onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })} theme={theme} styles={styles} /></View>
+
+      <Text style={[styles.settingsHeading, { color: theme.ink }]}>Business information</Text>
+      <View style={[styles.settingsCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><SettingsRow label="Legal/business name" value={brand.legalName || "Not added"} theme={theme} styles={styles} /><SettingsRow label="Registration number" value={brand.registrationId ? "Added" : "Optional"} theme={theme} styles={styles} /><SettingsRow label="Uvel review" value={reviewLabel} theme={theme} styles={styles} /></View>
+
+      <View style={[styles.settingsOptional, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.settingsOptionalLabel, { color: theme.accent }]}>OPTIONAL</Text><Text style={[styles.settingsOptionalTitle, { color: theme.ink }]}>Trademark protection</Text><Text style={[styles.settingsOptionalCopy, { color: theme.muted }]}>Protecting your name is optional. Start whenever you are ready.</Text><SettingsRow label="Status" value={owner ? trademarkLabel : `${trademarkLabel} · Owner only`} onPress={owner ? () => router.push({ pathname: "/brand/trademark", params: { id: brand.id } }) : undefined} theme={theme} styles={styles} /></View>
+
+      <Text style={[styles.settingsHeading, { color: theme.ink }]}>Payments</Text>
+      <View style={[styles.settingsCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><SettingsRow label="Payout setup" value={payoutLabel} onPress={() => onSection("finance")} theme={theme} styles={styles} /></View>
+
+      <View style={[styles.settingsTeam, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.settingsTeamTitle, { color: theme.ink }]}>Team and permissions</Text><Text style={[styles.settingsTeamCopy, { color: theme.muted }]}>{brand.members.length} team member{brand.members.length === 1 ? "" : "s"}. Manage who can edit products, answer buyers, view analytics, and manage money.</Text></View><Pressable onPress={() => onSection("team")} style={[styles.settingsTeamButton, { borderColor: theme.lineColor }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Manage team</Text></Pressable></View>
     </View>
   );
+}
+
+function SettingsRow({ label, value, onPress, theme, styles }: { label: string; value: string; onPress?: () => void; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  const content = <><Text style={[styles.settingsRowLabel, { color: theme.muted }]}>{label}</Text><View style={styles.settingsRowValueWrap}><Text style={[styles.settingsRowValue, { color: theme.ink }]} numberOfLines={1}>{value}</Text>{onPress ? <Text style={[styles.settingsRowArrow, { color: theme.muted }]}>›</Text> : null}</View></>;
+  return onPress ? <Pressable onPress={onPress} style={[styles.settingsRow, { borderBottomColor: theme.lineColor }]}>{content}</Pressable> : <View style={[styles.settingsRow, { borderBottomColor: theme.lineColor }]}>{content}</View>;
 }
 
 function Stat({ label, value, theme, styles }: { label: string; value: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
@@ -1579,6 +1598,32 @@ function make(theme: HQTheme) {
     memberName: { fontSize: 14, fontWeight: "800" },
     memberMeta: { fontSize: 12, marginTop: 3 },
     manageTxt: { fontSize: 12, fontWeight: "800" },
+    settingsProfile: { borderWidth: 1, borderRadius: 18, padding: 14, marginTop: 10, flexDirection: "row", alignItems: "center", gap: 12 },
+    settingsLogo: { width: 58, height: 58, borderRadius: 16, alignItems: "center", justifyContent: "center", overflow: "hidden" },
+    settingsLogoImage: { width: 58, height: 58 },
+    settingsLogoText: { fontSize: 24, fontWeight: "900" },
+    settingsProfileName: { fontSize: 17, fontWeight: "900" },
+    settingsProfileHandle: { fontSize: 12, marginTop: 2 },
+    settingsProfileStatus: { fontSize: 11, fontWeight: "800", marginTop: 6 },
+    settingsPrimary: { borderRadius: 17, padding: 14, marginTop: 10, flexDirection: "row", alignItems: "center", gap: 10 },
+    settingsPrimaryTitle: { fontSize: 15, fontWeight: "900" },
+    settingsPrimaryCopy: { fontSize: 12, lineHeight: 17, marginTop: 3 },
+    settingsPrimaryArrow: { fontSize: 27, fontWeight: "300" },
+    settingsHeading: { fontSize: 16, fontWeight: "900", marginTop: 22, marginBottom: 2 },
+    settingsCard: { borderWidth: 1, borderRadius: 17, paddingHorizontal: 13, marginTop: 8 },
+    settingsRow: { minHeight: 48, paddingVertical: 11, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+    settingsRowLabel: { fontSize: 12 },
+    settingsRowValueWrap: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 7 },
+    settingsRowValue: { fontSize: 12, fontWeight: "800", textAlign: "right" },
+    settingsRowArrow: { fontSize: 21, lineHeight: 21 },
+    settingsOptional: { borderWidth: 1, borderRadius: 17, padding: 14, marginTop: 22 },
+    settingsOptionalLabel: { fontSize: 10, fontWeight: "900", letterSpacing: 1.2 },
+    settingsOptionalTitle: { fontSize: 16, fontWeight: "900", marginTop: 6 },
+    settingsOptionalCopy: { fontSize: 12, lineHeight: 18, marginTop: 4 },
+    settingsTeam: { borderWidth: 1, borderRadius: 17, padding: 14, marginTop: 22, flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 18 },
+    settingsTeamTitle: { fontSize: 15, fontWeight: "900" },
+    settingsTeamCopy: { fontSize: 12, lineHeight: 18, marginTop: 4 },
+    settingsTeamButton: { borderWidth: 1, borderRadius: 17, paddingHorizontal: 12, paddingVertical: 9 },
     detailCard: { borderRadius: 18, paddingHorizontal: 16, marginTop: 12 },
     detailRow: { paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: "row", justifyContent: "space-between", gap: 14 },
     detailLabel: { fontSize: 12 },
