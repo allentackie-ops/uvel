@@ -81,7 +81,7 @@ const MORE_ROOMS: Array<{ id: Section; label: string; copy: string }> = [
   { id: "support", label: "Support", copy: "Order problems" },
   { id: "inbox", label: "Inbox", copy: "Buyer messages" },
   { id: "analytics", label: "Analytics", copy: "The numbers" },
-  { id: "audit", label: "Audit log", copy: "Who changed what" },
+  { id: "audit", label: "Activity", copy: "What changed recently" },
   { id: "team", label: "Team", copy: "Who can do what" },
   { id: "settings", label: "Settings", copy: "Name, country, page" },
 ];
@@ -245,7 +245,7 @@ export default function BrandHQ() {
         ) : section === "support" ? (
           <SupportSection brand={activeBrand} cases={supportCases} manager={orderManager} theme={theme} styles={styles} viewerName={app.displayName || "Support agent"} />
         ) : section === "audit" ? (
-          <AuditSection events={auditEvents} viewer={canViewAudit(activeBrand, app.uid)} theme={theme} styles={styles} />
+          <AuditSection events={auditEvents} viewer={canViewAudit(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />
         ) : section === "more" ? (
           <MoreSection brand={brand} uid={app.uid} theme={theme} styles={styles} onSection={openSection} />
         ) : section === "team" ? (
@@ -1253,25 +1253,35 @@ function SupportSection({ brand, cases, manager, theme, styles, viewerName }: { 
   );
 }
 
-function AuditSection({ events, viewer, theme, styles }: { events: AuditEvent[]; viewer: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
-  const [filter, setFilter] = useState("all");
-  if (!viewer) return <View><Text style={[styles.sectionTitle, { color: theme.ink }]}>Audit log</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Audit history is limited to approved Brand HQ roles.</Text></View>;
-  const options = [
-    ["all", "All activity"],
-    ["product", "Catalog"],
-    ["order", "Orders"],
-    ["resolution", "Resolutions"],
-    ["team", "Team"],
-  ];
-  const filtered = filter === "all" ? events : events.filter((event) => event.entity === filter);
+function AuditSection({ events, viewer, theme, styles, onSection }: { events: AuditEvent[]; viewer: boolean; theme: HQTheme; styles: ReturnType<typeof make>; onSection: (section: Section) => void }) {
+  const [filter, setFilter] = useState<"all" | "product" | "order" | "support" | "team">("all");
+  if (!viewer) return <View><Text style={[styles.sectionTitle, { color: theme.ink }]}>Activity</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Brand activity is limited to approved Brand HQ roles.</Text></View>;
+  const options = [["all", "All"], ["product", "Products"], ["order", "Orders"], ["support", "Support"], ["team", "Team"]] as const;
+  const filtered = events.filter((event) => filter === "all" || filter === "support" ? filter === "all" || event.entity === "resolution" : event.entity === filter).slice(0, 100);
+  const grouped: Array<{ label: string; events: AuditEvent[] }> = [];
+  filtered.forEach((event) => {
+    const date = new Date(event.createdAt);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    const label = date.toDateString() === today.toDateString() ? "Today" : date.toDateString() === yesterday.toDateString() ? "Yesterday" : date.toLocaleDateString(undefined, { month: "long", day: "numeric", year: date.getFullYear() === today.getFullYear() ? undefined : "numeric" });
+    const bucket = grouped.find((item) => item.label === label);
+    if (bucket) bucket.events.push(event); else grouped.push({ label, events: [event] });
+  });
+  function openEvent(event: AuditEvent) {
+    if (event.entity === "product") router.push({ pathname: "/closet/[id]", params: { id: event.entityId } });
+    else if (event.entity === "resolution") onSection("support");
+    else if (event.entity === "team") onSection("team");
+    else if (event.entity === "order") onSection("orders");
+  }
+  function categoryLabel(event: AuditEvent) { return event.entity === "product" ? "Product" : event.entity === "resolution" ? "Support" : event.entity === "team" ? "Team" : event.entity === "order" ? "Order" : "Brand"; }
+  function actionText(event: AuditEvent) { const summary = event.summary.replace(/[.]$/, ""); if (event.entity === "product" && event.action === "product_published") return `${event.actorName} published ${event.entityName}`; if (event.entity === "product" && event.action === "product_archived") return `${event.actorName} archived ${event.entityName}`; if (event.entity === "product" && event.action === "product_drafted") return `${event.actorName} moved ${event.entityName} to drafts`; if (event.entity === "team" && event.action === "team_role_updated") return summary; return `${event.actorName}: ${summary}`; }
   return (
     <View>
-      <Text style={[styles.sectionTitle, { color: theme.ink }]}>Audit log</Text>
-      <Text style={[styles.sectionP, { color: theme.muted }]}>A read-only history of sensitive Brand HQ actions and who performed them.</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.auditFilters}>
-        {options.map(([id, label]) => <Pressable key={id} onPress={() => setFilter(id)} style={[styles.orderFilter, { borderColor: filter === id ? theme.accent : theme.lineColor, backgroundColor: filter === id ? theme.accent : theme.card }]}><Text style={[styles.orderFilterTxt, { color: filter === id ? theme.accentInk : theme.ink }]}>{label}</Text></Pressable>)}
-      </ScrollView>
-      {filtered.length ? filtered.slice(0, 100).map((event) => <View key={event.id} style={[styles.auditCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={styles.auditHead}><View style={[styles.auditDot, { backgroundColor: theme.accent }]} /><View style={{ flex: 1 }}><Text style={[styles.auditAction, { color: theme.ink }]}>{event.summary}</Text><Text style={[styles.auditMeta, { color: theme.muted }]}>{event.actorName} · {new Date(event.createdAt).toLocaleString()}</Text></View></View><Text style={[styles.auditEntity, { color: theme.muted }]}>{event.entity} · {event.entityName} · {event.action.replaceAll("_", " ")}</Text></View>) : <Empty text="No audit activity yet." theme={theme} styles={styles} />}
+      <Text style={[styles.sectionTitle, { color: theme.ink }]}>Activity</Text>
+      <Text style={[styles.sectionP, { color: theme.muted }]}>A simple history of important changes made by you and your team.</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.auditFilters}>{options.map(([id, label]) => <Pressable key={id} onPress={() => setFilter(id)} style={[styles.orderFilter, { borderColor: filter === id ? theme.accent : theme.lineColor, backgroundColor: filter === id ? theme.accent : theme.card }]}><Text style={[styles.orderFilterTxt, { color: filter === id ? theme.accentInk : theme.ink }]}>{label}</Text></Pressable>)}</ScrollView>
+      {grouped.length ? grouped.map((group) => <View key={group.label}><Text style={[styles.activityDate, { color: theme.muted }]}>{group.label}</Text>{group.events.map((event) => <View key={event.id} style={[styles.activityCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={styles.activityHead}><View style={[styles.activityDot, { backgroundColor: theme.accent }]} /><View style={{ flex: 1 }}><Text style={[styles.activityTitle, { color: theme.ink }]}>{actionText(event)}</Text><Text style={[styles.activityMeta, { color: theme.muted }]}>{categoryLabel(event)} · {new Date(event.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</Text><Text style={[styles.activityEntity, { color: theme.muted }]}>{event.entityName}</Text></View></View>{event.entity === "product" || event.entity === "resolution" || event.entity === "team" || event.entity === "order" ? <Pressable onPress={() => openEvent(event)} style={styles.activityLink}><Text style={[styles.activityLinkText, { color: theme.accent }]}>{event.entity === "product" ? "View product" : event.entity === "resolution" ? "View support" : event.entity === "team" ? "View team" : "View orders"} ›</Text></Pressable> : null}</View>)}</View>) : <View style={[styles.activityEmpty, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.activityEmptyTitle, { color: theme.ink }]}>Nothing here yet</Text><Text style={[styles.activityEmptyText, { color: theme.muted }]}>Important changes made by you or your team will appear here.</Text></View>}
     </View>
   );
 }
@@ -1415,6 +1425,18 @@ function make(theme: HQTheme) {
     auditAction: { fontSize: 14, fontWeight: "800", lineHeight: 19 },
     auditMeta: { fontSize: 11, lineHeight: 16, marginTop: 3 },
     auditEntity: { fontSize: 11, lineHeight: 16, marginTop: 9, textTransform: "capitalize" },
+    activityDate: { fontSize: 12, fontWeight: "900", marginTop: 18, marginBottom: 5 },
+    activityCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 8 },
+    activityHead: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+    activityDot: { width: 8, height: 8, borderRadius: 4, marginTop: 5 },
+    activityTitle: { fontSize: 13, fontWeight: "900", lineHeight: 18 },
+    activityMeta: { fontSize: 11, marginTop: 5 },
+    activityEntity: { fontSize: 12, fontWeight: "700", marginTop: 5 },
+    activityLink: { alignSelf: "flex-start", marginTop: 11 },
+    activityLinkText: { fontSize: 12, fontWeight: "900" },
+    activityEmpty: { borderWidth: 1, borderRadius: 18, padding: 22, marginTop: 16, alignItems: "center" },
+    activityEmptyTitle: { fontSize: 16, fontWeight: "900" },
+    activityEmptyText: { fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 5 },
     orderFilters: { gap: 8, paddingVertical: 12 },
     orderFilter: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8 },
     orderFilterTxt: { fontSize: 11, fontWeight: "800" },
