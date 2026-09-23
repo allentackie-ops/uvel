@@ -67,6 +67,8 @@ export type Brand = {
   businessRegistrationStatus?: BusinessRegistrationStatus;
   businessRegistrationProvider?: string;
   businessRegistrationSubmittedAt?: number;
+  businessRegistrationProofUri?: string;
+  businessRegistrationProofName?: string;
   contactEmail: string;
   country: string;
   logoUri: string;

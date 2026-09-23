@@ -54,6 +54,7 @@ import { saveBrandCampaign, saveBrandCollection, saveBrandPromotion, useMarketin
 import { alertKindLabel, enableAlert, setAlertPreference, useAlertCenter, type AlertKind } from "../../lib/alerts";
 import { latestFounderDraft, refreshFounderProjects, simpleStageOf, useFounderProjects, type FounderProject } from "../../lib/founder";
 import BrandPromoCodes from "../../components/BrandPromoCodes";
+import { importFounderWork } from "../../lib/photo";
 
 type Section = "overview" | "make" | "catalog" | "orders" | "finance" | "more" | "promoCodes" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings" | "businessRegistration";
 
@@ -1323,35 +1324,48 @@ function BusinessRegistrationSection({ brand, uid, theme, styles }: { brand: Bra
   const [provider, setProvider] = useState(brand.businessRegistrationProvider || "");
   const [legalName, setLegalName] = useState(brand.legalName || "");
   const [registrationId, setRegistrationId] = useState(brand.registrationId || "");
+  const [proofUri, setProofUri] = useState(brand.businessRegistrationProofUri || "");
+  const [proofName, setProofName] = useState(brand.businessRegistrationProofName || "");
+  const [showReviewForm, setShowReviewForm] = useState(false);
   const [busy, setBusy] = useState(false);
   const status = brand.businessRegistrationStatus || "not_started";
-  const statusCopy: Record<string, string> = { not_started: "Not started", in_progress: "In progress", submitted: "Submitted for Uvel review", verified: "Verified", needs_information: "More information needed", rejected: "Needs a new submission" };
+  const statusCopy: Record<string, string> = { not_started: "Not submitted", in_progress: "In progress", submitted: "Under review", verified: "Verified", needs_information: "More information needed", rejected: "Needs a new submission" };
   const providers = [
-    { id: "Stripe Atlas", title: "Stripe Atlas", copy: "Incorporate a U.S. company and get help with setup.", url: "https://stripe.com/atlas" },
-    { id: "doola", title: "doola", copy: "Form a U.S. company with filing and compliance support.", url: "https://www.doola.com/formation/" },
-    { id: "Firstbase", title: "Firstbase", copy: "Start and manage a U.S. company online.", url: "https://www.firstbase.io/start-with-firstbase" },
+    { id: "Stripe Atlas", title: "Stripe Atlas", url: "https://stripe.com/atlas" },
+    { id: "doola", title: "doola", url: "https://www.doola.com/formation/" },
+    { id: "Firstbase", title: "Firstbase", url: "https://www.firstbase.io/start-with-firstbase" },
   ];
+  async function chooseProof() {
+    try {
+      const picked = await importFounderWork();
+      if (!picked) return;
+      setProofUri(picked.uri);
+      setProofName(picked.name);
+    } catch (error) {
+      Alert.alert("Could not attach file", error instanceof Error ? error.message : "Choose a PDF, image, or screenshot.");
+    }
+  }
   async function submit() {
     if (!owner || busy) return;
-    if (!provider || !legalName.trim() || !registrationId.trim()) {
-      Alert.alert("Complete your registration details", "Choose the provider you used and add your legal business name and registration number before submitting.");
+    if (!legalName.trim() || !registrationId.trim() || !proofUri) {
+      Alert.alert("Add your proof", "Add your legal business name, registration number, and a registration document or screenshot before submitting.");
       return;
     }
     setBusy(true);
-    updateBrand(brand.id, { legalName: legalName.trim(), registrationId: registrationId.trim(), businessRegistrationProvider: provider, businessRegistrationStatus: "submitted", businessRegistrationSubmittedAt: Date.now() });
-    void recordAuditEvent({ brandId: brand.id, action: "business_registration_submitted", entity: "brand", entityId: brand.id, entityName: brand.name, summary: "Business registration submitted for Uvel review.", metadata: { provider } });
+    updateBrand(brand.id, { legalName: legalName.trim(), registrationId: registrationId.trim(), businessRegistrationProvider: provider.trim() || "Other", businessRegistrationProofUri: proofUri, businessRegistrationProofName: proofName, businessRegistrationStatus: "submitted", businessRegistrationSubmittedAt: Date.now() });
+    void recordAuditEvent({ brandId: brand.id, action: "business_registration_submitted", entity: "brand", entityId: brand.id, entityName: brand.name, summary: "Business registration proof submitted for Uvel review.", metadata: { provider: provider.trim() || "Other" } });
     setBusy(false);
-    Alert.alert("Submitted for review", "We received your registration details. Your brand will show as verified only after Uvel completes its review.");
+    setShowReviewForm(false);
+    Alert.alert("Submitted", "Your proof is under review.");
   }
   return (
     <View>
       <Text style={[styles.sectionTitle, { color: theme.ink }]}>Business registration</Text>
-      <Text style={[styles.sectionP, { color: theme.muted }]}>Register your business with a provider, then submit the official details here so Uvel can review them.</Text>
-      <View style={[styles.registrationNotice, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.registrationNoticeTitle, { color: theme.ink }]}>This is separate from Uvel review</Text><Text style={[styles.registrationNoticeCopy, { color: theme.muted }]}>Uvel does not register businesses or issue registration numbers. Choose a provider below, complete their process, then return here with your official details.</Text></View>
-      <Text style={[styles.settingsHeading, { color: theme.ink }]}>Choose a registration provider</Text>
-      {providers.map((item) => <Pressable key={item.id} disabled={!owner} onPress={() => { setProvider(item.id); updateBrand(brand.id, { businessRegistrationProvider: item.id, businessRegistrationStatus: "in_progress" }); void Linking.openURL(item.url); }} style={[styles.providerCard, { backgroundColor: theme.card, borderColor: provider === item.id ? theme.accent : theme.lineColor }, !owner && { opacity: 0.5 }]}><View style={{ flex: 1 }}><Text style={[styles.providerTitle, { color: theme.ink }]}>{item.title}</Text><Text style={[styles.providerCopy, { color: theme.muted }]}>{item.copy}</Text></View><Text style={[styles.providerAction, { color: theme.accent }]}>Visit ›</Text></Pressable>)}
-      <Text style={[styles.settingsHeading, { color: theme.ink }]}>Submit registration details</Text>
-      <View style={[styles.registrationForm, { backgroundColor: theme.card, borderColor: theme.lineColor }, !owner && { opacity: 0.55 }]}><Text style={[styles.registrationStatus, { color: status === "verified" ? theme.accent : theme.muted }]}>STATUS · {statusCopy[status]}</Text><Text style={[styles.registrationLabel, { color: theme.muted }]}>Provider used</Text><TextInput editable={owner} value={provider} onChangeText={setProvider} placeholder="Choose above or enter provider" placeholderTextColor={theme.muted} style={[styles.registrationInput, { color: theme.ink, borderColor: theme.lineColor }]} /><Text style={[styles.registrationLabel, { color: theme.muted }]}>Legal/business name</Text><TextInput editable={owner} value={legalName} onChangeText={setLegalName} placeholder="The name on your registration" placeholderTextColor={theme.muted} style={[styles.registrationInput, { color: theme.ink, borderColor: theme.lineColor }]} /><Text style={[styles.registrationLabel, { color: theme.muted }]}>Registration number</Text><TextInput editable={owner} value={registrationId} onChangeText={setRegistrationId} placeholder="Official registration number" placeholderTextColor={theme.muted} style={[styles.registrationInput, { color: theme.ink, borderColor: theme.lineColor }]} /><Text style={[styles.registrationHelp, { color: theme.muted }]}>Submit only official information from your registration documents. Uvel may ask for supporting evidence during review.</Text>{owner ? <Pressable disabled={busy} onPress={() => void submit()} style={[styles.registrationSubmit, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.registrationSubmitText, { color: theme.accentInk }]}>{busy ? "Submitting…" : status === "submitted" ? "Update and resubmit" : "Submit for review"}</Text></Pressable> : null}</View>
+      <View style={[styles.registrationOptional, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.registrationOptionalLabel, { color: theme.accent }]}>OPTIONAL</Text><Text style={[styles.registrationOptionalTitle, { color: theme.ink }]}>You can run your brand through Uvel without registering a business.</Text><Text style={[styles.registrationOptionalCopy, { color: theme.muted }]}>Register only if you want to. Any country and any legitimate registration source is accepted.</Text></View>
+      <Text style={[styles.settingsHeading, { color: theme.ink }]}>Registration options</Text>
+      <View style={[styles.registrationProviderList, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>{providers.map((item) => <Pressable key={item.id} onPress={() => { setProvider(item.id); void Linking.openURL(item.url); }} style={[styles.registrationProviderRow, { borderBottomColor: theme.lineColor }]}><Text style={[styles.providerTitle, { color: theme.ink }]}>{item.title}</Text><Text style={[styles.providerAction, { color: theme.accent }]}>Open ›</Text></Pressable>)}<Text style={[styles.registrationOther, { color: theme.muted }]}>Already registered elsewhere? Submit your own proof below.</Text></View>
+      <Pressable disabled={!owner} onPress={() => setShowReviewForm((value) => !value)} style={[styles.reviewRow, { backgroundColor: theme.card, borderColor: showReviewForm ? theme.accent : theme.lineColor }, !owner && { opacity: 0.55 }]}><View style={{ flex: 1 }}><Text style={[styles.reviewRowTitle, { color: theme.ink }]}>Submit proof for review</Text><Text style={[styles.reviewRowCopy, { color: theme.muted }]}>{statusCopy[status]}{proofName ? ` · ${proofName}` : ""}</Text></View><Text style={[styles.providerAction, { color: theme.accent }]}>{showReviewForm ? "Close" : "Open"}</Text></Pressable>
+      {showReviewForm ? <View style={[styles.registrationForm, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><TextInput editable={owner} value={provider} onChangeText={setProvider} placeholder="Registration source (optional)" placeholderTextColor={theme.muted} style={[styles.registrationInput, { color: theme.ink, borderColor: theme.lineColor }]} /><TextInput editable={owner} value={legalName} onChangeText={setLegalName} placeholder="Legal/business name" placeholderTextColor={theme.muted} style={[styles.registrationInput, { color: theme.ink, borderColor: theme.lineColor }]} /><TextInput editable={owner} value={registrationId} onChangeText={setRegistrationId} placeholder="Registration number" placeholderTextColor={theme.muted} style={[styles.registrationInput, { color: theme.ink, borderColor: theme.lineColor }]} /><Pressable onPress={() => void chooseProof()} style={[styles.proofButton, { borderColor: theme.lineColor }]}><Text style={[styles.proofButtonText, { color: theme.ink }]}>{proofName || "Attach proof · PDF, image, or screenshot"}</Text></Pressable>{proofName ? <Pressable onPress={() => { setProofUri(""); setProofName(""); }}><Text style={[styles.removeProof, { color: theme.muted }]}>Remove attachment</Text></Pressable> : null}<Text style={[styles.registrationHelp, { color: theme.muted }]}>Uvel will review the proof before showing Verified.</Text><Pressable disabled={busy} onPress={() => void submit()} style={[styles.registrationSubmit, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.registrationSubmitText, { color: theme.accentInk }]}>{busy ? "Submitting…" : "Submit for review"}</Text></Pressable></View> : null}
     </View>
   );
 }
@@ -1673,6 +1687,19 @@ function make(theme: HQTheme) {
     registrationHelp: { fontSize: 12, lineHeight: 18, marginTop: 12 },
     registrationSubmit: { borderRadius: 14, minHeight: 46, alignItems: "center", justifyContent: "center", marginTop: 14 },
     registrationSubmitText: { fontSize: 14, fontWeight: "900" },
+    registrationOptional: { borderWidth: 1, borderRadius: 17, padding: 14, marginTop: 10 },
+    registrationOptionalLabel: { fontSize: 10, fontWeight: "900", letterSpacing: 1.2 },
+    registrationOptionalTitle: { fontSize: 15, fontWeight: "900", lineHeight: 20, marginTop: 5 },
+    registrationOptionalCopy: { fontSize: 12, lineHeight: 17, marginTop: 5 },
+    registrationProviderList: { borderWidth: 1, borderRadius: 17, paddingHorizontal: 13, marginTop: 8 },
+    registrationProviderRow: { minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth },
+    registrationOther: { fontSize: 12, lineHeight: 17, paddingVertical: 12 },
+    reviewRow: { borderWidth: 1, borderRadius: 17, padding: 14, marginTop: 16, flexDirection: "row", alignItems: "center", gap: 10 },
+    reviewRowTitle: { fontSize: 15, fontWeight: "900" },
+    reviewRowCopy: { fontSize: 12, lineHeight: 17, marginTop: 4 },
+    proofButton: { minHeight: 46, borderWidth: 1, borderRadius: 13, justifyContent: "center", paddingHorizontal: 12, marginTop: 10 },
+    proofButtonText: { fontSize: 13, fontWeight: "800" },
+    removeProof: { fontSize: 11, textDecorationLine: "underline", marginTop: 7 },
     detailCard: { borderRadius: 18, paddingHorizontal: 16, marginTop: 12 },
     detailRow: { paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: "row", justifyContent: "space-between", gap: 14 },
     detailLabel: { fontSize: 12 },
