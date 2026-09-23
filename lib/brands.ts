@@ -27,6 +27,7 @@ export type BrandReviewStatus = "not_started" | "review_pending" | "needs_inform
 export type PayoutStatus = "not_started" | "pending" | "enabled" | "needs_attention" | "unavailable";
 export type BusinessRegistrationStatus = "not_started" | "in_progress" | "submitted" | "verified" | "needs_information" | "rejected";
 export type MemberRole = "owner" | "admin" | "merchandiser" | "marketing" | "support" | "finance" | "viewer" | "poster";
+export type CustomerPolicyMode = "standard_returns" | "final_sale";
 
 export type BrandMember = {
   uid: string;
@@ -69,6 +70,10 @@ export type Brand = {
   businessRegistrationSubmittedAt?: number;
   businessRegistrationProofUri?: string;
   businessRegistrationProofName?: string;
+  customerPolicyMode?: CustomerPolicyMode;
+  customerReturnWindowDays?: 14 | 30;
+  customerReturnShipping?: "buyer" | "brand";
+  customerPolicyNote?: string;
   contactEmail: string;
   country: string;
   logoUri: string;

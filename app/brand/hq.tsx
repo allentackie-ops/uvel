@@ -1335,7 +1335,48 @@ function SettingsSection({ brand, uid, theme, styles, onSection }: { brand: Bran
       <Text style={[styles.settingsHeading, { color: theme.ink }]}>Payments</Text>
       <View style={[styles.settingsCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><SettingsRow label="Payout setup" value={payoutLabel} onPress={() => onSection("finance")} theme={theme} styles={styles} /></View>
 
+      <Text style={[styles.settingsHeading, { color: theme.ink }]}>Customer policies</Text>
+      <CustomerPoliciesSection brand={brand} uid={uid} theme={theme} styles={styles} />
+
       <View style={[styles.settingsTeam, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.settingsTeamTitle, { color: theme.ink }]}>Team and permissions</Text><Text style={[styles.settingsTeamCopy, { color: theme.muted }]}>{brand.members.length} team member{brand.members.length === 1 ? "" : "s"}. Manage who can edit products, answer buyers, view analytics, and manage money.</Text></View><Pressable onPress={() => onSection("team")} style={[styles.settingsTeamButton, { borderColor: theme.lineColor }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Manage team</Text></Pressable></View>
+    </View>
+  );
+}
+
+function CustomerPoliciesSection({ brand, uid, theme, styles }: { brand: Brand; uid: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  const owner = brand.ownerId === uid;
+  const [mode, setMode] = useState<"standard_returns" | "final_sale">(brand.customerPolicyMode || "standard_returns");
+  const [windowDays, setWindowDays] = useState<14 | 30>(brand.customerReturnWindowDays || 14);
+  const [shipping, setShipping] = useState<"buyer" | "brand">(brand.customerReturnShipping || "buyer");
+  const [note, setNote] = useState(brand.customerPolicyNote || "");
+  const [saved, setSaved] = useState(false);
+
+  function save() {
+    if (!owner) return;
+    updateBrand(brand.id, { customerPolicyMode: mode, customerReturnWindowDays: mode === "standard_returns" ? windowDays : undefined, customerReturnShipping: mode === "standard_returns" ? shipping : undefined, customerPolicyNote: note.trim() || undefined });
+    void recordAuditEvent({ brandId: brand.id, action: "brand_settings_updated", entity: "brand", entityId: brand.id, entityName: brand.name, summary: "Customer return policy updated." });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2200);
+  }
+
+  return (
+    <View style={[styles.policyCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+      <Text style={[styles.policyIntro, { color: theme.muted }]}>Tell buyers what happens when they change their mind. Uvel still helps with damaged, defective, or incorrect items.</Text>
+      <Text style={[styles.policyLabel, { color: theme.muted }]}>RETURN RULE</Text>
+      <View style={styles.policyChoices}>
+        {([["standard_returns", "Accept returns", "Buyers can request a return within your chosen window."], ["final_sale", "Final sale", "No change-of-mind returns. Support still covers item problems."]] as const).map(([id, title, copy]) => {
+          const selected = mode === id;
+          return <Pressable key={id} disabled={!owner} onPress={() => setMode(id)} style={[styles.policyChoice, { borderColor: selected ? theme.accent : theme.lineColor, backgroundColor: selected ? `${theme.accent}18` : theme.bg }, !owner && { opacity: 0.6 }]}><View style={[styles.policyRadio, { borderColor: selected ? theme.accent : theme.muted }]}>{selected ? <View style={[styles.policyRadioDot, { backgroundColor: theme.accent }]} /> : null}</View><View style={{ flex: 1 }}><Text style={[styles.policyChoiceTitle, { color: theme.ink }]}>{title}</Text><Text style={[styles.policyChoiceCopy, { color: theme.muted }]}>{copy}</Text></View></Pressable>;
+        })}
+      </View>
+      {mode === "standard_returns" ? <>
+        <Text style={[styles.policyLabel, { color: theme.muted }]}>RETURN WINDOW</Text>
+        <View style={styles.policyInlineChoices}>{([14, 30] as const).map((days) => <Pressable key={days} disabled={!owner} onPress={() => setWindowDays(days)} style={[styles.policyPill, { borderColor: windowDays === days ? theme.accent : theme.lineColor, backgroundColor: windowDays === days ? theme.accent : theme.bg }, !owner && { opacity: 0.6 }]}><Text style={[styles.policyPillText, { color: windowDays === days ? theme.accentInk : theme.ink }]}>{days} days</Text></Pressable>)}</View>
+        <Text style={[styles.policyLabel, { color: theme.muted }]}>RETURN SHIPPING</Text>
+        <View style={styles.policyInlineChoices}>{([["buyer", "Buyer pays"], ["brand", "Brand pays"]] as const).map(([id, label]) => <Pressable key={id} disabled={!owner} onPress={() => setShipping(id)} style={[styles.policyPill, { borderColor: shipping === id ? theme.accent : theme.lineColor, backgroundColor: shipping === id ? theme.accent : theme.bg }, !owner && { opacity: 0.6 }]}><Text style={[styles.policyPillText, { color: shipping === id ? theme.accentInk : theme.ink }]}>{label}</Text></Pressable>)}</View>
+      </> : <Text style={[styles.policyNote, { color: theme.muted }]}>Final sale applies to change-of-mind returns. Buyers can still contact Uvel about items that arrive damaged, defective, or different from the listing.</Text>}
+      <TextInput editable={owner} value={note} onChangeText={setNote} placeholder="Optional note for buyers" placeholderTextColor={theme.muted} style={[styles.policyInput, { color: theme.ink, borderColor: theme.lineColor }, !owner && { opacity: 0.6 }]} multiline maxLength={180} />
+      <View style={styles.policyFooter}><Text style={[styles.policySaved, { color: saved ? theme.accent : theme.muted }]}>{saved ? "Saved" : owner ? "Only the brand owner can change this." : "Owner only"}</Text><Pressable disabled={!owner} onPress={save} style={[styles.policySave, { backgroundColor: theme.accent }, !owner && { opacity: 0.5 }]}><Text style={[styles.policySaveText, { color: theme.accentInk }]}>Save policy</Text></Pressable></View>
     </View>
   );
 }
@@ -1567,6 +1608,24 @@ function make(theme: HQTheme) {
     financeBreakdownTitle: { fontSize: 14, fontWeight: "800", marginBottom: 8 },
     financeLine: { fontSize: 12, lineHeight: 21 },
     payoutCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 10 },
+    policyCard: { borderWidth: 1, borderRadius: 18, padding: 14, marginTop: 10 },
+    policyIntro: { fontSize: 13, lineHeight: 19 },
+    policyLabel: { fontSize: 10, fontWeight: "800", letterSpacing: 1, marginTop: 16, marginBottom: 8 },
+    policyChoices: { gap: 8 },
+    policyChoice: { borderWidth: 1, borderRadius: 14, padding: 11, flexDirection: "row", alignItems: "flex-start", gap: 10 },
+    policyRadio: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, alignItems: "center", justifyContent: "center", marginTop: 1 },
+    policyRadioDot: { width: 8, height: 8, borderRadius: 4 },
+    policyChoiceTitle: { fontSize: 13, fontWeight: "800" },
+    policyChoiceCopy: { fontSize: 11, lineHeight: 16, marginTop: 3 },
+    policyInlineChoices: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    policyPill: { minHeight: 36, borderWidth: 1, borderRadius: 18, paddingHorizontal: 13, justifyContent: "center" },
+    policyPillText: { fontSize: 12, fontWeight: "800" },
+    policyNote: { fontSize: 12, lineHeight: 18, marginTop: 14 },
+    policyInput: { minHeight: 46, borderWidth: 1, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 10, fontSize: 13, marginTop: 16, textAlignVertical: "top" },
+    policyFooter: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 14 },
+    policySaved: { flex: 1, fontSize: 11 },
+    policySave: { height: 36, paddingHorizontal: 14, borderRadius: 18, justifyContent: "center" },
+    policySaveText: { fontSize: 12, fontWeight: "800" },
     marketingStats: { flexDirection: "row", gap: 8, marginTop: 10 },
     marketingComposer: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 10 },
     marketingInput: { minHeight: 42, borderWidth: 1, borderRadius: 11, paddingHorizontal: 11, fontSize: 13, marginTop: 10 },
