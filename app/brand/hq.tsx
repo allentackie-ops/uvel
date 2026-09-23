@@ -434,13 +434,13 @@ function MoreSection({
   );
 }
 
-type CatalogFilter = "all" | "active" | "draft" | "archived" | "sold";
+type CatalogFilter = "all" | "active" | "review_pending" | "draft" | "archived";
 const CATALOG_FILTERS: Array<{ id: CatalogFilter; label: string }> = [
   { id: "all", label: "All" },
-  { id: "active", label: "Active" },
+  { id: "active", label: "Live" },
+  { id: "review_pending", label: "In review" },
   { id: "draft", label: "Drafts" },
   { id: "archived", label: "Archived" },
-  { id: "sold", label: "Sold" },
 ];
 
 function CatalogSection({ brand, items, canManage, theme, styles }: { brand: Brand; items: ClosetPiece[]; canManage: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
@@ -451,7 +451,14 @@ function CatalogSection({ brand, items, canManage, theme, styles }: { brand: Bra
   const app = useUvel();
   const { preferences } = useAlertCenter(app.uid);
   const market = getMarket(marketCode);
-  const filteredItems = items.filter((item) => filter === "all" || (filter === "active" ? item.status === "listed" : item.status === filter));
+  const filteredItems = items.filter((item) => {
+    if (filter === "all") return true;
+    if (filter === "active") return item.status === "listed";
+    return item.status === filter;
+  });
+  const liveCount = items.filter((item) => item.status === "listed").length;
+  const reviewCount = items.filter((item) => item.status === "review_pending").length;
+  const draftCount = items.filter((item) => item.status === "draft" || item.status === "owned").length;
   const watchedIds = new Set(preferences.map((preference) => preference.listingId));
 
   async function watchWholeCatalog() {
@@ -460,10 +467,8 @@ function CatalogSection({ brand, items, canManage, theme, styles }: { brand: Bra
     try {
       const first = items[0];
       await enableAlert(app.uid, first, alertKind);
-      for (const item of items.slice(1)) {
-        await setAlertPreference(app.uid, item, alertKind);
-      }
-      Alert.alert("Catalog alerts enabled", `${alertKindLabel(alertKind)} are now watching all ${items.length} Founder Studio / Brand HQ product${items.length === 1 ? "" : "s"}. Changes recorded in the catalog will appear in Notifications.`);
+      for (const item of items.slice(1)) await setAlertPreference(app.uid, item, alertKind);
+      Alert.alert("Product alerts enabled", `${alertKindLabel(alertKind)} will appear in Notifications for your ${items.length} product${items.length === 1 ? "" : "s"}.`);
     } finally {
       setAlertBusy(false);
     }
@@ -473,53 +478,29 @@ function CatalogSection({ brand, items, canManage, theme, styles }: { brand: Bra
     <View>
       <View style={styles.sectionHead}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.sectionTitle, { color: theme.ink }]}>Catalog</Text>
-          <Text style={[styles.sectionP, { color: theme.muted }]}>Your product floor, stock signals, and listing status.</Text>
+          <Text style={[styles.sectionTitle, { color: theme.ink }]}>Products</Text>
+          <Text style={[styles.sectionP, { color: theme.muted }]}>Your brand’s products, from idea to customer.</Text>
         </View>
-        {canManage ? <Pressable onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })} style={[styles.smallCta, { backgroundColor: theme.accent }]}><Text style={[styles.smallCtaTxt, { color: theme.accentInk }]}>Add product</Text></Pressable> : null}
+        {canManage ? <Pressable onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })} style={[styles.smallCta, { backgroundColor: theme.accent }]}><Text style={[styles.smallCtaTxt, { color: theme.accentInk }]}>+ Add product</Text></Pressable> : null}
       </View>
-      {canManage ? (
-        <View style={[styles.bulkCard, { backgroundColor: theme.card }]}>
-          <View style={styles.bulkHead}>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.bulkTitle, { color: theme.ink }]}>Price & restock alerts</Text>
-              <Text style={[styles.bulkP, { color: theme.muted }]}>Watch the whole Founder Studio / Brand HQ catalog, not just one marketplace listing. {watchedIds.size}/{items.length} product{items.length === 1 ? " is" : "s are"} currently watched.</Text>
-            </View>
-          </View>
-          <View style={styles.catalogAlertOptions}>
-            {(["price_drop", "restock", "both"] as const).map((kind) => (
-              <Pressable key={kind} onPress={() => setAlertKind(kind)} style={[styles.orderFilter, { borderColor: alertKind === kind ? theme.accent : theme.lineColor, backgroundColor: alertKind === kind ? theme.accent : theme.card }]}>
-                <Text style={[styles.orderFilterTxt, { color: alertKind === kind ? theme.accentInk : theme.ink }]}>{kind === "price_drop" ? "Price drops" : kind === "restock" ? "Restocks" : "Both"}</Text>
-              </Pressable>
-            ))}
-          </View>
-          <Pressable onPress={() => void watchWholeCatalog()} disabled={alertBusy || !items.length} style={[styles.bulkButton, { backgroundColor: theme.accent, opacity: alertBusy || !items.length ? 0.55 : 1 }]}>
-            <Text style={[styles.bulkButtonTxt, { color: theme.accentInk }]}>{alertBusy ? "Enabling…" : "Watch whole catalog"}</Text>
-          </Pressable>
-        </View>
-      ) : null}
-      <Text style={[styles.marketKicker, { color: theme.muted }]}>MANAGE A MARKET</Text>
-      <Text style={[styles.marketSummary, { color: theme.ink }]}>{market.name} · {market.currency}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.marketPicker}>
-        {MARKETS.map((option) => {
-          const selected = option.code === market.code;
-          return <Pressable key={option.code} onPress={() => setMarketCode(option.code)} style={[styles.marketChip, { borderColor: selected ? theme.accent : theme.lineColor, backgroundColor: selected ? theme.accent : theme.card }]}><Text style={[styles.marketChipCode, { color: selected ? theme.accentInk : theme.ink }]}>{option.code}</Text><Text style={[styles.marketChipName, { color: selected ? theme.accentInk : theme.muted }]}>{option.name}</Text></Pressable>;
-        })}
-      </ScrollView>
-      <Text style={[styles.marketHint, { color: theme.muted }]}>Prices and availability below are for {market.name}. Shipping coverage stays tied to each product’s approved destinations.</Text>
+      {brandMakes(brand) ? <View style={[styles.catalogInfoCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.catalogInfoTitle, { color: theme.ink }]}>Uvel makes and ships your products</Text><Text style={[styles.catalogInfoCopy, { color: theme.muted }]}>When someone orders, Uvel sends the product to manufacturing and handles delivery. You do not need to hold stock or pack orders.</Text></View> : null}
+      <View style={styles.catalogSummary}>
+        <Stat label="Live" value={String(liveCount)} theme={theme} styles={styles} />
+        <Stat label="In review" value={String(reviewCount)} theme={theme} styles={styles} />
+        <Stat label="Drafts" value={String(draftCount)} theme={theme} styles={styles} />
+      </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catalogFilters}>
         {CATALOG_FILTERS.map((option) => <Pressable key={option.id} onPress={() => setFilter(option.id)} style={[styles.orderFilter, { borderColor: filter === option.id ? theme.accent : theme.lineColor, backgroundColor: filter === option.id ? theme.accent : theme.card }]}><Text style={[styles.orderFilterTxt, { color: filter === option.id ? theme.accentInk : theme.ink }]}>{option.label}</Text></Pressable>)}
       </ScrollView>
-      {filteredItems.length ? (
-        <>
-          {canManage && filter !== "sold" ? <BulkUpdate key={`bulk-${market.code}-${filter}`} items={filteredItems} brandId={brand.id} marketCode={market.code} theme={theme} styles={styles} /> : null}
-          {filteredItems.map((item) => <CatalogRow key={`${item.id}-${market.code}`} item={item} brandId={brand.id} canManage={canManage} marketCode={market.code} theme={theme} styles={styles} />)}
-        </>
-      ) : <Empty text={items.length ? "No products match this view." : "No products in this catalog yet."} theme={theme} styles={styles} />}
+      <View style={[styles.catalogMarketBar, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+        <View style={{ flex: 1 }}><Text style={[styles.catalogMarketLabel, { color: theme.muted }]}>PRICES SHOWN FOR</Text><Text style={[styles.catalogMarketTitle, { color: theme.ink }]}>{market.name} · {market.currency}</Text></View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catalogMarketPicker}>{MARKETS.map((option) => <Pressable key={option.code} onPress={() => setMarketCode(option.code)} style={[styles.marketChip, { borderColor: option.code === market.code ? theme.accent : theme.lineColor, backgroundColor: option.code === market.code ? theme.accent : theme.card }]}><Text style={[styles.marketChipCode, { color: option.code === market.code ? theme.accentInk : theme.ink }]}>{option.code}</Text></Pressable>)}</ScrollView>
+      </View>
+      {canManage && items.length ? <View style={[styles.catalogTools, { borderColor: theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.catalogToolsTitle, { color: theme.ink }]}>Product alerts</Text><Text style={[styles.catalogToolsCopy, { color: theme.muted }]}>{watchedIds.size}/{items.length} products watched for price changes or restocks.</Text></View><Pressable onPress={() => void watchWholeCatalog()} disabled={alertBusy} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: alertBusy ? 0.55 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>{alertBusy ? "…" : "Watch all"}</Text></Pressable></View> : null}
+      {filteredItems.length ? filteredItems.map((item) => <CatalogRow key={`${item.id}-${market.code}`} item={item} brandId={brand.id} canManage={canManage} marketCode={market.code} madeByUvel={brandMakes(brand)} theme={theme} styles={styles} />) : <Empty text={items.length ? "No products match this view." : "No products yet. Add your first product to start building your brand."} theme={theme} styles={styles} />}
     </View>
   );
 }
-
 function BulkUpdate({ items, brandId, marketCode, theme, styles }: { items: ClosetPiece[]; brandId: string; marketCode: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const market = getMarket(marketCode);
   const [price, setPrice] = useState("");
@@ -560,7 +541,7 @@ function BulkUpdate({ items, brandId, marketCode, theme, styles }: { items: Clos
   );
 }
 
-function CatalogRow({ item, brandId, canManage, marketCode, theme, styles }: { item: ClosetPiece; brandId: string; canManage: boolean; marketCode: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
+function CatalogRow({ item, brandId, canManage, marketCode, madeByUvel, theme, styles }: { item: ClosetPiece; brandId: string; canManage: boolean; marketCode: string; madeByUvel: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const market = getMarket(marketCode);
   const stock = typeof item.stockQuantity === "number" ? item.stockQuantity : null;
   const sizes = item.sizes?.length ? item.sizes : item.size ? [item.size] : [];
@@ -623,10 +604,11 @@ function CatalogRow({ item, brandId, canManage, marketCode, theme, styles }: { i
         {item.photo ? <Image cachePolicy="memory-disk" source={{ uri: item.photo }} style={styles.catalogImg} contentFit="cover" /> : <View style={[styles.catalogImg, { backgroundColor: theme.bg }]} />}
         <View style={styles.catalogCopy}>
           <Text style={[styles.catalogName, { color: theme.ink }]} numberOfLines={2}>{item.name}</Text>
-          <Text style={[styles.catalogMeta, { color: theme.muted }]}>{item.status === "listed" ? "Active" : item.status === "sold" ? "Sold" : item.status === "archived" ? "Archived" : "Draft"} · {item.sku || "SKU pending"}</Text>
-          <Text style={[styles.catalogPrice, { color: theme.ink }]}>{usd(item.marketPrices?.[market.code] ?? item.listPriceCents, market.currency)}{stock !== null ? ` · ${stock} in stock` : ""}</Text>
+          <Text style={[styles.catalogMeta, { color: theme.muted }]}>{item.status === "listed" ? "Live" : item.status === "review_pending" ? "In review" : item.status === "sold" ? "Sold" : item.status === "archived" ? "Archived" : "Draft"}</Text>
+          <Text style={[styles.catalogPrice, { color: theme.ink }]}>{usd(item.marketPrices?.[market.code] ?? item.listPriceCents, market.currency)}{stock !== null && !madeByUvel ? ` · ${stock} in stock` : ""}</Text>
+          {item.status === "listed" ? <Text style={[styles.catalogFulfillment, { color: theme.muted }]}>{madeByUvel ? "Made by Uvel after each order" : "You fulfill orders"}</Text> : null}
         </View>
-        {stock !== null && stock > 0 && stock <= 10 ? <View style={[styles.stockPill, { backgroundColor: theme.accent }]}><Text style={[styles.stockTxt, { color: theme.accentInk }]}>{stock} left</Text></View> : null}
+        {!madeByUvel && stock !== null && stock > 0 && stock <= 10 ? <View style={[styles.stockPill, { backgroundColor: theme.accent }]}><Text style={[styles.stockTxt, { color: theme.accentInk }]}>{stock} left</Text></View> : null}
         <Text style={[styles.rowArrow, { color: theme.ink }]}>{expanded ? "⌃" : "›"}</Text>
       </Pressable>
       {expanded && canManage ? (
@@ -1551,6 +1533,7 @@ function make(theme: HQTheme) {
     catalogName: { fontSize: 15, fontWeight: "800" },
     catalogMeta: { fontSize: 12, marginTop: 5 },
     catalogPrice: { fontSize: 12, fontWeight: "700", marginTop: 6 },
+    catalogFulfillment: { fontSize: 11, lineHeight: 15, marginTop: 4 },
     stockPill: { height: 24, paddingHorizontal: 8, borderRadius: 12, justifyContent: "center" },
     stockTxt: { fontSize: 10, fontWeight: "800" },
     rowArrow: { fontSize: 26, marginRight: 2 },
@@ -1569,6 +1552,17 @@ function make(theme: HQTheme) {
     readOnly: { fontSize: 12, padding: 14, paddingTop: 0 },
     orderStats: { flexDirection: "row", gap: 10, marginTop: 4 },
     orderReassurance: { fontSize: 13, lineHeight: 18, marginTop: -6, marginBottom: 14 },
+    catalogInfoCard: { borderWidth: 1, borderRadius: 16, padding: 14, marginTop: 14 },
+    catalogInfoTitle: { fontSize: 14, fontWeight: "900" },
+    catalogInfoCopy: { fontSize: 12, lineHeight: 17, marginTop: 5 },
+    catalogSummary: { flexDirection: "row", gap: 10, marginTop: 16 },
+    catalogMarketBar: { borderWidth: 1, borderRadius: 16, padding: 12, marginTop: 4, gap: 10 },
+    catalogMarketLabel: { fontSize: 10, letterSpacing: 1, fontWeight: "900" },
+    catalogMarketTitle: { fontSize: 13, fontWeight: "800", marginTop: 3 },
+    catalogMarketPicker: { gap: 7 },
+    catalogTools: { flexDirection: "row", alignItems: "center", borderTopWidth: StyleSheet.hairlineWidth, paddingVertical: 12, marginTop: 12 },
+    catalogToolsTitle: { fontSize: 13, fontWeight: "800" },
+    catalogToolsCopy: { fontSize: 11, lineHeight: 15, marginTop: 3 },
     catalogFilters: { gap: 8, paddingVertical: 12 },
     auditFilters: { gap: 8, paddingVertical: 12 },
     auditCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 9 },
