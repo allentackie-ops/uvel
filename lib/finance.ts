@@ -9,6 +9,7 @@ export type SettlementStatus = "pending" | "available" | "refunded" | "void";
 export type PayoutStatus = "requested" | "processing" | "paid" | "failed" | "reversed";
 export type PayoutProfileStatus = "not_started" | "submitted" | "verified" | "needs_attention";
 export type PayoutDestinationType = "bank" | "mobile_money";
+export type PayoutOwnerType = "individual" | "business";
 
 export type SettlementEntry = {
   id: string;
@@ -29,6 +30,7 @@ export type SettlementEntry = {
 export type PayoutProfile = {
   brandId: string;
   status: PayoutProfileStatus;
+  ownerType: PayoutOwnerType;
   destinationType: PayoutDestinationType;
   country: string;
   currency: string;
@@ -149,8 +151,8 @@ export function usePayoutProfile(brandId: string) {
 export type SavePayoutProfileInput = Omit<PayoutProfile, "status" | "updatedAt" | "destinationLast4"> & { destination: string };
 export async function savePayoutProfile(input: SavePayoutProfileInput) {
   const destination = input.destination.replace(/\D/g, "");
-  if (!input.brandId || !input.legalName.trim() || !input.registrationId.trim() || !input.accountHolderName.trim() || !input.institutionName.trim() || destination.length < 4) throw new Error("Complete the required payout and compliance details.");
-  const profile: PayoutProfile = { brandId: input.brandId, status: "submitted", destinationType: input.destinationType, country: input.country.toUpperCase(), currency: input.currency.toUpperCase(), legalName: input.legalName.trim(), registrationId: input.registrationId.trim(), accountHolderName: input.accountHolderName.trim(), institutionName: input.institutionName.trim(), destinationLast4: destination.slice(-4), updatedAt: Date.now() };
+  if (!input.brandId || !["individual", "business"].includes(input.ownerType) || !input.legalName.trim() || (input.ownerType === "business" && !input.registrationId.trim()) || !input.accountHolderName.trim() || !input.institutionName.trim() || destination.length < 4) throw new Error("Complete the required payout details.");
+  const profile: PayoutProfile = { brandId: input.brandId, status: "submitted", ownerType: input.ownerType, destinationType: input.destinationType, country: input.country.toUpperCase(), currency: input.currency.toUpperCase(), legalName: input.legalName.trim(), registrationId: input.registrationId.trim(), accountHolderName: input.accountHolderName.trim(), institutionName: input.institutionName.trim(), destinationLast4: destination.slice(-4), updatedAt: Date.now() };
   if (firebaseReady() && firebaseAuth().currentUser) {
     const call = httpsCallable(firebaseFunctions(), "savePayoutProfile");
     await call({ ...profile, destination });

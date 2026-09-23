@@ -2372,6 +2372,7 @@ exports.savePayoutProfile = onCall(async (req) => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
   const input = req.data || {};
   const brandId = String(input.brandId || "").trim();
+  const ownerType = String(input.ownerType || "");
   const destinationType = String(input.destinationType || "");
   const country = String(input.country || "").toUpperCase();
   const currency = String(input.currency || "").toUpperCase();
@@ -2380,18 +2381,18 @@ exports.savePayoutProfile = onCall(async (req) => {
   const accountHolderName = String(input.accountHolderName || "").trim().slice(0, 160);
   const institutionName = String(input.institutionName || "").trim().slice(0, 160);
   const destination = String(input.destination || "").replace(/\D/g, "");
-  if (!brandId || !["bank", "mobile_money"].includes(destinationType) || !/^[A-Z]{2}$/.test(country) || !/^[A-Z]{3}$/.test(currency) || !legalName || !registrationId || !accountHolderName || !institutionName || destination.length < 4) throw new HttpsError("invalid-argument", "Complete all payout and compliance fields.");
+  if (!brandId || !["individual", "business"].includes(ownerType) || !["bank", "mobile_money"].includes(destinationType) || !/^[A-Z]{2}$/.test(country) || !/^[A-Z]{3}$/.test(currency) || !legalName || (ownerType === "business" && !registrationId) || !accountHolderName || !institutionName || destination.length < 4) throw new HttpsError("invalid-argument", "Complete all payout details.");
   const db = admin.firestore();
   const brandSnap = await db.collection("brands").doc(brandId).get();
   if (!brandSnap.exists) throw new HttpsError("not-found", "Brand not found.");
   const brand = brandSnap.data() || {};
   const role = await brandMemberRole(db, brandId, req.auth.uid);
   if (!role || !["owner", "admin"].includes(role)) throw new HttpsError("permission-denied", "Only brand owners and admins can edit payout setup.");
-  if (String(brand.legalName || "").trim() && legalName.toLowerCase() !== String(brand.legalName).trim().toLowerCase()) throw new HttpsError("failed-precondition", "The payout legal name must match the verified brand filing.");
-  if (String(brand.registrationId || "").trim() && registrationId.toLowerCase() !== String(brand.registrationId).trim().toLowerCase()) throw new HttpsError("failed-precondition", "The registration ID must match the verified brand filing.");
+  if (ownerType === "business" && String(brand.legalName || "").trim() && legalName.toLowerCase() !== String(brand.legalName).trim().toLowerCase()) throw new HttpsError("failed-precondition", "The payout legal name must match the verified business filing.");
+  if (ownerType === "business" && String(brand.registrationId || "").trim() && registrationId.toLowerCase() !== String(brand.registrationId).trim().toLowerCase()) throw new HttpsError("failed-precondition", "The registration ID must match the verified business filing.");
   const now = admin.firestore.FieldValue.serverTimestamp();
-  await db.collection("payoutProfiles").doc(brandId).set({ brandId, status: "submitted", destinationType, country, currency, legalName, registrationId, accountHolderName, institutionName, destinationLast4: destination.slice(-4), updatedAt: now, submittedByUid: req.auth.uid }, { merge: true });
-  await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand admin"), action: "payout_profile_submitted", entity: "payout", entityId: brandId, entityName: "Payout profile", summary: "Payout profile submitted for review.", metadata: { destinationType, country, currency } });
+  await db.collection("payoutProfiles").doc(brandId).set({ brandId, status: "submitted", ownerType, destinationType, country, currency, legalName, registrationId, accountHolderName, institutionName, destinationLast4: destination.slice(-4), updatedAt: now, submittedByUid: req.auth.uid }, { merge: true });
+  await writeAudit(db, { brandId, actorUid: req.auth.uid, actorName: String(req.auth.token.name || req.auth.token.email || "Brand admin"), action: "payout_profile_submitted", entity: "payout", entityId: brandId, entityName: "Payout profile", summary: "Payout profile submitted for review.", metadata: { ownerType, destinationType, country, currency } });
   return { ok: true, brandId, status: "submitted", destinationLast4: destination.slice(-4) };
 });
 
