@@ -691,7 +691,7 @@ function OrdersSection({ orders, madeByUvel, viewer, manager, reviewer, onSuppor
     <View>
       <Text style={[styles.sectionTitle, { color: theme.ink }]}>Orders</Text>
       {madeByUvel ? <>
-        <Text style={[styles.sectionP, { color: theme.muted }]}>Uvel is making and shipping these orders for you. You only need to keep an eye on their progress.</Text>
+        <Text style={[styles.sectionP, { color: theme.muted }]}>Uvel is making and shipping these orders for you. You only need to keep an eye on the progress.</Text>
         <Text style={[styles.orderReassurance, { color: theme.ink }]}>Delivery is already handled. We’ll show tracking when it becomes available.</Text>
         <View style={styles.orderStats}>
           <Stat label="Active orders" value={String(activeOrders.length)} theme={theme} styles={styles} />
