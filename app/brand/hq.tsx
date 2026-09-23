@@ -34,7 +34,7 @@ import {
   updateMemberRole,
 } from "../../lib/brands";
 import { OrbitLoader } from "../../components/OrbitLoader";
-import { enrollMake, trademarkStatus, brandMakes } from "../../lib/brandMake";
+import { enrollMake, brandMakes } from "../../lib/brandMake";
 import { usd } from "../../lib/catalog";
 import { financeTotals, requestBrandPayout, savePayoutProfile, settlementLedger, usePayoutProfile, usePayouts, type PayoutDestinationType, type SettlementEntry } from "../../lib/finance";
 import { useUvel } from "../../lib/store";
@@ -56,7 +56,7 @@ import { latestFounderDraft, refreshFounderProjects, simpleStageOf, useFounderPr
 import BrandPromoCodes from "../../components/BrandPromoCodes";
 import { importFounderWork, pickFromLibrary } from "../../lib/photo";
 
-type Section = "overview" | "make" | "catalog" | "orders" | "finance" | "more" | "promoCodes" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings" | "businessRegistration";
+type Section = "overview" | "make" | "catalog" | "orders" | "finance" | "more" | "promoCodes" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings" | "businessRegistration" | "trademark";
 
 type CatalogAuditInput = Parameters<typeof recordAuditEvent>[0];
 
@@ -84,11 +84,12 @@ const MORE_ROOMS: Array<{ id: Section; label: string; copy: string }> = [
   { id: "analytics", label: "Analytics", copy: "The numbers" },
   { id: "audit", label: "Activity", copy: "What changed recently" },
   { id: "businessRegistration", label: "Business registration", copy: "Register and verify your business" },
+  { id: "trademark", label: "Trademark protection", copy: "Protect a name or logo" },
   { id: "team", label: "Team", copy: "Who can do what" },
   { id: "settings", label: "Settings", copy: "Name, country, page" },
 ];
 
-const MORE_IDS = new Set<Section>(["more", "promoCodes", "growth", "support", "inbox", "analytics", "audit", "businessRegistration", "team", "settings"]);
+const MORE_IDS = new Set<Section>(["more", "promoCodes", "growth", "support", "inbox", "analytics", "audit", "businessRegistration", "trademark", "team", "settings"]);
 
 const ROLE_OPTIONS: Array<Exclude<MemberRole, "owner">> = [
   "admin",
@@ -350,7 +351,6 @@ function MakeSection({
 }) {
   const owner = roleOn(brand, uid) === "owner" || roleOn(brand, uid) === "admin";
   const making = brandMakes(brand);
-  const mark = trademarkStatus(brand);
   const approved = brandApproved(brand);
 
   function turnOnMake() {
@@ -393,21 +393,6 @@ function MakeSection({
         )}
       </View>
 
-      <View style={[styles.makeCard, { backgroundColor: theme.card }]}>
-        <Text style={[styles.makeKicker, { color: theme.muted }]}>OPTIONAL</Text>
-        <Text style={[styles.makeTitle, { color: theme.ink }]}>Trademark protection</Text>
-        {mark === "none" ? (
-          <Pressable
-            onPress={() => router.push({ pathname: "/brand/trademark", params: { id: brand.id } })}
-            disabled={brand.ownerId !== uid}
-            style={[styles.makeBtn, { backgroundColor: theme.accent }, brand.ownerId !== uid && { opacity: 0.4 }]}
-          >
-            <Text style={[styles.makeBtnTxt, { color: theme.accentInk }]}>Open trademark options</Text>
-          </Pressable>
-        ) : (
-          <Text style={[styles.makeStatus, { color: theme.ink }]}>{mark === "registered" ? "Registered." : mark === "submitted" ? "Under review." : mark === "filed" ? "Filed." : mark === "needs_information" ? "Needs information." : "In progress."}</Text>
-        )}
-      </View>
     </View>
   );
 }
@@ -432,7 +417,7 @@ function MoreSection({
         return (
           <Pressable
             key={item.id}
-            onPress={() => onSection(item.id)}
+            onPress={() => item.id === "trademark" ? router.push({ pathname: "/brand/trademark", params: { id: brand.id } }) : onSection(item.id)}
             style={[styles.moreRow, { backgroundColor: theme.card }, locked && { opacity: 0.45 }]}
             accessibilityRole="button"
             accessibilityLabel={item.label}
