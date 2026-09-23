@@ -107,10 +107,18 @@ export type Brand = {
   /** Uvel makes the clothes and the manufacturer sends them. */
   madeByUvel?: boolean;
   madeByUvelAt?: number;
-  trademarkStatus?: "none" | "filing" | "filed";
+  trademarkStatus?: "none" | "filing" | "in_progress" | "submitted" | "filed" | "registered" | "needs_information";
   trademarkPaidCents?: number;
   trademarkPaidAt?: number;
   trademarkFiledAt?: number;
+  trademarkOwnerType?: "individual" | "sole_proprietor" | "registered_business";
+  trademarkMarkType?: "name" | "logo" | "name_and_logo";
+  trademarkFilingOffice?: string;
+  trademarkFilingUrl?: string;
+  trademarkApplicationNumber?: string;
+  trademarkFilingDate?: string;
+  trademarkProofUri?: string;
+  trademarkProofName?: string;
 };
 
 export type BrandPerson = {

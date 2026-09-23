@@ -4,7 +4,7 @@ import { convertCents, getMarket, moneyExact } from "./markets";
 /** What they pay. Do not break this into filing cost vs Uvel. */
 export const TRADEMARK_USD_CENTS = 37000;
 
-export type TrademarkStatus = "none" | "filing" | "filed";
+export type TrademarkStatus = "none" | "filing" | "in_progress" | "submitted" | "filed" | "registered" | "needs_information";
 
 export function brandMakes(brand?: Brand | null) {
   return Boolean(brand?.madeByUvel);
@@ -25,7 +25,7 @@ export function enrollMake(brandId: string) {
 
 export function markTrademarkFiling(brandId: string, paidCents = TRADEMARK_USD_CENTS) {
   return updateBrand(brandId, {
-    trademarkStatus: "filing",
+    trademarkStatus: "in_progress",
     trademarkPaidCents: paidCents,
     trademarkPaidAt: Date.now(),
   });

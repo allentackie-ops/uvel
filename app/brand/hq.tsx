@@ -34,7 +34,7 @@ import {
   updateMemberRole,
 } from "../../lib/brands";
 import { OrbitLoader } from "../../components/OrbitLoader";
-import { enrollMake, trademarkPriceLabel, trademarkStatus, brandMakes } from "../../lib/brandMake";
+import { enrollMake, trademarkStatus, brandMakes } from "../../lib/brandMake";
 import { usd } from "../../lib/catalog";
 import { financeTotals, requestBrandPayout, savePayoutProfile, settlementLedger, usePayoutProfile, usePayouts, type PayoutDestinationType, type SettlementEntry } from "../../lib/finance";
 import { useUvel } from "../../lib/store";
@@ -351,7 +351,6 @@ function MakeSection({
   const owner = roleOn(brand, uid) === "owner" || roleOn(brand, uid) === "admin";
   const making = brandMakes(brand);
   const mark = trademarkStatus(brand);
-  const price = trademarkPriceLabel(brand.country);
   const approved = brandApproved(brand);
 
   function turnOnMake() {
@@ -396,17 +395,17 @@ function MakeSection({
 
       <View style={[styles.makeCard, { backgroundColor: theme.card }]}>
         <Text style={[styles.makeKicker, { color: theme.muted }]}>OPTIONAL</Text>
-        <Text style={[styles.makeTitle, { color: theme.ink }]}>Protect your brand name through trademark</Text>
+        <Text style={[styles.makeTitle, { color: theme.ink }]}>Trademark protection</Text>
         {mark === "none" ? (
           <Pressable
             onPress={() => router.push({ pathname: "/brand/trademark", params: { id: brand.id } })}
-            disabled={!owner}
-            style={[styles.makeBtn, { backgroundColor: theme.accent }, !owner && { opacity: 0.4 }]}
+            disabled={brand.ownerId !== uid}
+            style={[styles.makeBtn, { backgroundColor: theme.accent }, brand.ownerId !== uid && { opacity: 0.4 }]}
           >
-            <Text style={[styles.makeBtnTxt, { color: theme.accentInk }]}>Register · {price}</Text>
+            <Text style={[styles.makeBtnTxt, { color: theme.accentInk }]}>Open trademark options</Text>
           </Pressable>
         ) : (
-          <Text style={[styles.makeStatus, { color: theme.ink }]}>{mark === "filed" ? "Filed." : "In the works."}</Text>
+          <Text style={[styles.makeStatus, { color: theme.ink }]}>{mark === "registered" ? "Registered." : mark === "submitted" ? "Under review." : mark === "filed" ? "Filed." : mark === "needs_information" ? "Needs information." : "In progress."}</Text>
         )}
       </View>
     </View>
@@ -1296,7 +1295,7 @@ function SettingsSection({ brand, uid, theme, styles, onSection }: { brand: Bran
   const profileReady = Boolean(brand.logoUri && ((brand.tagline || "").trim() || (brand.story || "").trim()));
   const socialCount = [brand.website, brand.instagram, brand.whatsapp].filter((value) => Boolean(value?.trim())).length;
   const reviewLabel = brandCheck(brand) === "lime" ? "Green check" : brandCheck(brand) === "blue" ? "Blue check" : brandApproved(brand) ? "Approved on Uvel" : brand.reviewStatus === "human_review" ? "Human review needed" : brand.reviewStatus === "needs_information" ? "Information needed" : "Not reviewed yet";
-  const trademarkLabel = brand.trademarkStatus === "filed" ? "Filed" : brand.trademarkStatus === "filing" ? "In progress" : "Not started";
+  const trademarkLabel = brand.trademarkStatus === "registered" ? "Registered" : brand.trademarkStatus === "submitted" ? "Under review" : brand.trademarkStatus === "filed" ? "Filed" : brand.trademarkStatus === "filing" || brand.trademarkStatus === "in_progress" ? "In progress" : brand.trademarkStatus === "needs_information" ? "Needs information" : "Not started";
   const payoutLabel = brand.payoutStatus === "enabled" ? "Ready for payouts" : brand.payoutStatus === "pending" ? "Under review" : brand.payoutStatus === "needs_attention" ? "Needs attention" : "Not set up";
   return (
     <View>
@@ -1309,7 +1308,7 @@ function SettingsSection({ brand, uid, theme, styles, onSection }: { brand: Bran
       <Text style={[styles.settingsHeading, { color: theme.ink }]}>Business registration</Text>
       <View style={[styles.settingsCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><SettingsRow label="Registration status" value={brand.businessRegistrationStatus === "verified" ? "Verified" : brand.businessRegistrationStatus === "submitted" ? "Under review" : "Not submitted"} onPress={() => onSection("businessRegistration")} theme={theme} styles={styles} /><SettingsRow label="Uvel review" value={reviewLabel} theme={theme} styles={styles} /></View>
 
-      <View style={[styles.settingsOptional, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.settingsOptionalLabel, { color: theme.accent }]}>OPTIONAL</Text><Text style={[styles.settingsOptionalTitle, { color: theme.ink }]}>Trademark protection</Text><Text style={[styles.settingsOptionalCopy, { color: theme.muted }]}>Protecting your name is optional. Start whenever you are ready.</Text><SettingsRow label="Status" value={owner ? trademarkLabel : `${trademarkLabel} · Owner only`} onPress={owner ? () => router.push({ pathname: "/brand/trademark", params: { id: brand.id } }) : undefined} theme={theme} styles={styles} /></View>
+      <View style={[styles.settingsOptional, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.settingsOptionalLabel, { color: theme.accent }]}>OPTIONAL</Text><Text style={[styles.settingsOptionalTitle, { color: theme.ink }]}>Trademark protection</Text><Text style={[styles.settingsOptionalCopy, { color: theme.muted }]}>File through the official office when you are ready.</Text><SettingsRow label="Status" value={owner ? trademarkLabel : `${trademarkLabel} · Owner only`} onPress={owner ? () => router.push({ pathname: "/brand/trademark", params: { id: brand.id } }) : undefined} theme={theme} styles={styles} /></View>
 
       <Text style={[styles.settingsHeading, { color: theme.ink }]}>Payments</Text>
       <View style={[styles.settingsCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><SettingsRow label="Payout setup" value={payoutLabel} onPress={() => onSection("finance")} theme={theme} styles={styles} /></View>
