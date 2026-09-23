@@ -55,7 +55,7 @@ import { alertKindLabel, enableAlert, setAlertPreference, useAlertCenter, type A
 import { latestFounderDraft, refreshFounderProjects, simpleStageOf, useFounderProjects, type FounderProject } from "../../lib/founder";
 import BrandPromoCodes from "../../components/BrandPromoCodes";
 
-type Section = "overview" | "make" | "catalog" | "orders" | "finance" | "more" | "promoCodes" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings";
+type Section = "overview" | "make" | "catalog" | "orders" | "finance" | "more" | "promoCodes" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings" | "businessRegistration";
 
 type CatalogAuditInput = Parameters<typeof recordAuditEvent>[0];
 
@@ -82,11 +82,12 @@ const MORE_ROOMS: Array<{ id: Section; label: string; copy: string }> = [
   { id: "inbox", label: "Inbox", copy: "Buyer messages" },
   { id: "analytics", label: "Analytics", copy: "The numbers" },
   { id: "audit", label: "Activity", copy: "What changed recently" },
+  { id: "businessRegistration", label: "Business registration", copy: "Register and verify your business" },
   { id: "team", label: "Team", copy: "Who can do what" },
   { id: "settings", label: "Settings", copy: "Name, country, page" },
 ];
 
-const MORE_IDS = new Set<Section>(["more", "promoCodes", "growth", "support", "inbox", "analytics", "audit", "team", "settings"]);
+const MORE_IDS = new Set<Section>(["more", "promoCodes", "growth", "support", "inbox", "analytics", "audit", "businessRegistration", "team", "settings"]);
 
 const ROLE_OPTIONS: Array<Exclude<MemberRole, "owner">> = [
   "admin",
@@ -250,6 +251,8 @@ export default function BrandHQ() {
           <MoreSection brand={brand} uid={app.uid} theme={theme} styles={styles} onSection={openSection} />
         ) : section === "team" ? (
           <TeamSection brand={brand} manager={manager} theme={theme} styles={styles} onRole={changeRole} />
+        ) : section === "businessRegistration" ? (
+          <BusinessRegistrationSection brand={brand} uid={app.uid} theme={theme} styles={styles} />
         ) : section === "settings" ? (
           <SettingsSection brand={brand} uid={app.uid} theme={theme} styles={styles} onSection={openSection} />
         ) : null}
@@ -1302,8 +1305,8 @@ function SettingsSection({ brand, uid, theme, styles, onSection }: { brand: Bran
       <Text style={[styles.settingsHeading, { color: theme.ink }]}>Brand setup</Text>
       <View style={[styles.settingsCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><SettingsRow label="Public profile" value={profileReady ? "Ready" : "Needs finishing"} onPress={() => router.push({ pathname: "/brand/[id]", params: { id: brand.id, preview: "1" } })} theme={theme} styles={styles} /><SettingsRow label="Market" value={`${market.name} · ${market.currency}`} theme={theme} styles={styles} /><SettingsRow label="Buyer messages" value={`${brand.inquiryMemberIds?.length || 0} recipient${brand.inquiryMemberIds?.length === 1 ? "" : "s"}`} onPress={() => onSection("inbox")} theme={theme} styles={styles} /><SettingsRow label="Social links" value={socialCount ? `${socialCount} connected` : "Not added"} onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })} theme={theme} styles={styles} /></View>
 
-      <Text style={[styles.settingsHeading, { color: theme.ink }]}>Business information</Text>
-      <View style={[styles.settingsCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><SettingsRow label="Legal/business name" value={brand.legalName || "Not added"} theme={theme} styles={styles} /><SettingsRow label="Registration number" value={brand.registrationId ? "Added" : "Optional"} theme={theme} styles={styles} /><SettingsRow label="Uvel review" value={reviewLabel} theme={theme} styles={styles} /></View>
+      <Text style={[styles.settingsHeading, { color: theme.ink }]}>Business registration</Text>
+      <View style={[styles.settingsCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><SettingsRow label="Registration status" value={brand.businessRegistrationStatus === "verified" ? "Verified" : brand.businessRegistrationStatus === "submitted" ? "Under review" : "Not submitted"} onPress={() => onSection("businessRegistration")} theme={theme} styles={styles} /><SettingsRow label="Uvel review" value={reviewLabel} theme={theme} styles={styles} /></View>
 
       <View style={[styles.settingsOptional, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.settingsOptionalLabel, { color: theme.accent }]}>OPTIONAL</Text><Text style={[styles.settingsOptionalTitle, { color: theme.ink }]}>Trademark protection</Text><Text style={[styles.settingsOptionalCopy, { color: theme.muted }]}>Protecting your name is optional. Start whenever you are ready.</Text><SettingsRow label="Status" value={owner ? trademarkLabel : `${trademarkLabel} · Owner only`} onPress={owner ? () => router.push({ pathname: "/brand/trademark", params: { id: brand.id } }) : undefined} theme={theme} styles={styles} /></View>
 
@@ -1311,6 +1314,44 @@ function SettingsSection({ brand, uid, theme, styles, onSection }: { brand: Bran
       <View style={[styles.settingsCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><SettingsRow label="Payout setup" value={payoutLabel} onPress={() => onSection("finance")} theme={theme} styles={styles} /></View>
 
       <View style={[styles.settingsTeam, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={{ flex: 1 }}><Text style={[styles.settingsTeamTitle, { color: theme.ink }]}>Team and permissions</Text><Text style={[styles.settingsTeamCopy, { color: theme.muted }]}>{brand.members.length} team member{brand.members.length === 1 ? "" : "s"}. Manage who can edit products, answer buyers, view analytics, and manage money.</Text></View><Pressable onPress={() => onSection("team")} style={[styles.settingsTeamButton, { borderColor: theme.lineColor }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Manage team</Text></Pressable></View>
+    </View>
+  );
+}
+
+function BusinessRegistrationSection({ brand, uid, theme, styles }: { brand: Brand; uid: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
+  const owner = brand.ownerId === uid;
+  const [provider, setProvider] = useState(brand.businessRegistrationProvider || "");
+  const [legalName, setLegalName] = useState(brand.legalName || "");
+  const [registrationId, setRegistrationId] = useState(brand.registrationId || "");
+  const [busy, setBusy] = useState(false);
+  const status = brand.businessRegistrationStatus || "not_started";
+  const statusCopy: Record<string, string> = { not_started: "Not started", in_progress: "In progress", submitted: "Submitted for Uvel review", verified: "Verified", needs_information: "More information needed", rejected: "Needs a new submission" };
+  const providers = [
+    { id: "Stripe Atlas", title: "Stripe Atlas", copy: "Incorporate a U.S. company and get help with setup.", url: "https://stripe.com/atlas" },
+    { id: "doola", title: "doola", copy: "Form a U.S. company with filing and compliance support.", url: "https://www.doola.com/formation/" },
+    { id: "Firstbase", title: "Firstbase", copy: "Start and manage a U.S. company online.", url: "https://www.firstbase.io/start-with-firstbase" },
+  ];
+  async function submit() {
+    if (!owner || busy) return;
+    if (!provider || !legalName.trim() || !registrationId.trim()) {
+      Alert.alert("Complete your registration details", "Choose the provider you used and add your legal business name and registration number before submitting.");
+      return;
+    }
+    setBusy(true);
+    updateBrand(brand.id, { legalName: legalName.trim(), registrationId: registrationId.trim(), businessRegistrationProvider: provider, businessRegistrationStatus: "submitted", businessRegistrationSubmittedAt: Date.now() });
+    void recordAuditEvent({ brandId: brand.id, action: "business_registration_submitted", entity: "brand", entityId: brand.id, entityName: brand.name, summary: "Business registration submitted for Uvel review.", metadata: { provider } });
+    setBusy(false);
+    Alert.alert("Submitted for review", "We received your registration details. Your brand will show as verified only after Uvel completes its review.");
+  }
+  return (
+    <View>
+      <Text style={[styles.sectionTitle, { color: theme.ink }]}>Business registration</Text>
+      <Text style={[styles.sectionP, { color: theme.muted }]}>Register your business with a provider, then submit the official details here so Uvel can review them.</Text>
+      <View style={[styles.registrationNotice, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.registrationNoticeTitle, { color: theme.ink }]}>This is separate from Uvel review</Text><Text style={[styles.registrationNoticeCopy, { color: theme.muted }]}>Uvel does not register businesses or issue registration numbers. Choose a provider below, complete their process, then return here with your official details.</Text></View>
+      <Text style={[styles.settingsHeading, { color: theme.ink }]}>Choose a registration provider</Text>
+      {providers.map((item) => <Pressable key={item.id} disabled={!owner} onPress={() => { setProvider(item.id); updateBrand(brand.id, { businessRegistrationProvider: item.id, businessRegistrationStatus: "in_progress" }); void Linking.openURL(item.url); }} style={[styles.providerCard, { backgroundColor: theme.card, borderColor: provider === item.id ? theme.accent : theme.lineColor }, !owner && { opacity: 0.5 }]}><View style={{ flex: 1 }}><Text style={[styles.providerTitle, { color: theme.ink }]}>{item.title}</Text><Text style={[styles.providerCopy, { color: theme.muted }]}>{item.copy}</Text></View><Text style={[styles.providerAction, { color: theme.accent }]}>Visit ›</Text></Pressable>)}
+      <Text style={[styles.settingsHeading, { color: theme.ink }]}>Submit registration details</Text>
+      <View style={[styles.registrationForm, { backgroundColor: theme.card, borderColor: theme.lineColor }, !owner && { opacity: 0.55 }]}><Text style={[styles.registrationStatus, { color: status === "verified" ? theme.accent : theme.muted }]}>STATUS · {statusCopy[status]}</Text><Text style={[styles.registrationLabel, { color: theme.muted }]}>Provider used</Text><TextInput editable={owner} value={provider} onChangeText={setProvider} placeholder="Choose above or enter provider" placeholderTextColor={theme.muted} style={[styles.registrationInput, { color: theme.ink, borderColor: theme.lineColor }]} /><Text style={[styles.registrationLabel, { color: theme.muted }]}>Legal/business name</Text><TextInput editable={owner} value={legalName} onChangeText={setLegalName} placeholder="The name on your registration" placeholderTextColor={theme.muted} style={[styles.registrationInput, { color: theme.ink, borderColor: theme.lineColor }]} /><Text style={[styles.registrationLabel, { color: theme.muted }]}>Registration number</Text><TextInput editable={owner} value={registrationId} onChangeText={setRegistrationId} placeholder="Official registration number" placeholderTextColor={theme.muted} style={[styles.registrationInput, { color: theme.ink, borderColor: theme.lineColor }]} /><Text style={[styles.registrationHelp, { color: theme.muted }]}>Submit only official information from your registration documents. Uvel may ask for supporting evidence during review.</Text>{owner ? <Pressable disabled={busy} onPress={() => void submit()} style={[styles.registrationSubmit, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.registrationSubmitText, { color: theme.accentInk }]}>{busy ? "Submitting…" : status === "submitted" ? "Update and resubmit" : "Submit for review"}</Text></Pressable> : null}</View>
     </View>
   );
 }
@@ -1618,6 +1659,20 @@ function make(theme: HQTheme) {
     settingsTeamTitle: { fontSize: 15, fontWeight: "900" },
     settingsTeamCopy: { fontSize: 12, lineHeight: 18, marginTop: 4 },
     settingsTeamButton: { borderWidth: 1, borderRadius: 17, paddingHorizontal: 12, paddingVertical: 9 },
+    registrationNotice: { borderWidth: 1, borderRadius: 17, padding: 14, marginTop: 10 },
+    registrationNoticeTitle: { fontSize: 14, fontWeight: "900" },
+    registrationNoticeCopy: { fontSize: 12, lineHeight: 18, marginTop: 5 },
+    providerCard: { borderWidth: 1, borderRadius: 17, padding: 13, marginTop: 8, flexDirection: "row", alignItems: "center", gap: 10 },
+    providerTitle: { fontSize: 14, fontWeight: "900" },
+    providerCopy: { fontSize: 12, lineHeight: 17, marginTop: 3 },
+    providerAction: { fontSize: 12, fontWeight: "900" },
+    registrationForm: { borderWidth: 1, borderRadius: 17, padding: 14, marginTop: 8, marginBottom: 18 },
+    registrationStatus: { fontSize: 10, fontWeight: "900", letterSpacing: 1.1, marginBottom: 4 },
+    registrationLabel: { fontSize: 12, marginTop: 12 },
+    registrationInput: { borderWidth: 1, borderRadius: 13, height: 46, paddingHorizontal: 12, marginTop: 6, fontSize: 14 },
+    registrationHelp: { fontSize: 12, lineHeight: 18, marginTop: 12 },
+    registrationSubmit: { borderRadius: 14, minHeight: 46, alignItems: "center", justifyContent: "center", marginTop: 14 },
+    registrationSubmitText: { fontSize: 14, fontWeight: "900" },
     detailCard: { borderRadius: 18, paddingHorizontal: 16, marginTop: 12 },
     detailRow: { paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: "row", justifyContent: "space-between", gap: 14 },
     detailLabel: { fontSize: 12 },

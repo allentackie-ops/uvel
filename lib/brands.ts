@@ -25,6 +25,7 @@ export type BrandOrigin = "founder" | "house";
 export type BrandCheck = "none" | "lime" | "blue";
 export type BrandReviewStatus = "not_started" | "review_pending" | "needs_information" | "human_review" | "uvel_reviewed" | "rejected";
 export type PayoutStatus = "not_started" | "pending" | "enabled" | "needs_attention" | "unavailable";
+export type BusinessRegistrationStatus = "not_started" | "in_progress" | "submitted" | "verified" | "needs_information" | "rejected";
 export type MemberRole = "owner" | "admin" | "merchandiser" | "marketing" | "support" | "finance" | "viewer" | "poster";
 
 export type BrandMember = {
@@ -63,6 +64,9 @@ export type Brand = {
   whatsapp: string;
   legalName: string;
   registrationId: string;
+  businessRegistrationStatus?: BusinessRegistrationStatus;
+  businessRegistrationProvider?: string;
+  businessRegistrationSubmittedAt?: number;
   contactEmail: string;
   country: string;
   logoUri: string;
