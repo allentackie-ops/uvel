@@ -236,7 +236,7 @@ export default function BrandHQ() {
         ) : section === "catalog" ? (
           <CatalogSection brand={brand} items={catalog} canManage={catalogManager} theme={theme} styles={styles} />
         ) : section === "orders" ? (
-          <OrdersSection orders={brandOrders} madeByUvel={making} viewer={orderViewer} manager={orderManager} reviewer={orderReviewer} theme={theme} styles={styles} />
+          <OrdersSection orders={brandOrders} madeByUvel={making} viewer={orderViewer} manager={orderManager} reviewer={orderReviewer} onSupport={() => setSection("support")} theme={theme} styles={styles} />
         ) : section === "finance" ? (
           <FinanceSection brand={activeBrand} orders={brandOrders} viewer={canViewFinance(activeBrand, app.uid)} manager={canManagePayouts(activeBrand, app.uid)} theme={theme} styles={styles} onPayoutFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
         ) : section === "promoCodes" ? (
@@ -644,7 +644,7 @@ function CatalogRow({ item, brandId, canManage, marketCode, theme, styles }: { i
   );
 }
 
-type OrderFilter = "all" | "action" | "processing" | "packed" | "shipped" | "completed" | "canceled";
+type OrderFilter = "all" | "active" | "attention" | "action" | "processing" | "packed" | "shipped" | "completed" | "canceled";
 
 const ORDER_FILTERS: Array<{ id: OrderFilter; label: string }> = [
   { id: "all", label: "All" },
@@ -656,15 +656,32 @@ const ORDER_FILTERS: Array<{ id: OrderFilter; label: string }> = [
   { id: "canceled", label: "Canceled" },
 ];
 
-function OrdersSection({ orders, madeByUvel, viewer, manager, reviewer, theme, styles }: { orders: Order[]; madeByUvel?: boolean; viewer: boolean; manager: boolean; reviewer: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
+const UVEL_ORDER_FILTERS: Array<{ id: OrderFilter; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "active", label: "In progress" },
+  { id: "shipped", label: "Shipped" },
+  { id: "completed", label: "Delivered" },
+  { id: "attention", label: "Needs attention" },
+];
+
+function orderNeedsAttention(order: Order) {
+  return order.status === "failed" || order.shipment?.status === "exception" || Boolean(order.resolution && ["requested", "approved", "item_sent", "received", "refund_pending"].includes(order.resolution.status));
+}
+
+function OrdersSection({ orders, madeByUvel, viewer, manager, reviewer, onSupport, theme, styles }: { orders: Order[]; madeByUvel?: boolean; viewer: boolean; manager: boolean; reviewer: boolean; onSupport: () => void; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const [filter, setFilter] = useState<OrderFilter>("all");
   if (!viewer) {
     return <View><Text style={[styles.sectionTitle, { color: theme.ink }]}>Orders</Text><Text style={[styles.sectionP, { color: theme.muted }]}>Order operations are limited to the brand owner, admins, support, and finance team.</Text></View>;
   }
   const needsAction = orders.filter((order) => order.status === "paid" && ["unfulfilled", "processing", "packed"].includes(order.fulfillmentStatus || "unfulfilled"));
+  const activeOrders = orders.filter((order) => order.status === "paid" && !["delivered", "canceled", "returned"].includes(order.fulfillmentStatus || "unfulfilled"));
+  const attentionOrders = orders.filter(orderNeedsAttention);
+  const filters = madeByUvel ? UVEL_ORDER_FILTERS : ORDER_FILTERS;
   const filtered = orders.filter((order) => {
     const status = order.fulfillmentStatus || (order.status === "paid" ? "unfulfilled" : undefined);
     if (filter === "all") return true;
+    if (filter === "active") return activeOrders.includes(order);
+    if (filter === "attention") return attentionOrders.includes(order);
     if (filter === "action") return needsAction.includes(order);
     if (filter === "completed") return status === "delivered";
     if (filter === "canceled") return status === "canceled" || status === "returned" || order.status === "failed";
@@ -673,15 +690,24 @@ function OrdersSection({ orders, madeByUvel, viewer, manager, reviewer, theme, s
   return (
     <View>
       <Text style={[styles.sectionTitle, { color: theme.ink }]}>Orders</Text>
-      <Text style={[styles.sectionP, { color: theme.muted }]}>{madeByUvel ? "Uvel makes these. The manufacturer sends them. Delivery is already paid." : "Payment, fulfillment, tracking, and buyer context in one operating view."}</Text>
-      <View style={styles.orderStats}>
-        <Stat label="All orders" value={String(orders.length)} theme={theme} styles={styles} />
-        <Stat label={madeByUvel ? "Making" : "Needs action"} value={String(needsAction.length)} theme={theme} styles={styles} />
-      </View>
+      {madeByUvel ? <>
+        <Text style={[styles.sectionP, { color: theme.muted }]}>Uvel is making and shipping these orders for you. You only need to keep an eye on their progress.</Text>
+        <Text style={[styles.orderReassurance, { color: theme.ink }]}>Delivery is already handled. We’ll show tracking when it becomes available.</Text>
+        <View style={styles.orderStats}>
+          <Stat label="Active orders" value={String(activeOrders.length)} theme={theme} styles={styles} />
+          <Stat label="Needs attention" value={String(attentionOrders.length)} theme={theme} styles={styles} />
+        </View>
+      </> : <>
+        <Text style={[styles.sectionP, { color: theme.muted }]}>Payment, fulfillment, tracking, and buyer context in one operating view.</Text>
+        <View style={styles.orderStats}>
+          <Stat label="All orders" value={String(orders.length)} theme={theme} styles={styles} />
+          <Stat label="Needs action" value={String(needsAction.length)} theme={theme} styles={styles} />
+        </View>
+      </>}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.orderFilters}>
-        {ORDER_FILTERS.map((option) => <Pressable key={option.id} onPress={() => setFilter(option.id)} style={[styles.orderFilter, { borderColor: filter === option.id ? theme.accent : theme.lineColor, backgroundColor: filter === option.id ? theme.accent : theme.card }]}><Text style={[styles.orderFilterTxt, { color: filter === option.id ? theme.accentInk : theme.ink }]}>{option.label === "Packed" && madeByUvel ? "Making" : option.label}</Text></Pressable>)}
+        {filters.map((option) => <Pressable key={option.id} onPress={() => setFilter(option.id)} style={[styles.orderFilter, { borderColor: filter === option.id ? theme.accent : theme.lineColor, backgroundColor: filter === option.id ? theme.accent : theme.card }]}><Text style={[styles.orderFilterTxt, { color: filter === option.id ? theme.accentInk : theme.ink }]}>{option.label}</Text></Pressable>)}
       </ScrollView>
-      {filtered.length ? filtered.map((order) => <OrderCard key={order.id} order={order} madeByUvel={Boolean(madeByUvel || order.madeByUvel)} manager={manager} reviewer={reviewer} theme={theme} styles={styles} />) : <Empty text={orders.length ? "No orders match this filter." : "No brand orders yet."} theme={theme} styles={styles} />}
+      {filtered.length ? filtered.map((order) => <OrderCard key={order.id} order={order} madeByUvel={Boolean(madeByUvel || order.madeByUvel)} manager={manager} reviewer={reviewer} onSupport={onSupport} theme={theme} styles={styles} />) : <Empty text={orders.length ? "No orders match this filter." : "No brand orders yet."} theme={theme} styles={styles} />}
     </View>
   );
 }
@@ -715,7 +741,7 @@ function nextFulfillment(status: FulfillmentStatus, made?: boolean): Fulfillment
   return null;
 }
 
-function OrderCard({ order, madeByUvel, manager, reviewer, theme, styles }: { order: Order; madeByUvel?: boolean; manager: boolean; reviewer: boolean; theme: HQTheme; styles: ReturnType<typeof make> }) {
+function OrderCard({ order, madeByUvel, manager, reviewer, onSupport, theme, styles }: { order: Order; madeByUvel?: boolean; manager: boolean; reviewer: boolean; onSupport: () => void; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const fulfillment = order.fulfillmentStatus || (order.status === "paid" ? "unfulfilled" : "canceled");
   const [expanded, setExpanded] = useState(false);
   const [carrier, setCarrier] = useState(order.carrier || "");
@@ -801,10 +827,15 @@ function OrderCard({ order, madeByUvel, manager, reviewer, theme, styles }: { or
           <Text style={[styles.orderKicker, { color: theme.muted }]}>ORDER {order.id}</Text>
           <Text style={[styles.detailValue, { color: theme.ink }]}>{order.address?.line1}{order.address?.line2 ? `, ${order.address.line2}` : ""}, {order.address?.city}, {order.address?.region} {order.address?.postal}</Text>
           <Text style={[styles.orderMeta, { color: theme.muted }]}>Payment: {order.status} · Method: {order.payMethod} · {new Date(order.createdAt).toLocaleDateString()}{order.variantLabel || order.variantKey ? ` · Size ${order.variantLabel || order.variantKey}` : ""}</Text>
-          {shipment ? <View style={[styles.shipmentBox, { borderColor: theme.lineColor }]}><Text style={[styles.orderKicker, { color: theme.muted }]}>SHIPMENT · {shipmentStatus.replace("_", " ")}</Text><Text style={[styles.orderMeta, { color: theme.ink }]}>{shipment.carrier} · {shipment.trackingNumber}</Text>{shipment.trackingUrl ? <Pressable onPress={() => void Linking.openURL(shipment.trackingUrl || "")}><Text style={[styles.trackingLink, { color: theme.accent }]}>Open carrier tracking ↗</Text></Pressable> : null}{shipment.lastLocation ? <Text style={[styles.orderMeta, { color: theme.muted }]}>Last location: {shipment.lastLocation}</Text> : null}{shipment.status === "exception" ? <Text style={[styles.exceptionText, { color: theme.accent }]}>Exception: {shipment.exceptionCode?.replace("_", " ") || "Delivery issue"}{shipment.exceptionNote ? ` · ${shipment.exceptionNote}` : ""}</Text> : null}{manager && shipment.status !== "delivered" && shipment.status !== "returned" && shipment.status !== "exception" ? <><TextInput value={exceptionNote} onChangeText={setExceptionNote} placeholder="Optional exception note" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} /><Pressable disabled={busy} onPress={chooseException} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Report delivery exception</Text></Pressable></> : null}</View> : order.trackingNumber ? <Text style={[styles.orderMeta, { color: theme.muted }]}>Tracking: {order.carrier || "Carrier"} · {order.trackingNumber}</Text> : null}
-          {resolution ? <View style={[styles.resolutionBox, { borderColor: theme.lineColor }]}><Text style={[styles.orderKicker, { color: theme.muted }]}>{resolutionLabel}</Text><Text style={[styles.orderMeta, { color: theme.muted }]}>Reason: {resolution.reason.replace("_", " ")}{resolution.note ? ` · ${resolution.note}` : ""}</Text>{reviewer && resolution.status === "requested" ? <View style={styles.orderActions}><Pressable disabled={busy} onPress={() => void review("reject")} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Reject</Text></Pressable><Pressable disabled={busy} onPress={() => void review("approve")} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Approve</Text></Pressable></View> : null}{reviewer && resolution.type === "return" && resolution.status === "item_sent" ? <View style={styles.orderActions}><Pressable disabled={busy} onPress={() => void review("reject")} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Reject</Text></Pressable><Pressable disabled={busy} onPress={() => void review("mark_received")} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Mark received</Text></Pressable></View> : null}{reviewer && resolution.type === "return" && resolution.status === "received" ? <View style={styles.orderActions}><Pressable disabled={busy} onPress={() => void review("skip_restock")} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Do not restock</Text></Pressable><Pressable disabled={busy} onPress={() => void review("confirm_restock")} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Restock item</Text></Pressable></View> : null}</View> : null}
-          {made ? <Text style={[styles.orderMeta, { color: theme.muted, marginTop: 8 }]}>Uvel is making this. The manufacturer sends it. Delivery is already paid.</Text> : null}
-          {manager && order.status === "paid" && next ? (
+          {shipment ? <View style={[styles.shipmentBox, { borderColor: theme.lineColor }]}><Text style={[styles.orderKicker, { color: theme.muted }]}>SHIPMENT · {shipmentStatus.replace("_", " ")}</Text><Text style={[styles.orderMeta, { color: theme.ink }]}>{shipment.carrier || "Uvel delivery"}{shipment.trackingNumber ? ` · ${shipment.trackingNumber}` : ""}</Text>{shipment.trackingUrl ? <Pressable onPress={() => void Linking.openURL(shipment.trackingUrl || "")}><Text style={[styles.trackingLink, { color: theme.accent }]}>Open carrier tracking ↗</Text></Pressable> : null}{shipment.lastLocation ? <Text style={[styles.orderMeta, { color: theme.muted }]}>Last location: {shipment.lastLocation}</Text> : null}{shipment.status === "exception" ? <Text style={[styles.exceptionText, { color: theme.accent }]}>Exception: {shipment.exceptionCode?.replace("_", " ") || "Delivery issue"}{shipment.exceptionNote ? ` · ${shipment.exceptionNote}` : ""}</Text> : null}{!made && manager && shipment.status !== "delivered" && shipment.status !== "returned" && shipment.status !== "exception" ? <><TextInput value={exceptionNote} onChangeText={setExceptionNote} placeholder="Optional exception note" placeholderTextColor={theme.muted} style={[styles.orderInput, { color: theme.ink, borderColor: theme.lineColor }]} /><Pressable disabled={busy} onPress={chooseException} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Report delivery exception</Text></Pressable></> : null}</View> : order.trackingNumber ? <Text style={[styles.orderMeta, { color: theme.muted }]}>Tracking: {order.carrier || "Carrier"} · {order.trackingNumber}</Text> : null}
+          {resolution ? <View style={[styles.resolutionBox, { borderColor: theme.lineColor }]}><Text style={[styles.orderKicker, { color: theme.muted }]}>{resolutionLabel}</Text><Text style={[styles.orderMeta, { color: theme.muted }]}>Reason: {resolution.reason.replace("_", " ")}{resolution.note ? ` · ${resolution.note}` : ""}</Text>{!made && reviewer && resolution.status === "requested" ? <View style={styles.orderActions}><Pressable disabled={busy} onPress={() => void review("reject")} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Reject</Text></Pressable><Pressable disabled={busy} onPress={() => void review("approve")} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Approve</Text></Pressable></View> : null}{!made && reviewer && resolution.type === "return" && resolution.status === "item_sent" ? <View style={styles.orderActions}><Pressable disabled={busy} onPress={() => void review("reject")} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Reject</Text></Pressable><Pressable disabled={busy} onPress={() => void review("mark_received")} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Mark received</Text></Pressable></View> : null}{!made && reviewer && resolution.type === "return" && resolution.status === "received" ? <View style={styles.orderActions}><Pressable disabled={busy} onPress={() => void review("skip_restock")} style={[styles.actionButton, { borderColor: theme.lineColor, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Do not restock</Text></Pressable><Pressable disabled={busy} onPress={() => void review("confirm_restock")} style={[styles.saveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Restock item</Text></Pressable></View> : null}</View> : null}
+          {made ? <>
+            <Text style={[styles.orderMeta, { color: theme.muted, marginTop: 8 }]}>Uvel is making this. The manufacturer sends it. Delivery is already paid.</Text>
+            <View style={styles.orderActions}>
+              <Pressable onPress={onSupport} style={[styles.actionButton, { borderColor: theme.lineColor }]}><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Get help with this order</Text></Pressable>
+            </View>
+          </> : null}
+          {!made && manager && order.status === "paid" && next ? (
             <>
               {made && next === "shipped" ? null : (
                 <>
@@ -1489,6 +1520,7 @@ function make(theme: HQTheme) {
     saveButtonTxt: { fontSize: 12, fontWeight: "800" },
     readOnly: { fontSize: 12, padding: 14, paddingTop: 0 },
     orderStats: { flexDirection: "row", gap: 10, marginTop: 4 },
+    orderReassurance: { fontSize: 13, lineHeight: 18, marginTop: -6, marginBottom: 14 },
     catalogFilters: { gap: 8, paddingVertical: 12 },
     auditFilters: { gap: 8, paddingVertical: 12 },
     auditCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 9 },
