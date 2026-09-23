@@ -71,7 +71,7 @@ export type Brand = {
   businessRegistrationProofUri?: string;
   businessRegistrationProofName?: string;
   customerPolicyMode?: CustomerPolicyMode;
-  customerReturnWindowDays?: 14 | 30;
+  customerReturnWindowDays?: 7 | 14 | 30;
   customerReturnShipping?: "buyer" | "brand";
   customerPolicyNote?: string;
   contactEmail: string;

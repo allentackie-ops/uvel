@@ -1345,8 +1345,9 @@ function SettingsSection({ brand, uid, theme, styles, onSection }: { brand: Bran
 
 function CustomerPoliciesSection({ brand, uid, theme, styles }: { brand: Brand; uid: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
   const owner = brand.ownerId === uid;
+  const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"standard_returns" | "final_sale">(brand.customerPolicyMode || "standard_returns");
-  const [windowDays, setWindowDays] = useState<14 | 30>(brand.customerReturnWindowDays || 14);
+  const [windowDays, setWindowDays] = useState<7 | 14 | 30>(brand.customerReturnWindowDays || 14);
   const [shipping, setShipping] = useState<"buyer" | "brand">(brand.customerReturnShipping || "buyer");
   const [note, setNote] = useState(brand.customerPolicyNote || "");
   const [saved, setSaved] = useState(false);
@@ -1361,6 +1362,11 @@ function CustomerPoliciesSection({ brand, uid, theme, styles }: { brand: Brand; 
 
   return (
     <View style={[styles.policyCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+      <Pressable onPress={() => setOpen((value) => !value)} style={styles.policyHeader} accessibilityRole="button" accessibilityLabel="Customer policies" accessibilityState={{ expanded: open }}>
+        <View style={{ flex: 1 }}><Text style={[styles.policyHeaderTitle, { color: theme.ink }]}>Customer policies</Text><Text style={[styles.policyHeaderValue, { color: theme.muted }]}>{mode === "final_sale" ? "Final sale" : `${windowDays}-day returns`}</Text></View>
+        <Text style={[styles.policyHeaderArrow, { color: theme.muted }]}>{open ? "⌃" : "›"}</Text>
+      </Pressable>
+      {open ? <>
       <Text style={[styles.policyIntro, { color: theme.muted }]}>Tell buyers what happens when they change their mind. Uvel still helps with damaged, defective, or incorrect items.</Text>
       <Text style={[styles.policyLabel, { color: theme.muted }]}>RETURN RULE</Text>
       <View style={styles.policyChoices}>
@@ -1371,12 +1377,13 @@ function CustomerPoliciesSection({ brand, uid, theme, styles }: { brand: Brand; 
       </View>
       {mode === "standard_returns" ? <>
         <Text style={[styles.policyLabel, { color: theme.muted }]}>RETURN WINDOW</Text>
-        <View style={styles.policyInlineChoices}>{([14, 30] as const).map((days) => <Pressable key={days} disabled={!owner} onPress={() => setWindowDays(days)} style={[styles.policyPill, { borderColor: windowDays === days ? theme.accent : theme.lineColor, backgroundColor: windowDays === days ? theme.accent : theme.bg }, !owner && { opacity: 0.6 }]}><Text style={[styles.policyPillText, { color: windowDays === days ? theme.accentInk : theme.ink }]}>{days} days</Text></Pressable>)}</View>
+        <View style={styles.policyInlineChoices}>{([7, 14, 30] as const).map((days) => <Pressable key={days} disabled={!owner} onPress={() => setWindowDays(days)} style={[styles.policyPill, { borderColor: windowDays === days ? theme.accent : theme.lineColor, backgroundColor: windowDays === days ? theme.accent : theme.bg }, !owner && { opacity: 0.6 }]}><Text style={[styles.policyPillText, { color: windowDays === days ? theme.accentInk : theme.ink }]}>{days} days</Text></Pressable>)}</View>
         <Text style={[styles.policyLabel, { color: theme.muted }]}>RETURN SHIPPING</Text>
         <View style={styles.policyInlineChoices}>{([["buyer", "Buyer pays"], ["brand", "Brand pays"]] as const).map(([id, label]) => <Pressable key={id} disabled={!owner} onPress={() => setShipping(id)} style={[styles.policyPill, { borderColor: shipping === id ? theme.accent : theme.lineColor, backgroundColor: shipping === id ? theme.accent : theme.bg }, !owner && { opacity: 0.6 }]}><Text style={[styles.policyPillText, { color: shipping === id ? theme.accentInk : theme.ink }]}>{label}</Text></Pressable>)}</View>
       </> : <Text style={[styles.policyNote, { color: theme.muted }]}>Final sale applies to change-of-mind returns. Buyers can still contact Uvel about items that arrive damaged, defective, or different from the listing.</Text>}
       <TextInput editable={owner} value={note} onChangeText={setNote} placeholder="Optional note for buyers" placeholderTextColor={theme.muted} style={[styles.policyInput, { color: theme.ink, borderColor: theme.lineColor }, !owner && { opacity: 0.6 }]} multiline maxLength={180} />
       <View style={styles.policyFooter}><Text style={[styles.policySaved, { color: saved ? theme.accent : theme.muted }]}>{saved ? "Saved" : owner ? "Only the brand owner can change this." : "Owner only"}</Text><Pressable disabled={!owner} onPress={save} style={[styles.policySave, { backgroundColor: theme.accent }, !owner && { opacity: 0.5 }]}><Text style={[styles.policySaveText, { color: theme.accentInk }]}>Save policy</Text></Pressable></View>
+      </> : null}
     </View>
   );
 }
@@ -1609,6 +1616,10 @@ function make(theme: HQTheme) {
     financeLine: { fontSize: 12, lineHeight: 21 },
     payoutCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 10 },
     policyCard: { borderWidth: 1, borderRadius: 18, padding: 14, marginTop: 10 },
+    policyHeader: { minHeight: 42, flexDirection: "row", alignItems: "center" },
+    policyHeaderTitle: { fontSize: 14, fontWeight: "800" },
+    policyHeaderValue: { fontSize: 12, marginTop: 3 },
+    policyHeaderArrow: { fontSize: 25, marginLeft: 10 },
     policyIntro: { fontSize: 13, lineHeight: 19 },
     policyLabel: { fontSize: 10, fontWeight: "800", letterSpacing: 1, marginTop: 16, marginBottom: 8 },
     policyChoices: { gap: 8 },

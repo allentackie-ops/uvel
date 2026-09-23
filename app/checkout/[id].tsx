@@ -30,7 +30,8 @@ export default function Checkout() {
   useWardrobe();
   const marketplaceSync = useMarketplaceSyncState();
   const piece = getPiece(id);
-  const making = Boolean(piece?.brandId && brandMakes(getBrand(piece.brandId)));
+  const brand = piece?.brandId ? getBrand(piece.brandId) : undefined;
+  const making = Boolean(brand && brandMakes(brand));
   const selectedVariant = typeof variantParam === "string" ? variantParam : "";
   const selectedVariantLabel = typeof variantLabelParam === "string" ? variantLabelParam : selectedVariant;
   const app = useUvel();
@@ -43,6 +44,7 @@ export default function Checkout() {
   const [payOpen, setPayOpen] = useState(false);
   const [paying, setPaying] = useState(false);
   const [feeInfo, setFeeInfo] = useState(false);
+  const [policyOpen, setPolicyOpen] = useState(false);
   const [promotionCode, setPromotionCode] = useState("");
   const [promotionQuote, setPromotionQuote] = useState<PromotionQuote | null>(null);
   const [promotionBusy, setPromotionBusy] = useState(false);
@@ -74,6 +76,10 @@ export default function Checkout() {
   const wallet = useWallet(market.currency);
   const walletCovers = wallet.availableCents >= total && total > 0;
   const method = methods.find((m) => m.id === pay) ?? methods[0];
+  const policyName = brand?.name || piece?.brand || "Brand";
+  const policyMode = brand?.customerPolicyMode || "standard_returns";
+  const policyWindow = brand?.customerReturnWindowDays || 14;
+  const policyShipping = brand?.customerReturnShipping === "brand" ? "The brand covers return shipping." : "The buyer covers return shipping.";
 
   useEffect(() => {
     const linkedPromotionId = typeof promotionId === "string" ? promotionId.trim() : "";
@@ -321,6 +327,12 @@ export default function Checkout() {
           </View>
         )}
 
+        <Text style={styles.h}>Customer policy</Text>
+        <AccessiblePressable onPress={() => setPolicyOpen(true)} style={({ pressed }) => [styles.policyBox, pressed && { opacity: 0.92 }]} accessibilityRole="button" accessibilityLabel={`${policyName} refund policy`} accessibilityHint="Double tap to view this brand's return policy.">
+          <View style={{ flex: 1 }}><Text style={styles.boxT}>{policyName} refund policy</Text><Text style={styles.boxS}>{policyMode === "final_sale" ? "Final sale · See exceptions" : `${policyWindow}-day returns · See details`}</Text></View>
+          <Text style={styles.plus}>View</Text>
+        </AccessiblePressable>
+
         <Text style={styles.h}>Payment</Text>
         <AccessiblePressable          onPress={() => setPayOpen(true)}
           style={({ pressed }) => [styles.box, pressed && { opacity: 0.92 }]}
@@ -447,6 +459,20 @@ export default function Checkout() {
         </Sheet>
       ) : null}
 
+      <Sheet open={policyOpen} onClose={() => setPolicyOpen(false)}>
+        <Text style={styles.sheetH}>{policyName} refund policy</Text>
+        {policyMode === "final_sale" ? <>
+          <Text style={styles.sheetP}>This item is final sale, so change-of-mind returns are not accepted.</Text>
+          <Text style={styles.sheetP}>If the item arrives damaged, defective, or different from the listing, contact Uvel support and we’ll help review it.</Text>
+        </> : <>
+          <Text style={styles.sheetP}>You can request a return within {policyWindow} days after delivery.</Text>
+          <Text style={styles.sheetP}>{policyShipping}</Text>
+          <Text style={styles.sheetP}>Items that arrive damaged, defective, or different from the listing can still be reported to Uvel.</Text>
+        </>}
+        {brand?.customerPolicyNote ? <Text style={styles.sheetP}>Brand note: {brand.customerPolicyNote}</Text> : null}
+        <AccessiblePressable onPress={() => setPolicyOpen(false)} style={({ pressed }) => [styles.sheetBtn, pressed && { opacity: 0.92 }]} accessibilityRole="button" accessibilityLabel="Close refund policy"><Text style={styles.sheetBtnT}>Got it</Text></AccessiblePressable>
+      </Sheet>
+
       <Sheet open={payOpen} onClose={() => setPayOpen(false)}>
         <Text style={styles.sheetH}>Payment</Text>
         <Text style={styles.sheetP}>
@@ -555,6 +581,7 @@ function make(colors: Colors) {
     },
     focused: { borderWidth: 2, borderColor: colors.success },
     boxOn: { borderColor: colors.success },
+    policyBox: { marginHorizontal: 20, minHeight: 58, borderRadius: 12, borderWidth: 1, borderColor: `${colors.bone}2E`, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 12 },
     promotionBox: { marginHorizontal: 20, minHeight: 52, borderRadius: 14, borderWidth: 1, borderColor: colors.subtle, backgroundColor: colors.neutral, flexDirection: "row", alignItems: "center", paddingLeft: 14, overflow: "hidden" },
     promotionInput: { flex: 1, height: 50, color: colors.bone, fontSize: 15, fontWeight: "600" },
     promotionButton: { alignSelf: "stretch", minWidth: 78, alignItems: "center", justifyContent: "center", backgroundColor: colors.success, paddingHorizontal: 13 },
