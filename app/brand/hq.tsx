@@ -1299,8 +1299,6 @@ function SettingsSection({ brand, uid, theme, styles, onSection }: { brand: Bran
       <Text style={[styles.sectionTitle, { color: theme.ink }]}>Settings</Text>
       <Text style={[styles.sectionP, { color: theme.muted }]}>Manage your brand information, workspace preferences, and access.</Text>
       <View style={[styles.settingsProfile, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={[styles.settingsLogo, { backgroundColor: theme.bg }]}>{brand.logoUri ? <Image cachePolicy="memory-disk" source={{ uri: brand.logoUri }} style={styles.settingsLogoImage} contentFit="cover" /> : <Text style={[styles.settingsLogoText, { color: theme.muted }]}>{brand.name.slice(0, 1).toUpperCase()}</Text>}</View><View style={{ flex: 1 }}><Text style={[styles.settingsProfileName, { color: theme.ink }]}>{brand.name}</Text><Text style={[styles.settingsProfileHandle, { color: theme.muted }]}>@{brand.handle || "brand"}</Text><Text style={[styles.settingsProfileStatus, { color: profileReady ? theme.accent : theme.muted }]}>{profileReady ? "Public profile ready" : "Public profile needs finishing"}</Text></View></View>
-      <Pressable onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })} style={[styles.settingsPrimary, { backgroundColor: theme.accent }]}><View style={{ flex: 1 }}><Text style={[styles.settingsPrimaryTitle, { color: theme.accentInk }]}>Edit brand profile</Text><Text style={[styles.settingsPrimaryCopy, { color: theme.accentInk }]}>Logo, story, theme, links, and buyer messages.</Text></View><Text style={[styles.settingsPrimaryArrow, { color: theme.accentInk }]}>›</Text></Pressable>
-
       <Text style={[styles.settingsHeading, { color: theme.ink }]}>Brand setup</Text>
       <View style={[styles.settingsCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><SettingsRow label="Public profile" value={profileReady ? "Ready" : "Needs finishing"} onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })} theme={theme} styles={styles} /><SettingsRow label="Market" value={`${market.name} · ${market.currency}`} theme={theme} styles={styles} /><SettingsRow label="Buyer messages" value={`${brand.inquiryMemberIds?.length || 0} recipient${brand.inquiryMemberIds?.length === 1 ? "" : "s"}`} onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })} theme={theme} styles={styles} /><SettingsRow label="Social links" value={socialCount ? `${socialCount} connected` : "Not added"} onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })} theme={theme} styles={styles} /></View>
 
@@ -1605,10 +1603,6 @@ function make(theme: HQTheme) {
     settingsProfileName: { fontSize: 17, fontWeight: "900" },
     settingsProfileHandle: { fontSize: 12, marginTop: 2 },
     settingsProfileStatus: { fontSize: 11, fontWeight: "800", marginTop: 6 },
-    settingsPrimary: { borderRadius: 17, padding: 14, marginTop: 10, flexDirection: "row", alignItems: "center", gap: 10 },
-    settingsPrimaryTitle: { fontSize: 15, fontWeight: "900" },
-    settingsPrimaryCopy: { fontSize: 12, lineHeight: 17, marginTop: 3 },
-    settingsPrimaryArrow: { fontSize: 27, fontWeight: "300" },
     settingsHeading: { fontSize: 16, fontWeight: "900", marginTop: 22, marginBottom: 2 },
     settingsCard: { borderWidth: 1, borderRadius: 17, paddingHorizontal: 13, marginTop: 8 },
     settingsRow: { minHeight: 48, paddingVertical: 11, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth },
