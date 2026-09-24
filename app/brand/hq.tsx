@@ -1,7 +1,5 @@
 import { Image } from "expo-image";
-import * as Haptics from "expo-haptics";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import PagerView, { type PagerViewOnPageSelectedEvent } from "react-native-pager-view";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -95,8 +93,6 @@ const MORE_ROOMS: Array<{ id: Section; label: string; copy: string }> = [
 
 const MORE_IDS = new Set<Section>(["more", "promoCodes", "growth", "support", "inbox", "analytics", "audit", "businessRegistration", "trademark", "team", "settings"]);
 
-const WORKSPACE_SECTIONS: Array<Extract<Section, "overview" | "make" | "catalog" | "orders" | "finance" | "more">> = ["overview", "make", "catalog", "orders", "finance", "more"];
-
 const ROLE_OPTIONS: Array<Exclude<MemberRole, "owner">> = [
   "admin",
   "merchandiser",
@@ -127,16 +123,6 @@ export default function BrandHQ() {
   const styles = useMemo(() => make(theme), [theme]);
   const [section, setSection] = useState<Section>(requestedSection === "promoCodes" ? "promoCodes" : "overview");
   const hqScroller = useRef<ScrollView>(null);
-  const workspacePager = useRef<PagerView>(null);
-  const workspaceScrollers = useRef<Array<ScrollView | null>>([]);
-  const navScroller = useRef<ScrollView>(null);
-
-  function resetWorkspaceScroll(index: number) {
-    const scrollView = workspaceScrollers.current[index];
-    scrollView?.setNativeProps({ contentOffset: { x: 0, y: 0 } });
-    scrollView?.scrollTo({ x: 0, y: 0, animated: false });
-    setTimeout(() => workspaceScrollers.current[index]?.scrollTo({ x: 0, y: 0, animated: false }), 80);
-  }
   const operatingCountries: ShipsTo = brand?.operatingCountries || encodeShipsTo(brand?.country || app.country || "US", "home");
   const [deliveryOpen, setDeliveryOpen] = useState(false);
   const [draftOperatingCountries, setDraftOperatingCountries] = useState<ShipsTo>(operatingCountries);
@@ -225,29 +211,7 @@ export default function BrandHQ() {
       router.push("/inbox");
       return;
     }
-    const workspaceIndex = WORKSPACE_SECTIONS.indexOf(next as typeof WORKSPACE_SECTIONS[number]);
-    if (workspaceIndex >= 0) {
-      setSection(next);
-      workspacePager.current?.setPage(workspaceIndex);
-      resetWorkspaceScroll(workspaceIndex);
-      if (next === "more") navScroller.current?.scrollToEnd({ animated: true });
-      else navScroller.current?.scrollTo({ x: 0, animated: true });
-      return;
-    }
-    void Haptics.selectionAsync().catch(() => undefined);
     setSection(next);
-  }
-
-  function onWorkspaceSelected(event: PagerViewOnPageSelectedEvent) {
-    const index = event.nativeEvent.position;
-    const next = WORKSPACE_SECTIONS[index];
-    if (!next) return;
-    resetWorkspaceScroll(index);
-    if (next === "more") navScroller.current?.scrollToEnd({ animated: true });
-    else navScroller.current?.scrollTo({ x: 0, animated: true });
-    if (next === section) return;
-    setSection(next);
-    void Haptics.selectionAsync().catch(() => undefined);
   }
 
   function changeRole(member: BrandMember) {
@@ -258,100 +222,77 @@ export default function BrandHQ() {
     ]);
   }
 
-  function renderSectionContent(current: Section) {
-    if (current === "overview") return <Overview brand={activeBrand} catalogCount={activeCatalog.length} draftCount={draftCatalog.length} toShipCount={toShipCount} making={making} moneyLabel={moneyExact(money.availableCents, moneyCurrency)} pendingLabel={money.pendingCents ? moneyExact(money.pendingCents, moneyCurrency) : ""} payoutStatus={payoutProfile?.status} canManagePayout={canManagePayouts(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />;
-    if (current === "make") return <MakeSection brand={activeBrand} uid={app.uid} theme={theme} styles={styles} onOpenDelivery={openDeliveryCoverage} />;
-    if (current === "catalog") return <CatalogSection brand={activeBrand} items={catalog} canManage={catalogManager} theme={theme} styles={styles} />;
-    if (current === "orders") return <OrdersSection orders={brandOrders} madeByUvel={making} viewer={orderViewer} manager={orderManager} reviewer={orderReviewer} onSupport={() => setSection("support")} theme={theme} styles={styles} />;
-    if (current === "finance") return <FinanceSection brand={activeBrand} orders={brandOrders} viewer={canViewFinance(activeBrand, app.uid)} manager={canManagePayouts(activeBrand, app.uid)} theme={theme} styles={styles} onPayoutFocus={() => setTimeout(() => workspaceScrollers.current[4]?.scrollToEnd({ animated: true }), 160)} />;
-    if (current === "promoCodes") return <BrandPromoCodes brand={activeBrand} theme={theme} state={marketing} pieces={catalog} viewer={canViewMarketing(activeBrand, app.uid)} manager={canManageMarketing(activeBrand, app.uid)} />;
-    if (current === "growth") return <GrowthToolsSection brand={activeBrand} uid={app.uid} orders={brandOrders} pieces={catalog} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />;
-    if (current === "analytics") return <AdvancedAnalyticsSection brand={activeBrand} orders={brandOrders} pieces={catalog} marketing={marketing} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} />;
-    if (current === "support") return <SupportSection brand={activeBrand} cases={supportCases} manager={orderManager} theme={theme} styles={styles} viewerName={app.displayName || "Support agent"} />;
-    if (current === "audit") return <AuditSection events={auditEvents} viewer={canViewAudit(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />;
-    if (current === "more") return <MoreSection brand={activeBrand} uid={app.uid} theme={theme} styles={styles} onSection={openSection} />;
-    if (current === "team") return <TeamSection brand={activeBrand} manager={manager} theme={theme} styles={styles} onRole={changeRole} />;
-    if (current === "businessRegistration") return <BusinessRegistrationSection brand={activeBrand} uid={app.uid} theme={theme} styles={styles} />;
-    if (current === "settings") return <SettingsSection brand={activeBrand} uid={app.uid} theme={theme} styles={styles} onSection={openSection} />;
-    return null;
-  }
-
-  const workspaceIndex = Math.max(0, WORKSPACE_SECTIONS.indexOf(section as typeof WORKSPACE_SECTIONS[number]));
-  const isWorkspace = WORKSPACE_SECTIONS.includes(section as typeof WORKSPACE_SECTIONS[number]);
-
   return (
     <View style={[styles.page, { backgroundColor: theme.bg }]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
-        <View style={[styles.content, { flex: 1, paddingTop: insets.top + 6, paddingBottom: insets.bottom + 24 }]}>
-          <View style={styles.top}>
-            <Pressable onPress={() => router.back()} hitSlop={12} style={styles.back}>
-              <Text style={[styles.backTxt, { color: theme.ink }]}>‹</Text>
-            </Pressable>
-            <View style={styles.topBrand}>
-              <View style={styles.topNameRow}>
-                <Text style={[styles.topTitle, { color: theme.ink }]} numberOfLines={1}>{brand.name}</Text>
-                <BrandVerifiedMark brand={brand} size={16} />
-              </View>
+      <ScrollView ref={hqScroller} style={{ flex: 1 }} nestedScrollEnabled contentContainerStyle={[styles.content, { paddingTop: insets.top + 6, paddingBottom: insets.bottom + 240 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}>
+        <View style={styles.top}>
+          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.back}>
+            <Text style={[styles.backTxt, { color: theme.ink }]}>‹</Text>
+          </Pressable>
+          <View style={styles.topBrand}>
+            <View style={styles.topNameRow}>
+              <Text style={[styles.topTitle, { color: theme.ink }]} numberOfLines={1}>{brand.name}</Text>
+              <BrandVerifiedMark brand={brand} size={16} />
             </View>
-            <View style={styles.topSpacer} />
           </View>
-
-          <ScrollView ref={navScroller} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.nav}>
-            {PRIMARY.map((item) => {
-              const active = item.id === "more" ? MORE_IDS.has(section) : section === item.id;
-              return (
-                <Pressable key={item.id} onPress={() => openSection(item.id)} style={[styles.navChip, active && { backgroundColor: theme.accent, borderColor: theme.accent }]} accessibilityRole="tab" accessibilityState={{ selected: active }}>
-                  <Text style={[styles.navTxt, { color: active ? theme.accentInk : theme.ink }]}>{item.label}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-
-          {isWorkspace ? (
-            <PagerView
-              ref={workspacePager}
-              style={styles.workspacePager}
-              initialPage={workspaceIndex}
-              onPageSelected={onWorkspaceSelected}
-              overdrag
-            >
-              {WORKSPACE_SECTIONS.map((workspace, index) => (
-                <View key={workspace} style={styles.workspacePage}>
-                  <ScrollView
-                    ref={(ref) => { workspaceScrollers.current[index] = ref; }}
-                    style={styles.workspaceScroll}
-                    nestedScrollEnabled
-                    contentOffset={{ x: 0, y: 0 }}
-                    automaticallyAdjustContentInsets={false}
-                    onLayout={() => resetWorkspaceScroll(index)}
-                    onContentSizeChange={() => resetWorkspaceScroll(index)}
-                    contentContainerStyle={{ paddingBottom: insets.bottom + 220 }}
-                    showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-                  >
-                    {renderSectionContent(workspace)}
-                  </ScrollView>
-                </View>
-              ))}
-            </PagerView>
-          ) : (
-            <ScrollView
-              ref={hqScroller}
-              style={styles.workspaceScroll}
-              nestedScrollEnabled
-              contentOffset={{ x: 0, y: 0 }}
-              automaticallyAdjustContentInsets={false}
-              onLayout={() => hqScroller.current?.scrollTo({ x: 0, y: 0, animated: false })}
-              contentContainerStyle={{ paddingBottom: insets.bottom + 220 }}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            >
-              {renderSectionContent(section)}
-            </ScrollView>
-          )}
+          <View style={styles.topSpacer} />
         </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.nav}>
+          {PRIMARY.map((item) => {
+            const active = item.id === "more" ? MORE_IDS.has(section) : section === item.id;
+            return (
+              <Pressable key={item.id} onPress={() => openSection(item.id)} style={[styles.navChip, active && { backgroundColor: theme.accent, borderColor: theme.accent }]}>
+                <Text style={[styles.navTxt, { color: active ? theme.accentInk : theme.ink }]}>{item.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {section === "overview" ? (
+          <Overview
+            brand={brand}
+            catalogCount={activeCatalog.length}
+            draftCount={draftCatalog.length}
+            toShipCount={toShipCount}
+            making={making}
+            moneyLabel={moneyExact(money.availableCents, moneyCurrency)}
+            pendingLabel={money.pendingCents ? moneyExact(money.pendingCents, moneyCurrency) : ""}
+            payoutStatus={payoutProfile?.status}
+            canManagePayout={canManagePayouts(activeBrand, app.uid)}
+            theme={theme}
+            styles={styles}
+            onSection={openSection}
+          />
+        ) : section === "make" ? (
+          <MakeSection brand={brand} uid={app.uid} theme={theme} styles={styles} onOpenDelivery={openDeliveryCoverage} />
+        ) : section === "catalog" ? (
+          <CatalogSection brand={brand} items={catalog} canManage={catalogManager} theme={theme} styles={styles} />
+        ) : section === "orders" ? (
+          <OrdersSection orders={brandOrders} madeByUvel={making} viewer={orderViewer} manager={orderManager} reviewer={orderReviewer} onSupport={() => setSection("support")} theme={theme} styles={styles} />
+        ) : section === "finance" ? (
+          <FinanceSection brand={activeBrand} orders={brandOrders} viewer={canViewFinance(activeBrand, app.uid)} manager={canManagePayouts(activeBrand, app.uid)} theme={theme} styles={styles} onPayoutFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
+        ) : section === "promoCodes" ? (
+          <BrandPromoCodes brand={activeBrand} theme={theme} state={marketing} pieces={catalog} viewer={canViewMarketing(activeBrand, app.uid)} manager={canManageMarketing(activeBrand, app.uid)} />
+        ) : section === "growth" ? (
+          <GrowthToolsSection brand={activeBrand} uid={app.uid} orders={brandOrders} pieces={catalog} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />
+        ) : section === "analytics" ? (
+          <AdvancedAnalyticsSection brand={activeBrand} orders={brandOrders} pieces={catalog} marketing={marketing} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} />
+        ) : section === "support" ? (
+          <SupportSection brand={activeBrand} cases={supportCases} manager={orderManager} theme={theme} styles={styles} viewerName={app.displayName || "Support agent"} />
+        ) : section === "audit" ? (
+          <AuditSection events={auditEvents} viewer={canViewAudit(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />
+        ) : section === "more" ? (
+          <MoreSection brand={brand} uid={app.uid} theme={theme} styles={styles} onSection={openSection} />
+        ) : section === "team" ? (
+          <TeamSection brand={brand} manager={manager} theme={theme} styles={styles} onRole={changeRole} />
+        ) : section === "businessRegistration" ? (
+          <BusinessRegistrationSection brand={brand} uid={app.uid} theme={theme} styles={styles} />
+        ) : section === "settings" ? (
+          <SettingsSection brand={brand} uid={app.uid} theme={theme} styles={styles} onSection={openSection} />
+        ) : null}
+      </ScrollView>
       </KeyboardAvoidingView>
       <Sheet open={deliveryOpen} onClose={closeDeliveryCoverage} expandable surfaceColor={theme.card}>
         <ScrollView style={styles.deliverySheetScroll} showsVerticalScrollIndicator={false}>
@@ -1712,10 +1653,7 @@ function make(theme: HQTheme) {
     heroCopy: { flex: 1, paddingLeft: 14 },
     heroTitle: { fontSize: 25, fontWeight: "800" },
     heroP: { fontSize: 13, lineHeight: 18, marginTop: 5 },
-    nav: { gap: 8, paddingVertical: 18, paddingRight: 20 },
-    workspacePager: { flex: 1, minHeight: 0, marginHorizontal: -20 },
-    workspacePage: { flex: 1, minHeight: 0, paddingHorizontal: 20, alignItems: "stretch", justifyContent: "flex-start" },
-    workspaceScroll: { flex: 1, minHeight: 0, alignSelf: "stretch" },
+    nav: { gap: 8, paddingVertical: 18 },
     navChip: { height: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, borderColor: theme.lineColor, justifyContent: "center" },
     navTxt: { fontSize: 12, fontWeight: "700" },
     sectionKicker: { fontSize: 11, letterSpacing: 1.6, fontWeight: "700", marginTop: 4, marginBottom: 10 },
