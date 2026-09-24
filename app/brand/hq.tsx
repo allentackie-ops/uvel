@@ -295,8 +295,8 @@ export default function BrandHQ() {
           <Text style={[styles.sheetCopy, { color: theme.muted }]}>Choose the countries where customers can order your products. Buyers in other countries may pay higher delivery fees.</Text>
           <ShipsPicker origin={activeBrand.country} value={draftOperatingCountries} onChange={setDraftOperatingCountries} accent={theme.accent} accentInk={theme.accentInk} />
           <View style={styles.deliverySheetActions}>
-            <Pressable onPress={closeDeliveryCoverage} style={[styles.actionButton, { borderColor: theme.lineColor }]} accessibilityRole="button"><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Cancel</Text></Pressable>
-            <Pressable onPress={saveDeliveryCoverage} style={[styles.saveButton, { backgroundColor: theme.accent }]} accessibilityRole="button"><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Save coverage</Text></Pressable>
+            <Pressable onPress={closeDeliveryCoverage} style={[styles.actionButton, styles.deliveryActionButton, { borderColor: theme.lineColor }]} accessibilityRole="button"><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Cancel</Text></Pressable>
+            <Pressable onPress={saveDeliveryCoverage} style={[styles.saveButton, styles.deliveryActionButton, { backgroundColor: theme.accent }]} accessibilityRole="button"><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Save coverage</Text></Pressable>
           </View>
         </ScrollView>
       </Sheet>
@@ -1637,7 +1637,8 @@ function make(theme: HQTheme) {
     deliverySheetScroll: { maxHeight: 560 },
     sheetTitle: { fontSize: 22, fontWeight: "900", lineHeight: 28 },
     sheetCopy: { fontSize: 13, lineHeight: 19, marginTop: 6, marginBottom: 4 },
-    deliverySheetActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, paddingTop: 14, paddingBottom: 4 },
+    deliverySheetActions: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8, paddingTop: 14, paddingBottom: 4 },
+    deliveryActionButton: { marginTop: 0 },
     catalogFilters: { gap: 8, paddingVertical: 12 },
     auditFilters: { gap: 8, paddingVertical: 12 },
     auditCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 9 },
