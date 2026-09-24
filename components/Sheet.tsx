@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import { StyleSheet, useWindowDimensions, View } from "react-native";
+import { Modal, StyleSheet, useWindowDimensions, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -74,6 +74,7 @@ export function Sheet({
   if (!open) return null;
 
   return (
+    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       <AccessiblePressable        style={StyleSheet.absoluteFill}
         onPress={onClose}
@@ -93,6 +94,7 @@ export function Sheet({
         </Animated.View>
       </GestureDetector>
     </View>
+    </Modal>
   );
 }
 

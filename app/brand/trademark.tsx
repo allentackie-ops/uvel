@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Sheet } from "../../components/Sheet";
 import { getBrand, updateBrand, useBrands } from "../../lib/brands";
 import { recordAuditEvent } from "../../lib/audit";
 import { importFounderWork, pickFromLibrary } from "../../lib/photo";
@@ -102,20 +103,27 @@ export default function TrademarkPage() {
         <Text style={styles.p}>Use an official filing office. Uvel does not file or provide legal advice.</Text>
         <Text style={styles.sectionK}>OFFICIAL FILING OPTIONS</Text>
         <View style={styles.officeList}>{OFFICES.map((item) => <Pressable key={item.id} onPress={() => void Linking.openURL(item.url)} style={styles.officeRow}><View style={{ flex: 1 }}><Text style={styles.officeTitle}>{item.title}</Text><Text style={styles.officeCopy}>{item.copy}</Text></View><Text style={styles.officeAction}>Open ›</Text></Pressable>)}</View>
-        <Pressable disabled={!owner} onPress={() => setShowReviewForm((value) => !value)} style={[styles.reviewRow, !owner && { opacity: 0.55 }]}><View style={{ flex: 1 }}><Text style={styles.reviewTitle}>Submit for review</Text><Text style={styles.reviewCopy}>{statusText[status]}{documentName ? ` · ${documentName}` : ""}</Text></View><Text style={styles.officeAction}>{showReviewForm ? "Close" : "Open"}</Text></Pressable>
-        {showReviewForm ? <View style={styles.form}>
-          <Text style={styles.formK}>WHO OWNS THE TRADEMARK?</Text>
-          <View style={styles.chips}>{[["individual", "Individual"], ["sole_proprietor", "Sole proprietor"], ["registered_business", "Registered business"]].map(([id, label]) => <Pressable key={id} onPress={() => setOwnerType(id)} style={[styles.chip, ownerType === id && styles.chipOn]}><Text style={[styles.chipText, ownerType === id && styles.chipTextOn]}>{label}</Text></Pressable>)}</View>
-          <Text style={styles.formK}>WHAT ARE YOU PROTECTING?</Text>
-          <View style={styles.chips}>{[["name", "Name"], ["logo", "Logo"], ["name_and_logo", "Name + logo"]].map(([id, label]) => <Pressable key={id} onPress={() => setMarkType(id)} style={[styles.chip, markType === id && styles.chipOn]}><Text style={[styles.chipText, markType === id && styles.chipTextOn]}>{label}</Text></Pressable>)}</View>
-          <TextInput value={office} onChangeText={setOffice} placeholder="Filing office or country" placeholderTextColor={colors.muted} style={styles.input} />
-          <TextInput value={applicationNumber} onChangeText={setApplicationNumber} placeholder="Application or registration number" placeholderTextColor={colors.muted} style={styles.input} />
-          <TextInput value={filingDate} onChangeText={setFilingDate} placeholder="Filing date · YYYY-MM-DD" placeholderTextColor={colors.muted} style={styles.input} />
-          <View style={styles.attachmentActions}><Pressable onPress={() => void chooseFile()} style={styles.attachmentButton}><Text style={styles.attachmentText}>Attach PDF or file</Text></Pressable><Pressable onPress={() => void choosePhoto()} style={styles.attachmentButton}><Text style={styles.attachmentText}>Choose photo</Text></Pressable></View>
-          {documentName ? <View style={styles.documentRow}><Text style={styles.documentName} numberOfLines={1}>{documentName}</Text><Pressable onPress={() => { setDocumentUri(""); setDocumentName(""); }}><Text style={styles.remove}>Remove</Text></Pressable></View> : null}
-          <Text style={styles.formHint}>Uvel will review the submitted details before showing Registered.</Text>
-          <Pressable disabled={busy} onPress={() => void submitForReview()} style={[styles.submit, busy && { opacity: 0.5 }]}><Text style={styles.submitText}>{busy ? "Submitting…" : "Submit for review"}</Text></Pressable>
-        </View> : null}
+        <Pressable disabled={!owner} onPress={() => setShowReviewForm(true)} style={[styles.reviewRow, !owner && { opacity: 0.55 }]}><View style={{ flex: 1 }}><Text style={styles.reviewTitle}>Submit for review</Text><Text style={styles.reviewCopy}>{statusText[status]}{documentName ? ` · ${documentName}` : ""}</Text></View><Text style={styles.officeAction}>Open</Text></Pressable>
+        <Sheet open={showReviewForm} onClose={() => setShowReviewForm(false)} expandable>
+          <ScrollView style={styles.reviewSheetScroll} contentContainerStyle={styles.reviewSheetContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <Text style={styles.sheetTitle}>Submit trademark details</Text>
+            <Text style={styles.sheetCopy}>Add the filing details and proof you want Uvel to review. Uvel does not file or provide legal advice.</Text>
+            <Text style={styles.formK}>WHO OWNS THE TRADEMARK?</Text>
+            <View style={styles.chips}>{[["individual", "Individual"], ["sole_proprietor", "Sole proprietor"], ["registered_business", "Registered business"]].map(([id, label]) => <Pressable key={id} onPress={() => setOwnerType(id)} style={[styles.chip, ownerType === id && styles.chipOn]}><Text style={[styles.chipText, ownerType === id && styles.chipTextOn]}>{label}</Text></Pressable>)}</View>
+            <Text style={styles.formK}>WHAT ARE YOU PROTECTING?</Text>
+            <View style={styles.chips}>{[["name", "Name"], ["logo", "Logo"], ["name_and_logo", "Name + logo"]].map(([id, label]) => <Pressable key={id} onPress={() => setMarkType(id)} style={[styles.chip, markType === id && styles.chipOn]}><Text style={[styles.chipText, markType === id && styles.chipTextOn]}>{label}</Text></Pressable>)}</View>
+            <TextInput value={office} onChangeText={setOffice} placeholder="Filing office or country" placeholderTextColor={colors.muted} style={styles.input} />
+            <TextInput value={applicationNumber} onChangeText={setApplicationNumber} placeholder="Application or registration number" placeholderTextColor={colors.muted} style={styles.input} />
+            <TextInput value={filingDate} onChangeText={setFilingDate} placeholder="Filing date · YYYY-MM-DD" placeholderTextColor={colors.muted} style={styles.input} />
+            <View style={styles.attachmentActions}><Pressable onPress={() => void chooseFile()} style={styles.attachmentButton}><Text style={styles.attachmentText}>Attach PDF or file</Text></Pressable><Pressable onPress={() => void choosePhoto()} style={styles.attachmentButton}><Text style={styles.attachmentText}>Choose photo</Text></Pressable></View>
+            {documentName ? <View style={styles.documentRow}><Text style={styles.documentName} numberOfLines={1}>{documentName}</Text><Pressable onPress={() => { setDocumentUri(""); setDocumentName(""); }}><Text style={styles.remove}>Remove</Text></Pressable></View> : null}
+            <Text style={styles.formHint}>Uvel will review the submitted details before showing Registered.</Text>
+            <View style={styles.reviewSheetActions}>
+              <Pressable onPress={() => setShowReviewForm(false)} style={[styles.actionButton, styles.reviewSheetActionButton]} accessibilityRole="button"><Text style={styles.actionButtonTxt}>Cancel</Text></Pressable>
+              <Pressable disabled={busy} onPress={() => void submitForReview()} style={[styles.submit, styles.reviewSheetActionButton, busy && { opacity: 0.5 }]} accessibilityRole="button"><Text style={styles.submitText}>{busy ? "Submitting…" : "Submit for review"}</Text></Pressable>
+            </View>
+          </ScrollView>
+        </Sheet>
       </ScrollView>
     </View>
   );
@@ -167,5 +175,13 @@ function make(dark: boolean) {
     formHint: { color: muted, fontSize: 12, lineHeight: 17, marginTop: 12 },
     submit: { minHeight: 48, borderRadius: 15, backgroundColor: accent, alignItems: "center", justifyContent: "center", marginTop: 14 },
     submitText: { color: dark ? "#16140F" : "#FFFFFF", fontSize: 14, fontWeight: "900" },
+    reviewSheetScroll: { flex: 1 },
+    reviewSheetContent: { paddingBottom: 12 },
+    sheetTitle: { color: ink, fontSize: 22, fontWeight: "900", lineHeight: 28 },
+    sheetCopy: { color: muted, fontSize: 13, lineHeight: 19, marginTop: 6, marginBottom: 4 },
+    actionButton: { height: 48, borderWidth: 1, borderColor: line, borderRadius: 15, paddingHorizontal: 16, justifyContent: "center" },
+    actionButtonTxt: { color: ink, fontSize: 13, fontWeight: "900" },
+    reviewSheetActions: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8, paddingTop: 16, paddingBottom: 8 },
+    reviewSheetActionButton: { marginTop: 0 },
   });
 }
