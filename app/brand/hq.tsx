@@ -129,6 +129,7 @@ export default function BrandHQ() {
   const hqScroller = useRef<ScrollView>(null);
   const workspacePager = useRef<PagerView>(null);
   const workspaceScrollers = useRef<Array<ScrollView | null>>([]);
+  const navScroller = useRef<ScrollView>(null);
   const operatingCountries: ShipsTo = brand?.operatingCountries || encodeShipsTo(brand?.country || app.country || "US", "home");
   const [deliveryOpen, setDeliveryOpen] = useState(false);
   const [draftOperatingCountries, setDraftOperatingCountries] = useState<ShipsTo>(operatingCountries);
@@ -221,6 +222,9 @@ export default function BrandHQ() {
     if (workspaceIndex >= 0) {
       setSection(next);
       workspacePager.current?.setPage(workspaceIndex);
+      workspaceScrollers.current[workspaceIndex]?.scrollTo({ y: 0, animated: false });
+      if (next === "more") navScroller.current?.scrollToEnd({ animated: true });
+      else navScroller.current?.scrollTo({ x: 0, animated: true });
       return;
     }
     void Haptics.selectionAsync().catch(() => undefined);
@@ -228,9 +232,13 @@ export default function BrandHQ() {
   }
 
   function onWorkspaceSelected(event: PagerViewOnPageSelectedEvent) {
-    const next = WORKSPACE_SECTIONS[event.nativeEvent.position];
+    const index = event.nativeEvent.position;
+    const next = WORKSPACE_SECTIONS[index];
     if (!next || next === section) return;
     setSection(next);
+    workspaceScrollers.current[index]?.scrollTo({ y: 0, animated: false });
+    if (next === "more") navScroller.current?.scrollToEnd({ animated: true });
+    else navScroller.current?.scrollTo({ x: 0, animated: true });
     void Haptics.selectionAsync().catch(() => undefined);
   }
 
@@ -280,7 +288,7 @@ export default function BrandHQ() {
             <View style={styles.topSpacer} />
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.nav}>
+          <ScrollView ref={navScroller} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.nav}>
             {PRIMARY.map((item) => {
               const active = item.id === "more" ? MORE_IDS.has(section) : section === item.id;
               return (
@@ -1693,7 +1701,7 @@ function make(theme: HQTheme) {
     workspacePager: { flex: 1, marginHorizontal: -20 },
     workspacePage: { flex: 1, paddingHorizontal: 20 },
     workspaceScroll: { flex: 1 },
-    workspaceScrollContent: { flexGrow: 1 },
+    workspaceScrollContent: {},
     navChip: { height: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, borderColor: theme.lineColor, justifyContent: "center" },
     navTxt: { fontSize: 12, fontWeight: "700" },
     sectionKicker: { fontSize: 11, letterSpacing: 1.6, fontWeight: "700", marginTop: 4, marginBottom: 10 },
