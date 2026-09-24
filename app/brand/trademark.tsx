@@ -3,7 +3,8 @@ import { useMemo, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Sheet } from "../../components/Sheet";
-import { getBrand, updateBrand, useBrands } from "../../lib/brands";
+import { getBrand, themeFor, updateBrand, useBrands } from "../../lib/brands";
+import type { BrandTheme } from "../../lib/brandThemes";
 import { recordAuditEvent } from "../../lib/audit";
 import { importFounderWork, pickFromLibrary } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
@@ -33,7 +34,8 @@ export default function TrademarkPage() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const brand = getBrand(id);
-  const styles = useMemo(() => make(colors.ink === "#000000"), [colors.ink]);
+  const theme: BrandTheme = brand ? themeFor(brand) : { id: "fallback", name: "Uvel", line: "", bg: colors.ink, ink: colors.bone, muted: colors.muted, card: colors.surface, accent: colors.success, accentInk: colors.successInk, lineColor: colors.subtle };
+  const styles = useMemo(() => make(theme), [theme.accent, theme.accentInk, theme.bg, theme.card, theme.ink, theme.lineColor, theme.muted]);
   const owner = Boolean(brand && brand.ownerId === app.uid);
   const [ownerType, setOwnerType] = useState(brand?.trademarkOwnerType || "");
   const [markType, setMarkType] = useState(brand?.trademarkMarkType || "");
@@ -104,7 +106,7 @@ export default function TrademarkPage() {
         <Text style={styles.sectionK}>OFFICIAL FILING OPTIONS</Text>
         <View style={styles.officeList}>{OFFICES.map((item) => <Pressable key={item.id} onPress={() => void Linking.openURL(item.url)} style={styles.officeRow}><View style={{ flex: 1 }}><Text style={styles.officeTitle}>{item.title}</Text><Text style={styles.officeCopy}>{item.copy}</Text></View><Text style={styles.officeAction}>Open ›</Text></Pressable>)}</View>
         <Pressable disabled={!owner} onPress={() => setShowReviewForm(true)} style={[styles.reviewRow, !owner && { opacity: 0.55 }]}><View style={{ flex: 1 }}><Text style={styles.reviewTitle}>Submit for review</Text><Text style={styles.reviewCopy}>{statusText[status]}{documentName ? ` · ${documentName}` : ""}</Text></View><Text style={styles.officeAction}>Open</Text></Pressable>
-        <Sheet open={showReviewForm} onClose={() => setShowReviewForm(false)} expandable>
+        <Sheet open={showReviewForm} onClose={() => setShowReviewForm(false)} expandable surfaceColor={theme.card}>
           <ScrollView style={styles.reviewSheetScroll} contentContainerStyle={styles.reviewSheetContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <Text style={styles.sheetTitle}>Submit trademark details</Text>
             <Text style={styles.sheetCopy}>Add the filing details and proof you want Uvel to review. Uvel does not file or provide legal advice.</Text>
@@ -112,9 +114,9 @@ export default function TrademarkPage() {
             <View style={styles.chips}>{[["individual", "Individual"], ["sole_proprietor", "Sole proprietor"], ["registered_business", "Registered business"]].map(([id, label]) => <Pressable key={id} onPress={() => setOwnerType(id)} style={[styles.chip, ownerType === id && styles.chipOn]}><Text style={[styles.chipText, ownerType === id && styles.chipTextOn]}>{label}</Text></Pressable>)}</View>
             <Text style={styles.formK}>WHAT ARE YOU PROTECTING?</Text>
             <View style={styles.chips}>{[["name", "Name"], ["logo", "Logo"], ["name_and_logo", "Name + logo"]].map(([id, label]) => <Pressable key={id} onPress={() => setMarkType(id)} style={[styles.chip, markType === id && styles.chipOn]}><Text style={[styles.chipText, markType === id && styles.chipTextOn]}>{label}</Text></Pressable>)}</View>
-            <TextInput value={office} onChangeText={setOffice} placeholder="Filing office or country" placeholderTextColor={colors.muted} style={styles.input} />
-            <TextInput value={applicationNumber} onChangeText={setApplicationNumber} placeholder="Application or registration number" placeholderTextColor={colors.muted} style={styles.input} />
-            <TextInput value={filingDate} onChangeText={setFilingDate} placeholder="Filing date · YYYY-MM-DD" placeholderTextColor={colors.muted} style={styles.input} />
+            <TextInput value={office} onChangeText={setOffice} placeholder="Filing office or country" placeholderTextColor={theme.muted} style={styles.input} />
+            <TextInput value={applicationNumber} onChangeText={setApplicationNumber} placeholder="Application or registration number" placeholderTextColor={theme.muted} style={styles.input} />
+            <TextInput value={filingDate} onChangeText={setFilingDate} placeholder="Filing date · YYYY-MM-DD" placeholderTextColor={theme.muted} style={styles.input} />
             <View style={styles.attachmentActions}><Pressable onPress={() => void chooseFile()} style={styles.attachmentButton}><Text style={styles.attachmentText}>Attach PDF or file</Text></Pressable><Pressable onPress={() => void choosePhoto()} style={styles.attachmentButton}><Text style={styles.attachmentText}>Choose photo</Text></Pressable></View>
             {documentName ? <View style={styles.documentRow}><Text style={styles.documentName} numberOfLines={1}>{documentName}</Text><Pressable onPress={() => { setDocumentUri(""); setDocumentName(""); }}><Text style={styles.remove}>Remove</Text></Pressable></View> : null}
             <Text style={styles.formHint}>Uvel will review the submitted details before showing Registered.</Text>
@@ -129,14 +131,10 @@ export default function TrademarkPage() {
   );
 }
 
-function make(dark: boolean) {
-  const ink = dark ? "#F4F0E6" : "#16140F";
-  const muted = dark ? "rgba(244,240,230,0.55)" : "rgba(22,20,15,0.5)";
-  const line = dark ? "rgba(244,240,230,0.12)" : "rgba(22,20,15,0.1)";
-  const card = dark ? "#1C1A16" : "#F6F1E6";
-  const accent = dark ? "#D6E27A" : "#8A9600";
+function make(theme: BrandTheme) {
+  const { ink, muted, lineColor: line, card, accent, accentInk } = theme;
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: dark ? "#0E0D0B" : "#FFFFFF" },
+    page: { flex: 1, backgroundColor: theme.bg },
     nav: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, minHeight: 48 },
     navBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
     navBack: { color: ink, fontSize: 32, lineHeight: 34, marginTop: -4 },
@@ -162,7 +160,7 @@ function make(dark: boolean) {
     formK: { color: muted, fontSize: 10, fontWeight: "900", letterSpacing: 1.2, marginTop: 5, marginBottom: 8 },
     chips: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginBottom: 13 },
     chip: { borderWidth: 1, borderColor: line, borderRadius: 16, paddingHorizontal: 11, paddingVertical: 9 },
-    chipOn: { borderColor: accent, backgroundColor: dark ? "rgba(214,226,122,0.14)" : "rgba(138,150,0,0.1)" },
+    chipOn: { borderColor: accent, backgroundColor: `${accent}24` },
     chipText: { color: muted, fontSize: 12, fontWeight: "700" },
     chipTextOn: { color: ink },
     input: { height: 46, borderWidth: 1, borderColor: line, borderRadius: 13, paddingHorizontal: 12, color: ink, fontSize: 14, marginTop: 9 },
@@ -174,7 +172,7 @@ function make(dark: boolean) {
     remove: { color: muted, fontSize: 11, textDecorationLine: "underline" },
     formHint: { color: muted, fontSize: 12, lineHeight: 17, marginTop: 12 },
     submit: { minHeight: 48, borderRadius: 15, backgroundColor: accent, alignItems: "center", justifyContent: "center", marginTop: 14 },
-    submitText: { color: dark ? "#16140F" : "#FFFFFF", fontSize: 14, fontWeight: "900" },
+    submitText: { color: accentInk, fontSize: 14, fontWeight: "900" },
     reviewSheetScroll: { flex: 1 },
     reviewSheetContent: { paddingBottom: 12 },
     sheetTitle: { color: ink, fontSize: 22, fontWeight: "900", lineHeight: 28 },
@@ -186,6 +184,6 @@ function make(dark: boolean) {
     reviewActionButton: { height: 34, borderWidth: 1, borderColor: line, borderRadius: 17, paddingHorizontal: 12, justifyContent: "center" },
     reviewActionButtonText: { color: ink, fontSize: 12, fontWeight: "800" },
     reviewSubmitButton: { height: 34, paddingHorizontal: 13, borderRadius: 17, backgroundColor: accent, justifyContent: "center" },
-    reviewSubmitText: { color: dark ? "#16140F" : "#FFFFFF", fontSize: 12, fontWeight: "800" },
+    reviewSubmitText: { color: accentInk, fontSize: 12, fontWeight: "800" },
   });
 }

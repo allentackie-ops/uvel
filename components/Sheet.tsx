@@ -9,11 +9,13 @@ export function Sheet({
   open,
   onClose,
   expandable = false,
+  surfaceColor,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   expandable?: boolean;
+  surfaceColor?: string;
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
@@ -85,8 +87,8 @@ export function Sheet({
         <Animated.View style={[styles.veil, veil]} />
       </AccessiblePressable>
       <GestureDetector gesture={pan}>
-        <Animated.View
-          style={[styles.sheet, expandable && { height: maxHeight }, { paddingBottom: insets.bottom + 16 }, sheet]}
+          <Animated.View
+            style={[styles.sheet, surfaceColor && { backgroundColor: surfaceColor }, expandable && { height: maxHeight }, { paddingBottom: insets.bottom + 16 }, sheet]}
           accessibilityViewIsModal
         >
           <View style={styles.grip} />

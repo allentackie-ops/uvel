@@ -294,7 +294,7 @@ export default function BrandHQ() {
         ) : null}
       </ScrollView>
       </KeyboardAvoidingView>
-      <Sheet open={deliveryOpen} onClose={closeDeliveryCoverage} expandable>
+      <Sheet open={deliveryOpen} onClose={closeDeliveryCoverage} expandable surfaceColor={theme.card}>
         <ScrollView style={styles.deliverySheetScroll} showsVerticalScrollIndicator={false}>
           <Text style={[styles.sheetTitle, { color: theme.ink }]}>Where your brand sells</Text>
           <Text style={[styles.sheetCopy, { color: theme.muted }]}>Choose the countries where customers can order your products. Buyers in other countries may pay higher delivery fees.</Text>
@@ -1314,7 +1314,7 @@ function PayoutSetup({ brand, profile, manager, currency, theme, styles, onFocus
         </Pressable>
       ) : <Text style={[styles.financeLine, { color: theme.muted, marginTop: 9 }]}>Only owners and admins can edit payout setup. Finance members can review its status.</Text>}
     </View>
-    <Sheet open={showSetup} onClose={() => setShowSetup(false)} expandable>
+    <Sheet open={showSetup} onClose={() => setShowSetup(false)} expandable surfaceColor={theme.card}>
       <ScrollView style={styles.payoutSheetScroll} contentContainerStyle={styles.payoutSheetContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <Text style={[styles.sheetTitle, { color: theme.ink }]}>{profile ? "Manage payout account" : "Set up payout account"}</Text>
         <Text style={[styles.sheetCopy, { color: theme.muted }]}>Add the account details Uvel will use for payouts. Your raw account details are sent securely for review and are not stored in the app.</Text>
@@ -1585,7 +1585,7 @@ function BusinessRegistrationSection({ brand, uid, theme, styles }: { brand: Bra
       <Text style={[styles.settingsHeading, { color: theme.ink }]}>Registration options</Text>
       <View style={[styles.registrationProviderList, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>{providers.map((item) => <Pressable key={item.id} onPress={() => { void Linking.openURL(item.url); }} style={[styles.registrationProviderRow, { borderBottomColor: theme.lineColor }]}><Image source={item.logo} style={styles.providerLogo} contentFit="contain" /><Text style={[styles.providerAction, { color: theme.accent }]}>Open ›</Text></Pressable>)}<Text style={[styles.registrationOther, { color: theme.muted }]}>Other registration sources are fine.</Text></View>
       <Pressable disabled={!owner} onPress={() => setShowReviewForm(true)} style={[styles.reviewRow, { backgroundColor: theme.card, borderColor: showReviewForm ? theme.accent : theme.lineColor }, !owner && { opacity: 0.55 }]}><View style={{ flex: 1 }}><Text style={[styles.reviewRowTitle, { color: theme.ink }]}>Submit for review</Text><Text style={[styles.reviewRowCopy, { color: theme.muted }]}>{statusCopy[status]}{proofName ? ` · ${proofName}` : ""}</Text></View><Text style={[styles.providerAction, { color: theme.accent }]}>Open</Text></Pressable>
-      <Sheet open={showReviewForm} onClose={() => setShowReviewForm(false)} expandable>
+      <Sheet open={showReviewForm} onClose={() => setShowReviewForm(false)} expandable surfaceColor={theme.card}>
         <ScrollView style={styles.reviewSheetScroll} contentContainerStyle={styles.reviewSheetContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
           <Text style={[styles.sheetTitle, { color: theme.ink }]}>Submit business registration</Text>
           <Text style={[styles.sheetCopy, { color: theme.muted }]}>Add your registration details and proof. Uvel will review them before showing Verified.</Text>
