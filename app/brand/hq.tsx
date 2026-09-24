@@ -130,6 +130,13 @@ export default function BrandHQ() {
   const workspacePager = useRef<PagerView>(null);
   const workspaceScrollers = useRef<Array<ScrollView | null>>([]);
   const navScroller = useRef<ScrollView>(null);
+
+  function resetWorkspaceScroll(index: number) {
+    const scrollView = workspaceScrollers.current[index];
+    scrollView?.setNativeProps({ contentOffset: { x: 0, y: 0 } });
+    scrollView?.scrollTo({ x: 0, y: 0, animated: false });
+    setTimeout(() => workspaceScrollers.current[index]?.scrollTo({ x: 0, y: 0, animated: false }), 80);
+  }
   const operatingCountries: ShipsTo = brand?.operatingCountries || encodeShipsTo(brand?.country || app.country || "US", "home");
   const [deliveryOpen, setDeliveryOpen] = useState(false);
   const [draftOperatingCountries, setDraftOperatingCountries] = useState<ShipsTo>(operatingCountries);
@@ -222,7 +229,7 @@ export default function BrandHQ() {
     if (workspaceIndex >= 0) {
       setSection(next);
       workspacePager.current?.setPage(workspaceIndex);
-      workspaceScrollers.current[workspaceIndex]?.scrollTo({ y: 0, animated: false });
+      resetWorkspaceScroll(workspaceIndex);
       if (next === "more") navScroller.current?.scrollToEnd({ animated: true });
       else navScroller.current?.scrollTo({ x: 0, animated: true });
       return;
@@ -235,7 +242,7 @@ export default function BrandHQ() {
     const index = event.nativeEvent.position;
     const next = WORKSPACE_SECTIONS[index];
     if (!next) return;
-    workspaceScrollers.current[index]?.scrollTo({ y: 0, animated: false });
+    resetWorkspaceScroll(index);
     if (next === "more") navScroller.current?.scrollToEnd({ animated: true });
     else navScroller.current?.scrollTo({ x: 0, animated: true });
     if (next === section) return;
@@ -315,7 +322,9 @@ export default function BrandHQ() {
                     style={styles.workspaceScroll}
                     nestedScrollEnabled
                     contentOffset={{ x: 0, y: 0 }}
-                    onLayout={() => workspaceScrollers.current[index]?.scrollTo({ y: 0, animated: false })}
+                    automaticallyAdjustContentInsets={false}
+                    onLayout={() => resetWorkspaceScroll(index)}
+                    onContentSizeChange={() => resetWorkspaceScroll(index)}
                     contentContainerStyle={{ paddingBottom: insets.bottom + 220 }}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
@@ -332,7 +341,8 @@ export default function BrandHQ() {
               style={styles.workspaceScroll}
               nestedScrollEnabled
               contentOffset={{ x: 0, y: 0 }}
-              onLayout={() => hqScroller.current?.scrollTo({ y: 0, animated: false })}
+              automaticallyAdjustContentInsets={false}
+              onLayout={() => hqScroller.current?.scrollTo({ x: 0, y: 0, animated: false })}
               contentContainerStyle={{ paddingBottom: insets.bottom + 220 }}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
