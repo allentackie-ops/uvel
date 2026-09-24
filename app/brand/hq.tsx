@@ -289,7 +289,7 @@ export default function BrandHQ() {
         ) : null}
       </ScrollView>
       </KeyboardAvoidingView>
-      <Sheet open={deliveryOpen} onClose={closeDeliveryCoverage}>
+      <Sheet open={deliveryOpen} onClose={closeDeliveryCoverage} expandable>
         <ScrollView style={styles.deliverySheetScroll} showsVerticalScrollIndicator={false}>
           <Text style={[styles.sheetTitle, { color: theme.ink }]}>Where your brand sells</Text>
           <Text style={[styles.sheetCopy, { color: theme.muted }]}>Choose the countries where customers can order your products. Buyers in other countries may pay higher delivery fees.</Text>
@@ -1231,6 +1231,7 @@ function PayoutSetup({ brand, profile, manager, currency, theme, styles, onFocus
     try {
       await savePayoutProfile({ brandId: brand.id, ownerType, destinationType, country: brand.country, currency: currency || "USD", legalName, registrationId: ownerType === "business" ? registrationId : "", accountHolderName, institutionName, destination });
       setDestination("");
+      setShowSetup(false);
       Alert.alert("Payout profile submitted", "Your payout destination is saved securely for review. Raw account details are not stored in the app.");
     } catch (error) {
       Alert.alert("Payout setup", error instanceof Error ? error.message : "Could not save payout setup.");
@@ -1240,9 +1241,44 @@ function PayoutSetup({ brand, profile, manager, currency, theme, styles, onFocus
   }
 
   const statusLabel = profile?.status === "verified" ? "Verified" : profile?.status === "needs_attention" ? "Needs attention" : profile?.status === "submitted" ? "Submitted for review" : "Not set up";
-  return <View style={[styles.payoutSetup, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={styles.payoutSetupHead}><View style={{ flex: 1 }}><Text style={[styles.financeBreakdownTitle, { color: theme.ink }]}>Payout account</Text><Text style={[styles.financeLine, { color: theme.muted }]}>{profile?.destinationLast4 ? `Bank ending in ${profile.destinationLast4}` : "Add an account when you are ready to receive payouts."}</Text></View><Text style={[styles.payoutStatus, { color: profile?.status === "verified" ? theme.accent : theme.muted }]}>{statusLabel}</Text></View>{manager ? <Pressable onPress={() => setShowSetup((value) => !value)} style={[styles.payoutManageButton, { borderColor: theme.lineColor }]}><Text style={[styles.payoutManageText, { color: theme.ink }]}>{showSetup ? "Close" : profile ? "Manage payout account" : "Set up payout account"}</Text><Text style={[styles.payoutManageArrow, { color: theme.muted }]}>{showSetup ? "⌃" : "›"}</Text></Pressable> : <Text style={[styles.financeLine, { color: theme.muted, marginTop: 9 }]}>Only owners and admins can edit payout setup. Finance members can review its status.</Text>}{showSetup ? <><Text style={[styles.payoutLabel, { color: theme.muted }]}>WITHDRAW AS</Text><View style={styles.payoutTypeRow}><Pressable onPress={() => setOwnerType("individual")} style={[styles.payoutTypeChip, { borderColor: ownerType === "individual" ? theme.accent : theme.lineColor, backgroundColor: ownerType === "individual" ? theme.accent : "transparent" }]}><Text style={[styles.payoutTypeText, { color: ownerType === "individual" ? theme.accentInk : theme.ink }]}>Individual</Text></Pressable><Pressable onPress={() => setOwnerType("business")} style={[styles.payoutTypeChip, { borderColor: ownerType === "business" ? theme.accent : theme.lineColor, backgroundColor: ownerType === "business" ? theme.accent : "transparent" }]}><Text style={[styles.payoutTypeText, { color: ownerType === "business" ? theme.accentInk : theme.ink }]}>Business</Text></Pressable></View><TextInput value={legalName} onChangeText={setLegalName} placeholder={ownerType === "business" ? "Business legal name" : "Full legal name"} placeholderTextColor={theme.muted} onFocus={onFocus} style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} />{ownerType === "business" ? <TextInput value={registrationId} onChangeText={setRegistrationId} placeholder="Business registration number" placeholderTextColor={theme.muted} onFocus={onFocus} style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} /> : null}<TextInput value={accountHolderName} onChangeText={setAccountHolderName} placeholder="Account holder name" placeholderTextColor={theme.muted} onFocus={onFocus} style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} /><TextInput value={institutionName} onChangeText={setInstitutionName} placeholder="Bank name" placeholderTextColor={theme.muted} onFocus={onFocus} style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} /><TextInput value={destination} onChangeText={(value) => setDestination(value.replace(/[^0-9]/g, ""))} placeholder="Account number" placeholderTextColor={theme.muted} keyboardType="number-pad" onFocus={onFocus} style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} /><Pressable disabled={busy} onPress={() => void save()} style={[styles.saveButton, styles.payoutSaveButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]}><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>{busy ? "Saving…" : "Save payout profile"}</Text></Pressable></> : null}</View>;
+  return <>
+    <View style={[styles.payoutSetup, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+      <View style={styles.payoutSetupHead}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.financeBreakdownTitle, { color: theme.ink }]}>Payout account</Text>
+          <Text style={[styles.financeLine, { color: theme.muted }]}>{profile?.destinationLast4 ? `Bank ending in ${profile.destinationLast4}` : "Add an account when you are ready to receive payouts."}</Text>
+        </View>
+        <Text style={[styles.payoutStatus, { color: profile?.status === "verified" ? theme.accent : theme.muted }]}>{statusLabel}</Text>
+      </View>
+      {manager ? (
+        <Pressable onPress={() => setShowSetup(true)} style={[styles.payoutManageButton, { borderColor: theme.lineColor }]}>
+          <Text style={[styles.payoutManageText, { color: theme.ink }]}>{profile ? "Manage payout account" : "Set up payout account"}</Text>
+          <Text style={[styles.payoutManageArrow, { color: theme.muted }]}>›</Text>
+        </Pressable>
+      ) : <Text style={[styles.financeLine, { color: theme.muted, marginTop: 9 }]}>Only owners and admins can edit payout setup. Finance members can review its status.</Text>}
+    </View>
+    <Sheet open={showSetup} onClose={() => setShowSetup(false)} expandable>
+      <ScrollView style={styles.payoutSheetScroll} contentContainerStyle={styles.payoutSheetContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        <Text style={[styles.sheetTitle, { color: theme.ink }]}>{profile ? "Manage payout account" : "Set up payout account"}</Text>
+        <Text style={[styles.sheetCopy, { color: theme.muted }]}>Add the account details Uvel will use for payouts. Your raw account details are sent securely for review and are not stored in the app.</Text>
+        <Text style={[styles.payoutLabel, { color: theme.muted }]}>WITHDRAW AS</Text>
+        <View style={styles.payoutTypeRow}>
+          <Pressable onPress={() => setOwnerType("individual")} style={[styles.payoutTypeChip, { borderColor: ownerType === "individual" ? theme.accent : theme.lineColor, backgroundColor: ownerType === "individual" ? theme.accent : "transparent" }]}><Text style={[styles.payoutTypeText, { color: ownerType === "individual" ? theme.accentInk : theme.ink }]}>Individual</Text></Pressable>
+          <Pressable onPress={() => setOwnerType("business")} style={[styles.payoutTypeChip, { borderColor: ownerType === "business" ? theme.accent : theme.lineColor, backgroundColor: ownerType === "business" ? theme.accent : "transparent" }]}><Text style={[styles.payoutTypeText, { color: ownerType === "business" ? theme.accentInk : theme.ink }]}>Business</Text></Pressable>
+        </View>
+        <TextInput value={legalName} onChangeText={setLegalName} placeholder={ownerType === "business" ? "Business legal name" : "Full legal name"} placeholderTextColor={theme.muted} onFocus={onFocus} style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} />
+        {ownerType === "business" ? <TextInput value={registrationId} onChangeText={setRegistrationId} placeholder="Business registration number" placeholderTextColor={theme.muted} onFocus={onFocus} style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} /> : null}
+        <TextInput value={accountHolderName} onChangeText={setAccountHolderName} placeholder="Account holder name" placeholderTextColor={theme.muted} onFocus={onFocus} style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} />
+        <TextInput value={institutionName} onChangeText={setInstitutionName} placeholder="Bank name" placeholderTextColor={theme.muted} onFocus={onFocus} style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} />
+        <TextInput value={destination} onChangeText={(value) => setDestination(value.replace(/[^0-9]/g, ""))} placeholder="Account number" placeholderTextColor={theme.muted} keyboardType="number-pad" onFocus={onFocus} style={[styles.payoutInput, { color: theme.ink, borderColor: theme.lineColor }]} />
+        <View style={styles.payoutSheetActions}>
+          <Pressable onPress={() => setShowSetup(false)} style={[styles.actionButton, styles.payoutSheetActionButton, { borderColor: theme.lineColor }]} accessibilityRole="button"><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Cancel</Text></Pressable>
+          <Pressable disabled={busy} onPress={() => void save()} style={[styles.saveButton, styles.payoutSheetActionButton, { backgroundColor: theme.accent, opacity: busy ? 0.5 : 1 }]} accessibilityRole="button"><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>{busy ? "Saving…" : "Save payout profile"}</Text></Pressable>
+        </View>
+      </ScrollView>
+    </Sheet>
+  </>;
 }
-
 function FinanceStat({ label, value, theme, styles }: { label: string; value: string; theme: HQTheme; styles: ReturnType<typeof make> }) {
   return <View style={[styles.financeStat, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.financeStatLabel, { color: theme.muted }]}>{label}</Text><Text style={[styles.financeStatValue, { color: theme.ink }]}>{value}</Text></View>;
 }
@@ -1634,11 +1670,15 @@ function make(theme: HQTheme) {
     deliverySummaryValue: { fontSize: 15, fontWeight: "900", marginTop: 5 },
     deliverySummaryHint: { fontSize: 11, marginTop: 4 },
     deliverySummaryArrow: { fontSize: 28, marginLeft: 10 },
-    deliverySheetScroll: { maxHeight: 560 },
+    deliverySheetScroll: { flex: 1 },
     sheetTitle: { fontSize: 22, fontWeight: "900", lineHeight: 28 },
     sheetCopy: { fontSize: 13, lineHeight: 19, marginTop: 6, marginBottom: 4 },
     deliverySheetActions: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8, paddingTop: 14, paddingBottom: 4 },
     deliveryActionButton: { marginTop: 0 },
+    payoutSheetScroll: { flex: 1 },
+    payoutSheetContent: { paddingBottom: 12 },
+    payoutSheetActions: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8, paddingTop: 16, paddingBottom: 8 },
+    payoutSheetActionButton: { marginTop: 0 },
     catalogFilters: { gap: 8, paddingVertical: 12 },
     auditFilters: { gap: 8, paddingVertical: 12 },
     auditCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 9 },

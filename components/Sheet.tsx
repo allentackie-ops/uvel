@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from "react";
-import {  StyleSheet, View } from "react-native";
+import { StyleSheet, useWindowDimensions, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,37 +8,63 @@ import { AccessiblePressable } from "./AccessiblePressable";
 export function Sheet({
   open,
   onClose,
+  expandable = false,
   children,
 }: {
   open: boolean;
   onClose: () => void;
+  expandable?: boolean;
   children: ReactNode;
 }) {
   const insets = useSafeAreaInsets();
-  const y = useSharedValue(420);
+  const { height: windowHeight } = useWindowDimensions();
+  const maxHeight = Math.max(360, windowHeight - insets.top - 8);
+  const expandedOffset = 0;
+  const collapsedOffset = expandable ? Math.min(maxHeight * 0.42, 420) : 0;
+  const y = useSharedValue(expandable ? collapsedOffset : 420);
   const shown = useSharedValue(0);
+  const gestureStart = useSharedValue(0);
 
   useEffect(() => {
     if (open) {
       shown.value = withTiming(1, { duration: 180 });
-      y.value = withSpring(0, { damping: 28, stiffness: 240, mass: 0.9 });
+      y.value = withSpring(expandable ? collapsedOffset : 0, { damping: 28, stiffness: 240, mass: 0.9 });
     } else {
       shown.value = withTiming(0, { duration: 160 });
-      y.value = withTiming(420, { duration: 180 });
+      y.value = withTiming(expandable ? maxHeight : 420, { duration: 180 });
     }
-  }, [open, shown, y]);
+  }, [collapsedOffset, expandable, maxHeight, open, shown, y]);
 
   const pan = Gesture.Pan()
+    .onStart(() => {
+      gestureStart.value = y.value;
+    })
     .onUpdate((e) => {
-      if (e.translationY > 0) y.value = e.translationY;
+      if (expandable) {
+        y.value = Math.max(expandedOffset, Math.min(maxHeight, gestureStart.value + e.translationY));
+      } else if (e.translationY > 0) {
+        y.value = e.translationY;
+      }
     })
     .onEnd((e) => {
-      if (e.translationY > 110 || e.velocityY > 900) {
-        y.value = withTiming(480, { duration: 160 });
+      if (!expandable) {
+        if (e.translationY > 110 || e.velocityY > 900) {
+          y.value = withTiming(480, { duration: 160 });
+          shown.value = withTiming(0, { duration: 160 });
+          runOnJS(onClose)();
+        } else {
+          y.value = withSpring(0, { damping: 28, stiffness: 240 });
+        }
+        return;
+      }
+      if (y.value > collapsedOffset + 100 || e.velocityY > 1100) {
+        y.value = withTiming(maxHeight, { duration: 180 });
         shown.value = withTiming(0, { duration: 160 });
         runOnJS(onClose)();
+      } else if (y.value < (collapsedOffset + expandedOffset) / 2 || e.velocityY < -650) {
+        y.value = withSpring(expandedOffset, { damping: 28, stiffness: 240 });
       } else {
-        y.value = withSpring(0, { damping: 28, stiffness: 240 });
+        y.value = withSpring(collapsedOffset, { damping: 28, stiffness: 240 });
       }
     });
 
@@ -59,7 +85,7 @@ export function Sheet({
       </AccessiblePressable>
       <GestureDetector gesture={pan}>
         <Animated.View
-          style={[styles.sheet, { paddingBottom: insets.bottom + 16 }, sheet]}
+          style={[styles.sheet, expandable && { height: maxHeight }, { paddingBottom: insets.bottom + 16 }, sheet]}
           accessibilityViewIsModal
         >
           <View style={styles.grip} />
