@@ -5,6 +5,7 @@ import { Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { BrandHQSkeleton } from "../../components/ScreenSkeletons";
+import { Sheet } from "../../components/Sheet";
 import {
   brandApproved,
   brandCheck,
@@ -121,6 +122,9 @@ export default function BrandHQ() {
   const styles = useMemo(() => make(theme), [theme]);
   const [section, setSection] = useState<Section>(requestedSection === "promoCodes" ? "promoCodes" : "overview");
   const hqScroller = useRef<ScrollView>(null);
+  const operatingCountries: ShipsTo = brand?.operatingCountries || encodeShipsTo(brand?.country || app.country || "US", "home");
+  const [deliveryOpen, setDeliveryOpen] = useState(false);
+  const [draftOperatingCountries, setDraftOperatingCountries] = useState<ShipsTo>(operatingCountries);
 
   useFocusEffect(useCallback(() => {
     void refreshFounderProjects();
@@ -175,6 +179,30 @@ export default function BrandHQ() {
   const orderManager = canManageOrders(activeBrand, app.uid);
   const orderReviewer = ["owner", "admin", "support", "finance"].includes(roleOn(activeBrand, app.uid) || "");
   const catalogManager = canManageCatalog(activeBrand, app.uid);
+  function openDeliveryCoverage() {
+    setDraftOperatingCountries(operatingCountries);
+    setDeliveryOpen(true);
+  }
+
+  function closeDeliveryCoverage() {
+    setDraftOperatingCountries(operatingCountries);
+    setDeliveryOpen(false);
+  }
+
+  function saveDeliveryCoverage() {
+    if (!canManageTeam(activeBrand, app.uid)) return;
+    updateBrand(activeBrand.id, { operatingCountries: draftOperatingCountries });
+    void recordAuditEvent({
+      brandId: activeBrand.id,
+      action: "brand_shipping_policy_updated",
+      entity: "brand",
+      entityId: activeBrand.id,
+      entityName: activeBrand.name,
+      summary: `Brand delivery coverage set to ${shipsToLabel(activeBrand.country, draftOperatingCountries)}.`,
+      metadata: { countries: Array.isArray(draftOperatingCountries) ? draftOperatingCountries.join(",") : draftOperatingCountries },
+    });
+    setDeliveryOpen(false);
+  }
 
   function openSection(next: Section) {
     if (next === "inbox") {
@@ -233,7 +261,7 @@ export default function BrandHQ() {
             onSection={openSection}
           />
         ) : section === "make" ? (
-          <MakeSection brand={brand} uid={app.uid} theme={theme} styles={styles} />
+          <MakeSection brand={brand} uid={app.uid} theme={theme} styles={styles} onOpenDelivery={openDeliveryCoverage} />
         ) : section === "catalog" ? (
           <CatalogSection brand={brand} items={catalog} canManage={catalogManager} theme={theme} styles={styles} />
         ) : section === "orders" ? (
@@ -261,6 +289,17 @@ export default function BrandHQ() {
         ) : null}
       </ScrollView>
       </KeyboardAvoidingView>
+      <Sheet open={deliveryOpen} onClose={closeDeliveryCoverage}>
+        <ScrollView style={styles.deliverySheetScroll} showsVerticalScrollIndicator={false}>
+          <Text style={[styles.sheetTitle, { color: theme.ink }]}>Where your brand sells</Text>
+          <Text style={[styles.sheetCopy, { color: theme.muted }]}>Choose the countries where customers can order your products. Buyers in other countries may pay higher delivery fees.</Text>
+          <ShipsPicker origin={activeBrand.country} value={draftOperatingCountries} onChange={setDraftOperatingCountries} accent={theme.accent} accentInk={theme.accentInk} />
+          <View style={styles.deliverySheetActions}>
+            <Pressable onPress={closeDeliveryCoverage} style={[styles.actionButton, { borderColor: theme.lineColor }]} accessibilityRole="button"><Text style={[styles.actionButtonTxt, { color: theme.ink }]}>Cancel</Text></Pressable>
+            <Pressable onPress={saveDeliveryCoverage} style={[styles.saveButton, { backgroundColor: theme.accent }]} accessibilityRole="button"><Text style={[styles.saveButtonTxt, { color: theme.accentInk }]}>Save coverage</Text></Pressable>
+          </View>
+        </ScrollView>
+      </Sheet>
     </View>
   );
 }
@@ -344,30 +383,18 @@ function MakeSection({
   uid,
   theme,
   styles,
+  onOpenDelivery,
 }: {
   brand: Brand;
   uid: string;
   theme: HQTheme;
   styles: ReturnType<typeof make>;
+  onOpenDelivery: () => void;
 }) {
   const owner = roleOn(brand, uid) === "owner" || roleOn(brand, uid) === "admin";
   const making = brandMakes(brand);
   const approved = brandApproved(brand);
   const operatingCountries: ShipsTo = brand.operatingCountries || encodeShipsTo(brand.country, "home");
-
-  function saveOperatingCountries(next: ShipsTo) {
-    if (!owner) return;
-    updateBrand(brand.id, { operatingCountries: next });
-    void recordAuditEvent({
-      brandId: brand.id,
-      action: "brand_shipping_policy_updated",
-      entity: "brand",
-      entityId: brand.id,
-      entityName: brand.name,
-      summary: `Brand delivery coverage set to ${shipsToLabel(brand.country, next)}.`,
-      metadata: { countries: Array.isArray(next) ? next.join(",") : next },
-    });
-  }
 
   function turnOnMake() {
     if (!owner || !approved) return;
@@ -384,6 +411,7 @@ function MakeSection({
   }
 
   return (
+    <>
     <View>
       <Text style={[styles.sectionTitle, { color: theme.ink }]}>Make</Text>
       <Text style={[styles.sectionP, { color: theme.muted }]}>We make it. The manufacturer sends it. The buyer pays delivery.</Text>
@@ -412,12 +440,26 @@ function MakeSection({
       <View style={[styles.makeCard, { backgroundColor: theme.card, marginTop: 12 }]}>
         <Text style={[styles.makeKicker, { color: theme.muted }]}>DELIVERY COVERAGE</Text>
         <Text style={[styles.makeTitle, { color: theme.ink }]}>Where your brand operates</Text>
-        <Text style={[styles.makeCopy, { color: theme.muted }]}>Choose where buyers can order your brand. Buyers in other countries will see higher international delivery fees at checkout.</Text>
-        {owner ? <ShipsPicker origin={brand.country} value={operatingCountries} onChange={saveOperatingCountries} accent={theme.accent} accentInk={theme.accentInk} /> : <Text style={[styles.makeStatus, { color: theme.muted }]}>Only the brand owner or admin can change delivery coverage.</Text>}
-        <Text style={[styles.makeStatus, { color: theme.ink }]}>Current coverage · {shipsToLabel(brand.country, operatingCountries)}</Text>
+        <Text style={[styles.makeCopy, { color: theme.muted }]}>Choose the countries where customers can order your brand. International delivery fees apply where available.</Text>
+        <Pressable
+          onPress={onOpenDelivery}
+          disabled={!owner}
+          style={[styles.deliverySummary, { borderColor: theme.lineColor, backgroundColor: theme.bg }, !owner && { opacity: 0.55 }]}
+          accessibilityRole="button"
+          accessibilityLabel={`Where your brand sells: ${shipsToLabel(brand.country, operatingCountries)}`}
+          accessibilityHint={owner ? "Double tap to change delivery coverage." : "Only the brand owner or admin can change delivery coverage."}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.deliverySummaryLabel, { color: theme.muted }]}>WHERE YOUR BRAND SELLS</Text>
+            <Text style={[styles.deliverySummaryValue, { color: theme.ink }]}>{shipsToLabel(brand.country, operatingCountries)}</Text>
+            <Text style={[styles.deliverySummaryHint, { color: theme.muted }]}>Tap to change countries</Text>
+          </View>
+          <Text style={[styles.deliverySummaryArrow, { color: theme.ink }]}>›</Text>
+        </Pressable>
       </View>
 
     </View>
+    </>
   );
 }
 
@@ -1587,6 +1629,15 @@ function make(theme: HQTheme) {
     catalogTools: { flexDirection: "row", alignItems: "center", borderTopWidth: StyleSheet.hairlineWidth, paddingVertical: 12, marginTop: 12 },
     catalogToolsTitle: { fontSize: 13, fontWeight: "800" },
     catalogToolsCopy: { fontSize: 11, lineHeight: 15, marginTop: 3 },
+    deliverySummary: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: 16, padding: 14, marginTop: 14 },
+    deliverySummaryLabel: { fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+    deliverySummaryValue: { fontSize: 15, fontWeight: "900", marginTop: 5 },
+    deliverySummaryHint: { fontSize: 11, marginTop: 4 },
+    deliverySummaryArrow: { fontSize: 28, marginLeft: 10 },
+    deliverySheetScroll: { maxHeight: 560 },
+    sheetTitle: { fontSize: 22, fontWeight: "900", lineHeight: 28 },
+    sheetCopy: { fontSize: 13, lineHeight: 19, marginTop: 6, marginBottom: 4 },
+    deliverySheetActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, paddingTop: 14, paddingBottom: 4 },
     catalogFilters: { gap: 8, paddingVertical: 12 },
     auditFilters: { gap: 8, paddingVertical: 12 },
     auditCard: { borderWidth: 1, borderRadius: 16, padding: 13, marginTop: 9 },
