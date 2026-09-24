@@ -314,7 +314,9 @@ export default function BrandHQ() {
                     ref={(ref) => { workspaceScrollers.current[index] = ref; }}
                     style={styles.workspaceScroll}
                     nestedScrollEnabled
-                    contentContainerStyle={[styles.workspaceScrollContent, { paddingBottom: insets.bottom + 220 }]}
+                    contentOffset={{ x: 0, y: 0 }}
+                    onLayout={() => workspaceScrollers.current[index]?.scrollTo({ y: 0, animated: false })}
+                    contentContainerStyle={{ paddingBottom: insets.bottom + 220 }}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
                     keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
@@ -329,7 +331,9 @@ export default function BrandHQ() {
               ref={hqScroller}
               style={styles.workspaceScroll}
               nestedScrollEnabled
-              contentContainerStyle={[styles.workspaceScrollContent, { paddingBottom: insets.bottom + 220 }]}
+              contentOffset={{ x: 0, y: 0 }}
+              onLayout={() => hqScroller.current?.scrollTo({ y: 0, animated: false })}
+              contentContainerStyle={{ paddingBottom: insets.bottom + 220 }}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
@@ -1702,7 +1706,6 @@ function make(theme: HQTheme) {
     workspacePager: { flex: 1, minHeight: 0, marginHorizontal: -20 },
     workspacePage: { flex: 1, minHeight: 0, paddingHorizontal: 20, alignItems: "stretch", justifyContent: "flex-start" },
     workspaceScroll: { flex: 1, minHeight: 0, alignSelf: "stretch" },
-    workspaceScrollContent: { minHeight: 1, alignItems: "stretch", justifyContent: "flex-start" },
     navChip: { height: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, borderColor: theme.lineColor, justifyContent: "center" },
     navTxt: { fontSize: 12, fontWeight: "700" },
     sectionKicker: { fontSize: 11, letterSpacing: 1.6, fontWeight: "700", marginTop: 4, marginBottom: 10 },
