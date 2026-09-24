@@ -1,7 +1,8 @@
 import { Image } from "expo-image";
+import * as Haptics from "expo-haptics";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { BrandHQSkeleton } from "../../components/ScreenSkeletons";
@@ -93,6 +94,8 @@ const MORE_ROOMS: Array<{ id: Section; label: string; copy: string }> = [
 
 const MORE_IDS = new Set<Section>(["more", "promoCodes", "growth", "support", "inbox", "analytics", "audit", "businessRegistration", "trademark", "team", "settings"]);
 
+const WORKSPACE_SECTIONS: Array<Extract<Section, "overview" | "make" | "catalog" | "orders" | "finance">> = ["overview", "make", "catalog", "orders", "finance"];
+
 const ROLE_OPTIONS: Array<Exclude<MemberRole, "owner">> = [
   "admin",
   "merchandiser",
@@ -111,6 +114,8 @@ export default function BrandHQ() {
   const founderState = useFounderProjects();
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { width: workspaceWidth } = useWindowDimensions();
+  const workspacePageWidth = Math.max(1, workspaceWidth - 40);
   const pieces = useWardrobe();
   const orders = useOrders();
   const auditEvents = useAudit(id || "");
@@ -123,6 +128,7 @@ export default function BrandHQ() {
   const styles = useMemo(() => make(theme), [theme]);
   const [section, setSection] = useState<Section>(requestedSection === "promoCodes" ? "promoCodes" : "overview");
   const hqScroller = useRef<ScrollView>(null);
+  const workspacePager = useRef<ScrollView>(null);
   const operatingCountries: ShipsTo = brand?.operatingCountries || encodeShipsTo(brand?.country || app.country || "US", "home");
   const [deliveryOpen, setDeliveryOpen] = useState(false);
   const [draftOperatingCountries, setDraftOperatingCountries] = useState<ShipsTo>(operatingCountries);
@@ -211,7 +217,21 @@ export default function BrandHQ() {
       router.push("/inbox");
       return;
     }
+    const workspaceIndex = WORKSPACE_SECTIONS.indexOf(next as typeof WORKSPACE_SECTIONS[number]);
+    if (workspaceIndex >= 0) {
+      setSection(next);
+      workspacePager.current?.scrollTo({ x: workspaceIndex * workspacePageWidth, animated: true });
+      return;
+    }
+    void Haptics.selectionAsync().catch(() => undefined);
     setSection(next);
+  }
+
+  function onWorkspaceSettled(event: { nativeEvent: { contentOffset: { x: number } } }) {
+    const nextIndex = Math.max(0, Math.min(WORKSPACE_SECTIONS.length - 1, Math.round(event.nativeEvent.contentOffset.x / workspacePageWidth)));
+    const next = WORKSPACE_SECTIONS[nextIndex];
+    if (next !== section) setSection(next);
+    void Haptics.selectionAsync().catch(() => undefined);
   }
 
   function changeRole(member: BrandMember) {
@@ -220,6 +240,24 @@ export default function BrandHQ() {
       ...ROLE_OPTIONS.map((role) => ({ text: memberRoleLabel(role), onPress: () => { updateMemberRole(activeBrand.id, member.uid, role); void recordAuditEvent({ brandId: activeBrand.id, action: "team_role_updated", entity: "team", entityId: member.uid, entityName: member.name, summary: `${member.name} changed to ${memberRoleLabel(role)}.` }); } })),
       { text: "Cancel", style: "cancel" as const },
     ]);
+  }
+
+  function renderSectionContent(current: Section) {
+    if (current === "overview") return <Overview brand={activeBrand} catalogCount={activeCatalog.length} draftCount={draftCatalog.length} toShipCount={toShipCount} making={making} moneyLabel={moneyExact(money.availableCents, moneyCurrency)} pendingLabel={money.pendingCents ? moneyExact(money.pendingCents, moneyCurrency) : ""} payoutStatus={payoutProfile?.status} canManagePayout={canManagePayouts(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />;
+    if (current === "make") return <MakeSection brand={activeBrand} uid={app.uid} theme={theme} styles={styles} onOpenDelivery={openDeliveryCoverage} />;
+    if (current === "catalog") return <CatalogSection brand={activeBrand} items={catalog} canManage={catalogManager} theme={theme} styles={styles} />;
+    if (current === "orders") return <OrdersSection orders={brandOrders} madeByUvel={making} viewer={orderViewer} manager={orderManager} reviewer={orderReviewer} onSupport={() => setSection("support")} theme={theme} styles={styles} />;
+    if (current === "finance") return <FinanceSection brand={activeBrand} orders={brandOrders} viewer={canViewFinance(activeBrand, app.uid)} manager={canManagePayouts(activeBrand, app.uid)} theme={theme} styles={styles} onPayoutFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />;
+    if (current === "promoCodes") return <BrandPromoCodes brand={activeBrand} theme={theme} state={marketing} pieces={catalog} viewer={canViewMarketing(activeBrand, app.uid)} manager={canManageMarketing(activeBrand, app.uid)} />;
+    if (current === "growth") return <GrowthToolsSection brand={activeBrand} uid={app.uid} orders={brandOrders} pieces={catalog} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />;
+    if (current === "analytics") return <AdvancedAnalyticsSection brand={activeBrand} orders={brandOrders} pieces={catalog} marketing={marketing} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} />;
+    if (current === "support") return <SupportSection brand={activeBrand} cases={supportCases} manager={orderManager} theme={theme} styles={styles} viewerName={app.displayName || "Support agent"} />;
+    if (current === "audit") return <AuditSection events={auditEvents} viewer={canViewAudit(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />;
+    if (current === "more") return <MoreSection brand={activeBrand} uid={app.uid} theme={theme} styles={styles} onSection={openSection} />;
+    if (current === "team") return <TeamSection brand={activeBrand} manager={manager} theme={theme} styles={styles} onRole={changeRole} />;
+    if (current === "businessRegistration") return <BusinessRegistrationSection brand={activeBrand} uid={app.uid} theme={theme} styles={styles} />;
+    if (current === "settings") return <SettingsSection brand={activeBrand} uid={app.uid} theme={theme} styles={styles} onSection={openSection} />;
+    return null;
   }
 
   return (
@@ -250,48 +288,20 @@ export default function BrandHQ() {
           })}
         </ScrollView>
 
-        {section === "overview" ? (
-          <Overview
-            brand={brand}
-            catalogCount={activeCatalog.length}
-            draftCount={draftCatalog.length}
-            toShipCount={toShipCount}
-            making={making}
-            moneyLabel={moneyExact(money.availableCents, moneyCurrency)}
-            pendingLabel={money.pendingCents ? moneyExact(money.pendingCents, moneyCurrency) : ""}
-            payoutStatus={payoutProfile?.status}
-            canManagePayout={canManagePayouts(activeBrand, app.uid)}
-            theme={theme}
-            styles={styles}
-            onSection={openSection}
-          />
-        ) : section === "make" ? (
-          <MakeSection brand={brand} uid={app.uid} theme={theme} styles={styles} onOpenDelivery={openDeliveryCoverage} />
-        ) : section === "catalog" ? (
-          <CatalogSection brand={brand} items={catalog} canManage={catalogManager} theme={theme} styles={styles} />
-        ) : section === "orders" ? (
-          <OrdersSection orders={brandOrders} madeByUvel={making} viewer={orderViewer} manager={orderManager} reviewer={orderReviewer} onSupport={() => setSection("support")} theme={theme} styles={styles} />
-        ) : section === "finance" ? (
-          <FinanceSection brand={activeBrand} orders={brandOrders} viewer={canViewFinance(activeBrand, app.uid)} manager={canManagePayouts(activeBrand, app.uid)} theme={theme} styles={styles} onPayoutFocus={() => setTimeout(() => hqScroller.current?.scrollToEnd({ animated: true }), 160)} />
-        ) : section === "promoCodes" ? (
-          <BrandPromoCodes brand={activeBrand} theme={theme} state={marketing} pieces={catalog} viewer={canViewMarketing(activeBrand, app.uid)} manager={canManageMarketing(activeBrand, app.uid)} />
-        ) : section === "growth" ? (
-          <GrowthToolsSection brand={activeBrand} uid={app.uid} orders={brandOrders} pieces={catalog} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />
-        ) : section === "analytics" ? (
-          <AdvancedAnalyticsSection brand={activeBrand} orders={brandOrders} pieces={catalog} marketing={marketing} viewer={canSeeAnalytics(activeBrand, app.uid)} theme={theme} styles={styles} />
-        ) : section === "support" ? (
-          <SupportSection brand={activeBrand} cases={supportCases} manager={orderManager} theme={theme} styles={styles} viewerName={app.displayName || "Support agent"} />
-        ) : section === "audit" ? (
-          <AuditSection events={auditEvents} viewer={canViewAudit(activeBrand, app.uid)} theme={theme} styles={styles} onSection={openSection} />
-        ) : section === "more" ? (
-          <MoreSection brand={brand} uid={app.uid} theme={theme} styles={styles} onSection={openSection} />
-        ) : section === "team" ? (
-          <TeamSection brand={brand} manager={manager} theme={theme} styles={styles} onRole={changeRole} />
-        ) : section === "businessRegistration" ? (
-          <BusinessRegistrationSection brand={brand} uid={app.uid} theme={theme} styles={styles} />
-        ) : section === "settings" ? (
-          <SettingsSection brand={brand} uid={app.uid} theme={theme} styles={styles} onSection={openSection} />
-        ) : null}
+        {WORKSPACE_SECTIONS.includes(section as typeof WORKSPACE_SECTIONS[number]) ? (
+          <ScrollView
+            ref={workspacePager}
+            horizontal
+            pagingEnabled
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+            onMomentumScrollEnd={onWorkspaceSettled}
+            contentContainerStyle={styles.workspacePagerContent}
+          >
+            {WORKSPACE_SECTIONS.map((workspace) => <View key={workspace} style={{ width: workspacePageWidth }}>{renderSectionContent(workspace)}</View>)}
+          </ScrollView>
+        ) : renderSectionContent(section)}
       </ScrollView>
       </KeyboardAvoidingView>
       <Sheet open={deliveryOpen} onClose={closeDeliveryCoverage} expandable surfaceColor={theme.card}>
@@ -1654,6 +1664,7 @@ function make(theme: HQTheme) {
     heroTitle: { fontSize: 25, fontWeight: "800" },
     heroP: { fontSize: 13, lineHeight: 18, marginTop: 5 },
     nav: { gap: 8, paddingVertical: 18 },
+    workspacePagerContent: { flexGrow: 1 },
     navChip: { height: 36, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1, borderColor: theme.lineColor, justifyContent: "center" },
     navTxt: { fontSize: 12, fontWeight: "700" },
     sectionKicker: { fontSize: 11, letterSpacing: 1.6, fontWeight: "700", marginTop: 4, marginBottom: 10 },
