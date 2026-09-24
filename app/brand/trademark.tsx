@@ -119,8 +119,8 @@ export default function TrademarkPage() {
             {documentName ? <View style={styles.documentRow}><Text style={styles.documentName} numberOfLines={1}>{documentName}</Text><Pressable onPress={() => { setDocumentUri(""); setDocumentName(""); }}><Text style={styles.remove}>Remove</Text></Pressable></View> : null}
             <Text style={styles.formHint}>Uvel will review the submitted details before showing Registered.</Text>
             <View style={styles.reviewSheetActions}>
-              <Pressable onPress={() => setShowReviewForm(false)} style={[styles.actionButton, styles.reviewSheetActionButton]} accessibilityRole="button"><Text style={styles.actionButtonTxt}>Cancel</Text></Pressable>
-              <Pressable disabled={busy} onPress={() => void submitForReview()} style={[styles.submit, styles.reviewSheetActionButton, busy && { opacity: 0.5 }]} accessibilityRole="button"><Text style={styles.submitText}>{busy ? "Submitting…" : "Submit for review"}</Text></Pressable>
+              <Pressable onPress={() => setShowReviewForm(false)} style={[styles.reviewActionButton, styles.reviewSheetActionButton]} accessibilityRole="button"><Text style={styles.reviewActionButtonText}>Cancel</Text></Pressable>
+              <Pressable disabled={busy} onPress={() => void submitForReview()} style={[styles.reviewSubmitButton, styles.reviewSheetActionButton, busy && { opacity: 0.5 }]} accessibilityRole="button"><Text style={styles.reviewSubmitText}>{busy ? "Submitting…" : "Submit for review"}</Text></Pressable>
             </View>
           </ScrollView>
         </Sheet>
@@ -183,5 +183,9 @@ function make(dark: boolean) {
     actionButtonTxt: { color: ink, fontSize: 13, fontWeight: "900" },
     reviewSheetActions: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8, paddingTop: 16, paddingBottom: 8 },
     reviewSheetActionButton: { marginTop: 0 },
+    reviewActionButton: { height: 34, borderWidth: 1, borderColor: line, borderRadius: 17, paddingHorizontal: 12, justifyContent: "center" },
+    reviewActionButtonText: { color: ink, fontSize: 12, fontWeight: "800" },
+    reviewSubmitButton: { height: 34, paddingHorizontal: 13, borderRadius: 17, backgroundColor: accent, justifyContent: "center" },
+    reviewSubmitText: { color: dark ? "#16140F" : "#FFFFFF", fontSize: 12, fontWeight: "800" },
   });
 }
