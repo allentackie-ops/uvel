@@ -234,11 +234,12 @@ export default function BrandHQ() {
   function onWorkspaceSelected(event: PagerViewOnPageSelectedEvent) {
     const index = event.nativeEvent.position;
     const next = WORKSPACE_SECTIONS[index];
-    if (!next || next === section) return;
-    setSection(next);
+    if (!next) return;
     workspaceScrollers.current[index]?.scrollTo({ y: 0, animated: false });
     if (next === "more") navScroller.current?.scrollToEnd({ animated: true });
     else navScroller.current?.scrollTo({ x: 0, animated: true });
+    if (next === section) return;
+    setSection(next);
     void Haptics.selectionAsync().catch(() => undefined);
   }
 
