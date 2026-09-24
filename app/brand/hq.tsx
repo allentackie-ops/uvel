@@ -44,7 +44,8 @@ import { recordAuditEvent, useAudit, type AuditEvent } from "../../lib/audit";
 import { createOrderShipment, reviewOrderResolution, updateOrderFulfillment, updateOrderShipment, useOrders, watchBrandOrders, type FulfillmentStatus, type Order, type ShippingExceptionCode } from "../../lib/orders";
 import { addSupportInternalNote, updateSupportCase, useSupportCases, type SupportCase, type SupportStatus } from "../../lib/support";
 import { archivePiece, createBrandCatalogRemote, duplicatePiece, restorePiece, updateBrandCatalogRemote, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
-import { shipsToLabel } from "../../lib/ships";
+import { ShipsPicker } from "../../components/ShipsPicker";
+import { encodeShipsTo, shipsToLabel, type ShipsTo } from "../../lib/ships";
 import { readBrandAnalytics } from "../../lib/analytics";
 import { buildGrowthSnapshot } from "../../lib/growth";
 import { summarizeCampaignAttributionByChannel, useCampaignAttributionReport } from "../../lib/attribution";
@@ -352,6 +353,21 @@ function MakeSection({
   const owner = roleOn(brand, uid) === "owner" || roleOn(brand, uid) === "admin";
   const making = brandMakes(brand);
   const approved = brandApproved(brand);
+  const operatingCountries: ShipsTo = brand.operatingCountries || encodeShipsTo(brand.country, "home");
+
+  function saveOperatingCountries(next: ShipsTo) {
+    if (!owner) return;
+    updateBrand(brand.id, { operatingCountries: next });
+    void recordAuditEvent({
+      brandId: brand.id,
+      action: "brand_shipping_policy_updated",
+      entity: "brand",
+      entityId: brand.id,
+      entityName: brand.name,
+      summary: `Brand delivery coverage set to ${shipsToLabel(brand.country, next)}.`,
+      metadata: { countries: Array.isArray(next) ? next.join(",") : next },
+    });
+  }
 
   function turnOnMake() {
     if (!owner || !approved) return;
@@ -391,6 +407,14 @@ function MakeSection({
             <Text style={[styles.makeBtnTxt, { color: theme.accentInk }]}>{approved ? "Make with Uvel" : "After you’re accepted"}</Text>
           </Pressable>
         )}
+      </View>
+
+      <View style={[styles.makeCard, { backgroundColor: theme.card, marginTop: 12 }]}>
+        <Text style={[styles.makeKicker, { color: theme.muted }]}>DELIVERY COVERAGE</Text>
+        <Text style={[styles.makeTitle, { color: theme.ink }]}>Where your brand operates</Text>
+        <Text style={[styles.makeCopy, { color: theme.muted }]}>Choose where buyers can order your brand. Buyers in other countries will see higher international delivery fees at checkout.</Text>
+        {owner ? <ShipsPicker origin={brand.country} value={operatingCountries} onChange={saveOperatingCountries} accent={theme.accent} accentInk={theme.accentInk} /> : <Text style={[styles.makeStatus, { color: theme.muted }]}>Only the brand owner or admin can change delivery coverage.</Text>}
+        <Text style={[styles.makeStatus, { color: theme.ink }]}>Current coverage · {shipsToLabel(brand.country, operatingCountries)}</Text>
       </View>
 
     </View>

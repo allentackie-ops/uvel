@@ -9,7 +9,7 @@ import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { Sheet } from "../../components/Sheet";
 import { payMethods, shippingCents, uvelFeeCents, type PayMethod } from "../../lib/fees";
 import { getMarket, moneyExact, convertCents } from "../../lib/markets";
-import { listingVisibleIn, shipsToLine } from "../../lib/ships";
+import { listingVisibleIn, restrictShipsTo, shipsToLine } from "../../lib/ships";
 import { loadAddress, placeOrder, type Address } from "../../lib/orders";
 import { createCheckoutSession, createStripePaymentIntent, openHostedPay, paymentsExtra, processorFor, validatePromotion, type PromotionQuote } from "../../lib/pay";
 import { useUvel } from "../../lib/store";
@@ -65,12 +65,14 @@ export default function Checkout() {
   const firstFind = useFirstFind();
   const creditCents = piece ? firstFind.applyTo(piece, discountedItem) : 0;
   const billedItem = Math.max(0, discountedItem - creditCents);
-  const sellsHere = piece ? listingVisibleIn({ origin: piece.country, shipsTo: piece.shipsTo, buyer: market.code }) : false;
+  const effectiveShipsTo = piece ? restrictShipsTo(piece.country || market.code, piece.shipsTo, brand?.operatingCountries) : undefined;
+  const sellsHere = piece ? listingVisibleIn({ origin: piece.country, shipsTo: effectiveShipsTo, buyer: market.code }) : false;
   const addressOk = piece && address
-    ? listingVisibleIn({ origin: piece.country, shipsTo: piece.shipsTo, buyer: address.country })
+    ? listingVisibleIn({ origin: piece.country, shipsTo: effectiveShipsTo, buyer: address.country })
     : false;
   const availabilityConfirmed = marketplaceSync === "confirmed" && isRemoteListedPiece(piece?.id || "");
   const same = Boolean(address && piece && address.country === (piece.country || market.code));
+  const international = Boolean(address && addressOk && !same);
   const shipCost = address && addressOk ? shippingCents(same, ship === "express", market) : 0;
   const total = billedItem + fee + shipCost;
   const wallet = useWallet(market.currency);
@@ -174,7 +176,7 @@ export default function Checkout() {
         taxCents: 0,
         totalCents: total,
         currency: market.currency,
-        country: market.code,
+        country: address.country,
         payMethod: method.label,
         delivery: ship,
         address,
@@ -304,7 +306,7 @@ export default function Checkout() {
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.boxT}>Standard</Text>
-                <Text style={styles.boxS}>{same ? "3–5 business days" : "7–12 business days"}</Text>
+                <Text style={styles.boxS}>{same ? "3–5 business days" : "7–12 business days · international rate"}</Text>
               </View>
               <Text style={styles.boxT}>{moneyExact(shippingCents(same, false, market), market.currency)}</Text>
             </AccessiblePressable>
@@ -316,7 +318,7 @@ export default function Checkout() {
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.boxT}>Express</Text>
-                <Text style={styles.boxS}>{same ? "1–2 business days" : "3–6 business days"}</Text>
+                <Text style={styles.boxS}>{same ? "1–2 business days" : "3–6 business days · international rate"}</Text>
               </View>
               <Text style={styles.boxT}>{moneyExact(shippingCents(same, true, market), market.currency)}</Text>
             </AccessiblePressable>
@@ -406,7 +408,7 @@ export default function Checkout() {
             <Text style={styles.lineV}>{moneyExact(itemLocal, market.currency)}</Text>
           </View>
           <View style={styles.line}>
-            <Text style={styles.lineL}>{making ? "Delivery" : "Shipping"}</Text>
+            <Text style={styles.lineL}>{making ? (international ? "International delivery" : "Delivery") : "Shipping"}</Text>
             <Text style={styles.lineV}>{moneyExact(shipCost, market.currency)}</Text>
           </View>
           <View style={styles.line}>

@@ -20,6 +20,13 @@ const { notifyUid } = require("./notify");
 const PAYSTACK = new Set(["GH", "NG", "KE", "ZA"]);
 const RESERVATION_MINUTES = 30;
 const ACCOUNT_DELETION_MS = 30 * 24 * 60 * 60 * 1000;
+function destinationAllowed(origin, shipsTo, buyer) {
+  const code = String(buyer || "").toUpperCase();
+  if (!code) return false;
+  if (shipsTo === "all") return true;
+  if (Array.isArray(shipsTo) && shipsTo.length) return shipsTo.some((entry) => String(entry || "").toUpperCase() === code);
+  return String(origin || "").toUpperCase() === code;
+}
 
 function timestampMillis(value) {
   if (typeof value === "number") return value;
@@ -168,6 +175,12 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
     const listing = listingSnap.data() || {};
     if (!listingSnap.exists || listing.status !== "listed" || listing.sellerPaused === true) {
       throw new HttpsError("failed-precondition", "This listing is currently unavailable.");
+    }
+    const brandSnap = order.brandId ? await admin.firestore().collection("brands").doc(String(order.brandId)).get() : null;
+    const brand = brandSnap?.exists ? brandSnap.data() || {} : {};
+    const destination = String(order.address?.country || normalizedCountry || "").toUpperCase();
+    if (!destinationAllowed(listing.country, listing.shipsTo, destination) || (brand.operatingCountries && !destinationAllowed(brand.country, brand.operatingCountries, destination))) {
+      throw new HttpsError("failed-precondition", "This brand does not ship to that country.");
     }
   }
   let reserved = false;

@@ -19,6 +19,7 @@ import { reviewFounderBrand, type FounderFiling } from "./founderReview";
 import { firebaseAuth, firebaseDb, firebaseFunctions, firebaseReady } from "./firebase";
 import { listedPieces } from "./wardrobe";
 import { allOrders } from "./orders";
+import type { ShipsTo } from "./ships";
 
 export type BrandStatus = "draft" | "pending" | "verified" | "rejected";
 export type BrandOrigin = "founder" | "house";
@@ -112,6 +113,8 @@ export type Brand = {
   /** Uvel makes the clothes and the manufacturer sends them. */
   madeByUvel?: boolean;
   madeByUvelAt?: number;
+  /** Countries where this brand is willing to operate and ship. */
+  operatingCountries?: ShipsTo;
   trademarkStatus?: "none" | "filing" | "in_progress" | "submitted" | "filed" | "registered" | "needs_information";
   trademarkPaidCents?: number;
   trademarkPaidAt?: number;

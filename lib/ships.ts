@@ -40,6 +40,16 @@ export function encodeShipsTo(origin: string, mode: "home" | "all" | "pick", pic
   return [...set];
 }
 
+export function restrictShipsTo(origin: string, requested: ShipsTo | null | undefined, allowed: ShipsTo | null | undefined): ShipsTo {
+  const home = (origin || "").toUpperCase();
+  if (!allowed || allowed === "all") return requested || [home];
+  const allowedSet = new Set(allowed.map((code) => code.toUpperCase()));
+  const requestedCodes = requested === "all" ? [...allowedSet] : Array.isArray(requested) ? requested : [home];
+  const next = requestedCodes.map((code) => code.toUpperCase()).filter((code) => allowedSet.has(code));
+  if (home && allowedSet.has(home) && !next.includes(home)) next.unshift(home);
+  return next.length ? [...new Set(next)] : [home];
+}
+
 export function shipsToLabel(origin: string, shipsTo?: ShipsTo | null) {
   const mode = shipsMode(origin, shipsTo);
   const home = getMarket(origin);

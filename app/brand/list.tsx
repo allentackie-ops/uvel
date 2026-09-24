@@ -24,7 +24,7 @@ import { canPost, getBrand, themeFor, useBrands } from "../../lib/brands";
 import { getMarket } from "../../lib/markets";
 import { pickListingPhoto, takeListingPhoto } from "../../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../../lib/photoCheck";
-import { encodeShipsTo, type ShipsTo } from "../../lib/ships";
+import { encodeShipsTo, restrictShipsTo, type ShipsTo } from "../../lib/ships";
 import { useUvel } from "../../lib/store";
 import { recordAuditEvent } from "../../lib/audit";
 import { addPiece, createBrandCatalogRemote } from "../../lib/wardrobe";
@@ -59,7 +59,8 @@ export default function BrandList() {
   const [notes, setNotes] = useState("");
   const [price, setPrice] = useState("");
   const [stockQuantity, setStockQuantity] = useState("");
-  const [shipsTo, setShipsTo] = useState<ShipsTo>(() => encodeShipsTo(origin, "home"));
+  const brandShipsTo = brand?.operatingCountries || encodeShipsTo(origin, "home");
+  const [shipsTo, setShipsTo] = useState<ShipsTo>(() => brandShipsTo);
   const [condition, setCondition] = useState<(typeof BRAND_CONDITIONS)[number]>("New");
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
@@ -275,7 +276,7 @@ export default function BrandList() {
         sizeStock: variantStock,
         country: origin,
         currency: market.currency,
-        shipsTo,
+        shipsTo: restrictShipsTo(origin, shipsTo, activeBrand.operatingCountries || brandShipsTo),
         brandId: activeBrand.id,
         ownerId: activeBrand.ownerId,
         ownerName: activeBrand.name,
@@ -380,7 +381,8 @@ export default function BrandList() {
 
             <Text style={styles.sectionKickerLater}>SELLING</Text>
             <View style={styles.marketSection}>
-              <ShipsPicker origin={origin} value={shipsTo} onChange={setShipsTo} accent={brandTheme.accent} accentInk={brandTheme.accentInk} />
+              <Text style={styles.hint}>Your brand delivery settings limit which countries this product can serve. International buyers pay the higher delivery rate at checkout.</Text>
+              <ShipsPicker origin={origin} value={shipsTo} onChange={(next) => setShipsTo(restrictShipsTo(origin, next, activeBrand.operatingCountries || brandShipsTo))} accent={brandTheme.accent} accentInk={brandTheme.accentInk} />
             </View>
             <Text style={styles.label}>Description *</Text>
             <TextInput style={styles.body} value={notes} onChangeText={setNotes} placeholder="Cloth, make, how it sits" placeholderTextColor={ph} multiline />
