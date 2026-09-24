@@ -117,6 +117,7 @@ export default function BrandHQ() {
   const supportCases = useSupportCases(id || "");
   const marketing = useMarketing(id || "");
   const payouts = usePayouts(id || "");
+  const payoutProfile = usePayoutProfile(id || "");
   const brand = getBrand(id);
   const theme: HQTheme = brand ? themeFor(brand) : { bg: colors.ink, ink: colors.bone, muted: colors.muted, card: colors.surface, accent: colors.pulse, accentInk: colors.ink, lineColor: colors.subtle };
   const styles = useMemo(() => make(theme), [theme]);
@@ -169,6 +170,7 @@ export default function BrandHQ() {
   const activeBrand = brand;
   const catalog = pieces.filter((piece) => piece.brandId === activeBrand.id);
   const activeCatalog = catalog.filter((piece) => piece.status === "listed");
+  const draftCatalog = catalog.filter((piece) => piece.status === "draft");
   const brandOrders = orders.filter((order) => order.brandId === activeBrand.id);
   const making = brandMakes(activeBrand);
   const toShipCount = brandOrders.filter((order) => order.status === "paid" && ["unfulfilled", "processing", "packed"].includes(order.fulfillmentStatus || "unfulfilled")).length;
@@ -252,10 +254,13 @@ export default function BrandHQ() {
           <Overview
             brand={brand}
             catalogCount={activeCatalog.length}
+            draftCount={draftCatalog.length}
             toShipCount={toShipCount}
             making={making}
             moneyLabel={moneyExact(money.availableCents, moneyCurrency)}
             pendingLabel={money.pendingCents ? moneyExact(money.pendingCents, moneyCurrency) : ""}
+            payoutStatus={payoutProfile?.status}
+            canManagePayout={canManagePayouts(activeBrand, app.uid)}
             theme={theme}
             styles={styles}
             onSection={openSection}
@@ -331,53 +336,105 @@ function ReviewWaiting({ theme, styles }: { theme: HQTheme; styles: ReturnType<t
 function Overview({
   brand,
   catalogCount,
+  draftCount,
   toShipCount,
   making,
   moneyLabel,
   pendingLabel,
+  payoutStatus,
+  canManagePayout,
   theme,
   styles,
   onSection,
 }: {
   brand: Brand;
   catalogCount: number;
+  draftCount: number;
   toShipCount: number;
   making: boolean;
   moneyLabel: string;
   pendingLabel: string;
+  payoutStatus?: string;
+  canManagePayout: boolean;
   theme: HQTheme;
   styles: ReturnType<typeof make>;
   onSection: (section: Section) => void;
 }) {
+  const payoutReady = payoutStatus === "verified";
+  const payoutNeedsAttention = canManagePayout && (!payoutStatus || payoutStatus === "not_started" || payoutStatus === "needs_attention");
+  const nextSteps: Array<{ title: string; copy: string; action: string; onPress: () => void }> = [];
+  if (toShipCount > 0) nextSteps.push({ title: "Handle your orders", copy: `${toShipCount} ${toShipCount === 1 ? "order needs" : "orders need"} attention.`, action: "View orders", onPress: () => onSection("orders") });
+  if (payoutNeedsAttention) nextSteps.push({ title: "Set up your payout account", copy: "Required before you can receive earnings.", action: "Set up payouts", onPress: () => onSection("finance") });
+  if (catalogCount === 0) nextSteps.push({ title: "Add your first product", copy: "Turn your idea into something customers can buy.", action: "Add a product", onPress: () => router.push({ pathname: "/brand/list", params: { id: brand.id } }) });
+  if (!making) nextSteps.push({ title: "Choose how your products are made", copy: "Turn on Make with Uvel for made-to-order fulfillment.", action: "Open Make", onPress: () => onSection("make") });
+  if (nextSteps.length === 0 && payoutStatus === "submitted") nextSteps.push({ title: "Payout account under review", copy: "We’ll let you know when it is ready.", action: "View money", onPress: () => onSection("finance") });
+
+  const statusTitle = toShipCount > 0 ? "Orders need attention" : payoutNeedsAttention ? "Finish your setup" : catalogCount === 0 ? "Your brand is ready for its first product" : "Your brand is ready";
+  const statusCopy = toShipCount > 0
+    ? "Your brand is active. Start with the work that needs your attention."
+    : payoutNeedsAttention
+      ? "Your brand is active. Complete payouts so you can receive earnings."
+      : catalogCount === 0
+        ? "Add a product to start building your catalog and selling on Uvel."
+        : "Keep building your catalog, serving buyers, and growing your brand.";
+
   return (
     <View>
-      {!brandApproved(brand) ? (
-        <Pressable onPress={() => router.push({ pathname: "/brand/studio", params: { id: brand.id } })} style={[styles.hero, { backgroundColor: theme.card, marginBottom: 16 }]}>
-          <View style={styles.heroCopy}>
-            <Text style={[styles.heroTitle, { color: theme.ink }]}>In review</Text>
-            <Text style={[styles.heroP, { color: theme.muted }]}>Dress the page while we look at it. Logo, banner, look.</Text>
-          </View>
-        </Pressable>
-      ) : null}
-      <View style={styles.stats}>
-        <Stat label="Listed" value={String(catalogCount)} theme={theme} styles={styles} />
-        <Stat label={making ? "Making" : "To ship"} value={String(toShipCount)} theme={theme} styles={styles} />
-        <Stat label="Money" value={moneyLabel} theme={theme} styles={styles} />
+      <View style={[styles.overviewStatusCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+        <View style={styles.overviewStatusTop}>
+          <Text style={[styles.overviewEyebrow, { color: theme.accent }]}>BRAND HQ</Text>
+          <View style={[styles.overviewReadyPill, { backgroundColor: theme.accent }]}><Text style={[styles.overviewReadyText, { color: theme.accentInk }]}>{toShipCount > 0 || payoutNeedsAttention ? "ACTION NEEDED" : "ACTIVE"}</Text></View>
+        </View>
+        <Text style={[styles.overviewStatusTitle, { color: theme.ink }]}>{statusTitle}</Text>
+        <Text style={[styles.overviewStatusCopy, { color: theme.muted }]}>{statusCopy}</Text>
       </View>
-      {pendingLabel ? <Text style={[styles.note, { marginTop: 10, color: theme.muted }]}>{pendingLabel} still pending</Text> : null}
-      {brandApproved(brand) ? (
-        <>
-          <ActionCard title="Make" copy={making ? "Uvel makes it. The manufacturer sends it." : "We make the clothes. You don’t pack."} button="Make" onPress={() => onSection("make")} theme={theme} styles={styles} />
-          <ActionCard title="List a piece" copy="Add something to the shop." button="List" onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })} theme={theme} styles={styles} />
-          <ActionCard title="Orders" copy={making ? "What’s being made." : "Pack what’s sold."} button="Orders" onPress={() => onSection("orders")} theme={theme} styles={styles} />
-          <ActionCard title="Get paid" copy="Money from sales." button="Money" onPress={() => onSection("finance")} theme={theme} styles={styles} />
-        </>
-      ) : null}
-      {brandApproved(brand) ? <Text style={[styles.note, { color: theme.muted }]}>{brandCheck(brand) === "lime" ? `Green check · two sales · ${brand.country}` : brandCheck(brand) === "blue" ? `Verified brand · ${brand.country}` : `Sell two pieces. Then the green check goes on your name.`}</Text> : null}
+
+      {nextSteps.length > 0 ? <>
+        <Text style={[styles.overviewSectionLabel, { color: theme.muted }]}>NEXT STEPS</Text>
+        <View style={[styles.overviewSteps, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+          {nextSteps.slice(0, 3).map((step, index) => <Pressable key={step.title} onPress={step.onPress} style={[styles.overviewStep, { borderBottomColor: theme.lineColor }, index === Math.min(nextSteps.length, 3) - 1 && { borderBottomWidth: 0 }]} accessibilityRole="button">
+            <View style={styles.overviewStepCopy}><Text style={[styles.overviewStepTitle, { color: theme.ink }]}>{step.title}</Text><Text style={[styles.overviewStepHint, { color: theme.muted }]}>{step.copy}</Text></View>
+            <View style={styles.overviewStepAction}><Text style={[styles.overviewStepActionText, { color: theme.accent }]}>{step.action}</Text><Text style={[styles.overviewStepArrow, { color: theme.muted }]}>›</Text></View>
+          </Pressable>)}
+        </View>
+      </> : null}
+
+      <Text style={[styles.overviewSectionLabel, { color: theme.muted }]}>YOUR BRAND AT A GLANCE</Text>
+      <View style={styles.overviewSummaryGrid}>
+        <Pressable onPress={() => onSection("catalog")} style={[styles.overviewSummaryCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]} accessibilityRole="button">
+          <Text style={[styles.overviewSummaryLabel, { color: theme.muted }]}>CATALOG</Text>
+          <Text style={[styles.overviewSummaryValue, { color: theme.ink }]}>{catalogCount} live</Text>
+          <Text style={[styles.overviewSummaryCopy, { color: theme.muted }]}>{draftCount ? `${draftCount} ${draftCount === 1 ? "draft" : "drafts"}` : "Products customers can buy"}</Text>
+          <Text style={[styles.overviewSummaryAction, { color: theme.accent }]}>View catalog ›</Text>
+        </Pressable>
+        <Pressable onPress={() => onSection("orders")} style={[styles.overviewSummaryCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]} accessibilityRole="button">
+          <Text style={[styles.overviewSummaryLabel, { color: theme.muted }]}>ORDERS</Text>
+          <Text style={[styles.overviewSummaryValue, { color: theme.ink }]}>{toShipCount ? `${toShipCount} need attention` : "All caught up"}</Text>
+          <Text style={[styles.overviewSummaryCopy, { color: theme.muted }]}>{toShipCount ? "Ready for fulfillment" : "No orders need action"}</Text>
+          <Text style={[styles.overviewSummaryAction, { color: theme.accent }]}>View orders ›</Text>
+        </Pressable>
+        <Pressable onPress={() => onSection("finance")} style={[styles.overviewSummaryCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]} accessibilityRole="button">
+          <Text style={[styles.overviewSummaryLabel, { color: theme.muted }]}>MONEY</Text>
+          <Text style={[styles.overviewSummaryValue, { color: theme.ink }]}>{moneyLabel} available</Text>
+          <Text style={[styles.overviewSummaryCopy, { color: theme.muted }]}>{pendingLabel ? `${pendingLabel} pending` : payoutReady ? "Payout account ready" : "Payout account not set up"}</Text>
+          <Text style={[styles.overviewSummaryAction, { color: theme.accent }]}>View money ›</Text>
+        </Pressable>
+        <Pressable onPress={() => onSection("make")} style={[styles.overviewSummaryCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]} accessibilityRole="button">
+          <Text style={[styles.overviewSummaryLabel, { color: theme.muted }]}>MAKE WITH UVEL</Text>
+          <Text style={[styles.overviewSummaryValue, { color: theme.ink }]}>{making ? "Active" : "Not active"}</Text>
+          <Text style={[styles.overviewSummaryCopy, { color: theme.muted }]}>{making ? "Made to order after a sale" : "Choose how products are made"}</Text>
+          <Text style={[styles.overviewSummaryAction, { color: theme.accent }]}>View Make ›</Text>
+        </Pressable>
+      </View>
+
+      {catalogCount === 0 ? <View style={[styles.overviewHowCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+        <Text style={[styles.overviewSectionLabel, { color: theme.accent, marginTop: 0 }]}>HOW UVEL WORKS</Text>
+        <Text style={[styles.overviewHowTitle, { color: theme.ink }]}>From idea to brand</Text>
+        <Text style={[styles.overviewHowCopy, { color: theme.muted }]}>Create a product → Customers order → Uvel makes and ships it → You earn.</Text>
+      </View> : null}
     </View>
   );
 }
-
 function MakeSection({
   brand,
   uid,
@@ -1615,6 +1672,31 @@ function make(theme: HQTheme) {
     actionButton: { alignSelf: "flex-start", height: 34, paddingHorizontal: 12, borderRadius: 17, borderWidth: 1, justifyContent: "center", marginTop: 12 },
     actionButtonTxt: { fontSize: 12, fontWeight: "800" },
     note: { fontSize: 12, lineHeight: 18, marginTop: 18 },
+    overviewStatusCard: { borderWidth: 1, borderRadius: 20, padding: 16, marginTop: 4 },
+    overviewStatusTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    overviewEyebrow: { fontSize: 10, letterSpacing: 1.4, fontWeight: "900" },
+    overviewReadyPill: { minHeight: 24, paddingHorizontal: 9, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+    overviewReadyText: { fontSize: 9, fontWeight: "900", letterSpacing: 0.5 },
+    overviewStatusTitle: { fontSize: 22, lineHeight: 28, fontWeight: "900", marginTop: 15 },
+    overviewStatusCopy: { fontSize: 13, lineHeight: 19, marginTop: 5 },
+    overviewSectionLabel: { fontSize: 10, letterSpacing: 1.3, fontWeight: "900", marginTop: 22, marginBottom: 8 },
+    overviewSteps: { borderWidth: 1, borderRadius: 18, overflow: "hidden" },
+    overviewStep: { minHeight: 70, padding: 13, flexDirection: "row", alignItems: "center", gap: 10, borderBottomWidth: StyleSheet.hairlineWidth },
+    overviewStepCopy: { flex: 1 },
+    overviewStepTitle: { fontSize: 14, fontWeight: "900" },
+    overviewStepHint: { fontSize: 11, lineHeight: 16, marginTop: 3 },
+    overviewStepAction: { flexDirection: "row", alignItems: "center", gap: 3 },
+    overviewStepActionText: { fontSize: 10, fontWeight: "900", textAlign: "right" },
+    overviewStepArrow: { fontSize: 22, lineHeight: 24 },
+    overviewSummaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
+    overviewSummaryCard: { width: "48.5%", minHeight: 142, borderWidth: 1, borderRadius: 17, padding: 12 },
+    overviewSummaryLabel: { fontSize: 9, fontWeight: "900", letterSpacing: 1.1 },
+    overviewSummaryValue: { fontSize: 16, lineHeight: 21, fontWeight: "900", marginTop: 13 },
+    overviewSummaryCopy: { flex: 1, fontSize: 11, lineHeight: 16, marginTop: 4 },
+    overviewSummaryAction: { fontSize: 11, fontWeight: "900", marginTop: 10 },
+    overviewHowCard: { borderWidth: 1, borderRadius: 18, padding: 14, marginTop: 16 },
+    overviewHowTitle: { fontSize: 16, fontWeight: "900" },
+    overviewHowCopy: { fontSize: 13, lineHeight: 19, marginTop: 6 },
     makeCard: { borderRadius: 18, padding: 16, marginTop: 12 },
     makeKicker: { fontSize: 10, letterSpacing: 1.4, fontWeight: "800" },
     makeTitle: { fontSize: 18, fontWeight: "800", marginTop: 6 },
