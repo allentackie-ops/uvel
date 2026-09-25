@@ -88,6 +88,19 @@ export async function pickListingPhoto() {
   return res.assets[0]?.uri ?? null;
 }
 
+export async function pickListingPhotos(limit: number) {
+  await need("library");
+  const res = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ["images"],
+    quality: 0.72,
+    allowsEditing: false,
+    allowsMultipleSelection: true,
+    selectionLimit: Math.max(1, limit),
+  });
+  if (res.canceled) return [];
+  return res.assets.map((asset) => asset.uri).filter(Boolean);
+}
+
 async function persistListingClip(uri: string, duration?: number | null) {
   const seconds = clipLengthSeconds(duration);
   if (seconds > 15.5) {

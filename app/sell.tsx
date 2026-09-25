@@ -26,7 +26,7 @@ import { uvelFeeCents } from "../lib/fees";
 import { getMarket, getMarketByCurrency, moneyExact } from "../lib/markets";
 import { takePendingListingPrice } from "../lib/listingPriceDraft";
 import { clearListingDraft, loadListingDraft, saveListingDraft } from "../lib/listingDraft";
-import { pickListingClip, pickListingPhoto, takeListingClip, takeListingPhoto } from "../lib/photo";
+import { pickListingClip, pickListingPhotos, takeListingClip, takeListingPhoto } from "../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
 import { encodeShipsTo, shipsToLabel, type ShipsTo } from "../lib/ships";
 import { carriersForCountry, loadSellerShippingSettings, shippingMethodLabel, type SellerShippingSettings } from "../lib/sellerShipping";
@@ -37,7 +37,7 @@ import { useCopy } from "../lib/useCopy";
 import { useColors, type Colors } from "../lib/theme";
 import { addPiece, getPiece, listPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
 
-const MAX = 5;
+const MAX = 10;
 const SELL_WELCOME_SEEN_KEY = "uvel.sell-welcome-seen";
 const SELL_WELCOME_IMAGE = require("../assets/sell-welcome.png");
 const UVEL_ICON = require("../assets/icon.png");
@@ -374,8 +374,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   async function fromLibrary() {
     Keyboard.dismiss();
     try {
-      const uri = await pickListingPhoto();
-      if (uri) await addUri(uri);
+      const uris = await pickListingPhotos(MAX - photos.length);
+      for (const uri of uris) await addUri(uri);
     } catch (err) {
       Alert.alert(C.photos, err instanceof Error ? err.message : "Couldn’t open photos.");
     }
@@ -726,7 +726,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.photosLabel}>Photos</Text>
+          <Text style={styles.photosLabel}>Photos · {photos.length}/{MAX}</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -760,20 +760,20 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 </AccessiblePressable>
               </View>
             ))}
-            {photos.length === 0 ? (
+            {photos.length < MAX ? (
               <AccessiblePressable
                 onPress={choosePhoto}
                 style={({ pressed }) => [
                   styles.photoAdd,
-                  styles.photoAddEmpty,
+                  photos.length === 0 ? styles.photoAddEmpty : styles.photoAddMore,
                   pressed && { opacity: 0.92 },
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={`Add photo, ${photos.length} of ${MAX} added`}
-                accessibilityHint="Double tap to choose a listing photo."
+                accessibilityHint={`Double tap to choose more listing photos. Up to ${MAX} photos allowed.`}
               >
                 <Ionicons name="add" size={28} color={colors.bone} />
-                <Text style={styles.photoAddTxt}>{C.addPhoto}</Text>
+                <Text style={styles.photoAddTxt}>{photos.length === 0 ? C.addPhoto : "Add more"}</Text>
               </AccessiblePressable>
             ) : null}
           </ScrollView>
@@ -1180,6 +1180,7 @@ function make(colors: Colors) {
       backgroundColor: colors.surface,
     },
     photoAddEmpty: { width: COVER_W },
+    photoAddMore: { width: ADD_W },
     photoAddTxt: { color: colors.bone, fontSize: 12, fontWeight: "600", marginTop: 4 },
     clipRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 20, marginBottom: 8 },
     clipTile: { width: COVER_W, height: COVER_H, borderRadius: 16, overflow: "hidden", backgroundColor: colors.surface },
