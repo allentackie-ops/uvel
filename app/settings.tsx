@@ -72,7 +72,7 @@ export default function Settings() {
       <Text style={styles.section}>{C.preferences}</Text>
       <View style={styles.group}>
         <Row
-          icon="color-palette-outline"
+          icon="moon-outline"
           label={C.appearance}
           hint={app.appearance === "system" ? C.system : app.appearance === "dark" ? C.dark : C.light}
           onPress={() => router.push("/appearance")}
@@ -86,7 +86,7 @@ export default function Settings() {
           colors={colors}
         />
         <Row
-          icon="sparkles-outline"
+          icon="compass-outline"
           label={C.todayPersonalization}
           hint={C.todayPersonalizationHint}
           onPress={() => router.push("/personalization")}
@@ -108,7 +108,7 @@ export default function Settings() {
           />
         </View>
         <View style={styles.row}>
-          <Ionicons name="accessibility-outline" size={21} color={colors.muted} style={styles.rowIcon} />
+          <Ionicons name="eye-outline" size={21} color={colors.muted} style={styles.rowIcon} />
           <View style={{ flex: 1, paddingRight: 12 }}>
             <Text style={styles.rowLabel}>{C.accessibilityFeatures}</Text>
             <Text style={styles.hint}>{C.accessibilityHint}</Text>
