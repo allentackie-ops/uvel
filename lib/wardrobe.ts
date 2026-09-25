@@ -45,6 +45,9 @@ export type ClosetPiece = {
   country?: string;
   currency?: string;
   shipsTo?: ShipsTo;
+  shippingMethod?: "dropoff" | "pickup";
+  shippingCarriers?: string[];
+  shippingBuyerPays?: boolean;
   shopLook?: string;
   likedBy?: Liker[];
   brandId?: string;

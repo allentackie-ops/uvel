@@ -29,6 +29,7 @@ import { clearListingDraft, loadListingDraft, saveListingDraft } from "../lib/li
 import { pickListingClip, pickListingPhoto, takeListingClip, takeListingPhoto } from "../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
 import { encodeShipsTo, shipsToLabel, type ShipsTo } from "../lib/ships";
+import { carriersForCountry, loadSellerShippingSettings, shippingMethodLabel, type SellerShippingSettings } from "../lib/sellerShipping";
 import { SHOP_LOOKS, shopLookOf } from "../lib/shopLook";
 import { takePendingListingSelection } from "../lib/listingOptions";
 import { useUvel } from "../lib/store";
@@ -117,6 +118,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const [shipsTo, setShipsTo] = useState<ShipsTo>(
     existing?.shipsTo ?? encodeShipsTo(origin, "home"),
   );
+  const [shippingSettings, setShippingSettings] = useState<SellerShippingSettings | null>(null);
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
   const [draftReady, setDraftReady] = useState(draftParam !== "1");
@@ -180,6 +182,12 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         setWas(saved.was || "");
         setShopLook(saved.shopLook || "uvel");
         setShipsTo(saved.shipsTo || encodeShipsTo(saved.origin || market.code, "home"));
+        setShippingSettings((current) => current ? {
+          ...current,
+          method: saved.shippingMethod || current.method,
+          buyerPays: saved.shippingBuyerPays ?? current.buyerPays,
+          carriersByCountry: { ...current.carriersByCountry, [(saved.origin || market.code).toUpperCase()]: saved.shippingCarriers || current.carriersByCountry[(saved.origin || market.code).toUpperCase()] || [] },
+        } : current);
       }
       setDraftReady(true);
     });
@@ -187,6 +195,14 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       active = false;
     };
   }, [draftParam, existing?.id]);
+
+  useEffect(() => {
+    void loadSellerShippingSettings().then(setShippingSettings);
+  }, []);
+
+  const shippingMethod = existing?.shippingMethod || shippingSettings?.method || "dropoff";
+  const shippingBuyerPays = existing?.shippingBuyerPays ?? shippingSettings?.buyerPays ?? true;
+  const shippingCarrierIds = existing?.shippingCarriers || shippingSettings?.carriersByCountry[origin] || carriersForCountry(origin).map((carrier) => carrier.id);
 
   useFocusEffect(
     useCallback(() => {
@@ -227,11 +243,14 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       was,
       shopLook,
       shipsTo,
+      shippingMethod,
+      shippingCarriers: shippingCarrierIds,
+      shippingBuyerPays,
       origin,
       currency: listingCurrency,
       updatedAt: Date.now(),
     });
-  }, [existing?.id, draftReady, draftDisabled, photos, clipUri, name, brand, category, color, size, condition, material, notes, price, was, shopLook, shipsTo, origin, listingCurrency]);
+  }, [existing?.id, draftReady, draftDisabled, photos, clipUri, name, brand, category, color, size, condition, material, notes, price, was, shopLook, shipsTo, shippingMethod, shippingCarrierIds, shippingBuyerPays, origin, listingCurrency]);
 
   useEffect(() => {
     if (existing || !draftReady || draftDisabled) return;
@@ -583,6 +602,9 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       country: origin,
       currency: listingCurrency,
       shipsTo,
+      shippingMethod,
+      shippingCarriers: shippingCarrierIds,
+      shippingBuyerPays,
       shopLook,
     };
     const face = avatarUri || personUri || existing?.ownerPhoto;
@@ -970,6 +992,20 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               <View style={{ flex: 1 }}>
                 <Text style={styles.choiceValue}>{shipsToLabel(origin, shipsTo)}</Text>
                 <Text style={styles.choiceSub}>Where it sells</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
+            </AccessiblePressable>
+
+            <AccessiblePressable
+              onPress={() => router.push("/seller-shipping")}
+              style={({ pressed }) => [styles.choiceRow, styles.stackGap, pressed && { opacity: 0.92 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`Shipping: ${shippingMethodLabel(shippingMethod)}, ${shippingCarrierIds.length} providers enabled`}
+              accessibilityHint="Double tap to manage your seller shipping settings and carriers."
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.choiceValue}>{shippingMethodLabel(shippingMethod)}</Text>
+                <Text style={styles.choiceSub}>{shippingCarrierIds.length} delivery provider{shippingCarrierIds.length === 1 ? "" : "s"} · {shippingBuyerPays ? "Buyer pays delivery" : "You pay delivery"}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
             </AccessiblePressable>

@@ -22,6 +22,9 @@ export type ListingDraft = {
   was: string;
   shopLook: string;
   shipsTo: ShipsTo;
+  shippingMethod?: "dropoff" | "pickup";
+  shippingCarriers?: string[];
+  shippingBuyerPays?: boolean;
   origin?: string;
   currency?: string;
   updatedAt: number;

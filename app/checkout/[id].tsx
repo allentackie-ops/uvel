@@ -21,6 +21,7 @@ import { payWithWallet, useWallet } from "../../lib/wallet";
 import { useFirstFind } from "../../lib/firstFind";
 import { getBrand } from "../../lib/brands";
 import { brandMakes } from "../../lib/brandMake";
+import { carriersForListing } from "../../lib/sellerShipping";
 
 export default function Checkout() {
   const colors = useColors();
@@ -40,6 +41,7 @@ export default function Checkout() {
   const methods = payMethods(market.code);
   const [address, setAddress] = useState<Address | null>(null);
   const [ship, setShip] = useState<"standard" | "express">("standard");
+  const [carrierId, setCarrierId] = useState("");
   const [pay, setPay] = useState(methods[0]?.id ?? "apple");
   const [payOpen, setPayOpen] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -73,7 +75,11 @@ export default function Checkout() {
   const availabilityConfirmed = marketplaceSync === "confirmed" && isRemoteListedPiece(piece?.id || "");
   const same = Boolean(address && piece && address.country === (piece.country || market.code));
   const international = Boolean(address && addressOk && !same);
-  const shipCost = address && addressOk ? shippingCents(same, ship === "express", market) : 0;
+  const carrierOptions = piece && !making ? carriersForListing(piece.country || market.code, piece.shippingCarriers, piece.shippingMethod || "dropoff") : [];
+  const selectedCarrier = carrierOptions.find((carrier) => carrier.id === carrierId) || carrierOptions[0];
+  const effectiveShip = selectedCarrier?.speed || ship;
+  const buyerPaysShipping = piece?.shippingBuyerPays !== false || making;
+  const shipCost = address && addressOk && buyerPaysShipping ? shippingCents(same, effectiveShip === "express", market) : 0;
   const total = billedItem + fee + shipCost;
   const wallet = useWallet(market.currency);
   const walletCovers = wallet.availableCents >= total && total > 0;
@@ -92,6 +98,10 @@ export default function Checkout() {
       .catch(() => setPromotionMessage("The campaign promotion is not active for this listing."))
       .finally(() => setPromotionBusy(false));
   }, [promotionId, piece?.brandId, piece?.id, market.currency, itemLocal]);
+
+  useEffect(() => {
+    if (carrierOptions.length && !carrierOptions.some((carrier) => carrier.id === carrierId)) setCarrierId(carrierOptions[0].id);
+  }, [carrierOptions.map((carrier) => carrier.id).join(",")]);
 
   async function applyPromotion() {
     if (!piece || promotionBusy) return;
@@ -178,7 +188,8 @@ export default function Checkout() {
         currency: market.currency,
         country: address.country,
         payMethod: method.label,
-        delivery: ship,
+        delivery: selectedCarrier ? `${selectedCarrier.name} · ${effectiveShip}` : ship,
+        carrier: selectedCarrier?.name,
         address,
         madeByUvel: making,
       });
@@ -298,29 +309,39 @@ export default function Checkout() {
         <Text style={styles.h}>Delivery option</Text>
         {address ? (
           <View style={styles.col}>
+            {carrierOptions.length ? (
+              <>
+                <Text style={styles.boxS}>Choose a delivery provider. The seller has agreed to use these options.</Text>
+                {carrierOptions.map((carrier) => (
+                  <AccessiblePressable key={carrier.id} onPress={() => setCarrierId(carrier.id)} style={({ pressed }) => [styles.ship, selectedCarrier?.id === carrier.id && styles.shipOn, pressed && { opacity: 0.92 }]} accessibilityRole="radio" accessibilityLabel={`${carrier.name}, ${carrier.speed} delivery`} accessibilityState={{ selected: selectedCarrier?.id === carrier.id }}>
+                    <View style={{ flex: 1 }}><Text style={styles.boxT}>{carrier.name}</Text><Text style={styles.boxS}>{carrier.description}</Text></View><Text style={styles.boxT}>{buyerPaysShipping ? moneyExact(shippingCents(same, carrier.speed === "express", market), market.currency) : "Free"}</Text>
+                  </AccessiblePressable>
+                ))}
+              </>
+            ) : null}
             <AccessiblePressable              onPress={() => setShip("standard")}
-              style={({ pressed }) => [styles.ship, ship === "standard" && styles.shipOn, pressed && { opacity: 0.92 }]}
+              style={({ pressed }) => [styles.ship, !carrierOptions.length && ship === "standard" ? styles.shipOn : undefined, carrierOptions.length ? { display: "none" } : undefined, pressed ? { opacity: 0.92 } : undefined]}
               accessibilityRole="radio"
-              accessibilityLabel={`Standard delivery, ${moneyExact(shippingCents(same, false, market), market.currency)}`}
+              accessibilityLabel={`Standard delivery, ${buyerPaysShipping ? moneyExact(shippingCents(same, false, market), market.currency) : "Free"}`}
               accessibilityState={{ selected: ship === "standard" }}
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.boxT}>Standard</Text>
                 <Text style={styles.boxS}>{same ? "3–5 business days" : "7–12 business days · international rate"}</Text>
               </View>
-              <Text style={styles.boxT}>{moneyExact(shippingCents(same, false, market), market.currency)}</Text>
+              <Text style={styles.boxT}>{buyerPaysShipping ? moneyExact(shippingCents(same, false, market), market.currency) : "Free"}</Text>
             </AccessiblePressable>
             <AccessiblePressable              onPress={() => setShip("express")}
-              style={({ pressed }) => [styles.ship, ship === "express" && styles.shipOn, pressed && { opacity: 0.92 }]}
+              style={({ pressed }) => [styles.ship, !carrierOptions.length && ship === "express" ? styles.shipOn : undefined, carrierOptions.length ? { display: "none" } : undefined, pressed ? { opacity: 0.92 } : undefined]}
               accessibilityRole="radio"
-              accessibilityLabel={`Express delivery, ${moneyExact(shippingCents(same, true, market), market.currency)}`}
+              accessibilityLabel={`Express delivery, ${buyerPaysShipping ? moneyExact(shippingCents(same, true, market), market.currency) : "Free"}`}
               accessibilityState={{ selected: ship === "express" }}
             >
               <View style={{ flex: 1 }}>
                 <Text style={styles.boxT}>Express</Text>
                 <Text style={styles.boxS}>{same ? "1–2 business days" : "3–6 business days · international rate"}</Text>
               </View>
-              <Text style={styles.boxT}>{moneyExact(shippingCents(same, true, market), market.currency)}</Text>
+              <Text style={styles.boxT}>{buyerPaysShipping ? moneyExact(shippingCents(same, true, market), market.currency) : "Free"}</Text>
             </AccessiblePressable>
           </View>
         ) : (

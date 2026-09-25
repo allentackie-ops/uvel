@@ -1,8 +1,8 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
-import { confirmOrderReturnSent, requestOrderResolution, useOrders, watchOrder, type FulfillmentStatus } from "../../lib/orders";
+import { Alert, Linking, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { confirmOrderReturnSent, requestOrderResolution, updateOrderFulfillment, useOrders, watchOrder, type FulfillmentStatus } from "../../lib/orders";
 import { buyerHasConfirmed, confirmOrderReceived } from "../../lib/wallet";
 import { createSupportCase, type SupportCategory } from "../../lib/support";
 import { brandCheck, getBrand, inquiryRecipients, useBrands } from "../../lib/brands";
@@ -24,6 +24,7 @@ export default function OrderDone() {
   const [status, setStatus] = useState<"pending" | "paid" | "failed" | null>("pending");
   const [fulfillment, setFulfillment] = useState<FulfillmentStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  const [tracking, setTracking] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -45,6 +46,7 @@ export default function OrderDone() {
   const canCancel = confirmed && ["unfulfilled", "processing", "packed"].includes(fulfillment || "unfulfilled") && !resolution;
   const canConfirm = confirmed && ["shipped", "delivered"].includes(fulfillment || "") && !currentOrder?.buyerConfirmedAt && !buyerHasConfirmed(id || "") && !resolution && currentOrder?.buyerId === app.uid;
   const canReturn = confirmed && fulfillment === "delivered" && !resolution;
+  const isOrdinarySeller = Boolean(currentOrder && currentOrder.sellerId === app.uid && !currentOrder.brandId);
   const supportReasonOptions: Array<[SupportCategory, string]> = [["order_status", "Order status"], ["shipping", "Shipping or delivery"], ["return", "Return"], ["refund", "Refund"], ["cancellation", "Cancellation"], ["product", "Product issue"], ["payment", "Payment"], ["other", "Something else"]];
   const reasonOptions = [
     ["changed_mind", "Changed my mind"],
@@ -126,6 +128,22 @@ export default function OrderDone() {
     }
   }
 
+  async function updateSellerFulfillment(next: "processing" | "packed" | "shipped") {
+    if (!id || !currentOrder || busy) return;
+    if (next === "shipped" && !tracking.trim()) {
+      Alert.alert("Add tracking first", "Enter the tracking number from the carrier receipt before marking this order shipped.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await updateOrderFulfillment(id, { fulfillmentStatus: next, carrier: currentOrder.carrier, trackingNumber: tracking.trim() });
+    } catch (error) {
+      Alert.alert("Could not update order", error instanceof Error ? error.message : "Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <View style={[styles.page, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 24 }]}>
       <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
@@ -137,6 +155,7 @@ export default function OrderDone() {
           : "We’re waiting for the payment provider to confirm this order. You can leave this screen; the order will update when confirmation arrives."}
       </Text>
       {confirmed ? <Text style={[styles.status, orderStatusAppearance]}>{fulfillmentLabel}</Text> : null}
+      {isOrdinarySeller && confirmed && !["shipped", "delivered", "canceled", "returned"].includes(fulfillment || "") ? <View style={styles.sellerCard}><Text style={styles.sellerK}>SELL THIS ORDER</Text><Text style={styles.sellerTitle}>{currentOrder?.carrier ? `Ship with ${currentOrder.carrier}` : "Prepare the item for dispatch"}</Text><Text style={styles.sellerMeta}>Use the carrier selected by the buyer. Take the parcel to the provider and add the tracking number from your receipt.</Text>{fulfillment === "unfulfilled" ? <Pressable disabled={busy} onPress={() => void updateSellerFulfillment("processing")} style={[styles.actionBtn, busy && styles.actionBtnOff]}><Text style={styles.actionTxt}>{busy ? "Updating…" : "Start preparing"}</Text></Pressable> : null}{fulfillment === "processing" ? <Pressable disabled={busy} onPress={() => void updateSellerFulfillment("packed")} style={[styles.actionBtn, busy && styles.actionBtnOff]}><Text style={styles.actionTxt}>{busy ? "Updating…" : "Mark as packed"}</Text></Pressable> : null}{fulfillment === "packed" ? <><TextInput value={tracking} onChangeText={setTracking} placeholder="Tracking number" placeholderTextColor={colors.muted} style={styles.trackingInput} autoCapitalize="characters" /><Pressable disabled={busy} onPress={() => void updateSellerFulfillment("shipped")} style={[styles.actionBtn, busy && styles.actionBtnOff]}><Text style={styles.actionTxt}>{busy ? "Updating…" : "Mark as shipped"}</Text></Pressable></> : null}</View> : null}
       {shipment ? <View style={styles.shipmentCard}><Text style={[styles.shipmentK, { color: semanticStatus(colors, statusToneFor(shipment.status)).color }]}>SHIPMENT · {shipment.status.replace("_", " ")}</Text><Text style={styles.tracking}>{shipment.carrier} · {shipment.trackingNumber}</Text>{shipment.trackingUrl ? <Pressable onPress={() => void Linking.openURL(shipment.trackingUrl || "")}><Text style={styles.trackingLink}>Open carrier tracking ↗</Text></Pressable> : null}{shipment.estimatedDeliveryAt ? <Text style={styles.shipmentMeta}>Estimated delivery: {new Date(shipment.estimatedDeliveryAt).toLocaleDateString()}</Text> : null}{shipment.lastLocation ? <Text style={styles.shipmentMeta}>Last location: {shipment.lastLocation}</Text> : null}{shipment.status === "exception" ? <Text style={[styles.exception, { color: semanticStatus(colors, "danger").color }]}>
 Delivery exception: {shipment.exceptionCode?.replace("_", " ") || "Carrier issue"}{shipment.exceptionNote ? ` · ${shipment.exceptionNote}` : ""}</Text> : null}</View> : currentOrder?.trackingNumber ? <Text style={styles.tracking}>{currentOrder.carrier ? `${currentOrder.carrier} · ` : ""}{currentOrder.trackingNumber}</Text> : null}
       {resolution ? <View style={styles.resolutionCard}><Text style={[styles.resolutionK, { color: semanticStatus(colors, statusToneFor(resolution.status)).color }]}>{resolution.type === "return" ? "RETURN" : "CANCELLATION"}</Text><Text style={styles.resolutionText}>{resolution.status === "requested" ? "Waiting for brand review" : resolution.status === "approved" ? "Approved" : resolution.status === "item_sent" ? "Return marked as sent" : resolution.status === "received" ? "Return received · refund processing" : resolution.status === "refunded" ? "Refund complete" : resolution.status === "rejected" ? "Request declined" : resolution.status.replace("_", " ")}</Text>{resolution.type === "return" && resolution.status === "approved" ? <Pressable disabled={busy} onPress={() => void markReturnSent()} style={[styles.actionBtn, busy && styles.actionBtnOff]}><Text style={styles.actionTxt}>{busy ? "Updating…" : "I sent the return"}</Text></Pressable> : null}</View> : null}
@@ -161,6 +180,11 @@ function make(colors: Colors) {
     p: { color: colors.muted, marginTop: 14, lineHeight: 22, fontSize: 16 },
     status: { alignSelf: "flex-start", color: colors.pulseInk, backgroundColor: colors.pulse, borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8, marginTop: 20, fontWeight: "800" },
     tracking: { color: colors.bone, marginTop: 12, fontSize: 14, fontWeight: "700" },
+    sellerCard: { marginTop: 18, padding: 14, borderRadius: 16, backgroundColor: colors.neutral, borderWidth: 1, borderColor: colors.pulse },
+    sellerK: { color: colors.pulse, fontSize: 10, letterSpacing: 1.4, fontWeight: "800" },
+    sellerTitle: { color: colors.bone, fontSize: 17, fontWeight: "800", marginTop: 7 },
+    sellerMeta: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 6 },
+    trackingInput: { color: colors.bone, minHeight: 48, borderWidth: 1, borderColor: colors.subtle, borderRadius: 12, paddingHorizontal: 12, marginTop: 12 },
     shipmentCard: { marginTop: 16, padding: 14, borderRadius: 16, backgroundColor: colors.neutral, borderWidth: 1, borderColor: colors.subtle },
     shipmentK: { color: colors.pulse, fontSize: 10, letterSpacing: 1.4, fontWeight: "800" },
     trackingLink: { color: colors.pulse, marginTop: 8, fontSize: 13, fontWeight: "800" },
