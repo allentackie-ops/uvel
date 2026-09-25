@@ -12,6 +12,7 @@ export type TodayToolsDrawerProps = { onClose: () => void; onOpenSell: () => voi
 
 type Tool = {
   icon: keyof typeof Ionicons.glyphMap;
+  menuIcon?: boolean;
   label: string;
   onPress: () => void;
 };
@@ -38,7 +39,7 @@ export function TodayToolsDrawer({ onClose, onOpenSell }: TodayToolsDrawerProps)
   ];
   const accountTools: Tool[] = [
     { icon: "help-circle-outline", label: C.helpSupport, onPress: () => router.push("/guide") },
-    { icon: "settings-outline", label: C.settings, onPress: () => router.push("/settings") },
+    { icon: "settings-outline", menuIcon: true, label: C.settings, onPress: () => router.push("/settings") },
   ];
 
   return (
@@ -99,7 +100,7 @@ function ToolRow({ tool, styles, onClose }: { tool: Tool; styles: ReturnType<typ
       accessibilityRole="button"
       accessibilityLabel={tool.label}
     >
-      <Ionicons name={tool.icon} size={22} color={styles.label.color} />
+      {tool.menuIcon ? <View style={styles.menuIcon} accessibilityElementsHidden><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View> : <Ionicons name={tool.icon} size={22} color={styles.label.color} />}
       <Text style={styles.label}>{tool.label}</Text>
     </Pressable>
   );
@@ -118,6 +119,8 @@ function make(colors: Colors) {
     rule: { height: StyleSheet.hairlineWidth, backgroundColor: `${colors.bone}22`, marginVertical: 10, marginLeft: 2 },
     sectionLabel: { color: `${colors.bone}7A`, fontSize: 11, fontWeight: "800", letterSpacing: 1.8, marginTop: 8, marginBottom: 2 },
     row: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: 16 },
+    menuIcon: { width: 22, gap: 4 },
+    menuLine: { height: 2, width: 22, borderRadius: 1, backgroundColor: colors.bone },
     label: { color: colors.bone, fontSize: 18, fontWeight: "700" },
     signOutRow: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}22` },
     signOutLabel: { color: colors.bone, fontSize: 18, fontWeight: "700" },
