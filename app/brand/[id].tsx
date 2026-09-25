@@ -1,9 +1,10 @@
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActionSheetIOS, Alert, Animated, Dimensions, Modal, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { ActionSheetIOS, Alert, Dimensions, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
+import { Sheet } from "../../components/Sheet";
 import { BrandBanner } from "../../components/BrandBanner";
 import { BrandPageSkeleton } from "../../components/ScreenSkeletons";
 import { ListingCard } from "../../components/ListingCard";
@@ -34,25 +35,6 @@ export default function BrandPage() {
   const liveCampaigns = useLiveCampaigns(id || "");
   const [tick, setTick] = useState(0);
   const [actionsOpen, setActionsOpen] = useState(false);
-  const menuY = useRef(new Animated.Value(0)).current;
-  const menuPan = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: (_, gesture) => gesture.dy > 2 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-    onMoveShouldSetPanResponderCapture: (_, gesture) => gesture.dy > 2 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-    onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 4 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-    onPanResponderTerminationRequest: () => false,
-    onPanResponderMove: (_, gesture) => menuY.setValue(Math.max(0, gesture.dy)),
-    onPanResponderRelease: (_, gesture) => {
-      if (gesture.dy > 120 || gesture.vy > 1.2) {
-        Animated.timing(menuY, { toValue: Dimensions.get("window").height, duration: 220, useNativeDriver: true }).start(({ finished }) => {
-          if (finished) setActionsOpen(false);
-        });
-      } else {
-        Animated.spring(menuY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
-      }
-    },
-    onPanResponderTerminate: () => Animated.spring(menuY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start(),
-  })).current;
-
   useEffect(() => {
     if (!id || !app.uid) return;
     void recordAnalyticsEvent({ type: "brand_view", brandId: id }).catch(() => undefined);
@@ -164,7 +146,6 @@ export default function BrandPage() {
   }
 
   function more() {
-    menuY.setValue(0);
     setActionsOpen(true);
   }
 
@@ -461,36 +442,32 @@ export default function BrandPage() {
           </View>
         ) : null}
       </ScrollView>
-      <Modal visible={actionsOpen} transparent animationType="slide" onRequestClose={() => setActionsOpen(false)}>
-        <View style={styles.menuBackdrop}>
-          <Pressable style={styles.menuDismiss} onPress={() => setActionsOpen(false)} accessibilityRole="button" accessibilityLabel="Close brand actions" />
-          <Animated.View {...menuPan.panHandlers} style={[styles.menuSheet, { backgroundColor: theme.bg, borderColor: theme.lineColor, paddingBottom: insets.bottom + 18, transform: [{ translateY: menuY }] }]}>
-            <View style={styles.menuHandle} />
-            <View style={styles.menuHeader}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.menuEyebrow, { color: theme.muted }]}>BRAND PAGE</Text>
-                <Text style={[styles.menuTitle, { color: theme.ink }]}>What would you like to do?</Text>
-              </View>
-              <AccessiblePressable onPress={() => setActionsOpen(false)} style={[styles.menuClose, { borderColor: theme.lineColor }]} accessibilityRole="button" accessibilityLabel="Close brand actions">
-                <Text style={[styles.menuCloseTxt, { color: theme.ink }]}>×</Text>
-              </AccessiblePressable>
+      <Sheet open={actionsOpen} onClose={() => setActionsOpen(false)} expandable surfaceColor={theme.bg}>
+        <ScrollView style={styles.menuScroll} contentContainerStyle={[styles.menuContent, { paddingBottom: insets.bottom + 18 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <View style={styles.menuHeader}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuEyebrow, { color: theme.muted }]}>BRAND PAGE</Text>
+              <Text style={[styles.menuTitle, { color: theme.ink }]}>What would you like to do?</Text>
             </View>
-            {actionSections.map((section) => (
-              <View key={section.title} style={styles.menuSection}>
-                <Text style={[styles.menuSectionTitle, { color: theme.muted }]}>{section.title}</Text>
-                <View style={styles.menuGrid}>
-                  {section.items.map((item) => (
-                    <AccessiblePressable key={item.label} onPress={() => runAction(item.label)} style={({ pressed }) => [styles.menuItem, { backgroundColor: theme.card, borderColor: theme.lineColor }, pressed && { opacity: 0.82 }]} accessibilityRole="button" accessibilityLabel={item.label} accessibilityHint={item.detail}>
-                      <Text style={[styles.menuItemTitle, { color: theme.ink }]}>{item.label}</Text>
-                      <Text style={[styles.menuItemDetail, { color: theme.muted }]}>{item.detail}</Text>
-                    </AccessiblePressable>
-                  ))}
-                </View>
+            <AccessiblePressable onPress={() => setActionsOpen(false)} style={[styles.menuClose, { borderColor: theme.lineColor }]} accessibilityRole="button" accessibilityLabel="Close brand actions">
+              <Text style={[styles.menuCloseTxt, { color: theme.ink }]}>×</Text>
+            </AccessiblePressable>
+          </View>
+          {actionSections.map((section) => (
+            <View key={section.title} style={styles.menuSection}>
+              <Text style={[styles.menuSectionTitle, { color: theme.muted }]}>{section.title}</Text>
+              <View style={styles.menuGrid}>
+                {section.items.map((item) => (
+                  <AccessiblePressable key={item.label} onPress={() => runAction(item.label)} style={({ pressed }) => [styles.menuItem, { backgroundColor: theme.card, borderColor: theme.lineColor }, pressed && { opacity: 0.82 }]} accessibilityRole="button" accessibilityLabel={item.label} accessibilityHint={item.detail}>
+                    <Text style={[styles.menuItemTitle, { color: theme.ink }]}>{item.label}</Text>
+                    <Text style={[styles.menuItemDetail, { color: theme.muted }]}>{item.detail}</Text>
+                  </AccessiblePressable>
+                ))}
               </View>
-            ))}
-          </Animated.View>
-        </View>
-      </Modal>
+            </View>
+          ))}
+        </ScrollView>
+      </Sheet>
     </View>
   );
 }
@@ -584,10 +561,8 @@ const styles = StyleSheet.create({
   rowSub: { fontSize: 13, marginTop: 3 },
   moreBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
   more: { fontSize: 16 },
-  menuBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.62)" },
-  menuDismiss: { ...StyleSheet.absoluteFill },
-  menuSheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, borderTopWidth: 1, paddingHorizontal: 20, paddingTop: 10, maxHeight: "82%" },
-  menuHandle: { alignSelf: "center", width: 42, height: 4, borderRadius: 2, backgroundColor: "rgba(244,240,230,0.28)", marginBottom: 18 },
+  menuScroll: { flex: 1 },
+  menuContent: { paddingBottom: 18 },
   menuHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 },
   menuEyebrow: { fontSize: 10, letterSpacing: 1.5, fontWeight: "800" },
   menuTitle: { fontSize: 22, lineHeight: 27, fontWeight: "800", marginTop: 5 },
