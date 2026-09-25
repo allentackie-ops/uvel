@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { LANGS } from "../lib/i18n";
@@ -44,26 +45,26 @@ export default function Settings() {
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
       <Text style={styles.section}>{C.support}</Text>
       <View style={styles.group}>
-        <Row label={C.howToUse} onPress={() => router.push("/guide")} colors={colors} />
-        <Row label={C.helpSupport} onPress={() => void Linking.openURL(HELP)} colors={colors} />
-        <Row label={C.reportIssue} onPress={() => requestFeedback("compose")} colors={colors} />
-        <Row label={C.privacyPolicy} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "privacy" } })} colors={colors} />
-        <Row label={C.terms} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "terms" } })} colors={colors} />
-        <Row label={C.about} onPress={() => router.push("/about")} colors={colors} last />
+        <Row icon="book-outline" label={C.howToUse} onPress={() => router.push("/guide")} colors={colors} />
+        <Row icon="help-circle-outline" label={C.helpSupport} onPress={() => void Linking.openURL(HELP)} colors={colors} />
+        <Row icon="flag-outline" label={C.reportIssue} onPress={() => requestFeedback("compose")} colors={colors} />
+        <Row icon="shield-checkmark-outline" label={C.privacyPolicy} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "privacy" } })} colors={colors} />
+        <Row icon="document-text-outline" label={C.terms} onPress={() => router.push({ pathname: "/legal/[id]", params: { id: "terms" } })} colors={colors} />
+        <Row icon="information-circle-outline" label={C.about} onPress={() => router.push("/about")} colors={colors} last />
       </View>
 
       <Text style={styles.section}>{C.account}</Text>
       <View style={styles.group}>
-        {app.uid ? <Row label="Manage" onPress={() => router.push("/manage")} colors={colors} last /> : null}
+        {app.uid ? <Row icon="person-outline" label="Manage" onPress={() => router.push("/manage")} colors={colors} last /> : null}
       </View>
 
       {app.uid ? (
         <>
           <Text style={styles.section}>Selling</Text>
           <View style={styles.group}>
-            <Row label="Shipping" hint={`Set your ${market.name} delivery providers and defaults`} onPress={() => router.push("/seller-shipping")} colors={colors} />
-            <Row label="Promo codes" hint="Create discounts for your listings" onPress={() => router.push("/promo-codes")} colors={colors} />
-            <Row label="Selling availability" hint="Pause your normal listings" onPress={() => router.push("/selling-availability")} colors={colors} last />
+            <Row icon="cube-outline" label="Shipping" hint={`Set your ${market.name} delivery providers and defaults`} onPress={() => router.push("/seller-shipping")} colors={colors} />
+            <Row icon="pricetag-outline" label="Promo codes" hint="Create discounts for your listings" onPress={() => router.push("/promo-codes")} colors={colors} />
+            <Row icon="pause-circle-outline" label="Selling availability" hint="Pause your normal listings" onPress={() => router.push("/selling-availability")} colors={colors} last />
           </View>
         </>
       ) : null}
@@ -71,24 +72,28 @@ export default function Settings() {
       <Text style={styles.section}>{C.preferences}</Text>
       <View style={styles.group}>
         <Row
+          icon="color-palette-outline"
           label={C.appearance}
           hint={app.appearance === "system" ? C.system : app.appearance === "dark" ? C.dark : C.light}
           onPress={() => router.push("/appearance")}
           colors={colors}
         />
         <Row
+          icon="shield-outline"
           label="Privacy settings"
           hint="Control personalization, notifications, and data"
           onPress={() => router.push("/privacy-settings")}
           colors={colors}
         />
         <Row
+          icon="sparkles-outline"
           label={C.todayPersonalization}
           hint={C.todayPersonalizationHint}
           onPress={() => router.push("/personalization")}
           colors={colors}
         />
         <View style={styles.row}>
+          <Ionicons name="notifications-outline" size={21} color={colors.muted} style={styles.rowIcon} />
           <View style={{ flex: 1, paddingRight: 12 }}>
             <Text style={styles.rowLabel}>{C.notifications}</Text>
             <Text style={styles.hint}>{C.notificationHint}</Text>
@@ -103,6 +108,7 @@ export default function Settings() {
           />
         </View>
         <View style={styles.row}>
+          <Ionicons name="accessibility-outline" size={21} color={colors.muted} style={styles.rowIcon} />
           <View style={{ flex: 1, paddingRight: 12 }}>
             <Text style={styles.rowLabel}>{C.accessibilityFeatures}</Text>
             <Text style={styles.hint}>{C.accessibilityHint}</Text>
@@ -117,12 +123,13 @@ export default function Settings() {
           />
         </View>
         <Row
+          icon="storefront-outline"
           label={C.store}
           hint={`${market.name} · ${market.currency}`}
           onPress={() => router.push("/store")}
           colors={colors}
         />
-        <Row label={C.language} hint={localeLabel} onPress={() => router.push("/language")} colors={colors} last />
+        <Row icon="language-outline" label={C.language} hint={localeLabel} onPress={() => router.push("/language")} colors={colors} last />
       </View>
 
       {app.uid || app.signedInWith ? (
@@ -135,6 +142,7 @@ export default function Settings() {
           }
           style={styles.out}
         >
+          <Ionicons name="log-out-outline" size={22} color={colors.muted} style={styles.outIcon} />
           <Text style={styles.outText}>{C.logOut}</Text>
         </Pressable>
       ) : null}
@@ -145,12 +153,14 @@ export default function Settings() {
 }
 
 function Row({
+  icon,
   label,
   hint,
   onPress,
   last,
   colors,
 }: {
+  icon: keyof typeof Ionicons.glyphMap;
   label: string;
   hint?: string;
   onPress: () => void;
@@ -159,6 +169,7 @@ function Row({
 }) {
   return (
     <Pressable onPress={onPress} style={[stylesRow.row, last && stylesRow.last, { borderBottomColor: colors.ink }]}>
+      <Ionicons name={icon} size={21} color={colors.muted} style={stylesRow.icon} />
       <View style={{ flex: 1 }}>
         <Text style={[stylesRow.label, { color: colors.bone }]}>{label}</Text>
         {hint ? <Text style={[stylesRow.hint, { color: colors.muted }]}>{hint}</Text> : null}
@@ -179,6 +190,7 @@ const stylesRow = StyleSheet.create({
   last: { borderBottomWidth: 0 },
   label: { fontSize: 16 },
   hint: { fontSize: 12, marginTop: 3 },
+  icon: { width: 28 },
   chev: { fontSize: 22, marginLeft: 8 },
 });
 
@@ -219,6 +231,7 @@ function make(colors: Colors) {
       borderBottomColor: colors.ink,
     },
     rowLabel: { color: colors.bone, fontSize: 16 },
+    rowIcon: { width: 28 },
     lang: {
       paddingVertical: 12,
       paddingHorizontal: 16,
@@ -233,7 +246,8 @@ function make(colors: Colors) {
     dangerHint: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 5 },
     deleteBtn: { marginTop: 14, alignSelf: "flex-start", paddingVertical: 8 },
     deleteText: { color: colors.danger, fontSize: 15, fontWeight: "700" },
-    out: { marginTop: 28, alignItems: "flex-start", paddingHorizontal: 4 },
+    out: { marginTop: 28, flexDirection: "row", alignItems: "center", paddingHorizontal: 4, gap: 12 },
+    outIcon: { width: 22 },
     outText: { color: colors.muted, fontSize: 16 },
     ver: { color: colors.subtle, fontSize: 12, marginTop: 20 },
   });
