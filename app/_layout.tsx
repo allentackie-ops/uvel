@@ -232,6 +232,15 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="seller-shipping-address"
+            options={{
+              headerShown: false,
+              title: "Shipping address",
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="alerts"
             options={{
               headerShown: false,
