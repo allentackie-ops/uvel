@@ -118,7 +118,7 @@ export default function Settings() {
         </View>
         <Row
           label={C.store}
-          hint={`${market.name} floor · ${market.currency}`}
+          hint={`${market.name} · ${market.currency}`}
           onPress={() => router.push("/store")}
           colors={colors}
         />
