@@ -223,6 +223,15 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="seller-shipping"
+            options={{
+              headerShown: false,
+              title: "Seller shipping",
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="alerts"
             options={{
               headerShown: false,

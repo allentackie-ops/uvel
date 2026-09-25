@@ -12,6 +12,26 @@ export type ShippingCarrier = {
   speed: "standard" | "express";
 };
 
+// Brand marks identify the delivery provider; they are not used as Uvel branding.
+const CARRIER_LOGOS: Record<string, string> = {
+  usps: "https://cdn.simpleicons.org/usps",
+  ups: "https://cdn.simpleicons.org/ups",
+  fedex: "https://cdn.simpleicons.org/fedex",
+  "canada-post": "https://www.google.com/s2/favicons?domain=canadapost-postescanada.ca&sz=128",
+  purolator: "https://www.google.com/s2/favicons?domain=purolator.com&sz=128",
+  "royal-mail": "https://www.google.com/s2/favicons?domain=royalmail.com&sz=128",
+  evri: "https://www.google.com/s2/favicons?domain=evri.com&sz=128",
+  dpd: "https://cdn.simpleicons.org/dpd",
+  "an-post": "https://www.google.com/s2/favicons?domain=anpost.com&sz=128",
+  dhl: "https://cdn.simpleicons.org/dhl",
+  "ghana-post": "https://www.google.com/s2/favicons?domain=ghanapost.com.gh&sz=128",
+  nipost: "https://www.google.com/s2/favicons?domain=nipost.gov.ng&sz=128",
+  "posta-kenya": "https://www.google.com/s2/favicons?domain=posta.co.ke&sz=128",
+  fargo: "https://www.google.com/s2/favicons?domain=fargocourier.com&sz=128",
+  sapo: "https://www.google.com/s2/favicons?domain=postoffice.co.za&sz=128",
+  aramex: "https://www.google.com/s2/favicons?domain=aramex.com&sz=128",
+};
+
 export type SellerAddress = {
   name: string;
   phone: string;
@@ -92,6 +112,10 @@ function fallbackCarriers(country: string): ShippingCarrier[] {
 export function carriersForCountry(country?: string | null): ShippingCarrier[] {
   const code = getMarket(country).code;
   return COUNTRY_CARRIERS[code] || fallbackCarriers(code);
+}
+
+export function carrierLogoUrl(id: string) {
+  return CARRIER_LOGOS[id];
 }
 
 export function carriersForListing(country: string | undefined, ids?: string[], method: SellerShippingMethod = "dropoff") {
