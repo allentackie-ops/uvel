@@ -125,6 +125,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const [draftDisabled, setDraftDisabled] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [showSellWelcome, setShowSellWelcome] = useState<boolean | null>(null);
+  const [openSection, setOpenSection] = useState<"describe" | "selling" | null>(existing ? "describe" : null);
+  const previousPhotoCount = useRef(photos.length);
   const scrollRef = useRef<ScrollView>(null);
   const titleRef = useRef<TextInput>(null);
   const notesRef = useRef<TextInput>(null);
@@ -273,6 +275,11 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       hide.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (photos.length > 0 && previousPhotoCount.current === 0) setOpenSection("describe");
+    previousPhotoCount.current = photos.length;
+  }, [photos.length]);
 
   const cover = photos[0];
   const warn = photos.find((p) => p.status === "warn");
@@ -516,38 +523,46 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       return;
     }
     if (nextStep.key === "title") {
+      setOpenSection("describe");
       focusField(titleRef);
       return;
     }
     if (nextStep.key === "notes") {
+      setOpenSection("describe");
       focusField(notesRef);
       return;
     }
     if (nextStep.key === "category") {
+      setOpenSection("describe");
       Keyboard.dismiss();
       openCategory();
       return;
     }
     if (nextStep.key === "size") {
+      setOpenSection("describe");
       Keyboard.dismiss();
       openOption("size");
       return;
     }
     if (nextStep.key === "color") {
+      setOpenSection("describe");
       Keyboard.dismiss();
       openOption("color");
       return;
     }
     if (nextStep.key === "material") {
+      setOpenSection("describe");
       Keyboard.dismiss();
       openOption("material");
       return;
     }
     if (nextStep.key === "condition") {
+      setOpenSection("describe");
       Keyboard.dismiss();
       openCondition();
       return;
     }
+    setOpenSection("selling");
     Keyboard.dismiss();
     openPrice();
   }
@@ -718,6 +733,11 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${(progress / 9) * 100}%` }]} />
         </View>
+        <View style={styles.progressLabels}>
+          <Text style={[styles.progressLabel, hasPhoto && styles.progressLabelOn]}>Capture</Text>
+          <Text style={[styles.progressLabel, hasTitle && hasNotes && styles.progressLabelOn]}>Describe</Text>
+          <Text style={[styles.progressLabel, hasPrice && styles.progressLabelOn]}>Price</Text>
+        </View>
 
         <ScrollView
           ref={scrollRef}
@@ -874,6 +894,21 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           ) : null}
 
           <View style={styles.sheet}>
+            <AccessiblePressable
+              onPress={() => setOpenSection((section) => section === "describe" ? null : "describe")}
+              style={({ pressed }) => [styles.sectionCardHeader, openSection === "describe" && styles.sectionCardHeaderOpen, pressed && { opacity: 0.92 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Describe the piece"
+              accessibilityState={{ expanded: openSection === "describe" }}
+            >
+              <View style={styles.sectionIcon}><Ionicons name="create-outline" size={20} color={colors.success} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionCardTitle}>The piece</Text>
+                <Text style={styles.sectionCardSummary}>{name || category || "Add the story and details"}</Text>
+              </View>
+              <Ionicons name={openSection === "describe" ? "chevron-down" : "chevron-forward"} size={19} color={colors.subtle} />
+            </AccessiblePressable>
+            {openSection === "describe" ? <View style={styles.sectionCardBody}>
             <Text style={styles.sectionKicker}>THE PIECE</Text>
             <TextInput
               ref={titleRef}
@@ -948,6 +983,23 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               </AccessiblePressable>
             </View>
 
+            </View> : null}
+
+            <AccessiblePressable
+              onPress={() => setOpenSection((section) => section === "selling" ? null : "selling")}
+              style={({ pressed }) => [styles.sectionCardHeader, openSection === "selling" && styles.sectionCardHeaderOpen, pressed && { opacity: 0.92 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Set price and delivery"
+              accessibilityState={{ expanded: openSection === "selling" }}
+            >
+              <View style={styles.sectionIcon}><Ionicons name="pricetag-outline" size={20} color={colors.success} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionCardTitle}>Price & delivery</Text>
+                <Text style={styles.sectionCardSummary}>{price ? `${listingMarket.symbol}${price} · ${shippingMethodLabel(shippingMethod)}` : "Set price and delivery"}</Text>
+              </View>
+              <Ionicons name={openSection === "selling" ? "chevron-down" : "chevron-forward"} size={19} color={colors.subtle} />
+            </AccessiblePressable>
+            {openSection === "selling" ? <View style={styles.sectionCardBody}>
             <Text style={[styles.sectionKicker, styles.sectionKickerLater]}>SELLING</Text>
             <AccessiblePressable
               onPress={openPrice}
@@ -1081,6 +1133,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 <Text style={styles.previewTxt}>Preview as a buyer →</Text>
               </AccessiblePressable>
             ) : null}
+            </View> : null}
           </View>
         </ScrollView>
 
@@ -1162,6 +1215,9 @@ function make(colors: Colors) {
       overflow: "hidden",
     },
     progressFill: { height: 3, backgroundColor: colors.success, borderRadius: 2 },
+    progressLabels: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 20, marginTop: 8 },
+    progressLabel: { color: colors.subtle, fontSize: 11, fontWeight: "700" },
+    progressLabelOn: { color: colors.success },
     scrollContent: { flexGrow: 1, paddingBottom: 16 },
     photosLabel: { color: colors.subtle, fontSize: 12, letterSpacing: 0.8, marginTop: 18, marginLeft: 20, marginBottom: 10 },
     photoStrip: { paddingHorizontal: 20, gap: 8, paddingBottom: 4 },
@@ -1254,7 +1310,13 @@ function make(colors: Colors) {
     warnP: { color: colors.muted, lineHeight: 20 },
     warnTip: { color: colors.bone, fontStyle: "italic" },
     warnCta: { color: colors.bone, fontWeight: "700", textDecorationLine: "underline", marginTop: 6 },
-    sheet: { paddingHorizontal: 20, paddingTop: 28 },
+    sheet: { paddingHorizontal: 20, paddingTop: 18 },
+    sectionCardHeader: { minHeight: 72, borderRadius: 18, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: colors.surface, marginTop: 10 },
+    sectionCardHeaderOpen: { borderBottomLeftRadius: 8, borderBottomRightRadius: 8, marginBottom: 0 },
+    sectionIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: `${colors.success}18`, alignItems: "center", justifyContent: "center" },
+    sectionCardTitle: { color: colors.bone, fontSize: 16, fontWeight: "800" },
+    sectionCardSummary: { color: colors.muted, fontSize: 12, marginTop: 3 },
+    sectionCardBody: { paddingHorizontal: 14, paddingTop: 16, paddingBottom: 8, backgroundColor: `${colors.surface}66`, borderBottomLeftRadius: 18, borderBottomRightRadius: 18 },
     sectionKicker: { color: colors.subtle, fontSize: 11, letterSpacing: 1.6, fontWeight: "700" },
     sectionKickerLater: { marginTop: 36 },
     fromPhoto: { color: colors.subtle, fontSize: 11, marginTop: 6 },
