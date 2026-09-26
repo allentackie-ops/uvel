@@ -635,16 +635,20 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
           }
           accessibilityState={{ disabled: !canPay, busy: paying }}
         >
-          <Text style={styles.payButtonText}>
-            {paying ? "Preparing checkout…" : "Buy with Apple Pay"}
-          </Text>
+          {paying ? (
+            <Text style={styles.payButtonText}>Preparing checkout…</Text>
+          ) : (
+            <View style={styles.appleButtonContent}>
+              <Text style={styles.payButtonText}>Buy with</Text>
+              <Text style={styles.appleGlyph}></Text>
+              <Text style={styles.payButtonText}>Pay</Text>
+            </View>
+          )}
         </AccessiblePressable>
-        <Text style={styles.safeText}>
+        <Text style={styles.secureText}>
           This payment will be processed by Stripe
         </Text>
-        <Text style={styles.brandLine}>
-          Apple Pay · Visa · Mastercard · Amex
-        </Text>
+        <PaymentBrands styles={styles} />
       </View>
       <Sheet
         open={priceBreakdownOpen}
@@ -1086,21 +1090,28 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "center",
     },
-    disabled: { opacity: 0.44 },
+    disabled: { opacity: 0.52 },
     payButtonText: { color: colors.ink, fontSize: 17, fontWeight: "600" },
-    safeText: {
-      color: colors.muted,
+    appleButtonContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 },
+    appleGlyph: { color: colors.ink, fontSize: 25, lineHeight: 27, marginTop: -2 },
+    secureText: {
+      color: colors.bone,
       textAlign: "center",
-      fontSize: 12,
+      fontSize: 14,
       marginTop: 8,
+      letterSpacing: 0.1,
     },
-    brandLine: {
-      color: colors.subtle,
-      textAlign: "center",
-      fontSize: 10,
-      marginTop: 5,
-      marginBottom: 2,
-    },
+    paymentBrands: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 8 },
+    brandTile: { width: 54, height: 36, borderRadius: 8, backgroundColor: "#FFFFFF", borderWidth: 2, borderColor: "#9A9A9A", alignItems: "center", justifyContent: "center", overflow: "hidden" },
+    appleBrand: { width: 46, height: 29 },
+    visaBrand: { color: "#163A80", fontSize: 17, fontStyle: "italic", fontWeight: "900", letterSpacing: -1.4 },
+    mastercardBrand: { flexDirection: "row", alignItems: "center", justifyContent: "center", width: 42, height: 26 },
+    cardCircle: { width: 20, height: 20, borderRadius: 10, marginHorizontal: -3 },
+    cardCircleRed: { backgroundColor: "#EB001B" },
+    cardCircleOrange: { backgroundColor: "#F79E1B" },
+    cardCircleBlue: { backgroundColor: "#2563C7" },
+    amexTile: { width: 54, height: 36, borderRadius: 10, backgroundColor: "#2674C8", borderWidth: 2, borderColor: "#9DC7F2", alignItems: "center", justifyContent: "center" },
+    amexBrand: { color: "#FFFFFF", fontSize: 12, fontWeight: "900", letterSpacing: -0.5 },
     policyScroll: { flexShrink: 1 },
     policyBody: { paddingBottom: 8 },
     detailsBody: { paddingBottom: 12 },
@@ -1148,4 +1159,28 @@ function make(colors: Colors) {
     policyDetails: { paddingBottom: 14 },
     detailsTotal: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: StyleSheet.hairlineWidth, borderColor: `${colors.bone}24`, paddingTop: 14, marginTop: 12 },
   });
+}
+
+function PaymentBrands({ styles }: { styles: ReturnType<typeof make> }) {
+  return (
+    <View style={styles.paymentBrands} accessibilityLabel="Accepted payment methods">
+      <View style={styles.brandTile}>
+        <Image source={require("../assets/pay/apple-pay.png")} style={styles.appleBrand} contentFit="contain" />
+      </View>
+      <View style={styles.brandTile}><Text style={styles.visaBrand}>VISA</Text></View>
+      <View style={styles.brandTile}>
+        <View style={styles.mastercardBrand}>
+          <View style={[styles.cardCircle, styles.cardCircleRed]} />
+          <View style={[styles.cardCircle, styles.cardCircleOrange]} />
+        </View>
+      </View>
+      <View style={styles.brandTile}>
+        <View style={styles.mastercardBrand}>
+          <View style={[styles.cardCircle, styles.cardCircleRed]} />
+          <View style={[styles.cardCircle, styles.cardCircleBlue]} />
+        </View>
+      </View>
+      <View style={styles.amexTile}><Text style={styles.amexBrand}>AMEX</Text></View>
+    </View>
+  );
 }
