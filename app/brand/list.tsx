@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -17,6 +18,7 @@ import {
 import { OrbitLoader } from "../../components/OrbitLoader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ShipsPicker } from "../../components/ShipsPicker";
+import { SortablePhotoStrip } from "../../components/SortablePhotoStrip";
 import { BRAND_CATEGORIES, type Category } from "../../lib/catalog";
 import { hasBrandContact } from "../../lib/brandContact";
 import { BRAND_CONDITIONS, SIZE_SYSTEMS, sizesOf, systemFor, type SizeSystem } from "../../lib/brandSizes";
@@ -48,6 +50,7 @@ export default function BrandList() {
   const origin = brand?.country || app.country || "US";
   const market = getMarket(origin);
   const [photos, setPhotos] = useState<Slot[]>([]);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [clipUri, setClipUri] = useState("");
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
@@ -70,6 +73,7 @@ export default function BrandList() {
   const previousPhotoCount = useRef(photos.length);
   const ph = "rgba(244,240,230,0.32)";
   const cover = photos[0];
+  const previewPhoto = photos[selectedPhotoIndex] || cover;
   const contactReady = hasBrandContact(brand || {});
 
   useEffect(() => {
@@ -82,6 +86,10 @@ export default function BrandList() {
   useEffect(() => {
     if (photos.length > 0 && previousPhotoCount.current === 0) setOpenSection("product");
     previousPhotoCount.current = photos.length;
+  }, [photos.length]);
+
+  useEffect(() => {
+    setSelectedPhotoIndex((index) => Math.min(index, Math.max(0, photos.length - 1)));
   }, [photos.length]);
 
   useFocusEffect(useCallback(() => {
@@ -251,6 +259,25 @@ export default function BrandList() {
     ]);
   }
 
+  function removePhoto(uri: string) {
+    const removedIndex = photos.findIndex((photo) => photo.uri === uri);
+    setPhotos((prev) => prev.filter((photo) => photo.uri !== uri));
+    if (removedIndex >= 0) {
+      setSelectedPhotoIndex((index) => index > removedIndex ? index - 1 : Math.min(index, Math.max(0, photos.length - 2)));
+    }
+  }
+
+  function reorderPhotos(from: number, to: number) {
+    setPhotos((prev) => {
+      if (from === to || from < 0 || to < 0 || from >= prev.length || to >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    setSelectedPhotoIndex((index) => index === from ? to : index > from && index <= to ? index - 1 : index < from && index >= to ? index + 1 : index);
+  }
+
   function pickCat(c: Category) {
     setCategory(c);
     const sys = systemFor(c);
@@ -382,7 +409,7 @@ export default function BrandList() {
           ) : null}
           <Pressable onPress={cover ? undefined : choosePhoto} style={[styles.hero, { backgroundColor: brandTheme.card }]}>
             {cover ? (
-              <Image cachePolicy="memory-disk" source={{ uri: cover.uri }} style={styles.heroImg} contentFit="contain" />
+              <Image cachePolicy="memory-disk" source={{ uri: previewPhoto?.uri || cover.uri }} style={styles.heroImg} contentFit="contain" />
             ) : (
               <View style={styles.heroEmpty}>
                 <Text style={styles.heroPlus}>＋</Text>
@@ -400,12 +427,28 @@ export default function BrandList() {
             <Text style={[styles.photoCount, { color: brandTheme.ink }]}>Photos · {photos.length}/{MAX}</Text>
             <Text style={[styles.photoHint, { color: brandTheme.muted }]}>Clear angles help shoppers decide</Text>
           </View>
-          <View style={styles.slotRow}>
-            {photos.map((p) => (
-              <Pressable key={p.uri} onPress={() => setPhotos((prev) => prev.filter((x) => x.uri !== p.uri))}>
+          <SortablePhotoStrip
+            photos={photos}
+            onPreview={setSelectedPhotoIndex}
+            onReorder={reorderPhotos}
+            contentContainerStyle={styles.slotRow}
+            renderPhoto={(p, i) => (
+              <View style={[styles.miniWrap, i === selectedPhotoIndex && styles.miniSelected]}>
                 <Image cachePolicy="memory-disk" source={{ uri: p.uri }} style={[styles.mini, { backgroundColor: brandTheme.card }]} contentFit="cover" />
-              </Pressable>
-            ))}
+                <Pressable
+                  onPress={() => removePhoto(p.uri)}
+                  hitSlop={8}
+                  style={styles.miniRemove}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove photo ${i + 1}`}
+                  accessibilityHint="Double tap to remove this photo."
+                >
+                  <Text style={styles.miniRemoveText}>×</Text>
+                </Pressable>
+              </View>
+            )}
+          />
+          <View style={styles.addPhotoSlot}>
             {photos.length < MAX ? <Pressable onPress={choosePhoto} style={[styles.addPhotoTile, { borderColor: brandTheme.lineColor, backgroundColor: brandTheme.card }]}><Text style={[styles.addPhotoPlus, { color: brandTheme.accent }]}>＋</Text><Text style={[styles.addPhotoText, { color: brandTheme.ink }]}>{photos.length ? "Add more" : "Add photos"}</Text></Pressable> : null}
           </View>
           <Pressable onPress={chooseClip} style={[styles.clipRow, { borderColor: brandTheme.lineColor, backgroundColor: brandTheme.card }]}>
@@ -416,7 +459,7 @@ export default function BrandList() {
 
           <View style={styles.sheet}>
             <Pressable onPress={() => setOpenSection((section) => section === "product" ? null : "product")} style={[styles.sectionHeader, openSection === "product" && styles.sectionHeaderOpen, { backgroundColor: brandTheme.card }]} accessibilityRole="button" accessibilityState={{ expanded: openSection === "product" }}>
-              <View style={[styles.sectionIcon, { backgroundColor: `${brandTheme.accent}22` }]}><Text style={[styles.sectionIconText, { color: brandTheme.accent }]}>✦</Text></View>
+              <View style={[styles.sectionIcon, { backgroundColor: `${brandTheme.accent}22` }]}><Ionicons name="shirt-outline" size={20} color={brandTheme.accent} /></View>
               <View style={{ flex: 1 }}><Text style={[styles.sectionTitle, { color: brandTheme.ink }]}>Product</Text><Text style={[styles.sectionSummary, { color: brandTheme.muted }]}>{name || "Name, price, SKU, description"}</Text></View>
               <Text style={[styles.sectionChevron, { color: brandTheme.muted }]}>{openSection === "product" ? "⌄" : "›"}</Text>
             </Pressable>
@@ -647,7 +690,12 @@ const styles = StyleSheet.create({
   photoCount: { fontSize: 14, fontWeight: "800" },
   photoHint: { fontSize: 11 },
   slotRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 12 },
+  miniWrap: { width: 64, height: 80, borderRadius: 10, overflow: "hidden", position: "relative" },
+  miniSelected: { borderWidth: 2, borderColor: "#D6E27A" },
   mini: { width: 64, height: 80, borderRadius: 10, backgroundColor: "#161512" },
+  miniRemove: { position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: 11, backgroundColor: "rgba(0,0,0,0.78)", alignItems: "center", justifyContent: "center" },
+  miniRemoveText: { color: "#F4F0E6", fontSize: 16, lineHeight: 18, fontWeight: "700", marginTop: -1 },
+  addPhotoSlot: { flexDirection: "row" },
   addPhotoTile: { width: 80, height: 80, borderRadius: 10, borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
   addPhotoPlus: { fontSize: 22, lineHeight: 24 },
   addPhotoText: { fontSize: 10, fontWeight: "700", marginTop: 2 },

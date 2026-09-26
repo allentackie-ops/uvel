@@ -17,6 +17,7 @@ import {
   View,
 } from "react-native";
 import { OrbitLoader } from "../components/OrbitLoader";
+import { SortablePhotoStrip } from "../components/SortablePhotoStrip";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
 import { MotionClip } from "../components/MotionClip";
@@ -96,6 +97,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         ? [{ uri: existing.photo, status: "ok" }]
         : [],
   );
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [clipUri, setClipUri] = useState(existing?.clipUri || "");
   const [name, setName] = useState(existing?.name ?? "");
   const [brand, setBrand] = useState(existing?.brand && existing.brand !== "Unlabeled" ? existing.brand : "");
@@ -281,7 +283,12 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     previousPhotoCount.current = photos.length;
   }, [photos.length]);
 
+  useEffect(() => {
+    setSelectedPhotoIndex((index) => Math.min(index, Math.max(0, photos.length - 1)));
+  }, [photos.length]);
+
   const cover = photos[0];
+  const previewPhoto = photos[selectedPhotoIndex] || cover;
   const warn = photos.find((p) => p.status === "warn");
   const checking = photos.some((p) => p.status === "checking");
   const hasPhoto = photos.length > 0;
@@ -417,7 +424,22 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   }
 
   function removePhoto(uri: string) {
+    const removedIndex = photos.findIndex((photo) => photo.uri === uri);
     setPhotos((prev) => prev.filter((p) => p.uri !== uri));
+    if (removedIndex >= 0) {
+      setSelectedPhotoIndex((index) => index > removedIndex ? index - 1 : Math.min(index, Math.max(0, photos.length - 2)));
+    }
+  }
+
+  function reorderPhotos(from: number, to: number) {
+    setPhotos((prev) => {
+      if (from === to || from < 0 || to < 0 || from >= prev.length || to >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+    setSelectedPhotoIndex((index) => index === from ? to : index > from && index <= to ? index - 1 : index < from && index >= to ? index + 1 : index);
   }
 
   async function fromClipCamera() {
@@ -753,33 +775,31 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={styles.photoStrip}
           >
-            {photos.map((p, i) => (
-              <View key={p.uri} style={[styles.photoTile, i === 0 ? styles.photoCover : styles.photoThumb]}>
-                <Image cachePolicy="memory-disk" source={{ uri: p.uri }} style={styles.photoImage} contentFit="cover" accessibilityRole="image" accessibilityLabel={`Photo ${i + 1}${i === 0 ? ", main photo" : ""}`} />
-                {i === 0 ? (
-                  <View style={styles.mainPhotoPill}>
-                    <Text style={styles.mainPhotoTxt}>Main</Text>
-                  </View>
-                ) : null}
-                {p.status === "warn" ? <View style={styles.warnDot} /> : null}
-                {p.status === "unverified" ? <View style={styles.unverifiedDot} /> : null}
-                {p.status === "checking" ? (
-                  <View style={styles.photoCheck}>
-                    <OrbitLoader size={24} />
-                  </View>
-                ) : null}
-                <AccessiblePressable
-                  onPress={() => removePhoto(p.uri)}
-                  hitSlop={10}
-                  style={({ pressed }) => [styles.photoX, pressed && { opacity: 0.92 }]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove photo ${i + 1}`}
-                  accessibilityHint="Double tap to remove this photo from the listing."
-                >
-                  <Text style={styles.photoXTxt}>×</Text>
-                </AccessiblePressable>
-              </View>
-            ))}
+            <SortablePhotoStrip
+              photos={photos}
+              onPreview={setSelectedPhotoIndex}
+              onReorder={reorderPhotos}
+              contentContainerStyle={styles.photoStrip}
+              renderPhoto={(p, i) => (
+                <View style={[styles.photoTile, i === 0 ? styles.photoCover : styles.photoThumb, i === selectedPhotoIndex && styles.photoSelected]}>
+                  <Image cachePolicy="memory-disk" source={{ uri: p.uri }} style={styles.photoImage} contentFit="cover" accessibilityRole="image" accessibilityLabel={`Photo ${i + 1}${i === 0 ? ", main photo" : ""}`} />
+                  {i === 0 ? <View style={styles.mainPhotoPill}><Text style={styles.mainPhotoTxt}>Main</Text></View> : null}
+                  {p.status === "warn" ? <View style={styles.warnDot} /> : null}
+                  {p.status === "unverified" ? <View style={styles.unverifiedDot} /> : null}
+                  {p.status === "checking" ? <View style={styles.photoCheck}><OrbitLoader size={24} /></View> : null}
+                  <AccessiblePressable
+                    onPress={() => removePhoto(p.uri)}
+                    hitSlop={10}
+                    style={({ pressed }) => [styles.photoX, pressed && { opacity: 0.92 }]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove photo ${i + 1}`}
+                    accessibilityHint="Double tap to remove this photo from the listing."
+                  >
+                    <Text style={styles.photoXTxt}>×</Text>
+                  </AccessiblePressable>
+                </View>
+              )}
+            />
             {photos.length < MAX ? (
               <AccessiblePressable
                 onPress={choosePhoto}
@@ -901,7 +921,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               accessibilityLabel="Describe the piece"
               accessibilityState={{ expanded: openSection === "describe" }}
             >
-              <View style={styles.sectionIcon}><Ionicons name="create-outline" size={20} color={colors.success} /></View>
+              <View style={styles.sectionIcon}><Ionicons name="shirt-outline" size={20} color={colors.success} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.sectionCardTitle}>The piece</Text>
                 <Text style={styles.sectionCardSummary}>{name || category || "Add the story and details"}</Text>
@@ -1224,6 +1244,7 @@ function make(colors: Colors) {
     photoTile: { height: COVER_H, borderRadius: 16, overflow: "hidden", backgroundColor: colors.surface },
     photoCover: { width: COVER_W },
     photoThumb: { width: ADD_W },
+    photoSelected: { borderWidth: 2, borderColor: colors.success },
     photoImage: { width: "100%", height: "100%" },
     photoAdd: {
       height: COVER_H,
