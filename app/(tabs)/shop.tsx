@@ -719,10 +719,10 @@ function make(colors: Colors) {
     dailyEditShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.34)" },
     dailyEditCopy: { flex: 1, justifyContent: "flex-end", padding: 18 },
     dailyEditKicker: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.6 },
-    dailyEditTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 28, lineHeight: 32, marginTop: 7, maxWidth: "88%" },
+    dailyEditTitle: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, lineHeight: 32, marginTop: 7, maxWidth: "88%", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
     dailyEditMeta: { flexDirection: "row", alignItems: "center", gap: 9, marginTop: 8 },
-    dailyEditPrice: { color: colors.bone, fontSize: 14, fontWeight: "800" },
-    dailyEditBrand: { color: `${colors.bone}C2`, fontSize: 12 },
+    dailyEditPrice: { color: "#F4F0E6", fontSize: 14, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+    dailyEditBrand: { color: "rgba(244,240,230,0.82)", fontSize: 12, textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
     dailyEditGo: { color: colors.success, fontSize: 13, fontWeight: "900", marginTop: 12 },
     forYouLabel: { color: colors.bone, fontSize: 11, fontWeight: "900", letterSpacing: 1.5, marginTop: 22, marginBottom: 2 },
     findToast: {
