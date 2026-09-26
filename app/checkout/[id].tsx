@@ -3,18 +3,43 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useStripe } from "@stripe/stripe-react-native";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert,  ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { Sheet } from "../../components/Sheet";
-import { payMethods, shippingCents, uvelFeeCents, type PayMethod } from "../../lib/fees";
+import {
+  payMethods,
+  shippingCents,
+  uvelFeeCents,
+  type PayMethod,
+} from "../../lib/fees";
 import { getMarket, moneyExact, convertCents } from "../../lib/markets";
-import { listingVisibleIn, restrictShipsTo, shipsToLine } from "../../lib/ships";
+import { listingVisibleIn, restrictShipsTo } from "../../lib/ships";
 import { loadAddress, placeOrder, type Address } from "../../lib/orders";
-import { createCheckoutSession, createStripePaymentIntent, openHostedPay, paymentsExtra, processorFor, validatePromotion, type PromotionQuote } from "../../lib/pay";
+import {
+  createCheckoutSession,
+  createStripePaymentIntent,
+  openHostedPay,
+  paymentsExtra,
+  processorFor,
+  validatePromotion,
+  type PromotionQuote,
+} from "../../lib/pay";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
-import { getPiece, isRemoteListedPiece, useMarketplaceSyncState, useWardrobe } from "../../lib/wardrobe";
+import {
+  getPiece,
+  isRemoteListedPiece,
+  useMarketplaceSyncState,
+  useWardrobe,
+} from "../../lib/wardrobe";
 import { recordCampaignAttribution } from "../../lib/attribution";
 import { removeFromCart } from "../../lib/cart";
 import { payWithWallet, useWallet } from "../../lib/wallet";
@@ -28,10 +53,34 @@ export default function Checkout() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { id, ids: idsParam, variantKey: variantParam, variantLabel: variantLabelParam, campaignId, collectionId, promotionId, campaignChannel } = useLocalSearchParams<{ id: string; ids?: string | string[]; variantKey?: string; variantLabel?: string; campaignId?: string; collectionId?: string; promotionId?: string; campaignChannel?: string }>();
+  const {
+    id,
+    ids: idsParam,
+    variantKey: variantParam,
+    variantLabel: variantLabelParam,
+    campaignId,
+    collectionId,
+    promotionId,
+    campaignChannel,
+  } = useLocalSearchParams<{
+    id: string;
+    ids?: string | string[];
+    variantKey?: string;
+    variantLabel?: string;
+    campaignId?: string;
+    collectionId?: string;
+    promotionId?: string;
+    campaignChannel?: string;
+  }>();
   const checkoutIds = useMemo(() => {
-    const supplied = Array.isArray(idsParam) ? idsParam : typeof idsParam === "string" ? idsParam.split(",") : [];
-    const normalized = Array.from(new Set(supplied.map((value) => value.trim()).filter(Boolean)));
+    const supplied = Array.isArray(idsParam)
+      ? idsParam
+      : typeof idsParam === "string"
+        ? idsParam.split(",")
+        : [];
+    const normalized = Array.from(
+      new Set(supplied.map((value) => value.trim()).filter(Boolean)),
+    );
     return normalized.length ? normalized : id ? [id] : [];
   }, [idsParam, id]);
   useWardrobe();
@@ -40,7 +89,8 @@ export default function Checkout() {
   const brand = piece?.brandId ? getBrand(piece.brandId) : undefined;
   const making = Boolean(brand && brandMakes(brand));
   const selectedVariant = typeof variantParam === "string" ? variantParam : "";
-  const selectedVariantLabel = typeof variantLabelParam === "string" ? variantLabelParam : selectedVariant;
+  const selectedVariantLabel =
+    typeof variantLabelParam === "string" ? variantLabelParam : selectedVariant;
   const app = useUvel();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const market = getMarket(app.country);
@@ -53,8 +103,11 @@ export default function Checkout() {
   const [paying, setPaying] = useState(false);
   const [feeInfo, setFeeInfo] = useState(false);
   const [policyOpen, setPolicyOpen] = useState(false);
+  const [promotionOpen, setPromotionOpen] = useState(false);
   const [promotionCode, setPromotionCode] = useState("");
-  const [promotionQuote, setPromotionQuote] = useState<PromotionQuote | null>(null);
+  const [promotionQuote, setPromotionQuote] = useState<PromotionQuote | null>(
+    null,
+  );
   const [promotionBusy, setPromotionBusy] = useState(false);
   const [promotionMessage, setPromotionMessage] = useState("");
 
@@ -73,19 +126,50 @@ export default function Checkout() {
   const firstFind = useFirstFind();
   const creditCents = piece ? firstFind.applyTo(piece, discountedItem) : 0;
   const billedItem = Math.max(0, discountedItem - creditCents);
-  const effectiveShipsTo = piece ? restrictShipsTo(piece.country || market.code, piece.shipsTo, brand?.operatingCountries) : undefined;
-  const sellsHere = piece ? listingVisibleIn({ origin: piece.country, shipsTo: effectiveShipsTo, buyer: market.code }) : false;
-  const addressOk = piece && address
-    ? listingVisibleIn({ origin: piece.country, shipsTo: effectiveShipsTo, buyer: address.country })
+  const effectiveShipsTo = piece
+    ? restrictShipsTo(
+        piece.country || market.code,
+        piece.shipsTo,
+        brand?.operatingCountries,
+      )
+    : undefined;
+  const sellsHere = piece
+    ? listingVisibleIn({
+        origin: piece.country,
+        shipsTo: effectiveShipsTo,
+        buyer: market.code,
+      })
     : false;
-  const availabilityConfirmed = marketplaceSync === "confirmed" && isRemoteListedPiece(piece?.id || "");
-  const same = Boolean(address && piece && address.country === (piece.country || market.code));
-  const international = Boolean(address && addressOk && !same);
-  const carrierOptions = piece && !making ? carriersForListing(piece.country || market.code, piece.shippingCarriers, piece.shippingMethod || "dropoff") : [];
-  const selectedCarrier = carrierOptions.find((carrier) => carrier.id === carrierId) || carrierOptions[0];
+  const addressOk =
+    piece && address
+      ? listingVisibleIn({
+          origin: piece.country,
+          shipsTo: effectiveShipsTo,
+          buyer: address.country,
+        })
+      : false;
+  const availabilityConfirmed =
+    marketplaceSync === "confirmed" && isRemoteListedPiece(piece?.id || "");
+  const same = Boolean(
+    address && piece && address.country === (piece.country || market.code),
+  );
+  const carrierOptions =
+    piece && !making
+      ? carriersForListing(
+          piece.country || market.code,
+          piece.shippingCarriers,
+          piece.shippingMethod || "dropoff",
+        )
+      : [];
+  const selectedCarrier =
+    carrierOptions.find((carrier) => carrier.id === carrierId) ||
+    carrierOptions[0];
   const effectiveShip = selectedCarrier?.speed || ship;
   const buyerPaysShipping = piece?.shippingBuyerPays !== false || making;
-  const shipCost = address && addressOk && buyerPaysShipping ? shippingCents(same, effectiveShip === "express", market) : 0;
+  const shipCost =
+    address && addressOk && buyerPaysShipping
+      ? shippingCents(same, effectiveShip === "express", market)
+      : 0;
   const total = billedItem + fee + shipCost;
   const wallet = useWallet(market.currency);
   const walletCovers = wallet.availableCents >= total && total > 0;
@@ -93,20 +177,44 @@ export default function Checkout() {
   const policyName = brand?.name || piece?.brand || "Brand";
   const policyMode = brand?.customerPolicyMode || "standard_returns";
   const policyWindow = brand?.customerReturnWindowDays || 14;
-  const policyShipping = brand?.customerReturnShipping === "brand" ? "The brand covers return shipping." : "The buyer covers return shipping.";
+  const policyShipping =
+    brand?.customerReturnShipping === "brand"
+      ? "The brand covers return shipping."
+      : "The buyer covers return shipping.";
 
   useEffect(() => {
-    const linkedPromotionId = typeof promotionId === "string" ? promotionId.trim() : "";
+    const linkedPromotionId =
+      typeof promotionId === "string" ? promotionId.trim() : "";
     if (!linkedPromotionId || !piece || promotionQuote || promotionBusy) return;
     setPromotionBusy(true);
-    void validatePromotion({ brandId: piece.brandId || "", listingId: piece.id, promotionId: linkedPromotionId, currency: market.currency, itemCents: itemLocal })
-      .then((quote) => { setPromotionQuote(quote); setPromotionCode(quote.code); setPromotionMessage(`${quote.code} applied · ${quote.kind === "percentage" ? `${quote.value}% off` : `${moneyExact(quote.discountCents, market.currency)} off`}`); })
-      .catch(() => setPromotionMessage("The campaign promotion is not active for this listing."))
+    void validatePromotion({
+      brandId: piece.brandId || "",
+      listingId: piece.id,
+      promotionId: linkedPromotionId,
+      currency: market.currency,
+      itemCents: itemLocal,
+    })
+      .then((quote) => {
+        setPromotionQuote(quote);
+        setPromotionCode(quote.code);
+        setPromotionMessage(
+          `${quote.code} applied · ${quote.kind === "percentage" ? `${quote.value}% off` : `${moneyExact(quote.discountCents, market.currency)} off`}`,
+        );
+      })
+      .catch(() =>
+        setPromotionMessage(
+          "The campaign promotion is not active for this listing.",
+        ),
+      )
       .finally(() => setPromotionBusy(false));
   }, [promotionId, piece?.brandId, piece?.id, market.currency, itemLocal]);
 
   useEffect(() => {
-    if (carrierOptions.length && !carrierOptions.some((carrier) => carrier.id === carrierId)) setCarrierId(carrierOptions[0].id);
+    if (
+      carrierOptions.length &&
+      !carrierOptions.some((carrier) => carrier.id === carrierId)
+    )
+      setCarrierId(carrierOptions[0].id);
   }, [carrierOptions.map((carrier) => carrier.id).join(",")]);
 
   if (checkoutIds.length > 1) return <GroupedCheckout ids={checkoutIds} />;
@@ -114,7 +222,8 @@ export default function Checkout() {
   async function applyPromotion() {
     if (!piece || promotionBusy) return;
     const code = promotionCode.trim().toUpperCase();
-    const linkedPromotionId = !code && typeof promotionId === "string" ? promotionId.trim() : "";
+    const linkedPromotionId =
+      !code && typeof promotionId === "string" ? promotionId.trim() : "";
     if (!code && !linkedPromotionId) {
       setPromotionMessage("Enter a promotion code first.");
       return;
@@ -122,14 +231,27 @@ export default function Checkout() {
     setPromotionBusy(true);
     setPromotionMessage("");
     try {
-      const quote = await validatePromotion({ brandId: piece.brandId || "", listingId: piece.id, promotionId: linkedPromotionId || undefined, code: code || undefined, currency: market.currency, itemCents: itemLocal });
+      const quote = await validatePromotion({
+        brandId: piece.brandId || "",
+        listingId: piece.id,
+        promotionId: linkedPromotionId || undefined,
+        code: code || undefined,
+        currency: market.currency,
+        itemCents: itemLocal,
+      });
       setPromotionQuote(quote);
       setPromotionCode(quote.code);
-      setPromotionMessage(`${quote.code} applied · ${quote.kind === "percentage" ? `${quote.value}% off` : `${moneyExact(quote.discountCents, market.currency)} off`}`);
+      setPromotionMessage(
+        `${quote.code} applied · ${quote.kind === "percentage" ? `${quote.value}% off` : `${moneyExact(quote.discountCents, market.currency)} off`}`,
+      );
     } catch (error) {
       setPromotionQuote(null);
       const raw = error instanceof Error ? error.message : String(error || "");
-      setPromotionMessage(/not-found|404|not connected|unavailable/i.test(raw) ? "Promotions will be available when Firebase checkout is deployed." : raw || "That promotion is not valid for this listing.");
+      setPromotionMessage(
+        /not-found|404|not connected|unavailable/i.test(raw)
+          ? "Promotions will be available when Firebase checkout is deployed."
+          : raw || "That promotion is not valid for this listing.",
+      );
     } finally {
       setPromotionBusy(false);
     }
@@ -137,34 +259,67 @@ export default function Checkout() {
 
   if (!piece) {
     return (
-      <View style={[styles.page, { paddingTop: insets.top + 24, paddingHorizontal: 20 }]}>
+      <View
+        style={[
+          styles.page,
+          { paddingTop: insets.top + 24, paddingHorizontal: 20 },
+        ]}
+      >
         <Text style={{ color: colors.muted }}>That listing isn’t here.</Text>
       </View>
     );
   }
 
   const variantTracked = Boolean(piece.brandId && piece.sizeStock);
-  const selectedStock = selectedVariant && piece.sizeStock ? piece.sizeStock[selectedVariant] : piece.stockQuantity;
-  const inventoryAvailable = !variantTracked || (typeof selectedStock === "number" && selectedStock > 0);
-  const needsVariant = variantTracked && Boolean(piece.sizes?.length || piece.size) && !selectedVariant;
-  const ready = Boolean(address) && addressOk && sellsHere && !paying && piece.status === "listed" && inventoryAvailable && !needsVariant;
+  const selectedStock =
+    selectedVariant && piece.sizeStock
+      ? piece.sizeStock[selectedVariant]
+      : piece.stockQuantity;
+  const inventoryAvailable =
+    !variantTracked || (typeof selectedStock === "number" && selectedStock > 0);
+  const needsVariant =
+    variantTracked &&
+    Boolean(piece.sizes?.length || piece.size) &&
+    !selectedVariant;
+  const ready =
+    Boolean(address) &&
+    addressOk &&
+    sellsHere &&
+    !paying &&
+    piece.status === "listed" &&
+    inventoryAvailable &&
+    !needsVariant;
 
   async function payNow() {
     if (!address || !piece) return;
     if (piece.sellerPaused) {
-      Alert.alert("Listing unavailable", "This listing is currently unavailable while the seller has paused their listings.");
+      Alert.alert(
+        "Listing unavailable",
+        "This listing is currently unavailable while the seller has paused their listings.",
+      );
       return;
     }
     if (!availabilityConfirmed) {
-      Alert.alert("Availability unavailable", marketplaceSync === "loading" ? "Uvel is still checking this listing. Try again in a moment." : "Uvel could not confirm this listing with the marketplace service. Checkout is paused.");
+      Alert.alert(
+        "Availability unavailable",
+        marketplaceSync === "loading"
+          ? "Uvel is still checking this listing. Try again in a moment."
+          : "Uvel could not confirm this listing with the marketplace service. Checkout is paused.",
+      );
       return;
     }
     if (!sellsHere || !addressOk) {
-      Alert.alert("Wrong store", "This seller doesn’t ship this piece to that country.");
+      Alert.alert(
+        "Wrong store",
+        "This seller doesn’t ship this piece to that country.",
+      );
       return;
     }
     if (needsVariant) {
-      Alert.alert("Choose a size", "Go back to the listing and choose an available size first.");
+      Alert.alert(
+        "Choose a size",
+        "Go back to the listing and choose an available size first.",
+      );
       return;
     }
     if (!inventoryAvailable) {
@@ -196,12 +351,28 @@ export default function Checkout() {
         currency: market.currency,
         country: address.country,
         payMethod: method.label,
-        delivery: selectedCarrier ? `${selectedCarrier.name} · ${effectiveShip}` : ship,
+        delivery: selectedCarrier
+          ? `${selectedCarrier.name} · ${effectiveShip}`
+          : ship,
         carrier: selectedCarrier?.name,
         address,
         madeByUvel: making,
       });
-      if (piece.brandId && typeof campaignId === "string" && campaignId) void recordCampaignAttribution({ brandId: piece.brandId, campaignId, channel: campaignChannel === "shop" ? "shop" : "brand_page", collectionId: typeof collectionId === "string" ? collectionId : undefined, promotionId: typeof promotionId === "string" ? promotionId : undefined, type: "checkout_started", listingId: piece.id, orderId: order.id, currency: market.currency, eventId: `checkout_started_${order.id}` }).catch(() => undefined);
+      if (piece.brandId && typeof campaignId === "string" && campaignId)
+        void recordCampaignAttribution({
+          brandId: piece.brandId,
+          campaignId,
+          channel: campaignChannel === "shop" ? "shop" : "brand_page",
+          collectionId:
+            typeof collectionId === "string" ? collectionId : undefined,
+          promotionId:
+            typeof promotionId === "string" ? promotionId : undefined,
+          type: "checkout_started",
+          listingId: piece.id,
+          orderId: order.id,
+          currency: market.currency,
+          eventId: `checkout_started_${order.id}`,
+        }).catch(() => undefined);
       if (walletCovers) {
         await payWithWallet(order.id);
         removeFromCart(piece.id);
@@ -209,13 +380,17 @@ export default function Checkout() {
         return;
       }
       if (market.code === "US") {
-        if (!paymentsExtra.stripePk) throw new Error("Stripe checkout is not configured yet.");
+        if (!paymentsExtra.stripePk)
+          throw new Error("Stripe checkout is not configured yet.");
         const intent = await createStripePaymentIntent(order.id);
         const initialized = await initPaymentSheet({
           merchantDisplayName: "Uvel",
           paymentIntentClientSecret: intent.clientSecret,
           allowsDelayedPaymentMethods: false,
-          defaultBillingDetails: { email: app.email || undefined, name: address.name },
+          defaultBillingDetails: {
+            email: app.email || undefined,
+            name: address.name,
+          },
           applePay: { merchantCountryCode: "US" },
         });
         if (initialized.error) throw new Error(initialized.error.message);
@@ -238,7 +413,8 @@ export default function Checkout() {
         brandId: piece.brandId || "",
         variantKey: selectedVariant,
         campaignId: typeof campaignId === "string" ? campaignId : undefined,
-        collectionId: typeof collectionId === "string" ? collectionId : undefined,
+        collectionId:
+          typeof collectionId === "string" ? collectionId : undefined,
         promotionId: promotionQuote?.promotionId,
         promotionCode: promotionQuote?.code,
       });
@@ -252,7 +428,12 @@ export default function Checkout() {
     } catch (e) {
       const raw = e instanceof Error ? e.message : String(e || "");
       const unavailable = /not-found|404|function.*not.*found/i.test(raw);
-      Alert.alert("Payment", unavailable ? "Stripe checkout is not connected yet. The Firebase payment function has not been deployed. Upgrade Firebase to Blaze, deploy the Functions, then try again." : raw || "Couldn’t complete that.");
+      Alert.alert(
+        "Payment",
+        unavailable
+          ? "Stripe checkout is not connected yet. The Firebase payment function has not been deployed. Upgrade Firebase to Blaze, deploy the Functions, then try again."
+          : raw || "Couldn’t complete that.",
+      );
     } finally {
       setPaying(false);
     }
@@ -262,261 +443,384 @@ export default function Checkout() {
     <View style={styles.page}>
       <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
-        <AccessiblePressable          onPress={() => router.back()}
+        <AccessiblePressable
+          onPress={() => router.back()}
           hitSlop={12}
-          style={({ pressed }) => [styles.navBtn, pressed && { opacity: 0.92 }]}
+          style={styles.navBtn}
           accessibilityRole="button"
           accessibilityLabel="Go back"
         >
           <Text style={styles.navBack}>‹</Text>
         </AccessiblePressable>
         <Text style={styles.navTitle}>Checkout</Text>
-        <View style={{ width: 44 }} />
+        <View style={styles.navBtn} />
       </View>
-
-      <ScrollView contentContainerStyle={{ paddingBottom: 200 }}>
-        <Text style={[styles.boxS, { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 4 }]}>
-          {shipsToLine(piece.country || market.code, piece.shipsTo)}
-        </Text>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 390 }}
+        showsVerticalScrollIndicator={false}
+      >
         {!availabilityConfirmed ? (
-          <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={[styles.boxS, { paddingHorizontal: 20, color: colors.warning, paddingBottom: 8 }]}
-          >
-            {marketplaceSync === "loading" ? "Checking live listing availability…" : "Live listing availability is unavailable. Checkout is paused until the marketplace reconnects."}
+          <Text style={[styles.notice, { color: colors.warning }]}>
+            {marketplaceSync === "loading"
+              ? "Checking availability…"
+              : "Checkout is paused until the marketplace reconnects."}
           </Text>
         ) : null}
         {!sellsHere ? (
-          <Text accessibilityRole="text" accessibilityLiveRegion="assertive" style={[styles.boxS, { paddingHorizontal: 20, color: colors.danger, paddingBottom: 8 }]}>
+          <Text style={[styles.notice, { color: colors.danger }]}>
             This piece isn’t on the {market.name} floor.
           </Text>
         ) : null}
         {address && !addressOk ? (
-          <Text accessibilityRole="text" accessibilityLiveRegion="assertive" style={[styles.boxS, { paddingHorizontal: 20, color: colors.danger, paddingBottom: 8 }]}>
+          <Text style={[styles.notice, { color: colors.danger }]}>
             This seller doesn’t ship to {getMarket(address.country).name}.
           </Text>
         ) : null}
-        <Text style={styles.h}>Address</Text>
-        <AccessiblePressable          onPress={() => router.push("/address")}
-          style={({ pressed }) => [styles.box, pressed && { opacity: 0.92 }]}
+        <View style={styles.productHero}>
+          <Image
+            cachePolicy="memory-disk"
+            source={{ uri: piece.photo }}
+            style={styles.heroImage}
+            contentFit="cover"
+          />
+          <View style={styles.priceBadge}>
+            <Text style={styles.priceBadgeText}>
+              {moneyExact(itemLocal, market.currency)}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.heroName} numberOfLines={2}>
+          {piece.name}
+        </Text>
+        <Text style={styles.heroMeta}>
+          {[
+            selectedVariantLabel || piece.size,
+            piece.color,
+            piece.brand === "Unlabeled" ? "Uvel" : piece.brand,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </Text>
+        <View style={styles.detailRow}>
+          <View style={styles.detailCopy}>
+            <Text style={styles.detailLabel}>Total</Text>
+            <Text style={styles.detailSub}>
+              {promotionQuote
+                ? `${promotionQuote.code} applied · includes shipping and buyer protection`
+                : "Includes shipping and buyer protection"}
+            </Text>
+          </View>
+          <Text style={styles.detailValue}>
+            {moneyExact(walletCovers ? 0 : total, market.currency)}
+          </Text>
+          <AccessiblePressable
+            onPress={() => setFeeInfo(true)}
+            style={styles.chevronButton}
+            accessibilityRole="button"
+            accessibilityLabel="View price details"
+          >
+            <Text style={styles.chevron}>›</Text>
+          </AccessiblePressable>
+        </View>
+        <View style={styles.rule} />
+        <AccessiblePressable
+          onPress={() => router.push("/address")}
+          style={styles.detailRow}
           accessibilityRole="button"
-          accessibilityLabel={address ? `Shipping address: ${address.name}, ${address.city}` : "Add shipping address"}
-          accessibilityHint="Double tap to add or edit your shipping address."
+          accessibilityLabel={
+            address
+              ? `Shipping to ${address.name}, ${address.city}. Edit address.`
+              : "Add shipping address"
+          }
         >
-          {address ? (
-            <View style={{ flex: 1 }}>
-              <Text style={styles.boxT}>{address.name}</Text>
-              <Text style={styles.boxS}>
-                {address.line1}, {address.city}
+          <View style={styles.detailCopy}>
+            <Text style={styles.detailLabel}>Ships to</Text>
+            <Text style={styles.detailSub} numberOfLines={1}>
+              {address
+                ? `${address.line1}, ${address.city}`
+                : "Add your shipping address"}
+            </Text>
+            {address && addressOk ? (
+              <Text style={styles.detailMeta}>
+                {selectedCarrier
+                  ? `${selectedCarrier.name} · ${effectiveShip === "express" ? "Express" : "Standard"} · ${moneyExact(shipCost, market.currency)}`
+                  : `${effectiveShip === "express" ? "Express" : "Standard"} delivery · ${moneyExact(shipCost, market.currency)}`}
               </Text>
-            </View>
-          ) : (
-            <Text style={styles.boxT}>Add your shipping address</Text>
-          )}
-          <Text style={styles.plus}>{address ? "Edit" : "+"}</Text>
-        </AccessiblePressable>
-
-        <Text style={styles.h}>Delivery option</Text>
-        {address ? (
-          <View style={styles.col}>
-            {carrierOptions.length ? (
-              <>
-                <Text style={styles.boxS}>Choose a delivery provider. The seller has agreed to use these options.</Text>
-                {carrierOptions.map((carrier) => (
-                  <AccessiblePressable key={carrier.id} onPress={() => setCarrierId(carrier.id)} style={({ pressed }) => [styles.ship, selectedCarrier?.id === carrier.id && styles.shipOn, pressed && { opacity: 0.92 }]} accessibilityRole="radio" accessibilityLabel={`${carrier.name}, ${carrier.speed} delivery`} accessibilityState={{ selected: selectedCarrier?.id === carrier.id }}>
-                    <View style={{ flex: 1 }}><Text style={styles.boxT}>{carrier.name}</Text><Text style={styles.boxS}>{carrier.description}</Text></View><Text style={styles.boxT}>{buyerPaysShipping ? moneyExact(shippingCents(same, carrier.speed === "express", market), market.currency) : "Free"}</Text>
-                  </AccessiblePressable>
-                ))}
-              </>
             ) : null}
-            <AccessiblePressable              onPress={() => setShip("standard")}
-              style={({ pressed }) => [styles.ship, !carrierOptions.length && ship === "standard" ? styles.shipOn : undefined, carrierOptions.length ? { display: "none" } : undefined, pressed ? { opacity: 0.92 } : undefined]}
-              accessibilityRole="radio"
-              accessibilityLabel={`Standard delivery, ${buyerPaysShipping ? moneyExact(shippingCents(same, false, market), market.currency) : "Free"}`}
-              accessibilityState={{ selected: ship === "standard" }}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.boxT}>Standard</Text>
-                <Text style={styles.boxS}>{same ? "3–5 business days" : "7–12 business days · international rate"}</Text>
-              </View>
-              <Text style={styles.boxT}>{buyerPaysShipping ? moneyExact(shippingCents(same, false, market), market.currency) : "Free"}</Text>
-            </AccessiblePressable>
-            <AccessiblePressable              onPress={() => setShip("express")}
-              style={({ pressed }) => [styles.ship, !carrierOptions.length && ship === "express" ? styles.shipOn : undefined, carrierOptions.length ? { display: "none" } : undefined, pressed ? { opacity: 0.92 } : undefined]}
-              accessibilityRole="radio"
-              accessibilityLabel={`Express delivery, ${buyerPaysShipping ? moneyExact(shippingCents(same, true, market), market.currency) : "Free"}`}
-              accessibilityState={{ selected: ship === "express" }}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.boxT}>Express</Text>
-                <Text style={styles.boxS}>{same ? "1–2 business days" : "3–6 business days · international rate"}</Text>
-              </View>
-              <Text style={styles.boxT}>{buyerPaysShipping ? moneyExact(shippingCents(same, true, market), market.currency) : "Free"}</Text>
-            </AccessiblePressable>
           </View>
-        ) : (
-          <View style={styles.box}>
-            <Text style={styles.dim}>Add your address to see delivery options.</Text>
-          </View>
-        )}
-
-        <Text style={styles.h}>Customer policy</Text>
-        <AccessiblePressable onPress={() => setPolicyOpen(true)} style={({ pressed }) => [styles.policyBox, pressed && { opacity: 0.92 }]} accessibilityRole="button" accessibilityLabel={`${policyName} refund policy`} accessibilityHint="Double tap to view this brand's return policy.">
-          <View style={{ flex: 1 }}><Text style={styles.boxT}>{policyName} refund policy</Text><Text style={styles.boxS}>{policyMode === "final_sale" ? "Final sale · See exceptions" : `${policyWindow}-day returns · See details`}</Text></View>
-          <Text style={styles.plus}>View</Text>
+          <Text style={styles.chevron}>›</Text>
         </AccessiblePressable>
-
-        <Text style={styles.h}>Payment</Text>
-        <AccessiblePressable          onPress={() => setPayOpen(true)}
-          style={({ pressed }) => [styles.box, pressed && { opacity: 0.92 }]}
+        <View style={styles.rule} />
+        <View style={styles.paymentHeading}>
+          <Text style={styles.detailLabel}>Payment</Text>
+          <Text style={styles.detailMeta}>
+            {processorFor(market.code, method.id) === "paystack"
+              ? "Paystack"
+              : "Stripe"}
+          </Text>
+        </View>
+        <AccessiblePressable
+          onPress={() => setPayOpen(true)}
+          style={styles.paymentRow}
           accessibilityRole="button"
-          accessibilityLabel={`Payment method: ${method.label}`}
-          accessibilityHint="Double tap to choose a payment method."
+          accessibilityLabel={`Payment method: ${method.label}. Change payment method.`}
         >
           <PayMark method={method} />
-          <Text style={styles.boxT}>{method.label}</Text>
-          <Text style={styles.plus}>Edit</Text>
+          <Text style={styles.paymentName}>{method.label}</Text>
+          <Text style={styles.changeText}>Change</Text>
         </AccessiblePressable>
-
-        <Text style={styles.h}>Promotion</Text>
+        <View style={styles.rule} />
+        <AccessiblePressable
+          onPress={() => setPolicyOpen(true)}
+          style={styles.secondaryRow}
+          accessibilityRole="button"
+          accessibilityLabel={`${policyName} returns policy`}
+        >
+          <Text style={styles.secondaryText}>
+            {policyMode === "final_sale"
+              ? "Final sale"
+              : `${policyWindow}-day returns`}{" "}
+            · Purchase protection
+          </Text>
+          <Text style={styles.chevron}>›</Text>
+        </AccessiblePressable>
+        <AccessiblePressable
+          onPress={() => setPromotionOpen(true)}
+          style={styles.secondaryRow}
+          accessibilityRole="button"
+          accessibilityLabel="Enter a promotion code"
+        >
+          <Text style={styles.secondaryText}>
+            {promotionQuote
+              ? `${promotionQuote.code} applied`
+              : "Have a promo code?"}
+          </Text>
+          <Text style={styles.chevron}>›</Text>
+        </AccessiblePressable>
+      </ScrollView>
+      <View
+        style={[styles.purchasePanel, { paddingBottom: insets.bottom + 14 }]}
+      >
+        <View style={styles.panelHandle} />
+        <Text style={styles.panelTitle}>Complete your purchase</Text>
+        <View style={styles.panelTotal}>
+          <Text style={styles.panelTotalLabel}>Total</Text>
+          <Text style={styles.panelTotalValue}>
+            {moneyExact(walletCovers ? 0 : total, market.currency)}
+          </Text>
+        </View>
+        <Text style={styles.panelHint}>
+          {promotionQuote
+            ? "Promotion applied · secure payment by Stripe"
+            : "Includes shipping and buyer protection"}
+        </Text>
+        <AccessiblePressable
+          onPress={() => void payNow()}
+          disabled={!ready || !availabilityConfirmed}
+          style={[
+            styles.payBtn,
+            (!ready || !availabilityConfirmed) && styles.payDisabled,
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={
+            paying
+              ? "Processing payment"
+              : `Pay ${moneyExact(total, market.currency)} with ${method.label}`
+          }
+          accessibilityState={{
+            disabled: !ready || !availabilityConfirmed,
+            busy: paying,
+          }}
+        >
+          <Text style={styles.payTxt}>
+            {paying
+              ? "Paying…"
+              : walletCovers
+                ? "Pay with Uvel balance"
+                : method.kind === "apple"
+                  ? "Buy with Apple Pay"
+                  : `Pay with ${method.label}`}
+          </Text>
+        </AccessiblePressable>
+        <Text style={styles.secureText}>
+          14-day returns · Secure payment by Stripe
+        </Text>
+      </View>
+      {feeInfo ? (
+        <Sheet open={feeInfo} onClose={() => setFeeInfo(false)}>
+          <Text style={styles.sheetH}>Price details</Text>
+          <View style={styles.sheetLine}>
+            <Text style={styles.sheetLineLabel}>Item</Text>
+            <Text style={styles.sheetLineValue}>
+              {moneyExact(itemLocal, market.currency)}
+            </Text>
+          </View>
+          {discountCents > 0 ? (
+            <View style={styles.sheetLine}>
+              <Text style={styles.sheetLineLabel}>Promotion</Text>
+              <Text style={styles.discountValue}>
+                −{moneyExact(discountCents, market.currency)}
+              </Text>
+            </View>
+          ) : null}
+          {creditCents > 0 ? (
+            <View style={styles.sheetLine}>
+              <Text style={styles.sheetLineLabel}>First Find</Text>
+              <Text style={styles.discountValue}>
+                −{moneyExact(creditCents, market.currency)}
+              </Text>
+            </View>
+          ) : null}
+          <View style={styles.sheetLine}>
+            <Text style={styles.sheetLineLabel}>Buyer protection</Text>
+            <Text style={styles.sheetLineValue}>
+              {moneyExact(fee, market.currency)}
+            </Text>
+          </View>
+          <View style={styles.sheetLine}>
+            <Text style={styles.sheetLineLabel}>Shipping</Text>
+            <Text style={styles.sheetLineValue}>
+              {moneyExact(shipCost, market.currency)}
+            </Text>
+          </View>
+          <View style={styles.sheetTotalLine}>
+            <Text style={styles.sheetTotalLabel}>Total</Text>
+            <Text style={styles.sheetTotalValue}>
+              {moneyExact(walletCovers ? 0 : total, market.currency)}
+            </Text>
+          </View>
+          <AccessiblePressable
+            onPress={() => setFeeInfo(false)}
+            style={styles.sheetBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Close price details"
+          >
+            <Text style={styles.sheetBtnT}>Done</Text>
+          </AccessiblePressable>
+        </Sheet>
+      ) : null}
+      <Sheet open={policyOpen} onClose={() => setPolicyOpen(false)} expandable>
+        <ScrollView
+          style={styles.policyScroll}
+          contentContainerStyle={styles.policyContent}
+          showsVerticalScrollIndicator
+        >
+          <Text style={styles.sheetH}>{policyName} returns policy</Text>
+          {policyMode === "final_sale" ? (
+            <>
+              <Text style={styles.sheetP}>
+                This item is final sale, so change-of-mind returns are not
+                accepted.
+              </Text>
+              <Text style={styles.sheetP}>
+                If the item arrives damaged, defective, or different from the
+                listing, contact Uvel support and we’ll help review it.
+              </Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.sheetP}>
+                You can request a return within {policyWindow} days after
+                delivery.
+              </Text>
+              <Text style={styles.sheetP}>{policyShipping}</Text>
+              <Text style={styles.sheetP}>
+                Items that arrive damaged, defective, or different from the
+                listing can still be reported to Uvel.
+              </Text>
+            </>
+          )}
+          {brand?.customerPolicyNote ? (
+            <Text style={styles.sheetP}>
+              Brand note: {brand.customerPolicyNote}
+            </Text>
+          ) : null}
+        </ScrollView>
+        <AccessiblePressable
+          onPress={() => setPolicyOpen(false)}
+          style={styles.sheetBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Close returns policy"
+        >
+          <Text style={styles.sheetBtnT}>Done</Text>
+        </AccessiblePressable>
+      </Sheet>
+      <Sheet open={promotionOpen} onClose={() => setPromotionOpen(false)}>
+        <Text style={styles.sheetH}>Promotion code</Text>
+        <Text style={styles.sheetP}>
+          Apply a code to this item before you pay.
+        </Text>
         <View style={styles.promotionBox}>
           <TextInput
             value={promotionCode}
-            onChangeText={(value) => { setPromotionCode(value.toUpperCase()); if (promotionQuote) { setPromotionQuote(null); setPromotionMessage(""); } }}
-            placeholder="Enter promotion code"
-            placeholderTextColor={`66`}
+            onChangeText={(value) => {
+              setPromotionCode(value.toUpperCase());
+              if (promotionQuote) {
+                setPromotionQuote(null);
+                setPromotionMessage("");
+              }
+            }}
+            placeholder="Enter code"
+            placeholderTextColor={colors.subtle}
             autoCapitalize="characters"
             autoCorrect={false}
             returnKeyType="done"
             style={styles.promotionInput}
             editable={!promotionBusy}
             accessibilityLabel="Promotion code"
-            accessibilityHint="Enter a promotion code, then activate Apply."
           />
-          <AccessiblePressable            onPress={() => void applyPromotion()}
+          <AccessiblePressable
+            onPress={() => void applyPromotion()}
             disabled={promotionBusy}
-            style={({ pressed }) => [styles.promotionButton, promotionBusy && { opacity: 0.5 }, pressed && { opacity: 0.92 }]}
+            style={styles.promotionButton}
             accessibilityRole="button"
-            accessibilityLabel={promotionBusy ? "Checking promotion" : promotionQuote ? "Promotion applied" : "Apply promotion code"}
-            accessibilityState={{ disabled: promotionBusy, selected: Boolean(promotionQuote) }}
+            accessibilityLabel="Apply promotion code"
           >
-            <Text style={styles.promotionButtonTxt}>{promotionBusy ? "Checking…" : promotionQuote ? "Applied" : "Apply"}</Text>
+            <Text style={styles.promotionButtonTxt}>
+              {promotionBusy
+                ? "Checking…"
+                : promotionQuote
+                  ? "Applied"
+                  : "Apply"}
+            </Text>
           </AccessiblePressable>
         </View>
-        {promotionMessage ? <Text accessibilityRole="text" accessibilityLiveRegion="polite" style={[styles.promotionMessage, promotionQuote ? styles.promotionGood : styles.promotionBad]}>{promotionQuote ? `Success: ${promotionMessage}` : `Error: ${promotionMessage}`}</Text> : null}
-
-        <Text style={styles.h}>Order summary</Text>
-        <View style={styles.sum}>
-          <View style={styles.item}>
-            <Image cachePolicy="memory-disk" source={{ uri: piece.photo }} style={styles.thumb} contentFit="cover" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.itemN} numberOfLines={1}>
-                {piece.name}
-              </Text>
-              <Text style={styles.itemM}>{piece.brand === "Unlabeled" ? "Uvel" : piece.brand}</Text>
-              <Text style={styles.itemM}>{[selectedVariantLabel || piece.size, piece.color].filter(Boolean).join(" / ")}</Text>
-              {variantTracked && typeof selectedStock === "number" ? <Text style={styles.itemM}>{selectedStock} available now</Text> : null}
-            </View>
-            <Text style={styles.itemP}>{moneyExact(itemLocal, market.currency)}</Text>
-          </View>
-
-          {discountCents > 0 ? <View style={styles.line}><Text style={styles.lineL}>Promotion · {promotionQuote?.code}</Text><Text style={styles.discountValue}>−{moneyExact(discountCents, market.currency)}</Text></View> : null}
-          {creditCents > 0 ? <View style={styles.line}><Text style={styles.lineL}>First Find</Text><Text style={styles.discountValue}>−{moneyExact(creditCents, market.currency)}</Text></View> : null}
-          <View style={styles.line}>
-            <AccessiblePressable              onPress={() => setFeeInfo(true)}
-              style={({ pressed }) => [styles.feeL, pressed && { opacity: 0.92 }]}
-              accessibilityRole="button"
-              accessibilityLabel="Uvel fee information"
-              accessibilityHint="Double tap to learn how the buyer protection fee is calculated."
-            >
-              <Text style={styles.lineL}>Buyer protection fee</Text>
-              <Text style={styles.info}>i</Text>
-            </AccessiblePressable>
-            <Text style={styles.lineV}>{moneyExact(fee, market.currency)}</Text>
-          </View>
-          <View style={styles.line}>
-            <Text style={styles.lineL}>{making ? (international ? "International delivery" : "Delivery") : "Shipping"}</Text>
-            <Text style={styles.lineV}>{moneyExact(shipCost, market.currency)}</Text>
-          </View>
-          {walletCovers ? <View style={styles.line}><Text style={styles.lineL}>Uvel balance</Text><Text style={styles.discountValue}>−{moneyExact(total, market.currency)}</Text></View> : wallet.availableCents > 0 ? <Text style={styles.protect}>Uvel balance {moneyExact(wallet.availableCents, market.currency)} — it pays in full when it covers the total.</Text> : null}
-          <AccessiblePressable            onPress={() => setFeeInfo(true)}
-            style={({ pressed }) => [pressed && { opacity: 0.92 }]}
-            accessibilityRole="button"
-            accessibilityLabel="Learn about Uvel purchase protection"
+        {promotionMessage ? (
+          <Text
+            style={[
+              styles.promotionMessage,
+              promotionQuote ? styles.promotionGood : styles.promotionBad,
+            ]}
           >
-            <Text style={styles.protect}>Review purchase protection terms.</Text>
-          </AccessiblePressable>
-        </View>
-      </ScrollView>
-
-      <View style={[styles.dock, { paddingBottom: insets.bottom + 12 }]}>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalL}>Total to pay</Text>
-          <Text style={styles.totalV}>{moneyExact(walletCovers ? 0 : total, market.currency)}</Text>
-        </View>
-        <AccessiblePressable onPress={() => void payNow()}
-          disabled={!ready || !availabilityConfirmed}
-          style={({ pressed }) => [styles.payBtn, (!ready || !availabilityConfirmed) && { opacity: 0.4 }, pressed && { opacity: 0.92 }]}
+            {promotionMessage}
+          </Text>
+        ) : null}
+        <AccessiblePressable
+          onPress={() => setPromotionOpen(false)}
+          style={styles.sheetBtn}
           accessibilityRole="button"
-          accessibilityLabel={paying ? "Processing payment" : walletCovers ? `Pay with Uvel balance, ${moneyExact(total, market.currency)}` : `Pay with ${method?.label || "selected method"}, ${moneyExact(total, market.currency)}`}
-          accessibilityState={{ disabled: !ready || !availabilityConfirmed, busy: paying }}
+          accessibilityLabel="Close promotion code"
         >
-          <Text style={styles.payTxt}>
-            {paying ? "Paying…" : walletCovers ? "Pay with Uvel balance" : method?.kind === "apple" ? "Apple Pay" : `Pay with ${method?.label}`}
-          </Text>
+          <Text style={styles.sheetBtnT}>Done</Text>
         </AccessiblePressable>
-        <Text style={styles.lock}>Payment details are handled by the connected payment provider.</Text>
-      </View>
-
-      {feeInfo ? (
-        <Sheet open={feeInfo} onClose={() => setFeeInfo(false)}>
-          <Text style={styles.sheetH}>Uvel fee</Text>
-          <Text style={styles.sheetP}>
-            Buyer protection fees are shown here in {market.currency}. The seller gets the full listing price. Review the purchase protection terms before paying; payment confirmation and any protection eligibility depend on the connected payment and order services.
-          </Text>
-          <AccessiblePressable onPress={() => setFeeInfo(false)}
-            style={({ pressed }) => [styles.sheetBtn, pressed && { opacity: 0.92 }]}
-            accessibilityRole="button"
-            accessibilityLabel="Close fee information"
-          >
-            <Text style={styles.sheetBtnT}>Got it</Text>
-          </AccessiblePressable>
-        </Sheet>
-      ) : null}
-
-      <Sheet open={policyOpen} onClose={() => setPolicyOpen(false)} expandable>
-        <ScrollView style={styles.policyScroll} contentContainerStyle={styles.policyContent} showsVerticalScrollIndicator>
-          <Text style={styles.sheetH}>{policyName} returns policy</Text>
-          {policyMode === "final_sale" ? <>
-            <Text style={styles.sheetP}>This item is final sale, so change-of-mind returns are not accepted.</Text>
-            <Text style={styles.sheetP}>If the item arrives damaged, defective, or different from the listing, contact Uvel support and we’ll help review it.</Text>
-          </> : <>
-            <Text style={styles.sheetP}>You can request a return within {policyWindow} days after delivery.</Text>
-            <Text style={styles.sheetP}>{policyShipping}</Text>
-            <Text style={styles.sheetP}>Items that arrive damaged, defective, or different from the listing can still be reported to Uvel.</Text>
-          </>}
-          {brand?.customerPolicyNote ? <Text style={styles.sheetP}>Brand note: {brand.customerPolicyNote}</Text> : null}
-        </ScrollView>
-        <AccessiblePressable onPress={() => setPolicyOpen(false)} style={({ pressed }) => [styles.sheetBtn, pressed && { opacity: 0.92 }]} accessibilityRole="button" accessibilityLabel="Close refund policy"><Text style={styles.sheetBtnT}>Got it</Text></AccessiblePressable>
       </Sheet>
-
       <Sheet open={payOpen} onClose={() => setPayOpen(false)}>
-        <Text style={styles.sheetH}>Payment</Text>
-        <Text style={styles.sheetP}>
-          {processorFor(market.code, method.id) === "paystack" ? "Paystack" : "Stripe"}
-          {method.id === "apple" ? " · Apple Pay" : ""} · {market.name}
-        </Text>
+        <Text style={styles.sheetH}>Payment method</Text>
+        <Text style={styles.sheetP}>Choose how you’d like to pay.</Text>
         {methods.map((m) => (
-          <AccessiblePressable key={m.id}
+          <AccessiblePressable
+            key={m.id}
             onPress={() => {
               setPay(m.id);
               setPayOpen(false);
             }}
-            style={({ pressed }) => [styles.pick, pressed && { opacity: 0.92 }]}
+            style={styles.pick}
             accessibilityRole="radio"
             accessibilityLabel={m.label}
             accessibilityState={{ selected: pay === m.id }}
           >
             <PayMark method={m} />
-            <Text style={styles.boxT}>{m.label}</Text>
+            <Text style={styles.paymentName}>{m.label}</Text>
             {pay === m.id ? <Text style={styles.tick}>✓</Text> : null}
           </AccessiblePressable>
         ))}
@@ -547,7 +851,8 @@ function PayMark({ method }: { method: PayMethod }) {
   const card = method.icon === "card";
   return (
     <View style={[mark.wrap, apple && { backgroundColor: "transparent" }]}>
-      <Image cachePolicy="memory-disk"
+      <Image
+        cachePolicy="memory-disk"
         source={src}
         style={apple ? mark.apple : card ? mark.card : mark.sq}
         contentFit="contain"
@@ -586,62 +891,294 @@ function make(colors: Colors) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      paddingHorizontal: 6,
+      paddingHorizontal: 14,
       paddingBottom: 8,
     },
-    navBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-    navBack: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
-    navTitle: { color: colors.bone, fontSize: 17, fontWeight: "600" },
-    h: { color: colors.bone, fontSize: 18, fontWeight: "700", marginTop: 22, marginBottom: 10, paddingHorizontal: 20 },
-    box: {
+    navBtn: {
+      width: 44,
+      height: 44,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    navBack: {
+      color: colors.bone,
+      fontSize: 36,
+      lineHeight: 38,
+      marginTop: -4,
+    },
+    navTitle: { color: colors.bone, fontSize: 18, fontWeight: "700" },
+    notice: {
       marginHorizontal: 20,
-      minHeight: 54,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: `${colors.bone}2E`,
+      marginBottom: 8,
+      fontSize: 12,
+      lineHeight: 17,
+    },
+    productHero: {
+      marginHorizontal: 20,
+      height: 360,
+      borderRadius: 28,
+      overflow: "hidden",
+      backgroundColor: colors.surface,
+      position: "relative",
+    },
+    heroImage: { width: "100%", height: "100%" },
+    priceBadge: {
+      position: "absolute",
+      right: 16,
+      top: 16,
+      minWidth: 76,
       paddingHorizontal: 14,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.success,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    priceBadgeText: {
+      color: colors.successInk,
+      fontSize: 16,
+      fontWeight: "800",
+    },
+    heroName: {
+      color: colors.bone,
+      fontSize: 22,
+      lineHeight: 28,
+      fontWeight: "700",
+      marginHorizontal: 24,
+      marginTop: 16,
+    },
+    heroMeta: {
+      color: colors.muted,
+      fontSize: 14,
+      marginHorizontal: 24,
+      marginTop: 5,
+      marginBottom: 12,
+    },
+    detailRow: {
+      minHeight: 70,
+      marginHorizontal: 20,
       flexDirection: "row",
       alignItems: "center",
       gap: 12,
     },
-    focused: { borderWidth: 2, borderColor: colors.success },
-    boxOn: { borderColor: colors.success },
-    policyBox: { marginHorizontal: 20, minHeight: 58, borderRadius: 12, borderWidth: 1, borderColor: `${colors.bone}2E`, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 12 },
-    promotionBox: { marginHorizontal: 20, minHeight: 52, borderRadius: 14, borderWidth: 1, borderColor: colors.subtle, backgroundColor: colors.neutral, flexDirection: "row", alignItems: "center", paddingLeft: 14, overflow: "hidden" },
-    promotionInput: { flex: 1, height: 50, color: colors.bone, fontSize: 15, fontWeight: "600" },
-    promotionButton: { alignSelf: "stretch", minWidth: 78, alignItems: "center", justifyContent: "center", backgroundColor: colors.success, paddingHorizontal: 13 },
-    promotionButtonTxt: { color: colors.successInk, fontSize: 13, fontWeight: "800" },
-    promotionMessage: { marginHorizontal: 22, marginTop: 7, fontSize: 12, lineHeight: 16 },
-    promotionGood: { color: colors.success },
-    promotionBad: { color: colors.danger },
-    discountValue: { color: colors.success, fontSize: 14, fontWeight: "700" },
-    boxT: { color: colors.bone, fontSize: 15, flex: 1, fontWeight: "500" },
-    boxS: { color: colors.muted, fontSize: 13, marginTop: 2 },
-    dim: { color: colors.subtle, fontSize: 15, paddingVertical: 16 },
-    plus: { color: colors.muted, fontSize: 15 },
-    col: { gap: 10, paddingHorizontal: 20 },
-    ship: {
+    detailCopy: { flex: 1, minWidth: 0 },
+    detailLabel: { color: colors.bone, fontSize: 17, fontWeight: "700" },
+    detailSub: {
+      color: colors.muted,
+      fontSize: 14,
+      lineHeight: 20,
+      marginTop: 3,
+    },
+    detailMeta: {
+      color: colors.subtle,
+      fontSize: 12,
+      lineHeight: 17,
+      marginTop: 2,
+    },
+    detailValue: {
+      color: colors.bone,
+      fontSize: 18,
+      fontWeight: "800",
+      fontVariant: ["tabular-nums"],
+    },
+    chevronButton: {
+      width: 26,
+      height: 44,
+      alignItems: "flex-end",
+      justifyContent: "center",
+    },
+    chevron: {
+      color: colors.success,
+      fontSize: 32,
+      lineHeight: 34,
+      fontWeight: "300",
+    },
+    rule: {
+      height: StyleSheet.hairlineWidth,
+      backgroundColor: `${colors.bone}24`,
+      marginHorizontal: 20,
+    },
+    paymentHeading: {
+      marginHorizontal: 20,
+      minHeight: 44,
       flexDirection: "row",
       alignItems: "center",
-      borderWidth: 1,
-      borderColor: `${colors.bone}2E`,
-      borderRadius: 12,
-      paddingHorizontal: 14,
-      paddingVertical: 14,
+      justifyContent: "space-between",
     },
-    shipOn: { borderColor: colors.success },
-    payMark: {
-      width: 36,
-      height: 24,
-      borderRadius: 4,
-      backgroundColor: "#fff",
+    paymentRow: {
+      minHeight: 64,
+      marginHorizontal: 20,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    paymentName: {
+      color: colors.bone,
+      fontSize: 16,
+      fontWeight: "600",
+      flex: 1,
+    },
+    changeText: { color: colors.muted, fontSize: 14 },
+    secondaryRow: {
+      minHeight: 52,
+      marginHorizontal: 20,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    secondaryText: { color: colors.muted, fontSize: 14 },
+    appliedPromo: {
+      color: colors.success,
+      marginHorizontal: 20,
+      fontSize: 12,
+      marginBottom: 12,
+    },
+    purchasePanel: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: colors.surface,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      paddingHorizontal: 20,
+      paddingTop: 10,
+      shadowColor: "#000",
+      shadowOpacity: 0.35,
+      shadowRadius: 18,
+      elevation: 12,
+    },
+    panelHandle: {
+      width: 46,
+      height: 5,
+      borderRadius: 3,
+      backgroundColor: `${colors.bone}55`,
+      alignSelf: "center",
+      marginBottom: 14,
+    },
+    panelTitle: {
+      color: colors.bone,
+      fontSize: 23,
+      fontWeight: "800",
+      marginBottom: 14,
+    },
+    panelTotal: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    panelTotalLabel: { color: colors.bone, fontSize: 16, fontWeight: "700" },
+    panelTotalValue: {
+      color: colors.bone,
+      fontSize: 18,
+      fontWeight: "800",
+      fontVariant: ["tabular-nums"],
+    },
+    panelHint: {
+      color: colors.muted,
+      fontSize: 13,
+      marginTop: 4,
+      marginBottom: 14,
+    },
+    payBtn: {
+      height: 54,
+      borderRadius: 27,
+      backgroundColor: colors.success,
       alignItems: "center",
       justifyContent: "center",
     },
-    payMarkTxt: { color: "#111", fontWeight: "800", fontSize: 11 },
-    tick: { color: colors.success, fontWeight: "700" },
+    payDisabled: { opacity: 0.42 },
+    payTxt: { color: colors.successInk, fontSize: 17, fontWeight: "800" },
+    secureText: {
+      color: colors.subtle,
+      textAlign: "center",
+      fontSize: 11,
+      marginTop: 10,
+    },
+    sheetH: {
+      color: colors.bone,
+      fontSize: 25,
+      lineHeight: 31,
+      fontWeight: "800",
+      letterSpacing: -0.35,
+    },
+    sheetP: {
+      color: `${colors.bone}E0`,
+      marginTop: 12,
+      lineHeight: 24,
+      fontSize: 16,
+    },
+    sheetLine: {
+      minHeight: 42,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    sheetLineLabel: { color: colors.muted, fontSize: 15 },
+    sheetLineValue: {
+      color: colors.bone,
+      fontSize: 15,
+      fontVariant: ["tabular-nums"],
+    },
+    sheetTotalLine: {
+      marginTop: 8,
+      paddingTop: 12,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: `${colors.bone}2E`,
+      flexDirection: "row",
+      justifyContent: "space-between",
+    },
+    sheetTotalLabel: { color: colors.bone, fontSize: 17, fontWeight: "800" },
+    sheetTotalValue: { color: colors.bone, fontSize: 18, fontWeight: "800" },
+    discountValue: { color: colors.success, fontSize: 15, fontWeight: "700" },
+    sheetBtn: {
+      minHeight: 50,
+      marginTop: 18,
+      borderRadius: 25,
+      backgroundColor: colors.success,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    sheetBtnT: { color: colors.successInk, fontWeight: "800" },
+    policyScroll: { flexShrink: 1 },
+    policyContent: { paddingBottom: 6 },
+    promotionBox: {
+      minHeight: 52,
+      marginTop: 16,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.subtle,
+      backgroundColor: colors.neutral,
+      flexDirection: "row",
+      alignItems: "center",
+      paddingLeft: 14,
+      overflow: "hidden",
+    },
+    promotionInput: {
+      flex: 1,
+      height: 50,
+      color: colors.bone,
+      fontSize: 15,
+      fontWeight: "600",
+    },
+    promotionButton: {
+      alignSelf: "stretch",
+      minWidth: 78,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.success,
+      paddingHorizontal: 13,
+    },
+    promotionButtonTxt: {
+      color: colors.successInk,
+      fontSize: 13,
+      fontWeight: "800",
+    },
+    promotionMessage: { marginTop: 8, fontSize: 12, lineHeight: 16 },
+    promotionGood: { color: colors.success },
+    promotionBad: { color: colors.danger },
     pick: {
-      minHeight: 48,
+      minHeight: 54,
       flexDirection: "row",
       alignItems: "center",
       gap: 12,
@@ -649,72 +1186,6 @@ function make(colors: Colors) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: `${colors.bone}1A`,
     },
-    sum: { paddingHorizontal: 20, paddingTop: 4 },
-    item: { flexDirection: "row", gap: 12, alignItems: "flex-start", marginBottom: 12 },
-    thumb: { width: 56, height: 56, borderRadius: 8, backgroundColor: colors.surface },
-    itemN: { color: colors.bone, fontSize: 15, fontWeight: "600" },
-    itemM: { color: colors.muted, fontSize: 13, marginTop: 2 },
-    itemP: { color: colors.bone, fontSize: 15 },
-    line: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 10 },
-    feeL: { flexDirection: "row", alignItems: "center", gap: 8 },
-    lineL: { color: colors.bone, fontSize: 15 },
-    lineV: { color: colors.bone, fontSize: 15, fontVariant: ["tabular-nums"] },
-    info: {
-      width: 16,
-      height: 16,
-      borderRadius: 8,
-      borderWidth: 1,
-      borderColor: colors.muted,
-      textAlign: "center",
-      fontSize: 10,
-      lineHeight: 14,
-      color: colors.muted,
-      overflow: "hidden",
-    },
-    muted: { color: colors.muted, fontSize: 15 },
-    protect: { color: colors.success, fontSize: 14, textDecorationLine: "underline", marginTop: 8 },
-    dock: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: colors.ink,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: `${colors.bone}1F`,
-      paddingHorizontal: 20,
-      paddingTop: 12,
-    },
-    totalRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
-    totalL: { color: colors.bone, fontSize: 17, fontWeight: "700" },
-    totalV: { color: colors.bone, fontSize: 17, fontWeight: "700" },
-    payBtn: {
-      height: 52,
-      borderRadius: 10,
-      backgroundColor: "#fff",
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    payTxt: { color: "#111", fontSize: 17, fontWeight: "700" },
-    lock: { color: colors.subtle, textAlign: "center", fontSize: 11, marginTop: 10 },
-    veil: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
-    sheet: {
-      backgroundColor: colors.surface,
-      borderTopLeftRadius: 20,
-      borderTopRightRadius: 20,
-      padding: 22,
-    },
-    sheetH: { color: colors.bone, fontSize: 25, lineHeight: 31, fontWeight: "800", letterSpacing: -0.35 },
-    sheetP: { color: `${colors.bone}E0`, marginTop: 12, lineHeight: 24, fontSize: 16 },
-    policyScroll: { flexShrink: 1 },
-    policyContent: { paddingBottom: 6 },
-    sheetBtn: {
-      marginTop: 18,
-      height: 48,
-      borderRadius: 24,
-      backgroundColor: colors.success,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    sheetBtnT: { color: colors.successInk, fontWeight: "700" },
+    tick: { color: colors.success, fontWeight: "700" },
   });
 }
