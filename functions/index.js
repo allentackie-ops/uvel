@@ -14,6 +14,7 @@ const paystackWebhookSecret = defineSecret("PAYSTACK_WEBHOOK_SECRET");
 
 if (!admin.apps.length) admin.initializeApp({ storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "uvel-32d32.firebasestorage.app" });
 const wallet = require("./wallet");
+const { quoteGroupedLine, groupedCarrier } = require("./groupedCheckoutMath");
 const stripeConnect = require("./stripeConnect");
 const { notifyUid } = require("./notify");
 
@@ -68,12 +69,12 @@ async function releaseOrderReservation(orderId, reason = "released") {
   });
 }
 
-async function reserveOrderInventory(orderId, listingId, brandId, variantKey) {
+async function reserveOrderInventory(orderId, listingId, brandId, variantKey, reservationMinutes = RESERVATION_MINUTES, refreshActive = false) {
   const db = admin.firestore();
   const orderRef = db.collection("orders").doc(orderId);
   const listingRef = db.collection("listings").doc(listingId);
   const reservationRef = db.collection("inventoryReservations").doc(orderId);
-  const expiresAt = Date.now() + RESERVATION_MINUTES * 60 * 1000;
+  const expiresAt = Date.now() + Math.min(120, Math.max(1, Number(reservationMinutes) || RESERVATION_MINUTES)) * 60 * 1000;
   await db.runTransaction(async (tx) => {
     const orderSnap = await tx.get(orderRef);
     const listingSnap = await tx.get(listingRef);
@@ -81,9 +82,17 @@ async function reserveOrderInventory(orderId, listingId, brandId, variantKey) {
     if (!orderSnap.exists || !listingSnap.exists) throw new HttpsError("not-found", "Order or listing not found.");
     const order = orderSnap.data() || {};
     const existing = reservationSnap.exists ? reservationSnap.data() || {} : {};
-    if (existing.status === "active" && timestampMillis(existing.expiresAt) > Date.now()) return;
+    if (existing.status === "active" && timestampMillis(existing.expiresAt) > Date.now()) {
+      if (refreshActive) {
+        const updatedExpiry = admin.firestore.Timestamp.fromMillis(expiresAt);
+        tx.set(reservationRef, { expiresAt: updatedExpiry }, { merge: true });
+        tx.set(orderRef, { inventoryReservationExpiresAt: updatedExpiry }, { merge: true });
+      }
+      return;
+    }
+    const refreshingExpiredReservation = existing.status === "active" && timestampMillis(existing.expiresAt) > 0 && timestampMillis(existing.expiresAt) <= Date.now();
     const listing = listingSnap.data() || {};
-    if (listing.status !== "listed" || listing.brandId !== brandId) throw new HttpsError("failed-precondition", "Listing is no longer available.");
+    if (listing.status !== "listed" || String(listing.brandId || "") !== String(brandId || "")) throw new HttpsError("failed-precondition", "Listing is no longer available.");
     const stock = Number(listing.stockQuantity);
     const hasStock = Number.isFinite(stock);
     if (!hasStock) throw new HttpsError("failed-precondition", "This listing has no inventory configured.");
@@ -91,14 +100,14 @@ async function reserveOrderInventory(orderId, listingId, brandId, variantKey) {
     const sizeStock = listing.sizeStock && typeof listing.sizeStock === "object" ? { ...listing.sizeStock } : null;
     if (variant && sizeStock) {
       const variantStock = Number(sizeStock[variant]);
-      if (!Number.isFinite(variantStock) || variantStock <= 0) throw new HttpsError("failed-precondition", "That size is sold out.");
-      sizeStock[variant] = Math.max(0, Math.floor(variantStock) - 1);
-    } else if (stock <= 0) {
+      if (!Number.isFinite(variantStock) || (!refreshingExpiredReservation && variantStock <= 0)) throw new HttpsError("failed-precondition", "That size is sold out.");
+      if (!refreshingExpiredReservation) sizeStock[variant] = Math.max(0, Math.floor(variantStock) - 1);
+    } else if (!refreshingExpiredReservation && stock <= 0) {
       throw new HttpsError("failed-precondition", "This listing is sold out.");
     }
-    const listingPatch = { stockQuantity: Math.max(0, Math.floor(stock) - 1), reservedQuantity: increment(1) };
+    const listingPatch = { stockQuantity: refreshingExpiredReservation ? Math.max(0, Math.floor(stock)) : Math.max(0, Math.floor(stock) - 1), reservedQuantity: refreshingExpiredReservation ? increment(0) : increment(1) };
     if (sizeStock) listingPatch.sizeStock = sizeStock;
-    if (variant && listing.reservedSizeStock && typeof listing.reservedSizeStock === "object") {
+    if (!refreshingExpiredReservation && variant && listing.reservedSizeStock && typeof listing.reservedSizeStock === "object") {
       listingPatch.reservedSizeStock = { ...listing.reservedSizeStock, [variant]: Math.max(0, Math.floor(Number(listing.reservedSizeStock[variant]) || 0) + 1) };
     }
     tx.set(listingRef, listingPatch, { merge: true });
@@ -349,6 +358,195 @@ exports.createStripePaymentIntent = onCall({ secrets: [stripeSecret] }, async (r
     return { clientSecret: paymentIntent.client_secret, paymentIntentId: paymentIntent.id };
   } catch (error) {
     if (reserved) await releaseOrderReservation(orderId, "payment_intent_failed").catch(() => undefined);
+    throw error;
+  }
+});
+
+function groupedAddress(value) {
+  const address = value && typeof value === "object" ? value : {};
+  const clean = (key, max = 160) => String(address[key] || "").trim().slice(0, max);
+  const result = { name: clean("name"), phone: clean("phone", 48), line1: clean("line1"), line2: clean("line2"), city: clean("city"), region: clean("region"), postal: clean("postal", 48), country: clean("country", 2).toUpperCase() };
+  if (!result.name || !result.line1 || !result.city || !result.postal || !/^[A-Z]{2}$/.test(result.country)) throw new HttpsError("invalid-argument", "Enter a complete shipping address before checking out.");
+  return result;
+}
+
+exports.createGroupedCheckout = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before checking out.");
+  const batchId = String(req.data?.checkoutBatchId || "").trim();
+  const listingIds = Array.isArray(req.data?.listingIds) ? req.data.listingIds.map((value) => String(value || "").trim()) : [];
+  if (!/^cb-[a-z0-9]{4,32}$/.test(batchId) || listingIds.length < 2 || listingIds.length > 8 || listingIds.some((value) => !/^[a-zA-Z0-9._:-]{1,120}$/.test(value)) || new Set(listingIds).size !== listingIds.length) throw new HttpsError("invalid-argument", "Invalid grouped checkout request.");
+  const address = groupedAddress(req.data?.address);
+  const rawChoices = Array.isArray(req.data?.shippingChoices) ? req.data.shippingChoices : [];
+  const choiceByListing = new Map(rawChoices.map((item) => [String(item?.listingId || ""), { carrierId: String(item?.carrierId || "").trim(), creditCents: Math.max(0, Math.floor(Number(item?.creditCents) || 0)) }]));
+  if (choiceByListing.size !== listingIds.length || listingIds.some((id) => !choiceByListing.has(id))) throw new HttpsError("invalid-argument", "Select delivery for every listing before checking out.");
+  const normalizedChoices = listingIds.map((id) => ({ listingId: id, carrierId: choiceByListing.get(id).carrierId, creditCents: choiceByListing.get(id).creditCents }));
+  const requestedCredit = normalizedChoices.reduce((sum, choice) => sum + choice.creditCents, 0);
+  if (requestedCredit > 1500 || normalizedChoices.filter((choice) => choice.creditCents > 0).length > 1) throw new HttpsError("failed-precondition", "First Find can be applied to one item per grouped checkout.");
+  const db = admin.firestore();
+  const batchRef = db.collection("checkoutBatches").doc(batchId);
+  const firstFindClaimRef = db.collection("firstFindClaims").doc(req.auth.uid);
+  const listingRefs = listingIds.map((id) => db.collection("listings").doc(id));
+  const batch = await db.runTransaction(async (tx) => {
+    const prior = await tx.get(batchRef);
+    if (prior.exists) {
+      const data = prior.data() || {};
+      if (data.buyerId !== req.auth.uid || JSON.stringify(data.listingIds || []) !== JSON.stringify(listingIds) || JSON.stringify(data.shippingChoices || []) !== JSON.stringify(normalizedChoices)) throw new HttpsError("already-exists", "This checkout reference belongs to another cart or delivery selection.");
+      if (Number(data.firstFindCreditCents || 0) > 0) {
+        const claim = await tx.get(firstFindClaimRef);
+        const claimData = claim.data() || {};
+        if (!claim.exists || claimData.checkoutBatchId !== batchId || ["consumed", "released"].includes(String(claimData.status || ""))) throw new HttpsError("failed-precondition", "Your First Find credit is no longer reserved for this checkout.");
+      }
+      const child = await Promise.all((data.orderIds || []).map(async (id) => {
+        const snap = await tx.get(db.collection("orders").doc(String(id)));
+        return snap.exists ? { id: snap.id, pieceId: String(snap.data()?.pieceId || "") } : null;
+      }));
+      if (Number(data.firstFindCreditCents || 0) > 0) tx.set(firstFindClaimRef, { status: "reserved", expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 120 * 60 * 1000), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      if (data.status === "failed" && !data.paymentIntentId) {
+        for (const order of child.filter(Boolean)) tx.set(db.collection("orders").doc(order.id), { status: "pending", updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        tx.set(batchRef, { status: "creating", failureReason: admin.firestore.FieldValue.delete(), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      } else if (data.status === "expired") {
+        throw new HttpsError("failed-precondition", "This checkout expired. Return to your bag and start a new checkout.");
+      }
+      return { orderIds: child.filter(Boolean), amountCents: Math.floor(Number(data.amountCents || 0)), alreadyExists: true };
+    }
+    const listingSnaps = await tx.getAll(...listingRefs);
+    const listings = listingSnaps.map((snap) => ({ id: snap.id, snap, listing: snap.data() || {} }));
+    const brandIds = Array.from(new Set(listings.map((row) => String(row.listing.brandId || "").trim()).filter(Boolean)));
+    const brandRefs = brandIds.map((id) => db.collection("brands").doc(id));
+    const brandSnaps = brandRefs.length ? await tx.getAll(...brandRefs) : [];
+    const brands = new Map(brandSnaps.map((snap) => [snap.id, snap.data() || {}]));
+    const firstFindClaimSnap = requestedCredit > 0 ? await tx.get(firstFindClaimRef) : null;
+    if (firstFindClaimSnap?.exists) {
+      const claim = firstFindClaimSnap.data() || {};
+      const expiresAt = timestampMillis(claim.expiresAt);
+      if (claim.checkoutBatchId !== batchId && claim.status === "reserved" && expiresAt > Date.now()) throw new HttpsError("failed-precondition", "Your First Find credit is already reserved for another checkout.");
+      if (claim.checkoutBatchId !== batchId && claim.status === "consumed") throw new HttpsError("failed-precondition", "Your First Find credit has already been used.");
+    }
+    const lines = listings.map(({ id, snap, listing }) => {
+      if (!snap.exists || listing.status !== "listed" || listing.sellerPaused === true) throw new HttpsError("failed-precondition", "A listing in this bag is no longer available.");
+      const origin = String(listing.country || "US").toUpperCase();
+      const brandId = String(listing.brandId || "");
+      const brand = brands.get(brandId) || {};
+      const requestedShips = listing.shipsTo;
+      const allowed = brand.operatingCountries;
+      let shipsTo = requestedShips || [origin];
+      if (Array.isArray(allowed) && allowed.length) {
+        const allowedSet = new Set(allowed.map((country) => String(country || "").toUpperCase()));
+        const requested = requestedShips === "all" ? Array.from(allowedSet) : Array.isArray(requestedShips) ? requestedShips : [origin];
+        const restricted = requested.map((country) => String(country || "").toUpperCase()).filter((country) => allowedSet.has(country));
+        if (allowedSet.has(origin) && !restricted.includes(origin)) restricted.unshift(origin);
+        shipsTo = restricted.length ? [...new Set(restricted)] : [origin];
+      }
+      if (!destinationAllowed(origin, shipsTo, address.country)) throw new HttpsError("failed-precondition", "A seller does not ship to this address.");
+      const madeByUvel = brand.madeByUvel === true;
+      const sameCountry = address.country === origin;
+      const selectedCarrier = madeByUvel ? null : groupedCarrier(origin, choiceByListing.get(id).carrierId, listing.shippingCarriers);
+      if (!madeByUvel && !selectedCarrier) throw new HttpsError("failed-precondition", "A selected delivery provider is no longer available.");
+      let quote;
+      try {
+        quote = quoteGroupedLine({ listPriceCents: Number(listing.listPriceCents), currency: listing.currency || "USD", sameCountry, express: selectedCarrier?.express === true, buyerPaysShipping: listing.shippingBuyerPays !== false, madeByUvel, creditCents: choiceByListing.get(id).creditCents });
+      } catch (error) {
+        throw new HttpsError("failed-precondition", error instanceof Error ? error.message : "A listing has an invalid price.");
+      }
+      const { itemCents, feeCents, shipCents, creditCents } = quote;
+      const sellerId = String(listing.ownerId || listing.listedByUid || brand.ownerId || "").trim();
+      if (!sellerId || sellerId === req.auth.uid) throw new HttpsError("failed-precondition", "A listing does not have an eligible seller.");
+      return { id, listing, brandId, sellerId, itemCents, feeCents, shipCents, creditCents, madeByUvel, sameCountry, carrier: selectedCarrier, origin };
+    });
+    const orderIds = lines.map(({ id }, index) => `grp-${batchId.slice(3)}-${index.toString(36)}`);
+    const totalCents = lines.reduce((sum, line) => sum + line.itemCents + line.feeCents + line.shipCents - line.creditCents, 0);
+    if (!Number.isSafeInteger(totalCents) || totalCents <= 0) throw new HttpsError("failed-precondition", "This checkout total is invalid.");
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const orders = lines.map((line, index) => ({
+      id: orderIds[index], checkoutBatchId: batchId, pieceId: line.id,
+      pieceName: String(line.listing.name || "Listing").slice(0, 180), piecePhoto: String(line.listing.photo || (Array.isArray(line.listing.photos) ? line.listing.photos[0] : "") || "").slice(0, 2000),
+      ...(line.brandId ? { brandId: line.brandId } : {}), madeByUvel: line.madeByUvel, buyerId: req.auth.uid, sellerId: line.sellerId,
+      itemCents: line.itemCents, feeCents: line.feeCents, discountCents: 0, creditCents: line.creditCents, shipCents: line.shipCents, taxCents: 0,
+      totalCents: line.itemCents + line.feeCents + line.shipCents - line.creditCents, currency: "USD", country: "US", payMethod: "stripe",
+      delivery: `${line.carrier ? `${line.carrier.name} · ` : ""}${line.carrier?.express ? "express" : "standard"}${line.sameCountry ? "" : " · international"}`,
+      ...(line.carrier ? { carrier: line.carrier.name, carrierId: line.carrier.id } : {}), address, status: "pending", fulfillmentStatus: line.madeByUvel ? "processing" : "unfulfilled", createdAt: now,
+    }));
+    for (let i = 0; i < orders.length; i += 1) tx.create(db.collection("orders").doc(orders[i].id), orders[i]);
+    if (requestedCredit > 0) tx.set(firstFindClaimRef, { buyerId: req.auth.uid, checkoutBatchId: batchId, amountCents: requestedCredit, status: "reserved", expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 120 * 60 * 1000), updatedAt: now }, { merge: true });
+    tx.create(batchRef, { id: batchId, buyerId: req.auth.uid, listingIds, shippingChoices: normalizedChoices, orderIds, currency: "USD", amountCents: totalCents, firstFindCreditCents: requestedCredit, address, status: "creating", createdAt: now, updatedAt: now });
+    return { orderIds: orders.map((order) => ({ id: order.id, pieceId: order.pieceId })), amountCents: totalCents, alreadyExists: false };
+  });
+  const currentBatch = await batchRef.get();
+  const currentData = currentBatch.data() || {};
+  if (currentData.status !== "ready" && currentData.status !== "payment_pending" && currentData.status !== "paid") {
+    const reserved = [];
+    try {
+      const orderSnaps = await Promise.all(batch.orderIds.map(({ id }) => db.collection("orders").doc(id).get()));
+      for (const snap of orderSnaps) {
+        const order = snap.data() || {};
+        await reserveOrderInventory(snap.id, String(order.pieceId), String(order.brandId || ""), String(order.variantKey || ""), 120);
+        reserved.push(snap.id);
+      }
+      await batchRef.set({ status: "ready", updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    } catch (error) {
+      await Promise.all(reserved.map((id) => releaseOrderReservation(id, "group_reservation_failed").catch(() => undefined)));
+      await batchRef.set({ status: "failed", failureReason: String(error?.message || "reservation_failed").slice(0, 180), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      await Promise.all(batch.orderIds.map(({ id }) => db.collection("orders").doc(id).set({ status: "failed" }, { merge: true })));
+      throw error;
+    }
+  }
+  return { checkoutBatchId: batchId, orderIds: batch.orderIds, amountCents: Math.floor(Number(currentData.amountCents || batch.amountCents || 0)) };
+});
+
+exports.createGroupedStripePaymentIntent = onCall({ secrets: [stripeSecret] }, async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before checking out.");
+  const batchId = String(req.data?.checkoutBatchId || "").trim();
+  if (!/^cb-[a-z0-9]{4,32}$/.test(batchId)) throw new HttpsError("invalid-argument", "Invalid grouped checkout.");
+  const db = admin.firestore();
+  const batchRef = db.collection("checkoutBatches").doc(batchId);
+  const batchSnap = await batchRef.get();
+  if (!batchSnap.exists) throw new HttpsError("not-found", "Grouped checkout not found.");
+  const batch = batchSnap.data() || {};
+  if (batch.buyerId !== req.auth.uid) throw new HttpsError("permission-denied", "This checkout belongs to another buyer.");
+  if (batch.status === "paid") return { checkoutBatchId: batchId, alreadyPaid: true };
+  if (!["ready", "payment_pending", "settling"].includes(String(batch.status || ""))) throw new HttpsError("failed-precondition", "Grouped checkout is not ready for payment.");
+  const amountCents = Math.floor(Number(batch.amountCents || 0));
+  if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || String(batch.currency || "").toUpperCase() !== "USD") throw new HttpsError("failed-precondition", "Stripe PaymentSheet is currently available for US-dollar orders only.");
+  if (Number(batch.firstFindCreditCents || 0) > 0) {
+    const claimRef = db.collection("firstFindClaims").doc(req.auth.uid);
+    const claimSnap = await claimRef.get();
+    const claim = claimSnap.data() || {};
+    if (!claimSnap.exists || claim.checkoutBatchId !== batchId || claim.status !== "reserved" || Number(claim.amountCents || 0) !== Number(batch.firstFindCreditCents || 0)) throw new HttpsError("failed-precondition", "Your First Find credit is no longer reserved for this checkout.");
+    await claimRef.set({ expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 120 * 60 * 1000), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  }
+  const dbOrders = await Promise.all((batch.orderIds || []).map((id) => db.collection("orders").doc(String(id)).get()));
+  if (dbOrders.length < 2 || dbOrders.some((snap) => !snap.exists || snap.data()?.buyerId !== req.auth.uid || snap.data()?.checkoutBatchId !== batchId || snap.data()?.status !== "pending")) throw new HttpsError("failed-precondition", "One or more orders in this checkout are no longer payable.");
+  const orderTotal = dbOrders.reduce((sum, snap) => sum + Math.floor(Number(snap.data()?.totalCents || 0)), 0);
+  if (orderTotal !== amountCents) throw new HttpsError("failed-precondition", "Grouped checkout totals do not match its orders.");
+  for (const snap of dbOrders) {
+    const order = snap.data() || {};
+    await reserveOrderInventory(snap.id, String(order.pieceId), String(order.brandId || ""), String(order.variantKey || ""), 120, true);
+  }
+  const stripe = require("stripe")(stripeSecret.value());
+  let paymentAttempt = Math.max(0, Math.floor(Number(batch.paymentIntentAttempt) || 0));
+  if (batch.paymentIntentId) {
+    const existing = await stripe.paymentIntents.retrieve(String(batch.paymentIntentId));
+    if (existing.status === "succeeded") {
+      const settled = await markGroupedCheckoutPaid(batchId, existing.id, existing.amount_received || existing.amount, existing.currency);
+      if (!settled.ok) throw new HttpsError("failed-precondition", "Payment was received but order confirmation is still being reconciled. Please contact Uvel support before retrying.");
+      return { checkoutBatchId: batchId, alreadyPaid: true };
+    }
+    if (["requires_payment_method", "requires_confirmation", "requires_action", "processing"].includes(existing.status)) return { clientSecret: existing.client_secret, paymentIntentId: existing.id, checkoutBatchId: batchId };
+    if (existing.status === "canceled") paymentAttempt += 1;
+  }
+  try {
+    const stripeIntent = await stripe.paymentIntents.create({
+      amount: amountCents,
+      currency: "usd",
+      automatic_payment_methods: { enabled: true },
+      receipt_email: String(req.auth.token.email || "") || undefined,
+      metadata: { checkoutBatchId: batchId, buyerId: req.auth.uid, schema: "uvel-checkout-batch-v1" },
+      transfer_group: `checkout_${batchId}`,
+    }, { idempotencyKey: `group-payment-intent-${batchId}-${paymentAttempt}` });
+    await batchRef.set({ status: "payment_pending", paymentProvider: "stripe", paymentReference: stripeIntent.id, paymentIntentId: stripeIntent.id, paymentIntentAttempt: paymentAttempt, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    await Promise.all(dbOrders.map((snap) => snap.ref.set({ paymentProvider: "stripe", paymentReference: stripeIntent.id, paymentIntentId: stripeIntent.id, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true })));
+    return { checkoutBatchId: batchId, clientSecret: stripeIntent.client_secret, paymentIntentId: stripeIntent.id };
+  } catch (error) {
     throw error;
   }
 });
@@ -763,6 +961,113 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
   return result;
 }
 
+async function markGroupedCheckoutPaid(batchId, providerPaymentId, providerAmount, providerCurrency) {
+  if (!batchId) return { ok: false, reason: "missing-checkout-batch" };
+  const db = admin.firestore();
+  const batchRef = db.collection("checkoutBatches").doc(batchId);
+  const result = await db.runTransaction(async (tx) => {
+    const batchSnap = await tx.get(batchRef);
+    if (!batchSnap.exists) return { ok: false, reason: "checkout-batch-not-found" };
+    const batch = batchSnap.data() || {};
+    if (batch.status === "paid") return { ok: true, duplicate: true, orderIds: batch.orderIds || [] };
+    if (batch.status !== "payment_pending" && batch.status !== "settling") return { ok: false, reason: "checkout-batch-not-payable" };
+    const orderIds = Array.isArray(batch.orderIds) ? batch.orderIds.map((id) => String(id)) : [];
+    if (orderIds.length < 2 || orderIds.length > 8) return { ok: false, reason: "checkout-batch-size-invalid" };
+    const orderRefs = orderIds.map((id) => db.collection("orders").doc(id));
+    const orderSnaps = await Promise.all(orderRefs.map((ref) => tx.get(ref)));
+    const orders = orderSnaps.map((snap) => snap.data() || {});
+    if (orderSnaps.some((snap, index) => !snap.exists || orders[index].checkoutBatchId !== batchId || orders[index].buyerId !== batch.buyerId)) return { ok: false, reason: "checkout-child-order-invalid" };
+    const expected = Math.floor(Number(batch.amountCents || 0));
+    const itemTotal = orders.reduce((sum, order) => sum + Math.floor(Number(order.totalCents || 0)), 0);
+    if (!Number.isSafeInteger(expected) || expected <= 0 || itemTotal !== expected || Number(providerAmount) !== expected) return { ok: false, reason: "amount-mismatch" };
+    if (String(batch.currency || "").toUpperCase() !== String(providerCurrency || "").toUpperCase() || String(batch.currency || "").toUpperCase() !== "USD") return { ok: false, reason: "currency-mismatch" };
+    if (orders.some((order) => !["pending", "paid"].includes(String(order.status || "")))) return { ok: false, reason: "child-order-not-payable" };
+    const reservationRefs = orderIds.map((id) => db.collection("inventoryReservations").doc(id));
+    const reservationSnaps = await Promise.all(reservationRefs.map((ref) => tx.get(ref)));
+    const listingRefs = orders.map((order) => order.pieceId ? db.collection("listings").doc(String(order.pieceId)) : null);
+    const uniqueListings = Array.from(new Map(listingRefs.filter(Boolean).map((ref) => [ref.path, ref])).values());
+    const listingSnaps = await Promise.all(uniqueListings.map((ref) => tx.get(ref)));
+    const listingsByPath = new Map(uniqueListings.map((ref, index) => [ref.path, listingSnaps[index]]));
+    const firstFindClaimRef = Number(batch.firstFindCreditCents || 0) > 0 ? db.collection("firstFindClaims").doc(String(batch.buyerId || "")) : null;
+    const firstFindClaimSnap = firstFindClaimRef ? await tx.get(firstFindClaimRef) : null;
+    const firstFindClaim = firstFindClaimSnap?.data() || {};
+    if (firstFindClaimRef && (!firstFindClaimSnap?.exists || firstFindClaim.checkoutBatchId !== batchId || firstFindClaim.status !== "reserved" || Number(firstFindClaim.amountCents || 0) !== Number(batch.firstFindCreditCents || 0))) return { ok: false, reason: "first-find-credit-not-reserved" };
+    const now = Date.now();
+    for (let i = 0; i < orders.length; i += 1) {
+      const order = orders[i];
+      const reservation = reservationSnaps[i].exists ? reservationSnaps[i].data() || {} : {};
+      const active = reservation.status === "active" && timestampMillis(reservation.expiresAt) > now;
+      if (!active && order.status !== "paid") return { ok: false, reason: "inventory-reservation-expired" };
+      const listingSnap = listingsByPath.get(listingRefs[i]?.path);
+      if (!listingSnap?.exists) return { ok: false, reason: "listing-unavailable" };
+    }
+    const paidAt = admin.firestore.FieldValue.serverTimestamp();
+    for (let i = 0; i < orders.length; i += 1) {
+      const order = orders[i];
+      if (order.status === "paid") continue;
+      const reservationRef = reservationRefs[i];
+      const reservation = reservationSnaps[i].exists ? reservationSnaps[i].data() || {} : {};
+      const reservationActive = reservation.status === "active" && timestampMillis(reservation.expiresAt) > now;
+      const paidUpdate = { status: "paid", fulfillmentStatus: order.madeByUvel ? "processing" : "unfulfilled", paymentProvider: "stripe", paymentReference: providerPaymentId, paymentIntentId: providerPaymentId, paidAt };
+      if (reservationActive) {
+        tx.set(reservationRef, { status: "consumed", consumedAt: paidAt }, { merge: true });
+        paidUpdate.inventoryReservationStatus = "consumed";
+        const listingSnap = listingsByPath.get(listingRefs[i]?.path);
+        if (listingSnap?.exists) {
+          const listing = listingSnap.data() || {};
+          const patch = { reservedQuantity: increment(-1) };
+          if (Number.isFinite(Number(listing.stockQuantity)) && Number(listing.stockQuantity) <= 0) {
+            patch.status = "sold";
+            patch.soldAt = paidAt;
+          }
+          tx.set(listingRefs[i], patch, { merge: true });
+        }
+      }
+      tx.update(orderRefs[i], paidUpdate);
+      if (order.brandId) {
+        const refs = analyticsRefs(db, String(order.brandId));
+        const day = dayKey();
+        const currency = String(order.currency || "USD").toUpperCase();
+        const earnings = Math.max(0, Number(order.itemCents || 0) - Number(order.discountCents || 0) - Number(order.feeCents || 0));
+        tx.set(refs.base, { sold: increment(1), earningsCents: increment(earnings), currency, [`earningsByCurrency.${currency}`]: increment(earnings), updatedAt: paidAt }, { merge: true });
+        tx.set(refs.daily(day), { day, sales: increment(1), earnings: increment(earnings), [`earningsByCurrency.${currency}`]: increment(earnings), updatedAt: paidAt }, { merge: true });
+        if (order.pieceId) tx.set(refs.top(String(order.pieceId)), { id: String(order.pieceId), name: String(order.pieceName || "Listing"), photo: String(order.piecePhoto || ""), sold: increment(1), updatedAt: paidAt }, { merge: true });
+      }
+    }
+    if (firstFindClaimRef) tx.set(firstFindClaimRef, { status: "consumed", consumedAt: paidAt, updatedAt: paidAt }, { merge: true });
+    tx.set(batchRef, { status: "paid", paidAt, paymentProvider: "stripe", paymentReference: providerPaymentId, paymentIntentId: providerPaymentId, updatedAt: paidAt }, { merge: true });
+    return { ok: true, duplicate: false, orderIds };
+  });
+  if (result.ok) await Promise.all((result.orderIds || []).map((id) => wallet.creditSellerPending(String(id))));
+  return result;
+}
+
+async function markGroupedCheckoutRefunded(batchId, refundId, refundStatus, reason) {
+  const db = admin.firestore();
+  const batchRef = db.collection("checkoutBatches").doc(batchId);
+  const updated = await db.runTransaction(async (tx) => {
+    const batchSnap = await tx.get(batchRef);
+    if (!batchSnap.exists) return { ok: false, orderIds: [] };
+    const batch = batchSnap.data() || {};
+    if (batch.status === "paid") return { ok: false, orderIds: [] };
+    const orderIds = Array.isArray(batch.orderIds) ? batch.orderIds.map(String) : [];
+    const firstFindClaimRef = Number(batch.firstFindCreditCents || 0) > 0 ? db.collection("firstFindClaims").doc(String(batch.buyerId || "")) : null;
+    const firstFindClaimSnap = firstFindClaimRef ? await tx.get(firstFindClaimRef) : null;
+    const orderRefs = orderIds.map((id) => db.collection("orders").doc(id));
+    const orderSnaps = await Promise.all(orderRefs.map((ref) => tx.get(ref)));
+    const succeeded = ["succeeded", "processed", "completed"].includes(String(refundStatus || ""));
+    const nextStatus = succeeded ? "refunded" : "refund_pending";
+    tx.set(batchRef, { status: nextStatus, refundProviderId: String(refundId || ""), refundStatus: succeeded ? "succeeded" : "processing", refundReason: String(reason || "settlement-reconciliation").slice(0, 120), refundUpdatedAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    if (succeeded && firstFindClaimRef && firstFindClaimSnap?.exists && firstFindClaimSnap.data()?.checkoutBatchId === batchId) tx.set(firstFindClaimRef, { status: "released", releasedAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    if (succeeded) orderSnaps.forEach((snap, index) => {
+      if (snap.exists && snap.data()?.status !== "paid") tx.set(orderRefs[index], { status: "failed", refundStatus: "succeeded", refundProviderId: String(refundId || ""), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    });
+    return { ok: true, orderIds, succeeded };
+  });
+  if (updated.succeeded) await Promise.all(updated.orderIds.map((id) => releaseOrderReservation(String(id), "group_payment_refunded").catch(() => undefined)));
+  return updated;
+}
+
 const FULFILLMENT_TRANSITIONS = {
   unfulfilled: new Set(["processing", "canceled"]),
   processing: new Set(["packed", "canceled"]),
@@ -857,7 +1162,18 @@ function stripeWebhook() {
     if (event.type === "payment_intent.succeeded") {
       const paymentIntent = event.data.object;
       const metadata = paymentIntent.metadata || {};
-      const result = await markOrderPaid(metadata.orderId, "stripe", paymentIntent.id, paymentIntent.amount_received || paymentIntent.amount, paymentIntent.currency, paymentIntent.id, "", { brandId: metadata.brandId, listingId: metadata.listingId, valueCents: paymentIntent.amount_received || paymentIntent.amount });
+      let result;
+      if (metadata.checkoutBatchId) {
+        result = await markGroupedCheckoutPaid(String(metadata.checkoutBatchId), paymentIntent.id, paymentIntent.amount_received || paymentIntent.amount, paymentIntent.currency);
+        if (!result.ok && !result.duplicate) {
+          const amount = Math.floor(Number(paymentIntent.amount_received || paymentIntent.amount) || 0);
+          if (amount <= 0) return res.status(400).json({ ok: false, reason: "invalid-captured-amount" });
+          const refund = await stripe.refunds.create({ payment_intent: paymentIntent.id, amount, metadata: { checkoutBatchId: String(metadata.checkoutBatchId), reason: String(result.reason || "settlement-failed") } }, { idempotencyKey: `uvel-group-refund-${String(metadata.checkoutBatchId)}` });
+          await markGroupedCheckoutRefunded(String(metadata.checkoutBatchId), refund.id, String(refund.status || "processing"), String(result.reason || "settlement-failed"));
+        }
+      } else {
+        result = await markOrderPaid(metadata.orderId, "stripe", paymentIntent.id, paymentIntent.amount_received || paymentIntent.amount, paymentIntent.currency, paymentIntent.id, "", { brandId: metadata.brandId, listingId: metadata.listingId, valueCents: paymentIntent.amount_received || paymentIntent.amount });
+      }
       if (!result.ok && !result.duplicate) return res.status(400).json(result);
     }
     if (["account.updated", "account.external_account.updated", "transfer.created", "transfer.failed", "transfer.reversed", "payout.paid", "payout.failed", "payout.canceled"].includes(event.type)) {
@@ -865,7 +1181,11 @@ function stripeWebhook() {
     }
     if (event.type === "refund.created" || event.type === "refund.updated") {
       const refund = event.data.object || {};
-      await recordProviderRefund(String(refund.metadata?.orderId || ""), String(refund.id || ""), String(refund.status || "processing"));
+      if (refund.metadata?.checkoutBatchId) {
+        await markGroupedCheckoutRefunded(String(refund.metadata.checkoutBatchId), String(refund.id || ""), String(refund.status || "processing"), String(refund.metadata.reason || "settlement-reconciliation"));
+      } else {
+        await recordProviderRefund(String(refund.metadata?.orderId || ""), String(refund.id || ""), String(refund.status || "processing"));
+      }
     }
     return res.status(200).send("ok");
   });
@@ -1740,7 +2060,7 @@ async function restockOrderInventory(orderId) {
     const orderSnap = await tx.get(orderRef);
     if (!orderSnap.exists) throw new HttpsError("not-found", "Order not found.");
     const order = orderSnap.data() || {};
-    if (order.inventoryRestockedAt || !order.brandId || !order.pieceId) return;
+    if (order.inventoryRestockedAt || (!order.brandId && !order.checkoutBatchId) || !order.pieceId) return;
     const listingRef = db.collection("listings").doc(String(order.pieceId));
     const listingSnap = await tx.get(listingRef);
     if (!listingSnap.exists) {

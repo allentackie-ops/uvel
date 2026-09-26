@@ -59,6 +59,7 @@ export type OrderResolution = {
 
 export type Order = {
   id: string;
+  checkoutBatchId?: string;
   pieceId: string;
   pieceName: string;
   piecePhoto: string;
@@ -249,13 +250,14 @@ export function watchOrder(id: string, onStatus: (status: Order["status"] | null
   }
 }
 
-export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status">): Promise<Order> {
+export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status">, options: { id?: string; checkoutBatchId?: string } = {}): Promise<Order> {
   if (!firebaseReady() || !firebaseAuth().currentUser) {
     throw new Error("Orders are unavailable until Uvel reconnects to the marketplace service.");
   }
   const full: Order = {
     ...order,
-    id: `o-${Date.now().toString(36)}`,
+    id: options.id || `o-${Date.now().toString(36)}`,
+    checkoutBatchId: options.checkoutBatchId,
     createdAt: Date.now(),
     // A hosted checkout returning does not prove payment. Trusted payment
     // webhooks should be the only source that changes this to "paid".

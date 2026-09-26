@@ -11,6 +11,7 @@ import { useUvel } from "../../lib/store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, type Colors } from "../../lib/theme";
 import { semanticStatus, statusToneFor } from "../../lib/status";
+import { moneyExact } from "../../lib/markets";
 
 export default function OrderDone() {
   const colors = useColors();
@@ -21,6 +22,7 @@ export default function OrderDone() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const orders = useOrders();
   const currentOrder = orders.find((order) => order.id === id);
+  const groupedOrders = currentOrder?.checkoutBatchId ? orders.filter((order) => order.checkoutBatchId === currentOrder.checkoutBatchId) : [];
   const [status, setStatus] = useState<"pending" | "paid" | "failed" | null>("pending");
   const [fulfillment, setFulfillment] = useState<FulfillmentStatus | null>(null);
   const [busy, setBusy] = useState(false);
@@ -155,6 +157,21 @@ export default function OrderDone() {
           : "We’re waiting for the payment provider to confirm this order. You can leave this screen; the order will update when confirmation arrives."}
       </Text>
       {confirmed ? <Text style={[styles.status, orderStatusAppearance]}>{fulfillmentLabel}</Text> : null}
+      {groupedOrders.length > 1 ? (
+        <View style={styles.groupCard}>
+          <Text style={styles.groupTitle}>Items in this checkout</Text>
+          {groupedOrders.map((order) => (
+            <Pressable key={order.id} onPress={() => { if (order.id !== id) router.replace({ pathname: "/order/[id]", params: { id: order.id } }); }} style={styles.groupRow} accessibilityRole={order.id === id ? undefined : "button"} accessibilityLabel={`${order.pieceName}, ${order.status === "paid" ? "payment confirmed" : order.status === "failed" ? "payment failed" : "payment confirmation pending"}. ${moneyExact(order.totalCents, order.currency)}${order.id === id ? ". Current order." : ". Open order."}`}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.groupItem} numberOfLines={1}>{order.pieceName}</Text>
+                <Text style={styles.groupSeller} numberOfLines={1}>{order.status === "paid" ? "Payment confirmed · separate seller order" : order.status === "failed" ? "Payment not completed" : "Waiting for payment confirmation"}</Text>
+              </View>
+              <Text style={styles.groupAmount}>{moneyExact(order.totalCents, order.currency)}</Text>
+            </Pressable>
+          ))}
+          <Text style={styles.groupNote}>Each seller’s pending balance is tracked separately. The existing withdrawal release rules still apply.</Text>
+        </View>
+      ) : null}
       {isOrdinarySeller && confirmed && !["shipped", "delivered", "canceled", "returned"].includes(fulfillment || "") ? <View style={styles.sellerCard}><Text style={styles.sellerK}>SELL THIS ORDER</Text><Text style={styles.sellerTitle}>{currentOrder?.carrier ? `Ship with ${currentOrder.carrier}` : "Prepare the item for dispatch"}</Text><Text style={styles.sellerMeta}>Use the carrier selected by the buyer. Take the parcel to the provider and add the tracking number from your receipt.</Text>{fulfillment === "unfulfilled" ? <Pressable disabled={busy} onPress={() => void updateSellerFulfillment("processing")} style={[styles.actionBtn, busy && styles.actionBtnOff]}><Text style={styles.actionTxt}>{busy ? "Updating…" : "Start preparing"}</Text></Pressable> : null}{fulfillment === "processing" ? <Pressable disabled={busy} onPress={() => void updateSellerFulfillment("packed")} style={[styles.actionBtn, busy && styles.actionBtnOff]}><Text style={styles.actionTxt}>{busy ? "Updating…" : "Mark as packed"}</Text></Pressable> : null}{fulfillment === "packed" ? <><TextInput value={tracking} onChangeText={setTracking} placeholder="Tracking number" placeholderTextColor={colors.muted} style={styles.trackingInput} autoCapitalize="characters" /><Pressable disabled={busy} onPress={() => void updateSellerFulfillment("shipped")} style={[styles.actionBtn, busy && styles.actionBtnOff]}><Text style={styles.actionTxt}>{busy ? "Updating…" : "Mark as shipped"}</Text></Pressable></> : null}</View> : null}
       {shipment ? <View style={styles.shipmentCard}><Text style={[styles.shipmentK, { color: semanticStatus(colors, statusToneFor(shipment.status)).color }]}>SHIPMENT · {shipment.status.replace("_", " ")}</Text><Text style={styles.tracking}>{shipment.carrier} · {shipment.trackingNumber}</Text>{shipment.trackingUrl ? <Pressable onPress={() => void Linking.openURL(shipment.trackingUrl || "")}><Text style={styles.trackingLink}>Open carrier tracking ↗</Text></Pressable> : null}{shipment.estimatedDeliveryAt ? <Text style={styles.shipmentMeta}>Estimated delivery: {new Date(shipment.estimatedDeliveryAt).toLocaleDateString()}</Text> : null}{shipment.lastLocation ? <Text style={styles.shipmentMeta}>Last location: {shipment.lastLocation}</Text> : null}{shipment.status === "exception" ? <Text style={[styles.exception, { color: semanticStatus(colors, "danger").color }]}>
 Delivery exception: {shipment.exceptionCode?.replace("_", " ") || "Carrier issue"}{shipment.exceptionNote ? ` · ${shipment.exceptionNote}` : ""}</Text> : null}</View> : currentOrder?.trackingNumber ? <Text style={styles.tracking}>{currentOrder.carrier ? `${currentOrder.carrier} · ` : ""}{currentOrder.trackingNumber}</Text> : null}
@@ -179,6 +196,13 @@ function make(colors: Colors) {
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 36, marginTop: 12 },
     p: { color: colors.muted, marginTop: 14, lineHeight: 22, fontSize: 16 },
     status: { alignSelf: "flex-start", color: colors.pulseInk, backgroundColor: colors.pulse, borderRadius: 18, paddingHorizontal: 13, paddingVertical: 8, marginTop: 20, fontWeight: "800" },
+    groupCard: { marginTop: 18, padding: 14, borderRadius: 16, backgroundColor: colors.neutral, borderWidth: 1, borderColor: `${colors.pulse}66` },
+    groupTitle: { color: colors.bone, fontSize: 16, lineHeight: 21, fontWeight: "800", marginBottom: 5 },
+    groupRow: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}22` },
+    groupItem: { color: colors.bone, fontSize: 14, lineHeight: 19, fontWeight: "700" },
+    groupSeller: { color: `${colors.bone}A0`, fontSize: 11, lineHeight: 15, marginTop: 2 },
+    groupAmount: { color: colors.bone, fontSize: 13, fontWeight: "700", fontVariant: ["tabular-nums"] },
+    groupNote: { color: `${colors.bone}A0`, fontSize: 12, lineHeight: 18, marginTop: 10 },
     tracking: { color: colors.bone, marginTop: 12, fontSize: 14, fontWeight: "700" },
     sellerCard: { marginTop: 18, padding: 14, borderRadius: 16, backgroundColor: colors.neutral, borderWidth: 1, borderColor: colors.pulse },
     sellerK: { color: colors.pulse, fontSize: 10, letterSpacing: 1.4, fontWeight: "800" },

@@ -22,12 +22,18 @@ import { useFirstFind } from "../../lib/firstFind";
 import { getBrand } from "../../lib/brands";
 import { brandMakes } from "../../lib/brandMake";
 import { carriersForListing } from "../../lib/sellerShipping";
+import { GroupedCheckout } from "../../components/GroupedCheckout";
 
 export default function Checkout() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { id, variantKey: variantParam, variantLabel: variantLabelParam, campaignId, collectionId, promotionId, campaignChannel } = useLocalSearchParams<{ id: string; variantKey?: string; variantLabel?: string; campaignId?: string; collectionId?: string; promotionId?: string; campaignChannel?: string }>();
+  const { id, ids: idsParam, variantKey: variantParam, variantLabel: variantLabelParam, campaignId, collectionId, promotionId, campaignChannel } = useLocalSearchParams<{ id: string; ids?: string | string[]; variantKey?: string; variantLabel?: string; campaignId?: string; collectionId?: string; promotionId?: string; campaignChannel?: string }>();
+  const checkoutIds = useMemo(() => {
+    const supplied = Array.isArray(idsParam) ? idsParam : typeof idsParam === "string" ? idsParam.split(",") : [];
+    const normalized = Array.from(new Set(supplied.map((value) => value.trim()).filter(Boolean)));
+    return normalized.length ? normalized : id ? [id] : [];
+  }, [idsParam, id]);
   useWardrobe();
   const marketplaceSync = useMarketplaceSyncState();
   const piece = getPiece(id);
@@ -102,6 +108,8 @@ export default function Checkout() {
   useEffect(() => {
     if (carrierOptions.length && !carrierOptions.some((carrier) => carrier.id === carrierId)) setCarrierId(carrierOptions[0].id);
   }, [carrierOptions.map((carrier) => carrier.id).join(",")]);
+
+  if (checkoutIds.length > 1) return <GroupedCheckout ids={checkoutIds} />;
 
   async function applyPromotion() {
     if (!piece || promotionBusy) return;
@@ -425,16 +433,8 @@ export default function Checkout() {
             <Text style={styles.lineV}>{moneyExact(fee, market.currency)}</Text>
           </View>
           <View style={styles.line}>
-            <Text style={styles.lineL}>Seller receives</Text>
-            <Text style={styles.lineV}>{moneyExact(itemLocal, market.currency)}</Text>
-          </View>
-          <View style={styles.line}>
             <Text style={styles.lineL}>{making ? (international ? "International delivery" : "Delivery") : "Shipping"}</Text>
             <Text style={styles.lineV}>{moneyExact(shipCost, market.currency)}</Text>
-          </View>
-          <View style={styles.line}>
-            <Text style={styles.lineL}>Sales tax</Text>
-            <Text style={styles.muted}>To be confirmed</Text>
           </View>
           {walletCovers ? <View style={styles.line}><Text style={styles.lineL}>Uvel balance</Text><Text style={styles.discountValue}>−{moneyExact(total, market.currency)}</Text></View> : wallet.availableCents > 0 ? <Text style={styles.protect}>Uvel balance {moneyExact(wallet.availableCents, market.currency)} — it pays in full when it covers the total.</Text> : null}
           <AccessiblePressable            onPress={() => setFeeInfo(true)}
@@ -482,17 +482,19 @@ export default function Checkout() {
         </Sheet>
       ) : null}
 
-      <Sheet open={policyOpen} onClose={() => setPolicyOpen(false)}>
-        <Text style={styles.sheetH}>{policyName} refund policy</Text>
-        {policyMode === "final_sale" ? <>
-          <Text style={styles.sheetP}>This item is final sale, so change-of-mind returns are not accepted.</Text>
-          <Text style={styles.sheetP}>If the item arrives damaged, defective, or different from the listing, contact Uvel support and we’ll help review it.</Text>
-        </> : <>
-          <Text style={styles.sheetP}>You can request a return within {policyWindow} days after delivery.</Text>
-          <Text style={styles.sheetP}>{policyShipping}</Text>
-          <Text style={styles.sheetP}>Items that arrive damaged, defective, or different from the listing can still be reported to Uvel.</Text>
-        </>}
-        {brand?.customerPolicyNote ? <Text style={styles.sheetP}>Brand note: {brand.customerPolicyNote}</Text> : null}
+      <Sheet open={policyOpen} onClose={() => setPolicyOpen(false)} expandable>
+        <ScrollView style={styles.policyScroll} contentContainerStyle={styles.policyContent} showsVerticalScrollIndicator>
+          <Text style={styles.sheetH}>{policyName} returns policy</Text>
+          {policyMode === "final_sale" ? <>
+            <Text style={styles.sheetP}>This item is final sale, so change-of-mind returns are not accepted.</Text>
+            <Text style={styles.sheetP}>If the item arrives damaged, defective, or different from the listing, contact Uvel support and we’ll help review it.</Text>
+          </> : <>
+            <Text style={styles.sheetP}>You can request a return within {policyWindow} days after delivery.</Text>
+            <Text style={styles.sheetP}>{policyShipping}</Text>
+            <Text style={styles.sheetP}>Items that arrive damaged, defective, or different from the listing can still be reported to Uvel.</Text>
+          </>}
+          {brand?.customerPolicyNote ? <Text style={styles.sheetP}>Brand note: {brand.customerPolicyNote}</Text> : null}
+        </ScrollView>
         <AccessiblePressable onPress={() => setPolicyOpen(false)} style={({ pressed }) => [styles.sheetBtn, pressed && { opacity: 0.92 }]} accessibilityRole="button" accessibilityLabel="Close refund policy"><Text style={styles.sheetBtnT}>Got it</Text></AccessiblePressable>
       </Sheet>
 
@@ -701,8 +703,10 @@ function make(colors: Colors) {
       borderTopRightRadius: 20,
       padding: 22,
     },
-    sheetH: { color: colors.bone, fontFamily: "Georgia", fontSize: 24 },
-    sheetP: { color: colors.muted, marginTop: 10, lineHeight: 22, fontSize: 15 },
+    sheetH: { color: colors.bone, fontSize: 25, lineHeight: 31, fontWeight: "800", letterSpacing: -0.35 },
+    sheetP: { color: `${colors.bone}E0`, marginTop: 12, lineHeight: 24, fontSize: 16 },
+    policyScroll: { flexShrink: 1 },
+    policyContent: { paddingBottom: 6 },
     sheetBtn: {
       marginTop: 18,
       height: 48,

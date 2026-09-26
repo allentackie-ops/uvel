@@ -6,12 +6,13 @@ import { useEffect, useRef, useState } from "react";
 import { Animated, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FriendShareSheet, type FriendSharePayload } from "../components/FriendShareSheet";
+import { Sheet } from "../components/Sheet";
 import { restoreToCart, useCart, type CartItem } from "../lib/cart";
 import { useFirstFind } from "../lib/firstFind";
 import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
-import { getPiece, useWardrobe } from "../lib/wardrobe";
+import { getPiece, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 
 type Removed = { item: CartItem; index: number; name: string };
 
@@ -38,6 +39,7 @@ export default function Cart() {
   })();
   const total = priced.reduce((sum, row) => sum + row.sale, 0);
   const [removed, setRemoved] = useState<Removed | null>(null);
+  const [individualCheckoutPiece, setIndividualCheckoutPiece] = useState<ClosetPiece | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
   const toastY = useRef(new Animated.Value(-28)).current;
   const toastOpacity = useRef(new Animated.Value(0)).current;
@@ -155,6 +157,18 @@ export default function Cart() {
                     <Pressable onPress={() => removePiece(piece.id, piece.name)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Remove ${piece.name}`}>
                       <Text style={styles.remove}>Remove</Text>
                     </Pressable>
+                    {rows.length > 1 ? (
+                      <Pressable
+                        onPress={() => setIndividualCheckoutPiece(piece)}
+                        style={styles.itemCheckout}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Check out ${piece.name} individually`}
+                        accessibilityHint="Only this item will be checked out. Other bag items will stay in your bag."
+                      >
+                        <Text style={styles.itemCheckoutText}>Checkout item</Text>
+                        <Ionicons name="arrow-forward" size={14} color={colors.successInk} />
+                      </Pressable>
+                    ) : null}
                   </View>
                 </View>
               );
@@ -191,6 +205,28 @@ export default function Cart() {
           </Pressable>
         </View>
       ) : null}
+
+      <Sheet open={Boolean(individualCheckoutPiece)} onClose={() => setIndividualCheckoutPiece(null)}>
+        <Text style={styles.sheetTitle}>Check out this item?</Text>
+        {individualCheckoutPiece ? (
+          <>
+            <Text style={styles.sheetItemName}>{individualCheckoutPiece.name}</Text>
+            <Text style={styles.sheetDescription}>Only this item will be included in checkout. The other items in your bag will stay there for later.</Text>
+            <Pressable
+              onPress={() => {
+                const piece = individualCheckoutPiece;
+                setIndividualCheckoutPiece(null);
+                router.push({ pathname: "/checkout/[id]", params: { id: piece.id, ids: piece.id, checkoutMode: "individual" } });
+              }}
+              style={styles.sheetCheckout}
+              accessibilityRole="button"
+              accessibilityLabel={`Continue to checkout for ${individualCheckoutPiece.name}`}
+            >
+              <Text style={styles.sheetCheckoutText}>Continue to checkout</Text>
+            </Pressable>
+          </>
+        ) : null}
+      </Sheet>
 
       {removed ? (
         <Animated.View
@@ -249,6 +285,13 @@ function make(colors: Colors) {
     price: { color: colors.success, fontSize: 16, fontWeight: "800", marginTop: 10, fontVariant: ["tabular-nums"] },
     was: { color: `${colors.bone}66`, fontSize: 14, fontWeight: "600", textDecorationLine: "line-through", fontVariant: ["tabular-nums"] },
     remove: { color: `${colors.bone}88`, fontSize: 13, fontWeight: "700", marginTop: 10, textDecorationLine: "underline" },
+    itemCheckout: { alignSelf: "flex-end", minHeight: 36, marginTop: 10, paddingHorizontal: 11, borderRadius: 18, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+    itemCheckoutText: { color: colors.successInk, fontSize: 12, fontWeight: "800" },
+    sheetTitle: { color: colors.bone, fontSize: 23, lineHeight: 29, fontWeight: "800", letterSpacing: -0.25 },
+    sheetItemName: { color: colors.bone, fontSize: 16, lineHeight: 22, fontWeight: "700", marginTop: 12 },
+    sheetDescription: { color: `${colors.bone}CC`, fontSize: 15, lineHeight: 23, marginTop: 8 },
+    sheetCheckout: { minHeight: 50, marginTop: 18, borderRadius: 25, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    sheetCheckoutText: { color: colors.successInk, fontSize: 15, fontWeight: "800" },
     emptyWrap: { paddingTop: 24 },
     empty: { color: colors.muted, fontSize: 15, lineHeight: 22, marginTop: 10 },
     emptyBtn: { marginTop: 22, alignSelf: "flex-start", minHeight: 48, paddingHorizontal: 18, borderRadius: 24, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },

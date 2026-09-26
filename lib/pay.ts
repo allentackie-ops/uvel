@@ -61,6 +61,19 @@ export type StripePaymentIntent = {
   paymentIntentId: string;
 };
 
+export type GroupedCheckout = {
+  checkoutBatchId: string;
+  orderIds: Array<{ id: string; pieceId: string }>;
+  amountCents: number;
+};
+
+export type GroupedStripePaymentIntent = {
+  clientSecret: string;
+  paymentIntentId: string;
+  checkoutBatchId: string;
+  alreadyPaid?: boolean;
+};
+
 export async function createCheckoutSession(input: CheckoutPay): Promise<CheckoutSession> {
   if (!firebaseReady()) throw new Error("Payments aren’t connected yet.");
   const call = httpsCallable<CheckoutPay, CheckoutSession>(firebaseFunctions(), "createCheckout");
@@ -72,6 +85,20 @@ export async function createStripePaymentIntent(orderId: string): Promise<Stripe
   if (!firebaseReady()) throw new Error("Payments aren’t connected yet.");
   const call = httpsCallable<{ orderId: string }, StripePaymentIntent>(firebaseFunctions(), "createStripePaymentIntent");
   const res = await call({ orderId });
+  return res.data;
+}
+
+export async function createGroupedCheckout(input: { checkoutBatchId: string; listingIds: string[]; address: unknown; shippingChoices: Array<{ listingId: string; carrierId: string; creditCents: number }> }): Promise<GroupedCheckout> {
+  if (!firebaseReady()) throw new Error("Payments aren’t connected yet.");
+  const call = httpsCallable<typeof input, GroupedCheckout>(firebaseFunctions(), "createGroupedCheckout");
+  const res = await call(input);
+  return res.data;
+}
+
+export async function createGroupedStripePaymentIntent(checkoutBatchId: string): Promise<GroupedStripePaymentIntent> {
+  if (!firebaseReady()) throw new Error("Payments aren’t connected yet.");
+  const call = httpsCallable<{ checkoutBatchId: string }, GroupedStripePaymentIntent>(firebaseFunctions(), "createGroupedStripePaymentIntent");
+  const res = await call({ checkoutBatchId });
   return res.data;
 }
 
