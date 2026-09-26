@@ -166,6 +166,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const listingOpensRef = useRef<number | null>(null);
   const doubleTapHintShownRef = useRef(false);
   const listingOpenWorkRef = useRef(Promise.resolve());
+  const dailyEditRef = useRef<View>(null);
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
@@ -382,6 +383,12 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     const byId = new Map(live.map((p) => [p.id, p]));
     return (frozenOrder.current || []).map((id) => byId.get(id)).filter((p): p is ClosetPiece => Boolean(p)).filter(passQ);
   }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey, dna, personalization.rank, feedEpoch]);
+  const featured = todayHome && !scanningLook ? ranked[0] : undefined;
+  const browseRanked = featured ? ranked.filter((piece) => piece.id !== featured.id) : ranked;
+  const openFeatured = useCallback(() => {
+    if (!featured) return;
+    dailyEditRef.current?.measureInWindow((x, y, width, height) => openTodayListing(featured, { x, y, width, height }));
+  }, [featured, openTodayListing]);
 
   if (!wardrobeReady && !scanningLook) return <ShopSkeleton colors={colors} />;
 
@@ -464,6 +471,29 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
             {C.firstFind} · <Text style={styles.findLineAmt}>{moneyExact(firstFind.remaining, firstFind.currency)}</Text> {C.matchingPiece}
           </Text>
         </AccessiblePressable>
+      ) : null}
+
+      {todayHome && !scanningLook ? <View style={styles.dailyIntro}><Text style={styles.dailyIntroKicker}>TODAY</Text><Text style={styles.dailyIntroTitle}>Find something with a point of view.</Text><Text style={styles.dailyIntroCopy}>A considered edit of pieces worth seeing.</Text></View> : null}
+
+      {featured ? (
+        <View ref={dailyEditRef} collapsable={false}>
+          <AccessiblePressable
+            onPress={openFeatured}
+            style={({ pressed }) => [styles.dailyEdit, pressed && { opacity: 0.94, transform: [{ scale: 0.99 }] }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Explore ${featured.name} from the daily edit`}
+            accessibilityHint="Double tap to open this piece."
+          >
+            {featured.photo ? <Image cachePolicy="memory-disk" source={{ uri: featured.photo }} style={styles.dailyEditImage} contentFit="cover" /> : <View style={[styles.dailyEditImage, { backgroundColor: colors.surface }]} />}
+            <View style={styles.dailyEditShade} />
+            <View style={styles.dailyEditCopy}>
+              <Text style={styles.dailyEditKicker}>THE DAILY EDIT</Text>
+              <Text style={styles.dailyEditTitle} numberOfLines={2}>{featured.name}</Text>
+              <View style={styles.dailyEditMeta}><Text style={styles.dailyEditPrice}>{moneyExact(featured.marketPrices?.[market.code] ?? featured.listPriceCents, market.currency)}</Text><Text style={styles.dailyEditBrand}>{featured.brand}</Text></View>
+              <Text style={styles.dailyEditGo}>Explore piece →</Text>
+            </View>
+          </AccessiblePressable>
+        </View>
       ) : null}
 
       {videoUrl ? (
@@ -610,10 +640,12 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         <Text style={styles.count}>{C.lookingAtFrame}</Text>
       ) : null}
 
+      {todayHome && !scanningLook && browseRanked.length ? <Text style={styles.forYouLabel}>FOR YOU</Text> : null}
+
       <View style={[styles.grid, !scanning && { marginTop: 14 }]}>
         {scanning
           ? null
-          : ranked.map((p) => (
+          : browseRanked.map((p) => (
               <View key={p.id} style={[styles.cell, openPiece?.id === p.id && { opacity: 0 }]}>
                 <ListingCard piece={p} framed firstFind={todayHome && firstFind.matches(p)} onFirstFind={todayHome ? () => setFindHint(true) : undefined} onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />
               </View>
@@ -657,7 +689,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           onInteraction={personalization.record}
         />
       ) : null}
-      {todayHome ? <TodayCartFab lifted={Boolean(openPiece)} /> : null}
+      {todayHome ? <TodayCartFab listingOpen={Boolean(openPiece)} /> : null}
       {todayHome && showSwipeHint ? <TodaySwipeHint onDismiss={dismissSwipeHint} /> : null}
       {findHint ? (
         <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 68 }]} accessibilityLiveRegion="polite">
@@ -680,6 +712,21 @@ function make(colors: Colors) {
     findLine: { alignSelf: "center", minHeight: 32, paddingHorizontal: 8, marginBottom: 6, justifyContent: "center" },
     findLineTxt: { color: `${colors.bone}8C`, fontSize: 13, fontWeight: "600", textAlign: "center" },
     findLineAmt: { color: colors.success, fontWeight: "800" },
+    dailyIntro: { marginTop: 16, paddingHorizontal: 2 },
+    dailyIntroKicker: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.7 },
+    dailyIntroTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 29, lineHeight: 34, marginTop: 7, maxWidth: "95%" },
+    dailyIntroCopy: { color: `${colors.bone}8C`, fontSize: 13, lineHeight: 19, marginTop: 7 },
+    dailyEdit: { height: 330, marginTop: 14, borderRadius: 24, overflow: "hidden", backgroundColor: colors.surface },
+    dailyEditImage: { ...StyleSheet.absoluteFill, width: "100%", height: "100%" },
+    dailyEditShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.34)" },
+    dailyEditCopy: { flex: 1, justifyContent: "flex-end", padding: 18 },
+    dailyEditKicker: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.6 },
+    dailyEditTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 28, lineHeight: 32, marginTop: 7, maxWidth: "88%" },
+    dailyEditMeta: { flexDirection: "row", alignItems: "center", gap: 9, marginTop: 8 },
+    dailyEditPrice: { color: colors.bone, fontSize: 14, fontWeight: "800" },
+    dailyEditBrand: { color: `${colors.bone}C2`, fontSize: 12 },
+    dailyEditGo: { color: colors.success, fontSize: 13, fontWeight: "900", marginTop: 12 },
+    forYouLabel: { color: colors.bone, fontSize: 11, fontWeight: "900", letterSpacing: 1.5, marginTop: 22, marginBottom: 2 },
     findToast: {
       position: "absolute",
       left: 16,
