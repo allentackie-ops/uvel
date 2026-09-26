@@ -415,6 +415,43 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     if (!featured) return;
     dailyEditRef.current?.measureInWindow((x, y, width, height) => openTodayListing(featured, { x, y, width, height }));
   }, [featured, openTodayListing]);
+  const searchBar = (
+    <View style={styles.search}>
+      <Text style={styles.searchIcon} accessible={false}>⌕</Text>
+      <TextInput
+        accessibilityLabel={scanningLook ? C.narrowThisLook : C.searchListings}
+        placeholder={scanningLook ? C.narrowThisLook : C.searchListed}
+        placeholderTextColor={colors.subtle}
+        value={q}
+        onChangeText={setQ}
+        style={styles.input}
+        returnKeyType="search"
+        autoCorrect={false}
+      />
+      {q ? (
+        <AccessiblePressable
+          onPress={() => setQ("")}
+          hitSlop={8}
+          style={({ pressed }) => [styles.clearBtn, pressed && { opacity: 0.92 }]}
+          accessibilityRole="button"
+          accessibilityLabel={C.clearSearch}
+        >
+          <Text style={styles.clear}>×</Text>
+        </AccessiblePressable>
+      ) : null}
+      <AccessiblePressable
+        onPress={openVisualSearch}
+        hitSlop={8}
+        style={({ pressed }) => [styles.cameraBtn, pressed && { opacity: 0.65, transform: [{ scale: 0.94 }] }]}
+        accessibilityRole="button"
+        accessibilityLabel="Search with a photo"
+        accessibilityHint="Take a photo or choose one from your camera roll."
+      >
+        <Ionicons name="camera-outline" size={21} color={colors.bone} />
+      </AccessiblePressable>
+    </View>
+  );
+  const searchNearTop = todayHome && !scanningLook;
 
   if (!wardrobeReady && !scanningLook) return <ShopSkeleton colors={colors} />;
 
@@ -498,6 +535,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           </Text>
         </AccessiblePressable>
       ) : null}
+      {searchNearTop ? searchBar : null}
 
       {featured ? (
         <View ref={dailyEditRef} collapsable={false}>
@@ -531,39 +569,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         </View>
       ) : null}
 
-      <View style={styles.search}>
-        <Text style={styles.searchIcon} accessible={false}>⌕</Text>
-        <TextInput
-          accessibilityLabel={scanningLook ? C.narrowThisLook : C.searchListings}
-          placeholder={scanningLook ? C.narrowThisLook : C.searchListed}
-          placeholderTextColor={colors.subtle}
-          value={q}
-          onChangeText={setQ}
-          style={styles.input}
-          returnKeyType="search"
-          autoCorrect={false}
-        />
-        {q ? (
-          <AccessiblePressable            onPress={() => setQ("")}
-            hitSlop={8}
-            style={({ pressed }) => [styles.clearBtn, pressed && { opacity: 0.92 }]}
-            accessibilityRole="button"
-            accessibilityLabel={C.clearSearch}
-          >
-            <Text style={styles.clear}>×</Text>
-          </AccessiblePressable>
-        ) : null}
-        <AccessiblePressable
-          onPress={openVisualSearch}
-          hitSlop={8}
-          style={({ pressed }) => [styles.cameraBtn, pressed && { opacity: 0.65, transform: [{ scale: 0.94 }] }]}
-          accessibilityRole="button"
-          accessibilityLabel="Search with a photo"
-          accessibilityHint="Take a photo or choose one from your camera roll."
-        >
-          <Ionicons name="camera-outline" size={21} color={colors.bone} />
-        </AccessiblePressable>
-      </View>
+      {!searchNearTop ? searchBar : null}
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         {CATEGORIES.map((c) => {
