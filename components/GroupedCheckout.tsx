@@ -74,6 +74,7 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
   const sync = useMarketplaceSyncState();
   const market = getMarket(app.country);
   const [address, setAddress] = useState<Address | null>(null);
+  const [priceBreakdownOpen, setPriceBreakdownOpen] = useState(false);
   const [policyPieceId, setPolicyPieceId] = useState("");
   const [expandedPieceId, setExpandedPieceId] = useState("");
   const [promoInputs, setPromoInputs] = useState<Record<string, string>>({});
@@ -562,17 +563,23 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
               </Text>
             </View>
           ) : null}
-          <View style={styles.totalRow}>
+          <AccessiblePressable
+            onPress={() => setPriceBreakdownOpen(true)}
+            style={styles.totalRow}
+            accessibilityRole="button"
+            accessibilityLabel={`View price breakdown. Total ${moneyExact(totalCents, market.currency)}.`}
+          >
             <View>
               <Text style={styles.totalTitle}>Total</Text>
               <Text style={styles.totalSub}>
-                Includes shipping and buyer protection
+                Tap for price breakdown
               </Text>
             </View>
             <Text style={styles.totalValue}>
               {moneyExact(totalCents, market.currency)}
             </Text>
-          </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.success} />
+          </AccessiblePressable>
         </View>
         {market.code !== "US" ||
         hasVariant ||
@@ -639,6 +646,85 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
           Apple Pay · Visa · Mastercard · Amex
         </Text>
       </View>
+      <Sheet
+        open={priceBreakdownOpen}
+        onClose={() => setPriceBreakdownOpen(false)}
+        expandable
+      >
+        <ScrollView
+          style={styles.policyScroll}
+          contentContainerStyle={styles.breakdownBody}
+          showsVerticalScrollIndicator
+        >
+          <Text style={styles.sheetTitle}>Price breakdown</Text>
+          <Text style={styles.sheetCopy}>
+            A clear breakdown of each item and what you’ll pay at checkout.
+          </Text>
+          {lines.map((line) => (
+            <View key={line.piece.id} style={styles.breakdownItem}>
+              <Text style={styles.breakdownItemTitle} numberOfLines={2}>
+                {line.piece.name}
+              </Text>
+              <Text style={styles.breakdownSeller}>{line.sellerName}</Text>
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Item price</Text>
+                <Text style={styles.breakdownValue}>
+                  {moneyExact(line.itemCents, market.currency)}
+                </Text>
+              </View>
+              {line.discountCents > 0 ? (
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownDiscountLabel}>
+                    Promo{promoQuotes[line.piece.id]?.code
+                      ? ` · ${promoQuotes[line.piece.id].code}`
+                      : ""}
+                  </Text>
+                  <Text style={styles.breakdownDiscountValue}>
+                    −{moneyExact(line.discountCents, market.currency)}
+                  </Text>
+                </View>
+              ) : null}
+              {line.creditCents > 0 ? (
+                <View style={styles.breakdownRow}>
+                  <Text style={styles.breakdownDiscountLabel}>First Find credit</Text>
+                  <Text style={styles.breakdownDiscountValue}>
+                    −{moneyExact(line.creditCents, market.currency)}
+                  </Text>
+                </View>
+              ) : null}
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Buyer protection</Text>
+                <Text style={styles.breakdownValue}>
+                  {moneyExact(line.feeCents, market.currency)}
+                </Text>
+              </View>
+              <View style={styles.breakdownRow}>
+                <Text style={styles.breakdownLabel}>Shipping</Text>
+                <Text style={styles.breakdownValue}>
+                  {moneyExact(line.shipCents, market.currency)}
+                </Text>
+              </View>
+              <View style={styles.breakdownItemTotal}>
+                <Text style={styles.breakdownItemTotalLabel}>Item total</Text>
+                <Text style={styles.breakdownItemTotalValue}>
+                  {moneyExact(line.totalCents, market.currency)}
+                </Text>
+              </View>
+            </View>
+          ))}
+          {!address ? (
+            <Text style={styles.breakdownNote}>
+              Add a shipping address to calculate delivery costs.
+            </Text>
+          ) : null}
+          <View style={styles.breakdownGrandTotal}>
+            <Text style={styles.breakdownGrandLabel}>Total</Text>
+            <Text style={styles.breakdownGrandValue}>
+              {moneyExact(totalCents, market.currency)}
+            </Text>
+          </View>
+        </ScrollView>
+      </Sheet>
       <Sheet
         open={Boolean(expandedLine)}
         onClose={() => {
@@ -959,10 +1045,12 @@ function make(colors: Colors) {
     promoTotalLabel: { color: colors.success, fontSize: 14, fontWeight: "700" },
     promoTotalValue: { color: colors.success, fontSize: 14, fontWeight: "800" },
     totalRow: {
+      minHeight: 60,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
       gap: 14,
+      paddingVertical: 6,
     },
     totalTitle: { color: colors.bone, fontSize: 18, fontWeight: "800" },
     totalSub: { color: colors.muted, fontSize: 13, marginTop: 4 },
@@ -1016,6 +1104,7 @@ function make(colors: Colors) {
     policyScroll: { flexShrink: 1 },
     policyBody: { paddingBottom: 8 },
     detailsBody: { paddingBottom: 12 },
+    breakdownBody: { paddingBottom: 16 },
     sheetTitle: {
       color: colors.bone,
       fontSize: 24,
@@ -1028,6 +1117,21 @@ function make(colors: Colors) {
       lineHeight: 24,
       marginTop: 12,
     },
+    breakdownItem: { marginTop: 18, padding: 14, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}18` },
+    breakdownItemTitle: { color: colors.bone, fontSize: 16, lineHeight: 21, fontWeight: "800" },
+    breakdownSeller: { color: colors.muted, fontSize: 13, marginTop: 3, marginBottom: 10 },
+    breakdownRow: { flexDirection: "row", justifyContent: "space-between", gap: 12, paddingVertical: 6 },
+    breakdownLabel: { color: colors.muted, fontSize: 14 },
+    breakdownValue: { color: colors.bone, fontSize: 14, fontVariant: ["tabular-nums"] },
+    breakdownDiscountLabel: { color: colors.success, fontSize: 14 },
+    breakdownDiscountValue: { color: colors.success, fontSize: 14, fontWeight: "700", fontVariant: ["tabular-nums"] },
+    breakdownItemTotal: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: StyleSheet.hairlineWidth, borderColor: `${colors.bone}22`, marginTop: 6, paddingTop: 10 },
+    breakdownItemTotalLabel: { color: colors.bone, fontSize: 14, fontWeight: "700" },
+    breakdownItemTotalValue: { color: colors.bone, fontSize: 14, fontWeight: "800", fontVariant: ["tabular-nums"] },
+    breakdownNote: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 14 },
+    breakdownGrandTotal: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderColor: `${colors.bone}35`, marginTop: 18, paddingTop: 16 },
+    breakdownGrandLabel: { color: colors.bone, fontSize: 18, fontWeight: "800" },
+    breakdownGrandValue: { color: colors.bone, fontSize: 19, fontWeight: "800", fontVariant: ["tabular-nums"] },
     detailsSectionTitle: { color: colors.bone, fontSize: 16, fontWeight: "800", marginTop: 22 },
     promoEntry: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 },
     promoInput: { flex: 1, minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: `${colors.bone}30`, color: colors.bone, paddingHorizontal: 14, fontSize: 15 },
