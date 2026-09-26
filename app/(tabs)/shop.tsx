@@ -478,8 +478,6 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         </AccessiblePressable>
       ) : null}
 
-      {todayHome && !scanningLook ? <View style={styles.dailyIntro}><Text style={styles.dailyIntroKicker}>NEXT FIND</Text></View> : null}
-
       {featured ? (
         <View ref={dailyEditRef} collapsable={false}>
           <AccessiblePressable
@@ -717,8 +715,6 @@ function make(colors: Colors) {
     findLine: { alignSelf: "center", minHeight: 32, paddingHorizontal: 8, marginBottom: 6, justifyContent: "center" },
     findLineTxt: { color: `${colors.bone}8C`, fontSize: 13, fontWeight: "600", textAlign: "center" },
     findLineAmt: { color: colors.success, fontWeight: "800" },
-    dailyIntro: { marginTop: 16, paddingHorizontal: 2 },
-    dailyIntroKicker: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.7 },
     dailyEdit: { height: 330, marginTop: 14, borderRadius: 24, overflow: "hidden", backgroundColor: colors.surface },
     dailyEditImage: { ...StyleSheet.absoluteFill, width: "100%", height: "100%" },
     dailyEditShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.34)" },
