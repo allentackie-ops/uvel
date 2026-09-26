@@ -377,9 +377,9 @@ exports.createGroupedCheckout = onCall(async (req) => {
   if (!/^cb-[a-z0-9]{4,32}$/.test(batchId) || listingIds.length < 2 || listingIds.length > 8 || listingIds.some((value) => !/^[a-zA-Z0-9._:-]{1,120}$/.test(value)) || new Set(listingIds).size !== listingIds.length) throw new HttpsError("invalid-argument", "Invalid grouped checkout request.");
   const address = groupedAddress(req.data?.address);
   const rawChoices = Array.isArray(req.data?.shippingChoices) ? req.data.shippingChoices : [];
-  const choiceByListing = new Map(rawChoices.map((item) => [String(item?.listingId || ""), { carrierId: String(item?.carrierId || "").trim(), creditCents: Math.max(0, Math.floor(Number(item?.creditCents) || 0)) }]));
+  const choiceByListing = new Map(rawChoices.map((item) => [String(item?.listingId || ""), { carrierId: String(item?.carrierId || "").trim(), creditCents: Math.max(0, Math.floor(Number(item?.creditCents) || 0)), promotionId: String(item?.promotionId || "").trim().slice(0, 120), promotionCode: String(item?.promotionCode || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 32) }]));
   if (choiceByListing.size !== listingIds.length || listingIds.some((id) => !choiceByListing.has(id))) throw new HttpsError("invalid-argument", "Select delivery for every listing before checking out.");
-  const normalizedChoices = listingIds.map((id) => ({ listingId: id, carrierId: choiceByListing.get(id).carrierId, creditCents: choiceByListing.get(id).creditCents }));
+  const normalizedChoices = listingIds.map((id) => ({ listingId: id, carrierId: choiceByListing.get(id).carrierId, creditCents: choiceByListing.get(id).creditCents, promotionId: choiceByListing.get(id).promotionId, promotionCode: choiceByListing.get(id).promotionCode }));
   const requestedCredit = normalizedChoices.reduce((sum, choice) => sum + choice.creditCents, 0);
   if (requestedCredit > 1500 || normalizedChoices.filter((choice) => choice.creditCents > 0).length > 1) throw new HttpsError("failed-precondition", "First Find can be applied to one item per grouped checkout.");
   const db = admin.firestore();
@@ -422,7 +422,7 @@ exports.createGroupedCheckout = onCall(async (req) => {
       if (claim.checkoutBatchId !== batchId && claim.status === "reserved" && expiresAt > Date.now()) throw new HttpsError("failed-precondition", "Your First Find credit is already reserved for another checkout.");
       if (claim.checkoutBatchId !== batchId && claim.status === "consumed") throw new HttpsError("failed-precondition", "Your First Find credit has already been used.");
     }
-    const lines = listings.map(({ id, snap, listing }) => {
+    const lines = await Promise.all(listings.map(async ({ id, snap, listing }) => {
       if (!snap.exists || listing.status !== "listed" || listing.sellerPaused === true) throw new HttpsError("failed-precondition", "A listing in this bag is no longer available.");
       const origin = String(listing.country || "US").toUpperCase();
       const brandId = String(listing.brandId || "");
@@ -449,20 +449,35 @@ exports.createGroupedCheckout = onCall(async (req) => {
         throw new HttpsError("failed-precondition", error instanceof Error ? error.message : "A listing has an invalid price.");
       }
       const { itemCents, feeCents, shipCents, creditCents } = quote;
+      const promoChoice = choiceByListing.get(id);
+      const hasPromotion = Boolean(promoChoice.promotionId || promoChoice.promotionCode);
+      const promotionQuote = hasPromotion
+        ? await resolvePromotionQuote(db, {
+            brandId,
+            listingId: id,
+            promotionId: promoChoice.promotionId,
+            code: promoChoice.promotionCode,
+            currency: "USD",
+            itemCents,
+          })
+        : null;
+      if (hasPromotion && !promotionQuote) throw new HttpsError("failed-precondition", "A promo code is no longer valid for one of these items.");
+      const discountCents = Math.min(Number(promotionQuote?.discountCents || 0), Math.max(0, itemCents - creditCents));
       const sellerId = String(listing.ownerId || listing.listedByUid || brand.ownerId || "").trim();
       if (!sellerId || sellerId === req.auth.uid) throw new HttpsError("failed-precondition", "A listing does not have an eligible seller.");
-      return { id, listing, brandId, sellerId, itemCents, feeCents, shipCents, creditCents, madeByUvel, sameCountry, carrier: selectedCarrier, origin };
-    });
+      return { id, listing, brandId, sellerId, itemCents, feeCents, shipCents, creditCents, discountCents, promotionQuote, madeByUvel, sameCountry, carrier: selectedCarrier, origin };
+    }));
     const orderIds = lines.map(({ id }, index) => `grp-${batchId.slice(3)}-${index.toString(36)}`);
-    const totalCents = lines.reduce((sum, line) => sum + line.itemCents + line.feeCents + line.shipCents - line.creditCents, 0);
+    const totalCents = lines.reduce((sum, line) => sum + line.itemCents + line.feeCents + line.shipCents - line.creditCents - line.discountCents, 0);
     if (!Number.isSafeInteger(totalCents) || totalCents <= 0) throw new HttpsError("failed-precondition", "This checkout total is invalid.");
     const now = admin.firestore.FieldValue.serverTimestamp();
     const orders = lines.map((line, index) => ({
       id: orderIds[index], checkoutBatchId: batchId, pieceId: line.id,
       pieceName: String(line.listing.name || "Listing").slice(0, 180), piecePhoto: String(line.listing.photo || (Array.isArray(line.listing.photos) ? line.listing.photos[0] : "") || "").slice(0, 2000),
       ...(line.brandId ? { brandId: line.brandId } : {}), madeByUvel: line.madeByUvel, buyerId: req.auth.uid, sellerId: line.sellerId,
-      itemCents: line.itemCents, feeCents: line.feeCents, discountCents: 0, creditCents: line.creditCents, shipCents: line.shipCents, taxCents: 0,
-      totalCents: line.itemCents + line.feeCents + line.shipCents - line.creditCents, currency: "USD", country: "US", payMethod: "stripe",
+      itemCents: line.itemCents, feeCents: line.feeCents, discountCents: line.discountCents, creditCents: line.creditCents, shipCents: line.shipCents, taxCents: 0,
+      ...(line.promotionQuote ? { promotionId: line.promotionQuote.promotionId, promotionCode: line.promotionQuote.code, promotionSource: line.promotionQuote.source } : {}),
+      totalCents: line.itemCents + line.feeCents + line.shipCents - line.creditCents - line.discountCents, currency: "USD", country: "US", payMethod: "stripe",
       delivery: `${line.carrier ? `${line.carrier.name} · ` : ""}${line.carrier?.express ? "express" : "standard"}${line.sameCountry ? "" : " · international"}`,
       ...(line.carrier ? { carrier: line.carrier.name, carrierId: line.carrier.id } : {}), address, status: "pending", fulfillmentStatus: line.madeByUvel ? "processing" : "unfulfilled", createdAt: now,
     }));
@@ -992,6 +1007,14 @@ async function markGroupedCheckoutPaid(batchId, providerPaymentId, providerAmoun
     const firstFindClaimSnap = firstFindClaimRef ? await tx.get(firstFindClaimRef) : null;
     const firstFindClaim = firstFindClaimSnap?.data() || {};
     if (firstFindClaimRef && (!firstFindClaimSnap?.exists || firstFindClaim.checkoutBatchId !== batchId || firstFindClaim.status !== "reserved" || Number(firstFindClaim.amountCents || 0) !== Number(batch.firstFindCreditCents || 0))) return { ok: false, reason: "first-find-credit-not-reserved" };
+    const promotionRefs = Array.from(new Map(orders.filter((order) => order.promotionId).map((order) => {
+      const collectionName = order.promotionSource === "listing" || !order.brandId ? "listingPromotions" : "brandPromotions";
+      const ref = db.collection(collectionName).doc(String(order.promotionId));
+      return [ref.path, ref];
+    })).values());
+    const promotionSnaps = await Promise.all(promotionRefs.map((ref) => tx.get(ref)));
+    const promotionsByPath = new Map(promotionRefs.map((ref, index) => [ref.path, promotionSnaps[index]]));
+    const promotionRedemptions = new Map();
     const now = Date.now();
     for (let i = 0; i < orders.length; i += 1) {
       const order = orders[i];
@@ -1024,6 +1047,20 @@ async function markGroupedCheckoutPaid(batchId, providerPaymentId, providerAmoun
         }
       }
       tx.update(orderRefs[i], paidUpdate);
+      if (order.promotionId) {
+        const collectionName = order.promotionSource === "listing" || !order.brandId ? "listingPromotions" : "brandPromotions";
+        const promotionRef = db.collection(collectionName).doc(String(order.promotionId));
+        const promotionSnap = promotionsByPath.get(promotionRef.path);
+        const promotion = promotionSnap?.data() || {};
+        const belongsToOrder = collectionName === "listingPromotions"
+          ? promotion.listingId === order.pieceId
+          : promotion.brandId === order.brandId;
+        if (promotionSnap?.exists && belongsToOrder) {
+          const redemption = promotionRedemptions.get(promotionRef.path) || { ref: promotionRef, count: 0 };
+          redemption.count += 1;
+          promotionRedemptions.set(promotionRef.path, redemption);
+        }
+      }
       if (order.brandId) {
         const refs = analyticsRefs(db, String(order.brandId));
         const day = dayKey();
@@ -1033,6 +1070,9 @@ async function markGroupedCheckoutPaid(batchId, providerPaymentId, providerAmoun
         tx.set(refs.daily(day), { day, sales: increment(1), earnings: increment(earnings), [`earningsByCurrency.${currency}`]: increment(earnings), updatedAt: paidAt }, { merge: true });
         if (order.pieceId) tx.set(refs.top(String(order.pieceId)), { id: String(order.pieceId), name: String(order.pieceName || "Listing"), photo: String(order.piecePhoto || ""), sold: increment(1), updatedAt: paidAt }, { merge: true });
       }
+    }
+    for (const redemption of promotionRedemptions.values()) {
+      tx.set(redemption.ref, { usageCount: increment(redemption.count), updatedAt: paidAt }, { merge: true });
     }
     if (firstFindClaimRef) tx.set(firstFindClaimRef, { status: "consumed", consumedAt: paidAt, updatedAt: paidAt }, { merge: true });
     tx.set(batchRef, { status: "paid", paidAt, paymentProvider: "stripe", paymentReference: providerPaymentId, paymentIntentId: providerPaymentId, updatedAt: paidAt }, { merge: true });

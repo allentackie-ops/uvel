@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 import { useStripe } from "@stripe/stripe-react-native";
 import { useCallback, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { AccessiblePressable } from "./AccessiblePressable";
@@ -12,6 +12,8 @@ import {
   createGroupedCheckout,
   createGroupedStripePaymentIntent,
   paymentsExtra,
+  validatePromotion,
+  type PromotionQuote,
 } from "../lib/pay";
 import { loadAddress, type Address } from "../lib/orders";
 import { removeManyFromCart } from "../lib/cart";
@@ -19,7 +21,7 @@ import { getBrand } from "../lib/brands";
 import { brandMakes } from "../lib/brandMake";
 import { shippingCents, uvelFeeCents } from "../lib/fees";
 import { getMarket, moneyExact, convertCents } from "../lib/markets";
-import { listingVisibleIn, restrictShipsTo, shipsToLine } from "../lib/ships";
+import { listingVisibleIn, restrictShipsTo, shipsToLabel, shipsToLine } from "../lib/ships";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import {
@@ -36,6 +38,7 @@ type CheckoutLine = {
   piece: ClosetPiece;
   brand?: ReturnType<typeof getBrand>;
   itemCents: number;
+  discountCents: number;
   creditCents: number;
   feeCents: number;
   shipCents: number;
@@ -72,6 +75,11 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
   const market = getMarket(app.country);
   const [address, setAddress] = useState<Address | null>(null);
   const [policyPieceId, setPolicyPieceId] = useState("");
+  const [expandedPieceId, setExpandedPieceId] = useState("");
+  const [promoInputs, setPromoInputs] = useState<Record<string, string>>({});
+  const [promoQuotes, setPromoQuotes] = useState<Record<string, PromotionQuote>>({});
+  const [promoMessages, setPromoMessages] = useState<Record<string, string>>({});
+  const [promoBusy, setPromoBusy] = useState<Record<string, boolean>>({});
   const [shippingChoices, setShippingChoices] = useState<
     Record<string, { carrierId: string }>
   >({});
@@ -109,6 +117,10 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
         ? 0
         : Math.min(1500, firstFind.applyTo(piece, itemCents));
       if (creditCents > 0) firstFindAssigned = true;
+      const discountCents = Math.min(
+        promoQuotes[piece.id]?.discountCents || 0,
+        Math.max(0, itemCents - creditCents),
+      );
       const sameCountry = Boolean(
         address && address.country === (piece.country || market.code),
       );
@@ -162,10 +174,11 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
         piece,
         brand,
         itemCents,
+        discountCents,
         creditCents,
         feeCents,
         shipCents,
-        totalCents: itemCents + feeCents + shipCents - creditCents,
+        totalCents: itemCents + feeCents + shipCents - creditCents - discountCents,
         sellerName:
           brand?.name ||
           piece.ownerName ||
@@ -188,10 +201,11 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
             : "The buyer covers return shipping.",
       };
     });
-  }, [pieces, address, market, sync, shippingChoices, firstFind]);
+  }, [pieces, address, market, sync, shippingChoices, firstFind, promoQuotes]);
 
   const totalCents = lines.reduce((sum, line) => sum + line.totalCents, 0);
   const policyLine = lines.find((line) => line.piece.id === policyPieceId);
+  const expandedLine = lines.find((line) => line.piece.id === expandedPieceId);
   const sameAddressForAll = Boolean(
     address &&
       address.name.trim() &&
@@ -220,6 +234,8 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
           listingId: line.piece.id,
           carrierId: line.carrier?.id || "",
           creditCents: line.creditCents,
+          promotionId: promoQuotes[line.piece.id]?.promotionId || "",
+          promotionCode: promoQuotes[line.piece.id]?.code || "",
         })),
       ),
     [
@@ -235,6 +251,7 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
       address?.postal,
       address?.country,
       lines,
+      promoQuotes,
     ],
   );
   const canPay = Boolean(
@@ -253,6 +270,51 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
       sync === "confirmed" &&
       paymentsExtra.stripePk,
   );
+
+  async function applyPromo(pieceId: string) {
+    const line = lines.find((item) => item.piece.id === pieceId);
+    const code = String(promoInputs[pieceId] || "").trim().toUpperCase();
+    if (market.code !== "US") {
+      setPromoMessages((current) => ({
+        ...current,
+        [pieceId]: "Promo codes are available with combined checkout in the US market.",
+      }));
+      return;
+    }
+    if (!line || !code || promoBusy[pieceId]) {
+      if (!code) setPromoMessages((current) => ({ ...current, [pieceId]: "Enter a promo code first." }));
+      return;
+    }
+    setPromoBusy((current) => ({ ...current, [pieceId]: true }));
+    setPromoMessages((current) => ({ ...current, [pieceId]: "" }));
+    try {
+      const quote = await validatePromotion({
+        brandId: line.piece.brandId || "",
+        listingId: line.piece.id,
+        code,
+        currency: market.currency,
+        itemCents: line.itemCents,
+      });
+      setPromoQuotes((current) => ({ ...current, [pieceId]: quote }));
+      setPromoInputs((current) => ({ ...current, [pieceId]: quote.code }));
+      setPromoMessages((current) => ({
+        ...current,
+        [pieceId]: `${quote.code} applied · ${moneyExact(quote.discountCents, market.currency)} off`,
+      }));
+    } catch (error) {
+      setPromoQuotes((current) => {
+        const next = { ...current };
+        delete next[pieceId];
+        return next;
+      });
+      setPromoMessages((current) => ({
+        ...current,
+        [pieceId]: error instanceof Error ? error.message : "That promo code does not apply to this item.",
+      }));
+    } finally {
+      setPromoBusy((current) => ({ ...current, [pieceId]: false }));
+    }
+  }
 
   async function payAll() {
     if (paying) return;
@@ -315,6 +377,8 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
           listingId: line.piece.id,
           carrierId: line.carrier?.id || "",
           creditCents: line.creditCents,
+          promotionId: promoQuotes[line.piece.id]?.promotionId || "",
+          promotionCode: promoQuotes[line.piece.id]?.code || "",
         })),
       });
       if (batch.amountCents !== totalCents)
@@ -396,7 +460,6 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
             <Text style={styles.summaryTitle}>{lines.length} items</Text>
-            <Text style={styles.summaryCaption}>One payment</Text>
           </View>
           <ScrollView
             horizontal
@@ -404,7 +467,13 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
             contentContainerStyle={styles.itemRail}
           >
             {lines.map((line) => (
-              <View key={line.piece.id} style={styles.itemCard}>
+              <AccessiblePressable
+                key={line.piece.id}
+                onPress={() => setExpandedPieceId(line.piece.id)}
+                style={styles.itemCard}
+                accessibilityRole="button"
+                accessibilityLabel={`View details for ${line.piece.name}`}
+              >
                 <Image
                   cachePolicy="memory-disk"
                   source={{ uri: line.piece.photo }}
@@ -422,7 +491,12 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
                 <Text style={styles.itemPrice}>
                   {moneyExact(line.itemCents, market.currency)}
                 </Text>
-              </View>
+                {line.discountCents > 0 ? (
+                  <Text style={styles.itemDiscount}>
+                    −{moneyExact(line.discountCents, market.currency)} promo
+                  </Text>
+                ) : null}
+              </AccessiblePressable>
             ))}
           </ScrollView>
         </View>
@@ -480,6 +554,14 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
           <Ionicons name="chevron-forward" size={21} color={colors.success} />
         </AccessiblePressable>
         <View style={styles.totalSection}>
+          {lines.some((line) => line.discountCents > 0) ? (
+            <View style={styles.promoTotalRow}>
+              <Text style={styles.promoTotalLabel}>Promo savings</Text>
+              <Text style={styles.promoTotalValue}>
+                −{moneyExact(lines.reduce((sum, line) => sum + line.discountCents, 0), market.currency)}
+              </Text>
+            </View>
+          ) : null}
           <View style={styles.totalRow}>
             <View>
               <Text style={styles.totalTitle}>Total</Text>
@@ -558,25 +640,159 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
         </Text>
       </View>
       <Sheet
-        open={Boolean(policyLine)}
-        onClose={() => setPolicyPieceId("")}
+        open={Boolean(expandedLine)}
+        onClose={() => {
+          setExpandedPieceId("");
+          setPolicyPieceId("");
+        }}
         expandable
       >
-        {policyLine ? (
+        {expandedLine ? (
           <ScrollView
             style={styles.policyScroll}
-            contentContainerStyle={styles.policyBody}
+            contentContainerStyle={styles.detailsBody}
             showsVerticalScrollIndicator
+            keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.sheetTitle}>
-              {policyLine.policyName} returns policy
+            <Text style={styles.sheetTitle}>{expandedLine.piece.name}</Text>
+            <Text style={styles.sheetCopy}>
+              Sold by {expandedLine.sellerName}
             </Text>
             <Text style={styles.sheetCopy}>
-              {policyLine.policyMode === "final_sale"
-                ? "This item is final sale, so change-of-mind returns are not accepted."
-                : `You can request a return within ${policyLine.policyWindow} days after delivery.`}
+              Based in {getMarket(expandedLine.piece.country || market.code).name}
             </Text>
-            <Text style={styles.sheetCopy}>{policyLine.policyShipping}</Text>
+            <Text style={styles.sheetCopy}>
+              Ships from {getMarket(expandedLine.piece.country || market.code).name}
+            </Text>
+            <Text style={styles.sheetCopy}>
+              Buyer destination {address
+                ? [address.line1, address.city, address.region, address.postal]
+                    .filter(Boolean)
+                    .join(", ")
+                : "Add a shipping address"}
+            </Text>
+            <Text style={styles.sheetCopy}>
+              Ships to {shipsToLabel(
+                expandedLine.piece.country || market.code,
+                restrictShipsTo(
+                  expandedLine.piece.country || market.code,
+                  expandedLine.piece.shipsTo,
+                  expandedLine.brand?.operatingCountries,
+                ),
+              )}
+            </Text>
+
+            <Text style={styles.detailsSectionTitle}>Promo code for this item</Text>
+            <View style={styles.promoEntry}>
+              <TextInput
+                value={promoInputs[expandedLine.piece.id] || ""}
+                onChangeText={(value) => {
+                  const pieceId = expandedLine.piece.id;
+                  setPromoInputs((current) => ({ ...current, [pieceId]: value.toUpperCase() }));
+                  setPromoMessages((current) => ({ ...current, [pieceId]: "" }));
+                  setPromoQuotes((current) => {
+                    const next = { ...current };
+                    delete next[pieceId];
+                    return next;
+                  });
+                }}
+                placeholder="Enter code"
+                placeholderTextColor={colors.subtle}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                returnKeyType="done"
+                editable={!promoBusy[expandedLine.piece.id]}
+                style={styles.promoInput}
+                accessibilityLabel={`Promo code for ${expandedLine.piece.name}`}
+              />
+              <AccessiblePressable
+                onPress={() => void applyPromo(expandedLine.piece.id)}
+                disabled={Boolean(promoBusy[expandedLine.piece.id])}
+                style={styles.promoButton}
+                accessibilityRole="button"
+                accessibilityLabel={`Apply promo code to ${expandedLine.piece.name}`}
+              >
+                <Text style={styles.promoButtonText}>
+                  {promoBusy[expandedLine.piece.id]
+                    ? "Checking…"
+                    : promoQuotes[expandedLine.piece.id]
+                      ? "Applied"
+                      : "Apply"}
+                </Text>
+              </AccessiblePressable>
+            </View>
+            {promoMessages[expandedLine.piece.id] ? (
+              <Text
+                style={[
+                  styles.promoMessage,
+                  promoQuotes[expandedLine.piece.id]
+                    ? styles.promoSuccess
+                    : styles.promoError,
+                ]}
+              >
+                {promoMessages[expandedLine.piece.id]}
+              </Text>
+            ) : null}
+            {expandedLine.discountCents > 0 ? (
+              <View style={styles.discountSummary}>
+                <Text style={styles.discountLabel}>Discount at checkout</Text>
+                <Text style={styles.discountAmount}>
+                  −{moneyExact(expandedLine.discountCents, market.currency)}
+                </Text>
+              </View>
+            ) : null}
+
+            <AccessiblePressable
+              onPress={() =>
+                setPolicyPieceId((current) =>
+                  current === expandedLine.piece.id ? "" : expandedLine.piece.id,
+                )
+              }
+              style={styles.policyDisclosure}
+              accessibilityRole="button"
+              accessibilityLabel={`${expandedLine.policyName} returns policy`}
+              accessibilityState={{ expanded: policyPieceId === expandedLine.piece.id }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.detailsSectionTitle}>
+                  {expandedLine.policyName} returns policy
+                </Text>
+                <Text style={styles.policyHint}>
+                  {expandedLine.policyMode === "final_sale"
+                    ? "Final sale"
+                    : `${expandedLine.policyWindow}-day returns`}
+                </Text>
+              </View>
+              <Ionicons
+                name={policyPieceId === expandedLine.piece.id ? "chevron-up" : "chevron-down"}
+                size={20}
+                color={colors.success}
+              />
+            </AccessiblePressable>
+            {policyLine?.piece.id === expandedLine.piece.id ? (
+              <View style={styles.policyDetails}>
+                <Text style={styles.sheetCopy}>
+                  {expandedLine.policyMode === "final_sale"
+                    ? "This item is final sale, so change-of-mind returns are not accepted."
+                    : `You can request a return within ${expandedLine.policyWindow} days after delivery.`}
+                </Text>
+                <Text style={styles.sheetCopy}>{expandedLine.policyShipping}</Text>
+                {expandedLine.brand?.customerPolicyNote ? (
+                  <Text style={styles.sheetCopy}>
+                    Seller note: {expandedLine.brand.customerPolicyNote}
+                  </Text>
+                ) : null}
+                <Text style={styles.sheetCopy}>
+                  Items that arrive damaged, defective, or different from the listing can still be reported to Uvel.
+                </Text>
+              </View>
+            ) : null}
+            <View style={styles.detailsTotal}>
+              <Text style={styles.discountLabel}>This item’s checkout total</Text>
+              <Text style={styles.discountAmount}>
+                {moneyExact(expandedLine.totalCents, market.currency)}
+              </Text>
+            </View>
           </ScrollView>
         ) : null}
       </Sheet>
@@ -593,6 +809,8 @@ function checkoutBatchId(
     listingId: string;
     carrierId: string;
     creditCents: number;
+    promotionId: string;
+    promotionCode: string;
   }>,
 ) {
   const value = [
@@ -611,6 +829,8 @@ function checkoutBatchId(
       choice.listingId,
       choice.carrierId,
       choice.creditCents,
+      choice.promotionId,
+      choice.promotionCode,
     ]),
   ].join("|");
   let a = 0x811c9dc5;
@@ -692,6 +912,7 @@ function make(colors: Colors) {
       fontWeight: "800",
       marginTop: 6,
     },
+    itemDiscount: { color: colors.success, fontSize: 12, fontWeight: "700", marginTop: 4 },
     shipTogether: {
       marginHorizontal: 20,
       minHeight: 56,
@@ -734,6 +955,9 @@ function make(colors: Colors) {
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: `${colors.bone}22`,
     },
+    promoTotalRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
+    promoTotalLabel: { color: colors.success, fontSize: 14, fontWeight: "700" },
+    promoTotalValue: { color: colors.success, fontSize: 14, fontWeight: "800" },
     totalRow: {
       flexDirection: "row",
       alignItems: "center",
@@ -791,6 +1015,7 @@ function make(colors: Colors) {
     },
     policyScroll: { flexShrink: 1 },
     policyBody: { paddingBottom: 8 },
+    detailsBody: { paddingBottom: 12 },
     sheetTitle: {
       color: colors.bone,
       fontSize: 24,
@@ -803,5 +1028,20 @@ function make(colors: Colors) {
       lineHeight: 24,
       marginTop: 12,
     },
+    detailsSectionTitle: { color: colors.bone, fontSize: 16, fontWeight: "800", marginTop: 22 },
+    promoEntry: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 },
+    promoInput: { flex: 1, minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: `${colors.bone}30`, color: colors.bone, paddingHorizontal: 14, fontSize: 15 },
+    promoButton: { minWidth: 82, height: 48, borderRadius: 14, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", paddingHorizontal: 14 },
+    promoButtonText: { color: colors.successInk, fontSize: 14, fontWeight: "800" },
+    promoMessage: { fontSize: 13, lineHeight: 19, marginTop: 8 },
+    promoSuccess: { color: colors.success },
+    promoError: { color: colors.danger },
+    discountSummary: { flexDirection: "row", justifyContent: "space-between", marginTop: 12, paddingVertical: 10 },
+    discountLabel: { color: colors.muted, fontSize: 14 },
+    discountAmount: { color: colors.success, fontSize: 15, fontWeight: "800" },
+    policyDisclosure: { minHeight: 66, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: `${colors.bone}24`, flexDirection: "row", alignItems: "center", marginTop: 22, gap: 12 },
+    policyHint: { color: colors.muted, fontSize: 13, marginTop: 4 },
+    policyDetails: { paddingBottom: 14 },
+    detailsTotal: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: StyleSheet.hairlineWidth, borderColor: `${colors.bone}24`, paddingTop: 14, marginTop: 12 },
   });
 }

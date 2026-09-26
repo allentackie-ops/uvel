@@ -88,7 +88,7 @@ export async function createStripePaymentIntent(orderId: string): Promise<Stripe
   return res.data;
 }
 
-export async function createGroupedCheckout(input: { checkoutBatchId: string; listingIds: string[]; address: unknown; shippingChoices: Array<{ listingId: string; carrierId: string; creditCents: number }> }): Promise<GroupedCheckout> {
+export async function createGroupedCheckout(input: { checkoutBatchId: string; listingIds: string[]; address: unknown; shippingChoices: Array<{ listingId: string; carrierId: string; creditCents: number; promotionId?: string; promotionCode?: string }> }): Promise<GroupedCheckout> {
   if (!firebaseReady()) throw new Error("Payments aren’t connected yet.");
   const call = httpsCallable<typeof input, GroupedCheckout>(firebaseFunctions(), "createGroupedCheckout");
   const res = await call(input);
