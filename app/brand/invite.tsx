@@ -5,6 +5,8 @@ import { Alert, Image, Pressable, ScrollView, Share, StyleSheet, Text, TextInput
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { canManageTeam, createExternalInvite, findPeople, getBrand, inviteLink, memberRoleLabel, sendInvite, themeFor, useBrands, type BrandPerson, type MemberRole } from "../../lib/brands";
 import { useUvel } from "../../lib/store";
+import { useColors, useResolvedAppearance } from "../../lib/theme";
+import { adaptBrandThemeToAppearance } from "../../lib/brandThemes";
 
 const INVITE_ROLES: Array<{ id: Exclude<MemberRole, "owner">; detail: string }> = [
   { id: "admin", detail: "Manage the workspace and team" },
@@ -19,6 +21,8 @@ export default function BrandInvite() {
   const { id } = useLocalSearchParams<{ id: string }>();
   useBrands();
   const app = useUvel();
+  const colors = useColors();
+  const appearance = useResolvedAppearance();
   const insets = useSafeAreaInsets();
   const brand = getBrand(id);
   const [q, setQ] = useState("");
@@ -27,10 +31,12 @@ export default function BrandInvite() {
   const [role, setRole] = useState<Exclude<MemberRole, "owner">>("viewer");
   const [external, setExternal] = useState("");
   const [copied, setCopied] = useState(false);
-  const theme = brand ? themeFor(brand) : null;
+  const theme = brand
+    ? adaptBrandThemeToAppearance(themeFor(brand), appearance, colors)
+    : null;
 
   if (!brand || !canManageTeam(brand, app.uid)) {
-    return <View style={[styles.page, { paddingTop: insets.top + 20, paddingHorizontal: 20 }]}><Pressable onPress={() => router.back()}><Text style={styles.backTxt}>‹ Back</Text></Pressable><Text style={styles.title}>Only brand managers send invites.</Text></View>;
+    return <View style={[styles.page, { backgroundColor: colors.ink, paddingTop: insets.top + 20, paddingHorizontal: 20 }]}><Pressable onPress={() => router.back()}><Text style={[styles.backTxt, { color: colors.bone }]}>‹ Back</Text></Pressable><Text style={[styles.title, { color: colors.bone }]}>Only brand managers send invites.</Text></View>;
   }
   const activeBrand = brand;
 

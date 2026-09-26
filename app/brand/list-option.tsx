@@ -3,7 +3,8 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { brandApproved, getBrand, themeFor, useBrands } from "../../lib/brands";
-import { BRAND_THEMES } from "../../lib/brandThemes";
+import { BRAND_THEMES, adaptBrandThemeToAppearance } from "../../lib/brandThemes";
+import { useColors, useResolvedAppearance } from "../../lib/theme";
 import { setPendingListingSelection } from "../../lib/listingOptions";
 
 const COLOR_OPTIONS = [
@@ -20,9 +21,11 @@ export default function BrandListOption() {
   const kind: ChoiceKind = rawKind === "material" ? "material" : "color";
   const [value, setValue] = useState(String(initialValue || ""));
   useBrands();
+  const colors = useColors();
+  const appearance = useResolvedAppearance();
   const insets = useSafeAreaInsets();
   const brand = id ? getBrand(id) : undefined;
-  const theme = brand ? themeFor(brand) : BRAND_THEMES[0];
+  const theme = adaptBrandThemeToAppearance(brand ? themeFor(brand) : BRAND_THEMES[0], appearance, colors);
   const options = kind === "color" ? COLOR_OPTIONS : MATERIAL_OPTIONS;
   const title = kind === "color" ? "What colour is it?" : "What is it made from?";
   const helper = kind === "color" ? "Choose the closest match. You can describe a custom shade below." : "Choose the main material, or add a blend or finish below.";

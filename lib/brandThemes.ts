@@ -11,6 +11,22 @@ export type BrandTheme = {
   lineColor: string;
 };
 
+export function adaptBrandThemeToAppearance(
+  theme: BrandTheme,
+  appearance: "dark" | "light",
+  colors: { ink: string; surface: string; bone: string; muted: string },
+): BrandTheme {
+  if (appearance === "dark") return theme;
+  return {
+    ...theme,
+    bg: colors.ink,
+    ink: colors.bone,
+    muted: colors.muted,
+    card: colors.surface,
+    lineColor: `${colors.bone}24`,
+  };
+}
+
 export const BRAND_THEMES: BrandTheme[] = [
   {
     id: "ink",

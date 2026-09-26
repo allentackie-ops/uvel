@@ -58,6 +58,7 @@ import { alertKindLabel, enableAlert, setAlertPreference, useAlertCenter, type A
 import { latestFounderDraft, refreshFounderProjects, simpleStageOf, useFounderProjects, type FounderProject } from "../../lib/founder";
 import BrandPromoCodes from "../../components/BrandPromoCodes";
 import { importFounderWork, pickFromLibrary } from "../../lib/photo";
+import { adaptBrandThemeToAppearance } from "../../lib/brandThemes";
 
 type Section = "overview" | "make" | "catalog" | "orders" | "finance" | "more" | "promoCodes" | "growth" | "support" | "inbox" | "analytics" | "audit" | "team" | "settings" | "businessRegistration" | "trademark";
 
@@ -123,16 +124,7 @@ export default function BrandHQ() {
   const brand = getBrand(id);
   const brandTheme = brand ? themeFor(brand) : null;
   const theme: HQTheme = brandTheme
-    ? appearance === "light"
-      ? {
-          ...brandTheme,
-          bg: colors.ink,
-          ink: colors.bone,
-          muted: colors.muted,
-          card: colors.surface,
-          lineColor: `${colors.bone}24`,
-        }
-      : brandTheme
+    ? adaptBrandThemeToAppearance(brandTheme, appearance, colors)
     : {
         bg: colors.ink,
         ink: colors.bone,

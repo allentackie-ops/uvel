@@ -5,10 +5,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Sheet } from "../../components/Sheet";
 import { getBrand, themeFor, updateBrand, useBrands } from "../../lib/brands";
 import type { BrandTheme } from "../../lib/brandThemes";
+import { adaptBrandThemeToAppearance } from "../../lib/brandThemes";
 import { recordAuditEvent } from "../../lib/audit";
 import { importFounderWork, pickFromLibrary } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
-import { useColors } from "../../lib/theme";
+import { useColors, useResolvedAppearance } from "../../lib/theme";
 
 const OFFICES = [
   { id: "USPTO", title: "United States · USPTO", copy: "Official U.S. trademark filing", url: "https://trademarkcenter.uspto.gov/" },
@@ -32,9 +33,11 @@ export default function TrademarkPage() {
   useBrands();
   const app = useUvel();
   const colors = useColors();
+  const appearance = useResolvedAppearance();
   const insets = useSafeAreaInsets();
   const brand = getBrand(id);
-  const theme: BrandTheme = brand ? themeFor(brand) : { id: "fallback", name: "Uvel", line: "", bg: colors.ink, ink: colors.bone, muted: colors.muted, card: colors.surface, accent: colors.success, accentInk: colors.successInk, lineColor: colors.subtle };
+  const baseTheme: BrandTheme = brand ? themeFor(brand) : { id: "fallback", name: "Uvel", line: "", bg: colors.ink, ink: colors.bone, muted: colors.muted, card: colors.surface, accent: colors.success, accentInk: colors.successInk, lineColor: colors.subtle };
+  const theme = adaptBrandThemeToAppearance(baseTheme, appearance, colors);
   const styles = useMemo(() => make(theme), [theme.accent, theme.accentInk, theme.bg, theme.card, theme.ink, theme.lineColor, theme.muted]);
   const owner = Boolean(brand && brand.ownerId === app.uid);
   const [ownerType, setOwnerType] = useState(brand?.trademarkOwnerType || "");

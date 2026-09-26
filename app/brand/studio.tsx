@@ -7,27 +7,31 @@ import { BRAND_THEMES } from "../../lib/brandThemes";
 import { canStudio, getBrand, themeFor, updateBrand, uploadBrandAsset, useBrands } from "../../lib/brands";
 import { pickBannerImage, pickBannerVideo, pickLogo } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
+import { useColors, useResolvedAppearance } from "../../lib/theme";
+import { adaptBrandThemeToAppearance } from "../../lib/brandThemes";
 
 export default function BrandStudio() {
   const { id } = useLocalSearchParams<{ id: string }>();
   useBrands();
   const app = useUvel();
+  const colors = useColors();
+  const appearance = useResolvedAppearance();
   const insets = useSafeAreaInsets();
   const brand = getBrand(id);
 
   if (!brand || !canStudio(brand, app.uid)) {
     return (
-      <View style={[styles.page, { paddingTop: insets.top + 20, paddingHorizontal: 20 }]}>
+      <View style={[styles.page, { backgroundColor: colors.ink, paddingTop: insets.top + 20, paddingHorizontal: 20 }]}>
         <Pressable onPress={() => router.back()}>
-          <Text style={styles.backTxt}>‹ Back</Text>
+          <Text style={[styles.backTxt, { color: colors.bone }]}>‹ Back</Text>
         </Pressable>
-        <Text style={styles.title}>Only the owner dresses this page.</Text>
+        <Text style={[styles.title, { color: colors.bone }]}>Only the owner dresses this page.</Text>
       </View>
     );
   }
 
   const currentBrand = brand;
-  const theme = themeFor(currentBrand);
+  const theme = adaptBrandThemeToAppearance(themeFor(currentBrand), appearance, colors);
 
   async function saveAsset(kind: "logo" | "banner", picker: () => Promise<string | null>, bannerKind?: "image" | "video") {
     try {

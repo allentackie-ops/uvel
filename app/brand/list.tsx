@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionSheetIOS,
   Alert,
@@ -23,6 +23,7 @@ import { BRAND_CATEGORIES, type Category } from "../../lib/catalog";
 import { hasBrandContact } from "../../lib/brandContact";
 import { BRAND_CONDITIONS, SIZE_SYSTEMS, sizesOf, systemFor, type SizeSystem } from "../../lib/brandSizes";
 import { canPost, getBrand, themeFor, useBrands } from "../../lib/brands";
+import { BRAND_THEMES, adaptBrandThemeToAppearance } from "../../lib/brandThemes";
 import { getMarket } from "../../lib/markets";
 import { pickListingClip, pickListingPhotos, takeListingClip, takeListingPhoto } from "../../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../../lib/photoCheck";
@@ -32,6 +33,7 @@ import { recordAuditEvent } from "../../lib/audit";
 import { addPiece, createBrandCatalogRemote } from "../../lib/wardrobe";
 import { firebaseReady } from "../../lib/firebase";
 import { takePendingListingSelection } from "../../lib/listingOptions";
+import { useColors, useResolvedAppearance } from "../../lib/theme";
 
 const COVER_W = 112;
 const COVER_H = 140;
@@ -46,7 +48,14 @@ export default function BrandList() {
   useBrands();
   const brand = getBrand(id);
   const app = useUvel();
+  const colors = useColors();
+  const appearance = useResolvedAppearance();
   const insets = useSafeAreaInsets();
+  const brandTheme = useMemo(
+    () => adaptBrandThemeToAppearance(brand ? themeFor(brand) : BRAND_THEMES[0], appearance, colors),
+    [brand, appearance, colors],
+  );
+  const styles = useMemo(() => makeStyles(brandTheme), [brandTheme]);
   const origin = brand?.country || app.country || "US";
   const market = getMarket(origin);
   const [photos, setPhotos] = useState<Slot[]>([]);
@@ -71,7 +80,7 @@ export default function BrandList() {
   const [openSection, setOpenSection] = useState<"product" | "inventory" | "details" | "delivery" | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const previousPhotoCount = useRef(photos.length);
-  const ph = "rgba(244,240,230,0.32)";
+  const ph = brandTheme.muted;
   const cover = photos[0];
   const previewPhoto = photos[selectedPhotoIndex] || cover;
   const contactReady = hasBrandContact(brand || {});
@@ -157,7 +166,6 @@ export default function BrandList() {
   }
 
   const activeBrand = brand;
-  const brandTheme = themeFor(activeBrand);
   const pageIndicator = { backgroundColor: brandTheme.accent, borderColor: brandTheme.accent };
   const pageIndicatorText = { color: brandTheme.accentInk };
   const steps = [
@@ -661,41 +669,42 @@ export default function BrandList() {
   );
 }
 
-const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: "#000000" },
+function makeStyles(theme: ReturnType<typeof themeFor>) {
+  return StyleSheet.create({
+  page: { flex: 1, backgroundColor: theme.bg },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8, paddingBottom: 8 },
   back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
-  backTxt: { color: "#F4F0E6", fontSize: 34, lineHeight: 36, marginTop: -4 },
-  topTitle: { color: "#F4F0E6", fontSize: 16, fontWeight: "600" },
-  progressMeta: { height: 34, paddingHorizontal: 20, backgroundColor: "#000000", flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  progressKicker: { color: "rgba(244,240,230,0.48)", fontSize: 10, letterSpacing: 1.6, fontWeight: "800" },
-  progressCopy: { color: "rgba(244,240,230,0.55)", fontSize: 12, fontWeight: "600" },
-  progressTrack: { height: 3, backgroundColor: "#2A2824", marginHorizontal: 20, borderRadius: 2, overflow: "hidden" },
-  progressFill: { height: 3, backgroundColor: "#2A2824", borderRadius: 2 },
+  backTxt: { color: theme.ink, fontSize: 34, lineHeight: 36, marginTop: -4 },
+  topTitle: { color: theme.ink, fontSize: 16, fontWeight: "600" },
+  progressMeta: { height: 34, paddingHorizontal: 20, backgroundColor: theme.bg, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  progressKicker: { color: theme.muted, fontSize: 10, letterSpacing: 1.6, fontWeight: "800" },
+  progressCopy: { color: theme.muted, fontSize: 12, fontWeight: "600" },
+  progressTrack: { height: 3, backgroundColor: theme.lineColor, marginHorizontal: 20, borderRadius: 2, overflow: "hidden" },
+  progressFill: { height: 3, backgroundColor: theme.lineColor, borderRadius: 2 },
   progressLabels: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 20, marginTop: 8 },
-  progressLabel: { color: "rgba(244,240,230,0.42)", fontSize: 10, fontWeight: "800" },
-  contactGate: { marginHorizontal: 20, marginTop: 12, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: "#2A2824", backgroundColor: "#1A1814" },
-  contactGateTitle: { color: "#F4F0E6", fontWeight: "700", fontSize: 16 },
-  contactGateText: { color: "rgba(244,240,230,0.6)", fontSize: 13, lineHeight: 18, marginTop: 6 },
-  contactGateBtn: { marginTop: 12, alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 12, borderRadius: 16, backgroundColor: "#2A2824" },
-  contactGateBtnText: { color: "#F4F0E6", fontSize: 13, fontWeight: "700" },
-  hero: { width: "auto", height: 220, marginHorizontal: 20, marginTop: 16, borderRadius: 20, overflow: "hidden", backgroundColor: "#161512" },
+  progressLabel: { color: theme.muted, fontSize: 10, fontWeight: "800" },
+  contactGate: { marginHorizontal: 20, marginTop: 12, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: theme.lineColor, backgroundColor: theme.card },
+  contactGateTitle: { color: theme.ink, fontWeight: "700", fontSize: 16 },
+  contactGateText: { color: theme.muted, fontSize: 13, lineHeight: 18, marginTop: 6 },
+  contactGateBtn: { marginTop: 12, alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 12, borderRadius: 16, backgroundColor: theme.accent },
+  contactGateBtnText: { color: theme.accentInk, fontSize: 13, fontWeight: "700" },
+  hero: { width: "auto", height: 220, marginHorizontal: 20, marginTop: 16, borderRadius: 20, overflow: "hidden", backgroundColor: theme.card },
   heroImg: { width: "100%", height: "100%" },
   heroEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4, paddingHorizontal: 8 },
-  heroPlus: { color: "#F4F0E6", fontSize: 30, fontWeight: "300" },
-  heroHint: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 14, textAlign: "center" },
-  heroSub: { color: "rgba(244,240,230,0.42)", fontSize: 10, textAlign: "center", marginTop: 2 },
-  heroMask: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(42,40,36,0.5)", alignItems: "center", justifyContent: "center" },
+  heroPlus: { color: theme.ink, fontSize: 30, fontWeight: "300" },
+  heroHint: { color: theme.ink, fontFamily: "Georgia", fontSize: 14, textAlign: "center" },
+  heroSub: { color: theme.muted, fontSize: 10, textAlign: "center", marginTop: 2 },
+  heroMask: { ...StyleSheet.absoluteFill, backgroundColor: `${theme.bg}80`, alignItems: "center", justifyContent: "center" },
   photoMetaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 12 },
   photoCount: { fontSize: 14, fontWeight: "800" },
   photoHint: { fontSize: 11 },
   slotRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 12 },
   photoRow: { flexDirection: "row" },
   miniWrap: { width: 64, height: 80, borderRadius: 10, overflow: "hidden", position: "relative" },
-  miniSelected: { borderWidth: 2, borderColor: "#D6E27A" },
-  mini: { width: 64, height: 80, borderRadius: 10, backgroundColor: "#161512" },
+  miniSelected: { borderWidth: 2, borderColor: theme.accent },
+  mini: { width: 64, height: 80, borderRadius: 10, backgroundColor: theme.card },
   miniRemove: { position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: 11, backgroundColor: "rgba(0,0,0,0.78)", alignItems: "center", justifyContent: "center" },
-  miniRemoveText: { color: "#F4F0E6", fontSize: 16, lineHeight: 18, fontWeight: "700", marginTop: -1 },
+  miniRemoveText: { color: "#FFFFFF", fontSize: 16, lineHeight: 18, fontWeight: "700", marginTop: -1 },
   addPhotoTile: { width: 80, height: 80, borderRadius: 10, borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
   addPhotoPlus: { fontSize: 22, lineHeight: 24 },
   addPhotoText: { fontSize: 10, fontWeight: "700", marginTop: 2 },
@@ -713,69 +722,70 @@ const styles = StyleSheet.create({
   sectionSummary: { fontSize: 12, marginTop: 3 },
   sectionChevron: { fontSize: 24, lineHeight: 24, marginTop: -3 },
   sectionBody: { paddingHorizontal: 14, paddingTop: 16, paddingBottom: 10, borderBottomLeftRadius: 18, borderBottomRightRadius: 18 },
-  sectionKicker: { color: "rgba(244,240,230,0.48)", fontSize: 11, letterSpacing: 1.6, fontWeight: "800", marginBottom: 4 },
-  sectionKickerLater: { color: "rgba(244,240,230,0.48)", fontSize: 11, letterSpacing: 1.6, fontWeight: "800", marginTop: 34, marginBottom: 4 },
+  sectionKicker: { color: theme.muted, fontSize: 11, letterSpacing: 1.6, fontWeight: "800", marginBottom: 4 },
+  sectionKickerLater: { color: theme.muted, fontSize: 11, letterSpacing: 1.6, fontWeight: "800", marginTop: 34, marginBottom: 4 },
   marketSection: { marginTop: 8 },
-  label: { color: "rgba(244,240,230,0.45)", fontSize: 12, marginTop: 16, letterSpacing: 0.3 },
-  hint: { color: "rgba(244,240,230,0.4)", fontSize: 13, marginTop: 4 },
+  label: { color: theme.muted, fontSize: 12, marginTop: 16, letterSpacing: 0.3 },
+  hint: { color: theme.muted, fontSize: 13, marginTop: 4 },
   field: {
     marginTop: 8,
     height: 48,
     borderRadius: 14,
-    backgroundColor: "#161512",
+    backgroundColor: theme.card,
     borderWidth: 1,
-    borderColor: "rgba(244,240,230,0.12)",
-    color: "#F4F0E6",
+    borderColor: theme.lineColor,
+    color: theme.ink,
     paddingHorizontal: 14,
     fontSize: 16,
   },
-  titleField: { color: "#F4F0E6", fontSize: 26, fontWeight: "800", lineHeight: 32, marginTop: 16, padding: 0 },
+  titleField: { color: theme.ink, fontSize: 26, fontWeight: "800", lineHeight: 32, marginTop: 16, padding: 0 },
   body: {
     marginTop: 8,
     minHeight: 90,
     borderRadius: 14,
-    backgroundColor: "#161512",
+    backgroundColor: theme.card,
     borderWidth: 1,
-    borderColor: "rgba(244,240,230,0.12)",
-    color: "#F4F0E6",
+    borderColor: theme.lineColor,
+    color: theme.ink,
     paddingHorizontal: 14,
     paddingTop: 12,
     fontSize: 16,
     textAlignVertical: "top",
   },
   priceRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
-  dollar: { color: "#F4F0E6", fontSize: 28, fontWeight: "700" },
-  price: { flex: 1, color: "#F4F0E6", fontSize: 32, fontWeight: "700", height: 48 },
+  dollar: { color: theme.ink, fontSize: 28, fontWeight: "700" },
+  price: { flex: 1, color: theme.ink, fontSize: 32, fontWeight: "700", height: 48 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
   chip: {
     height: 36,
     paddingHorizontal: 14,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: "rgba(244,240,230,0.16)",
+    borderColor: theme.lineColor,
     alignItems: "center",
     justifyContent: "center",
   },
-  chipOn: { backgroundColor: "#2A2824", borderColor: "#2A2824" },
-  chipTxt: { color: "#F4F0E6", fontSize: 13, fontWeight: "600" },
-  chipTxtOn: { color: "#16140F" },
+  chipOn: { backgroundColor: theme.accent, borderColor: theme.accent },
+  chipTxt: { color: theme.ink, fontSize: 13, fontWeight: "600" },
+  chipTxtOn: { color: theme.accentInk },
   row: { flexDirection: "row", gap: 10 },
   selectionField: { marginTop: 8, minHeight: 48, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   selectionValue: { flex: 1, fontSize: 15, fontWeight: "600" },
   selectionArrow: { fontSize: 26, lineHeight: 26, marginLeft: 6, fontWeight: "300" },
   variantStockBlock: { marginTop: 2 },
   variantStockRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },
-  variantStockSize: { color: "#F4F0E6", fontSize: 14, fontWeight: "700" },
-  variantStockInput: { width: 92, height: 42, borderRadius: 12, borderWidth: 1, borderColor: "rgba(244,240,230,0.22)", color: "#F4F0E6", paddingHorizontal: 12, textAlign: "right", fontSize: 15 },
-  foot: { paddingHorizontal: 20, paddingTop: 10, backgroundColor: "#000000" },
-  cta: { height: 52, borderRadius: 26, backgroundColor: "#2A2824", alignItems: "center", justifyContent: "center" },
-  ctaOff: { backgroundColor: "#2A2824" },
-  ctaTxt: { color: "#16140F", fontWeight: "800", fontSize: 16 },
-  ctaTxtOff: { color: "rgba(244,240,230,0.35)" },
-  gate: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(11,10,8,0.96)", alignItems: "center", justifyContent: "center", paddingHorizontal: 28, gap: 12 },
-  gateH: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, textAlign: "center" },
-  gateP: { color: "rgba(244,240,230,0.6)", textAlign: "center" },
+  variantStockSize: { color: theme.ink, fontSize: 14, fontWeight: "700" },
+  variantStockInput: { width: 92, height: 42, borderRadius: 12, borderWidth: 1, borderColor: theme.lineColor, color: theme.ink, paddingHorizontal: 12, textAlign: "right", fontSize: 15 },
+  foot: { paddingHorizontal: 20, paddingTop: 10, backgroundColor: theme.bg },
+  cta: { height: 52, borderRadius: 26, backgroundColor: theme.accent, alignItems: "center", justifyContent: "center" },
+  ctaOff: { backgroundColor: theme.accent },
+  ctaTxt: { color: theme.accentInk, fontWeight: "800", fontSize: 16 },
+  ctaTxtOff: { color: `${theme.accentInk}80` },
+  gate: { ...StyleSheet.absoluteFill, backgroundColor: theme.bg, alignItems: "center", justifyContent: "center", paddingHorizontal: 28, gap: 12 },
+  gateH: { color: theme.ink, fontFamily: "Georgia", fontSize: 28, textAlign: "center" },
+  gateP: { color: theme.muted, textAlign: "center" },
   center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28 },
-  big: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, textAlign: "center" },
-  p: { color: "rgba(244,240,230,0.58)", textAlign: "center", marginTop: 10, lineHeight: 22 },
+  big: { color: theme.ink, fontFamily: "Georgia", fontSize: 28, textAlign: "center" },
+  p: { color: theme.muted, textAlign: "center", marginTop: 10, lineHeight: 22 },
 });
+}
