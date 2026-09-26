@@ -27,6 +27,7 @@ import { useColors, type Colors } from "../lib/theme";
 import {
   getPiece,
   isRemoteListedPiece,
+  refreshMarketplaceListings,
   useMarketplaceSyncState,
   useWardrobe,
   type ClosetPiece,
@@ -85,6 +86,7 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
     Record<string, { carrierId: string }>
   >({});
   const [paying, setPaying] = useState(false);
+  const [refreshingAvailability, setRefreshingAvailability] = useState(false);
   const [message, setMessage] = useState("");
   const [checkoutAttempt] = useState(
     () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
@@ -218,6 +220,9 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
     pieces.length === ids.length &&
     lines.length === ids.length &&
     lines.every((line) => line.available);
+  const unavailableItemNames = lines
+    .filter((line) => !line.available)
+    .map((line) => line.piece.name);
   const allShipHere = lines.every((line) => line.addressOk);
   const tooManyItems = ids.length > 8;
   const hasVariant = lines.some((line) => line.needsVariant);
@@ -317,6 +322,17 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
     }
   }
 
+  async function retryAvailability() {
+    if (refreshingAvailability) return;
+    setRefreshingAvailability(true);
+    setMessage("");
+    try {
+      await refreshMarketplaceListings();
+    } finally {
+      setRefreshingAvailability(false);
+    }
+  }
+
   async function payAll() {
     if (paying) return;
     if (market.code !== "US") {
@@ -352,9 +368,11 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
       return;
     }
     if (!allAvailable || sync !== "confirmed") {
-      setMessage(
-        "Uvel could not confirm every listing is available. Refresh the bag and try again.",
-      );
+      setMessage(sync === "loading"
+        ? "Uvel is still checking the live listings. Try again in a moment."
+        : sync === "unavailable"
+          ? "Uvel could not reach the live marketplace. Retry the availability check above."
+          : "At least one item is no longer confirmed as live. Retry the check or remove that item from your bag.");
       return;
     }
     if (!allShipHere) {
@@ -452,11 +470,31 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
         keyboardShouldPersistTaps="handled"
       >
         {!allAvailable || sync !== "confirmed" ? (
-          <Text style={styles.notice}>
-            {sync === "loading"
-              ? "Checking availability…"
-              : "Checkout is paused until the marketplace reconnects."}
-          </Text>
+          <View style={styles.availabilityNotice}>
+            <Text style={styles.availabilityCopy}>
+              {sync === "loading"
+                ? "Checking live listing availability…"
+                : sync === "unavailable"
+                  ? "The marketplace couldn’t confirm these items right now. No payment has been taken."
+                  : unavailableItemNames.length
+                    ? `${unavailableItemNames.slice(0, 3).join(", ")}${unavailableItemNames.length > 3 ? `, and ${unavailableItemNames.length - 3} more` : ""} ${unavailableItemNames.length === 1 ? "isn’t" : "aren’t"} confirmed as actively listed. It may have sold or been removed.`
+                    : "One or more bag items couldn’t be loaded from the live marketplace."}
+            </Text>
+            {sync !== "loading" ? (
+              <AccessiblePressable
+                onPress={() => void retryAvailability()}
+                disabled={refreshingAvailability}
+                style={[styles.retryAvailability, refreshingAvailability && styles.disabled]}
+                accessibilityRole="button"
+                accessibilityLabel="Retry marketplace availability check"
+                accessibilityState={{ disabled: refreshingAvailability, busy: refreshingAvailability }}
+              >
+                <Text style={styles.retryAvailabilityText}>
+                  {refreshingAvailability ? "Checking…" : "Retry availability"}
+                </Text>
+              </AccessiblePressable>
+            ) : null}
+          </View>
         ) : null}
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
@@ -540,6 +578,7 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
         </AccessiblePressable>
         <AccessiblePressable
           onPress={() => void payAll()}
+          disabled={!canPay}
           style={styles.actionRow}
           accessibilityRole="button"
           accessibilityLabel="Pay with Apple Pay"
@@ -977,6 +1016,10 @@ function make(colors: Colors) {
       marginHorizontal: 20,
       marginTop: 12,
     },
+    availabilityNotice: { marginHorizontal: 20, marginTop: 12, marginBottom: 4, padding: 14, borderRadius: 16, backgroundColor: `${colors.warning}12`, borderWidth: 1, borderColor: `${colors.warning}40`, gap: 10 },
+    availabilityCopy: { color: colors.warning, fontSize: 13, lineHeight: 19 },
+    retryAvailability: { minHeight: 40, alignSelf: "flex-start", justifyContent: "center", paddingHorizontal: 14, borderRadius: 20, backgroundColor: colors.success },
+    retryAvailabilityText: { color: colors.successInk, fontSize: 13, fontWeight: "800" },
     summaryCard: {
       marginHorizontal: 20,
       marginTop: 14,
