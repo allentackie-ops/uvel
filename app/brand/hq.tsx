@@ -254,6 +254,7 @@ export default function BrandHQ() {
           <Overview
             brand={brand}
             catalogCount={activeCatalog.length}
+            featuredItem={activeCatalog[0]}
             draftCount={draftCatalog.length}
             toShipCount={toShipCount}
             making={making}
@@ -336,6 +337,7 @@ function ReviewWaiting({ theme, styles }: { theme: HQTheme; styles: ReturnType<t
 function Overview({
   brand,
   catalogCount,
+  featuredItem,
   draftCount,
   toShipCount,
   making,
@@ -349,6 +351,7 @@ function Overview({
 }: {
   brand: Brand;
   catalogCount: number;
+  featuredItem?: ClosetPiece;
   draftCount: number;
   toShipCount: number;
   making: boolean;
@@ -378,60 +381,48 @@ function Overview({
         ? "Add a product to start building your catalog and selling on Uvel."
         : "Keep building your catalog, serving buyers, and growing your brand.";
 
+  const todayStep = nextSteps[0];
+  const setupDone = [Boolean(brand.logoUri), payoutReady, Boolean(brand.operatingCountries)].filter(Boolean).length;
   return (
     <View>
-      <View style={[styles.overviewStatusCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
-        <View style={styles.overviewStatusTop}>
-          <Text style={[styles.overviewEyebrow, { color: theme.accent }]}>BRAND HQ</Text>
-          <View style={[styles.overviewReadyPill, { backgroundColor: theme.accent }]}><Text style={[styles.overviewReadyText, { color: theme.accentInk }]}>{toShipCount > 0 || payoutNeedsAttention ? "ACTION NEEDED" : "ACTIVE"}</Text></View>
+      <View style={[styles.overviewHero, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+        <View style={styles.overviewHeroTop}>
+          <View style={styles.overviewBrandIdentity}>
+            {brand.logoUri ? <Image source={{ uri: brand.logoUri }} style={styles.overviewBrandMark} contentFit="cover" /> : <View style={[styles.overviewBrandMark, { backgroundColor: theme.accent, alignItems: "center", justifyContent: "center" }]}><Text style={[styles.overviewBrandInitial, { color: theme.accentInk }]}>{brand.name.slice(0, 1).toUpperCase()}</Text></View>}
+            <View><Text style={[styles.overviewEyebrow, { color: theme.accent }]}>BRAND HQ</Text><Text style={[styles.overviewHeroBrand, { color: theme.ink }]}>{brand.name} ✓</Text></View>
+          </View>
+          <View style={[styles.overviewReadyPill, { backgroundColor: toShipCount > 0 || payoutNeedsAttention ? theme.accent : `${theme.accent}26` }]}><Text style={[styles.overviewReadyText, { color: toShipCount > 0 || payoutNeedsAttention ? theme.accentInk : theme.accent }]}>{toShipCount > 0 || payoutNeedsAttention ? "ACTION NEEDED" : "ACTIVE"}</Text></View>
         </View>
-        <Text style={[styles.overviewStatusTitle, { color: theme.ink }]}>{statusTitle}</Text>
-        <Text style={[styles.overviewStatusCopy, { color: theme.muted }]}>{statusCopy}</Text>
+        <Text style={[styles.overviewHeroTitle, { color: theme.ink }]}>{toShipCount > 0 ? "Your brand is moving." : statusTitle}</Text>
+        <Text style={[styles.overviewStatusCopy, { color: theme.muted }]}>{toShipCount > 0 ? "One clear next step, then keep building." : statusCopy}</Text>
+        <Text style={[styles.overviewUpdated, { color: theme.muted }]}>Updated just now</Text>
       </View>
 
-      {nextSteps.length > 0 ? <>
-        <Text style={[styles.overviewSectionLabel, { color: theme.muted }]}>NEXT STEPS</Text>
-        <View style={[styles.overviewSteps, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
-          {nextSteps.slice(0, 3).map((step, index) => <Pressable key={step.title} onPress={step.onPress} style={[styles.overviewStep, { borderBottomColor: theme.lineColor }, index === Math.min(nextSteps.length, 3) - 1 && { borderBottomWidth: 0 }]} accessibilityRole="button">
-            <View style={styles.overviewStepCopy}><Text style={[styles.overviewStepTitle, { color: theme.ink }]}>{step.title}</Text><Text style={[styles.overviewStepHint, { color: theme.muted }]}>{step.copy}</Text></View>
-            <View style={styles.overviewStepAction}><Text style={[styles.overviewStepActionText, { color: theme.accent }]}>{step.action}</Text><Text style={[styles.overviewStepArrow, { color: theme.muted }]}>›</Text></View>
-          </Pressable>)}
-        </View>
-      </> : null}
+      <Text style={[styles.overviewSectionLabel, { color: theme.muted }]}>TODAY</Text>
+      <View style={[styles.overviewTodayCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
+        {todayStep ? <Pressable onPress={todayStep.onPress} style={styles.overviewTodayMain} accessibilityRole="button">
+          <View style={[styles.overviewTodayNumber, { backgroundColor: theme.accent }]}><Text style={[styles.overviewTodayNumberText, { color: theme.accentInk }]}>1</Text></View>
+          <View style={styles.overviewTodayCopy}><Text style={[styles.overviewTodayTitle, { color: theme.ink }]}>{todayStep.title}</Text><Text style={[styles.overviewTodayHint, { color: theme.muted }]}>{todayStep.copy}</Text></View>
+          <Text style={[styles.overviewTodayArrow, { color: theme.accent }]}>›</Text>
+        </Pressable> : <View style={styles.overviewTodayMain}><View style={[styles.overviewTodayNumber, { backgroundColor: `${theme.accent}22` }]}><Text style={[styles.overviewTodayNumberText, { color: theme.accent }]}>✓</Text></View><View style={styles.overviewTodayCopy}><Text style={[styles.overviewTodayTitle, { color: theme.ink }]}>You’re all caught up</Text><Text style={[styles.overviewTodayHint, { color: theme.muted }]}>Keep building your catalog at your pace.</Text></View></View>}
+        {todayStep && nextSteps[1] ? <Pressable onPress={nextSteps[1].onPress} style={[styles.overviewTodaySecondary, { borderTopColor: theme.lineColor }]}><Text style={[styles.overviewTodayCheck, { color: theme.accent }]}>○</Text><Text style={[styles.overviewTodaySecondaryText, { color: theme.muted }]}>{nextSteps[1].title}</Text><Text style={[styles.overviewTodaySecondaryAction, { color: theme.accent }]}>{nextSteps[1].action} ›</Text></Pressable> : null}
+      </View>
 
-      <Text style={[styles.overviewSectionLabel, { color: theme.muted }]}>YOUR BRAND AT A GLANCE</Text>
+      <Text style={[styles.overviewSectionLabel, { color: theme.muted }]}>AT A GLANCE</Text>
       <View style={styles.overviewSummaryGrid}>
-        <Pressable onPress={() => onSection("catalog")} style={[styles.overviewSummaryCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]} accessibilityRole="button">
-          <Text style={[styles.overviewSummaryLabel, { color: theme.muted }]}>CATALOG</Text>
-          <Text style={[styles.overviewSummaryValue, { color: theme.ink }]}>{catalogCount} live</Text>
-          <Text style={[styles.overviewSummaryCopy, { color: theme.muted }]}>{draftCount ? `${draftCount} ${draftCount === 1 ? "draft" : "drafts"}` : "Products customers can buy"}</Text>
-          <Text style={[styles.overviewSummaryAction, { color: theme.accent }]}>View catalog ›</Text>
-        </Pressable>
-        <Pressable onPress={() => onSection("orders")} style={[styles.overviewSummaryCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]} accessibilityRole="button">
-          <Text style={[styles.overviewSummaryLabel, { color: theme.muted }]}>ORDERS</Text>
-          <Text style={[styles.overviewSummaryValue, { color: theme.ink }]}>{toShipCount ? `${toShipCount} need attention` : "All caught up"}</Text>
-          <Text style={[styles.overviewSummaryCopy, { color: theme.muted }]}>{toShipCount ? "Ready for fulfillment" : "No orders need action"}</Text>
-          <Text style={[styles.overviewSummaryAction, { color: theme.accent }]}>View orders ›</Text>
-        </Pressable>
-        <Pressable onPress={() => onSection("finance")} style={[styles.overviewSummaryCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]} accessibilityRole="button">
-          <Text style={[styles.overviewSummaryLabel, { color: theme.muted }]}>MONEY</Text>
-          <Text style={[styles.overviewSummaryValue, { color: theme.ink }]}>{moneyLabel} available</Text>
-          <Text style={[styles.overviewSummaryCopy, { color: theme.muted }]}>{pendingLabel ? `${pendingLabel} pending` : payoutReady ? "Payout account ready" : "Payout account not set up"}</Text>
-          <Text style={[styles.overviewSummaryAction, { color: theme.accent }]}>View money ›</Text>
-        </Pressable>
-        <Pressable onPress={() => onSection("make")} style={[styles.overviewSummaryCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]} accessibilityRole="button">
-          <Text style={[styles.overviewSummaryLabel, { color: theme.muted }]}>MAKE WITH UVEL</Text>
-          <Text style={[styles.overviewSummaryValue, { color: theme.ink }]}>{making ? "Active" : "Not active"}</Text>
-          <Text style={[styles.overviewSummaryCopy, { color: theme.muted }]}>{making ? "Made to order after a sale" : "Choose how products are made"}</Text>
-          <Text style={[styles.overviewSummaryAction, { color: theme.accent }]}>View Make ›</Text>
-        </Pressable>
+        <Pressable onPress={() => onSection("catalog")} style={[styles.overviewSummaryCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]} accessibilityRole="button"><Text style={[styles.overviewMetricIcon, { color: theme.accent }]}>□</Text><Text style={[styles.overviewSummaryLabel, { color: theme.muted }]}>CATALOG</Text><Text style={[styles.overviewSummaryValue, { color: theme.ink }]}>{catalogCount} live</Text><Text style={[styles.overviewSummaryCopy, { color: theme.muted }]}>{draftCount ? `${draftCount} ${draftCount === 1 ? "draft" : "drafts"}` : "Products customers can buy"}</Text><Text style={[styles.overviewSummaryAction, { color: theme.accent }]}>View catalog ›</Text></Pressable>
+        <Pressable onPress={() => onSection("orders")} style={[styles.overviewSummaryCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]} accessibilityRole="button"><Text style={[styles.overviewMetricIcon, { color: theme.accent }]}>↗</Text><Text style={[styles.overviewSummaryLabel, { color: theme.muted }]}>ORDERS</Text><Text style={[styles.overviewSummaryValue, { color: theme.ink }]}>{toShipCount ? `${toShipCount} to ship` : "All caught up"}</Text><Text style={[styles.overviewSummaryCopy, { color: theme.muted }]}>{toShipCount ? "Ready for fulfillment" : "No orders need action"}</Text><Text style={[styles.overviewSummaryAction, { color: theme.accent }]}>View orders ›</Text></Pressable>
+        <Pressable onPress={() => onSection("finance")} style={[styles.overviewSummaryCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]} accessibilityRole="button"><Text style={[styles.overviewMetricIcon, { color: theme.accent }]}>$</Text><Text style={[styles.overviewSummaryLabel, { color: theme.muted }]}>MONEY</Text><Text style={[styles.overviewSummaryValue, { color: theme.ink }]}>{moneyLabel} available</Text><Text style={[styles.overviewSummaryCopy, { color: theme.muted }]}>{pendingLabel ? `${pendingLabel} pending` : payoutReady ? "Payout account ready" : "Payout account not set up"}</Text><Text style={[styles.overviewSummaryAction, { color: theme.accent }]}>View money ›</Text></Pressable>
+        <Pressable onPress={() => onSection("make")} style={[styles.overviewSummaryCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]} accessibilityRole="button"><Text style={[styles.overviewMetricIcon, { color: theme.accent }]}>✦</Text><Text style={[styles.overviewSummaryLabel, { color: theme.muted }]}>MAKE WITH UVEL</Text><Text style={[styles.overviewSummaryValue, { color: theme.ink }]}>{making ? "Active" : "Not active"}</Text><Text style={[styles.overviewSummaryCopy, { color: theme.muted }]}>{making ? "Made to order after a sale" : "Choose how products are made"}</Text><Text style={[styles.overviewSummaryAction, { color: theme.accent }]}>View Make ›</Text></Pressable>
       </View>
 
-      {catalogCount === 0 ? <View style={[styles.overviewHowCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}>
-        <Text style={[styles.overviewSectionLabel, { color: theme.accent, marginTop: 0 }]}>HOW UVEL WORKS</Text>
-        <Text style={[styles.overviewHowTitle, { color: theme.ink }]}>From idea to brand</Text>
-        <Text style={[styles.overviewHowCopy, { color: theme.muted }]}>Create a product → Customers order → Uvel makes and ships it → You earn.</Text>
-      </View> : null}
+      <Text style={[styles.overviewSectionLabel, { color: theme.muted }]}>KEEP BUILDING</Text>
+      {featuredItem ? <Pressable onPress={() => onSection("catalog")} style={[styles.overviewFeaturedCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]} accessibilityRole="button">
+        {featuredItem.photo ? <Image source={{ uri: featuredItem.photo }} style={styles.overviewFeaturedImage} contentFit="cover" /> : <View style={[styles.overviewFeaturedImage, { backgroundColor: theme.bg }]} />}
+        <View style={styles.overviewFeaturedCopy}><Text style={[styles.overviewFeaturedKicker, { color: theme.accent }]}>LIVE PRODUCT</Text><Text style={[styles.overviewFeaturedTitle, { color: theme.ink }]} numberOfLines={2}>{featuredItem.name}</Text><Text style={[styles.overviewFeaturedMeta, { color: theme.muted }]}>Live{featuredItem.stockQuantity ? ` · ${featuredItem.stockQuantity} in stock` : ""}</Text><Text style={[styles.overviewSummaryAction, { color: theme.accent }]}>Open catalog ›</Text></View>
+      </Pressable> : <Pressable onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })} style={[styles.overviewHowCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><Text style={[styles.overviewSectionLabel, { color: theme.accent, marginTop: 0 }]}>START YOUR CATALOG</Text><Text style={[styles.overviewHowTitle, { color: theme.ink }]}>Add your first product</Text><Text style={[styles.overviewHowCopy, { color: theme.muted }]}>Turn your idea into something customers can buy.</Text></Pressable>}
+      <View style={[styles.overviewSetupCard, { backgroundColor: theme.card, borderColor: theme.lineColor }]}><View style={styles.overviewSetupTop}><View><Text style={[styles.overviewSetupTitle, { color: theme.ink }]}>Brand setup</Text><Text style={[styles.overviewSetupCopy, { color: theme.muted }]}>{setupDone}/3 foundations ready</Text></View><Text style={[styles.overviewSetupValue, { color: theme.accent }]}>{setupDone}/3</Text></View><View style={styles.overviewSetupDots}>{[0, 1, 2].map((item) => <View key={item} style={[styles.overviewSetupDot, { backgroundColor: item < setupDone ? theme.accent : theme.lineColor }]} />)}</View><Text style={[styles.overviewSetupLine, { color: theme.muted }]}>Profile {brand.logoUri ? "complete" : "needs a mark"} · Payouts {payoutReady ? "ready" : "to set up"} · Delivery mapped</Text></View>
+      <Pressable onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })} style={[styles.overviewPrimaryAction, { backgroundColor: theme.accent }]} accessibilityRole="button"><Text style={[styles.overviewPrimaryActionText, { color: theme.accentInk }]}>Add a product</Text><Text style={[styles.overviewPrimaryActionArrow, { color: theme.accentInk }]}>›</Text></Pressable>
     </View>
   );
 }
@@ -1672,6 +1663,14 @@ function make(theme: HQTheme) {
     actionButton: { alignSelf: "flex-start", height: 34, paddingHorizontal: 12, borderRadius: 17, borderWidth: 1, justifyContent: "center", marginTop: 12 },
     actionButtonTxt: { fontSize: 12, fontWeight: "800" },
     note: { fontSize: 12, lineHeight: 18, marginTop: 18 },
+    overviewHero: { borderWidth: 1, borderRadius: 22, padding: 16, marginTop: 4 },
+    overviewHeroTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    overviewBrandIdentity: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+    overviewBrandMark: { width: 42, height: 42, borderRadius: 14 },
+    overviewBrandInitial: { fontSize: 18, fontWeight: "900" },
+    overviewHeroBrand: { fontSize: 13, fontWeight: "800", marginTop: 4 },
+    overviewHeroTitle: { fontSize: 26, lineHeight: 32, fontWeight: "900", marginTop: 22 },
+    overviewUpdated: { fontSize: 11, marginTop: 14 },
     overviewStatusCard: { borderWidth: 1, borderRadius: 20, padding: 16, marginTop: 4 },
     overviewStatusTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     overviewEyebrow: { fontSize: 10, letterSpacing: 1.4, fontWeight: "900" },
@@ -1688,6 +1687,19 @@ function make(theme: HQTheme) {
     overviewStepAction: { flexDirection: "row", alignItems: "center", gap: 3 },
     overviewStepActionText: { fontSize: 10, fontWeight: "900", textAlign: "right" },
     overviewStepArrow: { fontSize: 22, lineHeight: 24 },
+    overviewTodayCard: { borderWidth: 1, borderRadius: 18, overflow: "hidden" },
+    overviewTodayMain: { minHeight: 86, padding: 14, flexDirection: "row", alignItems: "center", gap: 12 },
+    overviewTodayNumber: { width: 34, height: 34, borderRadius: 17, alignItems: "center", justifyContent: "center" },
+    overviewTodayNumberText: { fontSize: 15, fontWeight: "900" },
+    overviewTodayCopy: { flex: 1 },
+    overviewTodayTitle: { fontSize: 15, fontWeight: "900" },
+    overviewTodayHint: { fontSize: 12, lineHeight: 17, marginTop: 4 },
+    overviewTodayArrow: { fontSize: 26, lineHeight: 28 },
+    overviewTodaySecondary: { minHeight: 48, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 8, borderTopWidth: StyleSheet.hairlineWidth },
+    overviewTodayCheck: { fontSize: 16 },
+    overviewTodaySecondaryText: { flex: 1, fontSize: 12, fontWeight: "700" },
+    overviewTodaySecondaryAction: { fontSize: 11, fontWeight: "800" },
+    overviewMetricIcon: { fontSize: 18, fontWeight: "900", marginBottom: 3 },
     overviewSummaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
     overviewSummaryCard: { width: "48.5%", minHeight: 142, borderWidth: 1, borderRadius: 17, padding: 12 },
     overviewSummaryLabel: { fontSize: 9, fontWeight: "900", letterSpacing: 1.1 },
@@ -1697,6 +1709,23 @@ function make(theme: HQTheme) {
     overviewHowCard: { borderWidth: 1, borderRadius: 18, padding: 14, marginTop: 16 },
     overviewHowTitle: { fontSize: 16, fontWeight: "900" },
     overviewHowCopy: { fontSize: 13, lineHeight: 19, marginTop: 6 },
+    overviewFeaturedCard: { minHeight: 112, borderWidth: 1, borderRadius: 18, padding: 10, flexDirection: "row", gap: 12 },
+    overviewFeaturedImage: { width: 88, height: 92, borderRadius: 14 },
+    overviewFeaturedCopy: { flex: 1, justifyContent: "center" },
+    overviewFeaturedKicker: { fontSize: 9, letterSpacing: 1.1, fontWeight: "900" },
+    overviewFeaturedTitle: { fontSize: 16, lineHeight: 21, fontWeight: "900", marginTop: 5 },
+    overviewFeaturedMeta: { fontSize: 12, marginTop: 4 },
+    overviewSetupCard: { borderWidth: 1, borderRadius: 18, padding: 14, marginTop: 10 },
+    overviewSetupTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    overviewSetupTitle: { fontSize: 14, fontWeight: "900" },
+    overviewSetupCopy: { fontSize: 11, marginTop: 3 },
+    overviewSetupValue: { fontSize: 13, fontWeight: "900" },
+    overviewSetupDots: { flexDirection: "row", gap: 6, marginTop: 12 },
+    overviewSetupDot: { flex: 1, height: 5, borderRadius: 3 },
+    overviewSetupLine: { fontSize: 11, lineHeight: 16, marginTop: 10 },
+    overviewPrimaryAction: { height: 52, borderRadius: 26, marginTop: 14, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+    overviewPrimaryActionText: { fontSize: 15, fontWeight: "900" },
+    overviewPrimaryActionArrow: { fontSize: 22, lineHeight: 24, marginTop: -2 },
     makeCard: { borderRadius: 18, padding: 16, marginTop: 12 },
     makeKicker: { fontSize: 10, letterSpacing: 1.4, fontWeight: "800" },
     makeTitle: { fontSize: 18, fontWeight: "800", marginTop: 6 },
