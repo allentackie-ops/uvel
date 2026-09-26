@@ -519,7 +519,6 @@ export default function Checkout() {
           </Text>
           <Text style={styles.chevron}>›</Text>
         </AccessiblePressable>
-        <View style={styles.rule} />
         <AccessiblePressable
           onPress={() => router.push("/address")}
           style={styles.detailRow}
@@ -547,7 +546,6 @@ export default function Checkout() {
           </View>
           <Text style={styles.chevron}>›</Text>
         </AccessiblePressable>
-        <View style={styles.rule} />
         <View style={styles.paymentHeading}>
           <Text style={styles.detailLabel}>Payment</Text>
         </View>
@@ -561,7 +559,6 @@ export default function Checkout() {
           <Text style={styles.paymentName}>{method.label}</Text>
           <Text style={styles.changeText}>Change</Text>
         </AccessiblePressable>
-        <View style={styles.rule} />
         <AccessiblePressable
           onPress={() => setPolicyOpen(true)}
           style={styles.secondaryRow}
@@ -1011,11 +1008,6 @@ function make(colors: Colors) {
       fontSize: 32,
       lineHeight: 34,
       fontWeight: "300",
-    },
-    rule: {
-      height: StyleSheet.hairlineWidth,
-      backgroundColor: `${colors.bone}24`,
-      marginHorizontal: 20,
     },
     paymentHeading: {
       marginHorizontal: 20,
