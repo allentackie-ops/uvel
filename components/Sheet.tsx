@@ -18,6 +18,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "./AccessiblePressable";
+import { useColors } from "../lib/theme";
 
 export function Sheet({
   open,
@@ -32,6 +33,7 @@ export function Sheet({
   surfaceColor?: string;
   children: ReactNode;
 }) {
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -153,7 +155,7 @@ export function Sheet({
             <Animated.View
               style={[
                 styles.sheet,
-                surfaceColor && { backgroundColor: surfaceColor },
+                { backgroundColor: surfaceColor || colors.surface },
                 expandable &&
                   (keyboardVisible ? { flex: 1 } : { height: maxHeight }),
                 { paddingBottom: insets.bottom + 16 },
@@ -161,7 +163,7 @@ export function Sheet({
               ]}
               accessibilityViewIsModal
             >
-              <View style={styles.grip} />
+              <View style={[styles.grip, { backgroundColor: `${colors.muted}66` }]} />
               {children}
             </Animated.View>
           </KeyboardAvoidingView>
@@ -177,7 +179,6 @@ const styles = StyleSheet.create({
   sheet: {
     width: "100%",
     bottom: 0,
-    backgroundColor: "#1A1916",
     borderTopLeftRadius: 22,
     borderTopRightRadius: 22,
     paddingHorizontal: 20,
