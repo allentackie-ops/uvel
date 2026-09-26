@@ -1028,6 +1028,7 @@ function make(colors: Colors) {
       minHeight: 56,
       flexDirection: "row",
       alignItems: "center",
+      justifyContent: "center",
       gap: 10,
     },
     shipIcon: {
@@ -1038,12 +1039,10 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "center",
     },
-    shipTogetherText: { color: colors.muted, fontSize: 14 },
+    shipTogetherText: { color: colors.muted, fontSize: 14, textAlign: "center" },
     actionRow: {
       minHeight: 76,
       marginHorizontal: 20,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: `${colors.bone}22`,
       flexDirection: "row",
       alignItems: "center",
       gap: 12,
@@ -1062,8 +1061,6 @@ function make(colors: Colors) {
     totalSection: {
       marginHorizontal: 20,
       paddingTop: 18,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: `${colors.bone}22`,
     },
     promoTotalRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 12 },
     promoTotalLabel: { color: colors.success, fontSize: 14, fontWeight: "700" },
