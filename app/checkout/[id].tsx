@@ -613,15 +613,19 @@ export default function Checkout() {
             busy: paying,
           }}
         >
-          <Text style={styles.payTxt}>
-            {paying
-              ? "Paying…"
-              : walletCovers
-                ? "Pay with Uvel balance"
-                : method.kind === "apple"
-                  ? "Buy with Apple Pay"
-                  : `Pay with ${method.label}`}
-          </Text>
+          {paying ? (
+            <Text style={styles.payTxt}>Paying…</Text>
+          ) : walletCovers ? (
+            <Text style={styles.payTxt}>Pay with Uvel balance</Text>
+          ) : method.kind === "apple" ? (
+            <View style={styles.appleButtonContent}>
+              <Text style={styles.payTxt}>Buy with</Text>
+              <Text style={styles.appleGlyph}></Text>
+              <Text style={styles.payTxt}>Pay</Text>
+            </View>
+          ) : (
+            <Text style={styles.payTxt}>Pay with {method.label}</Text>
+          )}
         </AccessiblePressable>
         <Text style={styles.secureText}>
           This payment will be processed by Stripe
@@ -1057,38 +1061,50 @@ function make(colors: Colors) {
       bottom: 0,
       backgroundColor: "#262626",
       paddingHorizontal: 20,
-      paddingTop: 18,
+      paddingTop: 14,
       shadowColor: "#000",
       shadowOpacity: 0.35,
       shadowRadius: 18,
       elevation: 12,
     },
     payBtn: {
-      height: 64,
-      borderRadius: 27,
+      height: 56,
+      borderRadius: 28,
       backgroundColor: "#FFFFFF",
       alignItems: "center",
       justifyContent: "center",
     },
     payDisabled: { opacity: 0.42 },
-    payTxt: { color: "#111111", fontSize: 20, fontWeight: "500" },
+    payTxt: { color: "#111111", fontSize: 18, fontWeight: "500" },
+    appleButtonContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 5,
+    },
+    appleGlyph: {
+      color: "#111111",
+      fontSize: 27,
+      lineHeight: 29,
+      marginTop: -2,
+    },
     secureText: {
       color: "#F4F4F4",
       textAlign: "center",
-      fontSize: 16,
-      marginTop: 17,
+      fontSize: 14,
+      marginTop: 12,
       letterSpacing: 0.1,
     },
     paymentBrands: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 14,
-      marginTop: 17,
+      gap: 8,
+      marginTop: 11,
     },
     brandTile: {
-      width: 74,
-      height: 50,
+      width: 60,
+      height: 42,
       borderRadius: 8,
       backgroundColor: "#FFFFFF",
       borderWidth: 2,
@@ -1097,10 +1113,10 @@ function make(colors: Colors) {
       justifyContent: "center",
       overflow: "hidden",
     },
-    appleBrand: { width: 62, height: 36 },
+    appleBrand: { width: 50, height: 32 },
     visaBrand: {
       color: "#163A80",
-      fontSize: 24,
+      fontSize: 19,
       fontStyle: "italic",
       fontWeight: "900",
       letterSpacing: -1.4,
@@ -1109,22 +1125,22 @@ function make(colors: Colors) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      width: 54,
-      height: 34,
+      width: 46,
+      height: 30,
     },
     cardCircle: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
-      marginHorizontal: -5,
+      width: 23,
+      height: 23,
+      borderRadius: 12,
+      marginHorizontal: -4,
     },
     cardCircleRed: { backgroundColor: "#EB001B" },
     cardCircleOrange: { backgroundColor: "#F79E1B" },
     cardCircleBlue: { backgroundColor: "#2563C7" },
     amexTile: {
-      width: 74,
-      height: 50,
-      borderRadius: 14,
+      width: 60,
+      height: 42,
+      borderRadius: 12,
       backgroundColor: "#2674C8",
       borderWidth: 2,
       borderColor: "#9DC7F2",
@@ -1133,7 +1149,7 @@ function make(colors: Colors) {
     },
     amexBrand: {
       color: "#FFFFFF",
-      fontSize: 15,
+      fontSize: 13,
       fontWeight: "900",
       letterSpacing: -0.5,
     },
