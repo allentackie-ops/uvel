@@ -22,7 +22,7 @@ import { hasBrandContact } from "../../lib/brandContact";
 import { BRAND_CONDITIONS, SIZE_SYSTEMS, sizesOf, systemFor, type SizeSystem } from "../../lib/brandSizes";
 import { canPost, getBrand, themeFor, useBrands } from "../../lib/brands";
 import { getMarket } from "../../lib/markets";
-import { pickListingPhoto, takeListingPhoto } from "../../lib/photo";
+import { pickListingClip, pickListingPhotos, takeListingClip, takeListingPhoto } from "../../lib/photo";
 import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../../lib/photoCheck";
 import { encodeShipsTo, restrictShipsTo, type ShipsTo } from "../../lib/ships";
 import { useUvel } from "../../lib/store";
@@ -48,6 +48,7 @@ export default function BrandList() {
   const origin = brand?.country || app.country || "US";
   const market = getMarket(origin);
   const [photos, setPhotos] = useState<Slot[]>([]);
+  const [clipUri, setClipUri] = useState("");
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
   const [category, setCategory] = useState<Category | null>(null);
@@ -64,7 +65,9 @@ export default function BrandList() {
   const [condition, setCondition] = useState<(typeof BRAND_CONDITIONS)[number]>("New");
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
+  const [openSection, setOpenSection] = useState<"product" | "inventory" | "details" | "delivery" | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const previousPhotoCount = useRef(photos.length);
   const ph = "rgba(244,240,230,0.32)";
   const cover = photos[0];
   const contactReady = hasBrandContact(brand || {});
@@ -75,6 +78,11 @@ export default function BrandList() {
     const t = setInterval(() => setStage((n) => (n + 1) % STAGES.length), 4200);
     return () => clearInterval(t);
   }, [gate.phase]);
+
+  useEffect(() => {
+    if (photos.length > 0 && previousPhotoCount.current === 0) setOpenSection("product");
+    previousPhotoCount.current = photos.length;
+  }, [photos.length]);
 
   useFocusEffect(useCallback(() => {
     const selectedColor = takePendingListingSelection("color");
@@ -167,12 +175,21 @@ export default function BrandList() {
       void publish();
       return;
     }
+    const section = nextStep.key === "photo" || nextStep.key === "title" || nextStep.key === "price" || nextStep.key === "sku" || nextStep.key === "description"
+      ? "product"
+      : nextStep.key === "stock"
+        ? "inventory"
+        : nextStep.key === "category" || nextStep.key === "size" || nextStep.key === "color" || nextStep.key === "material" || nextStep.key === "condition"
+          ? "details"
+          : "delivery";
+    setOpenSection(section);
     const stepIndex = steps.indexOf(nextStep);
     scrollRef.current?.scrollTo({ y: Math.max(0, stepIndex * 190), animated: true });
   }
 
   async function addUri(uri: string) {
     if (photos.length >= MAX) return;
+    if (photos.some((photo) => photo.uri === uri)) return;
     setPhotos((prev) => [...prev, { uri, status: "checking" }]);
     try {
       const review = await reviewListingPhoto(uri);
@@ -191,6 +208,30 @@ export default function BrandList() {
     }
   }
 
+  async function fromLibrary() {
+    const uris = await pickListingPhotos(MAX - photos.length);
+    for (const uri of uris) await addUri(uri);
+  }
+
+  function chooseClip() {
+    Keyboard.dismiss();
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ["Record a clip", "Choose from library", "Cancel"], cancelButtonIndex: 2, userInterfaceStyle: "dark" },
+        (i) => {
+          if (i === 0) void takeListingClip().then((uri) => { if (uri) setClipUri(uri); });
+          if (i === 1) void pickListingClip().then((uri) => { if (uri) setClipUri(uri); });
+        },
+      );
+      return;
+    }
+    Alert.alert("Add a clip", "Up to 15 seconds.", [
+      { text: "Record a clip", onPress: () => void takeListingClip().then((uri) => { if (uri) setClipUri(uri); }) },
+      { text: "Choose from library", onPress: () => void pickListingClip().then((uri) => { if (uri) setClipUri(uri); }) },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
+
   function choosePhoto() {
     Keyboard.dismiss();
     if (Platform.OS === "ios") {
@@ -198,14 +239,14 @@ export default function BrandList() {
         { options: ["Camera", "Library", "Cancel"], cancelButtonIndex: 2, userInterfaceStyle: "dark" },
         (i) => {
           if (i === 0) void takeListingPhoto().then((u) => { if (u) void addUri(u); });
-          if (i === 1) void pickListingPhoto().then((u) => { if (u) void addUri(u); });
+          if (i === 1) void fromLibrary();
         },
       );
       return;
     }
     Alert.alert("Add a photo", undefined, [
       { text: "Camera", onPress: () => void takeListingPhoto().then((u) => { if (u) void addUri(u); }) },
-      { text: "Library", onPress: () => void pickListingPhoto().then((u) => { if (u) void addUri(u); }) },
+      { text: "Library", onPress: () => void fromLibrary() },
       { text: "Cancel", style: "cancel" },
     ]);
   }
@@ -260,6 +301,7 @@ export default function BrandList() {
       const created = addPiece({
         photo: uris[0],
         photos: uris,
+        clipUri: clipUri || undefined,
         name: name.trim(),
         brand: activeBrand.name,
         sku: sku.trim().toUpperCase(),
@@ -318,6 +360,13 @@ export default function BrandList() {
         </View>
         <View style={[styles.progressMeta, { backgroundColor: brandTheme.bg }]}><Text style={styles.progressKicker}>NEW PRODUCT</Text><Text style={styles.progressCopy}>{progress}/{steps.length} ready</Text></View>
         <View style={[styles.progressTrack, { backgroundColor: brandTheme.lineColor }]}><View style={[styles.progressFill, { width: `${(progress / steps.length) * 100}%`, backgroundColor: brandTheme.accent }]} /></View>
+        <View style={styles.progressLabels}>
+          <Text style={[styles.progressLabel, photos.length > 0 && { color: brandTheme.accent }]}>Capture</Text>
+          <Text style={[styles.progressLabel, name && price && sku && { color: brandTheme.accent }]}>Product</Text>
+          <Text style={[styles.progressLabel, hasVariantStock && { color: brandTheme.accent }]}>Inventory</Text>
+          <Text style={[styles.progressLabel, category && color && material && { color: brandTheme.accent }]}>Details</Text>
+          <Text style={[styles.progressLabel, canList && { color: brandTheme.accent }]}>Publish</Text>
+        </View>
           <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
           {!contactReady ? (
             <View style={styles.contactGate}>
@@ -347,15 +396,31 @@ export default function BrandList() {
               </View>
             ) : null}
           </Pressable>
+          <View style={styles.photoMetaRow}>
+            <Text style={[styles.photoCount, { color: brandTheme.ink }]}>Photos · {photos.length}/{MAX}</Text>
+            <Text style={[styles.photoHint, { color: brandTheme.muted }]}>Clear angles help shoppers decide</Text>
+          </View>
           <View style={styles.slotRow}>
             {photos.map((p) => (
               <Pressable key={p.uri} onPress={() => setPhotos((prev) => prev.filter((x) => x.uri !== p.uri))}>
                 <Image cachePolicy="memory-disk" source={{ uri: p.uri }} style={[styles.mini, { backgroundColor: brandTheme.card }]} contentFit="cover" />
               </Pressable>
             ))}
+            {photos.length < MAX ? <Pressable onPress={choosePhoto} style={[styles.addPhotoTile, { borderColor: brandTheme.lineColor, backgroundColor: brandTheme.card }]}><Text style={[styles.addPhotoPlus, { color: brandTheme.accent }]}>＋</Text><Text style={[styles.addPhotoText, { color: brandTheme.ink }]}>{photos.length ? "Add more" : "Add photos"}</Text></Pressable> : null}
           </View>
+          <Pressable onPress={chooseClip} style={[styles.clipRow, { borderColor: brandTheme.lineColor, backgroundColor: brandTheme.card }]}>
+            <Text style={[styles.clipIcon, { color: brandTheme.accent }]}>▹</Text>
+            <View style={{ flex: 1 }}><Text style={[styles.clipTitle, { color: brandTheme.ink }]}>{clipUri ? "Motion clip added" : "Add a motion clip"}</Text><Text style={[styles.clipBody, { color: brandTheme.muted }]}>{clipUri ? "Tap to replace · up to 15 seconds" : "Optional · show the piece in motion"}</Text></View>
+            <Text style={[styles.clipArrow, { color: brandTheme.muted }]}>{clipUri ? "Replace" : "＋"}</Text>
+          </Pressable>
 
           <View style={styles.sheet}>
+            <Pressable onPress={() => setOpenSection((section) => section === "product" ? null : "product")} style={[styles.sectionHeader, openSection === "product" && styles.sectionHeaderOpen, { backgroundColor: brandTheme.card }]} accessibilityRole="button" accessibilityState={{ expanded: openSection === "product" }}>
+              <View style={[styles.sectionIcon, { backgroundColor: `${brandTheme.accent}22` }]}><Text style={[styles.sectionIconText, { color: brandTheme.accent }]}>✦</Text></View>
+              <View style={{ flex: 1 }}><Text style={[styles.sectionTitle, { color: brandTheme.ink }]}>Product</Text><Text style={[styles.sectionSummary, { color: brandTheme.muted }]}>{name || "Name, price, SKU, description"}</Text></View>
+              <Text style={[styles.sectionChevron, { color: brandTheme.muted }]}>{openSection === "product" ? "⌄" : "›"}</Text>
+            </Pressable>
+            {openSection === "product" ? <View style={[styles.sectionBody, { backgroundColor: `${brandTheme.card}88` }] }>
             <Text style={styles.sectionKicker}>THE PIECE</Text>
             <TextInput style={styles.titleField} value={name} onChangeText={setName} placeholder="What’s the item called?" placeholderTextColor={ph} />
             <Text style={styles.label}>Price *</Text>
@@ -366,8 +431,15 @@ export default function BrandList() {
             <Text style={styles.label}>SKU *</Text>
             <Text style={styles.hint}>A unique product code for your team and inventory system.</Text>
             <TextInput style={styles.field} value={sku} onChangeText={(v) => setSku(v.replace(/[^a-z0-9-]/gi, "").toUpperCase())} placeholder="e.g. AT4-SLIP-001" placeholderTextColor={ph} autoCapitalize="characters" />
+            </View> : null}
 
-            <Text style={styles.sectionKickerLater}>INVENTORY</Text>
+            <Pressable onPress={() => setOpenSection((section) => section === "inventory" ? null : "inventory")} style={[styles.sectionHeader, openSection === "inventory" && styles.sectionHeaderOpen, { backgroundColor: brandTheme.card }]} accessibilityRole="button" accessibilityState={{ expanded: openSection === "inventory" }}>
+              <View style={[styles.sectionIcon, { backgroundColor: `${brandTheme.accent}22` }]}><Text style={[styles.sectionIconText, { color: brandTheme.accent }]}>▦</Text></View>
+              <View style={{ flex: 1 }}><Text style={[styles.sectionTitle, { color: brandTheme.ink }]}>Inventory</Text><Text style={[styles.sectionSummary, { color: brandTheme.muted }]}>{picked.length ? `${picked.length} size${picked.length === 1 ? "" : "s"} selected` : "Units and size stock"}</Text></View>
+              <Text style={[styles.sectionChevron, { color: brandTheme.muted }]}>{openSection === "inventory" ? "⌄" : "›"}</Text>
+            </Pressable>
+            {openSection === "inventory" ? <View style={[styles.sectionBody, { backgroundColor: `${brandTheme.card}88` }] }>
+            <Text style={styles.sectionKicker}>INVENTORY</Text>
             <Text style={styles.label}>Default units per size</Text>
             <Text style={styles.hint}>Optional shortcut used to prefill each selected size below.</Text>
             <TextInput
@@ -378,12 +450,28 @@ export default function BrandList() {
               placeholder="e.g. 12"
               placeholderTextColor={ph}
             />
+            </View> : null}
 
-            <Text style={styles.sectionKickerLater}>SELLING</Text>
+            <Pressable onPress={() => setOpenSection((section) => section === "delivery" ? null : "delivery")} style={[styles.sectionHeader, openSection === "delivery" && styles.sectionHeaderOpen, { backgroundColor: brandTheme.card }]} accessibilityRole="button" accessibilityState={{ expanded: openSection === "delivery" }}>
+              <View style={[styles.sectionIcon, { backgroundColor: `${brandTheme.accent}22` }]}><Text style={[styles.sectionIconText, { color: brandTheme.accent }]}>↗</Text></View>
+              <View style={{ flex: 1 }}><Text style={[styles.sectionTitle, { color: brandTheme.ink }]}>Delivery & publish</Text><Text style={[styles.sectionSummary, { color: brandTheme.muted }]}>{shipsTo === "all" ? "All operating countries" : "Brand delivery settings"}</Text></View>
+              <Text style={[styles.sectionChevron, { color: brandTheme.muted }]}>{openSection === "delivery" ? "⌄" : "›"}</Text>
+            </Pressable>
+            {openSection === "delivery" ? <View style={[styles.sectionBody, { backgroundColor: `${brandTheme.card}88` }] }>
+            <Text style={styles.sectionKicker}>DELIVERY</Text>
             <View style={styles.marketSection}>
               <Text style={styles.hint}>Your brand delivery settings limit which countries this product can serve. International buyers pay the higher delivery rate at checkout.</Text>
               <ShipsPicker origin={origin} value={shipsTo} onChange={(next) => setShipsTo(restrictShipsTo(origin, next, activeBrand.operatingCountries || brandShipsTo))} accent={brandTheme.accent} accentInk={brandTheme.accentInk} />
             </View>
+            </View> : null}
+
+            <Pressable onPress={() => setOpenSection((section) => section === "details" ? null : "details")} style={[styles.sectionHeader, openSection === "details" && styles.sectionHeaderOpen, { backgroundColor: brandTheme.card }]} accessibilityRole="button" accessibilityState={{ expanded: openSection === "details" }}>
+              <View style={[styles.sectionIcon, { backgroundColor: `${brandTheme.accent}22` }]}><Text style={[styles.sectionIconText, { color: brandTheme.accent }]}>⌘</Text></View>
+              <View style={{ flex: 1 }}><Text style={[styles.sectionTitle, { color: brandTheme.ink }]}>Details</Text><Text style={[styles.sectionSummary, { color: brandTheme.muted }]}>{category ? `${category} · ${color || "colour"} · ${material || "material"}` : "Category, sizes, colour, material"}</Text></View>
+              <Text style={[styles.sectionChevron, { color: brandTheme.muted }]}>{openSection === "details" ? "⌄" : "›"}</Text>
+            </Pressable>
+            {openSection === "details" ? <View style={[styles.sectionBody, { backgroundColor: `${brandTheme.card}88` }] }>
+            <Text style={styles.sectionKicker}>DETAILS</Text>
             <Text style={styles.label}>Description *</Text>
             <TextInput style={styles.body} value={notes} onChangeText={setNotes} placeholder="Cloth, make, how it sits" placeholderTextColor={ph} multiline />
 
@@ -485,6 +573,7 @@ export default function BrandList() {
                 </Pressable>
               ))}
             </View>
+            </View> : null}
           </View>
         </ScrollView>
         <View style={[styles.foot, { paddingBottom: insets.bottom + 12, backgroundColor: brandTheme.bg }]}>
@@ -540,21 +629,42 @@ const styles = StyleSheet.create({
   progressCopy: { color: "rgba(244,240,230,0.55)", fontSize: 12, fontWeight: "600" },
   progressTrack: { height: 3, backgroundColor: "#2A2824", marginHorizontal: 20, borderRadius: 2, overflow: "hidden" },
   progressFill: { height: 3, backgroundColor: "#2A2824", borderRadius: 2 },
+  progressLabels: { flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 20, marginTop: 8 },
+  progressLabel: { color: "rgba(244,240,230,0.42)", fontSize: 10, fontWeight: "800" },
   contactGate: { marginHorizontal: 20, marginTop: 12, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: "#2A2824", backgroundColor: "#1A1814" },
   contactGateTitle: { color: "#F4F0E6", fontWeight: "700", fontSize: 16 },
   contactGateText: { color: "rgba(244,240,230,0.6)", fontSize: 13, lineHeight: 18, marginTop: 6 },
   contactGateBtn: { marginTop: 12, alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 12, borderRadius: 16, backgroundColor: "#2A2824" },
   contactGateBtnText: { color: "#F4F0E6", fontSize: 13, fontWeight: "700" },
-  hero: { width: COVER_W, height: COVER_H, marginHorizontal: 20, marginTop: 16, borderRadius: 16, overflow: "hidden", backgroundColor: "#161512" },
+  hero: { width: "auto", height: 220, marginHorizontal: 20, marginTop: 16, borderRadius: 20, overflow: "hidden", backgroundColor: "#161512" },
   heroImg: { width: "100%", height: "100%" },
   heroEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4, paddingHorizontal: 8 },
   heroPlus: { color: "#F4F0E6", fontSize: 30, fontWeight: "300" },
   heroHint: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 14, textAlign: "center" },
   heroSub: { color: "rgba(244,240,230,0.42)", fontSize: 10, textAlign: "center", marginTop: 2 },
   heroMask: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(42,40,36,0.5)", alignItems: "center", justifyContent: "center" },
+  photoMetaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 12 },
+  photoCount: { fontSize: 14, fontWeight: "800" },
+  photoHint: { fontSize: 11 },
   slotRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 12 },
   mini: { width: 64, height: 80, borderRadius: 10, backgroundColor: "#161512" },
-  sheet: { paddingHorizontal: 20, paddingTop: 28 },
+  addPhotoTile: { width: 80, height: 80, borderRadius: 10, borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
+  addPhotoPlus: { fontSize: 22, lineHeight: 24 },
+  addPhotoText: { fontSize: 10, fontWeight: "700", marginTop: 2 },
+  clipRow: { minHeight: 64, marginHorizontal: 20, marginTop: 12, borderRadius: 16, borderWidth: 1, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 12 },
+  clipIcon: { fontSize: 26 },
+  clipTitle: { fontSize: 14, fontWeight: "800" },
+  clipBody: { fontSize: 12, marginTop: 3 },
+  clipArrow: { fontSize: 13, fontWeight: "700" },
+  sheet: { paddingHorizontal: 20, paddingTop: 18 },
+  sectionHeader: { minHeight: 72, marginTop: 10, borderRadius: 18, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 12 },
+  sectionHeaderOpen: { borderBottomLeftRadius: 8, borderBottomRightRadius: 8, marginBottom: 0 },
+  sectionIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  sectionIconText: { fontSize: 18, fontWeight: "800" },
+  sectionTitle: { fontSize: 16, fontWeight: "800" },
+  sectionSummary: { fontSize: 12, marginTop: 3 },
+  sectionChevron: { fontSize: 24, lineHeight: 24, marginTop: -3 },
+  sectionBody: { paddingHorizontal: 14, paddingTop: 16, paddingBottom: 10, borderBottomLeftRadius: 18, borderBottomRightRadius: 18 },
   sectionKicker: { color: "rgba(244,240,230,0.48)", fontSize: 11, letterSpacing: 1.6, fontWeight: "800", marginBottom: 4 },
   sectionKickerLater: { color: "rgba(244,240,230,0.48)", fontSize: 11, letterSpacing: 1.6, fontWeight: "800", marginTop: 34, marginBottom: 4 },
   marketSection: { marginTop: 8 },
