@@ -601,19 +601,6 @@ export default function Checkout() {
       <View
         style={[styles.purchasePanel, { paddingBottom: insets.bottom + 14 }]}
       >
-        <View style={styles.panelHandle} />
-        <Text style={styles.panelTitle}>Complete your purchase</Text>
-        <View style={styles.panelTotal}>
-          <Text style={styles.panelTotalLabel}>Total</Text>
-          <Text style={styles.panelTotalValue}>
-            {moneyExact(walletCovers ? 0 : total, market.currency)}
-          </Text>
-        </View>
-        <Text style={styles.panelHint}>
-          {promotionQuote
-            ? "Promotion applied · secure payment by Stripe"
-            : "Includes shipping and buyer protection"}
-        </Text>
         <AccessiblePressable
           onPress={() => void payNow()}
           disabled={!ready || !availabilityConfirmed}
@@ -643,8 +630,9 @@ export default function Checkout() {
           </Text>
         </AccessiblePressable>
         <Text style={styles.secureText}>
-          14-day returns · Secure payment by Stripe
+          This payment will be processed by Stripe
         </Text>
+        <PaymentBrands styles={styles} />
       </View>
       {feeInfo ? (
         <Sheet open={feeInfo} onClose={() => setFeeInfo(false)}>
@@ -861,6 +849,41 @@ function PayMark({ method }: { method: PayMethod }) {
   );
 }
 
+function PaymentBrands({ styles }: { styles: ReturnType<typeof make> }) {
+  return (
+    <View
+      style={styles.paymentBrands}
+      accessibilityLabel="Accepted payment methods"
+    >
+      <View style={styles.brandTile}>
+        <Image
+          source={require("../../assets/pay/apple-pay.png")}
+          style={styles.appleBrand}
+          contentFit="contain"
+        />
+      </View>
+      <View style={styles.brandTile}>
+        <Text style={styles.visaBrand}>VISA</Text>
+      </View>
+      <View style={styles.brandTile}>
+        <View style={styles.mastercardBrand}>
+          <View style={[styles.cardCircle, styles.cardCircleRed]} />
+          <View style={[styles.cardCircle, styles.cardCircleOrange]} />
+        </View>
+      </View>
+      <View style={styles.brandTile}>
+        <View style={styles.mastercardBrand}>
+          <View style={[styles.cardCircle, styles.cardCircleRed]} />
+          <View style={[styles.cardCircle, styles.cardCircleBlue]} />
+        </View>
+      </View>
+      <View style={styles.amexTile}>
+        <Text style={styles.amexBrand}>AMEX</Text>
+      </View>
+    </View>
+  );
+}
+
 const mark = StyleSheet.create({
   wrap: {
     height: 28,
@@ -1038,62 +1061,87 @@ function make(colors: Colors) {
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: colors.surface,
-      borderTopLeftRadius: 28,
-      borderTopRightRadius: 28,
+      backgroundColor: "#262626",
       paddingHorizontal: 20,
-      paddingTop: 10,
+      paddingTop: 18,
       shadowColor: "#000",
       shadowOpacity: 0.35,
       shadowRadius: 18,
       elevation: 12,
     },
-    panelHandle: {
-      width: 46,
-      height: 5,
-      borderRadius: 3,
-      backgroundColor: `${colors.bone}55`,
-      alignSelf: "center",
-      marginBottom: 14,
-    },
-    panelTitle: {
-      color: colors.bone,
-      fontSize: 23,
-      fontWeight: "800",
-      marginBottom: 14,
-    },
-    panelTotal: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-    },
-    panelTotalLabel: { color: colors.bone, fontSize: 16, fontWeight: "700" },
-    panelTotalValue: {
-      color: colors.bone,
-      fontSize: 18,
-      fontWeight: "800",
-      fontVariant: ["tabular-nums"],
-    },
-    panelHint: {
-      color: colors.muted,
-      fontSize: 13,
-      marginTop: 4,
-      marginBottom: 14,
-    },
     payBtn: {
-      height: 54,
+      height: 64,
       borderRadius: 27,
-      backgroundColor: colors.success,
+      backgroundColor: "#FFFFFF",
       alignItems: "center",
       justifyContent: "center",
     },
     payDisabled: { opacity: 0.42 },
-    payTxt: { color: colors.successInk, fontSize: 17, fontWeight: "800" },
+    payTxt: { color: "#111111", fontSize: 20, fontWeight: "500" },
     secureText: {
-      color: colors.subtle,
+      color: "#F4F4F4",
       textAlign: "center",
-      fontSize: 11,
-      marginTop: 10,
+      fontSize: 16,
+      marginTop: 17,
+      letterSpacing: 0.1,
+    },
+    paymentBrands: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 14,
+      marginTop: 17,
+    },
+    brandTile: {
+      width: 74,
+      height: 50,
+      borderRadius: 8,
+      backgroundColor: "#FFFFFF",
+      borderWidth: 2,
+      borderColor: "#9A9A9A",
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden",
+    },
+    appleBrand: { width: 62, height: 36 },
+    visaBrand: {
+      color: "#163A80",
+      fontSize: 24,
+      fontStyle: "italic",
+      fontWeight: "900",
+      letterSpacing: -1.4,
+    },
+    mastercardBrand: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      width: 54,
+      height: 34,
+    },
+    cardCircle: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      marginHorizontal: -5,
+    },
+    cardCircleRed: { backgroundColor: "#EB001B" },
+    cardCircleOrange: { backgroundColor: "#F79E1B" },
+    cardCircleBlue: { backgroundColor: "#2563C7" },
+    amexTile: {
+      width: 74,
+      height: 50,
+      borderRadius: 14,
+      backgroundColor: "#2674C8",
+      borderWidth: 2,
+      borderColor: "#9DC7F2",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    amexBrand: {
+      color: "#FFFFFF",
+      fontSize: 15,
+      fontWeight: "900",
+      letterSpacing: -0.5,
     },
     sheetH: {
       color: colors.bone,
