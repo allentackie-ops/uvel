@@ -40,7 +40,7 @@ import { enrollMake, brandMakes } from "../../lib/brandMake";
 import { usd } from "../../lib/catalog";
 import { financeTotals, requestBrandPayout, savePayoutProfile, settlementLedger, usePayoutProfile, usePayouts, type PayoutDestinationType, type PayoutOwnerType, type SettlementEntry } from "../../lib/finance";
 import { useUvel } from "../../lib/store";
-import { useColors, type Colors } from "../../lib/theme";
+import { useColors, useResolvedAppearance, type Colors } from "../../lib/theme";
 import { MARKETS, getMarket, moneyExact } from "../../lib/markets";
 import { recordAuditEvent, useAudit, type AuditEvent } from "../../lib/audit";
 import { createOrderShipment, reviewOrderResolution, updateOrderFulfillment, updateOrderShipment, useOrders, watchBrandOrders, type FulfillmentStatus, type Order, type ShippingExceptionCode } from "../../lib/orders";
@@ -111,6 +111,7 @@ export default function BrandHQ() {
   const app = useUvel();
   const founderState = useFounderProjects();
   const colors = useColors();
+  const appearance = useResolvedAppearance();
   const insets = useSafeAreaInsets();
   const pieces = useWardrobe();
   const orders = useOrders();
@@ -120,7 +121,27 @@ export default function BrandHQ() {
   const payouts = usePayouts(id || "");
   const payoutProfile = usePayoutProfile(id || "");
   const brand = getBrand(id);
-  const theme: HQTheme = brand ? themeFor(brand) : { bg: colors.ink, ink: colors.bone, muted: colors.muted, card: colors.surface, accent: colors.pulse, accentInk: colors.ink, lineColor: colors.subtle };
+  const brandTheme = brand ? themeFor(brand) : null;
+  const theme: HQTheme = brandTheme
+    ? appearance === "light"
+      ? {
+          ...brandTheme,
+          bg: colors.ink,
+          ink: colors.bone,
+          muted: colors.muted,
+          card: colors.surface,
+          lineColor: `${colors.bone}24`,
+        }
+      : brandTheme
+    : {
+        bg: colors.ink,
+        ink: colors.bone,
+        muted: colors.muted,
+        card: colors.surface,
+        accent: colors.pulse,
+        accentInk: colors.ink,
+        lineColor: colors.subtle,
+      };
   const styles = useMemo(() => make(theme), [theme]);
   const [section, setSection] = useState<Section>(requestedSection === "promoCodes" ? "promoCodes" : "overview");
   const hqScroller = useRef<ScrollView>(null);
