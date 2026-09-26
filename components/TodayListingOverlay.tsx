@@ -102,6 +102,7 @@ export function TodayListingOverlay({
   const settled = useSharedValue(0);
   const scrollY = useSharedValue(0);
   const tryOnHintTriggered = useSharedValue(0);
+  const touchStartX = useSharedValue(0);
   const touchStartY = useSharedValue(0);
   const [coverTop, setCoverTop] = useState(0);
   const [activePhoto, setActivePhoto] = useState(0);
@@ -202,6 +203,7 @@ export function TodayListingOverlay({
   const pan = Gesture.Pan()
     .manualActivation(true)
     .onTouchesDown((event) => {
+      touchStartX.value = event.allTouches[0]?.absoluteX ?? 0;
       touchStartY.value = event.allTouches[0]?.absoluteY ?? 0;
     })
     .onTouchesMove((event, state) => {
@@ -209,17 +211,23 @@ export function TodayListingOverlay({
         state.fail();
         return;
       }
+      const x = event.allTouches[0]?.absoluteX ?? touchStartX.value;
       const y = event.allTouches[0]?.absoluteY ?? touchStartY.value;
+      const dx = x - touchStartX.value;
       const dy = y - touchStartY.value;
       if (scrollY.value > 4) {
         state.fail();
         return;
       }
-      if (dy > 8) {
+      if (dy < -8) {
+        state.fail();
+        return;
+      }
+      if (dy > 8 && dy > Math.abs(dx) * 1.2) {
         state.activate();
         return;
       }
-      if (dy < -8) {
+      if (Math.abs(dx) > 8 && Math.abs(dx) > Math.max(dy, 0) * 1.2) {
         state.fail();
       }
     })
@@ -244,7 +252,7 @@ export function TodayListingOverlay({
       const h = heroH * s;
       imgW.value = w;
       imgH.value = h;
-      imgX.value = (screenW - w) / 2 + event.translationX * 0.4;
+      imgX.value = (screenW - w) / 2;
       imgY.value = chromeTop + event.translationY * 0.92;
       imgR.value = 20 * p;
       backdrop.value = 1 - p * 0.95;
