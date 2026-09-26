@@ -116,13 +116,13 @@ function make(colors: Colors) {
     name: { color: colors.bone, fontSize: 18, fontWeight: "800", marginTop: 12 },
     handle: { color: `${colors.bone}7A`, fontSize: 14, marginTop: 3 },
     content: { paddingBottom: 20, paddingTop: 6 },
-    rule: { height: StyleSheet.hairlineWidth, backgroundColor: `${colors.bone}22`, marginVertical: 10, marginLeft: 2 },
+    rule: { height: 0, marginVertical: 10, marginLeft: 2 },
     sectionLabel: { color: `${colors.bone}7A`, fontSize: 11, fontWeight: "800", letterSpacing: 1.8, marginTop: 8, marginBottom: 2 },
     row: { minHeight: 52, flexDirection: "row", alignItems: "center", gap: 16 },
     menuIcon: { width: 22, gap: 4 },
     menuLine: { height: 2, width: 22, borderRadius: 1, backgroundColor: colors.bone },
     label: { color: colors.bone, fontSize: 18, fontWeight: "700" },
-    signOutRow: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}22` },
+    signOutRow: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 16 },
     signOutLabel: { color: colors.bone, fontSize: 18, fontWeight: "700" },
   });
 }
