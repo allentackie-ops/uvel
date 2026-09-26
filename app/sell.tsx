@@ -779,7 +779,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               photos={photos}
               onPreview={setSelectedPhotoIndex}
               onReorder={reorderPhotos}
-              contentContainerStyle={styles.photoStrip}
               renderPhoto={(p, i) => (
                 <View style={[styles.photoTile, i === 0 ? styles.photoCover : styles.photoThumb, i === selectedPhotoIndex && styles.photoSelected]}>
                   <Image cachePolicy="memory-disk" source={{ uri: p.uri }} style={styles.photoImage} contentFit="cover" accessibilityRole="image" accessibilityLabel={`Photo ${i + 1}${i === 0 ? ", main photo" : ""}`} />

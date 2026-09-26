@@ -427,28 +427,28 @@ export default function BrandList() {
             <Text style={[styles.photoCount, { color: brandTheme.ink }]}>Photos · {photos.length}/{MAX}</Text>
             <Text style={[styles.photoHint, { color: brandTheme.muted }]}>Clear angles help shoppers decide</Text>
           </View>
-          <SortablePhotoStrip
-            photos={photos}
-            onPreview={setSelectedPhotoIndex}
-            onReorder={reorderPhotos}
-            contentContainerStyle={styles.slotRow}
-            renderPhoto={(p, i) => (
-              <View style={[styles.miniWrap, i === selectedPhotoIndex && styles.miniSelected]}>
-                <Image cachePolicy="memory-disk" source={{ uri: p.uri }} style={[styles.mini, { backgroundColor: brandTheme.card }]} contentFit="cover" />
-                <Pressable
-                  onPress={() => removePhoto(p.uri)}
-                  hitSlop={8}
-                  style={styles.miniRemove}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove photo ${i + 1}`}
-                  accessibilityHint="Double tap to remove this photo."
-                >
-                  <Text style={styles.miniRemoveText}>×</Text>
-                </Pressable>
-              </View>
-            )}
-          />
-          <View style={styles.addPhotoSlot}>
+          <View style={styles.slotRow}>
+            <SortablePhotoStrip
+              photos={photos}
+              onPreview={setSelectedPhotoIndex}
+              onReorder={reorderPhotos}
+              contentContainerStyle={styles.photoRow}
+              renderPhoto={(p, i) => (
+                <View style={[styles.miniWrap, i === selectedPhotoIndex && styles.miniSelected]}>
+                  <Image cachePolicy="memory-disk" source={{ uri: p.uri }} style={[styles.mini, { backgroundColor: brandTheme.card }]} contentFit="cover" />
+                  <Pressable
+                    onPress={() => removePhoto(p.uri)}
+                    hitSlop={8}
+                    style={styles.miniRemove}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove photo ${i + 1}`}
+                    accessibilityHint="Double tap to remove this photo."
+                  >
+                    <Text style={styles.miniRemoveText}>×</Text>
+                  </Pressable>
+                </View>
+              )}
+            />
             {photos.length < MAX ? <Pressable onPress={choosePhoto} style={[styles.addPhotoTile, { borderColor: brandTheme.lineColor, backgroundColor: brandTheme.card }]}><Text style={[styles.addPhotoPlus, { color: brandTheme.accent }]}>＋</Text><Text style={[styles.addPhotoText, { color: brandTheme.ink }]}>{photos.length ? "Add more" : "Add photos"}</Text></Pressable> : null}
           </View>
           <Pressable onPress={chooseClip} style={[styles.clipRow, { borderColor: brandTheme.lineColor, backgroundColor: brandTheme.card }]}>
@@ -690,12 +690,12 @@ const styles = StyleSheet.create({
   photoCount: { fontSize: 14, fontWeight: "800" },
   photoHint: { fontSize: 11 },
   slotRow: { flexDirection: "row", gap: 8, paddingHorizontal: 16, paddingTop: 12 },
+  photoRow: { flexDirection: "row" },
   miniWrap: { width: 64, height: 80, borderRadius: 10, overflow: "hidden", position: "relative" },
   miniSelected: { borderWidth: 2, borderColor: "#D6E27A" },
   mini: { width: 64, height: 80, borderRadius: 10, backgroundColor: "#161512" },
   miniRemove: { position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: 11, backgroundColor: "rgba(0,0,0,0.78)", alignItems: "center", justifyContent: "center" },
   miniRemoveText: { color: "#F4F0E6", fontSize: 16, lineHeight: 18, fontWeight: "700", marginTop: -1 },
-  addPhotoSlot: { flexDirection: "row" },
   addPhotoTile: { width: 80, height: 80, borderRadius: 10, borderWidth: 1, borderStyle: "dashed", alignItems: "center", justifyContent: "center" },
   addPhotoPlus: { fontSize: 22, lineHeight: 24 },
   addPhotoText: { fontSize: 10, fontWeight: "700", marginTop: 2 },

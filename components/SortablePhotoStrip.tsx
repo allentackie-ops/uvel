@@ -17,7 +17,7 @@ const REORDER_STEP = 72;
 
 export function SortablePhotoStrip({ photos, onPreview, onReorder, renderPhoto, contentContainerStyle }: Props) {
   return (
-    <View style={contentContainerStyle}>
+    <View style={[{ flexDirection: "row", alignItems: "flex-start", gap: 8 }, contentContainerStyle]}>
       {photos.map((photo, index) => (
         <SortablePhotoTile
           key={photo.uri}
