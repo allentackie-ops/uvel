@@ -28,7 +28,6 @@ import {
   createStripePaymentIntent,
   openHostedPay,
   paymentsExtra,
-  processorFor,
   validatePromotion,
   type PromotionQuote,
 } from "../../lib/pay";
@@ -553,11 +552,6 @@ export default function Checkout() {
         <View style={styles.rule} />
         <View style={styles.paymentHeading}>
           <Text style={styles.detailLabel}>Payment</Text>
-          <Text style={styles.detailMeta}>
-            {processorFor(market.code, method.id) === "paystack"
-              ? "Paystack"
-              : "Stripe"}
-          </Text>
         </View>
         <AccessiblePressable
           onPress={() => setPayOpen(true)}
