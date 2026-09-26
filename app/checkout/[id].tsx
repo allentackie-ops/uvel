@@ -510,9 +510,10 @@ export default function Checkout() {
             <Text style={styles.detailLabel}>Total</Text>
             <Text style={styles.detailSub}>
               {promotionQuote
-                ? `${promotionQuote.code} applied · includes shipping and buyer protection`
+                ? `${promotionQuote.code} applied`
                 : "Includes shipping and buyer protection"}
             </Text>
+            <Text style={styles.detailMeta}>Tap for price breakdown</Text>
           </View>
           <Text style={styles.detailValue}>
             {moneyExact(walletCovers ? 0 : total, market.currency)}

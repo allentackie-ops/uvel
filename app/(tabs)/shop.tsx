@@ -410,12 +410,17 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         <View style={styles.todayHeader}>
           <AccessiblePressable
             onPress={() => onOpenTools?.()}
-            style={({ pressed }) => [styles.headerSide, pressed && { opacity: 0.72 }]}
+            style={({ pressed }) => [styles.headerWorkspace, pressed && { opacity: 0.72 }]}
             accessibilityRole="button"
             accessibilityLabel={C.openWorkspace}
             accessibilityHint="Open Founder Studio, Brand HQ, and seller tools."
           >
-            <View style={styles.menuIcon}><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View>
+            <View style={styles.menuIcon}>
+              <View style={styles.menuLine} />
+              <View style={styles.menuLine} />
+              <View style={styles.menuLine} />
+            </View>
+            <Text style={styles.headerWorkspaceLabel}>{C.workspace ?? "Create"}</Text>
           </AccessiblePressable>
           <AccessiblePressable
             onPress={() => router.push("/store")}
@@ -745,6 +750,8 @@ function make(colors: Colors) {
     findToastK: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.4, marginBottom: 4 },
     findToastTxt: { color: colors.bone, fontSize: 15, fontWeight: "700", lineHeight: 20 },
     headerSide: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+    headerWorkspace: { width: 72, minHeight: 60, alignItems: "center", justifyContent: "center", gap: 4, borderRadius: 18 },
+    headerWorkspaceLabel: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 0.2 },
     menuIcon: { width: 22, gap: 4 },
     menuLine: { height: 2, width: 22, borderRadius: 1, backgroundColor: colors.bone },
     wordmarkButton: { minHeight: 72, flexDirection: "column", alignItems: "center", justifyContent: "center", paddingHorizontal: 18 },

@@ -535,6 +535,7 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
                     −{moneyExact(line.discountCents, market.currency)} promo
                   </Text>
                 ) : null}
+                <Text style={styles.itemDetailsCue}>Seller, shipping & returns ›</Text>
               </AccessiblePressable>
             ))}
           </ScrollView>
@@ -1066,6 +1067,7 @@ function make(colors: Colors) {
       marginTop: 6,
     },
     itemDiscount: { color: colors.success, fontSize: 12, fontWeight: "700", marginTop: 4 },
+    itemDetailsCue: { color: colors.success, fontSize: 11, fontWeight: "700", marginTop: 5 },
     shipTogether: {
       marginHorizontal: 20,
       minHeight: 56,
