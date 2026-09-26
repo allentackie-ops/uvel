@@ -463,7 +463,13 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
           </View>
           <Ionicons name="chevron-forward" size={21} color={colors.success} />
         </AccessiblePressable>
-        <View style={styles.actionRow} accessibilityLabel="Payment Apple Pay">
+        <AccessiblePressable
+          onPress={() => void payAll()}
+          style={styles.actionRow}
+          accessibilityRole="button"
+          accessibilityLabel="Pay with Apple Pay"
+          accessibilityState={{ disabled: !canPay, busy: paying }}
+        >
           <View style={styles.actionIcon}>
             <Ionicons name="card-outline" size={21} color={colors.success} />
           </View>
@@ -472,7 +478,7 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
             <Text style={styles.actionSub}>Apple Pay</Text>
           </View>
           <Ionicons name="chevron-forward" size={21} color={colors.success} />
-        </View>
+        </AccessiblePressable>
         <View style={styles.totalSection}>
           <View style={styles.totalRow}>
             <View>

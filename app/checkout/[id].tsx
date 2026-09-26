@@ -500,7 +500,12 @@ export default function Checkout() {
             .filter(Boolean)
             .join(" · ")}
         </Text>
-        <View style={styles.detailRow}>
+        <AccessiblePressable
+          onPress={() => setFeeInfo(true)}
+          style={styles.detailRow}
+          accessibilityRole="button"
+          accessibilityLabel="View price details"
+        >
           <View style={styles.detailCopy}>
             <Text style={styles.detailLabel}>Total</Text>
             <Text style={styles.detailSub}>
@@ -512,15 +517,8 @@ export default function Checkout() {
           <Text style={styles.detailValue}>
             {moneyExact(walletCovers ? 0 : total, market.currency)}
           </Text>
-          <AccessiblePressable
-            onPress={() => setFeeInfo(true)}
-            style={styles.chevronButton}
-            accessibilityRole="button"
-            accessibilityLabel="View price details"
-          >
-            <Text style={styles.chevron}>›</Text>
-          </AccessiblePressable>
-        </View>
+          <Text style={styles.chevron}>›</Text>
+        </AccessiblePressable>
         <View style={styles.rule} />
         <AccessiblePressable
           onPress={() => router.push("/address")}
