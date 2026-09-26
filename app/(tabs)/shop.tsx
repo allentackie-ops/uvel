@@ -33,17 +33,20 @@ import { useFirstFind } from "../../lib/firstFind";
 import { getMarket, moneyExact } from "../../lib/markets";
 
 const MIN_REFRESH_MS = 1200;
-// Bump this key to re-arm the hand gesture once for the current OTA test build.
-const TODAY_SWIPE_HINT_KEY = "uvel-today-swipe-hint-seen-v5";
-const TODAY_SWIPE_HINT_MS = 10000;
+// Show the workspace drawer tutorial once per installation.
+const TODAY_SWIPE_HINT_KEY = "uvel-today-workspace-tutorial-v1";
+const TODAY_SWIPE_HINT_MS = 7000;
 const TODAY_LISTING_OPENS_KEY = "uvel-today-listing-opens-v1";
 const TODAY_DOUBLE_TAP_HINT_SHOWN_KEY = "uvel-today-double-tap-hint-shown-v1";
 
 const swipeHintStyles = StyleSheet.create({
-  swipeHint: { position: "absolute", top: 250, left: 0, right: 0, alignItems: "center", zIndex: 30 },
-  swipeHintTitle: { color: "#F4F0E6", fontSize: 22, fontWeight: "800", textAlign: "center", marginHorizontal: 28, textShadowColor: "#000000", textShadowRadius: 8 },
-  swipeHintTrack: { height: 190, width: 150, alignItems: "center", marginTop: 10 },
-  swipeHintHand: { alignItems: "center", justifyContent: "center", height: 190, width: 150, shadowColor: "#000000", shadowOpacity: 0.45, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
+  swipeHint: { ...StyleSheet.absoluteFill, zIndex: 60 },
+  swipeHintBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: "#000000" },
+  swipeHintTarget: { position: "absolute", left: 10, width: 56, height: 56, borderRadius: 28, borderWidth: 2, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.48)" },
+  swipeHintMenu: { width: 22, gap: 4 },
+  swipeHintMenuLine: { height: 2, width: 22, borderRadius: 1 },
+  swipeHintTitleWrap: { position: "absolute", left: 22, right: 22, alignItems: "center" },
+  swipeHintTitle: { color: "#F4F0E6", fontSize: 21, lineHeight: 28, fontWeight: "700", textAlign: "center", textShadowColor: "#000000", textShadowRadius: 8 },
 });
 
 function FrozenClip({
@@ -98,34 +101,57 @@ function FrozenClip({
 }
 
 function TodaySwipeHint({ onDismiss }: { onDismiss: () => void }) {
-  const C = useCopy();
-  const handOpacity = useRef(new Animated.Value(0.35)).current;
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const dimOpacity = useRef(new Animated.Value(0)).current;
+  const titleOpacity = useRef(new Animated.Value(0)).current;
+  const bounceX = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const animation = Animated.loop(
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(handOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
-          Animated.timing(handOpacity, { toValue: 0.35, duration: 700, useNativeDriver: true }),
-        ]),
-      ]),
-    );
-    animation.start();
+    const reveal = Animated.sequence([
+      Animated.timing(dimOpacity, { toValue: 0.9, duration: 260, useNativeDriver: true }),
+      Animated.timing(titleOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+    ]);
+    const bounce = Animated.loop(Animated.sequence([
+      Animated.timing(bounceX, { toValue: 10, duration: 190, useNativeDriver: true }),
+      Animated.timing(bounceX, { toValue: 0, duration: 230, useNativeDriver: true }),
+      Animated.timing(bounceX, { toValue: 10, duration: 190, useNativeDriver: true }),
+      Animated.timing(bounceX, { toValue: 0, duration: 320, useNativeDriver: true }),
+      Animated.delay(360),
+    ]));
+    reveal.start();
+    bounce.start();
     const timeout = setTimeout(onDismiss, TODAY_SWIPE_HINT_MS);
     return () => {
-      animation.stop();
+      reveal.stop();
+      bounce.stop();
       clearTimeout(timeout);
     };
-  }, [handOpacity, onDismiss]);
+  }, [bounceX, dimOpacity, onDismiss, titleOpacity]);
 
   return (
     <View pointerEvents="none" style={swipeHintStyles.swipeHint}>
-      <Text style={swipeHintStyles.swipeHintTitle}>{C.swipeUpToStart}</Text>
-      <View style={swipeHintStyles.swipeHintTrack}>
-        <Animated.View style={[swipeHintStyles.swipeHintHand, { opacity: handOpacity }]}>
-          <Image cachePolicy="memory-disk" source={require("../../assets/onboarding/today-swipe-hand-recorded.gif")} style={{ width: 150, height: 190 }} contentFit="contain" />
-        </Animated.View>
-      </View>
+      <Animated.View style={[swipeHintStyles.swipeHintBackdrop, { opacity: dimOpacity }]} />
+      <Animated.View
+        style={[
+          swipeHintStyles.swipeHintTarget,
+          { top: insets.top + 10, borderColor: colors.success, transform: [{ translateX: bounceX }] },
+        ]}
+      >
+        <View style={swipeHintStyles.swipeHintMenu}>
+          <View style={[swipeHintStyles.swipeHintMenuLine, { backgroundColor: colors.success }]} />
+          <View style={[swipeHintStyles.swipeHintMenuLine, { backgroundColor: colors.success }]} />
+          <View style={[swipeHintStyles.swipeHintMenuLine, { backgroundColor: colors.success }]} />
+        </View>
+      </Animated.View>
+      <Animated.View
+        style={[swipeHintStyles.swipeHintTitleWrap, { top: insets.top + 92, opacity: titleOpacity }]}
+        accessibilityRole="text"
+        accessibilityLabel="Swipe to see your workspace"
+        accessibilityLiveRegion="polite"
+      >
+        <Text style={swipeHintStyles.swipeHintTitle}>Swipe to see your workspace</Text>
+      </Animated.View>
     </View>
   );
 }
@@ -410,17 +436,12 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         <View style={styles.todayHeader}>
           <AccessiblePressable
             onPress={() => onOpenTools?.()}
-            style={({ pressed }) => [styles.headerWorkspace, pressed && { opacity: 0.72 }]}
+            style={({ pressed }) => [styles.headerSide, pressed && { opacity: 0.72 }]}
             accessibilityRole="button"
             accessibilityLabel={C.openWorkspace}
             accessibilityHint="Open Founder Studio, Brand HQ, and seller tools."
           >
-            <View style={styles.menuIcon}>
-              <View style={styles.menuLine} />
-              <View style={styles.menuLine} />
-              <View style={styles.menuLine} />
-            </View>
-            <Text style={styles.headerWorkspaceLabel}>{C.workspace ?? "Create"}</Text>
+            <View style={styles.menuIcon}><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View>
           </AccessiblePressable>
           <AccessiblePressable
             onPress={() => router.push("/store")}
@@ -746,8 +767,6 @@ function make(colors: Colors) {
     findToastK: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.4, marginBottom: 4 },
     findToastTxt: { color: colors.bone, fontSize: 15, fontWeight: "700", lineHeight: 20 },
     headerSide: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
-    headerWorkspace: { width: 72, minHeight: 60, alignItems: "center", justifyContent: "center", gap: 4, borderRadius: 18 },
-    headerWorkspaceLabel: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 0.2 },
     menuIcon: { width: 22, gap: 4 },
     menuLine: { height: 2, width: 22, borderRadius: 1, backgroundColor: colors.bone },
     wordmarkButton: { minHeight: 72, flexDirection: "column", alignItems: "center", justifyContent: "center", paddingHorizontal: 18 },

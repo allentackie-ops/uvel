@@ -200,7 +200,6 @@ export type Copy = {
   goToToday: string;
   matchingPiece: string;
   openWorkspace: string;
-  workspace?: string;
   marketplace: string;
   messages: string;
   outerwear: string;
@@ -481,7 +480,6 @@ const en: Copy = {
   goToToday: "Go to Today",
   matchingPiece: "on a matching piece",
   openWorkspace: "Open your Uvel workspace",
-  workspace: "Workspace",
   marketplace: "Uvel marketplace",
   messages: "Messages",
   outerwear: "Outerwear",
