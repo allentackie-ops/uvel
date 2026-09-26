@@ -1,6 +1,7 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   StyleSheet,
@@ -33,6 +34,7 @@ export function Sheet({
 }) {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const maxHeight = Math.max(360, windowHeight - insets.top - 8);
   const expandedOffset = 0;
   const collapsedOffset = expandable ? Math.min(maxHeight * 0.42, 420) : 0;
@@ -53,6 +55,27 @@ export function Sheet({
       y.value = withTiming(expandable ? maxHeight : 420, { duration: 180 });
     }
   }, [collapsedOffset, expandable, maxHeight, open, shown, y]);
+
+  useEffect(() => {
+    if (!open || !expandable) {
+      setKeyboardVisible(false);
+      return;
+    }
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const show = Keyboard.addListener(showEvent, () => {
+      setKeyboardVisible(true);
+      y.value = withSpring(0, { damping: 28, stiffness: 240 });
+    });
+    const hide = Keyboard.addListener(hideEvent, () => {
+      setKeyboardVisible(false);
+      y.value = withSpring(collapsedOffset, { damping: 28, stiffness: 240 });
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [collapsedOffset, expandable, open, y]);
 
   const pan = Gesture.Pan()
     .onStart(() => {
@@ -122,13 +145,17 @@ export function Sheet({
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : "height"}
             keyboardVerticalOffset={0}
-            style={styles.keyboardAvoid}
+            style={[
+              styles.keyboardAvoid,
+              expandable && keyboardVisible && { paddingTop: insets.top + 8 },
+            ]}
           >
             <Animated.View
               style={[
                 styles.sheet,
                 surfaceColor && { backgroundColor: surfaceColor },
-                expandable && { height: maxHeight },
+                expandable &&
+                  (keyboardVisible ? { flex: 1 } : { height: maxHeight }),
                 { paddingBottom: insets.bottom + 16 },
                 sheet,
               ]}
