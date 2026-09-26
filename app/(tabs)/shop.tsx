@@ -473,7 +473,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         </AccessiblePressable>
       ) : null}
 
-      {todayHome && !scanningLook ? <View style={styles.dailyIntro}><Text style={styles.dailyIntroKicker}>TODAY</Text><Text style={styles.dailyIntroTitle}>Find something with a point of view.</Text><Text style={styles.dailyIntroCopy}>A considered edit of pieces worth seeing.</Text></View> : null}
+      {todayHome && !scanningLook ? <View style={styles.dailyIntro}><Text style={styles.dailyIntroKicker}>NEXT FIND</Text></View> : null}
 
       {featured ? (
         <View ref={dailyEditRef} collapsable={false}>
@@ -714,8 +714,6 @@ function make(colors: Colors) {
     findLineAmt: { color: colors.success, fontWeight: "800" },
     dailyIntro: { marginTop: 16, paddingHorizontal: 2 },
     dailyIntroKicker: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.7 },
-    dailyIntroTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 29, lineHeight: 34, marginTop: 7, maxWidth: "95%" },
-    dailyIntroCopy: { color: `${colors.bone}8C`, fontSize: 13, lineHeight: 19, marginTop: 7 },
     dailyEdit: { height: 330, marginTop: 14, borderRadius: 24, overflow: "hidden", backgroundColor: colors.surface },
     dailyEditImage: { ...StyleSheet.absoluteFill, width: "100%", height: "100%" },
     dailyEditShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.34)" },
