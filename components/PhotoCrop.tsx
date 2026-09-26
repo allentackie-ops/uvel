@@ -132,7 +132,7 @@ export function PhotoCrop({ uri, onCancel, onPreview, previewStatus = "idle", pr
   return (
     <View style={[styles.page, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.bar}>
-        <Pressable onPress={onCancel} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back"><Text style={styles.back}>‹</Text></Pressable>
+        <Pressable onPress={onCancel} style={styles.backButton} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back"><Text style={styles.back}>‹</Text></Pressable>
         <Text style={styles.title}>Focus your search</Text>
         <View style={styles.barSpacer} />
       </View>
@@ -169,7 +169,8 @@ export function PhotoCrop({ uri, onCancel, onPreview, previewStatus = "idle", pr
 
 const styles = StyleSheet.create({
   page: { ...StyleSheet.absoluteFill, backgroundColor: "#0B0A08", zIndex: 40 },
-  bar: { height: 66, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 28 },
+  bar: { height: 66, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 28, zIndex: 30, elevation: 30 },
+  backButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   back: { color: "#F4F0E6", fontSize: 46, fontWeight: "200", lineHeight: 46 },
   title: { color: "#F4F0E6", fontWeight: "700", fontSize: 23 },
   barSpacer: { width: 30 },
