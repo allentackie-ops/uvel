@@ -21,7 +21,7 @@ import { getBrand } from "../lib/brands";
 import { brandMakes } from "../lib/brandMake";
 import { shippingCents, uvelFeeCents } from "../lib/fees";
 import { getMarket, moneyExact, convertCents } from "../lib/markets";
-import { listingVisibleIn, restrictShipsTo, shipsToLabel, shipsToLine } from "../lib/ships";
+import { listingVisibleIn, restrictShipsTo, shipsToLabel } from "../lib/ships";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import {
@@ -569,16 +569,17 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
             accessibilityRole="button"
             accessibilityLabel={`View price breakdown. Total ${moneyExact(totalCents, market.currency)}.`}
           >
-            <View>
+            <View style={styles.totalCopy}>
               <Text style={styles.totalTitle}>Total</Text>
               <Text style={styles.totalSub}>
                 Tap for price breakdown
               </Text>
             </View>
-            <Text style={styles.totalValue}>
-              {moneyExact(totalCents, market.currency)}
-            </Text>
-            <Ionicons name="chevron-forward" size={18} color={colors.success} />
+            <View style={styles.totalTrailing}>
+              <Text style={styles.totalValue}>
+                {moneyExact(totalCents, market.currency)}
+              </Text>
+            </View>
           </AccessiblePressable>
         </View>
         {market.code !== "US" ||
@@ -661,9 +662,6 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
           showsVerticalScrollIndicator
         >
           <Text style={styles.sheetTitle}>Price breakdown</Text>
-          <Text style={styles.sheetCopy}>
-            A clear breakdown of each item and what you’ll pay at checkout.
-          </Text>
           {lines.map((line) => (
             <View key={line.piece.id} style={styles.breakdownItem}>
               <Text style={styles.breakdownItemTitle} numberOfLines={2}>
@@ -745,34 +743,55 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
             keyboardShouldPersistTaps="handled"
           >
             <Text style={styles.sheetTitle}>{expandedLine.piece.name}</Text>
-            <Text style={styles.sheetCopy}>
-              Sold by {expandedLine.sellerName}
+            <Text style={styles.itemDetailMeta}>
+              {[expandedLine.piece.size, expandedLine.piece.color]
+                .filter(Boolean)
+                .join(" · ") || "One size"}
             </Text>
-            <Text style={styles.sheetCopy}>
-              Based in {getMarket(expandedLine.piece.country || market.code).name}
-            </Text>
-            <Text style={styles.sheetCopy}>
-              Ships from {getMarket(expandedLine.piece.country || market.code).name}
-            </Text>
-            <Text style={styles.sheetCopy}>
-              Buyer destination {address
-                ? [address.line1, address.city, address.region, address.postal]
-                    .filter(Boolean)
-                    .join(", ")
-                : "Add a shipping address"}
-            </Text>
-            <Text style={styles.sheetCopy}>
-              Ships to {shipsToLabel(
-                expandedLine.piece.country || market.code,
-                restrictShipsTo(
-                  expandedLine.piece.country || market.code,
-                  expandedLine.piece.shipsTo,
-                  expandedLine.brand?.operatingCountries,
-                ),
-              )}
-            </Text>
+            <View style={styles.sellerCard}>
+              <View style={styles.sellerAvatar}>
+                <Text style={styles.sellerAvatarText}>
+                  {expandedLine.sellerName.slice(0, 1).toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.sellerCardCopy}>
+                <Text style={styles.detailEyebrow}>SOLD BY</Text>
+                <Text style={styles.sellerCardName}>{expandedLine.sellerName}</Text>
+              </View>
+            </View>
+            <View style={styles.locationCards}>
+              <View style={styles.locationCard}>
+                <Text style={styles.detailEyebrow}>BASED IN</Text>
+                <Text style={styles.locationValue}>
+                  {getMarket(expandedLine.piece.country || market.code).name}
+                </Text>
+              </View>
+              <View style={styles.locationCard}>
+                <Text style={styles.detailEyebrow}>SHIPS FROM</Text>
+                <Text style={styles.locationValue}>
+                  {getMarket(expandedLine.piece.country || market.code).name}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.destinationCard}>
+              <Ionicons name="globe-outline" size={18} color={colors.success} />
+              <View style={styles.destinationCopy}>
+                <Text style={styles.detailEyebrow}>SHIPS TO</Text>
+                <Text style={styles.destinationValue}>
+                  {shipsToLabel(
+                    expandedLine.piece.country || market.code,
+                    restrictShipsTo(
+                      expandedLine.piece.country || market.code,
+                      expandedLine.piece.shipsTo,
+                      expandedLine.brand?.operatingCountries,
+                    ),
+                  )}
+                </Text>
+              </View>
+            </View>
 
-            <Text style={styles.detailsSectionTitle}>Promo code for this item</Text>
+            <Text style={styles.detailsSectionTitle}>Promo code</Text>
+            <Text style={styles.sectionHint}>Apply a code to this item.</Text>
             <View style={styles.promoEntry}>
               <TextInput
                 value={promoInputs[expandedLine.piece.id] || ""}
@@ -844,8 +863,9 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
               accessibilityState={{ expanded: policyPieceId === expandedLine.piece.id }}
             >
               <View style={{ flex: 1 }}>
-                <Text style={styles.detailsSectionTitle}>
-                  {expandedLine.policyName} returns policy
+                <Text style={styles.detailEyebrow}>RETURNS & PROTECTION</Text>
+                <Text style={styles.policyTitle}>
+                  {expandedLine.policyName} returns
                 </Text>
                 <Text style={styles.policyHint}>
                   {expandedLine.policyMode === "final_sale"
@@ -861,18 +881,18 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
             </AccessiblePressable>
             {policyLine?.piece.id === expandedLine.piece.id ? (
               <View style={styles.policyDetails}>
-                <Text style={styles.sheetCopy}>
+                <Text style={styles.policyCopy}>
                   {expandedLine.policyMode === "final_sale"
                     ? "This item is final sale, so change-of-mind returns are not accepted."
                     : `You can request a return within ${expandedLine.policyWindow} days after delivery.`}
                 </Text>
-                <Text style={styles.sheetCopy}>{expandedLine.policyShipping}</Text>
+                <Text style={styles.policyCopy}>{expandedLine.policyShipping}</Text>
                 {expandedLine.brand?.customerPolicyNote ? (
-                  <Text style={styles.sheetCopy}>
+                  <Text style={styles.policyCopy}>
                     Seller note: {expandedLine.brand.customerPolicyNote}
                   </Text>
                 ) : null}
-                <Text style={styles.sheetCopy}>
+                <Text style={styles.policyCopy}>
                   Items that arrive damaged, defective, or different from the listing can still be reported to Uvel.
                 </Text>
               </View>
@@ -1056,6 +1076,8 @@ function make(colors: Colors) {
       gap: 14,
       paddingVertical: 6,
     },
+    totalCopy: { flex: 1, minWidth: 0 },
+    totalTrailing: { flex: 1, alignItems: "flex-end", justifyContent: "center" },
     totalTitle: { color: colors.bone, fontSize: 18, fontWeight: "800" },
     totalSub: { color: colors.muted, fontSize: 13, marginTop: 4 },
     totalValue: {
@@ -1143,7 +1165,21 @@ function make(colors: Colors) {
     breakdownGrandTotal: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderColor: `${colors.bone}35`, marginTop: 18, paddingTop: 16 },
     breakdownGrandLabel: { color: colors.bone, fontSize: 18, fontWeight: "800" },
     breakdownGrandValue: { color: colors.bone, fontSize: 19, fontWeight: "800", fontVariant: ["tabular-nums"] },
-    detailsSectionTitle: { color: colors.bone, fontSize: 16, fontWeight: "800", marginTop: 22 },
+    itemDetailMeta: { color: colors.muted, fontSize: 14, marginTop: 6 },
+    detailEyebrow: { color: colors.subtle, fontSize: 10, letterSpacing: 1.4, fontWeight: "800" },
+    sellerCard: { minHeight: 74, flexDirection: "row", alignItems: "center", gap: 12, padding: 14, marginTop: 22, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}1C` },
+    sellerAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: `${colors.success}25`, alignItems: "center", justifyContent: "center" },
+    sellerAvatarText: { color: colors.success, fontSize: 17, fontWeight: "800" },
+    sellerCardCopy: { flex: 1, gap: 4 },
+    sellerCardName: { color: colors.bone, fontSize: 16, fontWeight: "800" },
+    locationCards: { flexDirection: "row", gap: 10, marginTop: 10 },
+    locationCard: { flex: 1, minHeight: 72, justifyContent: "center", gap: 6, paddingHorizontal: 13, paddingVertical: 11, borderRadius: 14, backgroundColor: `${colors.surface}CC`, borderWidth: 1, borderColor: `${colors.bone}16` },
+    locationValue: { color: colors.bone, fontSize: 14, lineHeight: 19, fontWeight: "700" },
+    destinationCard: { minHeight: 66, flexDirection: "row", alignItems: "center", gap: 11, marginTop: 10, padding: 13, borderRadius: 14, backgroundColor: `${colors.success}12`, borderWidth: 1, borderColor: `${colors.success}35` },
+    destinationCopy: { flex: 1, gap: 5 },
+    destinationValue: { color: colors.bone, fontSize: 14, lineHeight: 19, fontWeight: "700" },
+    detailsSectionTitle: { color: colors.bone, fontSize: 17, fontWeight: "800", marginTop: 24 },
+    sectionHint: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 4 },
     promoEntry: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 },
     promoInput: { flex: 1, minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: `${colors.bone}30`, color: colors.bone, paddingHorizontal: 14, fontSize: 15 },
     promoButton: { minWidth: 82, height: 48, borderRadius: 14, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", paddingHorizontal: 14 },
@@ -1154,9 +1190,11 @@ function make(colors: Colors) {
     discountSummary: { flexDirection: "row", justifyContent: "space-between", marginTop: 12, paddingVertical: 10 },
     discountLabel: { color: colors.muted, fontSize: 14 },
     discountAmount: { color: colors.success, fontSize: 15, fontWeight: "800" },
-    policyDisclosure: { minHeight: 66, borderTopWidth: StyleSheet.hairlineWidth, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: `${colors.bone}24`, flexDirection: "row", alignItems: "center", marginTop: 22, gap: 12 },
-    policyHint: { color: colors.muted, fontSize: 13, marginTop: 4 },
-    policyDetails: { paddingBottom: 14 },
+    policyDisclosure: { minHeight: 76, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}20`, borderRadius: 15, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", marginTop: 24, gap: 12 },
+    policyTitle: { color: colors.bone, fontSize: 16, fontWeight: "800", marginTop: 4 },
+    policyHint: { color: colors.muted, fontSize: 13, marginTop: 3 },
+    policyDetails: { padding: 14, backgroundColor: colors.surface, borderRadius: 15, borderWidth: 1, borderColor: `${colors.bone}20`, marginTop: 8 },
+    policyCopy: { color: `${colors.bone}E0`, fontSize: 14, lineHeight: 21, marginTop: 8 },
     detailsTotal: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: StyleSheet.hairlineWidth, borderColor: `${colors.bone}24`, paddingTop: 14, marginTop: 12 },
   });
 }
