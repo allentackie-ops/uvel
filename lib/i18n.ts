@@ -34,6 +34,7 @@ export type Copy = {
   today: string;
   mirror: string;
   sell: string;
+  create?: string;
   shop: string;
   you: string;
   settings: string;
@@ -314,6 +315,7 @@ const en: Copy = {
   today: "Today",
   mirror: "Mirror",
   sell: "Sell",
+  create: "Create",
   shop: "Shop",
   you: "You",
   settings: "Settings",

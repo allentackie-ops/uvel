@@ -309,7 +309,7 @@ function ShopPane({ listed, draft, styles, copy }: { listed: ClosetPiece[]; draf
           <Rack />
           <Text style={styles.emptyH}>{copy.noActiveListings}</Text>
           <Text style={styles.emptyP}>{copy.listItemDiscover}</Text>
-          <Pressable onPress={() => router.navigate("/closet")} style={styles.start}>
+          <Pressable onPress={() => router.push("/sell")} style={styles.start}>
             <Text style={styles.startTxt}>{copy.startSelling}</Text>
           </Pressable>
         </View>

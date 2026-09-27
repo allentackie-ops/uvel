@@ -46,11 +46,11 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "How do I list something?",
-    a: "Tap Sell. Add your own photos, then enter the name, category, condition, price, and shipping details. You can save and finish later. Don’t list replicas.",
+    a: "Open Create, choose Sell from your closet, then add your own photos and enter the name, category, condition, price, and shipping details. You can save and finish later. Don’t list replicas.",
   },
   {
     q: "How do I start a brand?",
-    a: "Open Founder Studio from You, create your brand and first piece, then apply. If approved, you’ll get Brand HQ. If not, Uvel explains why so you can try again.",
+    a: "Open Create, choose Start a brand, and use Founder Studio to shape your idea, first product, and identity. When you’re ready, apply. If approved, you’ll get Brand HQ.",
   },
   {
     q: "How do invites work?",
@@ -83,13 +83,13 @@ const TABS: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string 
   },
   {
     icon: "add-outline",
-    title: "Sell",
-    body: "Add photos, fill in the details and price, then post your listing.",
+    title: "Create",
+    body: "Start a brand in Founder Studio, or list something you already own from your closet.",
   },
   {
     icon: "person-outline",
     title: "You",
-    body: "Find saved pieces, Style DNA, Wallet, Settings, and Founder Studio.",
+    body: "Find saved pieces, Style DNA, Wallet, Settings, Founder Studio, and Brand HQ.",
   },
 ];
 

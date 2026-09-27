@@ -24,8 +24,8 @@ const QUICK_GUIDE: { icon: keyof typeof Ionicons.glyphMap; title: string; body: 
   },
   {
     icon: "pricetag-outline",
-    title: "Sell or start a label",
-    body: "List something you own, or submit your first design in Founder Studio.",
+    title: "Create or sell",
+    body: "Start a brand in Founder Studio, or list something you already own from your closet.",
   },
 ];
 
@@ -42,7 +42,7 @@ export default function AboutUvel() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.lede}>An app for clothes.{"\n"}That’s the whole plot.</Text>
-        <Text style={styles.intro}>Find a piece. Try it on. Buy it, sell it, or start a label.</Text>
+        <Text style={styles.intro}>Find a piece. Try it on. Buy it, sell it, or turn an idea into a brand.</Text>
 
         <Text style={styles.section}>What you can do</Text>
         <View style={styles.cardGrid}>
@@ -74,7 +74,7 @@ export default function AboutUvel() {
           <DetailRow
             icon="business-outline"
             title="Building a brand?"
-            body="Approved labels get a Brand HQ for their shop, orders, and earnings."
+            body="Founder Studio helps you shape the idea. Approved brands get Brand HQ for their shop, orders, and earnings."
             colors={colors}
             styles={styles}
             last

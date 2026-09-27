@@ -11,12 +11,12 @@ import { TodayToolsDrawer } from "../../components/TodayToolsDrawer";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Today from "./index";
 import Mirror from "./find";
-import Closet from "./closet";
+import Create from "./create";
 import You from "./you";
 import { useColors, useResolvedAppearance } from "../../lib/theme";
 import { useCopy } from "../../lib/useCopy";
 
-const ROUTES = ["/", "/find", "/closet", "/you"] as const;
+const ROUTES = ["/", "/find", "/create", "/you"] as const;
 const ICONS = ["compass-outline", "body-outline", "add-outline", "person-outline"] as const;
 const ACTIVE_ICONS = ["compass", "body", "add", "person"] as const;
 const SCREEN_W = Dimensions.get("window").width;
@@ -39,10 +39,10 @@ export default function TabsLayout() {
     () => [
       { key: "today", screen: <Today onOpenTools={() => setOpen(true)} /> },
       { key: "mirror", screen: <Mirror /> },
-      { key: "sell", screen: <Closet /> },
+      { key: "create", screen: <Create /> },
       { key: "you", screen: <You /> },
     ],
-    [C.today, C.mirror, C.sell, C.you],
+    [C.today, C.mirror, C.create, C.you],
   );
 
   useEffect(() => {
@@ -105,7 +105,7 @@ export default function TabsLayout() {
             onClose={closeDrawer}
             onOpenSell={() => {
               closeDrawer();
-              selectTab(2);
+              router.push("/sell");
             }}
           />
         )}
@@ -131,7 +131,7 @@ export default function TabsLayout() {
                     onPress={() => selectTab(index)}
                     style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
                     accessibilityRole="tab"
-                    accessibilityLabel={[C.today, C.mirror, C.sell, C.you][index]}
+                    accessibilityLabel={[C.today, C.mirror, C.create ?? "Create", C.you][index]}
                     accessibilityState={{ selected: active }}
                   >
                     {index === 2 ? (
@@ -142,7 +142,7 @@ export default function TabsLayout() {
                     ) : (
                       <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={23} color={active ? colors.success : inactiveIcon} />
                     )}
-                    <Text style={[styles.label, { color: active ? colors.success : inactiveIcon }]}>{[C.today, C.mirror, C.sell, C.you][index]}</Text>
+                    <Text style={[styles.label, { color: active ? colors.success : inactiveIcon }]}>{[C.today, C.mirror, C.create ?? "Create", C.you][index]}</Text>
                   </Pressable>
                 );
               })}
@@ -215,7 +215,7 @@ function DrawerAwarePager({
 function routeIndex(pathname: string): number | null {
   if (pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/")) return 0;
   if (pathname.includes("/find")) return 1;
-  if (pathname === "/closet" || pathname.endsWith("/(tabs)/closet")) return 2;
+  if (pathname === "/create" || pathname.endsWith("/(tabs)/create") || pathname === "/closet" || pathname.endsWith("/(tabs)/closet")) return 2;
   if (pathname.includes("/you")) return 3;
   return null;
 }
