@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
 import { useState } from "react";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -69,77 +70,84 @@ const FAQ: { q: string; a: string }[] = [
   },
 ];
 
+const TABS: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }[] = [
+  {
+    icon: "compass-outline",
+    title: "Today",
+    body: "Browse listings, open a piece, and save it with a double-tap. Add to your bag and keep looking.",
+  },
+  {
+    icon: "body-outline",
+    title: "Mirror",
+    body: "Take or choose a photo to preview how a piece looks on you. It won’t show the fit.",
+  },
+  {
+    icon: "add-outline",
+    title: "Sell",
+    body: "Add photos, fill in the details and price, then post your listing.",
+  },
+  {
+    icon: "person-outline",
+    title: "You",
+    body: "Find saved pieces, Style DNA, Wallet, Settings, and Founder Studio.",
+  },
+];
+
 export default function HowToUseUvel() {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
-  const [open, setOpen] = useState<number | null>(0);
+  const [open, setOpen] = useState<number | null>(null);
 
   return (
     <View style={styles.page}>
       <Stack.Screen options={{ headerTitle: "How to use Uvel", headerTransparent: false, headerShadowVisible: false }} />
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 8, paddingBottom: 48 + insets.bottom }}
+        contentContainerStyle={[styles.content, { paddingBottom: 36 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.kicker}>A SHORT TOUR</Text>
         <Text style={styles.lede}>Four tabs. That’s most of it.</Text>
-        <P styles={styles}>
-          Today is the floor. Mirror is try-on. Sell is listing. You is you — saved pieces, wallet, the brand if you have one.
-        </P>
+        <Text style={styles.intro}>A quick guide to the main things you can do in Uvel.</Text>
 
-        <H styles={styles}>Today</H>
-        <P styles={styles}>
-          Scroll the listings. Tap one to open it. Pull down on the photo to go back. Double-tap the photo to save it.
-        </P>
-        <P styles={styles}>
-          Add to cart doesn’t yank you into checkout. A bag sits on Today so you can keep going. Tap the bag when you’re done.
-        </P>
-        <P styles={styles}>
-          First Find pieces have a crossed-out price and a lower one next to it. That’s the credit. Style DNA and what you actually look at shape what shows up, but the grid won’t jump around under your thumb.
-        </P>
+        <View style={styles.cardGrid}>
+          {TABS.map((tab) => (
+            <View key={tab.title} style={styles.card}>
+              <Ionicons name={tab.icon} size={21} color={colors.success} />
+              <Text style={styles.cardTitle}>{tab.title}</Text>
+              <Text style={styles.cardBody}>{tab.body}</Text>
+            </View>
+          ))}
+        </View>
 
-        <H styles={styles}>Mirror</H>
-        <P styles={styles}>
-          Take a photo or pick one you have. We put the piece on you. Use it to decide. Then go buy it on Today, or don’t.
-        </P>
-
-        <H styles={styles}>Sell</H>
-        <P styles={styles}>
-          Follow the pills at the bottom. They go in order, so you’re not staring at Price while you’re still writing the name. Photos, story, details, price, ships to. Then you post it.
-        </P>
-
-        <H styles={styles}>You</H>
-        <P styles={styles}>
-          Your handle, your likes, Style DNA, Wallet, Founder Studio if you’re building a house. Settings is the gear.
-        </P>
-
-        <Text style={styles.faqKicker}>FAQ</Text>
-        <Text style={styles.faqLede}>Things people actually ask.</Text>
-
+        <Text style={styles.section}>Quick answers</Text>
         <View style={styles.faq}>
           {FAQ.map((item, index) => {
-            const on = open === index;
+            const expanded = open === index;
             return (
               <Pressable
                 key={item.q}
-                onPress={() => setOpen(on ? null : index)}
+                onPress={() => setOpen(expanded ? null : index)}
                 style={[styles.item, index === FAQ.length - 1 && styles.itemLast]}
                 accessibilityRole="button"
-                accessibilityState={{ expanded: on }}
+                accessibilityState={{ expanded }}
               >
                 <View style={styles.qRow}>
                   <Text style={styles.q}>{item.q}</Text>
-                  <Text style={styles.chev}>{on ? "–" : "+"}</Text>
+                  <Text style={styles.chev}>{expanded ? "−" : "+"}</Text>
                 </View>
-                {on ? <Text style={styles.a}>{item.a}</Text> : null}
+                {expanded ? <Text style={styles.a}>{item.a}</Text> : null}
               </Pressable>
             );
           })}
         </View>
 
-        <P styles={styles}>Still stuck? Write. Don’t sit with it.</P>
-        <Pressable onPress={() => void Linking.openURL(MAIL)} style={styles.mail} accessibilityRole="button" accessibilityLabel="Email Uvel">
+        <Text style={styles.contactCopy}>Still stuck? Ask us.</Text>
+        <Pressable
+          onPress={() => void Linking.openURL(MAIL)}
+          style={styles.mail}
+          accessibilityRole="button"
+          accessibilityLabel="Email Uvel"
+        >
           <Text style={styles.mailTxt}>Ask us</Text>
         </Pressable>
       </ScrollView>
@@ -147,31 +155,35 @@ export default function HowToUseUvel() {
   );
 }
 
-function H({ children, styles }: { children: string; styles: ReturnType<typeof make> }) {
-  return <Text style={styles.h}>{children}</Text>;
-}
-
-function P({ children, styles }: { children: string; styles: ReturnType<typeof make> }) {
-  return <Text style={styles.p}>{children}</Text>;
-}
-
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    kicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.8, marginBottom: 10 },
-    lede: { color: colors.bone, fontSize: 28, fontWeight: "800", lineHeight: 34, marginBottom: 18 },
-    h: { color: colors.bone, fontSize: 17, fontWeight: "700", marginTop: 22, marginBottom: 8 },
-    p: { color: colors.muted, fontSize: 16, lineHeight: 24, marginBottom: 10 },
-    faqKicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.8, marginTop: 28, marginBottom: 8 },
-    faqLede: { color: colors.bone, fontSize: 24, fontWeight: "800", lineHeight: 30, marginBottom: 16 },
-    faq: { backgroundColor: colors.surface, borderRadius: 16, overflow: "hidden", marginBottom: 22 },
-    item: { paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.ink },
+    content: { paddingHorizontal: 20, paddingTop: 16 },
+    lede: { color: colors.bone, fontSize: 30, fontWeight: "800", lineHeight: 36, letterSpacing: -0.7, marginBottom: 8 },
+    intro: { color: colors.muted, fontSize: 16, lineHeight: 23, marginBottom: 20 },
+    cardGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    card: {
+      flexGrow: 1,
+      flexBasis: "46%",
+      minHeight: 140,
+      padding: 14,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.subtle + "28",
+    },
+    cardTitle: { color: colors.bone, fontSize: 16, lineHeight: 21, fontWeight: "800", marginTop: 10, marginBottom: 5 },
+    cardBody: { color: colors.muted, fontSize: 13, lineHeight: 19 },
+    section: { color: colors.bone, fontSize: 19, lineHeight: 24, fontWeight: "800", marginTop: 26, marginBottom: 12 },
+    faq: { backgroundColor: colors.surface, borderRadius: 16, overflow: "hidden", marginBottom: 20 },
+    item: { paddingHorizontal: 15, paddingVertical: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.ink },
     itemLast: { borderBottomWidth: 0 },
     qRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-    q: { flex: 1, color: colors.bone, fontSize: 16, fontWeight: "600", lineHeight: 22 },
+    q: { flex: 1, color: colors.bone, fontSize: 15, fontWeight: "700", lineHeight: 21 },
     chev: { color: colors.subtle, fontSize: 22, width: 18, textAlign: "center" },
-    a: { color: colors.muted, fontSize: 15, lineHeight: 22, marginTop: 10 },
-    mail: { marginTop: 8, height: 48, borderRadius: 24, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    a: { color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 10 },
+    contactCopy: { color: colors.muted, fontSize: 14, lineHeight: 20, marginBottom: 8 },
+    mail: { marginTop: 2, height: 48, borderRadius: 24, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     mailTxt: { color: colors.successInk, fontWeight: "800", fontSize: 15 },
   });
 }
