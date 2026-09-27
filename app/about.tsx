@@ -1,9 +1,33 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Stack } from "expo-router";
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, type Colors } from "../lib/theme";
 
 const MAIL = "mailto:himforson@gmail.com?subject=About%20Uvel";
+
+const QUICK_GUIDE: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string }[] = [
+  {
+    icon: "search-outline",
+    title: "Find your next piece",
+    body: "Browse pre-loved clothes and first pieces from new labels.",
+  },
+  {
+    icon: "person-outline",
+    title: "See it on you",
+    body: "Mirror previews a piece on your photo. It shows the look, not the fit.",
+  },
+  {
+    icon: "card-outline",
+    title: "Buy with clarity",
+    body: "See your total at checkout. Payment is held until you confirm delivery.",
+  },
+  {
+    icon: "pricetag-outline",
+    title: "Sell or start a label",
+    body: "List something you own, or submit your first design in Founder Studio.",
+  },
+];
 
 export default function AboutUvel() {
   const colors = useColors();
@@ -14,104 +38,132 @@ export default function AboutUvel() {
     <View style={styles.page}>
       <Stack.Screen options={{ headerTitle: "About Uvel", headerTransparent: false, headerShadowVisible: false }} />
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 8, paddingBottom: 48 + insets.bottom }}
+        contentContainerStyle={[styles.content, { paddingBottom: 36 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.kicker}>UVEL</Text>
-        <Text style={styles.lede}>An app for clothes. That’s the whole plot.</Text>
+        <Text style={styles.kicker}>UVEL · THE SHORT VERSION</Text>
+        <Text style={styles.lede}>An app for clothes.{"\n"}That’s the whole plot.</Text>
+        <Text style={styles.intro}>Find a piece. Try it on. Buy it, sell it, or start a label.</Text>
 
-        <P styles={styles}>
-          You come here to find something, try it on a photo of yourself, buy it, sell something you’re done with, or start a small label if that’s the kind of person you are.
-        </P>
-        <P styles={styles}>
-          We built it because a lot of fashion apps feel like they were made for a catalogue, not for getting dressed.
-        </P>
+        <Text style={styles.section}>What you can do</Text>
+        <View style={styles.cardGrid}>
+          {QUICK_GUIDE.map((item) => (
+            <View key={item.title} style={styles.card}>
+              <Ionicons name={item.icon} size={21} color={colors.success} />
+              <Text style={styles.cardTitle}>{item.title}</Text>
+              <Text style={styles.cardBody}>{item.body}</Text>
+            </View>
+          ))}
+        </View>
 
-        <H styles={styles}>Today</H>
-        <P styles={styles}>
-          The first screen is Today. It’s a floor of listings. Some are clothes people already wore. Some are first pieces from people just starting.
-        </P>
-        <P styles={styles}>
-          What you see follows what you actually look at, what you like, and the style you set in You. It isn’t reading your mind. It’s just paying attention.
-        </P>
-        <P styles={styles}>
-          If something is a First Find, we take a bit off the price at checkout. That’s a real credit, not a crossed-out number for show.
-        </P>
+        <Text style={styles.section}>A few useful details</Text>
+        <View style={styles.details}>
+          <DetailRow
+            icon="sparkles-outline"
+            title="First Find"
+            body="When you qualify, the credit is real and comes off at checkout."
+            colors={colors}
+            styles={styles}
+          />
+          <DetailRow
+            icon="storefront-outline"
+            title="Your store sets the details"
+            body="Currency and payout options depend on the store you choose in Settings."
+            colors={colors}
+            styles={styles}
+          />
+          <DetailRow
+            icon="business-outline"
+            title="Building a brand?"
+            body="Approved labels get a Brand HQ for their shop, orders, and earnings."
+            colors={colors}
+            styles={styles}
+            last
+          />
+        </View>
 
-        <H styles={styles}>Mirror</H>
-        <P styles={styles}>
-          Mirror is the try-on. You take a photo, or use one you already have, and we put the piece on you. It’s a preview. It will not tell you if the sleeves are too long. It will tell you if the jacket looks like you.
-        </P>
-
-        <H styles={styles}>Buying</H>
-        <P styles={styles}>
-          You add things to a bag on Today, then check out when you’re ready. Protection and extra fees show up at checkout, not on the floor. We don’t want a listing to feel like a lecture.
-        </P>
-        <P styles={styles}>
-          When you pay, we hold the money until the thing is in your hands and you’ve said so. If it never shows, you shouldn’t be the one chasing it.
-        </P>
-
-        <H styles={styles}>Selling</H>
-        <P styles={styles}>
-          If you have something, you list it. Photos, a name, a price, where it ships. We try not to make you fill in a novel.
-        </P>
-        <P styles={styles}>
-          When it sells, the money does not hit your pocket on the spot. We hold it. You send the thing. They confirm. Then it sits in your wallet, and you can send that to a bank. If you’re in the Ghana store, mobile money is there too.
-        </P>
-        <P styles={styles}>
-          Don’t sell fakes. Don’t use someone else’s photos. We’ll take the listing down.
-        </P>
-
-        <H styles={styles}>Starting a label</H>
-        <P styles={styles}>
-          Founder Studio is for people making a house, not emptying a closet. You name it, you make one piece, you send it in. We look at the name, the pictures, and whether it reads like a replica of someone famous. That takes a little while. You go back to Today while we do it.
-        </P>
-        <P styles={styles}>
-          If it goes through, you get a Brand HQ — the shop, the orders, the money, the page people see. If it doesn’t, we tell you why, and you can fix it and send it again.
-        </P>
-        <P styles={styles}>
-          If you already run a registered company and just want that on Uvel, that’s a different door. It isn’t in the app yet.
-        </P>
-
-        <H styles={styles}>Stores</H>
-        <P styles={styles}>
-          You pick a store in Settings. The floor, the currency, and how you get paid follow that store. Ghana and the US are the ones that matter right now.
-        </P>
-
-        <H styles={styles}>Who this is</H>
-        <P styles={styles}>
-          Uvel is from Fitza. We’re small. There isn’t a press team. If you write, a person reads it.
-        </P>
-        <P styles={styles}>
-          This isn’t a manifesto. Wear the thing. List the thing. If something’s broken, report it from Settings.
-        </P>
-
-        <H styles={styles}>Write to us</H>
-        <P styles={styles}>himforson@gmail.com</P>
-        <Pressable onPress={() => void Linking.openURL(MAIL)} style={styles.mail}>
-          <Text style={styles.mailTxt}>Send a mail</Text>
-        </Pressable>
+        <View style={styles.contactCard}>
+          <View style={styles.contactCopy}>
+            <Text style={styles.contactTitle}>Need a hand?</Text>
+            <Text style={styles.contactBody}>Uvel is from Fitza. A person reads your message.</Text>
+          </View>
+          <Pressable
+            onPress={() => void Linking.openURL(MAIL)}
+            style={({ pressed }) => [styles.mail, pressed && styles.mailPressed]}
+            accessibilityRole="button"
+            accessibilityLabel="Email the Uvel team"
+          >
+            <Text style={styles.mailTxt}>Email us</Text>
+            <Ionicons name="arrow-forward" size={17} color={colors.successInk} />
+          </Pressable>
+          <Text style={styles.email}>himforson@gmail.com</Text>
+        </View>
       </ScrollView>
     </View>
   );
 }
 
-function H({ children, styles }: { children: string; styles: ReturnType<typeof make> }) {
-  return <Text style={styles.h}>{children}</Text>;
-}
-
-function P({ children, styles }: { children: string; styles: ReturnType<typeof make> }) {
-  return <Text style={styles.p}>{children}</Text>;
+function DetailRow({
+  icon,
+  title,
+  body,
+  colors,
+  styles,
+  last,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  body: string;
+  colors: Colors;
+  styles: ReturnType<typeof make>;
+  last?: boolean;
+}) {
+  return (
+    <View style={[styles.detailRow, last && styles.detailRowLast]}>
+      <Ionicons name={icon} size={19} color={colors.success} style={styles.detailIcon} />
+      <View style={styles.detailCopy}>
+        <Text style={styles.detailTitle}>{title}</Text>
+        <Text style={styles.detailBody}>{body}</Text>
+      </View>
+    </View>
+  );
 }
 
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    kicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.8, marginBottom: 10 },
-    lede: { color: colors.bone, fontFamily: "Georgia", fontSize: 28, lineHeight: 34, marginBottom: 18 },
-    h: { color: colors.bone, fontSize: 17, fontWeight: "700", marginTop: 22, marginBottom: 8 },
-    p: { color: colors.muted, fontSize: 16, lineHeight: 24, marginBottom: 10 },
-    mail: { marginTop: 8, height: 48, borderRadius: 24, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
-    mailTxt: { color: colors.successInk, fontWeight: "800", fontSize: 15 },
+    content: { paddingHorizontal: 20, paddingTop: 16, gap: 0 },
+    kicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.5, marginBottom: 10 },
+    lede: { color: colors.bone, fontSize: 30, lineHeight: 36, fontWeight: "800", letterSpacing: -0.7, marginBottom: 8 },
+    intro: { color: colors.muted, fontSize: 16, lineHeight: 23, marginBottom: 22 },
+    section: { color: colors.bone, fontSize: 18, lineHeight: 23, fontWeight: "800", marginBottom: 11, marginTop: 3 },
+    cardGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    card: {
+      flexGrow: 1,
+      flexBasis: "46%",
+      minHeight: 145,
+      padding: 14,
+      borderRadius: 16,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.subtle + "28",
+    },
+    cardTitle: { color: colors.bone, fontSize: 15, lineHeight: 20, fontWeight: "800", marginTop: 11, marginBottom: 5 },
+    cardBody: { color: colors.muted, fontSize: 13, lineHeight: 19 },
+    details: { backgroundColor: colors.surface, borderRadius: 16, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.subtle + "28" },
+    detailRow: { flexDirection: "row", alignItems: "flex-start", paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.subtle + "45" },
+    detailRowLast: { borderBottomWidth: 0 },
+    detailIcon: { width: 27, marginTop: 2 },
+    detailCopy: { flex: 1 },
+    detailTitle: { color: colors.bone, fontSize: 14, lineHeight: 19, fontWeight: "800", marginBottom: 2 },
+    detailBody: { color: colors.muted, fontSize: 13, lineHeight: 19 },
+    contactCard: { marginTop: 16, marginBottom: 4, padding: 16, borderRadius: 17, backgroundColor: colors.pulse },
+    contactCopy: { marginBottom: 13 },
+    contactTitle: { color: colors.bone, fontSize: 18, lineHeight: 23, fontWeight: "800", marginBottom: 3 },
+    contactBody: { color: colors.muted, fontSize: 13, lineHeight: 19 },
+    mail: { minHeight: 44, borderRadius: 22, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+    mailPressed: { opacity: 0.85, transform: [{ scale: 0.99 }] },
+    mailTxt: { color: colors.successInk, fontWeight: "800", fontSize: 14 },
+    email: { color: colors.muted, fontSize: 12, textAlign: "center", marginTop: 10 },
   });
 }
