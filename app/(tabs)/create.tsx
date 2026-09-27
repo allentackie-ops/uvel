@@ -33,7 +33,6 @@ type HubProps = { colors: Colors; styles: ScreenStyles };
 function NewFounderHub({ colors, styles }: HubProps) {
   return (
     <>
-      <Text style={styles.kicker}>MAKE SOMETHING REAL</Text>
       <Text style={styles.title}>Create</Text>
       <Text style={styles.lede}>
         Start with an idea, or put something you already own in front of the right buyer.
