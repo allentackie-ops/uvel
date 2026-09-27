@@ -3,12 +3,17 @@ import { router } from "expo-router";
 import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ownedBrand, useBrands } from "../../lib/brands";
+import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 
 export default function Create() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
+  const app = useUvel();
+  useBrands();
+  const brand = ownedBrand(app.uid);
 
   return (
     <ScrollView
@@ -16,6 +21,18 @@ export default function Create() {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 112 }]}
       showsVerticalScrollIndicator={false}
     >
+      {brand ? <OwnedBrandHub brandName={brand.name} brandId={brand.id} colors={colors} styles={styles} /> : <NewFounderHub colors={colors} styles={styles} />}
+    </ScrollView>
+  );
+}
+
+type ScreenStyles = ReturnType<typeof make>;
+
+type HubProps = { colors: Colors; styles: ScreenStyles };
+
+function NewFounderHub({ colors, styles }: HubProps) {
+  return (
+    <>
       <Text style={styles.kicker}>MAKE SOMETHING REAL</Text>
       <Text style={styles.title}>Create</Text>
       <Text style={styles.lede}>
@@ -72,7 +89,70 @@ export default function Create() {
           Founder Studio is private while you build. Brand HQ opens when your brand is ready to operate.
         </Text>
       </View>
-    </ScrollView>
+    </>
+  );
+}
+
+function OwnedBrandHub({ brandName, brandId, colors, styles }: HubProps & { brandName: string; brandId: string }) {
+  return (
+    <>
+      <Text style={styles.kicker}>YOUR BRAND</Text>
+      <Text style={styles.title} numberOfLines={2}>{brandName}</Text>
+      <Text style={styles.lede}>
+        Your brand workspace. Keep shaping the work in Founder Studio, or run the business from Brand HQ.
+      </Text>
+
+      <Pressable
+        onPress={() => router.push("/brand/founder")}
+        style={({ pressed }) => [styles.primaryCard, pressed && styles.pressed]}
+        accessibilityRole="button"
+        accessibilityLabel={`Open Founder Studio for ${brandName}`}
+      >
+        <View style={styles.cardTop}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="color-palette-outline" size={24} color={colors.successInk} />
+          </View>
+          <Text style={styles.primaryEyebrow}>FOUNDER STUDIO</Text>
+        </View>
+        <Text style={styles.primaryTitle}>Keep creating</Text>
+        <Text style={styles.primaryCopy}>
+          Develop new ideas, products, and the next chapter of {brandName}.
+        </Text>
+        <View style={styles.primaryAction}>
+          <Text style={styles.primaryActionText}>Open Founder Studio</Text>
+          <Ionicons name="arrow-forward" size={18} color={colors.successInk} />
+        </View>
+      </Pressable>
+
+      <Pressable
+        onPress={() => router.push({ pathname: "/brand/hq", params: { id: brandId } })}
+        style={({ pressed }) => [styles.secondaryCard, pressed && styles.pressed]}
+        accessibilityRole="button"
+        accessibilityLabel={`Open Brand HQ for ${brandName}`}
+      >
+        <View style={styles.cardTop}>
+          <View style={styles.secondaryIconCircle}>
+            <Ionicons name="briefcase-outline" size={22} color={colors.bone} />
+          </View>
+          <Text style={styles.secondaryEyebrow}>BRAND HQ</Text>
+        </View>
+        <Text style={styles.secondaryTitle}>Run your brand</Text>
+        <Text style={styles.secondaryCopy}>
+          Manage your catalog, orders, money, team, and growth from one workspace.
+        </Text>
+        <View style={styles.secondaryAction}>
+          <Text style={styles.secondaryActionText}>Open Brand HQ</Text>
+          <Ionicons name="arrow-forward" size={18} color={colors.bone} />
+        </View>
+      </Pressable>
+
+      <View style={styles.note}>
+        <Ionicons name="checkmark-circle-outline" size={18} color={colors.success} />
+        <Text style={styles.noteText}>
+          This is your brand workspace. Your normal closet selling tools are still available from your profile and listing actions.
+        </Text>
+      </View>
+    </>
   );
 }
 
