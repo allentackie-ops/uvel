@@ -13,7 +13,7 @@ const QUICK_GUIDE: { icon: keyof typeof Ionicons.glyphMap; title: string; body: 
     body: "Browse pre-loved clothes and first pieces from new labels.",
   },
   {
-    icon: "person-outline",
+    icon: "body-outline",
     title: "See it on you",
     body: "Mirror previews a piece on your photo. It shows the look, not the fit.",
   },
@@ -41,7 +41,6 @@ export default function AboutUvel() {
         contentContainerStyle={[styles.content, { paddingBottom: 36 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.kicker}>UVEL · THE SHORT VERSION</Text>
         <Text style={styles.lede}>An app for clothes.{"\n"}That’s the whole plot.</Text>
         <Text style={styles.intro}>Find a piece. Try it on. Buy it, sell it, or start a label.</Text>
 
@@ -56,10 +55,10 @@ export default function AboutUvel() {
           ))}
         </View>
 
-        <Text style={styles.section}>A few useful details</Text>
+        <Text style={styles.detailsSection}>A few useful details</Text>
         <View style={styles.details}>
           <DetailRow
-            icon="sparkles-outline"
+            icon="ticket-outline"
             title="First Find"
             body="When you qualify, the credit is real and comes off at checkout."
             colors={colors}
@@ -96,7 +95,6 @@ export default function AboutUvel() {
             <Text style={styles.mailTxt}>Email us</Text>
             <Ionicons name="arrow-forward" size={17} color={colors.successInk} />
           </Pressable>
-          <Text style={styles.email}>himforson@gmail.com</Text>
         </View>
       </ScrollView>
     </View>
@@ -133,10 +131,10 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     content: { paddingHorizontal: 20, paddingTop: 16, gap: 0 },
-    kicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.5, marginBottom: 10 },
     lede: { color: colors.bone, fontSize: 30, lineHeight: 36, fontWeight: "800", letterSpacing: -0.7, marginBottom: 8 },
     intro: { color: colors.muted, fontSize: 16, lineHeight: 23, marginBottom: 22 },
     section: { color: colors.bone, fontSize: 18, lineHeight: 23, fontWeight: "800", marginBottom: 11, marginTop: 3 },
+    detailsSection: { color: colors.bone, fontSize: 18, lineHeight: 23, fontWeight: "800", marginBottom: 11, marginTop: 25 },
     cardGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     card: {
       flexGrow: 1,
@@ -164,6 +162,5 @@ function make(colors: Colors) {
     mail: { minHeight: 44, borderRadius: 22, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     mailPressed: { opacity: 0.85, transform: [{ scale: 0.99 }] },
     mailTxt: { color: colors.successInk, fontWeight: "800", fontSize: 14 },
-    email: { color: colors.muted, fontSize: 12, textAlign: "center", marginTop: 10 },
   });
 }
