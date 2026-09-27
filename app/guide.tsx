@@ -9,64 +9,64 @@ const MAIL = "mailto:himforson@gmail.com?subject=Uvel%20help";
 
 const FAQ: { q: string; a: string }[] = [
   {
-    q: "How do I buy something?",
-    a: "Open a listing on Today, tap Add to cart. A bag shows up on the bottom right of Today and stays with you while you keep looking. When you’re ready, tap that bag and check out. Protection and extra fees show there, not on the floor.",
+    q: "How do I buy a piece?",
+    a: "Open a listing and tap Add to cart. When you’re ready, tap the bag on Today and check out. Fees and buyer protection are shown before you pay.",
   },
   {
-    q: "Why is there a bag floating on Today?",
-    a: "So you can keep shopping. It only lives on Today. Drag it if it’s in the way. Long-press it and a bin shows up if you want to dump the bag. Opening it takes you to checkout.",
+    q: "Why is there a bag on Today?",
+    a: "It keeps your cart handy while you browse. Tap it to check out. Drag it if it’s in the way, or long-press it to show the bin.",
   },
   {
     q: "What is First Find?",
-    a: "A real credit on a first piece that matches you, after Style DNA is set. The old price is crossed out. The lower one is what you pay. It is not cash and you cannot withdraw it. Invite a friend and they get one too.",
+    a: "A credit toward your first eligible piece after you set up Style DNA. It comes off at checkout; it isn’t cash. Friends you invite can get one too.",
   },
   {
     q: "What is Style DNA?",
-    a: "A short set of what you actually wear — cut, colour, how loud you like things. It sits in You. Today uses it, along with what you look at and save, so the floor feels closer to you. It does not rewrite the feed while you’re in the middle of tapping something.",
+    a: "A quick profile of your style. Set it up in You; it helps tailor Today using your preferences and the pieces you view or save.",
   },
   {
-    q: "Why didn’t Today change after I liked something?",
-    a: "On purpose. The floor stays still while you’re on it. It only reshuffles if you pull to refresh, or you leave the app and come back.",
+    q: "Why didn’t Today change when I liked something?",
+    a: "Today stays put while you browse. Pull down to refresh, or reopen Uvel, to see a fresh mix.",
   },
   {
-    q: "Where does my money go when I buy?",
-    a: "We hold it. The seller sends the piece. You say you got it. Then the seller can take it out of their wallet. If it never shows, you should not be the one chasing it.",
+    q: "What happens to my payment?",
+    a: "Uvel holds your payment while your order is on the way. After you confirm delivery, it’s released to the seller. If there’s a problem, contact Uvel.",
   },
   {
-    q: "When do I get paid if I sell?",
-    a: "Not the second it sells. We hold it until the buyer confirms they have it. Then it sits in Wallet, on You. From there you send it to a bank. If your store is Ghana, mobile money is there too.",
+    q: "When do I get paid for a sale?",
+    a: "After the buyer confirms delivery, your earnings appear in Wallet on You. Withdraw to your bank; stores in Ghana can use mobile money.",
   },
   {
-    q: "Why don’t I see buyer protection on the listing?",
-    a: "Because it belongs at checkout. Putting a fee on the floor makes people flinch before they’ve even decided they want the thing.",
+    q: "Where can I see buyer protection fees?",
+    a: "They’re shown at checkout, before you pay.",
   },
   {
-    q: "How do I try something on?",
-    a: "Mirror, or Try it on from a listing. Use a photo of you. It’s a preview of whether the piece looks like you. It will not tell you if the sleeves are long.",
+    q: "How can I preview a piece on me?",
+    a: "Open Mirror, or tap Try it on from a listing. Add a photo for a preview; it won’t show the exact fit.",
   },
   {
     q: "How do I list something?",
-    a: "Sell. Photos first, then the name, then the rest in order — category, condition, price, where it ships. You can leave and come back. Don’t use someone else’s photos. Don’t list a fake.",
+    a: "Tap Sell. Add your own photos, then enter the name, category, condition, price, and shipping details. You can save and finish later. Don’t list replicas.",
   },
   {
     q: "How do I start a brand?",
-    a: "Founder Studio, from You. Name it, make one piece, apply. You go back to Today while we look at the name, the pictures, and whether it reads like a replica. That takes a little while. If it goes through, you get Brand HQ. If it doesn’t, we tell you why and you can send it again.",
+    a: "Open Founder Studio from You, create your brand and first piece, then apply. If approved, you’ll get Brand HQ. If not, Uvel explains why so you can try again.",
   },
   {
-    q: "Can I invite someone?",
-    a: "Yes. Share your invite. They get a First Find after they set Style DNA. Same as yours — toward a piece, not cash.",
+    q: "How do invites work?",
+    a: "Share your invite with a friend. They can get First Find after setting up Style DNA.",
   },
   {
-    q: "I double-tapped a photo. What was that?",
-    a: "That’s a like. The heart flies into Save. Same as tapping Save in the corner. It’s on your You page after that.",
+    q: "What does double-tapping a photo do?",
+    a: "It likes and saves the piece. Find it later in Saves on You, or tap Save on the listing.",
   },
   {
-    q: "How do I change the look of the app?",
-    a: "Settings, then Appearance. Light, dark, or whatever your phone is doing.",
+    q: "How do I change the app’s appearance?",
+    a: "Go to Settings → Appearance. Choose light, dark, or match your phone.",
   },
   {
-    q: "Something’s broken. Who do I tell?",
-    a: "Settings → Report app issue. Or mail himforson@gmail.com. A person reads it.",
+    q: "How do I report a problem?",
+    a: "Go to Settings → Report app issue, or tap Ask us below.",
   },
 ];
 
@@ -133,7 +133,7 @@ export default function HowToUseUvel() {
               >
                 <View style={styles.qRow}>
                   <Text style={styles.q}>{item.q}</Text>
-                  <Text style={styles.chev}>{expanded ? "−" : "+"}</Text>
+                  <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={19} color={colors.subtle} style={styles.chev} />
                 </View>
                 {expanded ? <Text style={styles.a}>{item.a}</Text> : null}
               </Pressable>
@@ -176,12 +176,12 @@ function make(colors: Colors) {
     cardBody: { color: colors.muted, fontSize: 13, lineHeight: 19 },
     section: { color: colors.bone, fontSize: 19, lineHeight: 24, fontWeight: "800", marginTop: 26, marginBottom: 12 },
     faq: { backgroundColor: colors.surface, borderRadius: 16, overflow: "hidden", marginBottom: 20 },
-    item: { paddingHorizontal: 15, paddingVertical: 15, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.ink },
+    item: { paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.ink },
     itemLast: { borderBottomWidth: 0 },
     qRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-    q: { flex: 1, color: colors.bone, fontSize: 15, fontWeight: "700", lineHeight: 21 },
-    chev: { color: colors.subtle, fontSize: 22, width: 18, textAlign: "center" },
-    a: { color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 10 },
+    q: { flex: 1, color: colors.bone, fontSize: 16, fontWeight: "800", lineHeight: 22 },
+    chev: { width: 20, textAlign: "center" },
+    a: { color: colors.muted, fontSize: 15, lineHeight: 23, marginTop: 11 },
     contactCopy: { color: colors.muted, fontSize: 14, lineHeight: 20, marginBottom: 8 },
     mail: { marginTop: 2, height: 48, borderRadius: 24, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     mailTxt: { color: colors.successInk, fontWeight: "800", fontSize: 15 },
