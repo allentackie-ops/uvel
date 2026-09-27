@@ -134,14 +134,16 @@ export default function TabsLayout() {
                     accessibilityLabel={[C.today, C.mirror, C.create ?? "Create", C.you][index]}
                     accessibilityState={{ selected: active }}
                   >
-                    {index === 2 ? (
-                      <View style={styles.sellPlus} accessibilityElementsHidden>
-                        <View style={[styles.sellPlusBar, styles.sellPlusHorizontal, { backgroundColor: active ? colors.success : inactiveIcon }]} />
-                        <View style={[styles.sellPlusBar, styles.sellPlusVertical, { backgroundColor: active ? colors.success : inactiveIcon }]} />
-                      </View>
-                    ) : (
-                      <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={23} color={active ? colors.success : inactiveIcon} />
-                    )}
+                    <View style={styles.iconSlot} accessibilityElementsHidden>
+                      {index === 2 ? (
+                        <View style={styles.sellPlus}>
+                          <View style={[styles.sellPlusBar, styles.sellPlusHorizontal, { backgroundColor: active ? colors.success : inactiveIcon }]} />
+                          <View style={[styles.sellPlusBar, styles.sellPlusVertical, { backgroundColor: active ? colors.success : inactiveIcon }]} />
+                        </View>
+                      ) : (
+                        <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={24} color={active ? colors.success : inactiveIcon} />
+                      )}
+                    </View>
                     <Text style={[styles.label, { color: active ? colors.success : inactiveIcon }]}>{[C.today, C.mirror, C.create ?? "Create", C.you][index]}</Text>
                   </Pressable>
                 );
@@ -228,11 +230,12 @@ const styles = StyleSheet.create({
   cardHit: { ...StyleSheet.absoluteFill, zIndex: 5 },
   barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 4, backgroundColor: "#000000", zIndex: 3 },
   bar: { minHeight: 60, borderRadius: 0, borderWidth: 0, backgroundColor: "#000000", flexDirection: "row", alignItems: "center", paddingHorizontal: 10 },
-  tab: { flex: 1, minHeight: 52, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 2 },
+  tab: { flex: 1, minHeight: 52, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 3 },
   tabPressed: { opacity: 0.76 },
-  sellPlus: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
+  iconSlot: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
+  sellPlus: { width: 24, height: 24, alignItems: "center", justifyContent: "center" },
   sellPlusBar: { position: "absolute", borderRadius: 2 },
-  sellPlusHorizontal: { width: 25, height: 3 },
-  sellPlusVertical: { width: 3, height: 25 },
+  sellPlusHorizontal: { width: 24, height: 3 },
+  sellPlusVertical: { width: 3, height: 24 },
   label: { color: "#A9A398", fontSize: 11, fontWeight: "700" },
 });
