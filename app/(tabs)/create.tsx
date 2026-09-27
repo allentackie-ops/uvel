@@ -15,9 +15,9 @@ const FORMAT_IMAGES = [
   require("../../assets/catalog/satin-skirt.jpg"),
 ];
 const FORMAT_ITEMS = [
-  { label: "Collection", body: "Launch a curated set of products.", route: "/brand/list" as const },
-  { label: "Listing", body: "Add a single product to your catalog.", route: "/sell" as const },
-  { label: "Announcement", body: "Share news, drops, or updates.", route: "/brand/founder" as const },
+  { label: "Collection", body: "Launch a curated set of products.", kind: "collection" as const },
+  { label: "Listing", body: "Add a single product to your catalog.", kind: "listing" as const },
+  { label: "Announcement", body: "Share news, drops, or updates.", kind: "announcement" as const },
 ];
 
 export default function Create() {
@@ -61,7 +61,7 @@ function EditorialHeader({ brand, styles }: { brand?: Brand; styles: ScreenStyle
 function Hero({ brand, colors, styles }: SharedProps & { brand?: Brand }) {
   const image = brand?.bannerUri ? { uri: brand.bannerUri } : HERO_IMAGE;
   return (
-    <View style={styles.hero}>
+    <Pressable onPress={() => router.push("/brand/founder")} style={({ pressed }) => [styles.hero, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="Open Founder Studio">
       <Image source={image} style={styles.heroImage} contentFit="cover" cachePolicy="memory-disk" />
       <View style={styles.heroShade} />
       <View style={styles.heroCopy}>
@@ -70,8 +70,8 @@ function Hero({ brand, colors, styles }: SharedProps & { brand?: Brand }) {
         <Text style={styles.heroBody}>{brand ? "Shape the next chapter with a clear path from idea to launch." : "A simple place to shape a brand, a product, or your first listing."}</Text>
         <View style={styles.heroRule} />
       </View>
-      {brand ? <BrandLogo brand={brand} styles={styles} size={48} floating /> : null}
-    </View>
+      <View style={styles.heroTap}><Ionicons name="arrow-forward" size={19} color={colors.bone} /><Text style={styles.heroTapText}>Open Founder Studio</Text></View>
+    </Pressable>
   );
 }
 
@@ -82,7 +82,12 @@ function FormatShelf({ brand, colors, styles }: SharedProps & { brand?: Brand })
         {FORMAT_ITEMS.map((item, index) => (
           <Pressable
             key={item.label}
-            onPress={() => router.push(item.route)}
+            onPress={() => {
+              if (!brand) return router.push("/brand/founder");
+              if (item.kind === "collection") return router.push({ pathname: "/brand/collections", params: { id: brand.id } });
+              if (item.kind === "listing") return router.push({ pathname: "/brand/list", params: { id: brand.id } });
+              return router.push({ pathname: "/brand/announcement", params: { id: brand.id } });
+            }}
             style={({ pressed }) => [styles.formatCard, pressed && styles.pressed]}
             accessibilityRole="button"
             accessibilityLabel={`${item.label}: ${item.body}`}
@@ -147,7 +152,7 @@ function BusinessShelf({ brand, colors, styles }: SharedProps & { brand?: Brand 
           icon="bar-chart-outline"
           colors={colors}
           styles={styles}
-          onPress={() => brand ? router.push({ pathname: "/brand/hq", params: { id: brand.id, section: "analytics" } }) : router.push("/brand/founder")}
+          onPress={() => brand ? router.push({ pathname: "/brand/insights", params: { id: brand.id } }) : router.push("/brand/founder")}
         />
       </View>
     </Shelf>
@@ -175,8 +180,8 @@ function Shelf({ title, action, styles, children }: { title: string; action?: st
 
 function BrandLogo({ brand, styles, size, floating }: { brand: Brand; styles: ScreenStyles; size: number; floating?: boolean }) {
   return (
-    <View style={[styles.logoFrame, { width: size, height: size, borderRadius: size / 2 }, floating && styles.floatingLogo]}>
-      {brand.logoUri ? <Image source={{ uri: brand.logoUri }} style={styles.logoImage} contentFit="cover" cachePolicy="memory-disk" /> : <Text style={styles.logoInitial}>{brand.name.slice(0, 1).toUpperCase()}</Text>}
+    <View style={[styles.logoFrame, { width: size, height: size, borderRadius: floating ? 18 : 16 }, floating && styles.floatingLogo]}>
+      {brand.logoUri ? <Image source={{ uri: brand.logoUri }} style={styles.logoImage} contentFit="contain" cachePolicy="memory-disk" /> : <Text style={styles.logoInitial}>{brand.name.slice(0, 1).toUpperCase()}</Text>}
     </View>
   );
 }
@@ -196,7 +201,7 @@ function make(colors: Colors) {
     logoImage: { width: "100%", height: "100%" },
     logoInitial: { color: colors.bone, fontSize: 23, fontWeight: "800" },
     floatingLogo: { position: "absolute", right: 16, top: 16, borderColor: colors.bone + "AA", backgroundColor: colors.ink },
-    hero: { height: 290, borderRadius: 26, overflow: "hidden", backgroundColor: colors.surface, marginBottom: 28 },
+    hero: { height: 305, borderRadius: 26, overflow: "hidden", backgroundColor: colors.surface, marginBottom: 28 },
     heroImage: StyleSheet.absoluteFill,
     heroShade: { ...StyleSheet.absoluteFill, backgroundColor: light ? "rgba(247,246,242,0.16)" : "rgba(0,0,0,0.34)" },
     heroCopy: { position: "absolute", left: 20, right: 20, bottom: 20 },
@@ -204,6 +209,8 @@ function make(colors: Colors) {
     heroTitle: { color: light ? colors.bone : colors.bone, fontSize: 31, lineHeight: 34, fontWeight: "800", letterSpacing: -0.8, marginTop: 8 },
     heroBody: { color: light ? colors.bone : colors.muted, fontSize: 14, lineHeight: 20, marginTop: 9, maxWidth: 290 },
     heroRule: { width: 42, height: 2, backgroundColor: colors.success, marginTop: 16 },
+    heroTap: { position: "absolute", right: 18, bottom: 18, flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: colors.ink + "B8", borderRadius: 18, paddingHorizontal: 11, paddingVertical: 8 },
+    heroTapText: { color: colors.bone, fontSize: 11, fontWeight: "800" },
     shelf: { marginBottom: 27 },
     shelfHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
     shelfTitle: { color: colors.bone, fontSize: 25, lineHeight: 30, fontWeight: "700", letterSpacing: -0.5 },
