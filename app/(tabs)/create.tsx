@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ownedBrand, useBrands, type Brand } from "../../lib/brands";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
+import { useBrandListingDrafts } from "../../lib/brandListingDraft";
 
 const HERO_IMAGE = require("../../assets/catalog/hero.jpg");
 const FORMAT_IMAGES = [
@@ -27,6 +28,7 @@ export default function Create() {
   const app = useUvel();
   useBrands();
   const brand = ownedBrand(app.uid);
+  const brandDrafts = useBrandListingDrafts(brand?.id);
 
   return (
     <ScrollView
@@ -35,9 +37,10 @@ export default function Create() {
       showsVerticalScrollIndicator={false}
     >
       <EditorialHeader brand={brand} styles={styles} />
+      {brand && brandDrafts.length ? <Pressable onPress={() => router.push({ pathname: "/brand/drafts", params: { id: brand.id } })} style={styles.draftNotice}><View style={styles.draftNoticeIcon}><Ionicons name="document-text-outline" size={17} color={colors.successInk} /></View><View style={styles.draftNoticeCopy}><Text style={styles.draftNoticeTitle}>You have a saved brand draft</Text><Text style={styles.draftNoticeBody}>Tap to continue your unfinished listing.</Text></View><Ionicons name="arrow-forward" size={17} color={colors.bone} /></Pressable> : null}
       <Hero brand={brand} colors={colors} styles={styles} />
       <FormatShelf brand={brand} colors={colors} styles={styles} />
-      <DraftShelf colors={colors} styles={styles} />
+      <DraftShelf brand={brand} colors={colors} styles={styles} />
       <BusinessShelf brand={brand} colors={colors} styles={styles} />
     </ScrollView>
   );
@@ -103,20 +106,20 @@ function FormatShelf({ brand, colors, styles }: SharedProps & { brand?: Brand })
   );
 }
 
-function DraftShelf({ colors, styles }: SharedProps) {
+function DraftShelf({ brand, colors, styles }: SharedProps & { brand?: Brand }) {
   return (
     <Shelf title="Continue a draft" styles={styles}>
       <Pressable
-        onPress={() => router.push("/brand/founder")}
+        onPress={() => brand ? router.push({ pathname: "/brand/drafts", params: { id: brand.id } }) : router.push("/brand/founder")}
         style={({ pressed }) => [styles.draftCard, pressed && styles.pressed]}
         accessibilityRole="button"
-        accessibilityLabel="Resume your latest draft"
+        accessibilityLabel="Open saved drafts"
       >
         <Image source={require("../../assets/catalog/trend-romantic.jpg")} style={styles.draftImage} contentFit="cover" />
         <View style={styles.draftInfo}>
           <View style={styles.statusChip}><Text style={styles.statusText}>DRAFT</Text></View>
-          <Text style={styles.draftTitle}>Your next direction</Text>
-          <Text style={styles.draftMeta}>Resume in Founder Studio</Text>
+          <Text style={styles.draftTitle}>{brand ? "Your brand listing drafts" : "Your next direction"}</Text>
+          <Text style={styles.draftMeta}>{brand ? "Resume a saved listing" : "Resume in Founder Studio"}</Text>
         </View>
         <Ionicons name="arrow-forward" size={20} color={colors.bone} />
       </Pressable>
@@ -190,6 +193,11 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     content: { paddingHorizontal: 18 },
+    draftNotice: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.success + "66", borderRadius: 16, padding: 12, marginBottom: 18 },
+    draftNoticeIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    draftNoticeCopy: { flex: 1 },
+    draftNoticeTitle: { color: colors.bone, fontSize: 13, fontWeight: "900" },
+    draftNoticeBody: { color: colors.muted, fontSize: 11, marginTop: 2 },
     header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
     headerIdentity: { flex: 1, paddingRight: 14 },
     kicker: { color: colors.subtle, fontSize: 10, letterSpacing: 2.8, fontWeight: "800" },

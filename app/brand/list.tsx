@@ -33,6 +33,7 @@ import { recordAuditEvent } from "../../lib/audit";
 import { addPiece, createBrandCatalogRemote } from "../../lib/wardrobe";
 import { firebaseReady } from "../../lib/firebase";
 import { takePendingListingSelection } from "../../lib/listingOptions";
+import { loadBrandListingDrafts, removeBrandListingDraft, saveBrandListingDraft } from "../../lib/brandListingDraft";
 import { useColors, useResolvedAppearance } from "../../lib/theme";
 
 const COVER_W = 112;
@@ -44,7 +45,7 @@ type Slot = { uri: string; status: "checking" | "ok" | "warn"; review?: PhotoRev
 type Gate = { phase: "idle" } | { phase: "review"; line: string } | { phase: "block"; headline: string; reasons: string[] } | { phase: "pass" };
 
 export default function BrandList() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, draftId: requestedDraftId } = useLocalSearchParams<{ id: string; draftId?: string }>();
   useBrands();
   const brand = getBrand(id);
   const app = useUvel();
@@ -75,6 +76,8 @@ export default function BrandList() {
   const brandShipsTo = brand?.operatingCountries || encodeShipsTo(origin, "home");
   const [shipsTo, setShipsTo] = useState<ShipsTo>(() => brandShipsTo);
   const [condition, setCondition] = useState<(typeof BRAND_CONDITIONS)[number]>("New");
+  const [draftReady, setDraftReady] = useState(!requestedDraftId);
+  const [draftId] = useState(() => requestedDraftId || `brand-draft-${id}-${Date.now()}`);
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
   const [openSection, setOpenSection] = useState<"product" | "inventory" | "details" | "delivery" | null>(null);
@@ -84,6 +87,22 @@ export default function BrandList() {
   const cover = photos[0];
   const previewPhoto = photos[selectedPhotoIndex] || cover;
   const contactReady = hasBrandContact(brand || {});
+
+  useEffect(() => {
+    if (!requestedDraftId || !id) return;
+    void loadBrandListingDrafts().then((items) => {
+      const draft = items.find((item) => item.id === requestedDraftId && item.brandId === id);
+      if (!draft) { setDraftReady(true); return; }
+      setPhotos(draft.photos.map((photo) => ({ ...photo, status: "ok" as const })));
+      setClipUri(draft.clipUri); setName(draft.name); setSku(draft.sku); setCategory(draft.category); setSystem(draft.system as SizeSystem); setPicked(draft.picked); setSizeStock(draft.sizeStock); setColor(draft.color); setMaterial(draft.material); setNotes(draft.notes); setPrice(draft.price); setStockQuantity(draft.stockQuantity); setShipsTo(draft.shipsTo); setCondition(draft.condition as (typeof BRAND_CONDITIONS)[number]); setDraftReady(true);
+    });
+  }, [id, requestedDraftId]);
+
+  useEffect(() => {
+    if (!draftReady || !id || !brand) return;
+    if (!photos.length && !name.trim() && !sku.trim() && !notes.trim() && !price.trim() && !category) return;
+    void saveBrandListingDraft({ id: draftId, brandId: id, brandName: brand.name, photos: photos.map((photo) => ({ uri: photo.uri })), clipUri, name, sku, category, system, picked, sizeStock, color, material, notes, price, stockQuantity, shipsTo, condition });
+  }, [brand, category, clipUri, color, condition, draftId, draftReady, id, material, name, notes, picked, photos, price, shipsTo, sizeStock, sku, stockQuantity, system]);
 
   useEffect(() => {
     if (gate.phase !== "review") return;
@@ -367,6 +386,7 @@ export default function BrandList() {
         if (!synced) throw new Error("The product was not connected to the brand catalog. Check your connection and try again.");
       }
       void recordAuditEvent({ brandId: activeBrand.id, action: "product_created", entity: "product", entityId: created.id, entityName: created.name, summary: needsReview ? "Product submitted for automated safety review." : "Product published from the brand listing form.", metadata: { sku: created.sku || "", stockUnits: created.stockQuantity || 0, moderationStatus: needsReview ? "review_pending" : "approved" } });
+      await removeBrandListingDraft(draftId);
     } catch (err) {
       setGate({
         phase: "block",
