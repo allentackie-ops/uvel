@@ -89,7 +89,7 @@ function Hero({ brand, colors, styles }: SharedProps & { brand?: Brand }) {
     <Pressable onPress={() => router.push("/brand/founder")} style={({ pressed }) => [styles.hero, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="Open Founder Studio">
       {brand?.bannerUri ? <BrandBanner uri={brand.bannerUri} kind={brand.bannerKind} style={styles.heroImage} /> : <Image source={HERO_IMAGE} style={styles.heroImage} contentFit="cover" cachePolicy="memory-disk" />}
       <View style={styles.heroCopy}>
-        <Text style={styles.heroKicker}>{brand ? "BUILD WHAT’S NEXT" : "START WITH AN IDEA"}</Text>
+        {!brand ? <Text style={styles.heroKicker}>START WITH AN IDEA</Text> : null}
         <Text style={styles.heroTitle}>{brand ? "Build what’s next\nfor your brand." : "Turn your idea\ninto something real."}</Text>
         <Text style={styles.heroBody}>{brand ? "Shape the next chapter with a clear path from idea to launch." : "A simple place to shape a brand, a product, or your first listing."}</Text>
         <View style={styles.heroRule} />
