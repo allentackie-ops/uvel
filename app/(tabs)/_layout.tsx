@@ -16,8 +16,8 @@ import { useColors, useResolvedAppearance } from "../../lib/theme";
 import { useCopy } from "../../lib/useCopy";
 
 const ROUTES = ["/", "/create", "/you"] as const;
-const ICONS = ["compass-outline", "add-outline", "person-outline"] as const;
-const ACTIVE_ICONS = ["compass", "add", "person"] as const;
+const ICONS = ["compass-outline", "pricetag-outline", "person-outline"] as const;
+const ACTIVE_ICONS = ["compass", "pricetag", "person"] as const;
 const TAB_ICON_SIZE = 26;
 const SCREEN_W = Dimensions.get("window").width;
 const DRAWER_W = Math.min(SCREEN_W * 0.78, 340);
@@ -138,14 +138,7 @@ export default function TabsLayout() {
                     accessibilityState={{ selected: active }}
                   >
                     <View style={styles.iconSlot} accessibilityElementsHidden>
-                      {index === 1 ? (
-                        <View style={styles.sellPlus}>
-                          <View style={[styles.sellPlusBar, styles.sellPlusHorizontal, { backgroundColor: active ? colors.success : inactiveIcon }]} />
-                          <View style={[styles.sellPlusBar, styles.sellPlusVertical, { backgroundColor: active ? colors.success : inactiveIcon }]} />
-                        </View>
-                      ) : (
-                        <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={TAB_ICON_SIZE} color={active ? colors.success : inactiveIcon} />
-                      )}
+                      <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={TAB_ICON_SIZE} color={active ? colors.success : inactiveIcon} />
                     </View>
                     <Text style={[styles.label, { color: active ? colors.success : inactiveIcon }]}>{[C.today, C.create ?? "Create", C.you][index]}</Text>
                   </Pressable>
@@ -235,9 +228,5 @@ const styles = StyleSheet.create({
   tab: { flex: 1, minHeight: 52, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 3 },
   tabPressed: { opacity: 0.76 },
   iconSlot: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
-  sellPlus: { width: TAB_ICON_SIZE, height: TAB_ICON_SIZE, alignItems: "center", justifyContent: "center" },
-  sellPlusBar: { position: "absolute", borderRadius: 1 },
-  sellPlusHorizontal: { width: TAB_ICON_SIZE, height: 2 },
-  sellPlusVertical: { width: 2, height: TAB_ICON_SIZE },
   label: { color: "#A9A398", fontSize: 11, fontWeight: "700" },
 });
