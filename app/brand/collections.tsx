@@ -6,13 +6,21 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getBrand, useBrands } from "../../lib/brands";
 import { removePiece, updatePiece, useWardrobe } from "../../lib/wardrobe";
-import { useColors } from "../../lib/theme";
+import { useColors, useResolvedAppearance } from "../../lib/theme";
+import { adaptBrandThemeToAppearance } from "../../lib/brandThemes";
+import { themeFor } from "../../lib/brands";
 
 export default function BrandCollections() {
   const { id } = useLocalSearchParams<{ id: string }>();
   useBrands();
   const brand = getBrand(id);
-  const colors = useColors();
+  const baseColors = useColors();
+  const appearance = useResolvedAppearance();
+  const colors = useMemo(() => {
+    if (!brand) return baseColors;
+    const theme = adaptBrandThemeToAppearance(themeFor(brand), appearance, baseColors);
+    return { ...baseColors, ink: theme.bg, bone: theme.ink, muted: theme.muted, surface: theme.card, subtle: theme.muted, success: theme.accent, successInk: theme.accentInk };
+  }, [appearance, baseColors, brand]);
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const pieces = useWardrobe();
