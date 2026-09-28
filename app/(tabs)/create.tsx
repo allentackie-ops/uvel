@@ -204,7 +204,7 @@ function Shelf({ title, action, styles, children }: { title: string; action?: st
 
 function BrandLogo({ brand, styles, size, floating }: { brand: Brand; styles: ScreenStyles; size: number; floating?: boolean }) {
   return (
-    <View style={[styles.logoFrame, { width: size, height: size, borderRadius: floating ? 18 : 16 }, floating && styles.floatingLogo]}>
+    <View style={[styles.logoFrame, { width: size, height: size, borderRadius: size / 2 }, floating && styles.floatingLogo]}>
       {brand.logoUri ? <Image source={{ uri: brand.logoUri }} style={styles.logoImage} contentFit="contain" cachePolicy="memory-disk" /> : <Text style={styles.logoInitial}>{brand.name.slice(0, 1).toUpperCase()}</Text>}
     </View>
   );
@@ -226,8 +226,8 @@ function make(colors: Colors) {
     brandName: { color: colors.bone, fontSize: 40, lineHeight: 45, fontWeight: "800", letterSpacing: -1.2, marginTop: 5 },
     headerMark: { width: 54, height: 54, borderRadius: 27, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
     headerMarkIcon: { color: colors.success },
-    logoFrame: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.subtle + "55", overflow: "hidden", alignItems: "center", justifyContent: "center" },
-    logoImage: { width: "100%", height: "100%" },
+    logoFrame: { backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.subtle + "88", overflow: "hidden", alignItems: "center", justifyContent: "center" },
+    logoImage: { width: "82%", height: "82%" },
     logoInitial: { color: colors.bone, fontSize: 23, fontWeight: "800" },
     floatingLogo: { position: "absolute", right: 16, top: 16, borderColor: colors.bone + "AA", backgroundColor: colors.ink },
     hero: { height: 305, borderRadius: 26, overflow: "hidden", backgroundColor: colors.surface, marginBottom: 28 },
