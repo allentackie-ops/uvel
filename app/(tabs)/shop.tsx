@@ -8,6 +8,7 @@ import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, Dimensions, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "../../lib/haptics";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
 import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayListingOverlay";
@@ -181,6 +182,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const [job, setJob] = useState<LookScan | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const refreshTriggered = useRef(false);
+  const hapticTriggered = useRef(false);
+  const scrollY = useRef(new Animated.Value(0)).current;
   const [feedEpoch, setFeedEpoch] = useState(0);
   const frozenOrder = useRef<string[] | null>(null);
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
@@ -298,12 +301,20 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
 
   const onScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
     const y = event.nativeEvent.contentOffset.y;
-    if (y > -10) refreshTriggered.current = false;
+    scrollY.setValue(y);
+    if (y > -10) {
+      refreshTriggered.current = false;
+      hapticTriggered.current = false;
+    }
+    if (todayHome && y < -48 && !hapticTriggered.current) {
+      hapticTriggered.current = true;
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    }
     if (y < -48 && !refreshing && !refreshTriggered.current) {
       refreshTriggered.current = true;
       void onRefresh();
     }
-  }, [onRefresh, refreshing]);
+  }, [onRefresh, refreshing, scrollY, todayHome]);
 
   const openVisualSearch = useCallback(() => {
     Alert.alert(C.searchWithPhoto, C.takePictureOrChooseFit, [
@@ -420,6 +431,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     });
   }, [featured, openTodayListing]);
   const heroHeight = Math.max(430, Math.min(560, Dimensions.get("window").height * 0.53));
+  const stretchedHeroHeight = scrollY.interpolate({ inputRange: [-180, 0], outputRange: [heroHeight + 180, heroHeight], extrapolateLeft: "extend", extrapolateRight: "clamp" });
+  const heroOffset = scrollY.interpolate({ inputRange: [-180, 0], outputRange: [-180, 0], extrapolateLeft: "extend", extrapolateRight: "clamp" });
   const searchBar = (
     <View style={styles.search}>
       <Text style={styles.searchIcon} accessible={false}>⌕</Text>
@@ -525,12 +538,12 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         onTouchStart={showSwipeHint ? dismissSwipeHint : undefined}
         onScrollBeginDrag={showSwipeHint ? dismissSwipeHint : undefined}
       >
-      {orbitOn ? <View style={[styles.refreshOrbit, editorialHome && styles.refreshOrbitOverlay]}><OrbitLoader /></View> : null}
+      {!todayHome && orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
       {editorialHome && featured ? (
         <View
           ref={featuredRef}
           collapsable={false}
-          style={[styles.editorialHero, { height: heroHeight, width: Dimensions.get("window").width, marginTop: -insets.top, marginLeft: -16 }]}
+          style={[styles.editorialHero, { height: stretchedHeroHeight, width: Dimensions.get("window").width, marginTop: -insets.top, marginLeft: -16, transform: [{ translateY: heroOffset }] }]}
         >
           {featured.photo ? (
             <Image cachePolicy="memory-disk" source={{ uri: featured.photo }} style={styles.editorialHeroImage} contentFit="cover" accessible={false} />
@@ -742,6 +755,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         )
       ) : null}
       </ScrollView>
+      {todayHome && orbitOn ? <View pointerEvents="none" style={[styles.refreshOrbit, styles.refreshOrbitOverlay, { top: insets.top + 68 }]}><OrbitLoader /></View> : null}
       {todayHome && openPiece && openOrigin ? (
         <TodayListingOverlay
           piece={openPiece}
