@@ -31,7 +31,7 @@ import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncStat
 import { unreadFor, useInbox } from "../../lib/chat";
 import { usePersonalization } from "../../lib/personalization";
 import { useFirstFind } from "../../lib/firstFind";
-import { getMarket, moneyExact } from "../../lib/markets";
+import { convertCents, getMarket, moneyExact, moneyInMarket } from "../../lib/markets";
 
 const MIN_REFRESH_MS = 1200;
 // Show the workspace drawer tutorial once per installation.
@@ -423,7 +423,13 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const featured = todayHome && !scanningLook ? ranked[0] : undefined;
   const feedRanked = todayHome && !scanningLook ? ranked.slice(featured ? 1 : 0) : ranked;
   const featuredBrand = featured && featured.brand && featured.brand !== "Unlabeled" ? featured.brand : featured?.category;
-  const featuredPrice = featured ? moneyExact(featured.marketPrices?.[market.code] ?? featured.listPriceCents, market.currency) : "";
+  const featuredItemCurrency = featured?.currency || getMarket(featured?.country || app.country).currency;
+  const featuredLocalPriceCents = featured ? convertCents(featured.listPriceCents, featuredItemCurrency, market) : 0;
+  const featuredCredit = featured ? firstFind.applyTo(featured, featuredLocalPriceCents) : 0;
+  const featuredSaleCents = Math.max(0, featuredLocalPriceCents - featuredCredit);
+  const featuredPrice = featured
+    ? moneyInMarket(featuredCredit > 0 ? featuredSaleCents : featuredLocalPriceCents, market.currency, market)
+    : "";
   const openFeatured = useCallback(() => {
     if (!featured) return;
     featuredRef.current?.measureInWindow((x, y, width, height) => {
@@ -562,15 +568,27 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           </AccessiblePressable>
           <View pointerEvents="box-none" style={[styles.editorialHeroContent, { paddingTop: insets.top + 8 }]}>
             {renderTodayHeader(true)}
-            <View pointerEvents="none" style={styles.editorialListingCopy}>
+            <View pointerEvents="box-none" style={styles.editorialListingCopy}>
               {firstFind.matches(featured) ? (
-                <View style={styles.editorialListingFirstFind}>
+                <AccessiblePressable
+                  onPress={() => setFindHint(true)}
+                  style={styles.editorialListingFirstFind}
+                  accessibilityRole="button"
+                  accessibilityLabel="What First Find is"
+                  accessibilityHint="Double tap to hear how First Find works on this piece."
+                >
                   <Text style={styles.editorialListingFirstFindText}>{C.firstFind}</Text>
-                </View>
+                </AccessiblePressable>
               ) : null}
-              <Text style={styles.editorialListingBrand} numberOfLines={1}>{featuredBrand}</Text>
               <Text style={styles.editorialListingTitle} numberOfLines={2}>{featured.name}</Text>
-              <Text style={styles.editorialListingPrice}>{featuredPrice}</Text>
+              {featuredCredit > 0 ? (
+                <View style={styles.editorialListingPriceRow}>
+                  <Text style={styles.editorialListingWas}>{moneyInMarket(featuredLocalPriceCents, market.currency, market)}</Text>
+                  <Text style={styles.editorialListingPrice}>{moneyInMarket(featuredSaleCents, market.currency, market)}</Text>
+                </View>
+              ) : (
+                <Text style={styles.editorialListingPrice}>{featuredPrice}</Text>
+              )}
             </View>
           </View>
         </Animated.View>
@@ -811,9 +829,10 @@ function make(colors: Colors) {
     editorialListingCopy: { maxWidth: 350, gap: 6 },
     editorialListingFirstFind: { alignSelf: "flex-start", minHeight: 30, paddingHorizontal: 12, marginBottom: 4, borderRadius: 15, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     editorialListingFirstFindText: { color: colors.successInk, fontSize: 11, fontWeight: "800" },
-    editorialListingBrand: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.7, textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
     editorialListingTitle: { color: "#FFFFFF", fontSize: 32, lineHeight: 38, fontWeight: "800", letterSpacing: -0.45, maxWidth: "94%", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 },
-    editorialListingPrice: { color: "#FFFFFF", fontSize: 16, fontWeight: "800", marginTop: 3, textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+    editorialListingPriceRow: { flexDirection: "row", alignItems: "baseline", gap: 8, marginTop: 3, flexWrap: "wrap" },
+    editorialListingPrice: { color: colors.success, fontSize: 16, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+    editorialListingWas: { color: `${colors.bone}B2`, fontSize: 14, fontWeight: "600", textDecorationLine: "line-through", fontVariant: ["tabular-nums"], textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
     editorialFeedTitle: { color: colors.bone, fontSize: 14, lineHeight: 18, fontWeight: "800", letterSpacing: 0.2, marginTop: 18, marginBottom: 2 },
     findToast: {
       position: "absolute",
