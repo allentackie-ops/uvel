@@ -540,7 +540,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       >
       {!todayHome && orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
       {editorialHome && featured ? (
-        <View
+        <Animated.View
           ref={featuredRef}
           collapsable={false}
           style={[styles.editorialHero, { height: stretchedHeroHeight, width: Dimensions.get("window").width, marginTop: -insets.top, marginLeft: -16, transform: [{ translateY: heroOffset }] }]}
@@ -573,7 +573,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
               <Text style={styles.editorialListingPrice}>{featuredPrice}</Text>
             </View>
           </View>
-        </View>
+        </Animated.View>
       ) : todayHome ? renderTodayHeader(false) : (
         <View style={styles.titleRow}>
           <Text style={styles.title}>{scanningLook ? C.shopTheLook : C.shop}</Text>
