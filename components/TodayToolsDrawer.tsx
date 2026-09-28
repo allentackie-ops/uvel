@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ownedBrand, useBrands } from "../lib/brands";
+import { useCart } from "../lib/cart";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
@@ -23,6 +24,7 @@ export function TodayToolsDrawer({ onClose, onOpenSell, onOpenMirror }: TodayToo
   const insets = useSafeAreaInsets();
   const app = useUvel();
   const C = useCopy();
+  const cart = useCart();
   useBrands();
   const mine = ownedBrand(app.uid);
   const name = app.displayName || "Uvel member";
@@ -32,6 +34,7 @@ export function TodayToolsDrawer({ onClose, onOpenSell, onOpenMirror }: TodayToo
     { icon: "body-outline", label: "Mirror", onPress: onOpenMirror },
   ];
   const personalTools: Tool[] = [
+    { icon: "bag-handle-outline", label: cart.count ? `Your bag · ${cart.count} ${cart.count === 1 ? "item" : "items"}` : "Your bag", onPress: () => router.push("/cart") },
     { icon: "heart-outline", label: "Saved listings", onPress: () => router.push({ pathname: "/personal-listings", params: { kind: "saved" } }) },
     { icon: "time-outline", label: "Recently viewed", onPress: () => router.push({ pathname: "/personal-listings", params: { kind: "recent" } }) },
     { icon: "shirt-outline", label: "My wardrobe", onPress: () => router.push({ pathname: "/personal-listings", params: { kind: "wardrobe" } }) },
