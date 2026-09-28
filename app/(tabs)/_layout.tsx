@@ -80,7 +80,10 @@ export default function TabsLayout() {
     <View style={[styles.root, { backgroundColor: colors.ink }]}>
       <Drawer
         open={open}
-        onOpen={() => setOpen(true)}
+        onOpen={() => {
+          setOpen(true);
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+        }}
         onClose={closeDrawer}
         swipeEnabled
         swipeEdgeWidth={SCREEN_W}
