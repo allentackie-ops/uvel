@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "../../lib/haptics";
 import { router, usePathname } from "expo-router";
 import PagerView, { type PagerViewOnPageSelectedEvent } from "react-native-pager-view";
 import { useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";

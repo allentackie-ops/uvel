@@ -1,6 +1,7 @@
 import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useEffect, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { LANGS } from "../lib/i18n";
 import { getMarket } from "../lib/markets";
@@ -8,6 +9,7 @@ import { requestFeedback } from "../lib/feedback";
 import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
 import { useColors, type Colors } from "../lib/theme";
+import { loadHapticsEnabled, setHapticsEnabled } from "../lib/haptics";
 
 const HELP = "mailto:himforson@gmail.com?subject=Uvel%20help";
 const VERSION = Constants.expoConfig?.version ?? "1.0.0";
@@ -19,6 +21,22 @@ export default function Settings() {
   const styles = make(colors);
   const localeLabel = LANGS.find((l) => l.id === app.locale)?.label ?? "English, US";
   const market = getMarket(app.country);
+  const [hapticsEnabled, setHapticsEnabledState] = useState(true);
+
+  useEffect(() => {
+    let live = true;
+    void loadHapticsEnabled().then((value) => {
+      if (live) setHapticsEnabledState(value);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  async function toggleHaptics(value: boolean) {
+    setHapticsEnabledState(value);
+    await setHapticsEnabled(value);
+  }
 
   async function toggleNotes(on: boolean) {
     if (!on) {
@@ -68,6 +86,27 @@ export default function Settings() {
           </View>
         </>
       ) : null}
+
+      <Text style={styles.section}>Haptic feedback</Text>
+      <View style={styles.group}>
+        <View style={styles.row}>
+          <Ionicons name="phone-portrait-outline" size={21} color={colors.muted} style={styles.rowIcon} />
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <Text style={styles.rowLabel}>Haptic feedback</Text>
+            <Text style={styles.hint}>Use touch feedback throughout Uvel</Text>
+          </View>
+          <Switch
+            value={hapticsEnabled}
+            onValueChange={(value) => void toggleHaptics(value)}
+            trackColor={{ false: colors.surface, true: colors.success }}
+            thumbColor="#fff"
+            accessibilityRole="switch"
+            accessibilityLabel="Haptic feedback"
+            accessibilityHint="Use touch feedback throughout Uvel"
+            accessibilityState={{ checked: hapticsEnabled }}
+          />
+        </View>
+      </View>
 
       <Text style={styles.section}>{C.preferences}</Text>
       <View style={styles.group}>

@@ -4,7 +4,7 @@ import { Stack, router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Animated, Dimensions, FlatList, Keyboard, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "../lib/haptics";
 import { AccessiblePressable } from "../components/AccessiblePressable";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
 import { ListingCard } from "../components/ListingCard";

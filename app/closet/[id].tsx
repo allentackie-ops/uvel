@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "../../lib/haptics";
 import { alertKindLabel, enableAlert, setAlertPreference, type AlertKind, useAlertPreference } from "../../lib/alerts";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";

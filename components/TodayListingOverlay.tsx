@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import * as Haptics from "expo-haptics";
+import * as Haptics from "../lib/haptics";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, Share as NativeShare, StyleSheet, Text, View, useWindowDimensions } from "react-native";
