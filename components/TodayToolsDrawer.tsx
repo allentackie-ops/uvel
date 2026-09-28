@@ -3,7 +3,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ownedBrand, useBrands } from "../lib/brands";
 import { useCart } from "../lib/cart";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
@@ -25,12 +24,11 @@ export function TodayToolsDrawer({ onClose, onOpenSell, onOpenMirror }: TodayToo
   const app = useUvel();
   const C = useCopy();
   const cart = useCart();
-  useBrands();
-  const mine = ownedBrand(app.uid);
   const name = app.displayName || "Uvel member";
   const handle = app.username ? `@${app.username}` : "";
   const photo = app.avatarUri || app.personUri;
-  const buildTools: Tool[] = [
+  const shopTools: Tool[] = [
+    { icon: "bag-handle-outline", label: cart.count ? `Your bag · ${cart.count} ${cart.count === 1 ? "item" : "items"}` : "Your bag", onPress: () => router.push("/cart") },
     { icon: "body-outline", label: "Mirror", onPress: onOpenMirror },
   ];
   const personalTools: Tool[] = [
@@ -39,12 +37,11 @@ export function TodayToolsDrawer({ onClose, onOpenSell, onOpenMirror }: TodayToo
     { icon: "time-outline", label: "Recently viewed", onPress: () => router.push({ pathname: "/personal-listings", params: { kind: "recent" } }) },
     { icon: "shirt-outline", label: "My wardrobe", onPress: () => router.push({ pathname: "/personal-listings", params: { kind: "wardrobe" } }) },
   ];
-  const businessTools: Tool[] = [
-    ...(!mine ? [{ icon: "stats-chart-outline" as const, label: "Your listings", onPress: () => router.push("/seller-analytics") }] : []),
+  const sellTools: Tool[] = [
     { icon: "add-circle-outline", label: "List an item", onPress: onOpenSell },
-    { icon: "notifications-outline", label: "Price & restock alerts", onPress: () => router.push("/alerts") },
   ];
-  const accountTools: Tool[] = [
+  const moreTools: Tool[] = [
+    { icon: "notifications-outline", label: "Price & restock alerts", onPress: () => router.push("/alerts") },
     { icon: "help-circle-outline", label: C.helpSupport, onPress: () => router.push("/guide") },
     { icon: "settings-outline", menuIcon: true, label: C.settings, onPress: () => router.push("/settings") },
   ];
@@ -71,17 +68,17 @@ export function TodayToolsDrawer({ onClose, onOpenSell, onOpenMirror }: TodayToo
         {handle ? <Text style={styles.handle} numberOfLines={1}>{handle}</Text> : null}
       </Pressable>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionLabel}>BUILD</Text>
-        {buildTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}
+        <Text style={styles.sectionLabel}>SHOP</Text>
+        {shopTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}
         <View style={styles.rule} />
         <Text style={styles.sectionLabel}>PERSONAL</Text>
         {personalTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}
         <View style={styles.rule} />
-        <Text style={styles.sectionLabel}>BUSINESS</Text>
-        {businessTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}
+        <Text style={styles.sectionLabel}>SELL</Text>
+        {sellTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}
         <View style={styles.rule} />
-        <Text style={styles.sectionLabel}>ACCOUNT</Text>
-        {accountTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}
+        <Text style={styles.sectionLabel}>MORE</Text>
+        {moreTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}
       </ScrollView>
       <Pressable
         onPress={() => Alert.alert(C.logOutTitle, C.logOutBody, [
