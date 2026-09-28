@@ -274,7 +274,7 @@ function make(colors: Colors) {
     navTitle: { color: colors.bone, fontSize: 17, fontWeight: "600" },
     body: { paddingHorizontal: 20, paddingTop: 8 },
     kicker: { color: colors.subtle, fontSize: 11, letterSpacing: 1.8, fontWeight: "700" },
-    heading: { color: colors.bone, fontFamily: "Georgia", fontSize: 30, lineHeight: 36, marginTop: 8, marginBottom: 18 },
+    heading: { color: colors.bone, fontSize: 30, lineHeight: 36, fontWeight: "700", marginTop: 8, marginBottom: 18 },
     card: { flexDirection: "row", gap: 14, padding: 12, borderRadius: 18, backgroundColor: colors.surface, marginBottom: 12 },
     thumb: { width: 96, height: 124, borderRadius: 12, backgroundColor: colors.ink },
     copy: { flex: 1, minWidth: 0, paddingTop: 2 },
