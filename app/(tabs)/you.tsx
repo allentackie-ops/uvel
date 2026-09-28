@@ -191,103 +191,105 @@ export default function You() {
   }, [buyOrders, buyFilter]);
 
   return (
-    <ScrollView
-      style={styles.page}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 108 }]}
-      showsVerticalScrollIndicator={false}
-      alwaysBounceVertical
-      bounces
-      scrollEventThrottle={16}
-      onScroll={onScroll}
-    >
-      <View style={styles.top}>
-        <View style={{ flex: 1, paddingRight: 12 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Text style={styles.title}>{app.displayName || "Your closet"}</Text>
-            <BrandVerifiedMark brand={mine} size={18} />
-            {brandApproved(mine) && mine?.logoUri ? <Image cachePolicy="memory-disk" source={{ uri: mine.logoUri }} style={styles.ownerBrandLogo} contentFit="cover" /> : null}
-          </View>
-          {mine ? (
-            <Text style={styles.ownerLine}>{brandApproved(mine) ? `Owner of ${mine.name}` : `Filing for ${mine.name}`}</Text>
-          ) : teams[0] ? (
-            <Text style={styles.ownerLine}>Team at {teams[0].name}</Text>
-          ) : null}
-        </View>
-        <Pressable onPress={changeFace} style={styles.faceBtn} accessibilityLabel={C.changeProfilePicture}>
-          {face ? (
-            <Image cachePolicy="memory-disk" source={{ uri: face }} style={styles.avatar} contentFit="cover" />
-          ) : (
-            <View style={styles.initials}>
-              <Text style={styles.initialsTxt}>{initials}</Text>
+    <View style={[styles.page, { paddingTop: insets.top + 20 }]}>
+      <View style={styles.content}>
+        <View style={styles.top}>
+          <View style={{ flex: 1, paddingRight: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Text style={styles.title}>{app.displayName || "Your closet"}</Text>
+              <BrandVerifiedMark brand={mine} size={18} />
+              {brandApproved(mine) && mine?.logoUri ? <Image cachePolicy="memory-disk" source={{ uri: mine.logoUri }} style={styles.ownerBrandLogo} contentFit="cover" /> : null}
             </View>
-          )}
-          <View style={styles.faceDot}>
-            <Text style={styles.faceDotTxt}>+</Text>
+            {mine ? (
+              <Text style={styles.ownerLine}>{brandApproved(mine) ? `Owner of ${mine.name}` : `Filing for ${mine.name}`}</Text>
+            ) : teams[0] ? (
+              <Text style={styles.ownerLine}>Team at {teams[0].name}</Text>
+            ) : null}
           </View>
-        </Pressable>
-        <Pressable onPress={() => router.push("/settings")} style={styles.menuBtn} accessibilityLabel={C.settings}>
-          <View style={styles.dash} />
-          <View style={styles.dash} />
-          <View style={styles.dash} />
-        </Pressable>
-      </View>
-
-      {invites.map((inv) => (
-        <View key={inv.id} style={styles.invite}>
-          <Text style={styles.inviteH}>{inv.brandName}</Text>
-          <Text style={styles.inviteP}>{inv.fromName} invited you to post on this brand.</Text>
-          <View style={styles.inviteRow}>
-            <Pressable onPress={() => void acceptInvite(inv.id, app.uid, app.displayName || "You", app.avatarUri || undefined).catch((error) => Alert.alert("Couldn’t join brand", error instanceof Error ? error.message : "Try again in a moment."))} style={styles.inviteYes}>
-              <Text style={styles.inviteYesTxt}>Join</Text>
-            </Pressable>
-            <Pressable onPress={() => declineInvite(inv.id)} style={styles.inviteNo}>
-              <Text style={styles.inviteNoTxt}>No</Text>
-            </Pressable>
-          </View>
+          <Pressable onPress={changeFace} style={styles.faceBtn} accessibilityLabel={C.changeProfilePicture}>
+            {face ? (
+              <Image cachePolicy="memory-disk" source={{ uri: face }} style={styles.avatar} contentFit="cover" />
+            ) : (
+              <View style={styles.initials}>
+                <Text style={styles.initialsTxt}>{initials}</Text>
+              </View>
+            )}
+            <View style={styles.faceDot}>
+              <Text style={styles.faceDotTxt}>+</Text>
+            </View>
+          </Pressable>
+          <Pressable onPress={() => router.push("/settings")} style={styles.menuBtn} accessibilityLabel={C.settings}>
+            <View style={styles.dash} />
+            <View style={styles.dash} />
+            <View style={styles.dash} />
+          </Pressable>
         </View>
-      ))}
 
+        {invites.map((inv) => (
+          <View key={inv.id} style={styles.invite}>
+            <Text style={styles.inviteH}>{inv.brandName}</Text>
+            <Text style={styles.inviteP}>{inv.fromName} invited you to post on this brand.</Text>
+            <View style={styles.inviteRow}>
+              <Pressable onPress={() => void acceptInvite(inv.id, app.uid, app.displayName || "You", app.avatarUri || undefined).catch((error) => Alert.alert("Couldn’t join brand", error instanceof Error ? error.message : "Try again in a moment."))} style={styles.inviteYes}>
+                <Text style={styles.inviteYesTxt}>Join</Text>
+              </Pressable>
+              <Pressable onPress={() => declineInvite(inv.id)} style={styles.inviteNo}>
+                <Text style={styles.inviteNoTxt}>No</Text>
+              </Pressable>
+            </View>
+          </View>
+        ))}
 
-      <View style={styles.tabs}>
-        {(["shop", "sold", "purchases", "likes"] as const).map((id) => {
-          const on = hub === id;
-          const label = id === "shop" ? C.shop : id === "sold" ? C.sold : id === "purchases" ? C.purchases : C.likes;
-          return (
-            <Pressable key={id} onPress={() => setHub(id)} style={styles.tab}>
-              <Text style={[styles.tabTxt, on && styles.tabOn]}>{label}</Text>
-              {on ? <View style={styles.tabLine} /> : null}
-            </Pressable>
-          );
-        })}
+        <View style={styles.tabs}>
+          {(["shop", "sold", "purchases", "likes"] as const).map((id) => {
+            const on = hub === id;
+            const label = id === "shop" ? C.shop : id === "sold" ? C.sold : id === "purchases" ? C.purchases : C.likes;
+            return (
+              <Pressable key={id} onPress={() => setHub(id)} style={styles.tab}>
+                <Text style={[styles.tabTxt, on && styles.tabOn]}>{label}</Text>
+                {on ? <View style={styles.tabLine} /> : null}
+              </Pressable>
+            );
+          })}
+        </View>
       </View>
 
-      <View style={styles.refreshAnchor}>
-        {orbitOn ? <View pointerEvents="none" style={styles.refreshOrbit}><OrbitLoader size={46} /></View> : null}
-      </View>
+      <ScrollView
+        style={styles.refreshScroll}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 108 }]}
+        showsVerticalScrollIndicator={false}
+        alwaysBounceVertical
+        bounces
+        scrollEventThrottle={16}
+        onScroll={onScroll}
+      >
+        <View style={[styles.refreshAnchor, orbitOn && styles.refreshAnchorActive]}>
+          {orbitOn ? <View pointerEvents="none" style={styles.refreshOrbit}><OrbitLoader size={46} /></View> : null}
+        </View>
 
-      {hub === "shop" ? (
-        <ShopPane listed={listed} draft={draft} styles={styles} copy={C} />
-      ) : hub === "sold" ? (
-        <SoldPane
-          rows={soldRows}
-          filter={soldFilter}
-          setFilter={setSoldFilter}
-          earned={earned}
-          colors={colors}
-          styles={styles}
-          copy={C}
-        />
-      ) : hub === "purchases" ? (
-        <BuyPane rows={buyRows} filter={buyFilter} setFilter={setBuyFilter} colors={colors} styles={styles} copy={C} />
-      ) : (
-        <LikesPane
-          received={likesOnMine(app.uid)}
-          pieces={likedPieces}
-          garments={likedGarments}
-          styles={styles}
-          copy={C}
-        />
-      )}
+        {hub === "shop" ? (
+          <ShopPane listed={listed} draft={draft} styles={styles} copy={C} />
+        ) : hub === "sold" ? (
+          <SoldPane
+            rows={soldRows}
+            filter={soldFilter}
+            setFilter={setSoldFilter}
+            earned={earned}
+            colors={colors}
+            styles={styles}
+            copy={C}
+          />
+        ) : hub === "purchases" ? (
+          <BuyPane rows={buyRows} filter={buyFilter} setFilter={setBuyFilter} colors={colors} styles={styles} copy={C} />
+        ) : (
+          <LikesPane
+            received={likesOnMine(app.uid)}
+            pieces={likedPieces}
+            garments={likedGarments}
+            styles={styles}
+            copy={C}
+          />
+        )}
 
       <View style={styles.moneyRow}>
         <Pressable onPress={() => router.push("/wallet")} style={styles.moneyCell} accessibilityRole="button" accessibilityLabel="Open wallet">
@@ -321,12 +323,13 @@ export default function You() {
         <Text style={styles.dnaChevron}>›</Text>
       </Pressable>
 
-      {teams.map((b) => (
-        <Pressable key={b.id} onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })} style={styles.toolRow}>
-          <View style={{ flex: 1 }}><Text style={styles.brandK}>TEAM</Text><Text style={styles.brandName}>{b.name}</Text><Text style={styles.brandP}>You post on this house</Text></View><Text style={styles.brandGo}>Open</Text>
-        </Pressable>
-      ))}
-    </ScrollView>
+        {teams.map((b) => (
+          <Pressable key={b.id} onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })} style={styles.toolRow}>
+            <View style={{ flex: 1 }}><Text style={styles.brandK}>TEAM</Text><Text style={styles.brandName}>{b.name}</Text><Text style={styles.brandP}>You post on this house</Text></View><Text style={styles.brandGo}>Open</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -808,7 +811,9 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     content: { paddingHorizontal: 20 },
+    refreshScroll: { flex: 1 },
     refreshAnchor: { height: 0, position: "relative", zIndex: 20 },
+    refreshAnchorActive: { height: 58 },
     refreshOrbit: { position: "absolute", top: 8, left: 0, right: 0, alignItems: "center" },
     kicker: { color: `${colors.bone}6B`, letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
     title: { color: colors.bone, fontWeight: "700", fontSize: 28, marginTop: 8, lineHeight: 34, flexShrink: 1 },
@@ -929,8 +934,8 @@ function make(colors: Colors) {
     tabTxt: { color: `${colors.bone}6B`, fontSize: 15, fontWeight: "600" },
     tabOn: { color: colors.bone },
     tabLine: { position: "absolute", bottom: 0, height: 2, left: 8, right: 8, backgroundColor: colors.bone, borderRadius: 1 },
-    activeRow: { marginTop: 18, marginBottom: 8 },
-    active: { color: colors.bone, fontSize: 16, fontWeight: "700", marginTop: 16, marginBottom: 8 },
+    activeRow: { marginTop: 0, marginBottom: 8 },
+    active: { color: colors.bone, fontSize: 16, fontWeight: "700", marginTop: 0, marginBottom: 8 },
     listingsSummary: { marginTop: 8, padding: 10, borderRadius: 20, backgroundColor: colors.surface, flexDirection: "row", gap: 10 },
     listingsThumbGrid: { width: 112, flexDirection: "row", flexWrap: "wrap", gap: 4, alignContent: "flex-start" },
     listingsThumbButton: { width: 54, height: 68, borderRadius: 10, overflow: "hidden", backgroundColor: colors.ink },
