@@ -30,8 +30,11 @@ export function TodayToolsDrawer({ onClose, onOpenSell, onOpenMirror }: TodayToo
   const photo = app.avatarUri || app.personUri;
   const buildTools: Tool[] = [
     { icon: "body-outline", label: "Mirror", onPress: onOpenMirror },
-    { icon: "color-palette-outline", label: "Founder Studio", onPress: () => router.push("/brand/founder") },
-    { icon: "briefcase-outline" as const, label: "Brand HQ", onPress: () => router.push(mine ? { pathname: "/brand/hq", params: { id: mine.id } } : "/brand/hq") },
+  ];
+  const personalTools: Tool[] = [
+    { icon: "heart-outline", label: "Saved listings", onPress: () => router.push({ pathname: "/personal-listings", params: { kind: "saved" } }) },
+    { icon: "time-outline", label: "Recently viewed", onPress: () => router.push({ pathname: "/personal-listings", params: { kind: "recent" } }) },
+    { icon: "shirt-outline", label: "My wardrobe", onPress: () => router.push({ pathname: "/personal-listings", params: { kind: "wardrobe" } }) },
   ];
   const businessTools: Tool[] = [
     ...(!mine ? [{ icon: "stats-chart-outline" as const, label: "Your listings", onPress: () => router.push("/seller-analytics") }] : []),
@@ -67,6 +70,9 @@ export function TodayToolsDrawer({ onClose, onOpenSell, onOpenMirror }: TodayToo
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.sectionLabel}>BUILD</Text>
         {buildTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}
+        <View style={styles.rule} />
+        <Text style={styles.sectionLabel}>PERSONAL</Text>
+        {personalTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}
         <View style={styles.rule} />
         <Text style={styles.sectionLabel}>BUSINESS</Text>
         {businessTools.map((tool) => <ToolRow key={tool.label} tool={tool} styles={styles} onClose={onClose} />)}

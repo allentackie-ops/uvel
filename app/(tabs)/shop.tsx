@@ -463,7 +463,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         style={({ pressed }) => [styles.headerSide, pressed && { opacity: 0.72 }]}
         accessibilityRole="button"
         accessibilityLabel={C.openWorkspace}
-        accessibilityHint="Open Founder Studio, Brand HQ, and seller tools."
+        accessibilityHint="Open Today tools, personal shortcuts, and seller tools."
       >
         <View style={styles.menuIcon}>
           <View style={[styles.menuLine, overHero && styles.editorialMenuLine]} />
