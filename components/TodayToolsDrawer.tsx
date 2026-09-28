@@ -32,7 +32,6 @@ export function TodayToolsDrawer({ onClose, onOpenSell, onOpenMirror }: TodayToo
     { icon: "body-outline", label: "Mirror", onPress: onOpenMirror },
   ];
   const personalTools: Tool[] = [
-    { icon: "bag-handle-outline", label: cart.count ? `Your bag · ${cart.count} ${cart.count === 1 ? "item" : "items"}` : "Your bag", onPress: () => router.push("/cart") },
     { icon: "heart-outline", label: "Saved listings", onPress: () => router.push({ pathname: "/personal-listings", params: { kind: "saved" } }) },
     { icon: "time-outline", label: "Recently viewed", onPress: () => router.push({ pathname: "/personal-listings", params: { kind: "recent" } }) },
     { icon: "shirt-outline", label: "My wardrobe", onPress: () => router.push({ pathname: "/personal-listings", params: { kind: "wardrobe" } }) },
