@@ -1,10 +1,12 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "../../lib/haptics";
 import { BrandVerifiedMark } from "../../components/VerifiedMark";
+import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { GARMENTS, getGarment, usd, CATEGORIES } from "../../lib/catalog";
 import { getMarket, moneyExact, moneyInMarket } from "../../lib/markets";
 import { useWallet } from "../../lib/wallet";
@@ -26,11 +28,12 @@ import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
 import { useColors, type Colors } from "../../lib/theme";
 import { semanticStatus, statusToneFor } from "../../lib/status";
-import { getPiece, likesOnMine, stampMine, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { getPiece, likesOnMine, refreshMarketplaceListings, stampMine, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { draftProgress, useListingDraft, type ListingDraft } from "../../lib/listingDraft";
 
 const W = Dimensions.get("window").width;
 const COL = (W - 52) / 2;
+const MIN_REFRESH_MS = 650;
 
 type Hub = "shop" | "sold" | "purchases" | "likes";
 
@@ -72,6 +75,9 @@ export default function You() {
   const [hub, setHub] = useState<Hub>("shop");
   const [soldFilter, setSoldFilter] = useState("all");
   const [buyFilter, setBuyFilter] = useState("all");
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshTriggered = useRef(false);
+  const hapticTriggered = useRef(false);
 
   const listed = pieces.filter((p) => p.status === "listed" && Boolean(app.uid) && p.ownerId === app.uid);
   const soldPieces = pieces.filter((p) => p.status === "sold" && Boolean(app.uid) && p.ownerId === app.uid);
@@ -114,6 +120,36 @@ export default function You() {
     ]);
   }
   const earned = soldPieces.reduce((n, p) => n + (p.listPriceCents || 0), 0) + soldOrders.reduce((n, o) => n + o.itemCents, 0);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        refreshMarketplaceListings(),
+        new Promise<void>((resolve) => setTimeout(resolve, MIN_REFRESH_MS)),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  const onScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
+    const y = event.nativeEvent.contentOffset.y;
+    if (y > -10) {
+      refreshTriggered.current = false;
+      hapticTriggered.current = false;
+    }
+    if (y < -48 && !hapticTriggered.current) {
+      hapticTriggered.current = true;
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    }
+    if (y < -48 && !refreshing && !refreshTriggered.current) {
+      refreshTriggered.current = true;
+      void onRefresh();
+    }
+  }, [onRefresh, refreshing]);
+
+  const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
 
   const soldRows = useMemo(() => {
     const fromOrders = soldOrders.map((o) => ({
@@ -159,6 +195,10 @@ export default function You() {
       style={styles.page}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 108 }]}
       showsVerticalScrollIndicator={false}
+      alwaysBounceVertical
+      bounces
+      scrollEventThrottle={16}
+      onScroll={onScroll}
     >
       <View style={styles.top}>
         <View style={{ flex: 1, paddingRight: 12 }}>
@@ -219,6 +259,10 @@ export default function You() {
             </Pressable>
           );
         })}
+      </View>
+
+      <View style={styles.refreshAnchor}>
+        {orbitOn ? <View pointerEvents="none" style={styles.refreshOrbit}><OrbitLoader size={46} /></View> : null}
       </View>
 
       {hub === "shop" ? (
@@ -764,6 +808,8 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     content: { paddingHorizontal: 20 },
+    refreshAnchor: { height: 0, position: "relative", zIndex: 20 },
+    refreshOrbit: { position: "absolute", top: 8, left: 0, right: 0, alignItems: "center" },
     kicker: { color: `${colors.bone}6B`, letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
     title: { color: colors.bone, fontWeight: "700", fontSize: 28, marginTop: 8, lineHeight: 34, flexShrink: 1 },
     ownerBrandLogo: { width: 19, height: 19, borderRadius: 5, marginLeft: 1, transform: [{ translateY: 3 }] },
