@@ -151,7 +151,7 @@ function BusinessShelf({ brand, colors, styles }: SharedProps & { brand?: Brand 
           icon="bar-chart-outline"
           colors={colors}
           styles={styles}
-          onPress={() => brand ? router.push({ pathname: "/brand/insights", params: { id: brand.id } }) : router.push("/brand/founder")}
+          onPress={() => brand ? router.push({ pathname: "/brand/hq", params: { id: brand.id, section: "analytics" } }) : router.push("/brand/founder")}
         />
       </View>
     </Shelf>

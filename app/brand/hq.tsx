@@ -135,7 +135,7 @@ export default function BrandHQ() {
         lineColor: colors.subtle,
       };
   const styles = useMemo(() => make(theme), [theme]);
-  const [section, setSection] = useState<Section>(requestedSection === "promoCodes" ? "promoCodes" : "overview");
+  const [section, setSection] = useState<Section>(requestedSection === "analytics" ? "analytics" : requestedSection === "promoCodes" ? "promoCodes" : "overview");
   const hqScroller = useRef<ScrollView>(null);
   const operatingCountries: ShipsTo = brand?.operatingCountries || encodeShipsTo(brand?.country || app.country || "US", "home");
   const [deliveryOpen, setDeliveryOpen] = useState(false);
