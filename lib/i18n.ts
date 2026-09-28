@@ -185,6 +185,8 @@ export type Copy = {
   narrowThisLook: string;
   searchListings: string;
   clearSearch: string;
+  noSearchResults?: string;
+  searchUnavailable?: string;
   brands: string;
   shopCampaigns: string;
   liveDrops: string;
@@ -466,6 +468,8 @@ const en: Copy = {
   narrowThisLook: "Narrow this look",
   searchListings: "Search listings",
   clearSearch: "Clear search",
+  noSearchResults: "No listings match that search.",
+  searchUnavailable: "Search is unavailable right now.",
   brands: "Brands",
   shopCampaigns: "SHOP CAMPAIGNS",
   liveDrops: "Live drops from brands in this shop",

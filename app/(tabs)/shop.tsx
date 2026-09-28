@@ -471,24 +471,26 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           <View style={[styles.menuLine, overHero && styles.editorialMenuLine]} />
         </View>
       </AccessiblePressable>
-      <AccessiblePressable
-        onPress={() => router.push("/store")}
-        style={({ pressed }) => [overHero ? styles.editorialWordmarkButton : styles.wordmarkButton, pressed && { opacity: 0.78 }]}
-        accessibilityRole="button"
-        accessibilityLabel={C.marketplace}
-        accessibilityHint="Double tap to view marketplace settings."
-      >
-        <Text style={[styles.wordmark, overHero && styles.editorialWordmark]}>uvel</Text>
-        {overHero ? null : <><View style={styles.wordmarkUnderline} /><Text style={styles.wordmarkChevron}>⌄</Text></>}
-      </AccessiblePressable>
+      <View pointerEvents="box-none" style={overHero ? styles.editorialWordmarkCenter : undefined}>
+        <AccessiblePressable
+          onPress={() => router.push("/store")}
+          style={({ pressed }) => [overHero ? styles.editorialWordmarkButton : styles.wordmarkButton, pressed && { opacity: 0.78 }]}
+          accessibilityRole="button"
+          accessibilityLabel={C.marketplace}
+          accessibilityHint="Double tap to view marketplace settings."
+        >
+          <Text style={[styles.wordmark, overHero && styles.editorialWordmark]}>uvel</Text>
+          {overHero ? null : <><View style={styles.wordmarkUnderline} /><Text style={styles.wordmarkChevron}>⌄</Text></>}
+        </AccessiblePressable>
+      </View>
       <View style={styles.headerActions}>
         {overHero ? (
           <AccessiblePressable
-            onPress={() => router.push({ pathname: "/(tabs)/shop" })}
+            onPress={() => router.push("/search")}
             style={({ pressed }) => [styles.messageButton, pressed && { opacity: 0.76 }]}
             accessibilityRole="button"
             accessibilityLabel={C.searchListings}
-            accessibilityHint="Open the full marketplace search and category browse."
+            accessibilityHint="Open the dedicated search page."
           >
             <Ionicons name="search-outline" size={22} color="#F4F0E6" />
           </AccessiblePressable>
@@ -778,9 +780,10 @@ function make(colors: Colors) {
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
     titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     todayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 84, marginBottom: 2 },
-    editorialHeader: { minHeight: 62, marginBottom: 0 },
+    editorialHeader: { minHeight: 62, marginBottom: 0, position: "relative" },
     headerActions: { flexDirection: "row", alignItems: "center", gap: 3 },
     editorialMenuLine: { backgroundColor: "#F4F0E6" },
+    editorialWordmarkCenter: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
     editorialWordmarkButton: { minHeight: 60, flexDirection: "column", alignItems: "center", justifyContent: "center", paddingHorizontal: 14 },
     editorialWordmark: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 42, fontWeight: "400", letterSpacing: 1.3, lineHeight: 46 },
     findLine: { alignSelf: "center", minHeight: 32, paddingHorizontal: 8, marginBottom: 6, justifyContent: "center" },
@@ -795,9 +798,9 @@ function make(colors: Colors) {
     editorialListingFirstFind: { alignSelf: "flex-start", minHeight: 30, paddingHorizontal: 12, marginBottom: 4, borderRadius: 15, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     editorialListingFirstFindText: { color: colors.successInk, fontSize: 11, fontWeight: "800" },
     editorialListingBrand: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.7, textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
-    editorialListingTitle: { color: "#FFFFFF", fontFamily: "Georgia", fontSize: 38, lineHeight: 42, maxWidth: "94%", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 },
+    editorialListingTitle: { color: "#FFFFFF", fontSize: 32, lineHeight: 38, fontWeight: "800", letterSpacing: -0.45, maxWidth: "94%", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 },
     editorialListingPrice: { color: "#FFFFFF", fontSize: 16, fontWeight: "800", marginTop: 3, textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
-    editorialFeedTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 26, lineHeight: 31, marginTop: 22, marginBottom: 2 },
+    editorialFeedTitle: { color: colors.bone, fontSize: 14, lineHeight: 18, fontWeight: "800", letterSpacing: 0.2, marginTop: 18, marginBottom: 2 },
     findToast: {
       position: "absolute",
       left: 16,
