@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Animated, Dimensions, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
@@ -57,18 +57,37 @@ const JOURNAL_HEADLINES: Record<string, string> = {
   Evening: "A softer kind of statement.",
   Y2K: "A little nostalgia, reimagined.",
 };
-const JOURNAL_PALETTES: Record<string, string[]> = {
-  "Earth & camel": ["#C9A17A", "#F4F0E6", "#8D7358", "#59604A"],
-  "Ivory & ink": ["#F4F0E6", "#D9D3C8", "#77746D", "#191814"],
-  "Warm rust": ["#D28C64", "#B55236", "#772F27", "#E8CBB1"],
-  "Stone & olive": ["#C7C1B4", "#93917E", "#687052", "#424339"],
+const JOURNAL_DESCRIPTIONS: Record<string, string> = {
+  "Quiet luxury": "Considered in every detail.",
+  Quiet: "Considered in every detail.",
+  Street: "Ease with an edge.",
+  "Vintage archive": "A story worth wearing.",
+  Vintage: "A story worth wearing.",
+  Utility: "Form follows feeling.",
+  Romantic: "Softness, with a point of view.",
+  "Western city": "Western, after six.",
+  Western: "Western, after six.",
+  "Tailored city": "Classic pieces. A calmer you.\nSame great taste.",
+  Tailored: "Classic pieces. A calmer you.\nSame great taste.",
+  "Bourgeois chic": "Polished, never precious.",
+  Minimal: "Less, with intention.",
+  Coastal: "Lightness, naturally.",
+  Work: "A sharper everyday.",
+  Evening: "A softer kind of statement.",
+  Y2K: "A little nostalgia, reimagined.",
 };
-const JOURNAL_STARTER_PALETTE = JOURNAL_PALETTES["Earth & camel"];
 
 function journalHeadline(dna: Dna) {
   return JOURNAL_HEADLINES[dna.archetype]
     || dna.styles.map((style) => JOURNAL_HEADLINES[style]).find(Boolean)
     || "A considered edit.";
+}
+
+function journalDescription(dna: Dna) {
+  return [dna.archetype, ...dna.styles]
+    .map((style) => JOURNAL_DESCRIPTIONS[style])
+    .find(Boolean)
+    || "Good pieces, chosen with intention.";
 }
 
 const swipeHintStyles = StyleSheet.create({
@@ -224,7 +243,6 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const listingOpensRef = useRef<number | null>(null);
   const doubleTapHintShownRef = useRef(false);
   const listingOpenWorkRef = useRef(Promise.resolve());
-  const dailyEditRef = useRef<View>(null);
   useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
@@ -380,12 +398,12 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     .slice(0, 6), [liveCampaigns, live]);
 
   useEffect(() => {
-    if (!app.uid || scanningLook) return;
+    if (!app.uid || scanningLook || todayHome) return;
     const day = new Date().toISOString().slice(0, 10);
     shopCampaignRows.forEach(({ campaign }) => {
       void recordCampaignAttribution({ brandId: campaign.brandId, campaignId: campaign.id, channel: "shop", type: "impression", eventId: `shop_impression_${campaign.id}_${app.uid}_${day}` }).catch(() => undefined);
     });
-  }, [app.uid, scanningLook, shopCampaignRows.map(({ campaign }) => campaign.id).join("|")]);
+  }, [app.uid, scanningLook, todayHome, shopCampaignRows.map(({ campaign }) => campaign.id).join("|")]);
 
   useEffect(() => {
     if (!scanningLook) return;
@@ -441,18 +459,14 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     const byId = new Map(live.map((p) => [p.id, p]));
     return (frozenOrder.current || []).map((id) => byId.get(id)).filter((p): p is ClosetPiece => Boolean(p)).filter(passQ);
   }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey, dna, personalization.rank, feedEpoch]);
-  const featured = todayHome && !scanningLook ? ranked[0] : undefined;
-  const browseRanked = featured ? ranked.filter((piece) => piece.id !== featured.id) : ranked;
-  const stylePreview = todayHome && !scanningLook ? browseRanked.slice(0, 2) : [];
-  const feedRanked = todayHome && !scanningLook ? browseRanked.slice(2) : browseRanked;
+  const stylePreview = todayHome && !scanningLook ? ranked.slice(0, 2) : [];
+  const feedRanked = todayHome && !scanningLook ? ranked.slice(2) : ranked;
   const hasStyleDna = dnaIsSet(dna);
-  const styleSummary = [dna.archetype || dna.styles[0], dna.palette || dna.silhouette].filter(Boolean).join(" · ");
+  const styleName = (dna.archetype || dna.styles[0] || "").replace(/\s+city$/i, "");
+  const styleSummary = [styleName, dna.palette || dna.silhouette].filter(Boolean).join(" · ");
   const styleHeadline = journalHeadline(dna);
-  const paletteSwatches = JOURNAL_PALETTES[dna.palette] || JOURNAL_STARTER_PALETTE;
-  const openFeatured = useCallback(() => {
-    if (!featured) return;
-    dailyEditRef.current?.measureInWindow((x, y, width, height) => openTodayListing(featured, { x, y, width, height }));
-  }, [featured, openTodayListing]);
+  const styleDescription = journalDescription(dna);
+  const heroHeight = Math.max(430, Math.min(560, Dimensions.get("window").height * 0.53));
   const searchBar = (
     <View style={styles.search}>
       <Text style={styles.searchIcon} accessible={false}>⌕</Text>
@@ -489,15 +503,65 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       </AccessiblePressable>
     </View>
   );
-  const searchNearTop = todayHome && !scanningLook;
+  const renderTodayHeader = (overHero = false) => (
+    <View style={[styles.todayHeader, overHero && styles.editorialHeader]}>
+      <AccessiblePressable
+        onPress={() => onOpenTools?.()}
+        style={({ pressed }) => [styles.headerSide, pressed && { opacity: 0.72 }]}
+        accessibilityRole="button"
+        accessibilityLabel={C.openWorkspace}
+        accessibilityHint="Open Founder Studio, Brand HQ, and seller tools."
+      >
+        <View style={styles.menuIcon}>
+          <View style={[styles.menuLine, overHero && styles.editorialMenuLine]} />
+          <View style={[styles.menuLine, overHero && styles.editorialMenuLine]} />
+          <View style={[styles.menuLine, overHero && styles.editorialMenuLine]} />
+        </View>
+      </AccessiblePressable>
+      <AccessiblePressable
+        onPress={() => router.push("/store")}
+        style={({ pressed }) => [overHero ? styles.editorialWordmarkButton : styles.wordmarkButton, pressed && { opacity: 0.78 }]}
+        accessibilityRole="button"
+        accessibilityLabel={C.marketplace}
+        accessibilityHint="Double tap to view marketplace settings."
+      >
+        <Text style={[styles.wordmark, overHero && styles.editorialWordmark]}>uvel</Text>
+        {overHero ? null : <><View style={styles.wordmarkUnderline} /><Text style={styles.wordmarkChevron}>⌄</Text></>}
+      </AccessiblePressable>
+      <View style={styles.headerActions}>
+        {overHero ? (
+          <AccessiblePressable
+            onPress={() => router.push({ pathname: "/(tabs)/shop" })}
+            style={({ pressed }) => [styles.messageButton, pressed && { opacity: 0.76 }]}
+            accessibilityRole="button"
+            accessibilityLabel={C.searchListings}
+            accessibilityHint="Open the full marketplace search and category browse."
+          >
+            <Ionicons name="search-outline" size={22} color="#F4F0E6" />
+          </AccessiblePressable>
+        ) : null}
+        <AccessiblePressable
+          onPress={() => router.push("/inbox")}
+          style={({ pressed }) => [styles.messageButton, pressed && { opacity: 0.84 }]}
+          accessibilityRole="button"
+          accessibilityLabel={`${C.messages}${unread ? `, ${unread} unread` : ""}`}
+        >
+          <Ionicons name="chatbubble-ellipses-outline" size={24} color={overHero ? "#F4F0E6" : colors.bone} />
+          {unread ? <View style={styles.messageBadge}><Text style={styles.messageBadgeText}>{unread > 9 ? "9+" : unread}</Text></View> : null}
+        </AccessiblePressable>
+      </View>
+    </View>
+  );
+  const searchNearTop = !todayHome && !scanningLook;
+  const editorialHome = todayHome && !scanningLook;
 
   if (!wardrobeReady && !scanningLook) return <ShopSkeleton colors={colors} />;
 
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, editorialHome && styles.editorialPage]}>
       <ScrollView
-        style={styles.page}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top }]}
+        style={[styles.page, editorialHome && styles.editorialPage]}
+        contentContainerStyle={[styles.content, editorialHome && styles.editorialPage, { paddingTop: insets.top }]}
         alwaysBounceVertical
         bounces
         keyboardShouldPersistTaps="handled"
@@ -506,40 +570,41 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         onTouchStart={showSwipeHint ? dismissSwipeHint : undefined}
         onScrollBeginDrag={showSwipeHint ? dismissSwipeHint : undefined}
       >
-      {orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
-      {todayHome ? (
-        <View style={styles.todayHeader}>
-          <AccessiblePressable
-            onPress={() => onOpenTools?.()}
-            style={({ pressed }) => [styles.headerSide, pressed && { opacity: 0.72 }]}
-            accessibilityRole="button"
-            accessibilityLabel={C.openWorkspace}
-            accessibilityHint="Open Founder Studio, Brand HQ, and seller tools."
-          >
-            <View style={styles.menuIcon}><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View>
-          </AccessiblePressable>
-          <AccessiblePressable
-            onPress={() => router.push("/store")}
-            style={({ pressed }) => [styles.wordmarkButton, pressed && { opacity: 0.78 }]}
-            accessibilityRole="button"
-            accessibilityLabel={C.marketplace}
-            accessibilityHint="Double tap to view marketplace settings."
-          >
-            <Text style={styles.wordmark}>uvel</Text>
-            <View style={styles.wordmarkUnderline} />
-            <Text style={styles.wordmarkChevron}>⌄</Text>
-          </AccessiblePressable>
-          <AccessiblePressable
-            onPress={() => router.push("/inbox")}
-            style={({ pressed }) => [styles.messageButton, pressed && { opacity: 0.84 }]}
-            accessibilityRole="button"
-            accessibilityLabel={`${C.messages}${unread ? `, ${unread} unread` : ""}`}
-          >
-            <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.bone} />
-            {unread ? <View style={styles.messageBadge}><Text style={styles.messageBadgeText}>{unread > 9 ? "9+" : unread}</Text></View> : null}
-          </AccessiblePressable>
+      {orbitOn ? <View style={[styles.refreshOrbit, editorialHome && styles.refreshOrbitOverlay]}><OrbitLoader /></View> : null}
+      {editorialHome ? (
+        <View style={[styles.editorialHero, { height: heroHeight, marginTop: -insets.top, marginHorizontal: -16 }]}>
+          <Image
+            cachePolicy="memory-disk"
+            source={require("../../assets/editorial/today-style-hero.jpg")}
+            style={styles.editorialHeroImage}
+            contentFit="cover"
+            accessible={false}
+          />
+          <View style={styles.editorialHeroShade} />
+          <View style={[styles.editorialHeroContent, { paddingTop: insets.top + 8 }]}>
+            {renderTodayHeader(true)}
+            <View style={styles.editorialHeroIntro}>
+              <Text style={styles.editorialHeroIntroTitle}>Your eye, lately</Text>
+              <AccessiblePressable
+                onPress={() => router.push("/style-dna")}
+                style={({ pressed }) => [styles.editorialHeroChip, pressed && { opacity: 0.78 }]}
+                accessibilityRole="button"
+                accessibilityLabel={hasStyleDna ? `Your style: ${styleSummary}` : "Set up your Style DNA"}
+                accessibilityHint="Tune the style profile behind this Today edit."
+              >
+                <Text style={styles.editorialHeroChipText} numberOfLines={1}>
+                  {styleSummary ? styleSummary.toUpperCase() : "SET YOUR STYLE DNA"}
+                </Text>
+              </AccessiblePressable>
+            </View>
+            <View style={styles.editorialHeroStory}>
+              <Text style={styles.editorialHeroKicker}>{C.styleDna.toUpperCase()}</Text>
+              <Text style={styles.editorialHeroTitle}>{styleHeadline}</Text>
+              <Text style={styles.editorialHeroBody}>{styleDescription}</Text>
+            </View>
+          </View>
         </View>
-      ) : (
+      ) : todayHome ? renderTodayHeader(false) : (
         <View style={styles.titleRow}>
           <Text style={styles.title}>{scanningLook ? C.shopTheLook : C.shop}</Text>
         </View>
@@ -560,7 +625,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         </AccessiblePressable>
       ) : null}
 
-      {todayHome && firstFind.remaining > 0 ? (
+      {(!todayHome || scanningLook) && firstFind.remaining > 0 ? (
         <AccessiblePressable
           onPress={() => setFindHint(true)}
           style={styles.findLine}
@@ -573,88 +638,36 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           </Text>
         </AccessiblePressable>
       ) : null}
-      {todayHome && !scanningLook ? (
-        <View style={styles.journalIntro}>
-          <Text style={styles.journalKicker}>{C.forYou.toUpperCase()}</Text>
-          <Text style={styles.journalHeading}>Your eye, lately</Text>
-          <View style={styles.journalTag}>
-            <Ionicons name="sparkles-outline" size={13} color={colors.success} />
-            <Text style={styles.journalTagText} numberOfLines={1}>
-              {styleSummary || "A considered edit, shaped with you"}
-            </Text>
-          </View>
-        </View>
-      ) : null}
       {searchNearTop ? searchBar : null}
-
-      {featured ? (
-        <View ref={dailyEditRef} collapsable={false}>
-          <AccessiblePressable
-            onPress={openFeatured}
-            style={({ pressed }) => [styles.journalHero, pressed && { opacity: 0.94, transform: [{ scale: 0.99 }] }]}
-            accessibilityRole="button"
-            accessibilityLabel={`Explore ${featured.name} from your style edit`}
-            accessibilityHint="Double tap to open this piece."
-          >
-            {featured.photo ? <Image cachePolicy="memory-disk" source={{ uri: featured.photo }} style={styles.journalHeroImage} contentFit="cover" /> : <View style={[styles.journalHeroImage, { backgroundColor: colors.surface }]} />}
-            <View style={styles.journalHeroShade} />
-            <View style={styles.journalHeroCopy}>
-              <Text style={styles.journalHeroKicker}>{hasStyleDna ? C.styleDna.toUpperCase() : C.forYou.toUpperCase()}</Text>
-              <Text style={styles.journalHeroTitle} numberOfLines={2}>{styleHeadline}</Text>
-              <Text style={styles.journalHeroName} numberOfLines={2}>{featured.name}</Text>
-              <View style={styles.journalHeroMeta}>
-                <Text style={styles.journalHeroPrice}>{moneyExact(featured.marketPrices?.[market.code] ?? featured.listPriceCents, market.currency)}</Text>
-                {featured.brand && featured.brand !== "Unlabeled" ? <Text style={styles.journalHeroBrand} numberOfLines={1}>{featured.brand}</Text> : null}
-              </View>
-              <Text style={styles.journalHeroAction}>Explore piece →</Text>
-            </View>
-          </AccessiblePressable>
-        </View>
-      ) : null}
-
-      {todayHome && !scanningLook ? (
-        <View style={styles.journalPanel}>
-          <View style={styles.journalPanelHeader}>
-            <View style={styles.journalPanelCopy}>
-              <Text style={styles.journalPanelKicker}>{C.styleDna.toUpperCase()}</Text>
-              <Text style={styles.journalPanelTitle}>{dna.palette ? "The palette you return to" : "A palette in the making"}</Text>
-              <Text style={styles.journalPanelMeta} numberOfLines={1}>{dna.palette || "Choose the colours you reach for most"}</Text>
-            </View>
+      {editorialHome && stylePreview.length ? (
+        <View style={styles.journalShelf}>
+          <View style={styles.journalShelfHeader}>
+            <Text style={styles.journalShelfTitle}>{C.forYou}</Text>
             <AccessiblePressable
               onPress={() => router.push("/style-dna")}
               style={({ pressed }) => [styles.journalEditAction, pressed && { opacity: 0.72 }]}
               accessibilityRole="button"
-              accessibilityLabel={hasStyleDna ? `Edit ${C.styleDna}` : `Set up ${C.styleDna}`}
-              accessibilityHint="Choose a style, palette, and silhouette to shape your Today edit."
+              accessibilityLabel={hasStyleDna ? `Tune ${C.styleDna}` : `Set up ${C.styleDna}`}
+              accessibilityHint="Choose the style details that shape your Today edit."
             >
-              <Text style={styles.journalEditActionText}>{hasStyleDna ? "Tune" : "Set style"}</Text>
-              <Ionicons name="arrow-forward" size={14} color="#191814" />
+              <Text style={styles.journalEditActionText}>Tune your edit</Text>
+              <Ionicons name="chevron-forward" size={15} color="#191814" />
             </AccessiblePressable>
           </View>
-          <View style={styles.journalSwatches} accessibilityElementsHidden>
-            {paletteSwatches.map((swatch, index) => (
-              <View key={`${swatch}-${index}`} style={[styles.journalSwatch, { backgroundColor: swatch }]} />
+          <View style={styles.grid}>
+            {stylePreview.map((piece) => (
+              <View key={piece.id} style={[styles.cell, openPiece?.id === piece.id && { opacity: 0 }]}>
+                <ListingCard
+                  piece={piece}
+                  framed
+                  firstFind={firstFind.matches(piece)}
+                  onFirstFind={() => setFindHint(true)}
+                  onOpen={openTodayListing}
+                  onInteraction={personalization.record}
+                />
+              </View>
             ))}
           </View>
-          {stylePreview.length ? (
-            <View>
-              <Text style={styles.journalShelfTitle}>{C.forYou}</Text>
-              <View style={styles.grid}>
-                {stylePreview.map((piece) => (
-                  <View key={piece.id} style={[styles.cell, openPiece?.id === piece.id && { opacity: 0 }]}>
-                    <ListingCard
-                      piece={piece}
-                      framed
-                      firstFind={firstFind.matches(piece)}
-                      onFirstFind={() => setFindHint(true)}
-                      onOpen={openTodayListing}
-                      onInteraction={personalization.record}
-                    />
-                  </View>
-                ))}
-              </View>
-            </View>
-          ) : null}
         </View>
       ) : null}
 
@@ -669,9 +682,9 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         </View>
       ) : null}
 
-      {!searchNearTop ? searchBar : null}
+      {(!todayHome || scanningLook) && !searchNearTop ? searchBar : null}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+      {(!todayHome || scanningLook) ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         {CATEGORIES.map((c) => {
           const on = cat === c;
           return (
@@ -686,9 +699,9 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
             </AccessiblePressable>
           );
         })}
-      </ScrollView>
+      </ScrollView> : null}
 
-      {!scanningLook && houses.length ? (
+      {!todayHome && !scanningLook && houses.length ? (
         <View>
           <View style={styles.brandHead}>
         <Text style={styles.brandHeadTxt}>{C.brands}</Text>
@@ -725,7 +738,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         </View>
       ) : null}
 
-      {!scanningLook && shopCampaignRows.length ? (
+      {!todayHome && !scanningLook && shopCampaignRows.length ? (
         <View style={styles.campaignSection}>
           <View style={styles.campaignHead}>
             <View style={{ flex: 1 }}>
@@ -770,7 +783,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         <Text style={styles.count}>{C.lookingAtFrame}</Text>
       ) : null}
 
-      {todayHome && !scanningLook && feedRanked.length ? <Text style={styles.forYouLabel}>{C.forYou.toUpperCase()}</Text> : null}
+      {editorialHome && feedRanked.length ? <Text style={styles.editorialFeedTitle}>{C.forYou}</Text> : null}
 
       <View style={[styles.grid, !scanning && { marginTop: 14 }]}>
         {scanning
@@ -790,7 +803,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           </View>
         ) : todayHome ? (
           <View style={styles.emptyQuiet}>
-            <Text style={styles.emptyQuietTxt}>{C.nothingNew}</Text>
+            <Text style={[styles.emptyQuietTxt, editorialHome && styles.editorialEmptyText]}>{C.nothingNew}</Text>
           </View>
         ) : (
           <View style={styles.emptyState}>
@@ -835,41 +848,39 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     content: { paddingHorizontal: 16, paddingBottom: 108 },
+    editorialPage: { backgroundColor: "#F4F0E6" },
     refreshOrbit: { height: 58, alignItems: "center", justifyContent: "flex-start" },
+    refreshOrbitOverlay: { position: "absolute", top: 12, left: 0, right: 0, zIndex: 30, height: 58 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
     titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     todayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 84, marginBottom: 2 },
+    editorialHeader: { minHeight: 62, marginBottom: 0 },
+    headerActions: { flexDirection: "row", alignItems: "center", gap: 3 },
+    editorialMenuLine: { backgroundColor: "#F4F0E6" },
+    editorialWordmarkButton: { minHeight: 60, flexDirection: "column", alignItems: "center", justifyContent: "center", paddingHorizontal: 14 },
+    editorialWordmark: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 42, fontWeight: "400", letterSpacing: 1.3, lineHeight: 46 },
     findLine: { alignSelf: "center", minHeight: 32, paddingHorizontal: 8, marginBottom: 6, justifyContent: "center" },
     findLineTxt: { color: `${colors.bone}8C`, fontSize: 13, fontWeight: "600", textAlign: "center" },
     findLineAmt: { color: colors.success, fontWeight: "800" },
-    journalIntro: { marginTop: 2, marginBottom: 4 },
-    journalKicker: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 2 },
-    journalHeading: { color: colors.bone, fontFamily: "Georgia", fontSize: 32, lineHeight: 38, marginTop: 4, letterSpacing: -0.6 },
-    journalTag: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7, minHeight: 30, paddingHorizontal: 10, marginTop: 8, borderRadius: 15, borderWidth: 1, borderColor: `${colors.bone}29`, backgroundColor: `${colors.surface}B8` },
-    journalTagText: { color: colors.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.3, flexShrink: 1 },
-    journalHero: { height: 376, marginTop: 12, borderRadius: 24, overflow: "hidden", backgroundColor: colors.surface },
-    journalHeroImage: { ...StyleSheet.absoluteFill, width: "100%", height: "100%" },
-    journalHeroShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(10,9,7,0.48)" },
-    journalHeroCopy: { flex: 1, justifyContent: "flex-end", padding: 18 },
-    journalHeroKicker: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.7 },
-    journalHeroTitle: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 29, lineHeight: 34, marginTop: 7, maxWidth: "91%", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-    journalHeroName: { color: "#F4F0E6", fontSize: 14, fontWeight: "700", marginTop: 12, maxWidth: "95%", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-    journalHeroMeta: { flexDirection: "row", alignItems: "center", gap: 9, marginTop: 5 },
-    journalHeroPrice: { color: "#F4F0E6", fontSize: 14, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-    journalHeroBrand: { color: "rgba(244,240,230,0.82)", fontSize: 12, textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-    journalHeroAction: { color: colors.success, fontSize: 13, fontWeight: "900", marginTop: 10 },
-    journalPanel: { marginTop: 14, padding: 14, borderRadius: 22, backgroundColor: "#F4F0E6", gap: 13 },
-    journalPanelHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
-    journalPanelCopy: { flex: 1, minWidth: 0 },
-    journalPanelKicker: { color: "#777066", fontSize: 9, fontWeight: "900", letterSpacing: 1.6 },
-    journalPanelTitle: { color: "#191814", fontFamily: "Georgia", fontSize: 20, lineHeight: 24, marginTop: 3 },
-    journalPanelMeta: { color: "#736D63", fontSize: 11, marginTop: 3 },
-    journalEditAction: { minHeight: 42, paddingHorizontal: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, borderRadius: 21, backgroundColor: colors.success },
-    journalEditActionText: { color: "#191814", fontSize: 11, fontWeight: "800" },
-    journalSwatches: { flexDirection: "row", gap: 8, paddingVertical: 1 },
-    journalSwatch: { flex: 1, height: 38, borderRadius: 10, borderWidth: 1, borderColor: "rgba(25,24,20,0.12)" },
-    journalShelfTitle: { color: "#191814", fontFamily: "Georgia", fontSize: 23, lineHeight: 28, marginBottom: 10 },
-    forYouLabel: { color: colors.bone, fontSize: 11, fontWeight: "900", letterSpacing: 1.5, marginTop: 22, marginBottom: 2 },
+    editorialHero: { position: "relative", width: "100%", overflow: "hidden", backgroundColor: "#30271F" },
+    editorialHeroImage: { ...StyleSheet.absoluteFill, width: "100%", height: "100%" },
+    editorialHeroShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(15,12,10,0.18)" },
+    editorialHeroContent: { ...StyleSheet.absoluteFill, paddingHorizontal: 22, paddingBottom: 27, justifyContent: "space-between" },
+    editorialHeroIntro: { gap: 11 },
+    editorialHeroIntroTitle: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 36, lineHeight: 41, letterSpacing: -0.7, textShadowColor: "rgba(0,0,0,0.48)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 },
+    editorialHeroChip: { alignSelf: "flex-start", maxWidth: "96%", minHeight: 30, paddingHorizontal: 11, borderRadius: 16, borderWidth: 1, borderColor: "rgba(244,240,230,0.56)", backgroundColor: "rgba(20,16,13,0.28)", alignItems: "center", justifyContent: "center" },
+    editorialHeroChipText: { color: "#F4F0E6", fontSize: 10, fontWeight: "700", letterSpacing: 1.6 },
+    editorialHeroStory: { maxWidth: 350 },
+    editorialHeroKicker: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 2 },
+    editorialHeroTitle: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 39, lineHeight: 42, marginTop: 6, maxWidth: "93%", textShadowColor: "rgba(0,0,0,0.62)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 },
+    editorialHeroBody: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 16, lineHeight: 21, marginTop: 10, maxWidth: "92%", textShadowColor: "rgba(0,0,0,0.64)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+    journalShelf: { marginTop: -18, marginHorizontal: -16, paddingHorizontal: 20, paddingTop: 22, paddingBottom: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: "#F4F0E6", gap: 13 },
+    journalShelfHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+    journalShelfTitle: { color: "#191814", fontFamily: "Georgia", fontSize: 25, lineHeight: 30 },
+    journalEditAction: { minHeight: 42, paddingHorizontal: 4, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
+    journalEditActionText: { color: "#191814", fontSize: 12, fontWeight: "600" },
+    editorialFeedTitle: { color: "#191814", fontFamily: "Georgia", fontSize: 26, lineHeight: 31, marginTop: 22, marginBottom: 2 },
+    editorialEmptyText: { color: "#736D63" },
     findToast: {
       position: "absolute",
       left: 16,
