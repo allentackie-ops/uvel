@@ -604,6 +604,30 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="brand/collections"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
+            name="brand/announcement"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
+            name="brand/drafts"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="brand/list-option"
             options={{
               headerShown: false,
