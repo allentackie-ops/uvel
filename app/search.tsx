@@ -51,6 +51,7 @@ export default function Search() {
   const [sort, setSort] = useState("Relevance");
   const [refreshing, setRefreshing] = useState(false);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [searchActive, setSearchActive] = useState(false);
   const refreshTriggered = useRef(false);
   const hapticTriggered = useRef(false);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -76,6 +77,7 @@ export default function Search() {
   }, [needle, personalization.record]);
 
   function chooseSearch(value: string) {
+    setSearchActive(true);
     setTerm(value);
     setSelectedCategory("All");
     Keyboard.dismiss();
@@ -114,7 +116,7 @@ export default function Search() {
   const scrollHeroHeight = scrollY.interpolate({ inputRange: [-180, 0], outputRange: [640, 460], extrapolateLeft: "extend", extrapolateRight: "clamp" });
   const stretchedHeroHeight = Animated.add(scrollHeroHeight, heroPull);
   const heroOffset = scrollY.interpolate({ inputRange: [-180, 0], outputRange: [-180, 0], extrapolateLeft: "extend", extrapolateRight: "clamp" });
-  const heroDotsTop = 390;
+  const heroDotsTop = 414;
   const heroPanResponder = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponderCapture: (_event, gesture) => scrollOffset.current <= 1 && gesture.dy > 8 && gesture.dy > Math.abs(gesture.dx) * 1.2,
     onPanResponderMove: (_event, gesture) => heroPull.setValue(Math.max(0, Math.min(180, gesture.dy))),
@@ -123,7 +125,7 @@ export default function Search() {
     onPanResponderTerminationRequest: () => false,
   }), [heroPull]);
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
-  const hasQuery = Boolean(needle);
+  const hasQuery = searchActive || Boolean(needle);
   return (
     <View style={styles.page}>
       <Stack.Screen options={{ title: "Find", headerShown: false, animation: "slide_from_right" }} />
@@ -140,10 +142,10 @@ export default function Search() {
         bounces
         scrollEventThrottle={16}
         onScroll={onScroll}
-        ListHeaderComponent={hasQuery ? <QueryHeader topInset={insets.top} colors={colors} styles={styles} term={term} setTerm={setTerm} copy={C} rows={rows} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} setFilterOpen={setFilterOpen} sort={sort} setSort={setSort} /> : <DiscoveryHero onSearch={chooseSearch} colors={colors} styles={styles} term={term} setTerm={setTerm} copy={C} brands={brands} activeSlide={activeSlide} onActiveSlideChange={setActiveSlide} heroHeight={stretchedHeroHeight} heroOffset={heroOffset} panHandlers={heroPanResponder.panHandlers} heroDotsTop={heroDotsTop} />}
+        ListHeaderComponent={hasQuery ? <QueryHeader topInset={insets.top} colors={colors} styles={styles} term={term} setTerm={setTerm} copy={C} rows={rows} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} setFilterOpen={setFilterOpen} sort={sort} setSort={setSort} /> : <DiscoveryHero onSearch={chooseSearch} onSearchFocus={() => setSearchActive(true)} colors={colors} styles={styles} term={term} setTerm={setTerm} copy={C} brands={brands} activeSlide={activeSlide} onActiveSlideChange={setActiveSlide} heroHeight={stretchedHeroHeight} heroOffset={heroOffset} panHandlers={heroPanResponder.panHandlers} heroDotsTop={heroDotsTop} />}
         ListFooterComponent={!hasQuery ? <DiscoveryContent onSearch={chooseSearch} colors={colors} styles={styles} brands={brands} heroPull={heroPull} /> : null}
         renderItem={({ item }) => <View style={styles.cell}><ListingCard piece={item} framed onInteraction={personalization.record} /></View>}
-        ListEmptyComponent={hasQuery ? <View style={styles.empty}>{marketplaceSync === "loading" ? <ActivityIndicator color={colors.success} /> : <><Text style={styles.emptyTitle}>Nothing here yet.</Text><Text style={styles.emptyText}>{marketplaceSync === "unavailable" ? C.searchUnavailable ?? "Search is unavailable right now." : "Try a wider mood, color or material."}</Text></>}</View> : null}
+        ListEmptyComponent={hasQuery && Boolean(needle) ? <View style={styles.empty}>{marketplaceSync === "loading" ? <ActivityIndicator color={colors.success} /> : <><Text style={styles.emptyTitle}>Nothing here yet.</Text><Text style={styles.emptyText}>{marketplaceSync === "unavailable" ? C.searchUnavailable ?? "Search is unavailable right now." : "Try a wider mood, color or material."}</Text></>}</View> : null}
       />
       {orbitOn ? <View pointerEvents="none" style={[styles.refreshOrbit, { top: insets.top + 72 }]}><OrbitLoader /></View> : null}
       <Modal visible={filterOpen} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)}><View style={styles.modalBackdrop}><View style={styles.sheet}><View style={styles.sheetHandle} /><View style={styles.sheetTitleRow}><Text style={styles.sheetTitle}>Tune your find</Text><Pressable onPress={() => setFilterOpen(false)} hitSlop={10}><Ionicons name="close" size={24} color={colors.bone} /></Pressable></View><Text style={styles.filterLabel}>CATEGORY</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>{["All", ...CATEGORIES.map((item) => item.label)].map((category) => <Pressable key={category} onPress={() => setSelectedCategory(category)} style={[styles.filterChip, selectedCategory === category && styles.filterChipActive]}><Text style={[styles.filterChipText, selectedCategory === category && styles.filterChipTextActive]}>{category}</Text></Pressable>)}</ScrollView><Text style={styles.filterLabel}>SIZE</Text><View style={styles.sizeGrid}>{["Any size", "XS", "S", "M", "L", "XL"].map((size) => <Pressable key={size} onPress={() => setSelectedSize(size)} style={[styles.sizeChip, selectedSize === size && styles.sizeChipActive]}><Text style={[styles.sizeText, selectedSize === size && styles.sizeTextActive]}>{size}</Text></Pressable>)}</View><Pressable onPress={() => setFilterOpen(false)} style={styles.applyButton}><Text style={styles.applyText}>Show pieces</Text><Ionicons name="arrow-forward" size={18} color={colors.successInk} /></Pressable></View></View></Modal>
@@ -171,7 +173,7 @@ function QueryHeader({ topInset, colors, styles, term, setTerm, copy, rows, sele
   return <View style={{ paddingTop: topInset + 12 }}><View style={styles.searchBox}><AccessiblePressable onPress={() => router.back()} hitSlop={10} style={styles.searchBackButton} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={25} color={colors.bone} /></AccessiblePressable><Ionicons name="search-outline" size={21} color={colors.success} accessible={false} /><TextInput autoFocus value={term} onChangeText={setTerm} onSubmitEditing={Keyboard.dismiss} accessibilityLabel={copy.searchListings} placeholder="Search anything" placeholderTextColor={colors.subtle} returnKeyType="search" autoCapitalize="none" autoCorrect={false} selectionColor={colors.success} style={styles.input} />{term ? <AccessiblePressable onPress={() => setTerm("")} hitSlop={8} style={styles.clearButton} accessibilityRole="button" accessibilityLabel={copy.clearSearch}><Ionicons name="close-circle" size={19} color={colors.muted} /></AccessiblePressable> : null}<AccessiblePressable onPress={() => router.push("/scan")} style={styles.cameraButton} accessibilityRole="button" accessibilityLabel="Search with a photo"><Ionicons name="camera-outline" size={21} color={colors.ink} /></AccessiblePressable></View><View style={styles.queryHeader}><View><Text style={styles.resultEyebrow}>RESULTS FOR</Text><Text style={styles.queryTitle}>“{term.trim()}”</Text></View><Text style={styles.resultCount}>{rows.length} pieces</Text></View><View style={styles.controlsRow}><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.controlScroll}><Pressable onPress={() => setFilterOpen(true)} style={styles.control}><Ionicons name="options-outline" size={16} color={colors.bone} /><Text style={styles.controlText}>Filter</Text></Pressable><Pressable onPress={() => setSort(sort === "Relevance" ? "Newest" : "Relevance")} style={styles.control}><Ionicons name="swap-vertical-outline" size={16} color={colors.bone} /><Text style={styles.controlText}>{sort}</Text></Pressable>{selectedCategory !== "All" ? <Pressable onPress={() => setSelectedCategory("All")} style={styles.activeControl}><Text style={styles.activeControlText}>{selectedCategory} ×</Text></Pressable> : null}</ScrollView></View></View>;
 }
 
-function DiscoveryHero({ onSearch, colors, styles, term, setTerm, copy, brands, activeSlide, onActiveSlideChange, heroHeight, heroOffset, panHandlers, heroDotsTop }: { onSearch: (value: string) => void; colors: Colors; styles: ReturnType<typeof make>; term: string; setTerm: (value: string) => void; copy: ReturnType<typeof useCopy>; brands: Brand[]; activeSlide: number; onActiveSlideChange: (slide: number) => void; heroHeight: any; heroOffset: any; panHandlers: any; heroDotsTop: number }) {
+function DiscoveryHero({ onSearch, onSearchFocus, colors, styles, term, setTerm, copy, brands, activeSlide, onActiveSlideChange, heroHeight, heroOffset, panHandlers, heroDotsTop }: { onSearch: (value: string) => void; onSearchFocus: () => void; colors: Colors; styles: ReturnType<typeof make>; term: string; setTerm: (value: string) => void; copy: ReturnType<typeof useCopy>; brands: Brand[]; activeSlide: number; onActiveSlideChange: (slide: number) => void; heroHeight: any; heroOffset: any; panHandlers: any; heroDotsTop: number }) {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const inputRef = useRef<TextInput>(null);
@@ -186,7 +188,7 @@ function DiscoveryHero({ onSearch, colors, styles, term, setTerm, copy, brands, 
         <View style={[styles.overlaySearch, { top: insets.top + 12 }]}>
           <AccessiblePressable onPress={() => router.back()} hitSlop={10} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="chevron-back" size={25} color={colors.bone} /></AccessiblePressable>
           <Ionicons name="search-outline" size={19} color={colors.muted} accessible={false} />
-          <TextInput ref={inputRef} value={term} onChangeText={setTerm} onFocus={() => setVoiceActive(false)} onSubmitEditing={Keyboard.dismiss} accessibilityLabel={copy.searchListings} placeholder={voiceActive ? "Speak your search…" : "Search anything"} placeholderTextColor={colors.subtle} returnKeyType="search" autoCapitalize="none" autoCorrect={false} selectionColor={colors.success} style={styles.overlayInput} />
+          <TextInput ref={inputRef} value={term} onChangeText={setTerm} onFocus={() => { setVoiceActive(false); onSearchFocus(); }} onSubmitEditing={Keyboard.dismiss} accessibilityLabel={copy.searchListings} placeholder={voiceActive ? "Speak your search…" : "Search anything"} placeholderTextColor={colors.subtle} returnKeyType="search" autoCapitalize="none" autoCorrect={false} selectionColor={colors.success} style={styles.overlayInput} />
           {term ? <Pressable onPress={() => setTerm("")} hitSlop={8}><Ionicons name="close-circle" size={18} color={colors.muted} /></Pressable> : null}
           <AccessiblePressable onPress={() => { setVoiceActive(true); inputRef.current?.focus(); }} style={styles.overlayToolButton} accessibilityRole="button" accessibilityLabel="Voice search"><Ionicons name="mic-outline" size={19} color={voiceActive ? colors.success : colors.bone} /></AccessiblePressable>
           <AccessiblePressable onPress={() => router.push("/scan")} style={styles.overlayCamera} accessibilityRole="button" accessibilityLabel="Search with a photo"><Ionicons name="camera-outline" size={19} color={colors.ink} /></AccessiblePressable>
