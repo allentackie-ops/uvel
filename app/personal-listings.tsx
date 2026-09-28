@@ -24,7 +24,7 @@ const COPY: Record<PersonalKind, { title: string; body: string; emptyTitle: stri
     emptyBody: "Listings you open will appear here so you can find them again.",
   },
   wardrobe: {
-    title: "My wardrobe",
+    title: "My Wardrobe",
     body: "Your clothing and listings in one place.",
     emptyTitle: "Your wardrobe is empty",
     emptyBody: "Add a piece from Create to start building your wardrobe.",
