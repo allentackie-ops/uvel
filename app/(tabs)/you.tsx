@@ -934,7 +934,7 @@ function make(colors: Colors) {
     tabTxt: { color: `${colors.bone}6B`, fontSize: 15, fontWeight: "600" },
     tabOn: { color: colors.bone },
     tabLine: { position: "absolute", bottom: 0, height: 2, left: 8, right: 8, backgroundColor: colors.bone, borderRadius: 1 },
-    activeRow: { marginTop: 0, marginBottom: 8 },
+    activeRow: { marginTop: 10, marginBottom: 8 },
     active: { color: colors.bone, fontSize: 16, fontWeight: "700", marginTop: 0, marginBottom: 8 },
     listingsSummary: { marginTop: 8, padding: 10, borderRadius: 20, backgroundColor: colors.surface, flexDirection: "row", gap: 10 },
     listingsThumbGrid: { width: 112, flexDirection: "row", flexWrap: "wrap", gap: 4, alignContent: "flex-start" },
