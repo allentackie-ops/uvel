@@ -138,7 +138,6 @@ function DraftShelf({ brand, colors, styles }: SharedProps & { brand?: Brand }) 
       >
         <Image source={require("../../assets/catalog/trend-romantic.jpg")} style={styles.draftImage} contentFit="cover" />
         <View style={styles.draftInfo}>
-          <View style={styles.statusChip}><Text style={styles.statusText}>DRAFT</Text></View>
           <Text style={styles.draftTitle}>{brand ? "Your brand listing drafts" : "Your next direction"}</Text>
           <Text style={styles.draftMeta}>{brand ? "Resume a saved listing" : "Resume in Founder Studio"}</Text>
         </View>
@@ -252,8 +251,6 @@ function make(colors: Colors) {
     draftCard: { flexDirection: "row", alignItems: "center", overflow: "hidden", borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.subtle + "32", minHeight: 112 },
     draftImage: { width: 122, height: 112 },
     draftInfo: { flex: 1, paddingHorizontal: 14, paddingVertical: 12 },
-    statusChip: { alignSelf: "flex-start", backgroundColor: colors.success, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 4 },
-    statusText: { color: colors.successInk, fontSize: 9, letterSpacing: 1.2, fontWeight: "900" },
     draftTitle: { color: colors.bone, fontSize: 18, fontWeight: "800", marginTop: 9 },
     draftMeta: { color: colors.muted, fontSize: 12, marginTop: 4 },
     businessRow: { flexDirection: "row", gap: 10 },
