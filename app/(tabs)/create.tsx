@@ -70,7 +70,6 @@ function Hero({ brand, colors, styles }: SharedProps & { brand?: Brand }) {
         <Text style={styles.heroBody}>{brand ? "Shape the next chapter with a clear path from idea to launch." : "A simple place to shape a brand, a product, or your first listing."}</Text>
         <View style={styles.heroRule} />
       </View>
-      <View style={styles.heroTap}><Ionicons name="arrow-forward" size={19} color={colors.bone} /><Text style={styles.heroTapText}>Open Founder Studio</Text></View>
     </Pressable>
   );
 }
