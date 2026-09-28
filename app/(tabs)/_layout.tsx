@@ -16,9 +16,9 @@ import You from "./you";
 import { useColors, useResolvedAppearance } from "../../lib/theme";
 import { useCopy } from "../../lib/useCopy";
 
-const ROUTES = ["/", "/find", "/create", "/you"] as const;
-const ICONS = ["compass-outline", "body-outline", "add-outline", "person-outline"] as const;
-const ACTIVE_ICONS = ["compass", "body", "add", "person"] as const;
+const ROUTES = ["/", "/create", "/you"] as const;
+const ICONS = ["compass-outline", "add-outline", "person-outline"] as const;
+const ACTIVE_ICONS = ["compass", "add", "person"] as const;
 const SCREEN_W = Dimensions.get("window").width;
 const DRAWER_W = Math.min(SCREEN_W * 0.78, 340);
 
@@ -38,11 +38,10 @@ export default function TabsLayout() {
   const tabs = useMemo<TabScreen[]>(
     () => [
       { key: "today", screen: <Today onOpenTools={() => setOpen(true)} /> },
-      { key: "mirror", screen: <Mirror /> },
       { key: "create", screen: <Create /> },
       { key: "you", screen: <You /> },
     ],
-    [C.today, C.mirror, C.create, C.you],
+    [C.today, C.create, C.you],
   );
 
   useEffect(() => {
@@ -107,6 +106,10 @@ export default function TabsLayout() {
               closeDrawer();
               router.push("/sell");
             }}
+            onOpenMirror={() => {
+              closeDrawer();
+              router.push("/find");
+            }}
           />
         )}
       >
@@ -121,6 +124,7 @@ export default function TabsLayout() {
               <View key={key} style={[styles.page, { backgroundColor: colors.ink }]} collapsable={false}>{screen}</View>
             ))}
           </DrawerAwarePager>
+          {pathname.includes("/find") ? <View style={styles.mirrorStage}><Mirror /></View> : null}
           <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]} pointerEvents={open ? "none" : "auto"}>
             <View style={[styles.bar, { backgroundColor: colors.ink }]}>
               {ROUTES.map((_, index) => {
@@ -131,11 +135,11 @@ export default function TabsLayout() {
                     onPress={() => selectTab(index)}
                     style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
                     accessibilityRole="tab"
-                    accessibilityLabel={[C.today, C.mirror, C.create ?? "Create", C.you][index]}
+                    accessibilityLabel={[C.today, C.create ?? "Create", C.you][index]}
                     accessibilityState={{ selected: active }}
                   >
                     <View style={styles.iconSlot} accessibilityElementsHidden>
-                      {index === 2 ? (
+                      {index === 1 ? (
                         <View style={styles.sellPlus}>
                           <View style={[styles.sellPlusBar, styles.sellPlusHorizontal, { backgroundColor: active ? colors.success : inactiveIcon }]} />
                           <View style={[styles.sellPlusBar, styles.sellPlusVertical, { backgroundColor: active ? colors.success : inactiveIcon }]} />
@@ -144,7 +148,7 @@ export default function TabsLayout() {
                         <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={24} color={active ? colors.success : inactiveIcon} />
                       )}
                     </View>
-                    <Text style={[styles.label, { color: active ? colors.success : inactiveIcon }]}>{[C.today, C.mirror, C.create ?? "Create", C.you][index]}</Text>
+                    <Text style={[styles.label, { color: active ? colors.success : inactiveIcon }]}>{[C.today, C.create ?? "Create", C.you][index]}</Text>
                   </Pressable>
                 );
               })}
@@ -216,9 +220,9 @@ function DrawerAwarePager({
 
 function routeIndex(pathname: string): number | null {
   if (pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/")) return 0;
-  if (pathname.includes("/find")) return 1;
-  if (pathname === "/create" || pathname.endsWith("/(tabs)/create") || pathname === "/closet" || pathname.endsWith("/(tabs)/closet")) return 2;
-  if (pathname.includes("/you")) return 3;
+  if (pathname.includes("/find")) return 0;
+  if (pathname === "/create" || pathname.endsWith("/(tabs)/create") || pathname === "/closet" || pathname.endsWith("/(tabs)/closet")) return 1;
+  if (pathname.includes("/you")) return 2;
   return null;
 }
 
@@ -226,6 +230,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   stage: { flex: 1, overflow: "hidden" },
   pager: { flex: 1 },
+  mirrorStage: { ...StyleSheet.absoluteFill, zIndex: 2, backgroundColor: "#000000" },
   page: { flex: 1, backgroundColor: "#000000" },
   cardHit: { ...StyleSheet.absoluteFill, zIndex: 5 },
   barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 4, backgroundColor: "#000000", zIndex: 3 },

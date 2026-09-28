@@ -15,7 +15,7 @@ const QUICK_GUIDE: { icon: keyof typeof Ionicons.glyphMap; title: string; body: 
   {
     icon: "body-outline",
     title: "See it on you",
-    body: "Mirror previews a piece on your photo. It shows the look, not the fit.",
+    body: "Mirror is available in the Today drawer. It previews a piece on your photo and shows the look, not the fit.",
   },
   {
     icon: "card-outline",

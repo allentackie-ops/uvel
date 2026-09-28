@@ -8,7 +8,7 @@ import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
 
-export type TodayToolsDrawerProps = { onClose: () => void; onOpenSell: () => void };
+export type TodayToolsDrawerProps = { onClose: () => void; onOpenSell: () => void; onOpenMirror: () => void };
 
 type Tool = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -17,7 +17,7 @@ type Tool = {
   onPress: () => void;
 };
 
-export function TodayToolsDrawer({ onClose, onOpenSell }: TodayToolsDrawerProps) {
+export function TodayToolsDrawer({ onClose, onOpenSell, onOpenMirror }: TodayToolsDrawerProps) {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
@@ -29,6 +29,7 @@ export function TodayToolsDrawer({ onClose, onOpenSell }: TodayToolsDrawerProps)
   const handle = app.username ? `@${app.username}` : "";
   const photo = app.avatarUri || app.personUri;
   const buildTools: Tool[] = [
+    { icon: "body-outline", label: "Mirror", onPress: onOpenMirror },
     { icon: "color-palette-outline", label: "Founder Studio", onPress: () => router.push("/brand/founder") },
     { icon: "briefcase-outline" as const, label: "Brand HQ", onPress: () => router.push(mine ? { pathname: "/brand/hq", params: { id: mine.id } } : "/brand/hq") },
   ];

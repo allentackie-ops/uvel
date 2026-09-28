@@ -42,7 +42,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "How can I preview a piece on me?",
-    a: "Open Mirror, or tap Try it on from a listing. Add a photo for a preview; it won’t show the exact fit.",
+    a: "Open the Today drawer by swiping from the left, then choose Mirror. You can also tap Try it on from a listing. Add a photo for a preview; it won’t show the exact fit.",
   },
   {
     q: "How do I list something?",
@@ -79,7 +79,7 @@ const TABS: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string 
   {
     icon: "body-outline",
     title: "Mirror",
-    body: "Take or choose a photo to preview how a piece looks on you. It won’t show the fit.",
+    body: "Find Mirror in the Today drawer. Take or choose a photo to preview how a piece looks on you. It won’t show the fit.",
   },
   {
     icon: "add-outline",
@@ -106,7 +106,7 @@ export default function HowToUseUvel() {
         contentContainerStyle={[styles.content, { paddingBottom: 36 + insets.bottom }]}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.lede}>Four tabs. That’s most of it.</Text>
+        <Text style={styles.lede}>Three tabs. That’s most of it.</Text>
         <Text style={styles.intro}>A quick guide to the main things you can do in Uvel.</Text>
 
         <View style={styles.cardGrid}>
