@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BrandBanner } from "../../components/BrandBanner";
 import { ownedBrand, themeFor, useBrands, type Brand } from "../../lib/brands";
 import { adaptBrandThemeToAppearance } from "../../lib/brandThemes";
 import { useUvel } from "../../lib/store";
@@ -84,11 +85,9 @@ function EditorialHeader({ brand, styles }: { brand?: Brand; styles: ScreenStyle
 }
 
 function Hero({ brand, colors, styles }: SharedProps & { brand?: Brand }) {
-  const image = brand?.bannerUri ? { uri: brand.bannerUri } : HERO_IMAGE;
   return (
     <Pressable onPress={() => router.push("/brand/founder")} style={({ pressed }) => [styles.hero, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="Open Founder Studio">
-      <Image source={image} style={styles.heroImage} contentFit="cover" cachePolicy="memory-disk" />
-      <View style={styles.heroShade} />
+      {brand?.bannerUri ? <BrandBanner uri={brand.bannerUri} kind={brand.bannerKind} style={styles.heroImage} /> : <Image source={HERO_IMAGE} style={styles.heroImage} contentFit="cover" cachePolicy="memory-disk" />}
       <View style={styles.heroCopy}>
         <Text style={styles.heroKicker}>{brand ? "BUILD WHAT’S NEXT" : "START WITH AN IDEA"}</Text>
         <Text style={styles.heroTitle}>{brand ? "Build what’s next\nfor your brand." : "Turn your idea\ninto something real."}</Text>
@@ -231,7 +230,6 @@ function make(colors: Colors) {
     floatingLogo: { position: "absolute", right: 16, top: 16, borderColor: colors.bone + "AA", backgroundColor: colors.ink },
     hero: { height: 305, borderRadius: 26, overflow: "hidden", backgroundColor: colors.surface, marginBottom: 28 },
     heroImage: StyleSheet.absoluteFill,
-    heroShade: { ...StyleSheet.absoluteFill, backgroundColor: light ? "rgba(247,246,242,0.16)" : "rgba(0,0,0,0.34)" },
     heroCopy: { position: "absolute", left: 20, right: 20, bottom: 20 },
     heroKicker: { color: light ? colors.bone : colors.success, fontSize: 10, letterSpacing: 2.6, fontWeight: "800" },
     heroTitle: { color: light ? colors.bone : colors.bone, fontSize: 31, lineHeight: 34, fontWeight: "800", letterSpacing: -0.8, marginTop: 8 },
