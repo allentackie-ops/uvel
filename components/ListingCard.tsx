@@ -14,6 +14,8 @@ import { getPiece, isRemoteListedPiece, likeCount, useMarketplaceSyncState, useW
 import { BrandVerifiedMark } from "./VerifiedMark";
 import type { PersonalizationAction } from "../lib/personalization";
 
+const IMAGE_OVERLAY_TEXT = "#F4F0E6";
+
 export function ListingCard({
   piece,
   wide,
@@ -161,13 +163,13 @@ function make(colors: ReturnType<typeof useColors>) {
     clip: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
     framedImg: { borderRadius: 0, backgroundColor: colors.surface },
     motionPill: { position: "absolute", left: 10, bottom: 10, zIndex: 7, paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: "rgba(22,20,15,0.72)", alignItems: "center", justifyContent: "center" },
-    motionTxt: { color: colors.bone, fontSize: 10, fontWeight: "700", letterSpacing: 0.4 },
+    motionTxt: { color: IMAGE_OVERLAY_TEXT, fontSize: 10, fontWeight: "700", letterSpacing: 0.4 },
     newBadge: { position: "absolute", top: 10, left: 10, zIndex: 8 },
-    newBadgeTxt: { color: colors.bone, fontSize: 13, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+    newBadgeTxt: { color: IMAGE_OVERLAY_TEXT, fontSize: 13, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
     hearts: { position: "absolute", minWidth: 44, minHeight: 44, right: 10, bottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, zIndex: 8 },
-    heartsIco: { color: colors.bone, fontSize: 16, textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+    heartsIco: { color: IMAGE_OVERLAY_TEXT, fontSize: 16, textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
     heartsOn: { color: colors.success },
-    heartsN: { color: colors.bone, fontSize: 14, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+    heartsN: { color: IMAGE_OVERLAY_TEXT, fontSize: 14, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
     badge: { position: "absolute", left: 10, bottom: 10, backgroundColor: `${colors.surface}F0`, paddingHorizontal: 12, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
     badgeTxt: { color: colors.ink, fontWeight: "700", fontSize: 12 },
     stockBadge: { position: "absolute", left: 10, paddingHorizontal: 10, height: 26, borderRadius: 13, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", zIndex: 12 },
