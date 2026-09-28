@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -59,25 +59,26 @@ export default function PersonalListings() {
   }, [app.saved, app.uid, kind, personalization.profile.listings, pieces]);
 
   return (
-    <View style={styles.page}>
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 36 }]} showsVerticalScrollIndicator={false}>
-        <View style={styles.topBar}>
-          <Text style={styles.kicker}>TODAY</Text>
-          <Text style={styles.title}>{copy.title}</Text>
-          <Text style={styles.body}>{copy.body}</Text>
-        </View>
-        {listings.length ? (
-          <View style={styles.grid}>
-            {listings.map((piece) => <View key={piece.id} style={styles.cell}><ListingCard piece={piece} framed /></View>)}
+    <>
+      <Stack.Screen options={{ title: copy.title, headerShown: true, headerTransparent: false, headerShadowVisible: false }} />
+      <View style={styles.page}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 36 }]} showsVerticalScrollIndicator={false}>
+          <View style={styles.topBar}>
+            <Text style={styles.body}>{copy.body}</Text>
           </View>
-        ) : (
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>{copy.emptyTitle}</Text>
-            <Text style={styles.emptyBody}>{copy.emptyBody}</Text>
-          </View>
-        )}
-      </ScrollView>
-    </View>
+          {listings.length ? (
+            <View style={styles.grid}>
+              {listings.map((piece) => <View key={piece.id} style={styles.cell}><ListingCard piece={piece} framed /></View>)}
+            </View>
+          ) : (
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>{copy.emptyTitle}</Text>
+              <Text style={styles.emptyBody}>{copy.emptyBody}</Text>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+    </>
   );
 }
 
@@ -86,8 +87,6 @@ function make(colors: ReturnType<typeof useColors>) {
     page: { flex: 1, backgroundColor: colors.ink },
     content: { paddingHorizontal: 16 },
     topBar: { marginBottom: 22 },
-    kicker: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 2.1 },
-    title: { color: colors.bone, fontSize: 32, lineHeight: 38, fontWeight: "800", marginTop: 6 },
     body: { color: colors.muted, fontSize: 14, lineHeight: 20, marginTop: 6 },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     cell: { width: "48%", flexGrow: 1, maxWidth: "48.5%" },
