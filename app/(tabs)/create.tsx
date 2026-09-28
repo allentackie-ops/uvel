@@ -4,9 +4,10 @@ import { router } from "expo-router";
 import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ownedBrand, useBrands, type Brand } from "../../lib/brands";
+import { ownedBrand, themeFor, useBrands, type Brand } from "../../lib/brands";
+import { adaptBrandThemeToAppearance } from "../../lib/brandThemes";
 import { useUvel } from "../../lib/store";
-import { useColors, type Colors } from "../../lib/theme";
+import { useColors, useResolvedAppearance, type Colors } from "../../lib/theme";
 import { useBrandListingDrafts } from "../../lib/brandListingDraft";
 
 const HERO_IMAGE = require("../../assets/catalog/hero.jpg");
@@ -22,12 +23,33 @@ const FORMAT_ITEMS = [
 ];
 
 export default function Create() {
-  const colors = useColors();
-  const styles = useMemo(() => make(colors), [colors]);
+  const baseColors = useColors();
+  const appearance = useResolvedAppearance();
   const insets = useSafeAreaInsets();
   const app = useUvel();
   useBrands();
   const brand = ownedBrand(app.uid);
+  const colors = useMemo<Colors>(() => {
+    if (!brand) return baseColors;
+    const theme = adaptBrandThemeToAppearance(themeFor(brand), appearance, baseColors);
+    return {
+      ...baseColors,
+      ink: theme.bg,
+      bone: theme.ink,
+      muted: theme.muted,
+      surface: theme.card,
+      subtle: theme.muted,
+      success: theme.accent,
+      successInk: theme.accentInk,
+      pulse: theme.accent,
+      pulseInk: theme.accentInk,
+      info: theme.card,
+      infoInk: theme.ink,
+      neutral: theme.card,
+      neutralInk: theme.ink,
+    };
+  }, [appearance, baseColors, brand]);
+  const styles = useMemo(() => make(colors), [colors]);
   const brandDrafts = useBrandListingDrafts(brand?.id);
 
   return (
