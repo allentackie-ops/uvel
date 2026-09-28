@@ -225,13 +225,13 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
 
   return (
     <View style={styles.page}>
-      {standalone ? <Pressable onPress={() => router.back()} style={[styles.standaloneBack, { top: insets.top + 8 }]} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="arrow-back" size={22} color={colors.bone} /></Pressable> : null}
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={{ paddingTop: insets.top + (standalone ? 64 : 20), paddingBottom: insets.bottom + (standalone ? 30 : 152), flexGrow: 1 }}
+        contentContainerStyle={{ paddingTop: insets.top + (standalone ? 12 : 20), paddingBottom: insets.bottom + (standalone ? 30 : 152), flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
       >
+        {standalone ? <View style={styles.standaloneHeader}><Pressable onPress={() => router.back()} style={styles.standaloneBack} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="arrow-back" size={22} color={colors.bone} /></Pressable></View> : null}
         <View style={styles.progress} accessibilityLabel="Mirror setup progress">
           {[{ label: "Add photo", done: Boolean(person) }, { label: "Choose clothing", done: Boolean(picked) }, { label: "Try look", done: Boolean(result) }].map((step, index) => (
             <View key={step.label} style={styles.progressStep}>
@@ -410,7 +410,8 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    standaloneBack: { position: "absolute", left: 16, zIndex: 5, width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.subtle + "55" },
+    standaloneHeader: { height: 42, marginHorizontal: 16, marginBottom: 12 },
+    standaloneBack: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.subtle + "55" },
     progress: { marginHorizontal: 20, marginBottom: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     progressStep: { flexDirection: "row", alignItems: "center", gap: 6 },
     progressDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: `${colors.bone}47`, alignItems: "center", justifyContent: "center" },
