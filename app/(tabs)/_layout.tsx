@@ -10,7 +10,6 @@ import { Drawer, DrawerGestureContext, useDrawerProgress } from "react-native-dr
 import { TodayToolsDrawer } from "../../components/TodayToolsDrawer";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Today from "./index";
-import Mirror from "./find";
 import Create from "./create";
 import You from "./you";
 import { useColors, useResolvedAppearance } from "../../lib/theme";
@@ -109,7 +108,7 @@ export default function TabsLayout() {
             }}
             onOpenMirror={() => {
               closeDrawer();
-              router.push("/find");
+              router.push("/mirror");
             }}
           />
         )}
@@ -125,7 +124,6 @@ export default function TabsLayout() {
               <View key={key} style={[styles.page, { backgroundColor: colors.ink }]} collapsable={false}>{screen}</View>
             ))}
           </DrawerAwarePager>
-          {pathname.includes("/find") ? <View style={styles.mirrorStage}><Mirror /></View> : null}
           <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]} pointerEvents={open ? "none" : "auto"}>
             <View style={[styles.bar, { backgroundColor: colors.ink }]}>
               {ROUTES.map((_, index) => {
@@ -221,7 +219,6 @@ function DrawerAwarePager({
 
 function routeIndex(pathname: string): number | null {
   if (pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/")) return 0;
-  if (pathname.includes("/find")) return 0;
   if (pathname === "/create" || pathname.endsWith("/(tabs)/create") || pathname === "/closet" || pathname.endsWith("/(tabs)/closet")) return 1;
   if (pathname.includes("/you")) return 2;
   return null;
@@ -231,7 +228,6 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   stage: { flex: 1, overflow: "hidden" },
   pager: { flex: 1 },
-  mirrorStage: { ...StyleSheet.absoluteFill, zIndex: 2, backgroundColor: "#000000" },
   page: { flex: 1, backgroundColor: "#000000" },
   cardHit: { ...StyleSheet.absoluteFill, zIndex: 5 },
   barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 4, backgroundColor: "#000000", zIndex: 3 },

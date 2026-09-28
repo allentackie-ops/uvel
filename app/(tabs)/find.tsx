@@ -29,7 +29,7 @@ type GarmentPick =
   | { kind: "uvel"; piece: ClosetPiece }
   | { kind: "photo"; uri: string; name: string };
 
-export default function Mirror() {
+export default function Mirror({ standalone = false }: { standalone?: boolean } = {}) {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
@@ -225,9 +225,10 @@ export default function Mirror() {
 
   return (
     <View style={styles.page}>
+      {standalone ? <Pressable onPress={() => router.back()} style={[styles.standaloneBack, { top: insets.top + 8 }]} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="arrow-back" size={22} color={colors.bone} /></Pressable> : null}
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={{ paddingTop: insets.top + 20, paddingBottom: insets.bottom + 152, flexGrow: 1 }}
+        contentContainerStyle={{ paddingTop: insets.top + (standalone ? 64 : 20), paddingBottom: insets.bottom + (standalone ? 30 : 152), flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
       >
@@ -409,6 +410,7 @@ export default function Mirror() {
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
+    standaloneBack: { position: "absolute", left: 16, zIndex: 5, width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.subtle + "55" },
     progress: { marginHorizontal: 20, marginBottom: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     progressStep: { flexDirection: "row", alignItems: "center", gap: 6 },
     progressDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: `${colors.bone}47`, alignItems: "center", justifyContent: "center" },
