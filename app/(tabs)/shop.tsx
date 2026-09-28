@@ -19,7 +19,7 @@ import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { followedBrandIds, getBrand, verifiedBrands, useBrands, brandCheck } from "../../lib/brands";
 import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
-import { dnaFrom } from "../../lib/styleDna";
+import { dnaFrom, dnaIsSet, type Dna } from "../../lib/styleDna";
 import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
 import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
@@ -38,6 +38,38 @@ const TODAY_SWIPE_HINT_KEY = "uvel-today-workspace-tutorial-v1";
 const TODAY_SWIPE_HINT_MS = 7000;
 const TODAY_LISTING_OPENS_KEY = "uvel-today-listing-opens-v1";
 const TODAY_DOUBLE_TAP_HINT_SHOWN_KEY = "uvel-today-double-tap-hint-shown-v1";
+const JOURNAL_HEADLINES: Record<string, string> = {
+  "Quiet luxury": "Considered in every detail.",
+  "Quiet": "Considered in every detail.",
+  Street: "Ease with an edge.",
+  "Vintage archive": "A story worth wearing.",
+  Vintage: "A story worth wearing.",
+  Utility: "Form follows feeling.",
+  Romantic: "Softness, with a point of view.",
+  "Western city": "Western, after six.",
+  Western: "Western, after six.",
+  "Tailored city": "Soft structure, found.",
+  Tailored: "Soft structure, found.",
+  "Bourgeois chic": "Polished, never precious.",
+  Minimal: "Less, with intention.",
+  Coastal: "Lightness, naturally.",
+  Work: "A sharper everyday.",
+  Evening: "A softer kind of statement.",
+  Y2K: "A little nostalgia, reimagined.",
+};
+const JOURNAL_PALETTES: Record<string, string[]> = {
+  "Earth & camel": ["#C9A17A", "#F4F0E6", "#8D7358", "#59604A"],
+  "Ivory & ink": ["#F4F0E6", "#D9D3C8", "#77746D", "#191814"],
+  "Warm rust": ["#D28C64", "#B55236", "#772F27", "#E8CBB1"],
+  "Stone & olive": ["#C7C1B4", "#93917E", "#687052", "#424339"],
+};
+const JOURNAL_STARTER_PALETTE = JOURNAL_PALETTES["Earth & camel"];
+
+function journalHeadline(dna: Dna) {
+  return JOURNAL_HEADLINES[dna.archetype]
+    || dna.styles.map((style) => JOURNAL_HEADLINES[style]).find(Boolean)
+    || "A considered edit.";
+}
 
 const swipeHintStyles = StyleSheet.create({
   swipeHint: { ...StyleSheet.absoluteFill, zIndex: 60 },
@@ -411,6 +443,12 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey, dna, personalization.rank, feedEpoch]);
   const featured = todayHome && !scanningLook ? ranked[0] : undefined;
   const browseRanked = featured ? ranked.filter((piece) => piece.id !== featured.id) : ranked;
+  const stylePreview = todayHome && !scanningLook ? browseRanked.slice(0, 2) : [];
+  const feedRanked = todayHome && !scanningLook ? browseRanked.slice(2) : browseRanked;
+  const hasStyleDna = dnaIsSet(dna);
+  const styleSummary = [dna.archetype || dna.styles[0], dna.palette || dna.silhouette].filter(Boolean).join(" · ");
+  const styleHeadline = journalHeadline(dna);
+  const paletteSwatches = JOURNAL_PALETTES[dna.palette] || JOURNAL_STARTER_PALETTE;
   const openFeatured = useCallback(() => {
     if (!featured) return;
     dailyEditRef.current?.measureInWindow((x, y, width, height) => openTodayListing(featured, { x, y, width, height }));
@@ -535,26 +573,88 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           </Text>
         </AccessiblePressable>
       ) : null}
+      {todayHome && !scanningLook ? (
+        <View style={styles.journalIntro}>
+          <Text style={styles.journalKicker}>{C.forYou.toUpperCase()}</Text>
+          <Text style={styles.journalHeading}>Your eye, lately</Text>
+          <View style={styles.journalTag}>
+            <Ionicons name="sparkles-outline" size={13} color={colors.success} />
+            <Text style={styles.journalTagText} numberOfLines={1}>
+              {styleSummary || "A considered edit, shaped with you"}
+            </Text>
+          </View>
+        </View>
+      ) : null}
       {searchNearTop ? searchBar : null}
 
       {featured ? (
         <View ref={dailyEditRef} collapsable={false}>
           <AccessiblePressable
             onPress={openFeatured}
-            style={({ pressed }) => [styles.dailyEdit, pressed && { opacity: 0.94, transform: [{ scale: 0.99 }] }]}
+            style={({ pressed }) => [styles.journalHero, pressed && { opacity: 0.94, transform: [{ scale: 0.99 }] }]}
             accessibilityRole="button"
-            accessibilityLabel={`Explore ${featured.name} from the daily edit`}
+            accessibilityLabel={`Explore ${featured.name} from your style edit`}
             accessibilityHint="Double tap to open this piece."
           >
-            {featured.photo ? <Image cachePolicy="memory-disk" source={{ uri: featured.photo }} style={styles.dailyEditImage} contentFit="cover" /> : <View style={[styles.dailyEditImage, { backgroundColor: colors.surface }]} />}
-            <View style={styles.dailyEditShade} />
-            <View style={styles.dailyEditCopy}>
-              <Text style={styles.dailyEditKicker}>THE DAILY EDIT</Text>
-              <Text style={styles.dailyEditTitle} numberOfLines={2}>{featured.name}</Text>
-              <View style={styles.dailyEditMeta}><Text style={styles.dailyEditPrice}>{moneyExact(featured.marketPrices?.[market.code] ?? featured.listPriceCents, market.currency)}</Text><Text style={styles.dailyEditBrand}>{featured.brand}</Text></View>
-              <Text style={styles.dailyEditGo}>Explore piece →</Text>
+            {featured.photo ? <Image cachePolicy="memory-disk" source={{ uri: featured.photo }} style={styles.journalHeroImage} contentFit="cover" /> : <View style={[styles.journalHeroImage, { backgroundColor: colors.surface }]} />}
+            <View style={styles.journalHeroShade} />
+            <View style={styles.journalHeroCopy}>
+              <Text style={styles.journalHeroKicker}>{hasStyleDna ? C.styleDna.toUpperCase() : C.forYou.toUpperCase()}</Text>
+              <Text style={styles.journalHeroTitle} numberOfLines={2}>{styleHeadline}</Text>
+              <Text style={styles.journalHeroName} numberOfLines={2}>{featured.name}</Text>
+              <View style={styles.journalHeroMeta}>
+                <Text style={styles.journalHeroPrice}>{moneyExact(featured.marketPrices?.[market.code] ?? featured.listPriceCents, market.currency)}</Text>
+                {featured.brand && featured.brand !== "Unlabeled" ? <Text style={styles.journalHeroBrand} numberOfLines={1}>{featured.brand}</Text> : null}
+              </View>
+              <Text style={styles.journalHeroAction}>Explore piece →</Text>
             </View>
           </AccessiblePressable>
+        </View>
+      ) : null}
+
+      {todayHome && !scanningLook ? (
+        <View style={styles.journalPanel}>
+          <View style={styles.journalPanelHeader}>
+            <View style={styles.journalPanelCopy}>
+              <Text style={styles.journalPanelKicker}>{C.styleDna.toUpperCase()}</Text>
+              <Text style={styles.journalPanelTitle}>{dna.palette ? "The palette you return to" : "A palette in the making"}</Text>
+              <Text style={styles.journalPanelMeta} numberOfLines={1}>{dna.palette || "Choose the colours you reach for most"}</Text>
+            </View>
+            <AccessiblePressable
+              onPress={() => router.push("/style-dna")}
+              style={({ pressed }) => [styles.journalEditAction, pressed && { opacity: 0.72 }]}
+              accessibilityRole="button"
+              accessibilityLabel={hasStyleDna ? `Edit ${C.styleDna}` : `Set up ${C.styleDna}`}
+              accessibilityHint="Choose a style, palette, and silhouette to shape your Today edit."
+            >
+              <Text style={styles.journalEditActionText}>{hasStyleDna ? "Tune" : "Set style"}</Text>
+              <Ionicons name="arrow-forward" size={14} color="#191814" />
+            </AccessiblePressable>
+          </View>
+          <View style={styles.journalSwatches} accessibilityElementsHidden>
+            {paletteSwatches.map((swatch, index) => (
+              <View key={`${swatch}-${index}`} style={[styles.journalSwatch, { backgroundColor: swatch }]} />
+            ))}
+          </View>
+          {stylePreview.length ? (
+            <View>
+              <Text style={styles.journalShelfTitle}>{C.forYou}</Text>
+              <View style={styles.grid}>
+                {stylePreview.map((piece) => (
+                  <View key={piece.id} style={[styles.cell, openPiece?.id === piece.id && { opacity: 0 }]}>
+                    <ListingCard
+                      piece={piece}
+                      framed
+                      firstFind={firstFind.matches(piece)}
+                      onFirstFind={() => setFindHint(true)}
+                      onOpen={openTodayListing}
+                      onInteraction={personalization.record}
+                    />
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
         </View>
       ) : null}
 
@@ -670,12 +770,12 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         <Text style={styles.count}>{C.lookingAtFrame}</Text>
       ) : null}
 
-      {todayHome && !scanningLook && browseRanked.length ? <Text style={styles.forYouLabel}>FOR YOU</Text> : null}
+      {todayHome && !scanningLook && feedRanked.length ? <Text style={styles.forYouLabel}>{C.forYou.toUpperCase()}</Text> : null}
 
       <View style={[styles.grid, !scanning && { marginTop: 14 }]}>
         {scanning
           ? null
-          : browseRanked.map((p) => (
+          : feedRanked.map((p) => (
               <View key={p.id} style={[styles.cell, openPiece?.id === p.id && { opacity: 0 }]}>
                 <ListingCard piece={p} framed firstFind={todayHome && firstFind.matches(p)} onFirstFind={todayHome ? () => setFindHint(true) : undefined} onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />
               </View>
@@ -742,16 +842,33 @@ function make(colors: Colors) {
     findLine: { alignSelf: "center", minHeight: 32, paddingHorizontal: 8, marginBottom: 6, justifyContent: "center" },
     findLineTxt: { color: `${colors.bone}8C`, fontSize: 13, fontWeight: "600", textAlign: "center" },
     findLineAmt: { color: colors.success, fontWeight: "800" },
-    dailyEdit: { height: 330, marginTop: 14, borderRadius: 24, overflow: "hidden", backgroundColor: colors.surface },
-    dailyEditImage: { ...StyleSheet.absoluteFill, width: "100%", height: "100%" },
-    dailyEditShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.34)" },
-    dailyEditCopy: { flex: 1, justifyContent: "flex-end", padding: 18 },
-    dailyEditKicker: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.6 },
-    dailyEditTitle: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, lineHeight: 32, marginTop: 7, maxWidth: "88%", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-    dailyEditMeta: { flexDirection: "row", alignItems: "center", gap: 9, marginTop: 8 },
-    dailyEditPrice: { color: "#F4F0E6", fontSize: 14, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-    dailyEditBrand: { color: "rgba(244,240,230,0.82)", fontSize: 12, textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-    dailyEditGo: { color: colors.success, fontSize: 13, fontWeight: "900", marginTop: 12 },
+    journalIntro: { marginTop: 2, marginBottom: 4 },
+    journalKicker: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 2 },
+    journalHeading: { color: colors.bone, fontFamily: "Georgia", fontSize: 32, lineHeight: 38, marginTop: 4, letterSpacing: -0.6 },
+    journalTag: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7, minHeight: 30, paddingHorizontal: 10, marginTop: 8, borderRadius: 15, borderWidth: 1, borderColor: `${colors.bone}29`, backgroundColor: `${colors.surface}B8` },
+    journalTagText: { color: colors.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.3, flexShrink: 1 },
+    journalHero: { height: 376, marginTop: 12, borderRadius: 24, overflow: "hidden", backgroundColor: colors.surface },
+    journalHeroImage: { ...StyleSheet.absoluteFill, width: "100%", height: "100%" },
+    journalHeroShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(10,9,7,0.48)" },
+    journalHeroCopy: { flex: 1, justifyContent: "flex-end", padding: 18 },
+    journalHeroKicker: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.7 },
+    journalHeroTitle: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 29, lineHeight: 34, marginTop: 7, maxWidth: "91%", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+    journalHeroName: { color: "#F4F0E6", fontSize: 14, fontWeight: "700", marginTop: 12, maxWidth: "95%", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+    journalHeroMeta: { flexDirection: "row", alignItems: "center", gap: 9, marginTop: 5 },
+    journalHeroPrice: { color: "#F4F0E6", fontSize: 14, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+    journalHeroBrand: { color: "rgba(244,240,230,0.82)", fontSize: 12, textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+    journalHeroAction: { color: colors.success, fontSize: 13, fontWeight: "900", marginTop: 10 },
+    journalPanel: { marginTop: 14, padding: 14, borderRadius: 22, backgroundColor: "#F4F0E6", gap: 13 },
+    journalPanelHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+    journalPanelCopy: { flex: 1, minWidth: 0 },
+    journalPanelKicker: { color: "#777066", fontSize: 9, fontWeight: "900", letterSpacing: 1.6 },
+    journalPanelTitle: { color: "#191814", fontFamily: "Georgia", fontSize: 20, lineHeight: 24, marginTop: 3 },
+    journalPanelMeta: { color: "#736D63", fontSize: 11, marginTop: 3 },
+    journalEditAction: { minHeight: 42, paddingHorizontal: 11, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, borderRadius: 21, backgroundColor: colors.success },
+    journalEditActionText: { color: "#191814", fontSize: 11, fontWeight: "800" },
+    journalSwatches: { flexDirection: "row", gap: 8, paddingVertical: 1 },
+    journalSwatch: { flex: 1, height: 38, borderRadius: 10, borderWidth: 1, borderColor: "rgba(25,24,20,0.12)" },
+    journalShelfTitle: { color: "#191814", fontFamily: "Georgia", fontSize: 23, lineHeight: 28, marginBottom: 10 },
     forYouLabel: { color: colors.bone, fontSize: 11, fontWeight: "900", letterSpacing: 1.5, marginTop: 22, marginBottom: 2 },
     findToast: {
       position: "absolute",
