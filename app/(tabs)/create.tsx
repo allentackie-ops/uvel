@@ -105,7 +105,7 @@ function FormatShelf({ brand, colors, styles }: SharedProps & { brand?: Brand })
 
 function DraftShelf({ colors, styles }: SharedProps) {
   return (
-    <Shelf title="Continue a draft" action="See all" styles={styles}>
+    <Shelf title="Continue a draft" styles={styles}>
       <Pressable
         onPress={() => router.push("/brand/founder")}
         style={({ pressed }) => [styles.draftCard, pressed && styles.pressed]}
