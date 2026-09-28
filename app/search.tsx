@@ -143,7 +143,6 @@ export default function Search() {
         onScroll={onScroll}
         ListHeaderComponent={hasQuery ? <QueryHeader colors={colors} styles={styles} term={term} setTerm={setTerm} copy={C} rows={rows} selectedCategory={selectedCategory} setSelectedCategory={setSelectedCategory} setFilterOpen={setFilterOpen} sort={sort} setSort={setSort} /> : <DiscoveryHero onSearch={chooseSearch} colors={colors} styles={styles} term={term} setTerm={setTerm} copy={C} brands={brands} activeSlide={activeSlide} onActiveSlideChange={setActiveSlide} heroHeight={stretchedHeroHeight} heroOffset={heroOffset} panHandlers={heroPanResponder.panHandlers} />}
         ListFooterComponent={!hasQuery ? <DiscoveryContent onSearch={chooseSearch} colors={colors} styles={styles} brands={brands} heroPull={heroPull} /> : null}
-        stickyHeaderIndices={!hasQuery ? [0] : undefined}
         renderItem={({ item }) => <View style={styles.cell}><ListingCard piece={item} framed onInteraction={personalization.record} /></View>}
         ListEmptyComponent={hasQuery ? <View style={styles.empty}>{marketplaceSync === "loading" ? <ActivityIndicator color={colors.success} /> : <><Text style={styles.emptyTitle}>Nothing here yet.</Text><Text style={styles.emptyText}>{marketplaceSync === "unavailable" ? C.searchUnavailable ?? "Search is unavailable right now." : "Try a wider mood, color or material."}</Text></>}</View> : null}
       />
