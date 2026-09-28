@@ -39,6 +39,7 @@ export default function BrandCollections() {
 
   return <View style={styles.page}>
     <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 28 }]} showsVerticalScrollIndicator={false}>
+      <View style={styles.topBar}><Pressable onPress={() => router.back()} style={styles.back} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="arrow-back" size={21} color={colors.bone} /></Pressable></View>
       <View style={styles.intro}><Text style={styles.title}>Your brand items</Text><Text style={styles.copy}>Every item listed by {brand.name} lives here. Use the three dots to pause an item or remove it from the brand page.</Text></View>
       <View style={styles.summary}><View><Text style={styles.summaryValue}>{catalog.length}</Text><Text style={styles.summaryLabel}>TOTAL ITEMS</Text></View><View><Text style={styles.summaryValue}>{catalog.filter((piece) => piece.status === "listed").length}</Text><Text style={styles.summaryLabel}>LIVE NOW</Text></View><View><Text style={styles.summaryValue}>{catalog.filter((piece) => piece.status !== "listed").length}</Text><Text style={styles.summaryLabel}>PAUSED</Text></View></View>
       <View style={styles.sectionHead}><Text style={styles.sectionTitle}>All items</Text><Text style={styles.sectionHint}>{catalog.length ? "Tap the dots to manage" : "No items yet"}</Text></View>

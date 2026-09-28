@@ -240,8 +240,8 @@ const styles = StyleSheet.create({
   tabPressed: { opacity: 0.76 },
   iconSlot: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
   sellPlus: { width: TAB_ICON_SIZE, height: TAB_ICON_SIZE, alignItems: "center", justifyContent: "center" },
-  sellPlusBar: { position: "absolute", borderRadius: 2 },
-  sellPlusHorizontal: { width: TAB_ICON_SIZE, height: 3 },
-  sellPlusVertical: { width: 3, height: TAB_ICON_SIZE },
+  sellPlusBar: { position: "absolute", borderRadius: 1 },
+  sellPlusHorizontal: { width: TAB_ICON_SIZE, height: 2 },
+  sellPlusVertical: { width: 2, height: TAB_ICON_SIZE },
   label: { color: "#A9A398", fontSize: 11, fontWeight: "700" },
 });
