@@ -19,7 +19,7 @@ import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { followedBrandIds, getBrand, verifiedBrands, useBrands, brandCheck } from "../../lib/brands";
 import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
-import { dnaFrom, dnaIsSet, type Dna } from "../../lib/styleDna";
+import { dnaFrom } from "../../lib/styleDna";
 import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
 import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
@@ -38,57 +38,6 @@ const TODAY_SWIPE_HINT_KEY = "uvel-today-workspace-tutorial-v1";
 const TODAY_SWIPE_HINT_MS = 7000;
 const TODAY_LISTING_OPENS_KEY = "uvel-today-listing-opens-v1";
 const TODAY_DOUBLE_TAP_HINT_SHOWN_KEY = "uvel-today-double-tap-hint-shown-v1";
-const JOURNAL_HEADLINES: Record<string, string> = {
-  "Quiet luxury": "Considered in every detail.",
-  "Quiet": "Considered in every detail.",
-  Street: "Ease with an edge.",
-  "Vintage archive": "A story worth wearing.",
-  Vintage: "A story worth wearing.",
-  Utility: "Form follows feeling.",
-  Romantic: "Softness, with a point of view.",
-  "Western city": "Western, after six.",
-  Western: "Western, after six.",
-  "Tailored city": "Soft structure, found.",
-  Tailored: "Soft structure, found.",
-  "Bourgeois chic": "Polished, never precious.",
-  Minimal: "Less, with intention.",
-  Coastal: "Lightness, naturally.",
-  Work: "A sharper everyday.",
-  Evening: "A softer kind of statement.",
-  Y2K: "A little nostalgia, reimagined.",
-};
-const JOURNAL_DESCRIPTIONS: Record<string, string> = {
-  "Quiet luxury": "Considered in every detail.",
-  Quiet: "Considered in every detail.",
-  Street: "Ease with an edge.",
-  "Vintage archive": "A story worth wearing.",
-  Vintage: "A story worth wearing.",
-  Utility: "Form follows feeling.",
-  Romantic: "Softness, with a point of view.",
-  "Western city": "Western, after six.",
-  Western: "Western, after six.",
-  "Tailored city": "Classic pieces. A calmer you.\nSame great taste.",
-  Tailored: "Classic pieces. A calmer you.\nSame great taste.",
-  "Bourgeois chic": "Polished, never precious.",
-  Minimal: "Less, with intention.",
-  Coastal: "Lightness, naturally.",
-  Work: "A sharper everyday.",
-  Evening: "A softer kind of statement.",
-  Y2K: "A little nostalgia, reimagined.",
-};
-
-function journalHeadline(dna: Dna) {
-  return JOURNAL_HEADLINES[dna.archetype]
-    || dna.styles.map((style) => JOURNAL_HEADLINES[style]).find(Boolean)
-    || "A considered edit.";
-}
-
-function journalDescription(dna: Dna) {
-  return [dna.archetype, ...dna.styles]
-    .map((style) => JOURNAL_DESCRIPTIONS[style])
-    .find(Boolean)
-    || "Good pieces, chosen with intention.";
-}
 
 const swipeHintStyles = StyleSheet.create({
   swipeHint: { ...StyleSheet.absoluteFill, zIndex: 60 },
@@ -236,6 +185,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const frozenOrder = useRef<string[] | null>(null);
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
+  const featuredRef = useRef<View>(null);
   const [findHint, setFindHint] = useState(false);
   const [showSwipeHint, setShowSwipeHint] = useState(false);
   const [showDoubleTapHint, setShowDoubleTapHint] = useState(false);
@@ -459,13 +409,16 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     const byId = new Map(live.map((p) => [p.id, p]));
     return (frozenOrder.current || []).map((id) => byId.get(id)).filter((p): p is ClosetPiece => Boolean(p)).filter(passQ);
   }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey, dna, personalization.rank, feedEpoch]);
-  const stylePreview = todayHome && !scanningLook ? ranked.slice(0, 2) : [];
-  const feedRanked = todayHome && !scanningLook ? ranked.slice(2) : ranked;
-  const hasStyleDna = dnaIsSet(dna);
-  const styleName = (dna.archetype || dna.styles[0] || "").replace(/\s+city$/i, "");
-  const styleSummary = [styleName, dna.palette || dna.silhouette].filter(Boolean).join(" · ");
-  const styleHeadline = journalHeadline(dna);
-  const styleDescription = journalDescription(dna);
+  const featured = todayHome && !scanningLook ? ranked[0] : undefined;
+  const feedRanked = todayHome && !scanningLook ? ranked.slice(featured ? 1 : 0) : ranked;
+  const featuredBrand = featured && featured.brand && featured.brand !== "Unlabeled" ? featured.brand : featured?.category;
+  const featuredPrice = featured ? moneyExact(featured.marketPrices?.[market.code] ?? featured.listPriceCents, market.currency) : "";
+  const openFeatured = useCallback(() => {
+    if (!featured) return;
+    featuredRef.current?.measureInWindow((x, y, width, height) => {
+      void openTodayListing(featured, { x, y, width, height });
+    });
+  }, [featured, openTodayListing]);
   const heroHeight = Math.max(430, Math.min(560, Dimensions.get("window").height * 0.53));
   const searchBar = (
     <View style={styles.search}>
@@ -571,36 +524,38 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         onScrollBeginDrag={showSwipeHint ? dismissSwipeHint : undefined}
       >
       {orbitOn ? <View style={[styles.refreshOrbit, editorialHome && styles.refreshOrbitOverlay]}><OrbitLoader /></View> : null}
-      {editorialHome ? (
-        <View style={[styles.editorialHero, { height: heroHeight, marginTop: -insets.top, marginHorizontal: -16 }]}>
-          <Image
-            cachePolicy="memory-disk"
-            source={require("../../assets/editorial/today-style-hero.jpg")}
-            style={styles.editorialHeroImage}
-            contentFit="cover"
-            accessible={false}
-          />
-          <View style={styles.editorialHeroShade} />
-          <View style={[styles.editorialHeroContent, { paddingTop: insets.top + 8 }]}>
+      {editorialHome && featured ? (
+        <View
+          ref={featuredRef}
+          collapsable={false}
+          style={[styles.editorialHero, { height: heroHeight, width: Dimensions.get("window").width, marginTop: -insets.top, marginLeft: -16 }]}
+        >
+          {featured.photo ? (
+            <Image cachePolicy="memory-disk" source={{ uri: featured.photo }} style={styles.editorialHeroImage} contentFit="cover" accessible={false} />
+          ) : (
+            <View style={[styles.editorialHeroImage, { backgroundColor: colors.surface }]} />
+          )}
+          <View pointerEvents="none" style={styles.editorialHeroShade} />
+          <AccessiblePressable
+            onPress={openFeatured}
+            style={styles.editorialHeroImageAction}
+            accessibilityRole="button"
+            accessibilityLabel={`${featuredBrand}, ${featured.name}, ${featuredPrice}. Open listing`}
+            accessibilityHint="Open this listing."
+          >
+            <View style={StyleSheet.absoluteFill} />
+          </AccessiblePressable>
+          <View pointerEvents="box-none" style={[styles.editorialHeroContent, { paddingTop: insets.top + 8 }]}>
             {renderTodayHeader(true)}
-            <View style={styles.editorialHeroIntro}>
-              <Text style={styles.editorialHeroIntroTitle}>Your eye, lately</Text>
-              <AccessiblePressable
-                onPress={() => router.push("/style-dna")}
-                style={({ pressed }) => [styles.editorialHeroChip, pressed && { opacity: 0.78 }]}
-                accessibilityRole="button"
-                accessibilityLabel={hasStyleDna ? `Your style: ${styleSummary}` : "Set up your Style DNA"}
-                accessibilityHint="Tune the style profile behind this Today edit."
-              >
-                <Text style={styles.editorialHeroChipText} numberOfLines={1}>
-                  {styleSummary ? styleSummary.toUpperCase() : "SET YOUR STYLE DNA"}
-                </Text>
-              </AccessiblePressable>
-            </View>
-            <View style={styles.editorialHeroStory}>
-              <Text style={styles.editorialHeroKicker}>{C.styleDna.toUpperCase()}</Text>
-              <Text style={styles.editorialHeroTitle}>{styleHeadline}</Text>
-              <Text style={styles.editorialHeroBody}>{styleDescription}</Text>
+            <View pointerEvents="none" style={styles.editorialListingCopy}>
+              {firstFind.matches(featured) ? (
+                <View style={styles.editorialListingFirstFind}>
+                  <Text style={styles.editorialListingFirstFindText}>{C.firstFind}</Text>
+                </View>
+              ) : null}
+              <Text style={styles.editorialListingBrand} numberOfLines={1}>{featuredBrand}</Text>
+              <Text style={styles.editorialListingTitle} numberOfLines={2}>{featured.name}</Text>
+              <Text style={styles.editorialListingPrice}>{featuredPrice}</Text>
             </View>
           </View>
         </View>
@@ -639,37 +594,6 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         </AccessiblePressable>
       ) : null}
       {searchNearTop ? searchBar : null}
-      {editorialHome && stylePreview.length ? (
-        <View style={styles.journalShelf}>
-          <View style={styles.journalShelfHeader}>
-            <Text style={styles.journalShelfTitle}>{C.forYou}</Text>
-            <AccessiblePressable
-              onPress={() => router.push("/style-dna")}
-              style={({ pressed }) => [styles.journalEditAction, pressed && { opacity: 0.72 }]}
-              accessibilityRole="button"
-              accessibilityLabel={hasStyleDna ? `Tune ${C.styleDna}` : `Set up ${C.styleDna}`}
-              accessibilityHint="Choose the style details that shape your Today edit."
-            >
-              <Text style={styles.journalEditActionText}>Tune your edit</Text>
-              <Ionicons name="chevron-forward" size={15} color="#191814" />
-            </AccessiblePressable>
-          </View>
-          <View style={styles.grid}>
-            {stylePreview.map((piece) => (
-              <View key={piece.id} style={[styles.cell, openPiece?.id === piece.id && { opacity: 0 }]}>
-                <ListingCard
-                  piece={piece}
-                  framed
-                  firstFind={firstFind.matches(piece)}
-                  onFirstFind={() => setFindHint(true)}
-                  onOpen={openTodayListing}
-                  onInteraction={personalization.record}
-                />
-              </View>
-            ))}
-          </View>
-        </View>
-      ) : null}
 
       {videoUrl ? (
         <FrozenClip uri={videoUrl} time={freezeAt} style={styles.frame} />
@@ -803,7 +727,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           </View>
         ) : todayHome ? (
           <View style={styles.emptyQuiet}>
-            <Text style={[styles.emptyQuietTxt, editorialHome && styles.editorialEmptyText]}>{C.nothingNew}</Text>
+            <Text style={styles.emptyQuietTxt}>{C.nothingNew}</Text>
           </View>
         ) : (
           <View style={styles.emptyState}>
@@ -848,7 +772,7 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     content: { paddingHorizontal: 16, paddingBottom: 108 },
-    editorialPage: { backgroundColor: "#F4F0E6" },
+    editorialPage: { backgroundColor: colors.ink },
     refreshOrbit: { height: 58, alignItems: "center", justifyContent: "flex-start" },
     refreshOrbitOverlay: { position: "absolute", top: 12, left: 0, right: 0, zIndex: 30, height: 58 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
@@ -862,25 +786,18 @@ function make(colors: Colors) {
     findLine: { alignSelf: "center", minHeight: 32, paddingHorizontal: 8, marginBottom: 6, justifyContent: "center" },
     findLineTxt: { color: `${colors.bone}8C`, fontSize: 13, fontWeight: "600", textAlign: "center" },
     findLineAmt: { color: colors.success, fontWeight: "800" },
-    editorialHero: { position: "relative", width: "100%", overflow: "hidden", backgroundColor: "#30271F" },
+    editorialHero: { position: "relative", width: "100%", overflow: "hidden", backgroundColor: colors.surface },
     editorialHeroImage: { ...StyleSheet.absoluteFill, width: "100%", height: "100%" },
-    editorialHeroShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(15,12,10,0.18)" },
-    editorialHeroContent: { ...StyleSheet.absoluteFill, paddingHorizontal: 22, paddingBottom: 27, justifyContent: "space-between" },
-    editorialHeroIntro: { gap: 11 },
-    editorialHeroIntroTitle: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 36, lineHeight: 41, letterSpacing: -0.7, textShadowColor: "rgba(0,0,0,0.48)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 },
-    editorialHeroChip: { alignSelf: "flex-start", maxWidth: "96%", minHeight: 30, paddingHorizontal: 11, borderRadius: 16, borderWidth: 1, borderColor: "rgba(244,240,230,0.56)", backgroundColor: "rgba(20,16,13,0.28)", alignItems: "center", justifyContent: "center" },
-    editorialHeroChipText: { color: "#F4F0E6", fontSize: 10, fontWeight: "700", letterSpacing: 1.6 },
-    editorialHeroStory: { maxWidth: 350 },
-    editorialHeroKicker: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 2 },
-    editorialHeroTitle: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 39, lineHeight: 42, marginTop: 6, maxWidth: "93%", textShadowColor: "rgba(0,0,0,0.62)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 },
-    editorialHeroBody: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 16, lineHeight: 21, marginTop: 10, maxWidth: "92%", textShadowColor: "rgba(0,0,0,0.64)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
-    journalShelf: { marginTop: -18, marginHorizontal: -16, paddingHorizontal: 20, paddingTop: 22, paddingBottom: 20, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: "#F4F0E6", gap: 13 },
-    journalShelfHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-    journalShelfTitle: { color: "#191814", fontFamily: "Georgia", fontSize: 25, lineHeight: 30 },
-    journalEditAction: { minHeight: 42, paddingHorizontal: 4, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 },
-    journalEditActionText: { color: "#191814", fontSize: 12, fontWeight: "600" },
-    editorialFeedTitle: { color: "#191814", fontFamily: "Georgia", fontSize: 26, lineHeight: 31, marginTop: 22, marginBottom: 2 },
-    editorialEmptyText: { color: "#736D63" },
+    editorialHeroShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.34)", zIndex: 1 },
+    editorialHeroImageAction: { ...StyleSheet.absoluteFill, backgroundColor: "transparent", zIndex: 2 },
+    editorialHeroContent: { ...StyleSheet.absoluteFill, paddingHorizontal: 22, paddingBottom: 27, justifyContent: "space-between", zIndex: 3 },
+    editorialListingCopy: { maxWidth: 350, gap: 6 },
+    editorialListingFirstFind: { alignSelf: "flex-start", minHeight: 30, paddingHorizontal: 12, marginBottom: 4, borderRadius: 15, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    editorialListingFirstFindText: { color: colors.successInk, fontSize: 11, fontWeight: "800" },
+    editorialListingBrand: { color: colors.success, fontSize: 10, fontWeight: "900", letterSpacing: 1.7, textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+    editorialListingTitle: { color: "#FFFFFF", fontFamily: "Georgia", fontSize: 38, lineHeight: 42, maxWidth: "94%", textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 5 },
+    editorialListingPrice: { color: "#FFFFFF", fontSize: 16, fontWeight: "800", marginTop: 3, textShadowColor: "rgba(0,0,0,0.72)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
+    editorialFeedTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 26, lineHeight: 31, marginTop: 22, marginBottom: 2 },
     findToast: {
       position: "absolute",
       left: 16,
