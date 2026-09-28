@@ -739,7 +739,16 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             >
               <Ionicons name="chevron-back" size={25} color={colors.bone} />
             </AccessiblePressable>
-          ) : <View style={styles.backPlaceholder} />}
+          ) : (
+            <AccessiblePressable
+              onPress={leaveSell}
+              style={({ pressed }) => [styles.topButton, pressed && { opacity: 0.78 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Back to Today"
+            >
+              <Ionicons name="chevron-back" size={25} color={colors.bone} />
+            </AccessiblePressable>
+          )}
           <Text style={styles.topTitle}>{C.newListing}</Text>
           {draftParam === "1" ? (
             <AccessiblePressable
