@@ -143,7 +143,6 @@ function DraftShelf({ brand, colors, styles }: SharedProps & { brand?: Brand }) 
           <Text style={styles.draftTitle}>{brand ? "Your brand listing drafts" : "Your next direction"}</Text>
           <Text style={styles.draftMeta}>{brand ? "Resume a saved listing" : "Resume in Founder Studio"}</Text>
         </View>
-        <Ionicons name="arrow-forward" size={20} color={colors.bone} />
       </Pressable>
     </Shelf>
   );
