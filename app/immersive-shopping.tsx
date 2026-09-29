@@ -128,10 +128,10 @@ export default function ImmersiveShopping() {
     >
       <View style={styles.page} {...panResponder.panHandlers}>
         {activePiece ? <>
-          {previousPiece ? <Animated.View style={[styles.cardLayer, previousCardStyle]}>
+          {previousPiece ? <Animated.View pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle]}>
             <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
-          <Animated.View style={[styles.cardLayer, currentCardStyle]}>
+          <Animated.View style={[styles.cardLayer, { height: contentHeight }, currentCardStyle]}>
           <ImmersiveItem
           piece={activePiece}
           active
@@ -145,7 +145,7 @@ export default function ImmersiveShopping() {
           firstFindLabel={C.firstFind}
           />
           </Animated.View>
-          {nextPiece ? <Animated.View style={[styles.cardLayer, nextCardStyle]}>
+          {nextPiece ? <Animated.View pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
             <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
         </> : <View style={[styles.empty, { height: contentHeight, paddingTop: insets.top + 24 }]}>
@@ -349,7 +349,7 @@ function Action({ icon, label, active, onPress, styles, colors }: { icon: keyof 
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink, overflow: "hidden" },
-    cardLayer: { position: "absolute", top: 0, left: 0, right: 0 },
+    cardLayer: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" },
     item: { width: SCREEN_WIDTH, backgroundColor: colors.ink, overflow: "hidden" },
     itemImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     itemShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.20)" },
