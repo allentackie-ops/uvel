@@ -254,7 +254,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         <Image source={{ uri: piece.photo }} style={styles.itemImage} contentFit="cover" accessible={false} />
         <View pointerEvents="none" style={styles.itemShade} />
       </AccessiblePressable>
-      <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 48 }]}>
+      <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: 24 }]}>
         <View style={styles.copySpacer} />
         <View>
           <AccessiblePressable onPress={() => router.back()} style={styles.copyBackButton} accessibilityRole="button" accessibilityLabel="Back to Today">
@@ -269,7 +269,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           ) : <Text style={styles.price}>{localPrice}</Text>}
         </View>
       </View>
-      <View style={[styles.actions, { bottom: insets.bottom + 148 }]} onLayout={(event) => {
+      <View style={[styles.actions, { bottom: 118 }]} onLayout={(event) => {
         const { x, y, width, height } = event.nativeEvent.layout;
         saveTargetX.value = x + width / 2;
         saveTargetY.value = y + height - 99;
