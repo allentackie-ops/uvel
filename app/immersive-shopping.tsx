@@ -256,8 +256,10 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const catalogBrandId = !brandRecord && piece.brand ? CATALOG_BRAND_IDS[piece.brand] : undefined;
   const followId = brandRecord?.id || piece.ownerId || piece.listedByUid || catalogBrandId || "";
   const isBrand = Boolean(brandRecord);
+  const followTargetKey = `${isBrand ? "brand" : "seller"}:${followId}`;
   const [following, setFollowing] = useState(() => isBrand ? isFollowing(followId, app.uid) : isSellerFollowed(followId));
   const [showFollowingStatus, setShowFollowingStatus] = useState(false);
+  const interactedFollowTarget = useRef<string | null>(null);
   const followingStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const followingFeedbackOpacity = useSharedValue(1);
   const followingFeedbackScale = useSharedValue(1);
@@ -267,8 +269,11 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
     transform: [{ translateY: followingFeedbackY.value }, { scale: followingFeedbackScale.value }],
   }));
   useEffect(() => {
+    // A quick first tap can beat this mount/auth sync; don't let its stale
+    // snapshot undo the optimistic Follow state for the same listing.
+    if (interactedFollowTarget.current === followTargetKey) return;
     setFollowing(isBrand ? isFollowing(followId, app.uid) : isSellerFollowed(followId));
-  }, [app.uid, followId, isBrand]);
+  }, [app.uid, followId, followTargetKey, isBrand]);
   useEffect(() => () => {
     if (followingStatusTimer.current) clearTimeout(followingStatusTimer.current);
     cancelAnimation(followingFeedbackOpacity);
@@ -321,6 +326,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   }
   function follow() {
     if (!followId) return;
+    interactedFollowTarget.current = followTargetKey;
     const next = isBrand ? toggleFollow(followId, app.uid || "me") : toggleSellerFollow(followId);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     cancelAnimation(followingFeedbackOpacity);
