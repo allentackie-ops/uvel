@@ -40,6 +40,7 @@ const TODAY_SWIPE_HINT_KEY = "uvel-today-workspace-tutorial-v1";
 const TODAY_SWIPE_HINT_MS = 7000;
 const TODAY_LISTING_OPENS_KEY = "uvel-today-listing-opens-v1";
 const TODAY_DOUBLE_TAP_HINT_SHOWN_KEY = "uvel-today-double-tap-hint-shown-v1";
+const INITIAL_TODAY_FEED_ROUNDS = 4;
 
 type TodayFeedCard = { key: string; piece: ClosetPiece };
 
@@ -217,7 +218,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const scrollY = useRef(new Animated.Value(0)).current;
   const [feedEpoch, setFeedEpoch] = useState(0);
   const frozenOrder = useRef<string[] | null>(null);
-  const [todayFeedRoundState, setTodayFeedRoundState] = useState<{ key: string; rounds: number }>({ key: "", rounds: 1 });
+  const [todayFeedRoundState, setTodayFeedRoundState] = useState<{ key: string; rounds: number }>({ key: "", rounds: INITIAL_TODAY_FEED_ROUNDS });
   const [todayShuffleSeed] = useState(() => Math.floor(Math.random() * 0x7fffffff));
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
@@ -457,7 +458,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const feedRanked = useMemo(() => todayHome && !scanningLook ? ranked.slice(featured ? 1 : 0) : ranked, [featured, ranked, scanningLook, todayHome]);
   const firstTodayGridRound = feedRanked.length ? feedRanked : ranked;
   const todayFeedKey = `${feedEpoch}:${ranked.map((piece) => piece.id).join("|")}`;
-  const todayFeedRoundCount = todayFeedRoundState.key === todayFeedKey ? todayFeedRoundState.rounds : 1;
+  const todayFeedRoundCount = todayFeedRoundState.key === todayFeedKey ? todayFeedRoundState.rounds : INITIAL_TODAY_FEED_ROUNDS;
   const todayFeedItems = useMemo(() => {
     if (!todayHome || scanningLook) return [];
     const items: TodayFeedCard[] = [];
@@ -471,11 +472,20 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     }
     return items;
   }, [feedEpoch, firstTodayGridRound, ranked, scanningLook, todayFeedRoundCount, todayHome, todayShuffleSeed]);
+  const todayPrefetchUris = useMemo(() => {
+    const candidates = [...todayFeedItems.slice(0, 24), ...todayFeedItems.slice(-24)];
+    return [...new Set(candidates
+      .map(({ piece }) => piece.photo)
+      .filter((uri): uri is string => /^https?:\/\//i.test(uri)))];
+  }, [todayFeedItems]);
+  useEffect(() => {
+    if (todayPrefetchUris.length) void Image.prefetch(todayPrefetchUris, "memory-disk").catch(() => undefined);
+  }, [todayPrefetchUris]);
   const loadMoreTodayFeed = useCallback(() => {
     if (!todayHome || scanningLook || !ranked.length) return;
     setTodayFeedRoundState((state) => ({
       key: todayFeedKey,
-      rounds: (state.key === todayFeedKey ? state.rounds : 1) + 1,
+      rounds: (state.key === todayFeedKey ? state.rounds : INITIAL_TODAY_FEED_ROUNDS) + 1,
     }));
   }, [ranked.length, scanningLook, todayFeedKey, todayHome]);
   const featuredBrand = featured && featured.brand && featured.brand !== "Unlabeled" ? featured.brand : featured?.category;
@@ -820,10 +830,11 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           onTouchStart={showSwipeHint ? dismissSwipeHint : undefined}
           onScrollBeginDrag={showSwipeHint ? dismissSwipeHint : undefined}
           onEndReached={loadMoreTodayFeed}
-          onEndReachedThreshold={0.5}
-          initialNumToRender={8}
-          maxToRenderPerBatch={8}
-          windowSize={7}
+          onEndReachedThreshold={2}
+          initialNumToRender={16}
+          maxToRenderPerBatch={12}
+          updateCellsBatchingPeriod={40}
+          windowSize={11}
           extraData={openPiece?.id}
         />
       ) : (
@@ -1024,7 +1035,7 @@ function make(colors: Colors) {
     chipTxtOn: { color: colors.successInk },
     count: { color: `${colors.bone}66`, fontSize: 13, marginBottom: 12 },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-    gridRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
+    gridRow: { flexDirection: "row", gap: 10, alignItems: "flex-start", marginBottom: 12 },
     cell: { width: "48%", flexGrow: 1, maxWidth: "48.5%" },
   });
 }
