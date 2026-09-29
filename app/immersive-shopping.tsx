@@ -127,14 +127,14 @@ export default function ImmersiveShopping() {
           <Text style={styles.findToastK}>{C.firstFind}</Text>
           <Text style={styles.findToastTxt}>{C.matchingPiece} · {moneyExact(firstFind.remaining, firstFind.currency)}</Text>
         </View> : null}
-        <ImmersiveTaskbar colors={colors} C={C} insets={insets} />
+        <ImmersiveTaskbar colors={colors} C={C} insets={insets} styles={styles} />
         <TodayCartFab listingOpen />
       </View>
     </Drawer>
   );
 }
 
-function ImmersiveTaskbar({ colors, C, insets }: { colors: Colors; C: ReturnType<typeof useCopy>; insets: { bottom: number } }) {
+function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: ReturnType<typeof useCopy>; insets: { bottom: number }; styles: ReturnType<typeof make> }) {
   const tabs = [
     { route: "/" as const, icon: "compass" as const, inactive: "compass-outline" as const, label: C.today },
     { route: "/create" as const, icon: "pricetag" as const, inactive: "pricetag-outline" as const, label: C.create || "Create" },
