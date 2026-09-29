@@ -324,7 +324,7 @@ function Action({ icon, label, active, onPress, styles, colors }: { icon: keyof 
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    item: { width: SCREEN_WIDTH, backgroundColor: colors.ink },
+    item: { width: SCREEN_WIDTH, backgroundColor: colors.ink, overflow: "hidden" },
     itemImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     itemShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.20)" },
     topControls: { position: "absolute", top: 0, left: 0, right: 0, paddingLeft: 14, zIndex: 12 },
