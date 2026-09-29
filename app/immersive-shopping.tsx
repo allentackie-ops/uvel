@@ -255,7 +255,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         <Image source={{ uri: piece.photo }} style={styles.itemImage} contentFit="cover" accessible={false} />
         <View pointerEvents="none" style={styles.itemShade} />
       </AccessiblePressable>
-      <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: 24 }]}>
+      {active ? <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: 24 }]}>
         <View style={styles.copySpacer} />
         <View>
           <AccessiblePressable onPress={() => router.back()} style={styles.copyBackButton} accessibilityRole="button" accessibilityLabel="Back to Today">
@@ -269,8 +269,8 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
             <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{moneyInMarket(sale, market.currency, market)}</Text></View>
           ) : <Text style={styles.price}>{localPrice}</Text>}
         </View>
-      </View>
-      <View style={[styles.actions, { bottom: 118 }]} onLayout={(event) => {
+      </View> : null}
+      {active ? <View style={[styles.actions, { bottom: 118 }]} onLayout={(event) => {
         const { x, y, width, height } = event.nativeEvent.layout;
         saveTargetX.value = x + width / 2;
         saveTargetY.value = y + height - 99;
@@ -305,8 +305,8 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         />
         <Action icon={liked ? "heart" : "heart-outline"} label="Save" active={liked} onPress={() => { if (!liked) app.likePiece(piece.id); else void app.toggleSaved(piece.id); }} styles={styles} colors={colors} />
         <Action icon="share-outline" label="Share" onPress={() => setShareOpen(true)} styles={styles} colors={colors} />
-      </View>
-      <Animated.Text pointerEvents="none" style={[styles.heartPop, heartStyle]}>♥</Animated.Text>
+      </View> : null}
+      {active ? <Animated.Text pointerEvents="none" style={[styles.heartPop, heartStyle]}>♥</Animated.Text> : null}
       <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
     </View>
   );
