@@ -59,6 +59,13 @@ export function feedPage<T extends { id: string; stockQuantity?: number }>(items
 /** Resolve an endless-feed index without materializing the entire feed. */
 export function feedItemAt<T extends { id: string; stockQuantity?: number }>(items: T[], index: number, seed: number) {
   if (index < 0 || !items.length) return undefined;
-  const page = feedPage(items, Math.floor(index / FEED_PAGE_SIZE), seed);
-  return page[index % FEED_PAGE_SIZE];
+  // Wrap by the real catalog length before resolving the bounded page. This
+  // keeps 1-, 10-, and 50+ listing catalogs truly endless without reading
+  // past the end of a short final page.
+  const pass = Math.floor(index / items.length);
+  const logicalIndex = index % items.length;
+  const pageCount = Math.ceil(items.length / FEED_PAGE_SIZE);
+  const pageOrdinal = pass * pageCount + Math.floor(logicalIndex / FEED_PAGE_SIZE);
+  const page = feedPage(items, pageOrdinal, seed);
+  return page[logicalIndex % FEED_PAGE_SIZE];
 }
