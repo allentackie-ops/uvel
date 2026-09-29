@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GlassView } from "expo-glass-effect";
 import { Animated as RNAnimated, Modal, PanResponder, Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ImageStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -38,6 +38,7 @@ export function ImmersiveListingDetails({
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const dragY = useRef(new RNAnimated.Value(0)).current;
+  const [contentHeight, setContentHeight] = useState(0);
   const originCode = piece.country || buyerCountry;
   const origin = getMarket(originCode);
   const rawAvailability = shipsToLine(originCode, piece.shipsTo);
@@ -54,20 +55,31 @@ export function ImmersiveListingDetails({
     { label: "Material", value: piece.material },
   ].filter((fact): fact is { label: string; value: string } => Boolean(fact.value?.trim()));
   const measurements = Object.entries(piece.measurements || {}).filter(([, value]) => Boolean(value));
-  const sheetHeight = Math.min(windowHeight - insets.top - 10, Math.max(windowHeight * 0.76, 390));
+  const bottomPadding = Math.max(insets.bottom + 10, 16);
+  const sheetChrome = 36 + 8 + bottomPadding;
+  const maxSheetHeight = windowHeight - insets.top - 10;
+  const maxScrollHeight = Math.max(150, maxSheetHeight - sheetChrome);
+  const fallbackScrollHeight = Math.min(maxScrollHeight, windowHeight * 0.4);
+  const scrollHeight = Math.min(maxScrollHeight, contentHeight || fallbackScrollHeight);
+  const sheetHeight = scrollHeight + sheetChrome;
 
   useEffect(() => {
     if (visible) dragY.setValue(0);
   }, [visible, dragY]);
 
+  useEffect(() => {
+    setContentHeight(0);
+  }, [piece.id]);
+
   const dismissPan = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_event, gesture) => gesture.dy > 7 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+    onMoveShouldSetPanResponderCapture: (_event, gesture) => gesture.dy > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+    onMoveShouldSetPanResponder: (_event, gesture) => gesture.dy > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
     onPanResponderGrant: () => dragY.stopAnimation(),
     onPanResponderMove: (_event, gesture) => dragY.setValue(Math.max(0, gesture.dy)),
     onPanResponderRelease: (_event, gesture) => {
-      if (gesture.dy > 96 || gesture.vy > 0.75) {
-        RNAnimated.timing(dragY, { toValue: sheetHeight, duration: 180, useNativeDriver: true }).start(({ finished }) => {
+      if (gesture.dy > 72 || gesture.vy > 0.62) {
+        RNAnimated.timing(dragY, { toValue: sheetHeight, duration: 170, useNativeDriver: true }).start(({ finished }) => {
           if (finished) onClose();
         });
       } else {
@@ -93,9 +105,10 @@ export function ImmersiveListingDetails({
           <View style={styles.backdrop} />
         </AccessiblePressable>
         <RNAnimated.View
+          {...dismissPan.panHandlers}
           style={[
             styles.sheet,
-            { height: sheetHeight, paddingBottom: Math.max(insets.bottom + 14, 20) },
+            { height: sheetHeight, paddingBottom: bottomPadding },
             { transform: [{ translateY: dragY }] },
           ]}
           accessibilityViewIsModal
@@ -105,20 +118,14 @@ export function ImmersiveListingDetails({
             <View style={styles.warmTint} />
           </View>
           <View style={styles.sheetContent}>
-            <View
-              {...dismissPan.panHandlers}
-              style={styles.dragCue}
-              accessible
-              accessibilityLabel="Swipe down to close listing details"
-              accessibilityHint="Swipe down from the handle to dismiss this panel."
-            >
-              <View style={styles.grip} />
-              <Text style={styles.swipeHint}>Swipe down to close</Text>
-            </View>
+            <View style={styles.dragCue} accessible accessibilityLabel="Swipe down to dismiss listing details" />
             <ScrollView
-              style={styles.scroll}
+              style={[styles.scroll, { height: scrollHeight, maxHeight: maxScrollHeight }]}
               contentContainerStyle={styles.content}
               showsVerticalScrollIndicator={false}
+              onContentSizeChange={(_width, height) => {
+                setContentHeight((current) => Math.abs(current - height) > 1 ? height : current);
+              }}
             >
               <Text style={styles.brand}>{brandLabel.toUpperCase()}</Text>
               <Text style={styles.title}>{piece.name}</Text>
@@ -128,14 +135,15 @@ export function ImmersiveListingDetails({
               </View>
 
               {facts.length ? (
-                <View style={styles.factGrid}>
-                  {facts.map((fact) => (
-                    <View key={fact.label} style={styles.factChip}>
-                      <Text style={styles.factLabel}>{fact.label}</Text>
-                      <Text style={styles.factValue} numberOfLines={2}>{fact.value}</Text>
-                    </View>
+                <Text style={styles.factSummary}>
+                  {facts.map((fact, index) => (
+                    <Text key={fact.label}>
+                      <Text style={styles.factLabel}>{fact.label}: </Text>
+                      <Text style={styles.factValue}>{fact.value}</Text>
+                      {index < facts.length - 1 ? <Text style={styles.factSeparator}>  ·  </Text> : null}
+                    </Text>
                   ))}
-                </View>
+                </Text>
               ) : null}
 
               {piece.notes?.trim() ? (
@@ -161,7 +169,7 @@ export function ImmersiveListingDetails({
                   </View>
                 </View>
                 <View style={styles.availabilityRow}>
-                  <Ionicons name="navigate-outline" size={18} color={colors.success} />
+                  <Ionicons name="navigate-outline" size={17} color={colors.success} />
                   <Text style={styles.availabilityText}>{availability}</Text>
                 </View>
               </View>
@@ -190,52 +198,51 @@ export function ImmersiveListingDetails({
 function make(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     modalRoot: { flex: 1, justifyContent: "flex-end" },
-    backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.34)" },
+    backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.16)" },
     sheet: {
       width: "100%",
       backgroundColor: "transparent",
       borderTopLeftRadius: 27,
       borderTopRightRadius: 27,
-      borderWidth: 1,
+      borderWidth: StyleSheet.hairlineWidth,
       borderBottomWidth: 0,
-      borderColor: "rgba(218,184,143,0.38)",
+      borderColor: "rgba(244,240,230,0.14)",
       paddingTop: 8,
       paddingHorizontal: 20,
       overflow: "hidden",
     },
     glassLayer: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderTopLeftRadius: 27, borderTopRightRadius: 27 },
     glassSurface: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderTopLeftRadius: 27, borderTopRightRadius: 27 },
-    glassFallback: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderTopLeftRadius: 27, borderTopRightRadius: 27, backgroundColor: "rgba(43,30,21,0.48)" },
-    warmTint: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(53,37,25,0.76)" },
+    glassFallback: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderTopLeftRadius: 27, borderTopRightRadius: 27, backgroundColor: "rgba(25,23,21,0.36)" },
+    warmTint: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(39,33,27,0.34)" },
     sheetContent: { flex: 1, minHeight: 0 },
-    dragCue: { minHeight: 45, alignItems: "center", justifyContent: "flex-start", paddingTop: 1 },
-    grip: { width: 38, height: 4, borderRadius: 2, backgroundColor: "rgba(244,240,230,0.74)" },
-    swipeHint: { color: "rgba(244,240,230,0.62)", fontSize: 11, fontWeight: "600", marginTop: 6, letterSpacing: 0.15 },
-    scroll: { flex: 1 },
-    content: { paddingTop: 11, paddingBottom: 16 },
-    brand: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.7, marginBottom: 6 },
-    title: { color: colors.bone, fontSize: 25, lineHeight: 31, fontWeight: "800" },
-    priceRow: { flexDirection: "row", alignItems: "baseline", gap: 9, marginTop: 5, marginBottom: 15 },
+    dragCue: { height: 28, alignItems: "center", justifyContent: "flex-start", paddingTop: 1 },
+    grip: { width: 36, height: 4, borderRadius: 2, backgroundColor: "rgba(244,240,230,0.72)" },
+    scroll: { flexGrow: 0, flexShrink: 1 },
+    content: { paddingTop: 10, paddingBottom: 14 },
+    brand: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.7, marginBottom: 5 },
+    title: { color: colors.bone, fontSize: 24, lineHeight: 29, fontWeight: "800" },
+    priceRow: { flexDirection: "row", alignItems: "baseline", gap: 9, marginTop: 4, marginBottom: 10 },
     price: { color: colors.success, fontSize: 19, fontWeight: "800", fontVariant: ["tabular-nums"] },
     originalPrice: { color: "rgba(244,240,230,0.63)", fontSize: 14, fontWeight: "600", textDecorationLine: "line-through" },
-    factGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-    factChip: { minHeight: 52, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(226,194,154,0.20)", backgroundColor: "rgba(33,29,25,0.54)", paddingHorizontal: 11, paddingVertical: 8, justifyContent: "center" },
-    factLabel: { color: "rgba(244,240,230,0.58)", fontSize: 9, fontWeight: "800", letterSpacing: 0.8, textTransform: "uppercase" },
-    factValue: { color: colors.bone, fontSize: 13, lineHeight: 17, fontWeight: "600", marginTop: 2 },
-    section: { marginTop: 18 },
-    sectionTitle: { color: colors.bone, fontSize: 15, fontWeight: "800", marginBottom: 8 },
-    description: { color: "rgba(244,240,230,0.82)", fontSize: 14, lineHeight: 21 },
-    sellerRow: { flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 2 },
-    avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: "rgba(30,25,20,0.65)" },
+    factSummary: { color: colors.bone, fontSize: 12, lineHeight: 19 },
+    factLabel: { color: "rgba(244,240,230,0.62)", fontWeight: "600" },
+    factValue: { color: colors.bone, fontWeight: "700" },
+    factSeparator: { color: "rgba(244,240,230,0.38)" },
+    section: { marginTop: 15 },
+    sectionTitle: { color: colors.bone, fontSize: 14, fontWeight: "800", marginBottom: 7 },
+    description: { color: "rgba(244,240,230,0.84)", fontSize: 13, lineHeight: 19 },
+    sellerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+    avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(30,25,20,0.55)" },
     avatarFallback: { alignItems: "center", justifyContent: "center", backgroundColor: colors.success },
-    avatarInitial: { color: colors.ink, fontSize: 17, fontWeight: "900" },
+    avatarInitial: { color: colors.ink, fontSize: 16, fontWeight: "900" },
     sellerInfo: { flex: 1 },
-    sellerName: { color: colors.bone, fontSize: 14, fontWeight: "700" },
-    sellerMeta: { color: "rgba(244,240,230,0.67)", fontSize: 12, marginTop: 3 },
-    availabilityRow: { flexDirection: "row", alignItems: "center", gap: 10, minHeight: 48, borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(226,194,154,0.16)", backgroundColor: "rgba(33,29,25,0.42)", paddingHorizontal: 13, marginTop: 10 },
-    availabilityText: { color: colors.bone, fontSize: 13, fontWeight: "600", flex: 1 },
-    measurements: { backgroundColor: "rgba(33,29,25,0.38)", borderRadius: 13, paddingHorizontal: 13 },
-    measurementRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 39, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(244,240,230,0.12)" },
+    sellerName: { color: colors.bone, fontSize: 13, fontWeight: "700" },
+    sellerMeta: { color: "rgba(244,240,230,0.69)", fontSize: 12, marginTop: 2 },
+    availabilityRow: { flexDirection: "row", alignItems: "center", gap: 9, minHeight: 30, paddingTop: 8 },
+    availabilityText: { color: "rgba(244,240,230,0.88)", fontSize: 12, fontWeight: "600", flex: 1 },
+    measurements: { paddingHorizontal: 1 },
+    measurementRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 34, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(244,240,230,0.10)" },
     measurementLabel: { color: "rgba(244,240,230,0.63)", fontSize: 12, textTransform: "capitalize" },
     measurementValue: { color: colors.bone, fontSize: 13, fontWeight: "600" },
   });
