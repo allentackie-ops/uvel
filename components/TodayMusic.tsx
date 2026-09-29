@@ -15,7 +15,7 @@ type MusicState = {
   selectTrack: (id: string) => void;
 };
 
-export function TodayMusicButton({ music, compact = false }: { music: MusicState; compact?: boolean }) {
+export function TodayMusicButton({ music, compact = false, onPress }: { music: MusicState; compact?: boolean; onPress?: () => void }) {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const [open, setOpen] = useState(false);
@@ -42,7 +42,7 @@ export function TodayMusicButton({ music, compact = false }: { music: MusicState
   return (
     <>
       <Pressable
-        onPress={() => setOpen(true)}
+        onPress={() => (onPress ? onPress() : setOpen(true))}
         style={({ pressed }) => [compact ? styles.compactButton : styles.button, pressed && { opacity: 0.78 }]}
         accessibilityRole="button"
         accessibilityLabel={`${music.enabled ? "Soundtrack on" : "Turn on soundtrack"}: ${music.track.title}`}
