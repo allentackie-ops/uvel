@@ -4,8 +4,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "../lib/haptics";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, Keyboard, KeyboardAvoidingView, Linking, Modal, PanResponder, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Alert, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createFriendChat, listFriends, sendFriendMessage, uploadFriendAttachment } from "../lib/friendChat";
 import { searchUsers, sendFriendRequest, type PublicUser } from "../lib/friends";
@@ -33,36 +35,53 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
   const [requested, setRequested] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState("");
-  const translateY = useRef(new Animated.Value(0)).current;
-  const backdropOpacity = translateY.interpolate({ inputRange: [0, 360], outputRange: [1, 0], extrapolate: "clamp" });
+  const translateY = useSharedValue(0);
+  const scrollY = useSharedValue(0);
+  const panStartScrollY = useSharedValue(0);
+  const panStartedOnHandle = useSharedValue(false);
+  const contentScrollGesture = useMemo(() => Gesture.Native(), []);
+  const scrollHandler = useAnimatedScrollHandler({ onScroll: (event) => { scrollY.value = event.contentOffset.y; } });
+  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: interpolate(translateY.value, [0, 360], [1, 0], Extrapolation.CLAMP) }));
 
   useEffect(() => {
     if (!visible) return;
-    translateY.setValue(620);
+    translateY.value = 620;
     setFinderVisible(false);
     setQuery("");
     setResults([]);
     setCopied(false);
     setToast("");
     void listFriends().then(setFriends).catch(() => setFriends([]));
-    Animated.spring(translateY, { toValue: 0, useNativeDriver: true, damping: 24, stiffness: 220, mass: 0.85 }).start();
+    translateY.value = withSpring(0, { damping: 24, stiffness: 220, mass: 0.85 });
   }, [visible, translateY]);
 
   function dismiss() {
-    Animated.timing(translateY, { toValue: 620, duration: 220, useNativeDriver: true }).start(() => onClose());
+    translateY.value = withTiming(620, { duration: 220 }, (finished) => {
+      if (finished) runOnJS(onClose)();
+    });
   }
 
-  const pan = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 4 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-    onPanResponderMove: (_, gesture) => { if (gesture.dy > 0) translateY.setValue(gesture.dy); },
-    onPanResponderRelease: (_, gesture) => {
-      if (gesture.dy > 120 || gesture.vy > 1.2) {
-        dismiss();
+  const pan = useMemo(() => Gesture.Pan()
+    .activeOffsetY(6)
+    .failOffsetX([-18, 18])
+    .simultaneousWithExternalGesture(contentScrollGesture)
+    .onBegin((event) => {
+      panStartScrollY.value = scrollY.value;
+      panStartedOnHandle.value = event.y <= 42;
+    })
+    .onUpdate((event) => {
+      if (panStartScrollY.value <= 1 || panStartedOnHandle.value) translateY.value = Math.max(0, event.translationY);
+    })
+    .onEnd((event) => {
+      if ((panStartScrollY.value <= 1 || panStartedOnHandle.value) && (event.translationY > 72 || event.velocityY > 700)) {
+        translateY.value = withTiming(620, { duration: 220 }, (finished) => {
+          if (finished) runOnJS(onClose)();
+        });
       } else {
-        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+        translateY.value = withSpring(0, { damping: 24, stiffness: 220, mass: 0.85 });
       }
-    },
-  }), [onClose, translateY]);
+    }), [contentScrollGesture, onClose, panStartScrollY, panStartedOnHandle, scrollY, translateY]);
 
   async function shareTo(friend: PublicUser) {
     if (!payload) return;
@@ -128,22 +147,26 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
 
   if (!payload) return null;
   return <Modal visible={visible} transparent animationType="none" onRequestClose={dismiss}>
+    <GestureHandlerRootView style={styles.gestureRoot}>
     <KeyboardAvoidingView style={styles.keyboardRoot} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
-    <Animated.View style={[styles.scrim, { opacity: backdropOpacity }] }>
+    <Animated.View style={[styles.scrim, backdropStyle]}>
       <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} accessibilityLabel="Close share sheet" />
-      <Animated.View style={[styles.sheet, { backgroundColor: colors.surface, transform: [{ translateY }] }]}>
-        <View {...pan.panHandlers} style={styles.dragArea} accessibilityRole="adjustable" accessibilityLabel="Drag down to close">
+      <GestureDetector gesture={pan}>
+      <Animated.View style={[styles.sheet, { backgroundColor: colors.surface }, sheetStyle]}>
+        <View style={styles.dragArea} accessibilityRole="adjustable" accessibilityLabel="Drag down to close">
           <View style={[styles.handle, { backgroundColor: colors.subtle }]} />
         </View>
-        <ScrollView
+        <GestureDetector gesture={contentScrollGesture}>
+        <Animated.ScrollView
           keyboardShouldPersistTaps="always"
           keyboardDismissMode="none"
           bounces={false}
           showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={scrollHandler}
         >
         <View style={styles.head}>
           <Text style={[styles.title, { color: colors.bone }]}>Share with friends</Text>
-          <Pressable onPress={dismiss} accessibilityRole="button" accessibilityLabel="Close share sheet" hitSlop={12}><Ionicons name="close" size={26} color={colors.muted} /></Pressable>
         </View>
         <Text style={[styles.preview, { color: colors.muted }]} numberOfLines={2}>{payload.title}</Text>
         <TextInput value={message} onChangeText={setMessage} placeholder="Add a message (optional)" placeholderTextColor={colors.subtle} style={[styles.input, { backgroundColor: colors.ink, color: colors.bone }]} maxLength={300} />
@@ -162,8 +185,10 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
           <ExternalAction icon="mail-outline" label="Email" onPress={() => void openExternal("email")} colors={colors} />
           <ExternalAction icon="ellipsis-horizontal" label="More" onPress={() => void openExternal("more")} colors={colors} />
         </ScrollView>
-        </ScrollView>
+        </Animated.ScrollView>
+        </GestureDetector>
       </Animated.View>
+      </GestureDetector>
     </Animated.View>
     </KeyboardAvoidingView>
     {toast ? (
@@ -183,6 +208,7 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
         <ScrollView style={styles.results} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.resultsContent}>{searching ? <Text style={[styles.empty, { color: colors.muted }]}>Searching…</Text> : results.length ? results.map((user) => <View key={user.uid} style={styles.resultRow}>{user.avatarUri ? <Image cachePolicy="memory-disk" source={{ uri: user.avatarUri }} style={styles.resultAvatar} /> : <View style={[styles.resultAvatar, styles.fallback]}><Text style={{ color: colors.successInk, fontWeight: "800" }}>{(user.displayName || user.username || "U").slice(0, 1).toUpperCase()}</Text></View>}<View style={styles.resultCopy}><Text style={[styles.findTitle, { color: colors.bone }]}>{user.displayName || user.username}</Text><Text style={[styles.findSubtitle, { color: colors.muted }]}>@{user.username}</Text></View><Pressable onPress={() => void requestFriend(user)} disabled={requested[user.uid]} style={[styles.addButton, { backgroundColor: requested[user.uid] ? `${colors.bone}18` : colors.success }]}><Text style={{ color: requested[user.uid] ? colors.muted : colors.successInk, fontWeight: "800" }}>{requested[user.uid] ? "Sent" : "Add"}</Text></Pressable></View>) : <Text style={[styles.empty, { color: colors.muted }]}>{query ? "No people found yet." : "Search for someone to add."}</Text>}</ScrollView>
       </View></View></KeyboardAvoidingView>
     </View>
+    </GestureHandlerRootView>
   </Modal>;
 }
 
@@ -191,6 +217,7 @@ function ExternalAction({ icon, label, onPress, colors, family = "ion" }: { icon
 }
 
 const styles = StyleSheet.create({
+  gestureRoot: { flex: 1 },
   scrim: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.58)" },
   keyboardRoot: { flex: 1, justifyContent: "flex-end" },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingBottom: 30, paddingTop: 4, minHeight: 390 },
