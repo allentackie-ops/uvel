@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, PanResponder, Share as NativeShare, StyleSheet, Text, View } from "react-native";
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { Drawer } from "react-native-drawer-layout";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
@@ -60,33 +60,45 @@ export default function ImmersiveShopping() {
   }, [app.country, app.saved]);
 
   useEffect(() => { activeIndexRef.current = activeIndex; }, [activeIndex]);
-  const swipeStyle = useAnimatedStyle(() => ({ transform: [{ translateY: swipeY.value }] }));
+  const currentCardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: swipeY.value }] }));
+  const nextCardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: swipeY.value + contentHeight }] }));
+  const previousCardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: swipeY.value - contentHeight }] }));
   const finishSwipe = useCallback(() => { swipeAnimatingRef.current = false; }, []);
-  const showNextPiece = useCallback((nextIndex: number, direction: number) => {
+  const commitSwipe = useCallback((nextIndex: number) => {
     activeIndexRef.current = nextIndex;
     setActiveIndex(nextIndex);
-    swipeY.value = direction > 0 ? SCREEN_HEIGHT : -SCREEN_HEIGHT;
-    swipeY.value = withTiming(0, { duration: 180 }, (finished) => {
-      if (finished) runOnJS(finishSwipe)();
-    });
+    swipeY.value = 0;
+    finishSwipe();
   }, [finishSwipe, swipeY]);
   const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => false,
     onMoveShouldSetPanResponderCapture: (_, gesture) => !drawerOpen && Math.abs(gesture.dy) > Math.abs(gesture.dx) && Math.abs(gesture.dy) > 10,
+    onPanResponderMove: (_, gesture) => {
+      if (!swipeAnimatingRef.current) swipeY.value = Math.max(-contentHeight, Math.min(contentHeight, gesture.dy));
+    },
     onPanResponderRelease: (_, gesture) => {
       if (drawerOpen || pieces.length < 2 || swipeAnimatingRef.current) return;
-      if (Math.abs(gesture.dy) < 42 && Math.abs(gesture.vy) < 0.35) return;
+      const distance = Math.abs(gesture.dy);
+      if (distance < 42 && Math.abs(gesture.vy) < 0.35) {
+        swipeY.value = withTiming(0, { duration: 140, easing: Easing.out(Easing.cubic) });
+        return;
+      }
       const direction = gesture.dy < 0 ? 1 : -1;
       const nextIndex = Math.max(0, Math.min(pieces.length - 1, activeIndexRef.current + direction));
       if (nextIndex !== activeIndexRef.current) {
         swipeAnimatingRef.current = true;
-        swipeY.value = withTiming(direction > 0 ? -SCREEN_HEIGHT : SCREEN_HEIGHT, { duration: 180 }, (finished) => {
-          if (finished) runOnJS(showNextPiece)(nextIndex, direction);
+        const target = direction > 0 ? -contentHeight : contentHeight;
+        swipeY.value = withTiming(target, { duration: 220, easing: Easing.out(Easing.cubic) }, (finished) => {
+          if (finished) runOnJS(commitSwipe)(nextIndex);
         });
+      } else {
+        swipeY.value = withTiming(0, { duration: 140, easing: Easing.out(Easing.cubic) });
       }
     },
-  }), [drawerOpen, pieces.length, showNextPiece, swipeY]);
+  }), [commitSwipe, contentHeight, drawerOpen, pieces.length, swipeY]);
   const activePiece = pieces[activeIndex];
+  const nextPiece = pieces[activeIndex + 1];
+  const previousPiece = pieces[activeIndex - 1];
 
   return (
     <Drawer
@@ -115,7 +127,11 @@ export default function ImmersiveShopping() {
       )}
     >
       <View style={styles.page} {...panResponder.panHandlers}>
-        {activePiece ? <Animated.View style={[{ height: contentHeight }, swipeStyle]}>
+        {activePiece ? <>
+          {previousPiece ? <Animated.View style={[styles.cardLayer, previousCardStyle]}>
+            <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
+          </Animated.View> : null}
+          <Animated.View style={[styles.cardLayer, currentCardStyle]}>
           <ImmersiveItem
           piece={activePiece}
           active
@@ -128,7 +144,11 @@ export default function ImmersiveShopping() {
           onFirstFind={() => setFindHint(true)}
           firstFindLabel={C.firstFind}
           />
-        </Animated.View> : <View style={[styles.empty, { height: contentHeight, paddingTop: insets.top + 24 }]}>
+          </Animated.View>
+          {nextPiece ? <Animated.View style={[styles.cardLayer, nextCardStyle]}>
+            <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
+          </Animated.View> : null}
+        </> : <View style={[styles.empty, { height: contentHeight, paddingTop: insets.top + 24 }]}>
           <Text style={styles.emptyKicker}>IMMERSIVE SHOPPING</Text>
           <Text style={styles.emptyTitle}>The edit is quiet for now.</Text>
           <Text style={styles.emptyBody}>Come back soon for more pieces to discover.</Text>
@@ -328,7 +348,8 @@ function Action({ icon, label, active, onPress, styles, colors }: { icon: keyof 
 
 function make(colors: Colors) {
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: colors.ink },
+    page: { flex: 1, backgroundColor: colors.ink, overflow: "hidden" },
+    cardLayer: { position: "absolute", top: 0, left: 0, right: 0 },
     item: { width: SCREEN_WIDTH, backgroundColor: colors.ink, overflow: "hidden" },
     itemImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     itemShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.20)" },
