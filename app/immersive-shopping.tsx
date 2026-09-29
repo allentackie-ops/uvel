@@ -68,7 +68,8 @@ export default function ImmersiveShopping() {
     activeIndexShared.value = nextIndex;
     setActiveIndex(nextIndex);
     swipeY.value = 0;
-  }, [activeIndexShared, swipeY]);
+    swipeLock.value = 0;
+  }, [activeIndexShared, swipeLock, swipeY]);
   const panGesture = useMemo(() => Gesture.Pan()
     .enabled(!drawerOpen && pieces.length > 1)
     .maxPointers(1)
@@ -98,11 +99,10 @@ export default function ImmersiveShopping() {
         duration: shouldAdvance ? 240 : 180,
         easing: Easing.out(Easing.cubic),
       }, (finished) => {
-        swipeLock.value = 0;
         if (finished && shouldAdvance) {
-          activeIndexShared.value = nextIndex;
-          swipeY.value = 0;
           runOnJS(commitSwipe)(nextIndex);
+        } else {
+          swipeLock.value = 0;
         }
       });
     })
