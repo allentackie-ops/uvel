@@ -13,6 +13,7 @@ import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
 import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayListingOverlay";
 import { TodayCartFab } from "../../components/TodayCartFab";
+import { TodayMusicButton } from "../../components/TodayMusic";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
@@ -32,6 +33,7 @@ import { unreadFor, useInbox } from "../../lib/chat";
 import { usePersonalization } from "../../lib/personalization";
 import { useFirstFind } from "../../lib/firstFind";
 import { convertCents, getMarket, moneyExact, moneyInMarket } from "../../lib/markets";
+import { useTodayMusic } from "../../lib/todayMusic";
 
 const MIN_REFRESH_MS = 1200;
 // Show the workspace drawer tutorial once per installation.
@@ -203,6 +205,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const followedKey = followedIds.join("|");
   const personalization = usePersonalization(app.uid || "guest");
   const firstFind = useFirstFind();
+  const todayMusic = useTodayMusic();
   const dismissSwipeHint = useCallback(() => setShowSwipeHint(false), []);
   const dismissDoubleTapHint = useCallback(() => setShowDoubleTapHint(false), []);
   const dna = useMemo(
@@ -239,6 +242,9 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     const timer = setTimeout(() => setFindHint(false), 3200);
     return () => clearTimeout(timer);
   }, [findHint]);
+  useEffect(() => {
+    todayMusic.setDucked(Boolean(openPiece));
+  }, [openPiece, todayMusic.setDucked]);
   const houses = verifiedBrands();
 
   useEffect(() => {
@@ -503,6 +509,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         </AccessiblePressable>
       </View>
       <View style={styles.headerActions}>
+        {overHero && todayHome ? <TodayMusicButton music={todayMusic} /> : null}
         {overHero ? (
           <AccessiblePressable
             onPress={() => router.push("/search")}

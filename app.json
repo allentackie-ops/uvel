@@ -119,6 +119,7 @@
         }
       ],
       "expo-video",
+      "expo-audio",
       "expo-updates",
       "expo-apple-authentication",
       [
