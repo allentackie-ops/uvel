@@ -10,10 +10,11 @@ import { FriendShareSheet, type FriendSharePayload } from "../components/FriendS
 import TodayToolsDrawer from "../components/TodayToolsDrawer";
 import { getBrand, isFollowing, toggleFollow, useBrands } from "../lib/brands";
 import { useFirstFind } from "../lib/firstFind";
-import { getMarket, moneyInMarket } from "../lib/markets";
+import { getMarket, moneyExact, moneyInMarket } from "../lib/markets";
 import { hydrateFollowedSellers, isSellerFollowed, syncSellerFollow, toggleSellerFollow } from "../lib/sellers";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
+import { useCopy } from "../lib/useCopy";
 import { getPiece, shopFloor, type ClosetPiece, useWardrobe } from "../lib/wardrobe";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -24,12 +25,19 @@ export default function ImmersiveShopping() {
   const insets = useSafeAreaInsets();
   const app = useUvel();
   const firstFind = useFirstFind();
+  const C = useCopy();
   useBrands();
   useEffect(() => { void hydrateFollowedSellers(); }, []);
   useWardrobe();
   const [activeIndex, setActiveIndex] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [findHint, setFindHint] = useState(false);
   const listRef = useRef<FlatList<ClosetPiece>>(null);
+  useEffect(() => {
+    if (!findHint) return;
+    const timer = setTimeout(() => setFindHint(false), 3200);
+    return () => clearTimeout(timer);
+  }, [findHint]);
 
   const pieces = useMemo(() => {
     const floor = shopFloor(app.country);
@@ -56,8 +64,10 @@ export default function ImmersiveShopping() {
       app={app}
       firstFind={firstFind}
       onOpen={openPiece}
+      onFirstFind={() => setFindHint(true)}
+      firstFindLabel={C.firstFind}
     />
-  ), [activeIndex, app, colors, firstFind, insets, openPiece, pieces, styles]);
+  ), [C.firstFind, activeIndex, app, colors, firstFind, insets, openPiece, pieces, styles]);
 
   return (
     <Drawer
@@ -117,12 +127,16 @@ export default function ImmersiveShopping() {
             <Ionicons name="play-skip-forward" size={20} color={colors.bone} />
           </AccessiblePressable>
         </View> : null}
+        {findHint ? <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 68 }]} accessibilityLiveRegion="polite">
+          <Text style={styles.findToastK}>{C.firstFind}</Text>
+          <Text style={styles.findToastTxt}>{C.matchingPiece} · {moneyExact(firstFind.remaining, firstFind.currency)}</Text>
+        </View> : null}
       </View>
     </Drawer>
   );
 }
 
-function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, onOpen }: any) {
+function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, onOpen, onFirstFind, firstFindLabel }: any) {
   const [shareOpen, setShareOpen] = useState(false);
   const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
   const followId = brandRecord?.id || piece.ownerId || piece.listedByUid || "";
@@ -161,7 +175,9 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
       <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 48 }]}>
         <View style={styles.copySpacer} />
         <View>
-          {firstFind.matches(piece) ? <Text style={styles.firstFind}>FIRST FIND</Text> : null}
+          {firstFind.matches(piece) ? <AccessiblePressable onPress={onFirstFind} style={styles.firstFind} accessibilityRole="button" accessibilityLabel="What First Find is" accessibilityHint="Double tap to hear how First Find works on this piece.">
+            <Text style={styles.firstFindText}>{firstFindLabel}</Text>
+          </AccessiblePressable> : null}
           <Text style={styles.brand}>{brand.toUpperCase()}</Text>
           <Text style={styles.name} numberOfLines={2}>{piece.name}</Text>
           {credit > 0 ? (
@@ -208,7 +224,7 @@ function make(colors: Colors) {
     backButton: { position: "absolute", left: 14, width: 42, height: 42, alignItems: "center", justifyContent: "center", zIndex: 12 },
     itemCopy: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, paddingHorizontal: 24, justifyContent: "space-between" },
     copySpacer: { flex: 1 },
-    firstFind: { alignSelf: "flex-start", color: colors.successInk, backgroundColor: colors.success, borderRadius: 15, paddingHorizontal: 11, paddingVertical: 7, fontSize: 11, fontWeight: "900", letterSpacing: 0.2, marginBottom: 10 },
+    firstFind: { alignSelf: "flex-start", backgroundColor: colors.success, borderRadius: 15, paddingHorizontal: 11, paddingVertical: 7, marginBottom: 10 },
     brand: { color: `${colors.bone}B8`, fontSize: 11, fontWeight: "800", letterSpacing: 2.2, marginBottom: 5, textShadowColor: "#000", textShadowRadius: 6 },
     name: { color: colors.bone, fontSize: 31, lineHeight: 36, fontWeight: "800", maxWidth: "88%", textShadowColor: "#000", textShadowRadius: 8 },
     priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 7 },
@@ -233,5 +249,9 @@ function make(colors: Colors) {
     emptyKicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.7, marginTop: 80 },
     emptyTitle: { color: colors.bone, fontSize: 30, fontWeight: "800", marginTop: 12 },
     emptyBody: { color: colors.muted, fontSize: 16, lineHeight: 23, marginTop: 10 },
+    firstFindText: { color: colors.successInk, fontSize: 11, fontWeight: "900", letterSpacing: 0.2 },
+    findToast: { position: "absolute", left: 20, right: 20, zIndex: 20, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "rgba(12,11,9,0.88)", borderWidth: 1, borderColor: `${colors.success}66` },
+    findToastK: { color: colors.success, fontSize: 11, fontWeight: "900", letterSpacing: 1.2, textTransform: "uppercase" },
+    findToastTxt: { color: colors.bone, fontSize: 13, fontWeight: "700", marginTop: 3 },
   });
 }
