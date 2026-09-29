@@ -80,9 +80,6 @@ export default function ImmersiveShopping() {
         windowSize={3}
         initialNumToRender={2}
       />
-      <View pointerEvents="box-none" style={styles.rightRail}>
-        <Text style={styles.scrollHint}>KEEP SCROLLING</Text>
-      </View>
       <View style={[styles.nextControl, { bottom: Math.max(insets.bottom, 14) }]}>
         <AccessiblePressable onPress={() => { const next = Math.min(activeIndex + 1, pieces.length - 1); setActiveIndex(next); listRef.current?.scrollToIndex({ index: next, animated: true }); }} style={styles.playerAction} accessibilityRole="button" accessibilityLabel="Next immersive listing">
           <Ionicons name="play-skip-forward" size={20} color={colors.bone} />
@@ -151,8 +148,6 @@ function make(colors: Colors) {
     itemShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.20)" },
     itemCopy: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, paddingHorizontal: 24, justifyContent: "space-between" },
     copySpacer: { flex: 1 },
-    rightRail: { position: "absolute", right: 18, bottom: 0, top: 0, justifyContent: "center", zIndex: 5 },
-    scrollHint: { color: `${colors.bone}C7`, fontSize: 9, fontWeight: "800", letterSpacing: 1.5, transform: [{ rotate: "90deg" }] },
     firstFind: { alignSelf: "flex-start", color: colors.successInk, backgroundColor: colors.success, borderRadius: 15, paddingHorizontal: 11, paddingVertical: 7, fontSize: 11, fontWeight: "900", letterSpacing: 0.2, marginBottom: 10 },
     brand: { color: `${colors.bone}B8`, fontSize: 11, fontWeight: "800", letterSpacing: 2.2, marginBottom: 5, textShadowColor: "#000", textShadowRadius: 6 },
     name: { color: colors.bone, fontSize: 31, lineHeight: 36, fontWeight: "800", maxWidth: "88%", textShadowColor: "#000", textShadowRadius: 8 },
