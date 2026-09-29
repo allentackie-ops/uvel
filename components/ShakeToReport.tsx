@@ -173,8 +173,9 @@ export function ShakeToReport() {
     onPanResponderMove: (_, gesture) => sheetTranslateY.setValue(Math.max(0, gesture.dy)),
     onPanResponderRelease: (_, gesture) => {
       if (gesture.dy > 120 || gesture.vy > 1.2) {
-        sheetTranslateY.stopAnimation();
-        close(false);
+        Animated.timing(sheetTranslateY, { toValue: sheetMaxHeight, duration: 180, useNativeDriver: true }).start(({ finished }) => {
+          if (finished) close(false);
+        });
       } else {
         Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
       }
