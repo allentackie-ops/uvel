@@ -12,6 +12,7 @@ import { FriendShareSheet, type FriendSharePayload } from "../components/FriendS
 import { ImmersiveListingDetails } from "../components/ImmersiveListingDetails";
 import { TodayCartFab } from "../components/TodayCartFab";
 import TodayToolsDrawer from "../components/TodayToolsDrawer";
+import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
 import * as Haptics from "../lib/haptics";
 import { addToCart, useCart } from "../lib/cart";
 import { getBrand, isFollowing, toggleFollow, useBrands } from "../lib/brands";
@@ -21,9 +22,10 @@ import { hydrateFollowedSellers, isSellerFollowed, syncSellerFollow, toggleSelle
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
-import { shopFloor, useWardrobe } from "../lib/wardrobe";
+import { refreshMarketplaceListings, shopFloor, useWardrobe } from "../lib/wardrobe";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
+const MIN_REFRESH_MS = 1200;
 const CATALOG_BRAND_IDS: Record<string, string> = {
   "Maison Found": "maison-found",
   "Archive 1982": "archive-1982",
@@ -41,14 +43,20 @@ export default function ImmersiveShopping() {
   const contentHeight = Math.max(1, SCREEN_HEIGHT - taskbarHeight);
   useBrands();
   useEffect(() => { void hydrateFollowedSellers(); }, []);
-  useWardrobe();
+  const wardrobePieces = useWardrobe();
   const [activeIndex, setActiveIndex] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [findHint, setFindHint] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [feedEpoch, setFeedEpoch] = useState(0);
   const menuPressRef = useRef(false);
+  const refreshInFlight = useRef(false);
   const swipeY = useSharedValue(0);
   const activeIndexShared = useSharedValue(0);
   const swipeLock = useSharedValue(0);
+  const refreshTriggered = useSharedValue(0);
+  const refreshActiveShared = useSharedValue(0);
+  const refreshImageScale = useSharedValue(1);
   useEffect(() => {
     if (!findHint) return;
     const timer = setTimeout(() => setFindHint(false), 3200);
@@ -57,7 +65,32 @@ export default function ImmersiveShopping() {
 
   const pieces = useMemo(() => {
     return shopFloor(app.country);
-  }, [app.country]);
+  }, [app.country, feedEpoch, wardrobePieces]);
+
+  const onRefresh = useCallback(async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
+    refreshActiveShared.value = 1;
+    swipeLock.value = 1;
+    setRefreshing(true);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    try {
+      await Promise.all([
+        refreshMarketplaceListings(),
+        new Promise<void>((resolve) => setTimeout(resolve, MIN_REFRESH_MS)),
+      ]);
+    } catch {
+      // Keep the local feed usable if the marketplace refresh is unavailable.
+    } finally {
+      setFeedEpoch((n) => n + 1);
+      setRefreshing(false);
+      refreshInFlight.current = false;
+      refreshActiveShared.value = 0;
+      refreshImageScale.value = withTiming(1, { duration: 240, easing: Easing.out(Easing.cubic) });
+      swipeLock.value = 0;
+    }
+  }, [refreshActiveShared, refreshImageScale, swipeLock]);
+  const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
 
   useEffect(() => {
     activeIndexShared.value = activeIndex;
@@ -78,11 +111,28 @@ export default function ImmersiveShopping() {
     setActiveIndex(nextIndex);
   }, []);
   const panGesture = useMemo(() => Gesture.Pan()
-    .enabled(!drawerOpen && pieces.length > 1)
+    .enabled(!drawerOpen && pieces.length > 0)
     .maxPointers(1)
     .activeOffsetY([-12, 12])
     .failOffsetX([-18, 18])
+    .onBegin(() => {
+      if (!refreshActiveShared.value) refreshTriggered.value = 0;
+    })
     .onUpdate((event) => {
+      const currentIndex = activeIndexShared.value;
+      if (currentIndex === 0 && event.translationY > 0) {
+        const pull = Math.min(180, event.translationY);
+        swipeY.value = 0;
+        if (!refreshTriggered.value || refreshActiveShared.value) {
+          refreshImageScale.value = 1 + (pull / 180) * 0.22;
+        }
+        if (pull > 48 && !refreshTriggered.value) {
+          refreshTriggered.value = 1;
+          swipeLock.value = 1;
+          runOnJS(onRefresh)();
+        }
+        return;
+      }
       if (swipeLock.value) return;
       const direction = event.translationY < 0 ? 1 : -1;
       const atBoundary = (direction < 0 && activeIndexShared.value === 0)
@@ -91,6 +141,11 @@ export default function ImmersiveShopping() {
       swipeY.value = Math.max(-contentHeight, Math.min(contentHeight, translation));
     })
     .onEnd((event) => {
+      if (refreshTriggered.value) {
+        swipeY.value = 0;
+        swipeLock.value = refreshActiveShared.value ? 1 : 0;
+        return;
+      }
       if (swipeLock.value) return;
 
       const currentIndex = activeIndexShared.value;
@@ -116,10 +171,19 @@ export default function ImmersiveShopping() {
       });
     })
     .onFinalize(() => {
+      if (refreshTriggered.value) {
+        swipeY.value = 0;
+        if (!refreshActiveShared.value) {
+          swipeLock.value = 0;
+          refreshImageScale.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.cubic) });
+        }
+        return;
+      }
       if (!swipeLock.value && swipeY.value !== 0) {
         swipeY.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
       }
-    }), [activeIndexShared, commitSwipe, contentHeight, drawerOpen, pieces.length, swipeLock, swipeY]);
+      refreshImageScale.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.cubic) });
+    }), [activeIndexShared, commitSwipe, contentHeight, drawerOpen, onRefresh, pieces.length, refreshActiveShared, refreshImageScale, refreshTriggered, swipeLock, swipeY]);
   const activePiece = pieces[activeIndex];
   const nextPiece = pieces[activeIndex + 1];
   const previousPiece = pieces[activeIndex - 1];
@@ -164,7 +228,7 @@ export default function ImmersiveShopping() {
       <View style={styles.page}>
         {activePiece ? <>
           {previousPiece ? <Animated.View key={previousPiece.id} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle]}>
-            <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
+            <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
           <Animated.View key={activePiece.id} style={[styles.cardLayer, { height: contentHeight }, currentCardStyle]}>
           <ImmersiveItem
@@ -176,12 +240,13 @@ export default function ImmersiveShopping() {
           app={app}
           firstFind={firstFind}
           contentHeight={contentHeight}
+          refreshImageScale={refreshImageScale}
           onFirstFind={() => setFindHint(true)}
           firstFindLabel={C.firstFind}
           />
           </Animated.View>
           {nextPiece ? <Animated.View key={nextPiece.id} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
-            <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
+            <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
         </> : <View style={[styles.empty, { height: contentHeight, paddingTop: insets.top + 24 }]}>
           <Text style={styles.emptyKicker}>IMMERSIVE SHOPPING</Text>
@@ -200,6 +265,7 @@ export default function ImmersiveShopping() {
           <Text style={styles.findToastK}>{C.firstFind}</Text>
           <Text style={styles.findToastTxt}>{C.matchingPiece} · {moneyExact(firstFind.remaining, firstFind.currency)}</Text>
         </View> : null}
+        {orbitOn ? <View pointerEvents="none" style={[styles.refreshOrbit, { top: insets.top + 68 }]}><OrbitLoader /></View> : null}
         <ImmersiveTaskbar colors={colors} C={C} insets={insets} styles={styles} />
         <TodayCartFab listingOpen />
       </View>
@@ -240,7 +306,7 @@ function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: Re
   );
 }
 
-function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, onFirstFind, firstFindLabel }: any) {
+function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, refreshImageScale, onFirstFind, firstFindLabel }: any) {
   const [shareOpen, setShareOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const cart = useCart();
@@ -300,6 +366,9 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
       { translateY: -34 },
       { scale: heartScale.value },
     ],
+  }));
+  const itemImageFrameStyle = useAnimatedStyle(() => ({
+    height: contentHeight * (refreshImageScale ? refreshImageScale.value : 1),
   }));
   function doubleTapSave(x: number, y: number) {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
@@ -378,7 +447,9 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
       importantForAccessibility={active ? "auto" : "no-hide-descendants"}
     >
       <AccessiblePressable onPress={(event) => handleImagePress(event.nativeEvent.locationX, event.nativeEvent.locationY)} style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel={`${brand}, ${piece.name}, ${localPrice}. Double tap to save.`}>
-        <Image source={{ uri: piece.photo }} style={styles.itemImage} contentFit="cover" cachePolicy="memory-disk" transition={0} accessible={false} />
+        <Animated.View pointerEvents="none" style={[styles.itemImageFrame, { height: contentHeight }, itemImageFrameStyle]}>
+          <Image source={{ uri: piece.photo }} style={styles.itemImage} contentFit="cover" cachePolicy="memory-disk" transition={0} accessible={false} />
+        </Animated.View>
         <View pointerEvents="none" style={styles.itemShade} />
       </AccessiblePressable>
       <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: 24 }]}>
@@ -474,6 +545,7 @@ function make(colors: Colors) {
     page: { flex: 1, backgroundColor: colors.ink, overflow: "hidden" },
     cardLayer: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" },
     item: { width: SCREEN_WIDTH, backgroundColor: colors.ink, overflow: "hidden" },
+    itemImageFrame: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" },
     itemImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     itemShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.20)" },
     topControls: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, zIndex: 12 },
@@ -508,6 +580,7 @@ function make(colors: Colors) {
     emptyBody: { color: colors.muted, fontSize: 16, lineHeight: 23, marginTop: 10 },
     firstFindText: { color: colors.successInk, fontSize: 11, fontWeight: "900", letterSpacing: 0.2 },
     findToast: { position: "absolute", left: 20, right: 20, zIndex: 20, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "rgba(12,11,9,0.88)", borderWidth: 1, borderColor: `${colors.success}66` },
+    refreshOrbit: { position: "absolute", left: 0, right: 0, height: 58, alignItems: "center", justifyContent: "center", zIndex: 30 },
     findToastK: { color: colors.success, fontSize: 11, fontWeight: "900", letterSpacing: 1.2, textTransform: "uppercase" },
     findToastTxt: { color: colors.bone, fontSize: 13, fontWeight: "700", marginTop: 3 },
     taskbarWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingTop: 4, zIndex: 15 },
