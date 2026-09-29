@@ -206,7 +206,6 @@ function watchPublicListings(force = false): Promise<void> {
     listingsUnsubscribe?.();
     listingsUnsubscribe = null;
     listingsWatchStarted = false;
-    remoteListingIds.clear();
     settleListingSnapshot();
   }
   if (!firebaseReady()) {
@@ -216,11 +215,19 @@ function watchPublicListings(force = false): Promise<void> {
   listingsSettled = new Promise<void>((resolve) => {
     settleListings = resolve;
   });
+  let reconcileRemoteIdsOnServerSnapshot = force;
   listingsWatchStarted = true;
   setMarketplaceSyncState("loading");
   try {
     const q = query(collection(firebaseDb(), "listings"), where("status", "==", "listed"));
     listingsUnsubscribe = onSnapshot(q, (snap) => {
+      if (reconcileRemoteIdsOnServerSnapshot && !snap.metadata.fromCache) {
+        const snapshotIds = new Set(snap.docs.map((document) => document.id));
+        remoteListingIds.forEach((id) => {
+          if (!snapshotIds.has(id)) remoteListingIds.delete(id);
+        });
+        reconcileRemoteIdsOnServerSnapshot = false;
+      }
       snap.docChanges().forEach((change) => {
         const existing = pieces.find((piece) => piece.id === change.doc.id);
         if (change.type === "removed") {

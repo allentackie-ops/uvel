@@ -32,6 +32,14 @@ const CATALOG_BRAND_IDS: Record<string, string> = {
   "Atelier No. 4": "atelier-no4",
 };
 
+function rotateFeedForRefresh<T extends { id: string }>(items: T[], refreshNumber: number, previousFirstId?: string) {
+  if (items.length < 2 || refreshNumber < 1) return items;
+  let offset = refreshNumber % items.length;
+  if (offset === 0) offset = 1;
+  if (items[offset]?.id === previousFirstId) offset = (offset + 1) % items.length;
+  return [...items.slice(offset), ...items.slice(0, offset)];
+}
+
 export default function ImmersiveShopping() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
@@ -47,10 +55,12 @@ export default function ImmersiveShopping() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [findHint, setFindHint] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [feedEpoch, setFeedEpoch] = useState(0);
+  const [refreshState, setRefreshState] = useState<{ active: boolean; epoch: number; anchorId?: string }>({ active: false, epoch: 0 });
+  const refreshing = refreshState.active;
   const menuPressRef = useRef(false);
   const refreshInFlight = useRef(false);
+  const feedEpochRef = useRef(0);
+  const refreshFeedSnapshot = useRef<ReturnType<typeof shopFloor> | null>(null);
   const swipeY = useSharedValue(0);
   const activeIndexShared = useSharedValue(0);
   const swipeLock = useSharedValue(0);
@@ -64,15 +74,17 @@ export default function ImmersiveShopping() {
   }, [findHint]);
 
   const pieces = useMemo(() => {
-    return shopFloor(app.country);
-  }, [app.country, feedEpoch, wardrobePieces]);
+    if (refreshing && refreshFeedSnapshot.current) return refreshFeedSnapshot.current;
+    return rotateFeedForRefresh(shopFloor(app.country), refreshState.epoch, refreshState.anchorId);
+  }, [app.country, refreshState, refreshing, wardrobePieces]);
 
   const onRefresh = useCallback(async () => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
+    refreshFeedSnapshot.current = pieces;
     refreshActiveShared.value = 1;
     swipeLock.value = 1;
-    setRefreshing(true);
+    setRefreshState((state) => ({ ...state, active: true }));
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     try {
       await Promise.all([
@@ -82,14 +94,29 @@ export default function ImmersiveShopping() {
     } catch {
       // Keep the local feed usable if the marketplace refresh is unavailable.
     } finally {
-      setFeedEpoch((n) => n + 1);
-      setRefreshing(false);
+      const nextEpoch = feedEpochRef.current + 1;
+      const refreshedFeed = rotateFeedForRefresh(shopFloor(app.country), nextEpoch, pieces[0]?.id);
+      const incomingImages = refreshedFeed
+        .slice(0, 3)
+        .map((piece) => piece.photo)
+        .filter((uri): uri is string => /^https?:\/\//i.test(uri));
+      try {
+        if (incomingImages.length) await Image.prefetch(incomingImages, "memory-disk");
+      } catch {
+        // The refreshed card can still load normally if prefetch is unavailable.
+      }
+      feedEpochRef.current = nextEpoch;
+      setActiveIndex(0);
+      activeIndexShared.value = 0;
+      swipeY.value = 0;
+      refreshFeedSnapshot.current = null;
+      setRefreshState({ active: false, epoch: nextEpoch, anchorId: pieces[0]?.id });
       refreshInFlight.current = false;
       refreshActiveShared.value = 0;
       refreshImageScale.value = withTiming(1, { duration: 240, easing: Easing.out(Easing.cubic) });
       swipeLock.value = 0;
     }
-  }, [refreshActiveShared, refreshImageScale, swipeLock]);
+  }, [activeIndexShared, app.country, pieces, refreshActiveShared, refreshImageScale, swipeLock, swipeY]);
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
 
   useEffect(() => {
