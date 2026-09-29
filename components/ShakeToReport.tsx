@@ -1,7 +1,7 @@
 import { Accelerometer } from "expo-sensors";
 import { Image } from "expo-image";
 import { usePathname } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Animated,
   AppState,
@@ -17,9 +17,15 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { OrbitLoader } from "./OrbitLoader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { loadShakeToReportEnabled, requestFeedback, saveShakeToReportEnabled, submitFeedback, subscribeToFeedbackRequest } from "../lib/feedback";
+import { OrbitLoader } from "./OrbitLoader";
+import {
+  loadShakeToReportEnabled,
+  requestFeedback,
+  saveShakeToReportEnabled,
+  submitFeedback,
+  subscribeToFeedbackRequest,
+} from "../lib/feedback";
 import { pickFromLibrary } from "../lib/photo";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
@@ -27,6 +33,11 @@ import { useColors } from "../lib/theme";
 const SHAKE_THRESHOLD = 2.35;
 const SHAKE_COOLDOWN_MS = 1800;
 const SAMPLE_MS = 80;
+const OPEN_MS = 260;
+const CLOSE_MS = 180;
+
+type SheetPhase = "closed" | "opening" | "ready" | "closing";
+
 export function ShakeToReport() {
   const colors = useColors();
   const styles = make(colors);
@@ -34,49 +45,94 @@ export function ShakeToReport() {
   const app = useUvel();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
-  const [open, setOpen] = useState(false);
+
+  const [visible, setVisible] = useState(false);
   const [compose, setCompose] = useState(false);
   const [shakeEnabled, setShakeEnabled] = useState(true);
   const [includeScreenshot, setIncludeScreenshot] = useState(false);
-  const [screenshotUri, setScreenshotUri] = useState<string | undefined>();
+  const [screenshotUri, setScreenshotUri] = useState<string>();
   const [body, setBody] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const [chromeH, setChromeH] = useState(120);
-  const sheetTranslateY = useRef(new Animated.Value(0)).current;
+  const [chromeHeight, setChromeHeight] = useState(110);
+
+  const sheetY = useRef(new Animated.Value(windowHeight)).current;
+  const phase = useRef<SheetPhase>("closed");
+  const openRef = useRef(false);
+  const mountedRef = useRef(true);
   const lastShake = useRef(0);
   const listenerRef = useRef<{ remove: () => void } | null>(null);
-  const activeRef = useRef(true);
-  const openRef = useRef(false);
-  const animationToken = useRef(0);
 
-  useEffect(() => {
-    openRef.current = open;
-    if (open) {
-      const token = animationToken.current;
-      requestAnimationFrame(() => {
-        if (!openRef.current || token !== animationToken.current) return;
-        Animated.timing(sheetTranslateY, { toValue: 0, duration: 260, useNativeDriver: false }).start();
-      });
-    } else {
-      sheetTranslateY.stopAnimation();
-      sheetTranslateY.setValue(windowHeight);
-    }
-  }, [open, sheetTranslateY, windowHeight]);
-
-  useEffect(() => subscribeToFeedbackRequest((entry) => {
-    animationToken.current += 1;
-    sheetTranslateY.stopAnimation();
-    sheetTranslateY.setValue(windowHeight);
-    openRef.current = true;
-    setCompose(entry === "compose");
+  const resetContent = () => {
+    setCompose(false);
     setSent(false);
     setBody("");
     setScreenshotUri(undefined);
     setIncludeScreenshot(false);
-    setOpen(true);
-  }), [sheetTranslateY, windowHeight]);
+  };
+
+  const finishClose = () => {
+    phase.current = "closed";
+    openRef.current = false;
+    sheetY.stopAnimation();
+    sheetY.setValue(windowHeight);
+    if (mountedRef.current) setVisible(false);
+    resetContent();
+  };
+
+  const closeSheet = () => {
+    if (phase.current === "closed" || phase.current === "closing" || submitting) return;
+    phase.current = "closing";
+    openRef.current = false;
+    sheetY.stopAnimation();
+    Animated.timing(sheetY, {
+      toValue: windowHeight,
+      duration: CLOSE_MS,
+      useNativeDriver: false,
+    }).start(() => finishClose());
+  };
+
+  const presentSheet = (entry: "prompt" | "compose") => {
+    if (phase.current !== "closed") return;
+    phase.current = "opening";
+    openRef.current = true;
+    resetContent();
+    setCompose(entry === "compose");
+    sheetY.stopAnimation();
+    // Put the sheet below the viewport before mounting the Modal. The first
+    // visible frame is therefore already in the correct starting position.
+    sheetY.setValue(windowHeight);
+    setVisible(true);
+  };
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      sheetY.stopAnimation();
+    };
+  }, [sheetY]);
+
+  useEffect(() => {
+    if (!visible || phase.current !== "opening") return;
+    const frame = requestAnimationFrame(() => {
+      if (!mountedRef.current || !openRef.current || phase.current !== "opening") return;
+      Animated.timing(sheetY, {
+        toValue: 0,
+        duration: OPEN_MS,
+        useNativeDriver: false,
+      }).start(() => {
+        if (phase.current === "opening") phase.current = "ready";
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [sheetY, visible]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToFeedbackRequest((entry) => presentSheet(entry));
+    return unsubscribe;
+  }, [windowHeight]);
 
   useEffect(() => {
     void loadShakeToReportEnabled().then(setShakeEnabled);
@@ -85,7 +141,7 @@ export function ShakeToReport() {
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const show = Keyboard.addListener(showEvent, (e) => setKeyboardHeight(e.endCoordinates.height));
+    const show = Keyboard.addListener(showEvent, (event) => setKeyboardHeight(event.endCoordinates.height));
     const hide = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
     return () => {
       show.remove();
@@ -94,17 +150,16 @@ export function ShakeToReport() {
   }, []);
 
   useEffect(() => {
-    activeRef.current = true;
-    let mounted = true;
+    let alive = true;
     const appState = AppState.addEventListener("change", (state) => {
-      activeRef.current = state === "active";
+      mountedRef.current = state === "active";
     });
     if (shakeEnabled) {
       void Accelerometer.isAvailableAsync().then((available) => {
-        if (!available || !mounted) return;
+        if (!available || !alive) return;
         Accelerometer.setUpdateInterval(SAMPLE_MS);
         listenerRef.current = Accelerometer.addListener(({ x, y, z }) => {
-          if (!activeRef.current || openRef.current) return;
+          if (!mountedRef.current || openRef.current) return;
           const magnitude = Math.sqrt(x * x + y * y + z * z);
           const now = Date.now();
           if (magnitude >= SHAKE_THRESHOLD && now - lastShake.current >= SHAKE_COOLDOWN_MS) {
@@ -115,27 +170,12 @@ export function ShakeToReport() {
       }).catch(() => undefined);
     }
     return () => {
-      mounted = false;
-      activeRef.current = false;
+      alive = false;
       appState.remove();
       listenerRef.current?.remove();
       listenerRef.current = null;
     };
   }, [shakeEnabled]);
-
-  function close(resetOffset = true) {
-    if (submitting) return;
-    animationToken.current += 1;
-    openRef.current = false;
-    sheetTranslateY.stopAnimation();
-    if (resetOffset) sheetTranslateY.setValue(windowHeight);
-    setOpen(false);
-    setCompose(false);
-    setIncludeScreenshot(false);
-    setScreenshotUri(undefined);
-    setBody("");
-    setSent(false);
-  }
 
   async function send() {
     const clean = body.trim();
@@ -170,51 +210,53 @@ export function ShakeToReport() {
     }
   }
 
-  const sheetPad = keyboardHeight ? 12 : Math.max(insets.bottom, 12);
   const sheetMaxHeight = Math.max(280, windowHeight - keyboardHeight - Math.max(insets.top, 8) - 8);
-  const formMaxHeight = Math.max(120, sheetMaxHeight - chromeH - sheetPad);
-  const sheetPan = useRef(PanResponder.create({
+  const sheetPaddingBottom = keyboardHeight ? 12 : Math.max(insets.bottom, 12);
+  const formMaxHeight = Math.max(120, sheetMaxHeight - chromeHeight - sheetPaddingBottom);
+
+  const dragZonePan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
-    onStartShouldSetPanResponderCapture: () => true,
     onMoveShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponderCapture: () => true,
     onPanResponderTerminationRequest: () => false,
-    onPanResponderMove: (_, gesture) => sheetTranslateY.setValue(Math.max(0, gesture.dy)),
+    onPanResponderMove: (_, gesture) => {
+      if (phase.current === "closing") return;
+      sheetY.setValue(Math.max(0, gesture.dy));
+    },
     onPanResponderRelease: (_, gesture) => {
-      if (gesture.dy > 120 || gesture.vy > 1.2) {
-        const token = ++animationToken.current;
-        sheetTranslateY.stopAnimation();
-        Animated.timing(sheetTranslateY, { toValue: windowHeight, duration: 180, useNativeDriver: false }).start(() => {
-          if (token !== animationToken.current) return;
-          close(false);
-        });
+      if (phase.current === "closing") return;
+      if (gesture.dy > 110 || gesture.vy > 1.1) {
+        closeSheet();
       } else {
-        Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: false, bounciness: 4 }).start();
+        phase.current = "ready";
+        Animated.spring(sheetY, { toValue: 0, useNativeDriver: false, bounciness: 4 }).start();
       }
     },
-    onPanResponderTerminate: () => Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: false, bounciness: 4 }).start(),
+    onPanResponderTerminate: () => {
+      if (phase.current !== "closing") {
+        phase.current = "ready";
+        Animated.spring(sheetY, { toValue: 0, useNativeDriver: false, bounciness: 4 }).start();
+      }
+    },
   })).current;
 
   return (
-    <Modal visible={open} transparent animationType="none" onRequestClose={() => close()} statusBarTranslucent>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={closeSheet} statusBarTranslucent>
       <View style={styles.modalRoot}>
-        <Pressable style={styles.scrim} onPress={() => close()} accessibilityRole="button" accessibilityLabel="Close report problem" />
+        <Pressable style={styles.scrim} onPress={closeSheet} accessibilityRole="button" accessibilityLabel="Close report problem" />
         <View pointerEvents="box-none" style={[styles.sheetWrap, { paddingBottom: keyboardHeight }]}>
-          <Animated.View style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: sheetPad, transform: [{ translateY: sheetTranslateY }] }]}>
-            <View {...sheetPan.panHandlers} style={styles.dragZone} accessibilityRole="adjustable" accessibilityLabel="Swipe down to close report" />
-            <View onLayout={(e) => setChromeH(e.nativeEvent.layout.height)}>
+          <Animated.View style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: sheetPaddingBottom, transform: [{ translateY: sheetY }] }]}>
+            <View {...dragZonePan.panHandlers} style={styles.dragZone} accessibilityRole="adjustable" accessibilityLabel="Swipe down to close report" />
+            <View onLayout={(event) => setChromeHeight(event.nativeEvent.layout.height)}>
               <View style={styles.header}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.title}>Report a technical problem</Text>
-                  <Text style={styles.subtitle}>If a feature or product isn’t working correctly, you can give feedback to help us make Uvel better.</Text>
-                </View>
+                <Text style={styles.title}>Report a technical problem</Text>
+                <Text style={styles.subtitle}>If a feature or product isn’t working correctly, you can give feedback to help us make Uvel better.</Text>
               </View>
             </View>
             {sent ? (
               <View style={styles.success}>
                 <Text style={styles.successTitle}>Thanks for letting us know.</Text>
                 <Text style={styles.successText}>Your report was saved and sent to the Uvel team.</Text>
-                  <Pressable onPress={() => close()} style={styles.primary} accessibilityRole="button">
+                <Pressable onPress={closeSheet} style={styles.primary} accessibilityRole="button">
                   <Text style={styles.primaryText}>Done</Text>
                 </Pressable>
               </View>
@@ -240,21 +282,9 @@ export function ShakeToReport() {
                   accessibilityLabel="Describe the technical problem"
                 />
                 <Text style={styles.counter}>{body.length}/2000</Text>
-                <Pressable onPress={() => void toggleScreenshot()} style={styles.optionRow} accessibilityRole="switch" accessibilityState={{ checked: includeScreenshot }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.optionTitle}>Include screenshot in report</Text>
-                    <Text style={styles.optionHint}>{includeScreenshot ? "Screenshot attached" : "Optional"}</Text>
-                  </View>
-                  <View style={[styles.toggle, includeScreenshot && styles.toggleOn]}><View style={[styles.knob, includeScreenshot && styles.knobOn]} /></View>
-                </Pressable>
+                <ToggleRow title="Include screenshot in report" hint={includeScreenshot ? "Screenshot attached" : "Optional"} checked={includeScreenshot} onPress={() => void toggleScreenshot()} styles={styles} />
                 {screenshotUri ? <Image cachePolicy="memory-disk" source={{ uri: screenshotUri }} style={styles.preview} contentFit="cover" /> : null}
-                <Pressable onPress={() => { const next = !shakeEnabled; setShakeEnabled(next); void saveShakeToReportEnabled(next); }} style={styles.optionRow} accessibilityRole="switch" accessibilityState={{ checked: shakeEnabled }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.optionTitle}>Shake phone to report a problem</Text>
-                    <Text style={styles.optionHint}>{shakeEnabled ? "Shake your phone anywhere in Uvel" : "Toggle on to enable"}</Text>
-                  </View>
-                  <View style={[styles.toggle, shakeEnabled && styles.toggleOn]}><View style={[styles.knob, shakeEnabled && styles.knobOn]} /></View>
-                </Pressable>
+                <ToggleRow title="Shake phone to report a problem" hint={shakeEnabled ? "Shake your phone anywhere in Uvel" : "Toggle on to enable"} checked={shakeEnabled} onPress={() => { const next = !shakeEnabled; setShakeEnabled(next); void saveShakeToReportEnabled(next); }} styles={styles} />
                 <Pressable onPress={() => void send()} disabled={!body.trim() || submitting} style={[styles.primary, (!body.trim() || submitting) && styles.primaryDisabled]} accessibilityRole="button" accessibilityState={{ disabled: !body.trim() || submitting }}>
                   {submitting ? <OrbitLoader size={24} /> : <Text style={styles.primaryText}>Send report</Text>}
                 </Pressable>
@@ -267,13 +297,7 @@ export function ShakeToReport() {
                 <Pressable onPress={() => setCompose(true)} style={styles.primary} accessibilityRole="button">
                   <Text style={styles.primaryText}>Report a problem</Text>
                 </Pressable>
-                <Pressable onPress={() => { const next = !shakeEnabled; setShakeEnabled(next); void saveShakeToReportEnabled(next); }} style={styles.toggleRow} accessibilityRole="switch" accessibilityState={{ checked: shakeEnabled }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.toggleTitle}>Shake phone to report a problem</Text>
-                    <Text style={styles.toggleHint}>{shakeEnabled ? "Shake your phone anywhere in Uvel" : "Toggle on to enable"}</Text>
-                  </View>
-                  <View style={[styles.toggle, shakeEnabled && styles.toggleOn]}><View style={[styles.knob, shakeEnabled && styles.knobOn]} /></View>
-                </Pressable>
+                <ToggleRow title="Shake phone to report a problem" hint={shakeEnabled ? "Shake your phone anywhere in Uvel" : "Toggle on to enable"} checked={shakeEnabled} onPress={() => { const next = !shakeEnabled; setShakeEnabled(next); void saveShakeToReportEnabled(next); }} styles={styles} />
               </>
             )}
           </Animated.View>
@@ -283,14 +307,26 @@ export function ShakeToReport() {
   );
 }
 
+function ToggleRow({ title, hint, checked, onPress, styles }: { title: string; hint: string; checked: boolean; onPress: () => void; styles: ReturnType<typeof make> }) {
+  return (
+    <Pressable onPress={onPress} style={styles.toggleRow} accessibilityRole="switch" accessibilityState={{ checked }}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.toggleTitle}>{title}</Text>
+        <Text style={styles.toggleHint}>{hint}</Text>
+      </View>
+      <View style={[styles.toggle, checked && styles.toggleOn]}><View style={[styles.knob, checked && styles.knobOn]} /></View>
+    </Pressable>
+  );
+}
+
 function make(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     modalRoot: { flex: 1, justifyContent: "flex-end" },
     scrim: { ...StyleSheet.absoluteFill, backgroundColor: `${colors.ink}CC` },
     sheetWrap: { width: "100%", justifyContent: "flex-end" },
-    sheet: { backgroundColor: colors.ink, borderTopLeftRadius: 27, borderTopRightRadius: 27, paddingHorizontal: 26, paddingTop: 10, borderWidth: 1, borderColor: `${colors.bone}1F` },
-    dragZone: { position: "absolute", top: 0, left: 0, right: 0, height: 64, zIndex: 20 },
-    header: { flexDirection: "row", alignItems: "flex-start", marginBottom: 18 },
+    sheet: { backgroundColor: colors.ink, borderTopLeftRadius: 27, borderTopRightRadius: 27, paddingHorizontal: 26, paddingTop: 26, borderWidth: 1, borderColor: `${colors.bone}1F` },
+    dragZone: { position: "absolute", top: 0, left: 0, right: 0, height: 68, zIndex: 20 },
+    header: { marginBottom: 18 },
     title: { color: colors.bone, fontSize: 24, lineHeight: 29, fontWeight: "800", textAlign: "center" },
     subtitle: { color: `${colors.bone}E0`, fontSize: 14, lineHeight: 20, marginTop: 10, textAlign: "center" },
     formContent: { paddingBottom: 8 },
@@ -302,13 +338,10 @@ function make(colors: ReturnType<typeof useColors>) {
     toggleHint: { color: `${colors.bone}85`, fontSize: 13, lineHeight: 18, marginTop: 4 },
     toggle: { width: 62, height: 36, borderRadius: 19, backgroundColor: `${colors.bone}55`, padding: 3, justifyContent: "center" },
     toggleOn: { backgroundColor: colors.success },
-    knob: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.ink, transform: [{ translateX: 0 }] },
+    knob: { width: 30, height: 30, borderRadius: 15, backgroundColor: colors.ink },
     knobOn: { backgroundColor: colors.successInk, transform: [{ translateX: 26 }] },
     input: { minHeight: 142, maxHeight: 220, borderRadius: 16, borderWidth: 1, borderColor: `${colors.bone}32`, backgroundColor: `${colors.bone}0C`, color: colors.bone, padding: 15, fontSize: 15, lineHeight: 21 },
     counter: { alignSelf: "flex-end", color: `${colors.bone}60`, fontSize: 11, marginTop: 7 },
-    optionRow: { flexDirection: "row", alignItems: "center", gap: 16, paddingVertical: 15 },
-    optionTitle: { color: colors.bone, fontSize: 15, lineHeight: 20 },
-    optionHint: { color: `${colors.bone}75`, fontSize: 12, marginTop: 3 },
     preview: { width: 84, height: 84, borderRadius: 12, marginBottom: 4 },
     cancel: { minHeight: 36, alignItems: "center", justifyContent: "center" },
     cancelText: { color: colors.bone, fontSize: 14, fontWeight: "700" },
