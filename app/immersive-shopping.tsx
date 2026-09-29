@@ -1,13 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Dimensions, FlatList, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
 import { useFirstFind } from "../lib/firstFind";
 import { getMarket, moneyInMarket } from "../lib/markets";
-import { useTodayMusic } from "../lib/todayMusic";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { getPiece, shopFloor, type ClosetPiece, useWardrobe } from "../lib/wardrobe";
@@ -19,11 +18,9 @@ export default function ImmersiveShopping() {
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const app = useUvel();
-  const music = useTodayMusic();
   const firstFind = useFirstFind();
   useWardrobe();
   const [activeIndex, setActiveIndex] = useState(0);
-  const [playingMode, setPlayingMode] = useState(true);
   const listRef = useRef<FlatList<ClosetPiece>>(null);
 
   const pieces = useMemo(() => {
@@ -31,16 +28,6 @@ export default function ImmersiveShopping() {
     const saved = new Set(app.saved);
     return [...floor].sort((a, b) => Number(saved.has(b.id)) - Number(saved.has(a.id)));
   }, [app.country, app.saved]);
-
-  useEffect(() => {
-    if (music.enabled) return;
-    music.toggle();
-  }, [music.enabled, music.toggle]);
-
-  useEffect(() => {
-    music.setDucked(false);
-    return () => music.setDucked(false);
-  }, [music.setDucked]);
 
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
     const index = viewableItems[0]?.index;
@@ -52,11 +39,6 @@ export default function ImmersiveShopping() {
   const openPiece = useCallback((piece: ClosetPiece) => {
     router.push({ pathname: "/closet/[id]", params: { id: piece.id } });
   }, []);
-  const togglePlayback = useCallback(() => {
-    setPlayingMode((current) => !current);
-    music.toggle();
-  }, [music]);
-
   const renderItem = useCallback(({ item }: { item: ClosetPiece }) => (
     <ImmersiveItem
       piece={item}
@@ -66,10 +48,9 @@ export default function ImmersiveShopping() {
       insets={insets}
       app={app}
       firstFind={firstFind}
-      music={music}
       onOpen={openPiece}
     />
-  ), [activeIndex, app, colors, firstFind, insets, music, openPiece, pieces, styles]);
+  ), [activeIndex, app, colors, firstFind, insets, openPiece, pieces, styles]);
 
   if (!pieces.length) {
     return (
@@ -115,17 +96,7 @@ export default function ImmersiveShopping() {
       <View pointerEvents="box-none" style={styles.rightRail}>
         <Text style={styles.scrollHint}>KEEP SCROLLING</Text>
       </View>
-      <View style={[styles.player, { paddingBottom: Math.max(insets.bottom, 14) }]}>
-        <View style={styles.playerInfo}>
-          <View style={styles.playerBars}><View style={styles.playerBarShort} /><View style={styles.playerBarTall} /><View style={styles.playerBarMedium} /><View style={styles.playerBarTall} /></View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.playerKicker}>NOW PLAYING</Text>
-            <Text style={styles.playerTitle} numberOfLines={1}>{music.track.title}</Text>
-          </View>
-        </View>
-        <AccessiblePressable onPress={togglePlayback} style={styles.playerAction} accessibilityRole="button" accessibilityLabel={playingMode ? "Pause immersive soundtrack" : "Play immersive soundtrack"}>
-          <Ionicons name={playingMode ? "pause" : "play"} size={22} color={colors.bone} />
-        </AccessiblePressable>
+      <View style={[styles.nextControl, { bottom: Math.max(insets.bottom, 14) }]}>
         <AccessiblePressable onPress={() => { const next = Math.min(activeIndex + 1, pieces.length - 1); setActiveIndex(next); listRef.current?.scrollToIndex({ index: next, animated: true }); }} style={styles.playerAction} accessibilityRole="button" accessibilityLabel="Next immersive listing">
           <Ionicons name="play-skip-forward" size={20} color={colors.bone} />
         </AccessiblePressable>
@@ -134,7 +105,7 @@ export default function ImmersiveShopping() {
   );
 }
 
-function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, music, onOpen }: any) {
+function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, onOpen }: any) {
   const market = getMarket(app.country);
   const itemCurrency = piece.currency || getMarket(piece.country || app.country).currency;
   const localPrice = moneyInMarket(piece.listPriceCents, itemCurrency, market);
@@ -157,7 +128,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         <Image source={{ uri: piece.photo }} style={styles.itemImage} contentFit="cover" accessible={false} />
         <View pointerEvents="none" style={styles.itemShade} />
       </AccessiblePressable>
-      <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 92, paddingBottom: insets.bottom + 132 }]}>
+      <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 92, paddingBottom: insets.bottom + 48 }]}>
         <View style={styles.copySpacer} />
         <View>
           {firstFind.matches(piece) ? <Text style={styles.firstFind}>FIRST FIND</Text> : null}
@@ -212,14 +183,7 @@ function make(colors: Colors) {
     actions: { position: "absolute", right: 15, gap: 18, alignItems: "center", zIndex: 9 },
     action: { width: 54, minHeight: 54, alignItems: "center", justifyContent: "center", gap: 3 },
     actionLabel: { color: colors.bone, fontSize: 10, fontWeight: "700", textShadowColor: "#000", textShadowRadius: 5 },
-    player: { position: "absolute", left: 16, right: 16, bottom: 0, minHeight: 78, borderRadius: 22, borderWidth: 1, borderColor: `${colors.bone}2B`, backgroundColor: "rgba(12,11,9,0.78)", paddingHorizontal: 14, paddingTop: 12, flexDirection: "row", alignItems: "center", gap: 2, zIndex: 12 },
-    playerInfo: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },
-    playerBars: { height: 22, flexDirection: "row", alignItems: "center", gap: 3 },
-    playerBarShort: { width: 3, height: 9, backgroundColor: colors.success, borderRadius: 2 },
-    playerBarMedium: { width: 3, height: 15, backgroundColor: colors.success, borderRadius: 2 },
-    playerBarTall: { width: 3, height: 22, backgroundColor: colors.success, borderRadius: 2 },
-    playerKicker: { color: `${colors.bone}75`, fontSize: 9, fontWeight: "800", letterSpacing: 1.3 },
-    playerTitle: { color: colors.bone, fontSize: 15, fontWeight: "700", marginTop: 2 },
+    nextControl: { position: "absolute", right: 15, zIndex: 12 },
     playerAction: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
     empty: { flex: 1, backgroundColor: colors.ink, paddingHorizontal: 24 },
     backButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },

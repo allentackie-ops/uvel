@@ -13,7 +13,7 @@ import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard } from "../../components/ListingCard";
 import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayListingOverlay";
 import { TodayCartFab } from "../../components/TodayCartFab";
-import { ImmersiveShoppingButton } from "../../components/TodayMusic";
+import { ImmersiveShoppingButton } from "../../components/ImmersiveShoppingButton";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
