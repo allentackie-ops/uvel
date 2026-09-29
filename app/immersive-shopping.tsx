@@ -1,12 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { Dimensions, FlatList, Share, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Dimensions, FlatList, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
+import { FriendShareSheet, type FriendSharePayload } from "../components/FriendShareSheet";
+import { getBrand, isFollowing, toggleFollow, useBrands } from "../lib/brands";
 import { useFirstFind } from "../lib/firstFind";
 import { getMarket, moneyInMarket } from "../lib/markets";
+import { hydrateFollowedSellers, isSellerFollowed, syncSellerFollow, toggleSellerFollow } from "../lib/sellers";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { getPiece, shopFloor, type ClosetPiece, useWardrobe } from "../lib/wardrobe";
@@ -19,6 +22,8 @@ export default function ImmersiveShopping() {
   const insets = useSafeAreaInsets();
   const app = useUvel();
   const firstFind = useFirstFind();
+  useBrands();
+  useEffect(() => { void hydrateFollowedSellers(); }, []);
   useWardrobe();
   const [activeIndex, setActiveIndex] = useState(0);
   const listRef = useRef<FlatList<ClosetPiece>>(null);
@@ -95,6 +100,14 @@ export default function ImmersiveShopping() {
 }
 
 function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, onOpen }: any) {
+  const [shareOpen, setShareOpen] = useState(false);
+  const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
+  const followId = brandRecord?.id || piece.ownerId || piece.listedByUid || "";
+  const isBrand = Boolean(brandRecord);
+  const [following, setFollowing] = useState(() => isBrand ? isFollowing(followId, app.uid) : isSellerFollowed(followId));
+  useEffect(() => {
+    setFollowing(isBrand ? isFollowing(followId, app.uid) : isSellerFollowed(followId));
+  }, [app.uid, followId, isBrand]);
   const market = getMarket(app.country);
   const itemCurrency = piece.currency || getMarket(piece.country || app.country).currency;
   const localPrice = moneyInMarket(piece.listPriceCents, itemCurrency, market);
@@ -102,14 +115,19 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const sale = Math.max(0, piece.listPriceCents - credit);
   const liked = app.saved.includes(piece.id);
   const brand = piece.brand && piece.brand !== "Unlabeled" ? piece.brand : piece.category;
-
-  const share = useCallback(async () => {
-    try {
-      await Share.share({ message: `Have a look at ${piece.name} on Uvel.`, title: piece.name });
-    } catch {
-      // The share sheet can be dismissed without action.
-    }
-  }, [piece.name]);
+  const sellerName = brandRecord?.name || piece.ownerName || piece.listedByName || (piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Uvel seller");
+  const sellerPhoto = brandRecord?.logoUri || piece.ownerPhoto || null;
+  const sharePayload: FriendSharePayload = { kind: "listing", id: piece.id, title: piece.name, deepLink: `uvel://piece/${piece.id}`, imageUri: piece.photo, previewText: `Have a look at ${piece.name} on Uvel.` };
+  function follow() {
+    if (!followId) return;
+    const next = isBrand ? toggleFollow(followId, app.uid || "me") : toggleSellerFollow(followId);
+    setFollowing(next);
+    if (!isBrand) void syncSellerFollow(app.uid, followId, next);
+  }
+  function openSeller() {
+    if (brandRecord) router.push({ pathname: "/brand/[id]", params: { id: brandRecord.id } });
+    else if (followId) router.push({ pathname: "/seller/[id]", params: { id: followId } });
+  }
 
   return (
     <View style={[styles.item, { height: SCREEN_HEIGHT }]}>
@@ -126,12 +144,23 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           {credit > 0 ? (
             <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{moneyInMarket(sale, market.currency, market)}</Text></View>
           ) : <Text style={styles.price}>{localPrice}</Text>}
+          {followId ? <>
+            <AccessiblePressable onPress={openSeller} style={styles.sellerRow} accessibilityRole="button" accessibilityLabel={`View ${sellerName} profile`}>
+              {sellerPhoto ? <Image source={{ uri: sellerPhoto }} style={styles.sellerAvatar} contentFit="cover" /> : <View style={styles.sellerFallback}><Text style={styles.sellerInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}
+              <View style={styles.sellerCopy}><Text style={styles.sellerLabel}>{isBrand ? "BRAND" : "SELLER"}</Text><Text style={styles.sellerName} numberOfLines={1}>{sellerName}</Text></View>
+            </AccessiblePressable>
+            <AccessiblePressable onPress={follow} style={[styles.followButton, following && styles.followingButton]} accessibilityRole="button" accessibilityLabel={following ? `Unfollow ${sellerName}` : `Follow ${sellerName}`} accessibilityState={{ selected: following }}>
+              <Ionicons name={following ? "checkmark" : "add"} size={16} color={following ? colors.bone : colors.successInk} />
+              <Text style={[styles.followText, following && styles.followingText]}>{following ? "Following" : `Follow ${isBrand ? "brand" : "seller"}`}</Text>
+            </AccessiblePressable>
+          </> : null}
         </View>
       </View>
       <View style={[styles.actions, { bottom: insets.bottom + 148 }]}>
         <Action icon={liked ? "heart" : "heart-outline"} label="Save" active={liked} onPress={() => { if (!liked) app.likePiece(piece.id); else void app.toggleSaved(piece.id); }} styles={styles} colors={colors} />
-        <Action icon="share-outline" label="Share" onPress={() => void share()} styles={styles} colors={colors} />
+        <Action icon="share-outline" label="Share" onPress={() => setShareOpen(true)} styles={styles} colors={colors} />
       </View>
+      <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => setShareOpen(false)} />
     </View>
   );
 }
@@ -161,6 +190,17 @@ function make(colors: Colors) {
     priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 7 },
     price: { color: colors.success, fontSize: 19, fontWeight: "900", textShadowColor: "#000", textShadowRadius: 6 },
     was: { color: `${colors.bone}D0`, fontSize: 16, fontWeight: "700", textDecorationLine: "line-through", textShadowColor: "#000", textShadowRadius: 6 },
+    sellerRow: { flexDirection: "row", alignItems: "center", gap: 9, marginTop: 14, maxWidth: "76%" },
+    sellerAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surface },
+    sellerFallback: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    sellerInitial: { color: colors.successInk, fontSize: 14, fontWeight: "900" },
+    sellerCopy: { minWidth: 0 },
+    sellerLabel: { color: `${colors.bone}A0`, fontSize: 9, fontWeight: "900", letterSpacing: 1.3, textShadowColor: "#000", textShadowRadius: 5 },
+    sellerName: { color: colors.bone, fontSize: 14, fontWeight: "800", textShadowColor: "#000", textShadowRadius: 6 },
+    followButton: { alignSelf: "flex-start", minHeight: 34, paddingHorizontal: 13, borderRadius: 17, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", gap: 5, marginTop: 9 },
+    followingButton: { backgroundColor: "rgba(0,0,0,0.38)", borderWidth: 1, borderColor: `${colors.bone}70` },
+    followText: { color: colors.successInk, fontSize: 12, fontWeight: "900" },
+    followingText: { color: colors.bone },
     actions: { position: "absolute", right: 15, gap: 18, alignItems: "center", zIndex: 9 },
     action: { width: 54, minHeight: 54, alignItems: "center", justifyContent: "center", gap: 3 },
     actionLabel: { color: colors.bone, fontSize: 10, fontWeight: "700", textShadowColor: "#000", textShadowRadius: 5 },

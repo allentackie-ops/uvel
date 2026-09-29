@@ -2472,6 +2472,47 @@ async function notifyListingReview(db, listingId, listing, title, body, status, 
   await notifyUid(db, uid, title, body, { kind: "listing_review", listingId, status });
 }
 
+exports.notifyListingFollowers = onDocumentWritten({ document: "listings/{listingId}" }, async (event) => {
+  const afterSnap = event.data?.after;
+  if (!afterSnap || !afterSnap.exists) return;
+  const listing = afterSnap.data() || {};
+  const before = event.data?.before?.exists ? event.data.before.data() || {} : {};
+  if (listing.status !== "listed" || before.status === "listed") return;
+  const db = admin.firestore();
+  const followerIds = new Set();
+  const sellerId = String(listing.ownerId || listing.listedByUid || "").trim();
+  if (sellerId) {
+    const sellerFollowers = await db.collection("users").where("followingSellerIds", "array-contains", sellerId).get();
+    sellerFollowers.docs.forEach((snap) => followerIds.add(snap.id));
+  }
+  const brandId = String(listing.brandId || "").trim();
+  let subjectName = String(listing.ownerName || listing.listedByName || "A seller");
+  if (brandId) {
+    const brandSnap = await db.collection("brands").doc(brandId).get();
+    const brand = brandSnap.exists ? brandSnap.data() || {} : {};
+    subjectName = String(brand.name || listing.brand || subjectName);
+    (Array.isArray(brand.followers) ? brand.followers : []).forEach((uid) => followerIds.add(String(uid)));
+  }
+  followerIds.delete(sellerId);
+  const listingId = String(event.params.listingId || afterSnap.id);
+  const title = `New from ${subjectName}`;
+  const body = `${String(listing.name || "A new listing")} is now live on Uvel.`;
+  await Promise.all([...followerIds].filter(Boolean).map(async (uid) => {
+    const notificationId = `listing-followed-${listingId}`;
+    await db.collection("users").doc(uid).collection("notifications").doc(notificationId).set({
+      id: notificationId,
+      kind: "seller_listing",
+      title,
+      body,
+      listingId,
+      imageUrl: String(listing.photo || ""),
+      readAt: null,
+      createdAt: Date.now(),
+    }, { merge: true });
+    await notifyUid(db, uid, title, body, { kind: "seller_listing", listingId });
+  }));
+});
+
 exports.reviewUnverifiedBrandListing = onDocumentWritten({ document: "listings/{listingId}", secrets: [anthropicSecret], timeoutSeconds: 120 }, async (event) => {
   const snapshot = event.data?.after;
   if (!snapshot) return;

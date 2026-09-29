@@ -1,7 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
+import { firebaseDb, firebaseReady } from "./firebase";
 
-export type ActivityNotificationKind = "more_like" | "not_interested" | "bookmark";
+export type ActivityNotificationKind = "more_like" | "not_interested" | "bookmark" | "seller_listing";
 
 export type ActivityNotification = {
   id: string;
@@ -20,6 +22,7 @@ const KEY_PREFIX = "uvel-activity-notifications-v1:";
 let activeUid = "";
 let notifications: ActivityNotification[] = [];
 let loading: Promise<ActivityNotification[]> | null = null;
+let remoteUnsubscribe: (() => void) | null = null;
 const listeners = new Set<() => void>();
 
 function key(uid: string) {
@@ -35,6 +38,8 @@ async function hydrate(uid: string) {
   if (normalizedUid === activeUid && loading) return loading;
   if (normalizedUid === activeUid && !loading) return notifications;
   activeUid = normalizedUid;
+  remoteUnsubscribe?.();
+  remoteUnsubscribe = null;
   loading = AsyncStorage.getItem(key(normalizedUid))
     .then((raw) => {
       try {
@@ -54,6 +59,27 @@ async function hydrate(uid: string) {
   await loading;
   loading = null;
   emit();
+  if (firebaseReady() && uid) {
+    remoteUnsubscribe = onSnapshot(collection(firebaseDb(), "users", uid, "notifications"), (snapshot) => {
+      const remote = snapshot.docs.map((item) => {
+        const data = item.data() as Record<string, unknown>;
+        return {
+          id: item.id,
+          kind: "seller_listing" as const,
+          title: String(data.title || "New listing from someone you follow"),
+          body: String(data.body || "A seller or brand you follow just posted something new."),
+          lookId: String(data.listingId || data.lookId || ""),
+          imageUrl: typeof data.imageUrl === "string" ? data.imageUrl : undefined,
+          target: "none" as const,
+          at: typeof data.createdAt === "number" ? data.createdAt : Date.now(),
+          read: Boolean(data.readAt),
+        };
+      });
+      const local = notifications.filter((item) => !remote.some((incoming) => incoming.id === item.id));
+      notifications = [...remote, ...local].sort((a, b) => b.at - a.at).slice(0, MAX);
+      emit();
+    }, () => undefined);
+  }
   return notifications;
 }
 
@@ -108,5 +134,8 @@ export async function markActivityNotificationRead(uid: string, id: string) {
   await hydrate(uid);
   notifications = notifications.map((item) => (item.id === id ? { ...item, read: true } : item));
   await persist();
+  if (firebaseReady() && id) {
+    void updateDoc(doc(firebaseDb(), "users", uid, "notifications", id), { readAt: Date.now() }).catch(() => undefined);
+  }
   emit();
 }
