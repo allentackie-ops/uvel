@@ -29,6 +29,7 @@ import { useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
 import { useLiveShopCampaigns } from "../../lib/marketing";
 import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
+import { FEED_PAGE_SIZE, feedPage } from "../../lib/feedOrder";
 import { unreadFor, useInbox } from "../../lib/chat";
 import { usePersonalization } from "../../lib/personalization";
 import { useFirstFind } from "../../lib/firstFind";
@@ -40,37 +41,9 @@ const TODAY_SWIPE_HINT_KEY = "uvel-today-workspace-tutorial-v1";
 const TODAY_SWIPE_HINT_MS = 7000;
 const TODAY_LISTING_OPENS_KEY = "uvel-today-listing-opens-v1";
 const TODAY_DOUBLE_TAP_HINT_SHOWN_KEY = "uvel-today-double-tap-hint-shown-v1";
-const INITIAL_TODAY_FEED_ROUNDS = 4;
+const INITIAL_TODAY_FEED_PAGES = 1;
 
 type TodayFeedCard = { key: string; piece: ClosetPiece };
-
-function seededTodayShuffle<T extends { id: string }>(items: T[], seed: number, epoch: number, round: number) {
-  const shuffled = [...items];
-  let state = (seed ^ Math.imul(epoch + 1, 0x9e3779b1) ^ Math.imul(round + 1, 0x85ebca6b)) >>> 0;
-  const random = () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let value = state;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
-  for (let index = shuffled.length - 1; index > 0; index -= 1) {
-    const other = Math.floor(random() * (index + 1));
-    [shuffled[index], shuffled[other]] = [shuffled[other], shuffled[index]];
-  }
-  return shuffled;
-}
-
-function shuffledTodayRound<T extends { id: string }>(items: T[], seed: number, epoch: number, round: number, initialBoundaryId?: string) {
-  if (items.length < 2) return items;
-  if (items.length === 2 && round > 1) return shuffledTodayRound(items, seed, epoch, 1, initialBoundaryId);
-
-  const shuffled = seededTodayShuffle(items, seed, epoch, round);
-  const previousRound = round > 1 ? seededTodayShuffle(items, seed, epoch, round - 1) : undefined;
-  const boundaryId = round === 1 ? initialBoundaryId : previousRound?.[previousRound.length - 1]?.id;
-  if (shuffled[0]?.id === boundaryId) [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
-  return shuffled;
-}
 
 const swipeHintStyles = StyleSheet.create({
   swipeHint: { ...StyleSheet.absoluteFill, zIndex: 60 },
@@ -218,7 +191,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const scrollY = useRef(new Animated.Value(0)).current;
   const [feedEpoch, setFeedEpoch] = useState(0);
   const frozenOrder = useRef<string[] | null>(null);
-  const [todayFeedRoundState, setTodayFeedRoundState] = useState<{ key: string; rounds: number }>({ key: "", rounds: INITIAL_TODAY_FEED_ROUNDS });
+  const [todayFeedPageState, setTodayFeedPageState] = useState<{ key: string; pages: number; pass: number }>({ key: "", pages: INITIAL_TODAY_FEED_PAGES, pass: 0 });
   const [todayShuffleSeed] = useState(() => Math.floor(Math.random() * 0x7fffffff));
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
@@ -444,6 +417,13 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     }
 
     const liveIds = new Set(live.map((p) => p.id));
+    const frozenIds = frozenOrder.current ? new Set(frozenOrder.current) : null;
+    // A new listing must invalidate the frozen order; otherwise it could stay
+    // invisible until a manual refresh even though the marketplace snapshot
+    // has already delivered it.
+    if (frozenOrder.current && live.length && (frozenOrder.current.length !== live.length || live.some((piece) => !frozenIds?.has(piece.id)))) {
+      frozenOrder.current = null;
+    }
     if (frozenOrder.current && frozenOrder.current.every((id) => !liveIds.has(id)) && live.length) {
       frozenOrder.current = null;
     }
@@ -456,22 +436,23 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey, dna, personalization.rank, feedEpoch]);
   const featured = todayHome && !scanningLook ? ranked[0] : undefined;
   const feedRanked = useMemo(() => todayHome && !scanningLook ? ranked.slice(featured ? 1 : 0) : ranked, [featured, ranked, scanningLook, todayHome]);
-  const firstTodayGridRound = feedRanked.length ? feedRanked : ranked;
-  const todayFeedKey = `${feedEpoch}:${ranked.map((piece) => piece.id).join("|")}`;
-  const todayFeedRoundCount = todayFeedRoundState.key === todayFeedKey ? todayFeedRoundState.rounds : INITIAL_TODAY_FEED_ROUNDS;
+  const todayFeedKey = `${feedEpoch}:${feedRanked.map((piece) => piece.id).join("|")}`;
+  // Load one bounded page at a time. A new pass only begins after every
+  // current listing has been shown once, so a large catalog never repeats a
+  // handful of cards while the rest are still waiting below the fold.
+  const todayFeedPageCount = todayFeedPageState.key === todayFeedKey ? todayFeedPageState.pages : INITIAL_TODAY_FEED_PAGES;
+  const todayFeedPass = todayFeedPageState.key === todayFeedKey ? todayFeedPageState.pass : 0;
+  const todayFeedTotalPages = Math.max(1, Math.ceil(feedRanked.length / FEED_PAGE_SIZE));
   const todayFeedItems = useMemo(() => {
     if (!todayHome || scanningLook) return [];
     const items: TodayFeedCard[] = [];
-    const appendRound = (pieces: ClosetPiece[], round: number) => {
-      pieces.forEach((piece, position) => items.push({ key: `${round}:${position}:${piece.id}`, piece }));
-    };
-    if (firstTodayGridRound.length) appendRound(firstTodayGridRound, 0);
-    const initialBoundaryId = firstTodayGridRound[firstTodayGridRound.length - 1]?.id;
-    for (let round = 1; round < todayFeedRoundCount; round += 1) {
-      appendRound(shuffledTodayRound(ranked, todayShuffleSeed, feedEpoch, round, initialBoundaryId), round);
+    for (let page = 0; page < todayFeedPageCount; page += 1) {
+      feedPage(feedRanked, todayFeedPass * todayFeedTotalPages + page, todayShuffleSeed ^ feedEpoch).forEach((piece, position) => {
+        items.push({ key: `${page}:${position}:${piece.id}`, piece });
+      });
     }
     return items;
-  }, [feedEpoch, firstTodayGridRound, ranked, scanningLook, todayFeedRoundCount, todayHome, todayShuffleSeed]);
+  }, [feedRanked, scanningLook, todayFeedPageCount, todayFeedPass, todayFeedTotalPages, todayHome, todayShuffleSeed]);
   const todayPrefetchUris = useMemo(() => {
     const candidates = [...todayFeedItems.slice(0, 24), ...todayFeedItems.slice(-24)];
     return [...new Set(candidates
@@ -482,12 +463,16 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     if (todayPrefetchUris.length) void Image.prefetch(todayPrefetchUris, "memory-disk").catch(() => undefined);
   }, [todayPrefetchUris]);
   const loadMoreTodayFeed = useCallback(() => {
-    if (!todayHome || scanningLook || !ranked.length) return;
-    setTodayFeedRoundState((state) => ({
-      key: todayFeedKey,
-      rounds: (state.key === todayFeedKey ? state.rounds : INITIAL_TODAY_FEED_ROUNDS) + 1,
-    }));
-  }, [ranked.length, scanningLook, todayFeedKey, todayHome]);
+    if (!todayHome || scanningLook || !feedRanked.length) return;
+    setTodayFeedPageState((state) => {
+      const pages = state.key === todayFeedKey ? state.pages : INITIAL_TODAY_FEED_PAGES;
+      const pass = state.key === todayFeedKey ? state.pass : 0;
+      if (pages >= todayFeedTotalPages) {
+        return { key: todayFeedKey, pages: INITIAL_TODAY_FEED_PAGES, pass: pass + 1 };
+      }
+      return { key: todayFeedKey, pages: pages + 1, pass };
+    });
+  }, [feedRanked.length, scanningLook, todayFeedKey, todayFeedTotalPages, todayHome]);
   const featuredBrand = featured && featured.brand && featured.brand !== "Unlabeled" ? featured.brand : featured?.category;
   const featuredItemCurrency = featured?.currency || getMarket(featured?.country || app.country).currency;
   const featuredLocalPriceCents = featured ? convertCents(featured.listPriceCents, featuredItemCurrency, market) : 0;
@@ -830,11 +815,11 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           onTouchStart={showSwipeHint ? dismissSwipeHint : undefined}
           onScrollBeginDrag={showSwipeHint ? dismissSwipeHint : undefined}
           onEndReached={loadMoreTodayFeed}
-          onEndReachedThreshold={2}
-          initialNumToRender={16}
+          onEndReachedThreshold={0.5}
+          initialNumToRender={12}
           maxToRenderPerBatch={12}
           updateCellsBatchingPeriod={40}
-          windowSize={11}
+          windowSize={9}
           extraData={openPiece?.id}
         />
       ) : (

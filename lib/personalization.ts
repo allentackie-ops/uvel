@@ -192,7 +192,10 @@ function score(piece: ClosetPiece, country: string, profile: PersonalizationProf
   const affinity = (profile.categories[piece.category?.toLowerCase()] || 0) + (profile.colors[piece.color?.toLowerCase()] || 0) + (profile.brands[piece.brand?.toLowerCase()] || 0) + (profile.materials[piece.material?.toLowerCase()] || 0) + (profile.priceBands[priceBand(piece.listPriceCents)] || 0);
   const repeatInterest = signal ? signal.views * 2 + signal.repeatViews * 8 + signal.saves * 7 + signal.shares * 8 + signal.doubleTapLikes * 10 + Math.min(36, signal.dwellSeconds / 10) + signal.engagedViews * 4 : 0;
   const local = piece.country?.toLowerCase() === country ? 3 : 0;
-  const fresh = Math.max(0, 3 - Math.floor(Math.max(0, Date.now() - (piece.createdAt || 0)) / (14 * DAY)));
+  const age = Math.max(0, Date.now() - (piece.createdAt || 0));
+  // Fresh inventory gets a meaningful but bounded boost; relevance and user
+  // preference signals still decide the rest of the order.
+  const fresh = age < 2 * DAY ? 18 : age < 14 * DAY ? 10 : age < 30 * DAY ? 4 : 0;
   return termScore + affinity + repeatInterest + local + fresh + dnaBoost(piece, dna, profile.events) + genderBoost(piece, dna?.gender);
 }
 

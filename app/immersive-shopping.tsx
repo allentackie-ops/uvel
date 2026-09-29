@@ -23,6 +23,7 @@ import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
 import { refreshMarketplaceListings, shopFloor, useWardrobe } from "../lib/wardrobe";
+import { FEED_PAGE_SIZE, feedPage } from "../lib/feedOrder";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const MIN_REFRESH_MS = 1200;
@@ -34,43 +35,7 @@ const CATALOG_BRAND_IDS: Record<string, string> = {
 
 type ShopFloorPiece = ReturnType<typeof shopFloor>[number];
 
-function seededShuffle<T extends { id: string }>(items: T[], seed: number, epoch: number, round: number) {
-  const shuffled = [...items];
-  let state = (seed ^ Math.imul(epoch + 1, 0x9e3779b1) ^ Math.imul(round + 1, 0x85ebca6b)) >>> 0;
-  const random = () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let value = state;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
-  for (let index = shuffled.length - 1; index > 0; index -= 1) {
-    const other = Math.floor(random() * (index + 1));
-    [shuffled[index], shuffled[other]] = [shuffled[other], shuffled[index]];
-  }
-  return shuffled;
-}
 
-function moveFirstAwayFrom<T extends { id: string }>(items: T[], forbiddenId?: string) {
-  if (items[0]?.id !== forbiddenId) return;
-  const swapIndex = items.findIndex((item, index) => index > 0 && item.id !== forbiddenId);
-  if (swapIndex > 0) [items[0], items[swapIndex]] = [items[swapIndex], items[0]];
-}
-
-function shuffledFeedRound<T extends { id: string }>(items: T[], seed: number, epoch: number, round: number, avoidFirstId?: string) {
-  if (items.length < 2) return items;
-  // With only two listings, avoiding a repeated item at the round boundary
-  // necessarily produces the same alternating order for each round.
-  if (items.length === 2 && round > 0) return shuffledFeedRound(items, seed, epoch, 0, avoidFirstId);
-
-  const shuffled = seededShuffle(items, seed, epoch, round);
-  // Boundary adjustments only swap the first two cards, so the previous
-  // round's final listing remains the last item in its seeded shuffle.
-  const previousRound = round > 0 ? seededShuffle(items, seed, epoch, round - 1) : undefined;
-  const boundaryId = round === 0 ? avoidFirstId : previousRound?.[previousRound.length - 1]?.id;
-  moveFirstAwayFrom(shuffled, boundaryId);
-  return shuffled;
-}
 
 export default function ImmersiveShopping() {
   const colors = useColors();
@@ -123,8 +88,7 @@ export default function ImmersiveShopping() {
   const feedWindow = useMemo(() => {
     if (!pieces.length) return { previous: undefined, current: undefined, next: undefined, preload: [] as ShopFloorPiece[] };
 
-    const roundSize = pieces.length;
-    const currentRoundIndex = Math.floor(activeIndex / roundSize);
+    const currentPageOrdinal = Math.floor(activeIndex / FEED_PAGE_SIZE);
     const cache = feedRounds.current;
     if (cache.pool !== pieces || cache.seed !== sessionSeed || cache.epoch !== refreshState.epoch || cache.anchorId !== refreshState.anchorId) {
       cache.pool = pieces;
@@ -134,20 +98,21 @@ export default function ImmersiveShopping() {
       cache.rounds.clear();
     }
     cache.rounds.forEach((_round, index) => {
-      if (index < currentRoundIndex - 1 || index > currentRoundIndex + 2) cache.rounds.delete(index);
+      if (index < currentPageOrdinal - 1 || index > currentPageOrdinal + 2) cache.rounds.delete(index);
     });
 
     const getRound = (index: number) => {
       const cached = cache.rounds.get(index);
       if (cached) return cached;
-      const shuffled = shuffledFeedRound(pieces, sessionSeed, refreshState.epoch, index, refreshState.anchorId);
-      cache.rounds.set(index, shuffled);
-      return shuffled;
+      const page = feedPage(pieces, index, sessionSeed ^ refreshState.epoch);
+      cache.rounds.set(index, page);
+      return page;
     };
     const itemAt = (index: number) => {
       if (index < 0) return undefined;
-      const roundIndex = Math.floor(index / roundSize);
-      return getRound(roundIndex)[index % roundSize];
+      const pageIndex = Math.floor(index / FEED_PAGE_SIZE);
+      const page = getRound(pageIndex);
+      return page[index % FEED_PAGE_SIZE];
     };
 
     const current = itemAt(activeIndex);
@@ -182,7 +147,7 @@ export default function ImmersiveShopping() {
       // Keep the local feed usable if the marketplace refresh is unavailable.
     } finally {
       const nextEpoch = feedEpochRef.current + 1;
-      const refreshedFeed = shuffledFeedRound(shopFloor(app.country), sessionSeed, nextEpoch, 0, refreshOriginId.current);
+      const refreshedFeed = feedPage(shopFloor(app.country), 0, sessionSeed ^ nextEpoch);
       const incomingImages = refreshedFeed
         .slice(0, 3)
         .map((piece) => piece.photo)
