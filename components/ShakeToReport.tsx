@@ -160,7 +160,9 @@ export function ShakeToReport() {
   const formMaxHeight = Math.max(120, sheetMaxHeight - chromeH - sheetPad);
   const sheetPan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: (_, gesture) => gesture.dy > 2 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+    onStartShouldSetPanResponderCapture: (_, gesture) => gesture.dy > 2 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
     onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 4 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+    onMoveShouldSetPanResponderCapture: (_, gesture) => gesture.dy > 4 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
     onPanResponderTerminationRequest: () => false,
     onPanResponderMove: (_, gesture) => sheetTranslateY.setValue(Math.max(0, gesture.dy)),
     onPanResponderRelease: (_, gesture) => {
@@ -182,15 +184,11 @@ export function ShakeToReport() {
         <View pointerEvents="box-none" style={[styles.sheetWrap, { paddingBottom: keyboardHeight }]}>
           <Animated.View {...sheetPan.panHandlers} style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: sheetPad, transform: [{ translateY: sheetTranslateY }] }]}>
             <View onLayout={(e) => setChromeH(e.nativeEvent.layout.height)}>
-              <View style={styles.grabber} />
               <View style={styles.header}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.title}>Report a technical problem</Text>
                   <Text style={styles.subtitle}>If a feature or product isn’t working correctly, you can give feedback to help us make Uvel better.</Text>
                 </View>
-                <Pressable onPress={() => close()} hitSlop={10} style={styles.close} accessibilityRole="button" accessibilityLabel="Close">
-                  <Text style={styles.closeText}>×</Text>
-                </Pressable>
               </View>
             </View>
             {sent ? (
@@ -272,12 +270,9 @@ function make(colors: ReturnType<typeof useColors>) {
     scrim: { ...StyleSheet.absoluteFill, backgroundColor: `${colors.ink}CC` },
     sheetWrap: { width: "100%", justifyContent: "flex-end" },
     sheet: { backgroundColor: colors.ink, borderTopLeftRadius: 27, borderTopRightRadius: 27, paddingHorizontal: 26, paddingTop: 10, borderWidth: 1, borderColor: `${colors.bone}1F` },
-    grabber: { alignSelf: "center", width: 42, height: 4, borderRadius: 3, backgroundColor: `${colors.bone}55`, marginBottom: 22 },
-    header: { flexDirection: "row", alignItems: "flex-start", gap: 14, marginBottom: 18 },
+    header: { flexDirection: "row", alignItems: "flex-start", marginBottom: 18 },
     title: { color: colors.bone, fontSize: 24, lineHeight: 29, fontWeight: "800", textAlign: "center" },
     subtitle: { color: `${colors.bone}E0`, fontSize: 14, lineHeight: 20, marginTop: 10, textAlign: "center" },
-    close: { position: "absolute", right: -4, top: -4, width: 32, height: 32, borderRadius: 16, backgroundColor: `${colors.bone}14`, alignItems: "center", justifyContent: "center" },
-    closeText: { color: colors.bone, fontSize: 24, lineHeight: 26, marginTop: -2 },
     formContent: { paddingBottom: 8 },
     primary: { minHeight: 57, borderRadius: 15, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", marginTop: 2 },
     primaryDisabled: { opacity: 0.42 },
