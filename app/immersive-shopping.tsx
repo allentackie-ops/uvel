@@ -9,6 +9,7 @@ import { Drawer } from "react-native-drawer-layout";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
 import { FriendShareSheet, type FriendSharePayload } from "../components/FriendShareSheet";
+import { ImmersiveListingDetails } from "../components/ImmersiveListingDetails";
 import { TodayCartFab } from "../components/TodayCartFab";
 import TodayToolsDrawer from "../components/TodayToolsDrawer";
 import * as Haptics from "../lib/haptics";
@@ -241,6 +242,7 @@ function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: Re
 
 function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, onFirstFind, firstFindLabel }: any) {
   const [shareOpen, setShareOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const cart = useCart();
   const lastImageTap = useRef(0);
   const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -268,6 +270,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const localPrice = moneyInMarket(piece.listPriceCents, itemCurrency, market);
   const credit = firstFind.applyTo(piece, piece.listPriceCents);
   const sale = Math.max(0, piece.listPriceCents - credit);
+  const salePrice = moneyInMarket(sale, market.currency, market);
   const liked = app.saved.includes(piece.id);
   const brand = piece.brand && piece.brand !== "Unlabeled" ? piece.brand : piece.category;
   const sellerName = brandRecord?.name || piece.ownerName || piece.listedByName || (piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Uvel seller");
@@ -347,9 +350,18 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           {firstFind.matches(piece) ? <AccessiblePressable onPress={onFirstFind} style={styles.firstFind} accessibilityRole="button" accessibilityLabel="What First Find is" accessibilityHint="Double tap to hear how First Find works on this piece.">
             <Text style={styles.firstFindText}>{firstFindLabel}</Text>
           </AccessiblePressable> : null}
-          <Text style={styles.name} numberOfLines={2}>{piece.name}</Text>
+          <AccessiblePressable
+            onPress={() => setDetailsOpen(true)}
+            style={styles.nameDetailsButton}
+            accessibilityRole="button"
+            accessibilityLabel={`View details for ${piece.name}`}
+            accessibilityHint="Opens the listing description, seller location, and item details."
+          >
+            <Text style={styles.name} numberOfLines={2}>{piece.name}</Text>
+            <Ionicons name="chevron-up" size={18} color={colors.bone} />
+          </AccessiblePressable>
           {credit > 0 ? (
-            <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{moneyInMarket(sale, market.currency, market)}</Text></View>
+            <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{salePrice}</Text></View>
           ) : <Text style={styles.price}>{localPrice}</Text>}
         </View>
       </View>
@@ -391,6 +403,17 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
       </View>
       {active ? <Animated.Text pointerEvents="none" style={[styles.heartPop, heartStyle]}>♥</Animated.Text> : null}
       <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
+      <ImmersiveListingDetails
+        visible={active && detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        piece={piece}
+        brandLabel={brand}
+        sellerName={sellerName}
+        sellerPhoto={sellerPhoto}
+        buyerCountry={app.country}
+        price={credit > 0 ? salePrice : localPrice}
+        originalPrice={credit > 0 ? localPrice : undefined}
+      />
     </View>
   );
 }
@@ -418,6 +441,7 @@ function make(colors: Colors) {
     copyBackButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", marginBottom: 4 },
     firstFind: { alignSelf: "flex-start", backgroundColor: colors.success, borderRadius: 15, paddingHorizontal: 11, paddingVertical: 7, marginBottom: 10 },
     brand: { color: `${colors.bone}B8`, fontSize: 11, fontWeight: "800", letterSpacing: 2.2, marginBottom: 5, textShadowColor: "#000", textShadowRadius: 6 },
+    nameDetailsButton: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 4, maxWidth: "100%" },
     name: { color: colors.bone, fontSize: 31, lineHeight: 36, fontWeight: "800", maxWidth: "88%", textShadowColor: "#000", textShadowRadius: 8 },
     priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 7 },
     price: { color: colors.success, fontSize: 19, fontWeight: "900", textShadowColor: "#000", textShadowRadius: 6 },
