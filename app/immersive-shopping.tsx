@@ -60,16 +60,24 @@ export default function ImmersiveShopping() {
     return [...floor].sort((a, b) => Number(saved.has(b.id)) - Number(saved.has(a.id)));
   }, [app.country, app.saved]);
 
-  useEffect(() => { activeIndexShared.value = activeIndex; }, [activeIndex, activeIndexShared]);
-  const currentCardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: swipeY.value }] }));
-  const nextCardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: swipeY.value + contentHeight }] }));
-  const previousCardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: swipeY.value - contentHeight }] }));
-  const commitSwipe = useCallback((nextIndex: number) => {
-    activeIndexShared.value = nextIndex;
-    setActiveIndex(nextIndex);
-    swipeY.value = 0;
+  useEffect(() => {
+    activeIndexShared.value = activeIndex;
     swipeLock.value = 0;
-  }, [activeIndexShared, swipeLock, swipeY]);
+  }, [activeIndex, activeIndexShared, swipeLock]);
+  // Position cards by absolute item index, not by their React slot. During the
+  // UI-thread handoff React can still hold the previous slot order for a frame.
+  const currentCardStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: swipeY.value + (activeIndex - activeIndexShared.value) * contentHeight }],
+  }));
+  const nextCardStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: swipeY.value + (activeIndex + 1 - activeIndexShared.value) * contentHeight }],
+  }));
+  const previousCardStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: swipeY.value + (activeIndex - 1 - activeIndexShared.value) * contentHeight }],
+  }));
+  const commitSwipe = useCallback((nextIndex: number) => {
+    setActiveIndex(nextIndex);
+  }, []);
   const panGesture = useMemo(() => Gesture.Pan()
     .enabled(!drawerOpen && pieces.length > 1)
     .maxPointers(1)
@@ -100,6 +108,8 @@ export default function ImmersiveShopping() {
         easing: Easing.out(Easing.cubic),
       }, (finished) => {
         if (finished && shouldAdvance) {
+          activeIndexShared.value = nextIndex;
+          swipeY.value = 0;
           runOnJS(commitSwipe)(nextIndex);
         } else {
           swipeLock.value = 0;
