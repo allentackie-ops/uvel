@@ -35,6 +35,8 @@ export default function ImmersiveShopping() {
   const app = useUvel();
   const firstFind = useFirstFind();
   const C = useCopy();
+  const taskbarHeight = 64 + Math.max(insets.bottom, 8);
+  const contentHeight = Math.max(1, SCREEN_HEIGHT - taskbarHeight);
   useBrands();
   useEffect(() => { void hydrateFollowedSellers(); }, []);
   useWardrobe();
@@ -42,6 +44,7 @@ export default function ImmersiveShopping() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [findHint, setFindHint] = useState(false);
   const listRef = useRef<FlatList<ClosetPiece>>(null);
+  const menuPressRef = useRef(false);
   useEffect(() => {
     if (!findHint) return;
     const timer = setTimeout(() => setFindHint(false), 3200);
@@ -69,15 +72,20 @@ export default function ImmersiveShopping() {
       insets={insets}
       app={app}
       firstFind={firstFind}
+      contentHeight={contentHeight}
       onFirstFind={() => setFindHint(true)}
       firstFindLabel={C.firstFind}
     />
-  ), [C.firstFind, activeIndex, app, colors, firstFind, insets, pieces, styles]);
+  ), [C.firstFind, activeIndex, app, colors, contentHeight, firstFind, insets, pieces, styles]);
 
   return (
     <Drawer
       open={drawerOpen}
-      onOpen={() => setDrawerOpen(true)}
+      onOpen={() => {
+        setDrawerOpen(true);
+        if (menuPressRef.current) menuPressRef.current = false;
+        else void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+      }}
       onClose={() => setDrawerOpen(false)}
       swipeEnabled
       swipeEdgeWidth={SCREEN_WIDTH}
@@ -101,25 +109,26 @@ export default function ImmersiveShopping() {
           ref={listRef}
           data={pieces}
           keyExtractor={(item) => item.id}
+          style={{ height: contentHeight }}
           renderItem={renderItem}
           pagingEnabled
           showsVerticalScrollIndicator={false}
           decelerationRate="fast"
-          snapToInterval={SCREEN_HEIGHT}
+          snapToInterval={contentHeight}
           snapToAlignment="start"
-          getItemLayout={(_, index) => ({ length: SCREEN_HEIGHT, offset: SCREEN_HEIGHT * index, index })}
+          getItemLayout={(_, index) => ({ length: contentHeight, offset: contentHeight * index, index })}
           viewabilityConfig={viewabilityConfig}
           onViewableItemsChanged={onViewableItemsChanged}
           windowSize={3}
           initialNumToRender={2}
           scrollEnabled={!drawerOpen}
-        /> : <View style={[styles.empty, { paddingTop: insets.top + 24 }]}>
+        /> : <View style={[styles.empty, { height: contentHeight, paddingTop: insets.top + 24 }]}>
           <Text style={styles.emptyKicker}>IMMERSIVE SHOPPING</Text>
           <Text style={styles.emptyTitle}>The edit is quiet for now.</Text>
           <Text style={styles.emptyBody}>Come back soon for more pieces to discover.</Text>
         </View>}
         <View pointerEvents="box-none" style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
-          <AccessiblePressable onPress={() => setDrawerOpen(true)} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Open Today drawer">
+          <AccessiblePressable onPress={() => { menuPressRef.current = true; setDrawerOpen(true); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); }} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Open Today drawer">
             <Ionicons name="menu" size={28} color={colors.bone} />
           </AccessiblePressable>
         </View>
@@ -166,7 +175,7 @@ function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: Re
   );
 }
 
-function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, onFirstFind, firstFindLabel }: any) {
+function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, onFirstFind, firstFindLabel }: any) {
   const [shareOpen, setShareOpen] = useState(false);
   const cart = useCart();
   const lastImageTap = useRef(0);
@@ -240,7 +249,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   }
 
   return (
-    <View style={[styles.item, { height: SCREEN_HEIGHT }]}>
+    <View style={[styles.item, { height: contentHeight }]}>
       <AccessiblePressable onPress={(event) => handleImagePress(event.nativeEvent.locationX, event.nativeEvent.locationY)} style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel={`${brand}, ${piece.name}, ${localPrice}. Double tap to save.`}>
         <Image source={{ uri: piece.photo }} style={styles.itemImage} contentFit="cover" accessible={false} />
         <View pointerEvents="none" style={styles.itemShade} />
