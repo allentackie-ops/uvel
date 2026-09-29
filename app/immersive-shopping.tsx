@@ -80,6 +80,11 @@ export default function ImmersiveShopping() {
         windowSize={3}
         initialNumToRender={2}
       />
+      <View pointerEvents="box-none" style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
+        <AccessiblePressable onPress={() => router.back()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Back">
+          <Ionicons name="arrow-back" size={25} color={colors.bone} />
+        </AccessiblePressable>
+      </View>
       <View style={[styles.nextControl, { bottom: Math.max(insets.bottom, 14) }]}>
         <AccessiblePressable onPress={() => { const next = Math.min(activeIndex + 1, pieces.length - 1); setActiveIndex(next); listRef.current?.scrollToIndex({ index: next, animated: true }); }} style={styles.playerAction} accessibilityRole="button" accessibilityLabel="Next immersive listing">
           <Ionicons name="play-skip-forward" size={20} color={colors.bone} />
@@ -146,6 +151,8 @@ function make(colors: Colors) {
     item: { width: SCREEN_WIDTH, backgroundColor: colors.ink },
     itemImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     itemShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.20)" },
+    topControls: { position: "absolute", top: 0, left: 0, right: 0, paddingLeft: 14, zIndex: 12 },
+    backButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
     itemCopy: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, paddingHorizontal: 24, justifyContent: "space-between" },
     copySpacer: { flex: 1 },
     firstFind: { alignSelf: "flex-start", color: colors.successInk, backgroundColor: colors.success, borderRadius: 15, paddingHorizontal: 11, paddingVertical: 7, fontSize: 11, fontWeight: "900", letterSpacing: 0.2, marginBottom: 10 },
