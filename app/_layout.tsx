@@ -202,7 +202,6 @@ function AppStack() {
           }}
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Closet", animation: "none" }} />
-          <Stack.Screen name="immersive-shopping" options={{ headerShown: false, animation: "fade", contentStyle: { backgroundColor: colors.ink } }} />
           <Stack.Screen name="mirror-camera" options={{ headerShown: false, animation: "slide_from_bottom", contentStyle: { backgroundColor: "#0B0A08" } }} />
           <Stack.Screen name="mirror-browse" options={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: "#0B0A08" } }} />
           <Stack.Screen name="visual-search" options={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: "#0B0A08" } }} />
