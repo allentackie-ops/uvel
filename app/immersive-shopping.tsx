@@ -7,7 +7,10 @@ import { Drawer } from "react-native-drawer-layout";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
 import { FriendShareSheet, type FriendSharePayload } from "../components/FriendShareSheet";
+import { TodayCartFab } from "../components/TodayCartFab";
 import TodayToolsDrawer from "../components/TodayToolsDrawer";
+import * as Haptics from "../lib/haptics";
+import { addToCart, useCart } from "../lib/cart";
 import { getBrand, isFollowing, toggleFollow, useBrands } from "../lib/brands";
 import { useFirstFind } from "../lib/firstFind";
 import { getMarket, moneyExact, moneyInMarket } from "../lib/markets";
@@ -133,6 +136,7 @@ export default function ImmersiveShopping() {
           <Text style={styles.findToastK}>{C.firstFind}</Text>
           <Text style={styles.findToastTxt}>{C.matchingPiece} · {moneyExact(firstFind.remaining, firstFind.currency)}</Text>
         </View> : null}
+        <TodayCartFab listingOpen />
       </View>
     </Drawer>
   );
@@ -140,6 +144,7 @@ export default function ImmersiveShopping() {
 
 function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, onOpen, onFirstFind, firstFindLabel }: any) {
   const [shareOpen, setShareOpen] = useState(false);
+  const cart = useCart();
   const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
   const catalogBrandId = !brandRecord && piece.brand ? CATALOG_BRAND_IDS[piece.brand] : undefined;
   const followId = brandRecord?.id || piece.ownerId || piece.listedByUid || catalogBrandId || "";
@@ -184,12 +189,10 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           {firstFind.matches(piece) ? <AccessiblePressable onPress={onFirstFind} style={styles.firstFind} accessibilityRole="button" accessibilityLabel="What First Find is" accessibilityHint="Double tap to hear how First Find works on this piece.">
             <Text style={styles.firstFindText}>{firstFindLabel}</Text>
           </AccessiblePressable> : null}
-          <Text style={styles.brand}>{brand.toUpperCase()}</Text>
           <Text style={styles.name} numberOfLines={2}>{piece.name}</Text>
           {credit > 0 ? (
             <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{moneyInMarket(sale, market.currency, market)}</Text></View>
           ) : <Text style={styles.price}>{localPrice}</Text>}
-          {followId ? <Text style={styles.sellerName} numberOfLines={1}>{sellerName}</Text> : null}
         </View>
       </View>
       <View style={[styles.actions, { bottom: insets.bottom + 148 }]}>
@@ -202,6 +205,25 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
             <Text style={[styles.followText, following && styles.followingText]}>{following ? "Following" : "Follow"}</Text>
           </AccessiblePressable>
         </View> : null}
+        <Action
+          icon={cart.has(piece.id) ? "checkmark" : "bag-handle-outline"}
+          label={cart.has(piece.id) ? "In bag" : "Bag"}
+          active={cart.has(piece.id)}
+          onPress={() => {
+            if (cart.has(piece.id)) return;
+            addToCart(piece.id);
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+          }}
+          styles={styles}
+          colors={colors}
+        />
+        <Action
+          icon="body-outline"
+          label="Try it on"
+          onPress={() => router.push({ pathname: "/try-on", params: { piece: piece.id } })}
+          styles={styles}
+          colors={colors}
+        />
         <Action icon={liked ? "heart" : "heart-outline"} label="Save" active={liked} onPress={() => { if (!liked) app.likePiece(piece.id); else void app.toggleSaved(piece.id); }} styles={styles} colors={colors} />
         <Action icon="share-outline" label="Share" onPress={() => setShareOpen(true)} styles={styles} colors={colors} />
       </View>
