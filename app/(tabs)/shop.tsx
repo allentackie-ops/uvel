@@ -509,7 +509,6 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         </AccessiblePressable>
       </View>
       <View style={styles.headerActions}>
-        {overHero && todayHome ? <TodayMusicButton music={todayMusic} /> : null}
         {overHero ? (
           <AccessiblePressable
             onPress={() => router.push("/search")}
@@ -575,6 +574,9 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           </AccessiblePressable>
           <View pointerEvents="box-none" style={[styles.editorialHeroContent, { paddingTop: insets.top + 8 }]}>
             {renderTodayHeader(true)}
+            <View pointerEvents="box-none" style={styles.editorialHeroRadio}>
+              <TodayMusicButton music={todayMusic} />
+            </View>
             <View pointerEvents="box-none" style={styles.editorialListingCopy}>
               {firstFind.matches(featured) ? (
                 <AccessiblePressable
@@ -833,6 +835,7 @@ function make(colors: Colors) {
     editorialHeroShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.34)", zIndex: 1 },
     editorialHeroImageAction: { ...StyleSheet.absoluteFill, backgroundColor: "transparent", zIndex: 2 },
     editorialHeroContent: { ...StyleSheet.absoluteFill, paddingHorizontal: 22, paddingBottom: 27, justifyContent: "space-between", zIndex: 3 },
+    editorialHeroRadio: { alignItems: "flex-end", paddingTop: 18, paddingRight: 2 },
     editorialListingCopy: { maxWidth: 350, gap: 6 },
     editorialListingFirstFind: { alignSelf: "flex-start", minHeight: 30, paddingHorizontal: 12, marginBottom: 4, borderRadius: 15, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     editorialListingFirstFindText: { color: colors.successInk, fontSize: 11, fontWeight: "800" },
