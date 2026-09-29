@@ -63,6 +63,13 @@ export default function ImmersiveShopping() {
   }).current;
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 65 }).current;
+  const settleSwipe = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
+    if (!pieces.length || contentHeight <= 0) return;
+    const rawOffset = event.nativeEvent.contentOffset.y;
+    const nearestIndex = Math.max(0, Math.min(pieces.length - 1, Math.round(rawOffset / contentHeight)));
+    const exactOffset = nearestIndex * contentHeight;
+    if (Math.abs(rawOffset - exactOffset) > 0.5) listRef.current?.scrollToOffset({ offset: exactOffset, animated: false });
+  }, [contentHeight, pieces.length]);
   const renderItem = useCallback(({ item }: { item: ClosetPiece }) => (
     <ImmersiveItem
       piece={item}
@@ -113,6 +120,7 @@ export default function ImmersiveShopping() {
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
           bounces={false}
+          alwaysBounceVertical={false}
           overScrollMode="never"
           decelerationRate="fast"
           snapToInterval={contentHeight}
@@ -120,6 +128,7 @@ export default function ImmersiveShopping() {
           getItemLayout={(_, index) => ({ length: contentHeight, offset: contentHeight * index, index })}
           viewabilityConfig={viewabilityConfig}
           onViewableItemsChanged={onViewableItemsChanged}
+          onMomentumScrollEnd={settleSwipe}
           windowSize={3}
           initialNumToRender={2}
           scrollEnabled={!drawerOpen}
