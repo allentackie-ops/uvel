@@ -115,6 +115,16 @@ export default function ImmersiveShopping() {
   const nextPiece = pieces[activeIndex + 1];
   const previousPiece = pieces[activeIndex - 1];
 
+  useEffect(() => {
+    // Keep the next couple of images warm so rapid swipes don't reveal an
+    // unloaded image while the incoming card is already moving on screen.
+    const imageUris = pieces
+      .slice(activeIndex, activeIndex + 3)
+      .map((piece) => piece.photo)
+      .filter((uri): uri is string => /^https?:\/\//i.test(uri));
+    if (imageUris.length) void Image.prefetch(imageUris, "memory-disk").catch(() => undefined);
+  }, [activeIndex, pieces]);
+
   return (
     <Drawer
       open={drawerOpen}
@@ -144,10 +154,10 @@ export default function ImmersiveShopping() {
       <GestureDetector gesture={panGesture}>
       <View style={styles.page}>
         {activePiece ? <>
-          {previousPiece ? <Animated.View pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle]}>
+          {previousPiece ? <Animated.View key={previousPiece.id} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle]}>
             <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
-          <Animated.View style={[styles.cardLayer, { height: contentHeight }, currentCardStyle]}>
+          <Animated.View key={activePiece.id} style={[styles.cardLayer, { height: contentHeight }, currentCardStyle]}>
           <ImmersiveItem
           piece={activePiece}
           active
@@ -161,7 +171,7 @@ export default function ImmersiveShopping() {
           firstFindLabel={C.firstFind}
           />
           </Animated.View>
-          {nextPiece ? <Animated.View pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
+          {nextPiece ? <Animated.View key={nextPiece.id} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
             <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
         </> : <View style={[styles.empty, { height: contentHeight, paddingTop: insets.top + 24 }]}>
@@ -292,12 +302,16 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   }
 
   return (
-    <View style={[styles.item, { height: contentHeight }]}>
+    <View
+      style={[styles.item, { height: contentHeight }]}
+      accessibilityElementsHidden={!active}
+      importantForAccessibility={active ? "auto" : "no-hide-descendants"}
+    >
       <AccessiblePressable onPress={(event) => handleImagePress(event.nativeEvent.locationX, event.nativeEvent.locationY)} style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel={`${brand}, ${piece.name}, ${localPrice}. Double tap to save.`}>
-        <Image source={{ uri: piece.photo }} style={styles.itemImage} contentFit="cover" accessible={false} />
+        <Image source={{ uri: piece.photo }} style={styles.itemImage} contentFit="cover" cachePolicy="memory-disk" transition={0} accessible={false} />
         <View pointerEvents="none" style={styles.itemShade} />
       </AccessiblePressable>
-      {active ? <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: 24 }]}>
+      <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: 24 }]}>
         <View style={styles.copySpacer} />
         <View>
           <AccessiblePressable onPress={() => router.back()} style={styles.copyBackButton} accessibilityRole="button" accessibilityLabel="Back to Today">
@@ -311,8 +325,8 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
             <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{moneyInMarket(sale, market.currency, market)}</Text></View>
           ) : <Text style={styles.price}>{localPrice}</Text>}
         </View>
-      </View> : null}
-      {active ? <View style={[styles.actions, { bottom: 118 }]} onLayout={(event) => {
+      </View>
+      <View style={[styles.actions, { bottom: 118 }]} onLayout={(event) => {
         const { x, y, width, height } = event.nativeEvent.layout;
         saveTargetX.value = x + width / 2;
         saveTargetY.value = y + height - 99;
@@ -347,7 +361,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         />
         <Action icon={liked ? "heart" : "heart-outline"} label="Save" active={liked} onPress={() => { if (!liked) app.likePiece(piece.id); else void app.toggleSaved(piece.id); }} styles={styles} colors={colors} />
         <Action icon="share-outline" label="Share" onPress={() => setShareOpen(true)} styles={styles} colors={colors} />
-      </View> : null}
+      </View>
       {active ? <Animated.Text pointerEvents="none" style={[styles.heartPop, heartStyle]}>♥</Animated.Text> : null}
       <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
     </View>
