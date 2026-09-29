@@ -1,8 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { GlassView } from "expo-glass-effect";
-import { Animated as RNAnimated, Modal, PanResponder, Platform, ScrollView, StyleSheet, Text, View, useWindowDimensions, type ImageStyle } from "react-native";
+import { Modal, Platform, StyleSheet, Text, View, useWindowDimensions, type ImageStyle } from "react-native";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "./AccessiblePressable";
 import { getMarket } from "../lib/markets";
@@ -37,7 +39,16 @@ export function ImmersiveListingDetails({
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
-  const dragY = useRef(new RNAnimated.Value(0)).current;
+  const dragY = useSharedValue(0);
+  const scrollY = useSharedValue(0);
+  const panStartScrollY = useSharedValue(0);
+  const contentScrollGesture = useMemo(() => Gesture.Native(), []);
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+  const dragStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value }] }));
   const [contentHeight, setContentHeight] = useState(0);
   const originCode = piece.country || buyerCountry;
   const origin = getMarket(originCode);
@@ -64,37 +75,36 @@ export function ImmersiveListingDetails({
   const sheetHeight = scrollHeight + sheetChrome;
 
   useEffect(() => {
-    if (visible) dragY.setValue(0);
+    if (visible) dragY.value = 0;
   }, [visible, dragY]);
 
   useEffect(() => {
     setContentHeight(0);
   }, [piece.id]);
 
-  const dismissPan = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponderCapture: (_event, gesture) => gesture.dy > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-    onMoveShouldSetPanResponder: (_event, gesture) => gesture.dy > 6 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-    onPanResponderGrant: () => dragY.stopAnimation(),
-    onPanResponderMove: (_event, gesture) => dragY.setValue(Math.max(0, gesture.dy)),
-    onPanResponderRelease: (_event, gesture) => {
-      if (gesture.dy > 72 || gesture.vy > 0.62) {
-        RNAnimated.timing(dragY, { toValue: sheetHeight, duration: 170, useNativeDriver: true }).start(({ finished }) => {
-          if (finished) onClose();
+  const dismissPan = useMemo(() => Gesture.Pan()
+    .activeOffsetY(6)
+    .failOffsetX([-18, 18])
+    .simultaneousWithExternalGesture(contentScrollGesture)
+    .onBegin(() => {
+      panStartScrollY.value = scrollY.value;
+    })
+    .onUpdate((event) => {
+      if (panStartScrollY.value <= 1) dragY.value = Math.max(0, event.translationY);
+    })
+    .onEnd((event) => {
+      if (panStartScrollY.value <= 1 && (event.translationY > 72 || event.velocityY > 700)) {
+        dragY.value = withTiming(sheetHeight, { duration: 180 }, (finished) => {
+          if (finished) runOnJS(onClose)();
         });
       } else {
-        RNAnimated.spring(dragY, { toValue: 0, useNativeDriver: true, speed: 22, bounciness: 2 }).start();
+        dragY.value = withSpring(0, { damping: 22, stiffness: 240, overshootClamping: true });
       }
-    },
-    onPanResponderTerminate: () => {
-      RNAnimated.spring(dragY, { toValue: 0, useNativeDriver: true, speed: 22, bounciness: 2 }).start();
-    },
-    onPanResponderTerminationRequest: () => false,
-  }), [dragY, onClose, sheetHeight]);
+    }), [contentScrollGesture, dragY, onClose, panStartScrollY, scrollY, sheetHeight]);
 
   return (
     <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
-      <View style={styles.modalRoot}>
+      <GestureHandlerRootView style={styles.modalRoot}>
         <AccessiblePressable
           onPress={onClose}
           style={StyleSheet.absoluteFill}
@@ -104,25 +114,26 @@ export function ImmersiveListingDetails({
         >
           <View style={styles.backdrop} />
         </AccessiblePressable>
-        <RNAnimated.View
-          {...dismissPan.panHandlers}
-          style={[
-            styles.sheet,
-            { height: sheetHeight, paddingBottom: bottomPadding },
-            { transform: [{ translateY: dragY }] },
-          ]}
-          accessibilityViewIsModal
-        >
+        <GestureDetector gesture={dismissPan}>
+          <Animated.View
+            style={[styles.sheet, { height: sheetHeight, paddingBottom: bottomPadding }, dragStyle]}
+            accessibilityViewIsModal
+          >
           <View pointerEvents="none" style={styles.glassLayer}>
             {Platform.OS === "ios" ? <GlassView glassEffectStyle="regular" colorScheme="dark" style={styles.glassSurface} /> : <View style={styles.glassFallback} />}
             <View style={styles.warmTint} />
           </View>
           <View style={styles.sheetContent}>
             <View style={styles.dragCue} accessible accessibilityLabel="Swipe down to dismiss listing details" />
-            <ScrollView
-              style={[styles.scroll, { height: scrollHeight, maxHeight: maxScrollHeight }]}
-              contentContainerStyle={styles.content}
-              showsVerticalScrollIndicator={false}
+            <GestureDetector gesture={contentScrollGesture}>
+              <Animated.ScrollView
+                style={[styles.scroll, { height: scrollHeight, maxHeight: maxScrollHeight }]}
+                contentContainerStyle={styles.content}
+                showsVerticalScrollIndicator={false}
+                bounces={false}
+                overScrollMode="never"
+                scrollEventThrottle={16}
+                onScroll={scrollHandler}
               onContentSizeChange={(_width, height) => {
                 setContentHeight((current) => Math.abs(current - height) > 1 ? height : current);
               }}
@@ -187,10 +198,12 @@ export function ImmersiveListingDetails({
                   </View>
                 </View>
               ) : null}
-            </ScrollView>
+              </Animated.ScrollView>
+            </GestureDetector>
           </View>
-        </RNAnimated.View>
-      </View>
+          </Animated.View>
+        </GestureDetector>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
