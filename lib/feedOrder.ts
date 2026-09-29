@@ -47,6 +47,11 @@ export function feedPage<T extends { id: string; stockQuantity?: number }>(items
     }
   });
 
+  // The first pass preserves the ranked feed. Once the current catalog has
+  // been fully shown, shuffle the whole bounded page so even a 10-item feed
+  // does not reveal a visibly repeating loop. Scarce-only movement remains
+  // the first-pass behavior; later passes are intentionally fresh.
+  if (pass > 0) return seededShuffle(pageItems, seed, pass, page);
   if (scarceItems.length < 2) return pageItems;
   const shuffledScarce = seededShuffle(scarceItems, seed, pass, page);
   const result = [...pageItems];
