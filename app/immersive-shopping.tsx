@@ -2,10 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dimensions, FlatList, StyleSheet, Text, View } from "react-native";
+import { Dimensions, FlatList, Share as NativeShare, StyleSheet, Text, View } from "react-native";
+import { Drawer } from "react-native-drawer-layout";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
 import { FriendShareSheet, type FriendSharePayload } from "../components/FriendShareSheet";
+import TodayToolsDrawer from "../components/TodayToolsDrawer";
 import { getBrand, isFollowing, toggleFollow, useBrands } from "../lib/brands";
 import { useFirstFind } from "../lib/firstFind";
 import { getMarket, moneyInMarket } from "../lib/markets";
@@ -26,6 +28,7 @@ export default function ImmersiveShopping() {
   useEffect(() => { void hydrateFollowedSellers(); }, []);
   useWardrobe();
   const [activeIndex, setActiveIndex] = useState(0);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const listRef = useRef<FlatList<ClosetPiece>>(null);
 
   const pieces = useMemo(() => {
@@ -56,46 +59,66 @@ export default function ImmersiveShopping() {
     />
   ), [activeIndex, app, colors, firstFind, insets, openPiece, pieces, styles]);
 
-  if (!pieces.length) {
-    return (
-      <View style={[styles.empty, { paddingTop: insets.top + 24 }]}>
-        <Text style={styles.emptyKicker}>IMMERSIVE SHOPPING</Text>
-        <Text style={styles.emptyTitle}>The edit is quiet for now.</Text>
-        <Text style={styles.emptyBody}>Come back soon for more pieces to discover.</Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.page}>
-      <FlatList
-        ref={listRef}
-        data={pieces}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        pagingEnabled
-        showsVerticalScrollIndicator={false}
-        decelerationRate="fast"
-        snapToInterval={SCREEN_HEIGHT}
-        snapToAlignment="start"
-        disableIntervalMomentum
-        getItemLayout={(_, index) => ({ length: SCREEN_HEIGHT, offset: SCREEN_HEIGHT * index, index })}
-        viewabilityConfig={viewabilityConfig}
-        onViewableItemsChanged={onViewableItemsChanged}
-        windowSize={3}
-        initialNumToRender={2}
-      />
-      <View pointerEvents="box-none" style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
-        <AccessiblePressable onPress={() => router.back()} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Back">
-          <Ionicons name="arrow-back" size={25} color={colors.bone} />
-        </AccessiblePressable>
+    <Drawer
+      open={drawerOpen}
+      onOpen={() => setDrawerOpen(true)}
+      onClose={() => setDrawerOpen(false)}
+      swipeEnabled
+      swipeEdgeWidth={SCREEN_WIDTH}
+      swipeMinDistance={10}
+      swipeMinVelocity={100}
+      drawerType="slide"
+      drawerPosition="left"
+      drawerStyle={{ width: Math.min(SCREEN_WIDTH * 0.78, 340), backgroundColor: colors.ink }}
+      overlayStyle={{ backgroundColor: "rgba(0,0,0,0.32)" }}
+      configureGestureHandler={(handler) => drawerOpen ? handler.activeOffsetX([-1, 1]) : handler.failOffsetX(-1).activeOffsetX(5)}
+      renderDrawerContent={() => (
+        <TodayToolsDrawer
+          onClose={() => setDrawerOpen(false)}
+          onOpenSell={() => { setDrawerOpen(false); router.push("/sell"); }}
+          onOpenMirror={() => { setDrawerOpen(false); router.push("/mirror"); }}
+        />
+      )}
+    >
+      <View style={styles.page}>
+        {pieces.length ? <FlatList
+          ref={listRef}
+          data={pieces}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          pagingEnabled
+          showsVerticalScrollIndicator={false}
+          decelerationRate="fast"
+          snapToInterval={SCREEN_HEIGHT}
+          snapToAlignment="start"
+          disableIntervalMomentum
+          getItemLayout={(_, index) => ({ length: SCREEN_HEIGHT, offset: SCREEN_HEIGHT * index, index })}
+          viewabilityConfig={viewabilityConfig}
+          onViewableItemsChanged={onViewableItemsChanged}
+          windowSize={3}
+          initialNumToRender={2}
+          scrollEnabled={!drawerOpen}
+        /> : <View style={[styles.empty, { paddingTop: insets.top + 24 }]}>
+          <Text style={styles.emptyKicker}>IMMERSIVE SHOPPING</Text>
+          <Text style={styles.emptyTitle}>The edit is quiet for now.</Text>
+          <Text style={styles.emptyBody}>Come back soon for more pieces to discover.</Text>
+        </View>}
+        <View pointerEvents="box-none" style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
+          <AccessiblePressable onPress={() => setDrawerOpen(true)} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Open Today drawer">
+            <Ionicons name="menu" size={28} color={colors.bone} />
+          </AccessiblePressable>
+        </View>
+        {pieces.length ? <AccessiblePressable onPress={() => router.back()} style={[styles.backButton, { bottom: insets.bottom + 48 }]} accessibilityRole="button" accessibilityLabel="Back to Today">
+          <Ionicons name="arrow-back" size={23} color={colors.bone} />
+        </AccessiblePressable> : null}
+        {pieces.length ? <View style={[styles.nextControl, { bottom: Math.max(insets.bottom, 14) }]}>
+          <AccessiblePressable onPress={() => { const next = Math.min(activeIndex + 1, pieces.length - 1); setActiveIndex(next); listRef.current?.scrollToIndex({ index: next, animated: true }); }} style={styles.playerAction} accessibilityRole="button" accessibilityLabel="Next immersive listing">
+            <Ionicons name="play-skip-forward" size={20} color={colors.bone} />
+          </AccessiblePressable>
+        </View> : null}
       </View>
-      <View style={[styles.nextControl, { bottom: Math.max(insets.bottom, 14) }]}>
-        <AccessiblePressable onPress={() => { const next = Math.min(activeIndex + 1, pieces.length - 1); setActiveIndex(next); listRef.current?.scrollToIndex({ index: next, animated: true }); }} style={styles.playerAction} accessibilityRole="button" accessibilityLabel="Next immersive listing">
-          <Ionicons name="play-skip-forward" size={20} color={colors.bone} />
-        </AccessiblePressable>
-      </View>
-    </View>
+    </Drawer>
   );
 }
 
@@ -144,23 +167,23 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           {credit > 0 ? (
             <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{moneyInMarket(sale, market.currency, market)}</Text></View>
           ) : <Text style={styles.price}>{localPrice}</Text>}
-          {followId ? <>
-            <AccessiblePressable onPress={openSeller} style={styles.sellerRow} accessibilityRole="button" accessibilityLabel={`View ${sellerName} profile`}>
-              {sellerPhoto ? <Image source={{ uri: sellerPhoto }} style={styles.sellerAvatar} contentFit="cover" /> : <View style={styles.sellerFallback}><Text style={styles.sellerInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}
-              <View style={styles.sellerCopy}><Text style={styles.sellerLabel}>{isBrand ? "BRAND" : "SELLER"}</Text><Text style={styles.sellerName} numberOfLines={1}>{sellerName}</Text></View>
-            </AccessiblePressable>
-            <AccessiblePressable onPress={follow} style={[styles.followButton, following && styles.followingButton]} accessibilityRole="button" accessibilityLabel={following ? `Unfollow ${sellerName}` : `Follow ${sellerName}`} accessibilityState={{ selected: following }}>
-              <Ionicons name={following ? "checkmark" : "add"} size={16} color={following ? colors.bone : colors.successInk} />
-              <Text style={[styles.followText, following && styles.followingText]}>{following ? "Following" : `Follow ${isBrand ? "brand" : "seller"}`}</Text>
-            </AccessiblePressable>
-          </> : null}
+          {followId ? <Text style={styles.sellerName} numberOfLines={1}>{sellerName}</Text> : null}
         </View>
       </View>
       <View style={[styles.actions, { bottom: insets.bottom + 148 }]}>
+        {followId ? <View style={styles.profileRail}>
+          <AccessiblePressable onPress={openSeller} style={styles.profileButton} accessibilityRole="button" accessibilityLabel={`View ${sellerName} profile`}>
+            {sellerPhoto ? <Image source={{ uri: sellerPhoto }} style={styles.profileAvatar} contentFit="cover" /> : <View style={styles.profileFallback}><Text style={styles.sellerInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}
+          </AccessiblePressable>
+          <AccessiblePressable onPress={follow} style={[styles.followButton, following && styles.followingButton]} accessibilityRole="button" accessibilityLabel={following ? `Unfollow ${sellerName}` : `Follow ${sellerName}`} accessibilityState={{ selected: following }}>
+            <Ionicons name={following ? "checkmark" : "add"} size={15} color={following ? colors.bone : colors.successInk} />
+            <Text style={[styles.followText, following && styles.followingText]}>{following ? "Following" : "Follow"}</Text>
+          </AccessiblePressable>
+        </View> : null}
         <Action icon={liked ? "heart" : "heart-outline"} label="Save" active={liked} onPress={() => { if (!liked) app.likePiece(piece.id); else void app.toggleSaved(piece.id); }} styles={styles} colors={colors} />
         <Action icon="share-outline" label="Share" onPress={() => setShareOpen(true)} styles={styles} colors={colors} />
       </View>
-      <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => setShareOpen(false)} />
+      <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
     </View>
   );
 }
@@ -181,7 +204,8 @@ function make(colors: Colors) {
     itemImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     itemShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.20)" },
     topControls: { position: "absolute", top: 0, left: 0, right: 0, paddingLeft: 14, zIndex: 12 },
-    backButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
+    menuButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
+    backButton: { position: "absolute", left: 14, width: 42, height: 42, alignItems: "center", justifyContent: "center", zIndex: 12 },
     itemCopy: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, paddingHorizontal: 24, justifyContent: "space-between" },
     copySpacer: { flex: 1 },
     firstFind: { alignSelf: "flex-start", color: colors.successInk, backgroundColor: colors.success, borderRadius: 15, paddingHorizontal: 11, paddingVertical: 7, fontSize: 11, fontWeight: "900", letterSpacing: 0.2, marginBottom: 10 },
@@ -190,14 +214,13 @@ function make(colors: Colors) {
     priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 7 },
     price: { color: colors.success, fontSize: 19, fontWeight: "900", textShadowColor: "#000", textShadowRadius: 6 },
     was: { color: `${colors.bone}D0`, fontSize: 16, fontWeight: "700", textDecorationLine: "line-through", textShadowColor: "#000", textShadowRadius: 6 },
-    sellerRow: { flexDirection: "row", alignItems: "center", gap: 9, marginTop: 14, maxWidth: "76%" },
-    sellerAvatar: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.surface },
-    sellerFallback: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    profileRail: { alignItems: "center", gap: 7 },
+    profileButton: { width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: colors.bone, overflow: "hidden" },
+    profileAvatar: { width: "100%", height: "100%", backgroundColor: colors.surface },
+    profileFallback: { width: "100%", height: "100%", backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     sellerInitial: { color: colors.successInk, fontSize: 14, fontWeight: "900" },
-    sellerCopy: { minWidth: 0 },
-    sellerLabel: { color: `${colors.bone}A0`, fontSize: 9, fontWeight: "900", letterSpacing: 1.3, textShadowColor: "#000", textShadowRadius: 5 },
     sellerName: { color: colors.bone, fontSize: 14, fontWeight: "800", textShadowColor: "#000", textShadowRadius: 6 },
-    followButton: { alignSelf: "flex-start", minHeight: 34, paddingHorizontal: 13, borderRadius: 17, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", gap: 5, marginTop: 9 },
+    followButton: { minHeight: 30, paddingHorizontal: 10, borderRadius: 15, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", gap: 4 },
     followingButton: { backgroundColor: "rgba(0,0,0,0.38)", borderWidth: 1, borderColor: `${colors.bone}70` },
     followText: { color: colors.successInk, fontSize: 12, fontWeight: "900" },
     followingText: { color: colors.bone },
