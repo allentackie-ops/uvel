@@ -252,9 +252,14 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const followId = brandRecord?.id || piece.ownerId || piece.listedByUid || catalogBrandId || "";
   const isBrand = Boolean(brandRecord);
   const [following, setFollowing] = useState(() => isBrand ? isFollowing(followId, app.uid) : isSellerFollowed(followId));
+  const [showFollowingStatus, setShowFollowingStatus] = useState(false);
+  const followingStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     setFollowing(isBrand ? isFollowing(followId, app.uid) : isSellerFollowed(followId));
   }, [app.uid, followId, isBrand]);
+  useEffect(() => () => {
+    if (followingStatusTimer.current) clearTimeout(followingStatusTimer.current);
+  }, []);
   const market = getMarket(app.country);
   const itemCurrency = piece.currency || getMarket(piece.country || app.country).currency;
   const localPrice = moneyInMarket(piece.listPriceCents, itemCurrency, market);
@@ -302,6 +307,17 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
     if (!followId) return;
     const next = isBrand ? toggleFollow(followId, app.uid || "me") : toggleSellerFollow(followId);
     setFollowing(next);
+    if (followingStatusTimer.current) clearTimeout(followingStatusTimer.current);
+    if (next) {
+      setShowFollowingStatus(true);
+      followingStatusTimer.current = setTimeout(() => {
+        setShowFollowingStatus(false);
+        followingStatusTimer.current = null;
+      }, 1500);
+    } else {
+      setShowFollowingStatus(false);
+      followingStatusTimer.current = null;
+    }
     if (!isBrand) void syncSellerFollow(app.uid, followId, next);
   }
   function openSeller() {
@@ -343,10 +359,10 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           <AccessiblePressable onPress={openSeller} style={styles.profileButton} accessibilityRole="button" accessibilityLabel={`View ${sellerName} profile`}>
             {sellerPhoto ? <Image source={{ uri: sellerPhoto }} style={styles.profileAvatar} contentFit="cover" /> : <View style={styles.profileFallback}><Text style={styles.sellerInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}
           </AccessiblePressable>
-          <AccessiblePressable onPress={follow} style={[styles.followButton, following && styles.followingButton]} accessibilityRole="button" accessibilityLabel={following ? `Unfollow ${sellerName}` : `Follow ${sellerName}`} accessibilityState={{ selected: following }}>
+          {!following || showFollowingStatus ? <AccessiblePressable onPress={follow} style={[styles.followButton, following && styles.followingButton]} accessibilityRole="button" accessibilityLabel={following ? `Unfollow ${sellerName}` : `Follow ${sellerName}`} accessibilityState={{ selected: following }}>
             <Ionicons name={following ? "checkmark" : "add"} size={15} color={following ? colors.bone : colors.successInk} />
             <Text style={[styles.followText, following && styles.followingText]}>{following ? "Following" : "Follow"}</Text>
-          </AccessiblePressable>
+          </AccessiblePressable> : null}
         </View> : null}
         <Action
           icon={cart.has(piece.id) ? "checkmark" : "bag-handle-outline"}
