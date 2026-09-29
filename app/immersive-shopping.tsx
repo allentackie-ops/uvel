@@ -127,9 +127,42 @@ export default function ImmersiveShopping() {
           <Text style={styles.findToastK}>{C.firstFind}</Text>
           <Text style={styles.findToastTxt}>{C.matchingPiece} · {moneyExact(firstFind.remaining, firstFind.currency)}</Text>
         </View> : null}
+        <ImmersiveTaskbar colors={colors} C={C} insets={insets} />
         <TodayCartFab listingOpen />
       </View>
     </Drawer>
+  );
+}
+
+function ImmersiveTaskbar({ colors, C, insets }: { colors: Colors; C: ReturnType<typeof useCopy>; insets: { bottom: number } }) {
+  const tabs = [
+    { route: "/" as const, icon: "compass" as const, inactive: "compass-outline" as const, label: C.today },
+    { route: "/create" as const, icon: "pricetag" as const, inactive: "pricetag-outline" as const, label: C.create || "Create" },
+    { route: "/you" as const, icon: "person-outline" as const, inactive: "person-outline" as const, label: C.you || "You" },
+  ];
+  return (
+    <View style={[styles.taskbarWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]}>
+      <View style={[styles.taskbar, { backgroundColor: colors.ink }]}>
+        {tabs.map((tab, index) => {
+          const active = index === 0;
+          return (
+            <AccessiblePressable
+              key={tab.route}
+              onPress={() => router.navigate(tab.route)}
+              style={({ pressed }) => [styles.taskbarTab, pressed && styles.taskbarTabPressed]}
+              accessibilityRole="tab"
+              accessibilityLabel={tab.label}
+              accessibilityState={{ selected: active }}
+            >
+              <View style={styles.taskbarIconSlot} accessibilityElementsHidden>
+                <Ionicons name={active ? tab.icon : tab.inactive} size={26} color={active ? colors.success : colors.muted} />
+              </View>
+              <Text style={[styles.taskbarLabel, { color: active ? colors.success : colors.muted }]}>{tab.label}</Text>
+            </AccessiblePressable>
+          );
+        })}
+      </View>
+    </View>
   );
 }
 
@@ -317,5 +350,11 @@ function make(colors: Colors) {
     findToast: { position: "absolute", left: 20, right: 20, zIndex: 20, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "rgba(12,11,9,0.88)", borderWidth: 1, borderColor: `${colors.success}66` },
     findToastK: { color: colors.success, fontSize: 11, fontWeight: "900", letterSpacing: 1.2, textTransform: "uppercase" },
     findToastTxt: { color: colors.bone, fontSize: 13, fontWeight: "700", marginTop: 3 },
+    taskbarWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingTop: 4, zIndex: 15 },
+    taskbar: { minHeight: 60, flexDirection: "row", alignItems: "center", paddingHorizontal: 10 },
+    taskbarTab: { flex: 1, minHeight: 52, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 3 },
+    taskbarTabPressed: { opacity: 0.76 },
+    taskbarIconSlot: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
+    taskbarLabel: { fontSize: 11, fontWeight: "700" },
   });
 }
