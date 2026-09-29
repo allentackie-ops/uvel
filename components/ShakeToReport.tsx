@@ -53,6 +53,7 @@ export function ShakeToReport() {
   useEffect(() => {
     openRef.current = open;
     if (open) {
+      sheetTranslateY.stopAnimation();
       sheetTranslateY.setValue(sheetMaxHeight);
       Animated.timing(sheetTranslateY, { toValue: 0, duration: 260, useNativeDriver: true }).start();
     } else {
@@ -173,9 +174,8 @@ export function ShakeToReport() {
     onPanResponderMove: (_, gesture) => sheetTranslateY.setValue(Math.max(0, gesture.dy)),
     onPanResponderRelease: (_, gesture) => {
       if (gesture.dy > 120 || gesture.vy > 1.2) {
-        Animated.timing(sheetTranslateY, { toValue: sheetMaxHeight, duration: 180, useNativeDriver: true }).start(({ finished }) => {
-          if (finished) close(false);
-        });
+        sheetTranslateY.stopAnimation();
+        Animated.timing(sheetTranslateY, { toValue: sheetMaxHeight, duration: 180, useNativeDriver: true }).start(() => close(false));
       } else {
         Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
       }
