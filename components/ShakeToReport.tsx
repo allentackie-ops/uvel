@@ -159,10 +159,10 @@ export function ShakeToReport() {
   const sheetMaxHeight = Math.max(280, windowHeight - keyboardHeight - Math.max(insets.top, 8) - 8);
   const formMaxHeight = Math.max(120, sheetMaxHeight - chromeH - sheetPad);
   const sheetPan = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: (_, gesture) => gesture.dy > 2 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-    onStartShouldSetPanResponderCapture: (_, gesture) => gesture.dy > 2 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-    onMoveShouldSetPanResponder: (_, gesture) => gesture.dy > 4 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-    onMoveShouldSetPanResponderCapture: (_, gesture) => gesture.dy > 4 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+    onStartShouldSetPanResponder: () => true,
+    onStartShouldSetPanResponderCapture: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponderCapture: () => true,
     onPanResponderTerminationRequest: () => false,
     onPanResponderMove: (_, gesture) => sheetTranslateY.setValue(Math.max(0, gesture.dy)),
     onPanResponderRelease: (_, gesture) => {
@@ -182,7 +182,8 @@ export function ShakeToReport() {
       <View style={styles.modalRoot}>
         <Pressable style={styles.scrim} onPress={() => close()} accessibilityRole="button" accessibilityLabel="Close report problem" />
         <View pointerEvents="box-none" style={[styles.sheetWrap, { paddingBottom: keyboardHeight }]}>
-          <Animated.View {...sheetPan.panHandlers} style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: sheetPad, transform: [{ translateY: sheetTranslateY }] }]}>
+          <Animated.View style={[styles.sheet, { maxHeight: sheetMaxHeight, paddingBottom: sheetPad, transform: [{ translateY: sheetTranslateY }] }]}>
+            <View {...sheetPan.panHandlers} style={styles.dragZone} accessibilityRole="adjustable" accessibilityLabel="Swipe down to close report" />
             <View onLayout={(e) => setChromeH(e.nativeEvent.layout.height)}>
               <View style={styles.header}>
                 <View style={{ flex: 1 }}>
@@ -270,6 +271,7 @@ function make(colors: ReturnType<typeof useColors>) {
     scrim: { ...StyleSheet.absoluteFill, backgroundColor: `${colors.ink}CC` },
     sheetWrap: { width: "100%", justifyContent: "flex-end" },
     sheet: { backgroundColor: colors.ink, borderTopLeftRadius: 27, borderTopRightRadius: 27, paddingHorizontal: 26, paddingTop: 10, borderWidth: 1, borderColor: `${colors.bone}1F` },
+    dragZone: { position: "absolute", top: 0, left: 0, right: 0, height: 64, zIndex: 20 },
     header: { flexDirection: "row", alignItems: "flex-start", marginBottom: 18 },
     title: { color: colors.bone, fontSize: 24, lineHeight: 29, fontWeight: "800", textAlign: "center" },
     subtitle: { color: `${colors.bone}E0`, fontSize: 14, lineHeight: 20, marginTop: 10, textAlign: "center" },
