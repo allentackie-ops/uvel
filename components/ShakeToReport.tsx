@@ -49,18 +49,21 @@ export function ShakeToReport() {
   const listenerRef = useRef<{ remove: () => void } | null>(null);
   const activeRef = useRef(true);
   const openRef = useRef(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     openRef.current = open;
-    if (open) {
-      sheetTranslateY.stopAnimation();
-      sheetTranslateY.setValue(sheetMaxHeight);
-      Animated.timing(sheetTranslateY, { toValue: 0, duration: 260, useNativeDriver: true }).start();
-    } else {
+    if (!open) {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+      closeTimer.current = null;
       sheetTranslateY.stopAnimation();
       sheetTranslateY.setValue(0);
     }
-  }, [open]);
+    return () => {
+      if (closeTimer.current) clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    };
+  }, [open, sheetTranslateY]);
 
   useEffect(() => subscribeToFeedbackRequest((entry) => {
     openRef.current = true;
@@ -165,6 +168,11 @@ export function ShakeToReport() {
   const sheetPad = keyboardHeight ? 12 : Math.max(insets.bottom, 12);
   const sheetMaxHeight = Math.max(280, windowHeight - keyboardHeight - Math.max(insets.top, 8) - 8);
   const formMaxHeight = Math.max(120, sheetMaxHeight - chromeH - sheetPad);
+  function animateSheetIn() {
+    sheetTranslateY.stopAnimation();
+    sheetTranslateY.setValue(sheetMaxHeight);
+    Animated.timing(sheetTranslateY, { toValue: 0, duration: 260, useNativeDriver: true }).start();
+  }
   const sheetPan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onStartShouldSetPanResponderCapture: () => true,
@@ -175,7 +183,12 @@ export function ShakeToReport() {
     onPanResponderRelease: (_, gesture) => {
       if (gesture.dy > 120 || gesture.vy > 1.2) {
         sheetTranslateY.stopAnimation();
-        Animated.timing(sheetTranslateY, { toValue: sheetMaxHeight, duration: 180, useNativeDriver: true }).start(() => close(false));
+        Animated.timing(sheetTranslateY, { toValue: sheetMaxHeight, duration: 180, useNativeDriver: true }).start();
+        if (closeTimer.current) clearTimeout(closeTimer.current);
+        closeTimer.current = setTimeout(() => {
+          closeTimer.current = null;
+          close(false);
+        }, 190);
       } else {
         Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
       }
@@ -184,7 +197,7 @@ export function ShakeToReport() {
   })).current;
 
   return (
-    <Modal visible={open} transparent animationType="none" onRequestClose={() => close()} statusBarTranslucent>
+    <Modal visible={open} transparent animationType="none" onShow={animateSheetIn} onRequestClose={() => close()} statusBarTranslucent>
       <View style={styles.modalRoot}>
         <Pressable style={styles.scrim} onPress={() => close()} accessibilityRole="button" accessibilityLabel="Close report problem" />
         <View pointerEvents="box-none" style={[styles.sheetWrap, { paddingBottom: keyboardHeight }]}>
