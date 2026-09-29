@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dimensions, PanResponder, Share as NativeShare, StyleSheet, Text, View } from "react-native";
+import { Dimensions, Share as NativeShare, StyleSheet, Text, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { Drawer } from "react-native-drawer-layout";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -44,9 +45,9 @@ export default function ImmersiveShopping() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [findHint, setFindHint] = useState(false);
   const menuPressRef = useRef(false);
-  const activeIndexRef = useRef(0);
-  const swipeAnimatingRef = useRef(false);
   const swipeY = useSharedValue(0);
+  const activeIndexShared = useSharedValue(0);
+  const swipeLock = useSharedValue(0);
   useEffect(() => {
     if (!findHint) return;
     const timer = setTimeout(() => setFindHint(false), 3200);
@@ -59,43 +60,57 @@ export default function ImmersiveShopping() {
     return [...floor].sort((a, b) => Number(saved.has(b.id)) - Number(saved.has(a.id)));
   }, [app.country, app.saved]);
 
-  useEffect(() => { activeIndexRef.current = activeIndex; }, [activeIndex]);
+  useEffect(() => { activeIndexShared.value = activeIndex; }, [activeIndex, activeIndexShared]);
   const currentCardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: swipeY.value }] }));
   const nextCardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: swipeY.value + contentHeight }] }));
   const previousCardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: swipeY.value - contentHeight }] }));
-  const finishSwipe = useCallback(() => { swipeAnimatingRef.current = false; }, []);
   const commitSwipe = useCallback((nextIndex: number) => {
-    activeIndexRef.current = nextIndex;
+    activeIndexShared.value = nextIndex;
     setActiveIndex(nextIndex);
     swipeY.value = 0;
-    finishSwipe();
-  }, [finishSwipe, swipeY]);
-  const panResponder = useMemo(() => PanResponder.create({
-    onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponderCapture: (_, gesture) => !drawerOpen && Math.abs(gesture.dy) > Math.abs(gesture.dx) && Math.abs(gesture.dy) > 10,
-    onPanResponderMove: (_, gesture) => {
-      if (!swipeAnimatingRef.current) swipeY.value = Math.max(-contentHeight, Math.min(contentHeight, gesture.dy));
-    },
-    onPanResponderRelease: (_, gesture) => {
-      if (drawerOpen || pieces.length < 2 || swipeAnimatingRef.current) return;
-      const distance = Math.abs(gesture.dy);
-      if (distance < 42 && Math.abs(gesture.vy) < 0.35) {
-        swipeY.value = withTiming(0, { duration: 140, easing: Easing.out(Easing.cubic) });
-        return;
+  }, [activeIndexShared, swipeY]);
+  const panGesture = useMemo(() => Gesture.Pan()
+    .enabled(!drawerOpen && pieces.length > 1)
+    .maxPointers(1)
+    .activeOffsetY([-12, 12])
+    .failOffsetX([-18, 18])
+    .onUpdate((event) => {
+      if (swipeLock.value) return;
+      const direction = event.translationY < 0 ? 1 : -1;
+      const atBoundary = (direction < 0 && activeIndexShared.value === 0)
+        || (direction > 0 && activeIndexShared.value >= pieces.length - 1);
+      const translation = atBoundary ? event.translationY * 0.2 : event.translationY;
+      swipeY.value = Math.max(-contentHeight, Math.min(contentHeight, translation));
+    })
+    .onEnd((event) => {
+      if (swipeLock.value) return;
+
+      const currentIndex = activeIndexShared.value;
+      const direction = event.translationY < 0 ? 1 : -1;
+      const nextIndex = Math.max(0, Math.min(pieces.length - 1, currentIndex + direction));
+      const enoughDistance = Math.abs(event.translationY) >= contentHeight * 0.2;
+      const enoughVelocity = Math.abs(event.velocityY) >= 650;
+      const shouldAdvance = nextIndex !== currentIndex && (enoughDistance || enoughVelocity);
+      const target = shouldAdvance ? (direction > 0 ? -contentHeight : contentHeight) : 0;
+
+      swipeLock.value = 1;
+      swipeY.value = withTiming(target, {
+        duration: shouldAdvance ? 240 : 180,
+        easing: Easing.out(Easing.cubic),
+      }, (finished) => {
+        swipeLock.value = 0;
+        if (finished && shouldAdvance) {
+          activeIndexShared.value = nextIndex;
+          swipeY.value = 0;
+          runOnJS(commitSwipe)(nextIndex);
+        }
+      });
+    })
+    .onFinalize(() => {
+      if (!swipeLock.value && swipeY.value !== 0) {
+        swipeY.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
       }
-      const direction = gesture.dy < 0 ? 1 : -1;
-      const nextIndex = Math.max(0, Math.min(pieces.length - 1, activeIndexRef.current + direction));
-      if (nextIndex !== activeIndexRef.current) {
-        swipeAnimatingRef.current = true;
-        const target = direction > 0 ? -contentHeight : contentHeight;
-        swipeY.value = withTiming(target, { duration: 220, easing: Easing.out(Easing.cubic) }, (finished) => {
-          if (finished) runOnJS(commitSwipe)(nextIndex);
-        });
-      } else {
-        swipeY.value = withTiming(0, { duration: 140, easing: Easing.out(Easing.cubic) });
-      }
-    },
-  }), [commitSwipe, contentHeight, drawerOpen, pieces.length, swipeY]);
+    }), [activeIndexShared, commitSwipe, contentHeight, drawerOpen, pieces.length, swipeLock, swipeY]);
   const activePiece = pieces[activeIndex];
   const nextPiece = pieces[activeIndex + 1];
   const previousPiece = pieces[activeIndex - 1];
@@ -126,7 +141,8 @@ export default function ImmersiveShopping() {
         />
       )}
     >
-      <View style={styles.page} {...panResponder.panHandlers}>
+      <GestureDetector gesture={panGesture}>
+      <View style={styles.page}>
         {activePiece ? <>
           {previousPiece ? <Animated.View pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle]}>
             <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
@@ -165,6 +181,7 @@ export default function ImmersiveShopping() {
         <ImmersiveTaskbar colors={colors} C={C} insets={insets} styles={styles} />
         <TodayCartFab listingOpen />
       </View>
+      </GestureDetector>
     </Drawer>
   );
 }
