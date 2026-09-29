@@ -18,6 +18,11 @@ import { useCopy } from "../lib/useCopy";
 import { getPiece, shopFloor, type ClosetPiece, useWardrobe } from "../lib/wardrobe";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
+const CATALOG_BRAND_IDS: Record<string, string> = {
+  "Maison Found": "maison-found",
+  "Archive 1982": "archive-1982",
+  "Atelier No. 4": "atelier-no4",
+};
 
 export default function ImmersiveShopping() {
   const colors = useColors();
@@ -119,9 +124,6 @@ export default function ImmersiveShopping() {
             <Ionicons name="menu" size={28} color={colors.bone} />
           </AccessiblePressable>
         </View>
-        {pieces.length ? <AccessiblePressable onPress={() => router.back()} style={[styles.backButton, { bottom: insets.bottom + 48 }]} accessibilityRole="button" accessibilityLabel="Back to Today">
-          <Ionicons name="arrow-back" size={23} color={colors.bone} />
-        </AccessiblePressable> : null}
         {pieces.length ? <View style={[styles.nextControl, { bottom: Math.max(insets.bottom, 14) }]}>
           <AccessiblePressable onPress={() => { const next = Math.min(activeIndex + 1, pieces.length - 1); setActiveIndex(next); listRef.current?.scrollToIndex({ index: next, animated: true }); }} style={styles.playerAction} accessibilityRole="button" accessibilityLabel="Next immersive listing">
             <Ionicons name="play-skip-forward" size={20} color={colors.bone} />
@@ -139,7 +141,8 @@ export default function ImmersiveShopping() {
 function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, onOpen, onFirstFind, firstFindLabel }: any) {
   const [shareOpen, setShareOpen] = useState(false);
   const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
-  const followId = brandRecord?.id || piece.ownerId || piece.listedByUid || "";
+  const catalogBrandId = !brandRecord && piece.brand ? CATALOG_BRAND_IDS[piece.brand] : undefined;
+  const followId = brandRecord?.id || piece.ownerId || piece.listedByUid || catalogBrandId || "";
   const isBrand = Boolean(brandRecord);
   const [following, setFollowing] = useState(() => isBrand ? isFollowing(followId, app.uid) : isSellerFollowed(followId));
   useEffect(() => {
@@ -175,6 +178,9 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
       <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 48 }]}>
         <View style={styles.copySpacer} />
         <View>
+          <AccessiblePressable onPress={() => router.back()} style={styles.copyBackButton} accessibilityRole="button" accessibilityLabel="Back to Today">
+            <Ionicons name="arrow-back" size={23} color={colors.bone} />
+          </AccessiblePressable>
           {firstFind.matches(piece) ? <AccessiblePressable onPress={onFirstFind} style={styles.firstFind} accessibilityRole="button" accessibilityLabel="What First Find is" accessibilityHint="Double tap to hear how First Find works on this piece.">
             <Text style={styles.firstFindText}>{firstFindLabel}</Text>
           </AccessiblePressable> : null}
@@ -221,9 +227,9 @@ function make(colors: Colors) {
     itemShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.20)" },
     topControls: { position: "absolute", top: 0, left: 0, right: 0, paddingLeft: 14, zIndex: 12 },
     menuButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
-    backButton: { position: "absolute", left: 14, width: 42, height: 42, alignItems: "center", justifyContent: "center", zIndex: 12 },
     itemCopy: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, paddingHorizontal: 24, justifyContent: "space-between" },
     copySpacer: { flex: 1 },
+    copyBackButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", marginBottom: 4 },
     firstFind: { alignSelf: "flex-start", backgroundColor: colors.success, borderRadius: 15, paddingHorizontal: 11, paddingVertical: 7, marginBottom: 10 },
     brand: { color: `${colors.bone}B8`, fontSize: 11, fontWeight: "800", letterSpacing: 2.2, marginBottom: 5, textShadowColor: "#000", textShadowRadius: 6 },
     name: { color: colors.bone, fontSize: 31, lineHeight: 36, fontWeight: "800", maxWidth: "88%", textShadowColor: "#000", textShadowRadius: 8 },
