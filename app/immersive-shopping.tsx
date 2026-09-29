@@ -191,6 +191,9 @@ export default function ImmersiveShopping() {
           <AccessiblePressable onPress={() => { menuPressRef.current = true; setDrawerOpen(true); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); }} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Open Today drawer">
             <Ionicons name="menu" size={28} color={colors.bone} />
           </AccessiblePressable>
+          <AccessiblePressable onPress={() => router.push("/search")} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Search">
+            <Ionicons name="search-outline" size={23} color={colors.bone} />
+          </AccessiblePressable>
         </View>
         {findHint ? <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 68 }]} accessibilityLiveRegion="polite">
           <Text style={styles.findToastK}>{C.firstFind}</Text>
@@ -408,7 +411,7 @@ function make(colors: Colors) {
     item: { width: SCREEN_WIDTH, backgroundColor: colors.ink, overflow: "hidden" },
     itemImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     itemShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.20)" },
-    topControls: { position: "absolute", top: 0, left: 0, right: 0, paddingLeft: 14, zIndex: 12 },
+    topControls: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, zIndex: 12 },
     menuButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
     itemCopy: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, paddingHorizontal: 24, justifyContent: "space-between" },
     copySpacer: { flex: 1 },
