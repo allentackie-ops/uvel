@@ -483,19 +483,22 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   );
   const renderTodayHeader = (overHero = false) => (
     <View style={[styles.todayHeader, overHero && styles.editorialHeader]}>
-      <AccessiblePressable
-        onPress={() => onOpenTools?.()}
-        style={({ pressed }) => [styles.headerSide, pressed && { opacity: 0.72 }]}
-        accessibilityRole="button"
-        accessibilityLabel={C.openWorkspace}
-        accessibilityHint="Open Today tools, personal shortcuts, and seller tools."
-      >
-        <View style={styles.menuIcon}>
-          <View style={[styles.menuLine, overHero && styles.editorialMenuLine]} />
-          <View style={[styles.menuLine, overHero && styles.editorialMenuLine]} />
-          <View style={[styles.menuLine, overHero && styles.editorialMenuLine]} />
-        </View>
-      </AccessiblePressable>
+      <View style={styles.headerLeftActions}>
+        <AccessiblePressable
+          onPress={() => onOpenTools?.()}
+          style={({ pressed }) => [styles.headerSide, pressed && { opacity: 0.72 }]}
+          accessibilityRole="button"
+          accessibilityLabel={C.openWorkspace}
+          accessibilityHint="Open Today tools, personal shortcuts, and seller tools."
+        >
+          <View style={styles.menuIcon}>
+            <View style={[styles.menuLine, overHero && styles.editorialMenuLine]} />
+            <View style={[styles.menuLine, overHero && styles.editorialMenuLine]} />
+            <View style={[styles.menuLine, overHero && styles.editorialMenuLine]} />
+          </View>
+        </AccessiblePressable>
+        {overHero && todayHome ? <TodayMusicButton music={todayMusic} compact /> : null}
+      </View>
       <View pointerEvents="box-none" style={overHero ? styles.editorialWordmarkCenter : undefined}>
         <AccessiblePressable
           onPress={() => router.push("/store")}
@@ -574,9 +577,6 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           </AccessiblePressable>
           <View pointerEvents="box-none" style={[styles.editorialHeroContent, { paddingTop: insets.top + 8 }]}>
             {renderTodayHeader(true)}
-            <View pointerEvents="box-none" style={styles.editorialHeroRadio}>
-              <TodayMusicButton music={todayMusic} />
-            </View>
             <View pointerEvents="box-none" style={styles.editorialListingCopy}>
               {firstFind.matches(featured) ? (
                 <AccessiblePressable
@@ -822,6 +822,7 @@ function make(colors: Colors) {
     titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     todayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 84, marginBottom: 2 },
     editorialHeader: { minHeight: 62, marginBottom: 0, position: "relative" },
+    headerLeftActions: { flexDirection: "row", alignItems: "center", gap: 2, zIndex: 2 },
     headerActions: { flexDirection: "row", alignItems: "center", gap: 3 },
     editorialMenuLine: { backgroundColor: "#F4F0E6" },
     editorialWordmarkCenter: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, alignItems: "center", justifyContent: "center" },
@@ -835,7 +836,6 @@ function make(colors: Colors) {
     editorialHeroShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.34)", zIndex: 1 },
     editorialHeroImageAction: { ...StyleSheet.absoluteFill, backgroundColor: "transparent", zIndex: 2 },
     editorialHeroContent: { ...StyleSheet.absoluteFill, paddingHorizontal: 22, paddingBottom: 27, justifyContent: "space-between", zIndex: 3 },
-    editorialHeroRadio: { alignItems: "flex-end", paddingTop: 18, paddingRight: 2 },
     editorialListingCopy: { maxWidth: 350, gap: 6 },
     editorialListingFirstFind: { alignSelf: "flex-start", minHeight: 30, paddingHorizontal: 12, marginBottom: 4, borderRadius: 15, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     editorialListingFirstFindText: { color: colors.successInk, fontSize: 11, fontWeight: "800" },

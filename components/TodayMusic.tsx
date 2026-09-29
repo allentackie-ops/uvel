@@ -15,7 +15,7 @@ type MusicState = {
   selectTrack: (id: string) => void;
 };
 
-export function TodayMusicButton({ music }: { music: MusicState }) {
+export function TodayMusicButton({ music, compact = false }: { music: MusicState; compact?: boolean }) {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const [open, setOpen] = useState(false);
@@ -43,7 +43,7 @@ export function TodayMusicButton({ music }: { music: MusicState }) {
     <>
       <Pressable
         onPress={() => setOpen(true)}
-        style={({ pressed }) => [styles.button, pressed && { opacity: 0.78 }]}
+        style={({ pressed }) => [compact ? styles.compactButton : styles.button, pressed && { opacity: 0.78 }]}
         accessibilityRole="button"
         accessibilityLabel={`${music.enabled ? "Soundtrack on" : "Turn on soundtrack"}: ${music.track.title}`}
         accessibilityHint="Open Today soundtrack controls."
@@ -53,10 +53,10 @@ export function TodayMusicButton({ music }: { music: MusicState }) {
             <Animated.View key={index} style={[styles.waveBar, { transform: [{ scaleY: value }] }]} />
           ))}
         </View>
-        <View style={styles.buttonCopy}>
+        {compact ? null : <View style={styles.buttonCopy}>
           <Text style={styles.buttonKicker}>UVEL RADIO</Text>
           <Text style={styles.buttonTitle} numberOfLines={1}>{music.enabled ? music.track.title : "Soundtrack off"}</Text>
-        </View>
+        </View>}
       </Pressable>
       <TodayMusicSheet visible={open} onClose={() => setOpen(false)} music={music} />
     </>
@@ -108,6 +108,7 @@ function TodayMusicSheet({ visible, onClose, music }: { visible: boolean; onClos
 function make(colors: Colors) {
   return StyleSheet.create({
     button: { minHeight: 50, maxWidth: 184, borderRadius: 17, borderWidth: 1, borderColor: "rgba(244,240,230,0.38)", backgroundColor: "rgba(10,10,9,0.70)", paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 },
+    compactButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: "rgba(244,240,230,0.40)", backgroundColor: "rgba(10,10,9,0.46)", alignItems: "center", justifyContent: "center" },
     wave: { width: 25, height: 24, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2 },
     waveActive: { opacity: 1 },
     waveBar: { width: 3, height: 18, borderRadius: 2, backgroundColor: colors.success },
