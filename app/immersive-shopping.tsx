@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Share as NativeShare, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
+import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { Drawer } from "react-native-drawer-layout";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
@@ -259,12 +259,22 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const [following, setFollowing] = useState(() => isBrand ? isFollowing(followId, app.uid) : isSellerFollowed(followId));
   const [showFollowingStatus, setShowFollowingStatus] = useState(false);
   const followingStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const followingFeedbackOpacity = useSharedValue(1);
+  const followingFeedbackScale = useSharedValue(1);
+  const followingFeedbackY = useSharedValue(0);
+  const followingFeedbackStyle = useAnimatedStyle(() => ({
+    opacity: followingFeedbackOpacity.value,
+    transform: [{ translateY: followingFeedbackY.value }, { scale: followingFeedbackScale.value }],
+  }));
   useEffect(() => {
     setFollowing(isBrand ? isFollowing(followId, app.uid) : isSellerFollowed(followId));
   }, [app.uid, followId, isBrand]);
   useEffect(() => () => {
     if (followingStatusTimer.current) clearTimeout(followingStatusTimer.current);
-  }, []);
+    cancelAnimation(followingFeedbackOpacity);
+    cancelAnimation(followingFeedbackScale);
+    cancelAnimation(followingFeedbackY);
+  }, [followingFeedbackOpacity, followingFeedbackScale, followingFeedbackY]);
   const market = getMarket(app.country);
   const itemCurrency = piece.currency || getMarket(piece.country || app.country).currency;
   const localPrice = moneyInMarket(piece.listPriceCents, itemCurrency, market);
@@ -313,16 +323,39 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
     if (!followId) return;
     const next = isBrand ? toggleFollow(followId, app.uid || "me") : toggleSellerFollow(followId);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    cancelAnimation(followingFeedbackOpacity);
+    cancelAnimation(followingFeedbackScale);
+    cancelAnimation(followingFeedbackY);
     setFollowing(next);
     if (followingStatusTimer.current) clearTimeout(followingStatusTimer.current);
     if (next) {
+      followingFeedbackOpacity.value = 0;
+      followingFeedbackScale.value = 0.88;
+      followingFeedbackY.value = 5;
       setShowFollowingStatus(true);
+      followingFeedbackOpacity.value = withTiming(1, { duration: 130 });
+      followingFeedbackScale.value = withSequence(
+        withTiming(1.08, { duration: 150 }),
+        withSpring(1, { damping: 13, stiffness: 260 }),
+      );
+      followingFeedbackY.value = withSpring(0, { damping: 15, stiffness: 230 });
       followingStatusTimer.current = setTimeout(() => {
-        setShowFollowingStatus(false);
-        followingStatusTimer.current = null;
-      }, 1500);
+        followingFeedbackOpacity.value = withTiming(0, { duration: 200 });
+        followingFeedbackScale.value = withTiming(0.94, { duration: 200 });
+        followingFeedbackY.value = withTiming(-5, { duration: 200 });
+        followingStatusTimer.current = setTimeout(() => {
+          setShowFollowingStatus(false);
+          followingFeedbackOpacity.value = 1;
+          followingFeedbackScale.value = 1;
+          followingFeedbackY.value = 0;
+          followingStatusTimer.current = null;
+        }, 200);
+      }, 1300);
     } else {
       setShowFollowingStatus(false);
+      followingFeedbackOpacity.value = 1;
+      followingFeedbackScale.value = 1;
+      followingFeedbackY.value = 0;
       followingStatusTimer.current = null;
     }
     if (!isBrand) void syncSellerFollow(app.uid, followId, next);
@@ -375,10 +408,12 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           <AccessiblePressable onPress={openSeller} style={styles.profileButton} accessibilityRole="button" accessibilityLabel={`View ${sellerName} profile`}>
             {sellerPhoto ? <Image source={{ uri: sellerPhoto }} style={styles.profileAvatar} contentFit="cover" /> : <View style={styles.profileFallback}><Text style={styles.sellerInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}
           </AccessiblePressable>
-          {!following || showFollowingStatus ? <AccessiblePressable onPress={follow} style={[styles.followButton, following && styles.followingButton]} accessibilityRole="button" accessibilityLabel={following ? `Unfollow ${sellerName}` : `Follow ${sellerName}`} accessibilityState={{ selected: following }}>
-            <Ionicons name={following ? "checkmark" : "add"} size={15} color={following ? colors.bone : colors.successInk} />
-            <Text style={[styles.followText, following && styles.followingText]}>{following ? "Following" : "Follow"}</Text>
-          </AccessiblePressable> : null}
+          {!following || showFollowingStatus ? <Animated.View style={following && showFollowingStatus ? followingFeedbackStyle : undefined}>
+            <AccessiblePressable onPress={follow} style={[styles.followButton, following && styles.followingButton]} accessibilityRole="button" accessibilityLabel={following ? `Unfollow ${sellerName}` : `Follow ${sellerName}`} accessibilityState={{ selected: following }}>
+              <Ionicons name={following ? "checkmark" : "add"} size={15} color={following ? colors.bone : colors.successInk} />
+              <Text style={[styles.followText, following && styles.followingText]}>{following ? "Following" : "Follow"}</Text>
+            </AccessiblePressable>
+          </Animated.View> : null}
         </View> : null}
         <Action
           icon={cart.has(piece.id) ? "checkmark" : "bag-handle-outline"}
