@@ -1,14 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Share, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { readUserLite } from "../../lib/chat";
 import * as Haptics from "../../lib/haptics";
 import { getMarket, moneyInMarket } from "../../lib/markets";
 import { hydrateFollowedSellers, isSellerFollowed, syncSellerFollow, toggleSellerFollow } from "../../lib/sellers";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
+import { normalizeUsername } from "../../lib/username";
 import { useMarketplaceSyncState, useWardrobe } from "../../lib/wardrobe";
 
 export default function SellerProfile() {
@@ -22,7 +25,11 @@ export default function SellerProfile() {
   const pieces = useWardrobe();
   const syncState = useMarketplaceSyncState();
   const [followed, setFollowed] = useState(false);
+  const [sellerUsername, setSellerUsername] = useState("");
+  const [usernameReady, setUsernameReady] = useState(false);
+  const [usernameCopied, setUsernameCopied] = useState(false);
   const interactedWithSeller = useRef<string | null>(null);
+  const usernameCopyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const listings = useMemo(
     () => routeId
@@ -38,6 +45,38 @@ export default function SellerProfile() {
   const sellerLocation = seller?.country ? getMarket(seller.country).name : "";
   const market = getMarket(app.country);
   const isLoading = !seller && syncState === "loading";
+
+  useEffect(() => {
+    let current = true;
+    if (usernameCopyTimer.current) clearTimeout(usernameCopyTimer.current);
+    usernameCopyTimer.current = null;
+    setUsernameCopied(false);
+    const localUsername = sellerId === app.uid ? normalizeUsername(app.username || "") : "";
+    if (localUsername) {
+      setSellerUsername(localUsername);
+      setUsernameReady(true);
+    } else {
+      setSellerUsername("");
+      setUsernameReady(false);
+      void readUserLite(sellerId).then((profile) => {
+        if (!current) return;
+        const raw = typeof profile?.username === "string"
+          ? profile.username
+          : typeof profile?.usernameNormalized === "string"
+            ? profile.usernameNormalized
+            : "";
+        setSellerUsername(normalizeUsername(raw));
+        setUsernameReady(true);
+      });
+    }
+    return () => {
+      current = false;
+    };
+  }, [sellerId, app.uid, app.username]);
+
+  useEffect(() => () => {
+    if (usernameCopyTimer.current) clearTimeout(usernameCopyTimer.current);
+  }, []);
 
   useEffect(() => {
     let current = true;
@@ -75,6 +114,22 @@ export default function SellerProfile() {
     void Share.share({ message: `${sellerName} on Uvel\nuvel://seller/${sellerId}` }).catch(() => undefined);
   }
 
+  async function copyUsername() {
+    if (!sellerUsername) return;
+    try {
+      await Clipboard.setStringAsync(`@${sellerUsername}`);
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setUsernameCopied(true);
+      if (usernameCopyTimer.current) clearTimeout(usernameCopyTimer.current);
+      usernameCopyTimer.current = setTimeout(() => {
+        setUsernameCopied(false);
+        usernameCopyTimer.current = null;
+      }, 1200);
+    } catch {
+      setUsernameCopied(false);
+    }
+  }
+
   return (
     <View style={styles.page}>
       <View style={[styles.topBar, { paddingTop: insets.top + 4 }]}>
@@ -87,7 +142,19 @@ export default function SellerProfile() {
         >
           <Ionicons name="chevron-back" size={23} color={colors.bone} />
         </Pressable>
-        <Text style={styles.wordmark} accessibilityLabel="Uvel">uvel</Text>
+        <Pressable
+          onPress={() => void copyUsername()}
+          disabled={!sellerUsername}
+          style={({ pressed }) => [styles.usernameButton, pressed && sellerUsername && styles.usernamePressed, !sellerUsername && styles.usernameUnavailable]}
+          accessibilityRole="button"
+          accessibilityLabel={sellerUsername ? (usernameCopied ? "Username copied to clipboard" : `Copy @${sellerUsername} to clipboard`) : usernameReady ? "Seller username unavailable" : "Loading seller username"}
+          accessibilityHint="Copies this seller’s username to your clipboard."
+          accessibilityState={{ disabled: !sellerUsername }}
+        >
+          <Text style={styles.username} numberOfLines={1}>
+            {usernameCopied ? "Copied!" : sellerUsername ? `@${sellerUsername}` : usernameReady ? "Username unavailable" : "Loading…"}
+          </Text>
+        </Pressable>
         <Pressable
           onPress={shareProfile}
           disabled={!seller}
@@ -265,7 +332,10 @@ function make(colors: Colors, windowWidth: number) {
     navButton: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
     navDisabled: { opacity: 0.55 },
     navPressed: { backgroundColor: `${colors.bone}12` },
-    wordmark: { color: colors.bone, fontSize: 23, fontWeight: "800", letterSpacing: -0.8 },
+    usernameButton: { flex: 1, minWidth: 0, height: 42, marginHorizontal: 8, alignItems: "center", justifyContent: "center" },
+    usernamePressed: { opacity: 0.65 },
+    usernameUnavailable: { opacity: 0.72 },
+    username: { color: colors.bone, fontSize: 15, fontWeight: "700", letterSpacing: 0.1, maxWidth: "100%" },
     content: { paddingHorizontal: horizontal, paddingTop: 12 },
     profileRow: { flexDirection: "row", alignItems: "center", gap: 16, minHeight: 96 },
     avatar: { width: 84, height: 84, borderRadius: 42, backgroundColor: colors.surface },
