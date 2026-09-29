@@ -3,6 +3,7 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, FlatList, Share as NativeShare, StyleSheet, Text, View } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { Drawer } from "react-native-drawer-layout";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
@@ -145,6 +146,14 @@ export default function ImmersiveShopping() {
 function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, onOpen, onFirstFind, firstFindLabel }: any) {
   const [shareOpen, setShareOpen] = useState(false);
   const cart = useCart();
+  const lastImageTap = useRef(0);
+  const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heartX = useSharedValue(SCREEN_WIDTH / 2);
+  const heartY = useSharedValue(SCREEN_HEIGHT / 2);
+  const heartScale = useSharedValue(0);
+  const heartOpacity = useSharedValue(0);
+  const saveTargetX = useSharedValue(SCREEN_WIDTH - 42);
+  const saveTargetY = useSharedValue(SCREEN_HEIGHT - insets.bottom - 148 - 99);
   const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
   const catalogBrandId = !brandRecord && piece.brand ? CATALOG_BRAND_IDS[piece.brand] : undefined;
   const followId = brandRecord?.id || piece.ownerId || piece.listedByUid || catalogBrandId || "";
@@ -163,6 +172,40 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const sellerName = brandRecord?.name || piece.ownerName || piece.listedByName || (piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Uvel seller");
   const sellerPhoto = brandRecord?.logoUri || piece.ownerPhoto || null;
   const sharePayload: FriendSharePayload = { kind: "listing", id: piece.id, title: piece.name, deepLink: `uvel://piece/${piece.id}`, imageUri: piece.photo, previewText: `Have a look at ${piece.name} on Uvel.` };
+  const heartStyle = useAnimatedStyle(() => ({
+    opacity: heartOpacity.value,
+    transform: [
+      { translateX: heartX.value },
+      { translateY: heartY.value },
+      { translateX: -34 },
+      { translateY: -34 },
+      { scale: heartScale.value },
+    ],
+  }));
+  function doubleTapSave(x: number, y: number) {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    if (!liked) void app.toggleSaved(piece.id);
+    heartX.value = withSequence(withTiming(x, { duration: 1 }), withTiming(saveTargetX.value, { duration: 560 }));
+    heartY.value = withSequence(withTiming(y, { duration: 1 }), withTiming(saveTargetY.value, { duration: 560 }));
+    heartScale.value = withSequence(withSpring(1.12, { damping: 10, stiffness: 260 }), withTiming(0.55, { duration: 520 }));
+    heartOpacity.value = withSequence(withTiming(1, { duration: 1 }), withTiming(0, { duration: 520 }));
+  }
+  function handleImagePress(x: number, y: number) {
+    const now = Date.now();
+    if (now - lastImageTap.current <= 450) {
+      if (imageTapTimer.current) clearTimeout(imageTapTimer.current);
+      lastImageTap.current = 0;
+      doubleTapSave(x, y);
+      return;
+    }
+    lastImageTap.current = now;
+    if (imageTapTimer.current) clearTimeout(imageTapTimer.current);
+    imageTapTimer.current = setTimeout(() => {
+      lastImageTap.current = 0;
+      imageTapTimer.current = null;
+      onOpen(piece);
+    }, 450);
+  }
   function follow() {
     if (!followId) return;
     const next = isBrand ? toggleFollow(followId, app.uid || "me") : toggleSellerFollow(followId);
@@ -176,7 +219,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
 
   return (
     <View style={[styles.item, { height: SCREEN_HEIGHT }]}>
-      <AccessiblePressable onPress={() => onOpen(piece)} style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel={`${brand}, ${piece.name}, ${localPrice}. Open listing`}>
+      <AccessiblePressable onPress={(event) => handleImagePress(event.nativeEvent.locationX, event.nativeEvent.locationY)} style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel={`${brand}, ${piece.name}, ${localPrice}. Double tap to save. Tap once to open listing.`}>
         <Image source={{ uri: piece.photo }} style={styles.itemImage} contentFit="cover" accessible={false} />
         <View pointerEvents="none" style={styles.itemShade} />
       </AccessiblePressable>
@@ -195,7 +238,11 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           ) : <Text style={styles.price}>{localPrice}</Text>}
         </View>
       </View>
-      <View style={[styles.actions, { bottom: insets.bottom + 148 }]}>
+      <View style={[styles.actions, { bottom: insets.bottom + 148 }]} onLayout={(event) => {
+        const { x, y, width, height } = event.nativeEvent.layout;
+        saveTargetX.value = x + width / 2;
+        saveTargetY.value = y + height - 99;
+      }}>
         {followId ? <View style={styles.profileRail}>
           <AccessiblePressable onPress={openSeller} style={styles.profileButton} accessibilityRole="button" accessibilityLabel={`View ${sellerName} profile`}>
             {sellerPhoto ? <Image source={{ uri: sellerPhoto }} style={styles.profileAvatar} contentFit="cover" /> : <View style={styles.profileFallback}><Text style={styles.sellerInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}
@@ -227,6 +274,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         <Action icon={liked ? "heart" : "heart-outline"} label="Save" active={liked} onPress={() => { if (!liked) app.likePiece(piece.id); else void app.toggleSaved(piece.id); }} styles={styles} colors={colors} />
         <Action icon="share-outline" label="Share" onPress={() => setShareOpen(true)} styles={styles} colors={colors} />
       </View>
+      <Animated.Text pointerEvents="none" style={[styles.heartPop, heartStyle]}>♥</Animated.Text>
       <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
     </View>
   );
@@ -271,6 +319,7 @@ function make(colors: Colors) {
     actions: { position: "absolute", right: 15, gap: 18, alignItems: "center", zIndex: 9 },
     action: { width: 54, minHeight: 54, alignItems: "center", justifyContent: "center", gap: 3 },
     actionLabel: { color: colors.bone, fontSize: 10, fontWeight: "700", textShadowColor: "#000", textShadowRadius: 5 },
+    heartPop: { position: "absolute", left: 0, top: 0, zIndex: 20, color: colors.success, fontSize: 68, lineHeight: 72, textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
     nextControl: { position: "absolute", right: 15, zIndex: 12 },
     playerAction: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
     empty: { flex: 1, backgroundColor: colors.ink, paddingHorizontal: 24 },
