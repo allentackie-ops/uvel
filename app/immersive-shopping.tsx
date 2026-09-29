@@ -291,10 +291,8 @@ export default function ImmersiveShopping() {
           {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
             <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
-        </> : <View style={[styles.empty, { height: contentHeight, paddingTop: insets.top + 24 }]}>
-          <Text style={styles.emptyKicker}>IMMERSIVE SHOPPING</Text>
-          <Text style={styles.emptyTitle}>The edit is quiet for now.</Text>
-          <Text style={styles.emptyBody}>Come back soon for more pieces to discover.</Text>
+        </> : <View style={[styles.empty, { height: contentHeight, paddingTop: insets.top + 24 }]} accessibilityLabel="Loading immersive shopping">
+          <OrbitLoader />
         </View>}
         <View pointerEvents="box-none" style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
           <AccessiblePressable onPress={() => { menuPressRef.current = true; setDrawerOpen(true); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); }} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Open Today drawer">
