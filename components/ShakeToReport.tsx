@@ -49,23 +49,26 @@ export function ShakeToReport() {
   const listenerRef = useRef<{ remove: () => void } | null>(null);
   const activeRef = useRef(true);
   const openRef = useRef(false);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const animationToken = useRef(0);
 
   useEffect(() => {
     openRef.current = open;
-    if (!open) {
-      if (closeTimer.current) clearTimeout(closeTimer.current);
-      closeTimer.current = null;
+    if (open) {
+      const token = animationToken.current;
+      requestAnimationFrame(() => {
+        if (!openRef.current || token !== animationToken.current) return;
+        Animated.timing(sheetTranslateY, { toValue: 0, duration: 260, useNativeDriver: false }).start();
+      });
+    } else {
       sheetTranslateY.stopAnimation();
-      sheetTranslateY.setValue(0);
+      sheetTranslateY.setValue(windowHeight);
     }
-    return () => {
-      if (closeTimer.current) clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    };
-  }, [open, sheetTranslateY]);
+  }, [open, sheetTranslateY, windowHeight]);
 
   useEffect(() => subscribeToFeedbackRequest((entry) => {
+    animationToken.current += 1;
+    sheetTranslateY.stopAnimation();
+    sheetTranslateY.setValue(windowHeight);
     openRef.current = true;
     setCompose(entry === "compose");
     setSent(false);
@@ -73,7 +76,7 @@ export function ShakeToReport() {
     setScreenshotUri(undefined);
     setIncludeScreenshot(false);
     setOpen(true);
-  }), []);
+  }), [sheetTranslateY, windowHeight]);
 
   useEffect(() => {
     void loadShakeToReportEnabled().then(setShakeEnabled);
@@ -122,8 +125,10 @@ export function ShakeToReport() {
 
   function close(resetOffset = true) {
     if (submitting) return;
+    animationToken.current += 1;
     openRef.current = false;
-    if (resetOffset) sheetTranslateY.setValue(0);
+    sheetTranslateY.stopAnimation();
+    if (resetOffset) sheetTranslateY.setValue(windowHeight);
     setOpen(false);
     setCompose(false);
     setIncludeScreenshot(false);
@@ -168,11 +173,6 @@ export function ShakeToReport() {
   const sheetPad = keyboardHeight ? 12 : Math.max(insets.bottom, 12);
   const sheetMaxHeight = Math.max(280, windowHeight - keyboardHeight - Math.max(insets.top, 8) - 8);
   const formMaxHeight = Math.max(120, sheetMaxHeight - chromeH - sheetPad);
-  function animateSheetIn() {
-    sheetTranslateY.stopAnimation();
-    sheetTranslateY.setValue(sheetMaxHeight);
-    Animated.timing(sheetTranslateY, { toValue: 0, duration: 260, useNativeDriver: true }).start();
-  }
   const sheetPan = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onStartShouldSetPanResponderCapture: () => true,
@@ -182,22 +182,21 @@ export function ShakeToReport() {
     onPanResponderMove: (_, gesture) => sheetTranslateY.setValue(Math.max(0, gesture.dy)),
     onPanResponderRelease: (_, gesture) => {
       if (gesture.dy > 120 || gesture.vy > 1.2) {
+        const token = ++animationToken.current;
         sheetTranslateY.stopAnimation();
-        Animated.timing(sheetTranslateY, { toValue: sheetMaxHeight, duration: 180, useNativeDriver: true }).start();
-        if (closeTimer.current) clearTimeout(closeTimer.current);
-        closeTimer.current = setTimeout(() => {
-          closeTimer.current = null;
+        Animated.timing(sheetTranslateY, { toValue: windowHeight, duration: 180, useNativeDriver: false }).start(() => {
+          if (token !== animationToken.current) return;
           close(false);
-        }, 190);
+        });
       } else {
-        Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start();
+        Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: false, bounciness: 4 }).start();
       }
     },
-    onPanResponderTerminate: () => Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: true, bounciness: 4 }).start(),
+    onPanResponderTerminate: () => Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: false, bounciness: 4 }).start(),
   })).current;
 
   return (
-    <Modal visible={open} transparent animationType="none" onShow={animateSheetIn} onRequestClose={() => close()} statusBarTranslucent>
+    <Modal visible={open} transparent animationType="none" onRequestClose={() => close()} statusBarTranslucent>
       <View style={styles.modalRoot}>
         <Pressable style={styles.scrim} onPress={() => close()} accessibilityRole="button" accessibilityLabel="Close report problem" />
         <View pointerEvents="box-none" style={[styles.sheetWrap, { paddingBottom: keyboardHeight }]}>
