@@ -57,12 +57,11 @@ export default function ImmersiveShopping() {
     return [...floor].sort((a, b) => Number(saved.has(b.id)) - Number(saved.has(a.id)));
   }, [app.country, app.saved]);
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
-    const index = viewableItems[0]?.index;
-    if (typeof index === "number") setActiveIndex(index);
-  }).current;
-
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 65 }).current;
+  const onMomentumScrollEnd = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
+    if (!pieces.length || contentHeight <= 0) return;
+    const index = Math.max(0, Math.min(pieces.length - 1, Math.round(event.nativeEvent.contentOffset.y / contentHeight)));
+    setActiveIndex(index);
+  }, [contentHeight, pieces.length]);
   const renderItem = useCallback(({ item }: { item: ClosetPiece }) => (
     <ImmersiveItem
       piece={item}
@@ -118,8 +117,7 @@ export default function ImmersiveShopping() {
           overScrollMode="never"
           decelerationRate="fast"
           getItemLayout={(_, index) => ({ length: contentHeight, offset: contentHeight * index, index })}
-          viewabilityConfig={viewabilityConfig}
-          onViewableItemsChanged={onViewableItemsChanged}
+          onMomentumScrollEnd={onMomentumScrollEnd}
           windowSize={3}
           initialNumToRender={2}
           scrollEnabled={!drawerOpen}
