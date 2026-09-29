@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dimensions, FlatList, Share as NativeShare, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Dimensions, PanResponder, Share as NativeShare, StyleSheet, Text, View } from "react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { Drawer } from "react-native-drawer-layout";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,7 +19,7 @@ import { hydrateFollowedSellers, isSellerFollowed, syncSellerFollow, toggleSelle
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
-import { getPiece, shopFloor, type ClosetPiece, useWardrobe } from "../lib/wardrobe";
+import { shopFloor, useWardrobe } from "../lib/wardrobe";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const CATALOG_BRAND_IDS: Record<string, string> = {
@@ -43,8 +43,8 @@ export default function ImmersiveShopping() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [findHint, setFindHint] = useState(false);
-  const listRef = useRef<FlatList<ClosetPiece>>(null);
   const menuPressRef = useRef(false);
+  const activeIndexRef = useRef(0);
   useEffect(() => {
     if (!findHint) return;
     const timer = setTimeout(() => setFindHint(false), 3200);
@@ -57,26 +57,22 @@ export default function ImmersiveShopping() {
     return [...floor].sort((a, b) => Number(saved.has(b.id)) - Number(saved.has(a.id)));
   }, [app.country, app.saved]);
 
-  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
-    const index = viewableItems[0]?.index;
-    if (typeof index === "number") setActiveIndex(index);
-  }).current;
-
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 100 }).current;
-  const renderItem = useCallback(({ item }: { item: ClosetPiece }) => (
-    <ImmersiveItem
-      piece={item}
-      active={pieces[activeIndex]?.id === item.id}
-      colors={colors}
-      styles={styles}
-      insets={insets}
-      app={app}
-      firstFind={firstFind}
-      contentHeight={contentHeight}
-      onFirstFind={() => setFindHint(true)}
-      firstFindLabel={C.firstFind}
-    />
-  ), [C.firstFind, activeIndex, app, colors, contentHeight, firstFind, insets, pieces, styles]);
+  useEffect(() => { activeIndexRef.current = activeIndex; }, [activeIndex]);
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponderCapture: (_, gesture) => !drawerOpen && Math.abs(gesture.dy) > Math.abs(gesture.dx) && Math.abs(gesture.dy) > 10,
+    onPanResponderRelease: (_, gesture) => {
+      if (drawerOpen || pieces.length < 2) return;
+      if (Math.abs(gesture.dy) < 42 && Math.abs(gesture.vy) < 0.35) return;
+      const direction = gesture.dy < 0 ? 1 : -1;
+      const nextIndex = Math.max(0, Math.min(pieces.length - 1, activeIndexRef.current + direction));
+      if (nextIndex !== activeIndexRef.current) {
+        activeIndexRef.current = nextIndex;
+        setActiveIndex(nextIndex);
+      }
+    },
+  }), [drawerOpen, pieces.length]);
+  const activePiece = pieces[activeIndex];
 
   return (
     <Drawer
@@ -104,25 +100,18 @@ export default function ImmersiveShopping() {
         />
       )}
     >
-      <View style={styles.page}>
-        {pieces.length ? <FlatList
-          ref={listRef}
-          data={pieces}
-          keyExtractor={(item) => item.id}
-          style={{ height: contentHeight }}
-          renderItem={renderItem}
-          pagingEnabled
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-          alwaysBounceVertical={false}
-          overScrollMode="never"
-          decelerationRate="fast"
-          getItemLayout={(_, index) => ({ length: contentHeight, offset: contentHeight * index, index })}
-          viewabilityConfig={viewabilityConfig}
-          onViewableItemsChanged={onViewableItemsChanged}
-          windowSize={3}
-          initialNumToRender={2}
-          scrollEnabled={!drawerOpen}
+      <View style={styles.page} {...panResponder.panHandlers}>
+        {activePiece ? <ImmersiveItem
+          piece={activePiece}
+          active
+          colors={colors}
+          styles={styles}
+          insets={insets}
+          app={app}
+          firstFind={firstFind}
+          contentHeight={contentHeight}
+          onFirstFind={() => setFindHint(true)}
+          firstFindLabel={C.firstFind}
         /> : <View style={[styles.empty, { height: contentHeight, paddingTop: insets.top + 24 }]}>
           <Text style={styles.emptyKicker}>IMMERSIVE SHOPPING</Text>
           <Text style={styles.emptyTitle}>The edit is quiet for now.</Text>
