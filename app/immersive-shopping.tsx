@@ -55,10 +55,8 @@ export default function ImmersiveShopping() {
   }, [findHint]);
 
   const pieces = useMemo(() => {
-    const floor = shopFloor(app.country);
-    const saved = new Set(app.saved);
-    return [...floor].sort((a, b) => Number(saved.has(b.id)) - Number(saved.has(a.id)));
-  }, [app.country, app.saved]);
+    return shopFloor(app.country);
+  }, [app.country]);
 
   useEffect(() => {
     activeIndexShared.value = activeIndex;
