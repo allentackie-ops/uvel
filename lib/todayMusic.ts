@@ -43,6 +43,17 @@ export const TODAY_TRACKS = [
 export type TodayTrack = (typeof TODAY_TRACKS)[number];
 
 type StoredPrefs = { enabled?: boolean; volume?: number; trackId?: string };
+type TodayMusicCommand = "toggle" | "next";
+const commandListeners = new Set<(command: TodayMusicCommand) => void>();
+
+export function requestTodayMusicCommand(command: TodayMusicCommand) {
+  commandListeners.forEach((listener) => listener(command));
+}
+
+function subscribeTodayMusicCommands(listener: (command: TodayMusicCommand) => void) {
+  commandListeners.add(listener);
+  return () => { commandListeners.delete(listener); };
+}
 
 export function useTodayMusic() {
   const [trackId, setTrackId] = useState<string>(TODAY_TRACKS[0].id);
@@ -122,6 +133,16 @@ export function useTodayMusic() {
     if (enabled) player.play();
   }, [enabled, persist, player, trackId, volume]);
 
+  const nextTrack = useCallback(() => {
+    const index = TODAY_TRACKS.findIndex((item) => item.id === trackId);
+    selectTrack(TODAY_TRACKS[(index + 1) % TODAY_TRACKS.length].id);
+  }, [selectTrack, trackId]);
+
+  useEffect(() => subscribeTodayMusicCommands((command) => {
+    if (command === "toggle") toggle();
+    else nextTrack();
+  }), [nextTrack, toggle]);
+
   const setDucked = useCallback((value: boolean) => setDuckedState(value), []);
 
   return {
@@ -133,6 +154,7 @@ export function useTodayMusic() {
     toggle,
     setVolume,
     selectTrack,
+    nextTrack,
     setDucked,
   };
 }
