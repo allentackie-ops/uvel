@@ -60,9 +60,6 @@ export default function ImmersiveShopping() {
   }).current;
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 65 }).current;
-  const openPiece = useCallback((piece: ClosetPiece) => {
-    router.push({ pathname: "/closet/[id]", params: { id: piece.id } });
-  }, []);
   const renderItem = useCallback(({ item }: { item: ClosetPiece }) => (
     <ImmersiveItem
       piece={item}
@@ -72,11 +69,10 @@ export default function ImmersiveShopping() {
       insets={insets}
       app={app}
       firstFind={firstFind}
-      onOpen={openPiece}
       onFirstFind={() => setFindHint(true)}
       firstFindLabel={C.firstFind}
     />
-  ), [C.firstFind, activeIndex, app, colors, firstFind, insets, openPiece, pieces, styles]);
+  ), [C.firstFind, activeIndex, app, colors, firstFind, insets, pieces, styles]);
 
   return (
     <Drawer
@@ -143,7 +139,7 @@ export default function ImmersiveShopping() {
   );
 }
 
-function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, onOpen, onFirstFind, firstFindLabel }: any) {
+function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, onFirstFind, firstFindLabel }: any) {
   const [shareOpen, setShareOpen] = useState(false);
   const cart = useCart();
   const lastImageTap = useRef(0);
@@ -203,7 +199,6 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
     imageTapTimer.current = setTimeout(() => {
       lastImageTap.current = 0;
       imageTapTimer.current = null;
-      onOpen(piece);
     }, 450);
   }
   function follow() {
@@ -219,7 +214,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
 
   return (
     <View style={[styles.item, { height: SCREEN_HEIGHT }]}>
-      <AccessiblePressable onPress={(event) => handleImagePress(event.nativeEvent.locationX, event.nativeEvent.locationY)} style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel={`${brand}, ${piece.name}, ${localPrice}. Double tap to save. Tap once to open listing.`}>
+      <AccessiblePressable onPress={(event) => handleImagePress(event.nativeEvent.locationX, event.nativeEvent.locationY)} style={StyleSheet.absoluteFill} accessibilityRole="button" accessibilityLabel={`${brand}, ${piece.name}, ${localPrice}. Double tap to save.`}>
         <Image source={{ uri: piece.photo }} style={styles.itemImage} contentFit="cover" accessible={false} />
         <View pointerEvents="none" style={styles.itemShade} />
       </AccessiblePressable>
