@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, Dimensions, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Animated, Dimensions, FlatList, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "../../lib/haptics";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
@@ -40,6 +40,36 @@ const TODAY_SWIPE_HINT_KEY = "uvel-today-workspace-tutorial-v1";
 const TODAY_SWIPE_HINT_MS = 7000;
 const TODAY_LISTING_OPENS_KEY = "uvel-today-listing-opens-v1";
 const TODAY_DOUBLE_TAP_HINT_SHOWN_KEY = "uvel-today-double-tap-hint-shown-v1";
+
+type TodayFeedCard = { key: string; piece: ClosetPiece };
+
+function seededTodayShuffle<T extends { id: string }>(items: T[], seed: number, epoch: number, round: number) {
+  const shuffled = [...items];
+  let state = (seed ^ Math.imul(epoch + 1, 0x9e3779b1) ^ Math.imul(round + 1, 0x85ebca6b)) >>> 0;
+  const random = () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(random() * (index + 1));
+    [shuffled[index], shuffled[other]] = [shuffled[other], shuffled[index]];
+  }
+  return shuffled;
+}
+
+function shuffledTodayRound<T extends { id: string }>(items: T[], seed: number, epoch: number, round: number, initialBoundaryId?: string) {
+  if (items.length < 2) return items;
+  if (items.length === 2 && round > 1) return shuffledTodayRound(items, seed, epoch, 1, initialBoundaryId);
+
+  const shuffled = seededTodayShuffle(items, seed, epoch, round);
+  const previousRound = round > 1 ? seededTodayShuffle(items, seed, epoch, round - 1) : undefined;
+  const boundaryId = round === 1 ? initialBoundaryId : previousRound?.[previousRound.length - 1]?.id;
+  if (shuffled[0]?.id === boundaryId) [shuffled[0], shuffled[1]] = [shuffled[1], shuffled[0]];
+  return shuffled;
+}
 
 const swipeHintStyles = StyleSheet.create({
   swipeHint: { ...StyleSheet.absoluteFill, zIndex: 60 },
@@ -187,6 +217,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const scrollY = useRef(new Animated.Value(0)).current;
   const [feedEpoch, setFeedEpoch] = useState(0);
   const frozenOrder = useRef<string[] | null>(null);
+  const [todayFeedRoundState, setTodayFeedRoundState] = useState<{ key: string; rounds: number }>({ key: "", rounds: 1 });
+  const [todayShuffleSeed] = useState(() => Math.floor(Math.random() * 0x7fffffff));
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
   const featuredRef = useRef<View>(null);
@@ -197,7 +229,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const listingOpensRef = useRef<number | null>(null);
   const doubleTapHintShownRef = useRef(false);
   const listingOpenWorkRef = useRef(Promise.resolve());
-  useWardrobe();
+  const wardrobePieces = useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
   const followedIds = useMemo(() => followedBrandIds(app.uid), [brandState, app.uid]);
@@ -342,7 +374,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   }, []);
 
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
-  const live = shopFloor(country);
+  const live = useMemo(() => shopFloor(country), [country, wardrobePieces]);
   const liveCampaigns = useLiveShopCampaigns();
   const scanningLook = Boolean(scan === "1" || look || frame || videoUrl);
 
@@ -422,7 +454,30 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
     return (frozenOrder.current || []).map((id) => byId.get(id)).filter((p): p is ClosetPiece => Boolean(p)).filter(passQ);
   }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey, dna, personalization.rank, feedEpoch]);
   const featured = todayHome && !scanningLook ? ranked[0] : undefined;
-  const feedRanked = todayHome && !scanningLook ? ranked.slice(featured ? 1 : 0) : ranked;
+  const feedRanked = useMemo(() => todayHome && !scanningLook ? ranked.slice(featured ? 1 : 0) : ranked, [featured, ranked, scanningLook, todayHome]);
+  const firstTodayGridRound = feedRanked.length ? feedRanked : ranked;
+  const todayFeedKey = `${feedEpoch}:${ranked.map((piece) => piece.id).join("|")}`;
+  const todayFeedRoundCount = todayFeedRoundState.key === todayFeedKey ? todayFeedRoundState.rounds : 1;
+  const todayFeedItems = useMemo(() => {
+    if (!todayHome || scanningLook) return [];
+    const items: TodayFeedCard[] = [];
+    const appendRound = (pieces: ClosetPiece[], round: number) => {
+      pieces.forEach((piece, position) => items.push({ key: `${round}:${position}:${piece.id}`, piece }));
+    };
+    if (firstTodayGridRound.length) appendRound(firstTodayGridRound, 0);
+    const initialBoundaryId = firstTodayGridRound[firstTodayGridRound.length - 1]?.id;
+    for (let round = 1; round < todayFeedRoundCount; round += 1) {
+      appendRound(shuffledTodayRound(ranked, todayShuffleSeed, feedEpoch, round, initialBoundaryId), round);
+    }
+    return items;
+  }, [feedEpoch, firstTodayGridRound, ranked, scanningLook, todayFeedRoundCount, todayHome, todayShuffleSeed]);
+  const loadMoreTodayFeed = useCallback(() => {
+    if (!todayHome || scanningLook || !ranked.length) return;
+    setTodayFeedRoundState((state) => ({
+      key: todayFeedKey,
+      rounds: (state.key === todayFeedKey ? state.rounds : 1) + 1,
+    }));
+  }, [ranked.length, scanningLook, todayFeedKey, todayHome]);
   const featuredBrand = featured && featured.brand && featured.brand !== "Unlabeled" ? featured.brand : featured?.category;
   const featuredItemCurrency = featured?.currency || getMarket(featured?.country || app.country).currency;
   const featuredLocalPriceCents = featured ? convertCents(featured.listPriceCents, featuredItemCurrency, market) : 0;
@@ -532,22 +587,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   );
   const searchNearTop = !todayHome && !scanningLook;
   const editorialHome = todayHome && !scanningLook;
-
-  if (!wardrobeReady && !scanningLook) return <ShopSkeleton colors={colors} />;
-
-  return (
-    <View style={[styles.page, editorialHome && styles.editorialPage]}>
-      <ScrollView
-        style={[styles.page, editorialHome && styles.editorialPage]}
-        contentContainerStyle={[styles.content, editorialHome && styles.editorialPage, { paddingTop: insets.top }]}
-        alwaysBounceVertical
-        bounces
-        keyboardShouldPersistTaps="handled"
-        scrollEventThrottle={16}
-        onScroll={onScroll}
-        onTouchStart={showSwipeHint ? dismissSwipeHint : undefined}
-        onScrollBeginDrag={showSwipeHint ? dismissSwipeHint : undefined}
-      >
+  const listHeaderContent = (
+    <>
       {!todayHome && orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
       {editorialHome && featured ? (
         <Animated.View
@@ -604,19 +645,17 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
       {scanningLook ? (
         <Text style={styles.look}>{job?.title || look?.title || "This frame"}</Text>
       ) : !todayHome ? (
-        <AccessiblePressable          onPress={() => router.push("/store")}
+        <AccessiblePressable
+          onPress={() => router.push("/store")}
           style={({ pressed }) => [styles.store, pressed && { opacity: 0.92 }]}
           accessibilityRole="button"
           accessibilityLabel={`Current shop: ${market.name}, ${market.currency}`}
           accessibilityHint="Double tap to change shop."
         >
-          <Text style={styles.storeTxt}>
-            {market.name} shop · {market.currency}{" "}
-          </Text>
+          <Text style={styles.storeTxt}>{market.name} shop · {market.currency}{" "}</Text>
           <Text style={styles.storeGo}>Change</Text>
         </AccessiblePressable>
       ) : null}
-
       {(!todayHome || scanningLook) && firstFind.remaining > 0 ? (
         <AccessiblePressable
           onPress={() => setFindHint(true)}
@@ -631,25 +670,19 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         </AccessiblePressable>
       ) : null}
       {searchNearTop ? searchBar : null}
-
       {videoUrl ? (
         <FrozenClip uri={videoUrl} time={freezeAt} style={styles.frame} />
       ) : frame ? (
         <Image cachePolicy="memory-disk" source={{ uri: frame }} style={styles.frame} contentFit="contain" />
       ) : null}
-      {scanning ? (
-        <View style={styles.orbitBox}>
-          <OrbitLoader />
-        </View>
-      ) : null}
-
+      {scanning ? <View style={styles.orbitBox}><OrbitLoader /></View> : null}
       {(!todayHome || scanningLook) && !searchNearTop ? searchBar : null}
-
       {(!todayHome || scanningLook) ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         {CATEGORIES.map((c) => {
           const on = cat === c;
           return (
-            <AccessiblePressable              key={c}
+            <AccessiblePressable
+              key={c}
               onPress={() => setCat(c)}
               style={({ pressed }) => [styles.chip, on && styles.chipOn, pressed && { opacity: 0.92 }]}
               accessibilityRole="tab"
@@ -661,44 +694,35 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           );
         })}
       </ScrollView> : null}
-
       {!todayHome && !scanningLook && houses.length ? (
         <View>
           <View style={styles.brandHead}>
-        <Text style={styles.brandHeadTxt}>{C.brands}</Text>
+            <Text style={styles.brandHeadTxt}>{C.brands}</Text>
             <Text style={styles.brandHeadGo}>›</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.brandRail}>
             {houses.map((b) => (
-              <AccessiblePressable                key={b.id}
+              <AccessiblePressable
+                key={b.id}
                 onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })}
                 style={({ pressed }) => [styles.house, pressed && { opacity: 0.92 }]}
                 accessibilityRole="button"
                 accessibilityLabel={`Open ${b.name}${brandCheck(b) !== "none" ? ", verified brand" : ""}`}
                 accessibilityHint="Double tap to open this brand."
               >
-                {b.logoUri ? (
-                  <Image cachePolicy="memory-disk" source={{ uri: b.logoUri }} style={styles.houseLogo} contentFit="cover" />
-                ) : (
-                  <View style={styles.houseLogo} />
-                )}
+                {b.logoUri ? <Image cachePolicy="memory-disk" source={{ uri: b.logoUri }} style={styles.houseLogo} contentFit="cover" /> : <View style={styles.houseLogo} />}
                 <View style={styles.houseMeta}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                    <Text style={styles.houseName} numberOfLines={1}>
-                      {b.name}
-                    </Text>
+                    <Text style={styles.houseName} numberOfLines={1}>{b.name}</Text>
                     <BrandVerifiedMark brand={b} size={12} />
                   </View>
-                  <Text style={styles.houseLine} numberOfLines={1}>
-                    {b.tagline || b.vertical}
-                  </Text>
+                  <Text style={styles.houseLine} numberOfLines={1}>{b.tagline || b.vertical}</Text>
                 </View>
               </AccessiblePressable>
             ))}
           </ScrollView>
         </View>
       ) : null}
-
       {!todayHome && !scanningLook && shopCampaignRows.length ? (
         <View style={styles.campaignSection}>
           <View style={styles.campaignHead}>
@@ -712,7 +736,8 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
             {shopCampaignRows.map(({ campaign, lead }) => {
               const brand = getBrand(campaign.brandId);
               return (
-                <AccessiblePressable                  key={campaign.id}
+                <AccessiblePressable
+                  key={campaign.id}
                   onPress={() => {
                     void recordCampaignAttribution({ brandId: campaign.brandId, campaignId: campaign.id, channel: "shop", type: "engagement", listingId: lead.id, eventId: `shop_engagement_${campaign.id}_${app.uid || "guest"}_${Date.now()}` }).catch(() => undefined);
                     router.push({ pathname: "/closet/[id]", params: { id: lead.id, campaignId: campaign.id, collectionId: campaign.collectionId || "", promotionId: campaign.promotionId || "", campaignChannel: "shop" } });
@@ -739,44 +764,91 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           </ScrollView>
         </View>
       ) : null}
-
-      {scanning ? (
-        <Text style={styles.count}>{C.lookingAtFrame}</Text>
-      ) : null}
-
+      {scanning ? <Text style={styles.count}>{C.lookingAtFrame}</Text> : null}
       {editorialHome && feedRanked.length ? <Text style={styles.editorialFeedTitle}>{C.forYou}</Text> : null}
+    </>
+  );
+  const emptyListingsContent = !scanning && ranked.length === 0 ? (
+    marketplaceSync !== "confirmed" ? null : scanningLook ? (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyTitle}>{C.nothingMatchesLook}</Text>
+        <Text style={styles.emptyCopy}>{C.tryAnotherFrame}</Text>
+      </View>
+    ) : todayHome ? (
+      <View style={styles.emptyQuiet}>
+        <Text style={styles.emptyQuietTxt}>{C.nothingNew}</Text>
+      </View>
+    ) : (
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyTitle}>{`${C.nothingListedInShop} · ${market.name}`}</Text>
+        <Text style={styles.emptyCopy}>{C.pullToRefresh}</Text>
+        <AccessiblePressable onPress={() => router.push("/")} style={styles.emptyPrimary} accessibilityRole="button" accessibilityLabel={C.goToToday}>
+          <Text style={styles.emptyPrimaryTxt}>{C.today}</Text>
+        </AccessiblePressable>
+      </View>
+    )
+  ) : null;
 
-      <View style={[styles.grid, !scanning && { marginTop: 14 }]}>
-        {scanning
-          ? null
-          : feedRanked.map((p) => (
-              <View key={p.id} style={[styles.cell, openPiece?.id === p.id && { opacity: 0 }]}>
-                <ListingCard piece={p} framed firstFind={todayHome && firstFind.matches(p)} onFirstFind={todayHome ? () => setFindHint(true) : undefined} onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />
+  if (!wardrobeReady && !scanningLook) return <ShopSkeleton colors={colors} />;
+
+  return (
+    <View style={[styles.page, editorialHome && styles.editorialPage]}>
+      {editorialHome ? (
+        <FlatList
+          data={todayFeedItems}
+          numColumns={2}
+          columnWrapperStyle={styles.gridRow}
+          keyExtractor={(item) => item.key}
+          renderItem={({ item }) => {
+            const piece = item.piece;
+            return (
+              <View style={[styles.cell, openPiece?.id === piece.id && { opacity: 0 }]}>
+                <ListingCard piece={piece} framed firstFind={firstFind.matches(piece)} onFirstFind={() => setFindHint(true)} onOpen={openTodayListing} onInteraction={personalization.record} />
+              </View>
+            );
+          }}
+          ListHeaderComponent={listHeaderContent}
+          ListHeaderComponentStyle={{ marginBottom: 14 }}
+          ListEmptyComponent={emptyListingsContent}
+          style={[styles.page, styles.editorialPage]}
+          contentContainerStyle={[styles.content, styles.editorialPage, { paddingTop: insets.top }]}
+          alwaysBounceVertical
+          bounces
+          keyboardShouldPersistTaps="handled"
+          scrollEventThrottle={16}
+          onScroll={onScroll}
+          onTouchStart={showSwipeHint ? dismissSwipeHint : undefined}
+          onScrollBeginDrag={showSwipeHint ? dismissSwipeHint : undefined}
+          onEndReached={loadMoreTodayFeed}
+          onEndReachedThreshold={0.5}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          extraData={openPiece?.id}
+        />
+      ) : (
+        <ScrollView
+          style={[styles.page, editorialHome && styles.editorialPage]}
+          contentContainerStyle={[styles.content, editorialHome && styles.editorialPage, { paddingTop: insets.top }]}
+          alwaysBounceVertical
+          bounces
+          keyboardShouldPersistTaps="handled"
+          scrollEventThrottle={16}
+          onScroll={onScroll}
+          onTouchStart={showSwipeHint ? dismissSwipeHint : undefined}
+          onScrollBeginDrag={showSwipeHint ? dismissSwipeHint : undefined}
+        >
+          {listHeaderContent}
+          <View style={[styles.grid, !scanning && { marginTop: 14 }]}>
+            {scanning ? null : feedRanked.map((piece) => (
+              <View key={piece.id} style={[styles.cell, openPiece?.id === piece.id && { opacity: 0 }]}>
+                <ListingCard piece={piece} framed firstFind={todayHome && firstFind.matches(piece)} onFirstFind={todayHome ? () => setFindHint(true) : undefined} onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />
               </View>
             ))}
-      </View>
-
-      {!scanning && ranked.length === 0 ? (
-        marketplaceSync !== "confirmed" ? null : scanningLook ? (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>{C.nothingMatchesLook}</Text>
-            <Text style={styles.emptyCopy}>{C.tryAnotherFrame}</Text>
           </View>
-        ) : todayHome ? (
-          <View style={styles.emptyQuiet}>
-            <Text style={styles.emptyQuietTxt}>{C.nothingNew}</Text>
-          </View>
-        ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyTitle}>{`${C.nothingListedInShop} · ${market.name}`}</Text>
-            <Text style={styles.emptyCopy}>{C.pullToRefresh}</Text>
-            <AccessiblePressable onPress={() => router.push("/")} style={styles.emptyPrimary} accessibilityRole="button" accessibilityLabel={C.goToToday}>
-              <Text style={styles.emptyPrimaryTxt}>{C.today}</Text>
-            </AccessiblePressable>
-          </View>
-        )
-      ) : null}
-      </ScrollView>
+          {emptyListingsContent}
+        </ScrollView>
+      )}
       {todayHome && orbitOn ? <View pointerEvents="none" style={[styles.refreshOrbit, styles.refreshOrbitOverlay, { top: insets.top + 68 }]}><OrbitLoader /></View> : null}
       {todayHome && openPiece && openOrigin ? (
         <TodayListingOverlay
@@ -952,6 +1024,7 @@ function make(colors: Colors) {
     chipTxtOn: { color: colors.successInk },
     count: { color: `${colors.bone}66`, fontSize: 13, marginBottom: 12 },
     grid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    gridRow: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
     cell: { width: "48%", flexGrow: 1, maxWidth: "48.5%" },
   });
 }
