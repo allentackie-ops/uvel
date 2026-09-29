@@ -292,7 +292,7 @@ export default function ImmersiveShopping() {
           {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
             <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
-        </>}
+        </> : null}
         <View pointerEvents="box-none" style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
           <AccessiblePressable onPress={() => { menuPressRef.current = true; setDrawerOpen(true); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); }} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Open Today drawer">
             <Ionicons name="menu" size={28} color={colors.bone} />
