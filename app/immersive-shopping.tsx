@@ -23,7 +23,7 @@ import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
 import { fallbackShopFloor, refreshMarketplaceListings, shopFloor, useWardrobe } from "../lib/wardrobe";
-import { FEED_PAGE_SIZE, feedPage } from "../lib/feedOrder";
+import { FEED_PAGE_SIZE, feedItemAt, feedPage } from "../lib/feedOrder";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const MIN_REFRESH_MS = 1200;
@@ -61,13 +61,6 @@ export default function ImmersiveShopping() {
   const refreshFeedSnapshot = useRef<ReturnType<typeof shopFloor> | null>(null);
   const refreshOriginId = useRef<string | undefined>(undefined);
   const visiblePieceId = useRef<string | undefined>(undefined);
-  const feedRounds = useRef<{
-    pool: ShopFloorPiece[] | null;
-    seed: number;
-    epoch: number;
-    anchorId?: string;
-    rounds: Map<number, ShopFloorPiece[]>;
-  }>({ pool: null, seed: 0, epoch: -1, rounds: new Map() });
   const swipeY = useSharedValue(0);
   const activeIndexShared = useSharedValue(0);
   const swipeLock = useSharedValue(0);
@@ -91,35 +84,7 @@ export default function ImmersiveShopping() {
   }, [app.country, refreshState, refreshing, wardrobePieces]);
 
   const feedWindow = useMemo(() => {
-    if (!pieces.length) return { previous: undefined, current: undefined, next: undefined, preload: [] as ShopFloorPiece[] };
-
-    const currentPageOrdinal = Math.floor(activeIndex / FEED_PAGE_SIZE);
-    const cache = feedRounds.current;
-    if (cache.pool !== pieces || cache.seed !== sessionSeed || cache.epoch !== refreshState.epoch || cache.anchorId !== refreshState.anchorId) {
-      cache.pool = pieces;
-      cache.seed = sessionSeed;
-      cache.epoch = refreshState.epoch;
-      cache.anchorId = refreshState.anchorId;
-      cache.rounds.clear();
-    }
-    cache.rounds.forEach((_round, index) => {
-      if (index < currentPageOrdinal - 1 || index > currentPageOrdinal + 2) cache.rounds.delete(index);
-    });
-
-    const getRound = (index: number) => {
-      const cached = cache.rounds.get(index);
-      if (cached) return cached;
-      const page = feedPage(pieces, index, sessionSeed ^ refreshState.epoch);
-      cache.rounds.set(index, page);
-      return page;
-    };
-    const itemAt = (index: number) => {
-      if (index < 0) return undefined;
-      const pageIndex = Math.floor(index / FEED_PAGE_SIZE);
-      const page = getRound(pageIndex);
-      return page[index % FEED_PAGE_SIZE];
-    };
-
+    const itemAt = (index: number) => feedItemAt(pieces, index, sessionSeed ^ refreshState.epoch);
     const current = itemAt(activeIndex);
     const next = itemAt(activeIndex + 1);
     return {
@@ -128,7 +93,7 @@ export default function ImmersiveShopping() {
       next,
       preload: [current, next, itemAt(activeIndex + 2)].filter((piece): piece is ShopFloorPiece => Boolean(piece)),
     };
-  }, [activeIndex, pieces, refreshState.anchorId, refreshState.epoch, sessionSeed]);
+  }, [activeIndex, pieces, refreshState.epoch, sessionSeed]);
   const previousPiece = feedWindow.previous;
   const activePiece = feedWindow.current;
   const nextPiece = feedWindow.next;

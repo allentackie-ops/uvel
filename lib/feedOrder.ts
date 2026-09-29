@@ -55,3 +55,10 @@ export function feedPage<T extends { id: string; stockQuantity?: number }>(items
   });
   return result;
 }
+
+/** Resolve an endless-feed index without materializing the entire feed. */
+export function feedItemAt<T extends { id: string; stockQuantity?: number }>(items: T[], index: number, seed: number) {
+  if (index < 0 || !items.length) return undefined;
+  const page = feedPage(items, Math.floor(index / FEED_PAGE_SIZE), seed);
+  return page[index % FEED_PAGE_SIZE];
+}
