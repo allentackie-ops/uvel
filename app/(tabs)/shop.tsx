@@ -497,7 +497,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
             <View style={[styles.menuLine, overHero && styles.editorialMenuLine]} />
           </View>
         </AccessiblePressable>
-        {overHero && todayHome ? <TodayMusicButton music={todayMusic} compact onPress={() => { if (!todayMusic.enabled) todayMusic.toggle(); router.push("/immersive-shopping"); }} /> : null}
+        {overHero && todayHome ? <TodayMusicButton music={todayMusic} compact onPress={() => router.push("/immersive-shopping")} /> : null}
       </View>
       <View pointerEvents="box-none" style={overHero ? styles.editorialWordmarkCenter : undefined}>
         <AccessiblePressable
