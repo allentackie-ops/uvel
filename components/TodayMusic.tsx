@@ -15,6 +15,27 @@ type MusicState = {
   selectTrack: (id: string) => void;
 };
 
+export function ImmersiveShoppingButton({ onPress }: { onPress: () => void }) {
+  const colors = useColors();
+  const styles = useMemo(() => make(colors), [colors]);
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.immersiveButton, pressed && { opacity: 0.72 }]}
+      accessibilityRole="button"
+      accessibilityLabel="Open Immersive Shopping"
+      accessibilityHint="Open the endless shopping feed with its soundtrack."
+    >
+      <View style={styles.wave}>
+        <View style={[styles.waveBar, styles.immersiveBarShort]} />
+        <View style={[styles.waveBar, styles.immersiveBarTall]} />
+        <View style={[styles.waveBar, styles.immersiveBarMedium]} />
+        <View style={[styles.waveBar, styles.immersiveBarTall]} />
+      </View>
+    </Pressable>
+  );
+}
+
 export function TodayMusicButton({ music, compact = false }: { music: MusicState; compact?: boolean }) {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
@@ -109,9 +130,13 @@ function make(colors: Colors) {
   return StyleSheet.create({
     button: { minHeight: 50, maxWidth: 184, borderRadius: 17, borderWidth: 1, borderColor: "rgba(244,240,230,0.38)", backgroundColor: "rgba(10,10,9,0.70)", paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 },
     compactButton: { width: 38, height: 42, alignItems: "center", justifyContent: "center" },
+    immersiveButton: { width: 38, height: 42, alignItems: "center", justifyContent: "center" },
     wave: { width: 25, height: 24, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 2 },
     waveActive: { opacity: 1 },
     waveBar: { width: 3, height: 18, borderRadius: 2, backgroundColor: colors.success },
+    immersiveBarShort: { height: 10 },
+    immersiveBarMedium: { height: 16 },
+    immersiveBarTall: { height: 22 },
     buttonCopy: { flexShrink: 1 },
     buttonKicker: { color: colors.bone, fontSize: 9, fontWeight: "800", letterSpacing: 1.1 },
     buttonTitle: { color: `${colors.bone}B8`, fontSize: 11, marginTop: 2 },
