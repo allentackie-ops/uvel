@@ -191,7 +191,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const scrollY = useRef(new Animated.Value(0)).current;
   const [feedEpoch, setFeedEpoch] = useState(0);
   const frozenOrder = useRef<string[] | null>(null);
-  const [todayFeedPageState, setTodayFeedPageState] = useState<{ key: string; pages: number; pass: number }>({ key: "", pages: INITIAL_TODAY_FEED_PAGES, pass: 0 });
+  const [todayFeedPageState, setTodayFeedPageState] = useState<{ key: string; pages: number }>({ key: "", pages: INITIAL_TODAY_FEED_PAGES });
   const [todayShuffleSeed] = useState(() => Math.floor(Math.random() * 0x7fffffff));
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
@@ -441,18 +441,16 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   // current listing has been shown once, so a large catalog never repeats a
   // handful of cards while the rest are still waiting below the fold.
   const todayFeedPageCount = todayFeedPageState.key === todayFeedKey ? todayFeedPageState.pages : INITIAL_TODAY_FEED_PAGES;
-  const todayFeedPass = todayFeedPageState.key === todayFeedKey ? todayFeedPageState.pass : 0;
-  const todayFeedTotalPages = Math.max(1, Math.ceil(feedRanked.length / FEED_PAGE_SIZE));
   const todayFeedItems = useMemo(() => {
     if (!todayHome || scanningLook) return [];
     const items: TodayFeedCard[] = [];
     for (let page = 0; page < todayFeedPageCount; page += 1) {
-      feedPage(feedRanked, todayFeedPass * todayFeedTotalPages + page, todayShuffleSeed ^ feedEpoch).forEach((piece, position) => {
+      feedPage(feedRanked, page, todayShuffleSeed ^ feedEpoch).forEach((piece, position) => {
         items.push({ key: `${page}:${position}:${piece.id}`, piece });
       });
     }
     return items;
-  }, [feedRanked, scanningLook, todayFeedPageCount, todayFeedPass, todayFeedTotalPages, todayHome, todayShuffleSeed]);
+  }, [feedEpoch, feedRanked, scanningLook, todayFeedPageCount, todayHome, todayShuffleSeed]);
   const todayPrefetchUris = useMemo(() => {
     const candidates = [...todayFeedItems.slice(0, 24), ...todayFeedItems.slice(-24)];
     return [...new Set(candidates
@@ -464,15 +462,13 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   }, [todayPrefetchUris]);
   const loadMoreTodayFeed = useCallback(() => {
     if (!todayHome || scanningLook || !feedRanked.length) return;
-    setTodayFeedPageState((state) => {
-      const pages = state.key === todayFeedKey ? state.pages : INITIAL_TODAY_FEED_PAGES;
-      const pass = state.key === todayFeedKey ? state.pass : 0;
-      if (pages >= todayFeedTotalPages) {
-        return { key: todayFeedKey, pages: INITIAL_TODAY_FEED_PAGES, pass: pass + 1 };
-      }
-      return { key: todayFeedKey, pages: pages + 1, pass };
-    });
-  }, [feedRanked.length, scanningLook, todayFeedKey, todayFeedTotalPages, todayHome]);
+    // Keep appending pages forever. feedPage maps later page ordinals back to
+    // the next pass only after every current listing has been shown once.
+    setTodayFeedPageState((state) => ({
+      key: todayFeedKey,
+      pages: (state.key === todayFeedKey ? state.pages : INITIAL_TODAY_FEED_PAGES) + 1,
+    }));
+  }, [feedRanked.length, scanningLook, todayFeedKey, todayHome]);
   const featuredBrand = featured && featured.brand && featured.brand !== "Unlabeled" ? featured.brand : featured?.category;
   const featuredItemCurrency = featured?.currency || getMarket(featured?.country || app.country).currency;
   const featuredLocalPriceCents = featured ? convertCents(featured.listPriceCents, featuredItemCurrency, market) : 0;
