@@ -23,7 +23,7 @@ import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
 import { fallbackShopFloor, refreshMarketplaceListings, shopFloor, useWardrobe } from "../lib/wardrobe";
-import { FEED_PAGE_SIZE, feedItemAt, feedPage } from "../lib/feedOrder";
+import { feedItemAt, feedPage } from "../lib/feedOrder";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const MIN_REFRESH_MS = 1200;
@@ -49,6 +49,7 @@ export default function ImmersiveShopping() {
   useBrands();
   useEffect(() => { void hydrateFollowedSellers(); }, []);
   const wardrobePieces = useWardrobe();
+  const bundledPieces = useMemo(() => fallbackShopFloor(), []);
   const [activeIndex, setActiveIndex] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [findHint, setFindHint] = useState(false);
@@ -80,8 +81,8 @@ export default function ImmersiveShopping() {
     // Never render a blank immersive feed while Firestore is reconnecting or
     // a stale marketplace snapshot has not hydrated yet.
     const localListed = wardrobePieces.filter((piece) => piece.status === "listed" && !piece.sellerPaused);
-    return localListed.length ? localListed : fallbackShopFloor();
-  }, [app.country, refreshState, refreshing, wardrobePieces]);
+    return localListed.length ? localListed : bundledPieces;
+  }, [app.country, bundledPieces, refreshState, refreshing, wardrobePieces]);
 
   const feedWindow = useMemo(() => {
     const itemAt = (index: number) => feedItemAt(pieces, index, sessionSeed ^ refreshState.epoch);
@@ -291,9 +292,7 @@ export default function ImmersiveShopping() {
           {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
             <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
-        </> : <View style={[styles.empty, { height: contentHeight, paddingTop: insets.top + 24 }]} accessibilityLabel="Loading immersive shopping">
-          <OrbitLoader />
-        </View>}
+        </>}
         <View pointerEvents="box-none" style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
           <AccessiblePressable onPress={() => { menuPressRef.current = true; setDrawerOpen(true); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); }} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Open Today drawer">
             <Ionicons name="menu" size={28} color={colors.bone} />
