@@ -238,7 +238,7 @@ export default function TryOn() {
         <Text style={styles.title}>{pieceName ?? "Before you buy"}</Text>
         <Text style={styles.p}>
           {person
-            ? "We’ll keep your face, body, and room — you come back wearing the piece."
+            ? "We’ll keep your face, body, and area. It’ll come back with you wearing the piece."
             : "Need a full-length mirror pic of you first. Head to shoes."}
         </Text>
 
