@@ -32,12 +32,44 @@ const CATALOG_BRAND_IDS: Record<string, string> = {
   "Atelier No. 4": "atelier-no4",
 };
 
-function rotateFeedForRefresh<T extends { id: string }>(items: T[], refreshNumber: number, previousFirstId?: string) {
-  if (items.length < 2 || refreshNumber < 1) return items;
-  let offset = refreshNumber % items.length;
-  if (offset === 0) offset = 1;
-  if (items[offset]?.id === previousFirstId) offset = (offset + 1) % items.length;
-  return [...items.slice(offset), ...items.slice(0, offset)];
+type ShopFloorPiece = ReturnType<typeof shopFloor>[number];
+
+function seededShuffle<T extends { id: string }>(items: T[], seed: number, epoch: number, round: number) {
+  const shuffled = [...items];
+  let state = (seed ^ Math.imul(epoch + 1, 0x9e3779b1) ^ Math.imul(round + 1, 0x85ebca6b)) >>> 0;
+  const random = () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const other = Math.floor(random() * (index + 1));
+    [shuffled[index], shuffled[other]] = [shuffled[other], shuffled[index]];
+  }
+  return shuffled;
+}
+
+function moveFirstAwayFrom<T extends { id: string }>(items: T[], forbiddenId?: string) {
+  if (items[0]?.id !== forbiddenId) return;
+  const swapIndex = items.findIndex((item, index) => index > 0 && item.id !== forbiddenId);
+  if (swapIndex > 0) [items[0], items[swapIndex]] = [items[swapIndex], items[0]];
+}
+
+function shuffledFeedRound<T extends { id: string }>(items: T[], seed: number, epoch: number, round: number, avoidFirstId?: string) {
+  if (items.length < 2) return items;
+  // With only two listings, avoiding a repeated item at the round boundary
+  // necessarily produces the same alternating order for each round.
+  if (items.length === 2 && round > 0) return shuffledFeedRound(items, seed, epoch, 0, avoidFirstId);
+
+  const shuffled = seededShuffle(items, seed, epoch, round);
+  // Boundary adjustments only swap the first two cards, so the previous
+  // round's final listing remains the last item in its seeded shuffle.
+  const previousRound = round > 0 ? seededShuffle(items, seed, epoch, round - 1) : undefined;
+  const boundaryId = round === 0 ? avoidFirstId : previousRound?.[previousRound.length - 1]?.id;
+  moveFirstAwayFrom(shuffled, boundaryId);
+  return shuffled;
 }
 
 export default function ImmersiveShopping() {
@@ -57,10 +89,20 @@ export default function ImmersiveShopping() {
   const [findHint, setFindHint] = useState(false);
   const [refreshState, setRefreshState] = useState<{ active: boolean; epoch: number; anchorId?: string }>({ active: false, epoch: 0 });
   const refreshing = refreshState.active;
+  const [sessionSeed] = useState(() => Math.floor(Math.random() * 0x7fffffff));
   const menuPressRef = useRef(false);
   const refreshInFlight = useRef(false);
   const feedEpochRef = useRef(0);
   const refreshFeedSnapshot = useRef<ReturnType<typeof shopFloor> | null>(null);
+  const refreshOriginId = useRef<string | undefined>(undefined);
+  const visiblePieceId = useRef<string | undefined>(undefined);
+  const feedRounds = useRef<{
+    pool: ShopFloorPiece[] | null;
+    seed: number;
+    epoch: number;
+    anchorId?: string;
+    rounds: Map<number, ShopFloorPiece[]>;
+  }>({ pool: null, seed: 0, epoch: -1, rounds: new Map() });
   const swipeY = useSharedValue(0);
   const activeIndexShared = useSharedValue(0);
   const swipeLock = useSharedValue(0);
@@ -75,13 +117,58 @@ export default function ImmersiveShopping() {
 
   const pieces = useMemo(() => {
     if (refreshing && refreshFeedSnapshot.current) return refreshFeedSnapshot.current;
-    return rotateFeedForRefresh(shopFloor(app.country), refreshState.epoch, refreshState.anchorId);
+    return shopFloor(app.country);
   }, [app.country, refreshState, refreshing, wardrobePieces]);
+
+  const feedWindow = useMemo(() => {
+    if (!pieces.length) return { previous: undefined, current: undefined, next: undefined, preload: [] as ShopFloorPiece[] };
+
+    const roundSize = pieces.length;
+    const currentRoundIndex = Math.floor(activeIndex / roundSize);
+    const cache = feedRounds.current;
+    if (cache.pool !== pieces || cache.seed !== sessionSeed || cache.epoch !== refreshState.epoch || cache.anchorId !== refreshState.anchorId) {
+      cache.pool = pieces;
+      cache.seed = sessionSeed;
+      cache.epoch = refreshState.epoch;
+      cache.anchorId = refreshState.anchorId;
+      cache.rounds.clear();
+    }
+    cache.rounds.forEach((_round, index) => {
+      if (index < currentRoundIndex - 1 || index > currentRoundIndex + 2) cache.rounds.delete(index);
+    });
+
+    const getRound = (index: number) => {
+      const cached = cache.rounds.get(index);
+      if (cached) return cached;
+      const shuffled = shuffledFeedRound(pieces, sessionSeed, refreshState.epoch, index, refreshState.anchorId);
+      cache.rounds.set(index, shuffled);
+      return shuffled;
+    };
+    const itemAt = (index: number) => {
+      if (index < 0) return undefined;
+      const roundIndex = Math.floor(index / roundSize);
+      return getRound(roundIndex)[index % roundSize];
+    };
+
+    const current = itemAt(activeIndex);
+    const next = itemAt(activeIndex + 1);
+    return {
+      previous: itemAt(activeIndex - 1),
+      current,
+      next,
+      preload: [current, next, itemAt(activeIndex + 2)].filter((piece): piece is ShopFloorPiece => Boolean(piece)),
+    };
+  }, [activeIndex, pieces, refreshState.anchorId, refreshState.epoch, sessionSeed]);
+  const previousPiece = feedWindow.previous;
+  const activePiece = feedWindow.current;
+  const nextPiece = feedWindow.next;
+  visiblePieceId.current = activePiece?.id;
 
   const onRefresh = useCallback(async () => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
     refreshFeedSnapshot.current = pieces;
+    refreshOriginId.current = visiblePieceId.current;
     refreshActiveShared.value = 1;
     swipeLock.value = 1;
     setRefreshState((state) => ({ ...state, active: true }));
@@ -95,7 +182,7 @@ export default function ImmersiveShopping() {
       // Keep the local feed usable if the marketplace refresh is unavailable.
     } finally {
       const nextEpoch = feedEpochRef.current + 1;
-      const refreshedFeed = rotateFeedForRefresh(shopFloor(app.country), nextEpoch, pieces[0]?.id);
+      const refreshedFeed = shuffledFeedRound(shopFloor(app.country), sessionSeed, nextEpoch, 0, refreshOriginId.current);
       const incomingImages = refreshedFeed
         .slice(0, 3)
         .map((piece) => piece.photo)
@@ -110,13 +197,13 @@ export default function ImmersiveShopping() {
       activeIndexShared.value = 0;
       swipeY.value = 0;
       refreshFeedSnapshot.current = null;
-      setRefreshState({ active: false, epoch: nextEpoch, anchorId: pieces[0]?.id });
+      setRefreshState({ active: false, epoch: nextEpoch, anchorId: refreshOriginId.current });
       refreshInFlight.current = false;
       refreshActiveShared.value = 0;
       refreshImageScale.value = withTiming(1, { duration: 240, easing: Easing.out(Easing.cubic) });
       swipeLock.value = 0;
     }
-  }, [activeIndexShared, app.country, pieces, refreshActiveShared, refreshImageScale, swipeLock, swipeY]);
+  }, [activeIndexShared, app.country, pieces, refreshActiveShared, refreshImageScale, sessionSeed, swipeLock, swipeY]);
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
 
   useEffect(() => {
@@ -162,8 +249,7 @@ export default function ImmersiveShopping() {
       }
       if (swipeLock.value) return;
       const direction = event.translationY < 0 ? 1 : -1;
-      const atBoundary = (direction < 0 && activeIndexShared.value === 0)
-        || (direction > 0 && activeIndexShared.value >= pieces.length - 1);
+      const atBoundary = direction < 0 && activeIndexShared.value === 0;
       const translation = atBoundary ? event.translationY * 0.2 : event.translationY;
       swipeY.value = Math.max(-contentHeight, Math.min(contentHeight, translation));
     })
@@ -177,7 +263,7 @@ export default function ImmersiveShopping() {
 
       const currentIndex = activeIndexShared.value;
       const direction = event.translationY < 0 ? 1 : -1;
-      const nextIndex = Math.max(0, Math.min(pieces.length - 1, currentIndex + direction));
+      const nextIndex = direction > 0 ? currentIndex + 1 : Math.max(0, currentIndex - 1);
       const enoughDistance = Math.abs(event.translationY) >= contentHeight * 0.2;
       const enoughVelocity = Math.abs(event.velocityY) >= 650;
       const shouldAdvance = nextIndex !== currentIndex && (enoughDistance || enoughVelocity);
@@ -211,19 +297,14 @@ export default function ImmersiveShopping() {
       }
       refreshImageScale.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.cubic) });
     }), [activeIndexShared, commitSwipe, contentHeight, drawerOpen, onRefresh, pieces.length, refreshActiveShared, refreshImageScale, refreshTriggered, swipeLock, swipeY]);
-  const activePiece = pieces[activeIndex];
-  const nextPiece = pieces[activeIndex + 1];
-  const previousPiece = pieces[activeIndex - 1];
-
   useEffect(() => {
     // Keep the next couple of images warm so rapid swipes don't reveal an
     // unloaded image while the incoming card is already moving on screen.
-    const imageUris = pieces
-      .slice(activeIndex, activeIndex + 3)
+    const imageUris = feedWindow.preload
       .map((piece) => piece.photo)
       .filter((uri): uri is string => /^https?:\/\//i.test(uri));
     if (imageUris.length) void Image.prefetch(imageUris, "memory-disk").catch(() => undefined);
-  }, [activeIndex, pieces]);
+  }, [feedWindow]);
 
   return (
     <Drawer
@@ -254,10 +335,10 @@ export default function ImmersiveShopping() {
       <GestureDetector gesture={panGesture}>
       <View style={styles.page}>
         {activePiece ? <>
-          {previousPiece ? <Animated.View key={previousPiece.id} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle]}>
+          {previousPiece ? <Animated.View key={`${activeIndex - 1}:${previousPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle]}>
             <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
-          <Animated.View key={activePiece.id} style={[styles.cardLayer, { height: contentHeight }, currentCardStyle]}>
+          <Animated.View key={`${activeIndex}:${activePiece.id}`} style={[styles.cardLayer, { height: contentHeight }, currentCardStyle]}>
           <ImmersiveItem
           piece={activePiece}
           active
@@ -272,7 +353,7 @@ export default function ImmersiveShopping() {
           firstFindLabel={C.firstFind}
           />
           </Animated.View>
-          {nextPiece ? <Animated.View key={nextPiece.id} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
+          {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
             <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
         </> : <View style={[styles.empty, { height: contentHeight, paddingTop: insets.top + 24 }]}>
