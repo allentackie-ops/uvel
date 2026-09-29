@@ -328,7 +328,7 @@ function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: Re
           return (
             <AccessiblePressable
               key={tab.route}
-              onPress={() => router.navigate(tab.route)}
+              onPress={() => index === 0 ? router.back() : router.navigate(tab.route)}
               style={({ pressed }) => [styles.taskbarTab, pressed && styles.taskbarTabPressed]}
               accessibilityRole="tab"
               accessibilityLabel={tab.label}
