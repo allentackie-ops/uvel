@@ -371,12 +371,17 @@ export function listedPieces() {
   return pieces.filter((p) => p.status === "listed" && !p.sellerPaused && remoteListingIds.has(p.id));
 }
 
+/** Bundled catalog used while the public marketplace is unavailable. */
+export function fallbackShopFloor() {
+  return testShopPieces();
+}
+
 /** Live listings a buyer in this country is allowed to see. */
 export function shopFloor(buyerCountry: string) {
   const remote = listedPieces().filter((p) =>
     listingVisibleIn({ origin: p.country, shipsTo: p.shipsTo, buyer: buyerCountry }),
   );
-  return remote.length ? remote : testShopPieces();
+  return remote.length ? remote : fallbackShopFloor();
 }
 
 export async function analyzePhoto(photo: string): Promise<Omit<ClosetPiece, "id" | "status" | "createdAt">> {

@@ -22,7 +22,7 @@ import { hydrateFollowedSellers, isSellerFollowed, syncSellerFollow, toggleSelle
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
-import { refreshMarketplaceListings, shopFloor, useWardrobe } from "../lib/wardrobe";
+import { fallbackShopFloor, refreshMarketplaceListings, shopFloor, useWardrobe } from "../lib/wardrobe";
 import { FEED_PAGE_SIZE, feedPage } from "../lib/feedOrder";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -82,7 +82,12 @@ export default function ImmersiveShopping() {
 
   const pieces = useMemo(() => {
     if (refreshing && refreshFeedSnapshot.current) return refreshFeedSnapshot.current;
-    return shopFloor(app.country);
+    const floor = shopFloor(app.country);
+    if (floor.length) return floor;
+    // Never render a blank immersive feed while Firestore is reconnecting or
+    // a stale marketplace snapshot has not hydrated yet.
+    const localListed = wardrobePieces.filter((piece) => piece.status === "listed" && !piece.sellerPaused);
+    return localListed.length ? localListed : fallbackShopFloor();
   }, [app.country, refreshState, refreshing, wardrobePieces]);
 
   const feedWindow = useMemo(() => {
