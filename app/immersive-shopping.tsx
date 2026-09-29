@@ -111,8 +111,9 @@ export default function ImmersiveShopping() {
           keyExtractor={(item) => item.id}
           style={{ height: contentHeight }}
           renderItem={renderItem}
-          pagingEnabled
           showsVerticalScrollIndicator={false}
+          bounces={false}
+          overScrollMode="never"
           decelerationRate="fast"
           snapToInterval={contentHeight}
           snapToAlignment="start"
