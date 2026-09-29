@@ -312,6 +312,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   function follow() {
     if (!followId) return;
     const next = isBrand ? toggleFollow(followId, app.uid || "me") : toggleSellerFollow(followId);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     setFollowing(next);
     if (followingStatusTimer.current) clearTimeout(followingStatusTimer.current);
     if (next) {

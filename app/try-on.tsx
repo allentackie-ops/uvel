@@ -1,10 +1,12 @@
 import { Image } from "expo-image";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActionSheetIOS,
   Alert,
+  Image as RNImage,
   Platform,
   Pressable,
   ScrollView,
@@ -12,6 +14,8 @@ import {
   Text,
   View,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader } from "../components/OrbitLoader";
 import { GARMENTS, getGarment } from "../lib/catalog";
@@ -39,6 +43,90 @@ export default function TryOn() {
   const pieceCategory = closet?.category ?? garment?.category;
   const pieceImage = closet ? { uri: closet.photo } : garment?.image;
   const person = app.personUri;
+  const [frameSize, setFrameSize] = useState({ width: 0, height: 0 });
+  const [photoSize, setPhotoSize] = useState<{ width: number; height: number } | null>(null);
+  const photoZoom = useSharedValue(1);
+  const photoX = useSharedValue(0);
+  const photoY = useSharedValue(0);
+  const frameWidth = useSharedValue(0);
+  const frameHeight = useSharedValue(0);
+  const renderedImageWidth = useSharedValue(0);
+  const renderedImageHeight = useSharedValue(0);
+  const panStartX = useSharedValue(0);
+  const panStartY = useSharedValue(0);
+  const pinchStartZoom = useSharedValue(1);
+  const pinchStartX = useSharedValue(0);
+  const pinchStartY = useSharedValue(0);
+  const pinchFocalX = useSharedValue(0);
+  const pinchFocalY = useSharedValue(0);
+  const imageLayout = useMemo(() => {
+    if (!photoSize || frameSize.width <= 0 || frameSize.height <= 0) {
+      return { left: 0, top: 0, width: frameSize.width, height: frameSize.height, coverScale: 1 };
+    }
+    const coverScale = Math.max(frameSize.width / photoSize.width, frameSize.height / photoSize.height);
+    const width = photoSize.width * coverScale;
+    const height = photoSize.height * coverScale;
+    return { left: (frameSize.width - width) / 2, top: (frameSize.height - height) / 2, width, height, coverScale };
+  }, [frameSize.height, frameSize.width, photoSize]);
+  const photoPanStyle = useAnimatedStyle(() => ({ transform: [{ translateX: photoX.value }, { translateY: photoY.value }] }));
+  const photoZoomStyle = useAnimatedStyle(() => ({ transform: [{ scale: photoZoom.value }] }));
+  const photoPan = useMemo(() => Gesture.Pan()
+    .maxPointers(1)
+    .onBegin(() => {
+      panStartX.value = photoX.value;
+      panStartY.value = photoY.value;
+    })
+    .onUpdate((event) => {
+      const maxX = Math.max(0, (renderedImageWidth.value * photoZoom.value - frameWidth.value) / 2);
+      const maxY = Math.max(0, (renderedImageHeight.value * photoZoom.value - frameHeight.value) / 2);
+      photoX.value = Math.max(-maxX, Math.min(maxX, panStartX.value + event.translationX));
+      photoY.value = Math.max(-maxY, Math.min(maxY, panStartY.value + event.translationY));
+    }), [frameHeight, frameWidth, panStartX, panStartY, photoX, photoY, photoZoom, renderedImageHeight, renderedImageWidth]);
+  const photoPinch = useMemo(() => Gesture.Pinch()
+    .onBegin((event) => {
+      pinchStartZoom.value = photoZoom.value;
+      pinchStartX.value = photoX.value;
+      pinchStartY.value = photoY.value;
+      pinchFocalX.value = event.focalX;
+      pinchFocalY.value = event.focalY;
+    })
+    .onUpdate((event) => {
+      const nextZoom = Math.max(1, Math.min(4, pinchStartZoom.value * event.scale));
+      const localX = (pinchFocalX.value - frameWidth.value / 2 - pinchStartX.value) / pinchStartZoom.value;
+      const localY = (pinchFocalY.value - frameHeight.value / 2 - pinchStartY.value) / pinchStartZoom.value;
+      const maxX = Math.max(0, (renderedImageWidth.value * nextZoom - frameWidth.value) / 2);
+      const maxY = Math.max(0, (renderedImageHeight.value * nextZoom - frameHeight.value) / 2);
+      photoX.value = Math.max(-maxX, Math.min(maxX, event.focalX - frameWidth.value / 2 - localX * nextZoom));
+      photoY.value = Math.max(-maxY, Math.min(maxY, event.focalY - frameHeight.value / 2 - localY * nextZoom));
+      photoZoom.value = nextZoom;
+    }), [frameHeight, frameWidth, pinchFocalX, pinchFocalY, pinchStartX, pinchStartY, pinchStartZoom, photoX, photoY, photoZoom, renderedImageHeight, renderedImageWidth]);
+  const photoGesture = useMemo(() => Gesture.Simultaneous(photoPan, photoPinch), [photoPan, photoPinch]);
+
+  useEffect(() => {
+    photoZoom.value = 1;
+    photoX.value = 0;
+    photoY.value = 0;
+    setPhotoSize(null);
+    if (!person) return;
+    let current = true;
+    RNImage.getSize(person, (width, height) => {
+      if (current) setPhotoSize({ width, height });
+    }, () => {
+      if (current) setPhotoSize(null);
+    });
+    return () => { current = false; };
+  }, [person, photoZoom, photoX, photoY]);
+
+  useEffect(() => {
+    frameWidth.value = frameSize.width;
+    frameHeight.value = frameSize.height;
+    renderedImageWidth.value = imageLayout.width;
+    renderedImageHeight.value = imageLayout.height;
+    const maxX = Math.max(0, (imageLayout.width * photoZoom.value - frameSize.width) / 2);
+    const maxY = Math.max(0, (imageLayout.height * photoZoom.value - frameSize.height) / 2);
+    photoX.value = Math.max(-maxX, Math.min(maxX, photoX.value));
+    photoY.value = Math.max(-maxY, Math.min(maxY, photoY.value));
+  }, [frameHeight, frameSize.height, frameSize.width, frameWidth, imageLayout.height, imageLayout.width, photoX, photoY, photoZoom, renderedImageHeight, renderedImageWidth]);
 
   useEffect(() => {
     if (g) setPicked(g);
@@ -93,13 +181,35 @@ export default function TryOn() {
     }
   }
 
+  async function preparePersonPhoto(uri: string) {
+    const zoom = photoZoom.value;
+    const offsetX = photoX.value;
+    const offsetY = photoY.value;
+    if (zoom <= 1.001 && Math.abs(offsetX) < 0.5 && Math.abs(offsetY) < 0.5) return uri;
+    if (!photoSize || frameSize.width <= 0 || frameSize.height <= 0) {
+      throw new Error("Your photo is still loading. Please try again in a moment.");
+    }
+    const coverScale = Math.max(frameSize.width / photoSize.width, frameSize.height / photoSize.height);
+    const scale = coverScale * zoom;
+    const cropWidth = Math.max(1, Math.min(photoSize.width, Math.round(frameSize.width / scale)));
+    const cropHeight = Math.max(1, Math.min(photoSize.height, Math.round(frameSize.height / scale)));
+    const originX = Math.max(0, Math.min(photoSize.width - cropWidth, Math.round((photoSize.width - cropWidth) / 2 - offsetX / scale)));
+    const originY = Math.max(0, Math.min(photoSize.height - cropHeight, Math.round((photoSize.height - cropHeight) / 2 - offsetY / scale)));
+    const context = ImageManipulator.manipulate(uri);
+    context.crop({ originX, originY, width: cropWidth, height: cropHeight });
+    const rendered = await context.renderAsync();
+    const saved = await rendered.saveAsync({ compress: 0.9, format: SaveFormat.JPEG });
+    return saved.uri;
+  }
+
   async function run() {
     if (!person || !pieceImage) return;
     setErr("");
     setBusy(true);
     try {
+      const framedPerson = await preparePersonPhoto(person);
       const dressed = await dressPerson({
-        personUri: person,
+        personUri: framedPerson,
         garment: pieceImage,
         garmentName: pieceName,
         category: pieceCategory,
@@ -132,11 +242,28 @@ export default function TryOn() {
             : "Need a full-length mirror pic of you first. Head to shoes."}
         </Text>
 
-        <View style={styles.hero}>
+        <View
+          style={styles.hero}
+          onLayout={(event) => {
+            const { width, height } = event.nativeEvent.layout;
+            setFrameSize((current) => Math.abs(current.width - width) < 0.5 && Math.abs(current.height - height) < 0.5 ? current : { width, height });
+          }}
+        >
           {result ? (
             <Image cachePolicy="memory-disk" source={{ uri: result }} style={styles.fill} contentFit="contain" />
           ) : person ? (
-            <Image cachePolicy="memory-disk" source={{ uri: person }} style={styles.fill} contentFit="cover" />
+            photoSize && frameSize.width > 0 && frameSize.height > 0 ? (
+              <GestureDetector gesture={photoGesture}>
+                <View style={StyleSheet.absoluteFill} collapsable={false} accessible accessibilityRole="image" accessibilityLabel="Your photo. Drag to position and pinch to zoom.">
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[{ position: "absolute", left: imageLayout.left, top: imageLayout.top, width: imageLayout.width, height: imageLayout.height }, photoPanStyle]}
+                  >
+                    <Animated.Image source={{ uri: person }} style={[StyleSheet.absoluteFill, photoZoomStyle]} resizeMode="stretch" />
+                  </Animated.View>
+                </View>
+              </GestureDetector>
+            ) : <Image cachePolicy="memory-disk" source={{ uri: person }} style={styles.fill} contentFit="cover" />
           ) : pieceImage ? (
             <Image cachePolicy="memory-disk" source={pieceImage} style={styles.fill} contentFit="cover" />
           ) : (
@@ -164,6 +291,7 @@ export default function TryOn() {
         </View>
 
         {result ? <Text style={styles.caption}>You, in the {pieceName?.toLowerCase()}.</Text> : null}
+        {person && !result && photoSize && frameSize.width > 0 ? <Text style={styles.photoHint}>Drag to position · Pinch to zoom</Text> : null}
         {person && !result ? (
           <Pressable onPress={askPhoto} style={styles.change}>
             <Text style={styles.changeTxt}>Change photo</Text>
@@ -195,7 +323,7 @@ function make(colors: Colors) {
     back: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
     backTxt: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
     topTitle: { color: colors.bone, fontSize: 16, fontWeight: "600" },
-    title: { color: colors.bone, fontFamily: "Georgia", fontSize: 28, lineHeight: 34 },
+    title: { color: colors.bone, fontSize: 28, lineHeight: 34, fontWeight: "800" },
     p: { color: colors.muted, marginTop: 8, fontSize: 15, lineHeight: 22, marginBottom: 16 },
     hero: {
       height: 480,
@@ -207,6 +335,7 @@ function make(colors: Colors) {
     },
     fill: { width: "100%", height: "100%" },
     caption: { color: colors.bone, marginTop: 12, fontSize: 15 },
+    photoHint: { color: colors.subtle, fontSize: 12, textAlign: "center", marginTop: 10 },
     placeholder: { color: colors.subtle },
     change: { alignSelf: "center", marginTop: 12 },
     changeTxt: { color: colors.subtle, fontSize: 14, textDecorationLine: "underline" },
