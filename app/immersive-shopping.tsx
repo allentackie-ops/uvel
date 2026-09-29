@@ -107,7 +107,6 @@ export default function ImmersiveShopping() {
           decelerationRate="fast"
           snapToInterval={SCREEN_HEIGHT}
           snapToAlignment="start"
-          disableIntervalMomentum
           getItemLayout={(_, index) => ({ length: SCREEN_HEIGHT, offset: SCREEN_HEIGHT * index, index })}
           viewabilityConfig={viewabilityConfig}
           onViewableItemsChanged={onViewableItemsChanged}
@@ -124,11 +123,6 @@ export default function ImmersiveShopping() {
             <Ionicons name="menu" size={28} color={colors.bone} />
           </AccessiblePressable>
         </View>
-        {pieces.length ? <View style={[styles.nextControl, { bottom: Math.max(insets.bottom, 14) }]}>
-          <AccessiblePressable onPress={() => { const next = Math.min(activeIndex + 1, pieces.length - 1); setActiveIndex(next); listRef.current?.scrollToIndex({ index: next, animated: true }); }} style={styles.playerAction} accessibilityRole="button" accessibilityLabel="Next immersive listing">
-            <Ionicons name="play-skip-forward" size={20} color={colors.bone} />
-          </AccessiblePressable>
-        </View> : null}
         {findHint ? <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 68 }]} accessibilityLiveRegion="polite">
           <Text style={styles.findToastK}>{C.firstFind}</Text>
           <Text style={styles.findToastTxt}>{C.matchingPiece} · {moneyExact(firstFind.remaining, firstFind.currency)}</Text>
@@ -315,8 +309,6 @@ function make(colors: Colors) {
     action: { width: 54, minHeight: 54, alignItems: "center", justifyContent: "center", gap: 3 },
     actionLabel: { color: colors.bone, fontSize: 10, fontWeight: "700", textShadowColor: "#000", textShadowRadius: 5 },
     heartPop: { position: "absolute", left: 0, top: 0, zIndex: 20, color: colors.success, fontSize: 68, lineHeight: 72, textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
-    nextControl: { position: "absolute", right: 15, zIndex: 12 },
-    playerAction: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
     empty: { flex: 1, backgroundColor: colors.ink, paddingHorizontal: 24 },
     emptyKicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.7, marginTop: 80 },
     emptyTitle: { color: colors.bone, fontSize: 30, fontWeight: "800", marginTop: 12 },
