@@ -178,7 +178,7 @@ export function ShakeToReport() {
   })).current;
 
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={() => close()} statusBarTranslucent>
+    <Modal visible={open} transparent animationType="none" onRequestClose={() => close()} statusBarTranslucent>
       <View style={styles.modalRoot}>
         <Pressable style={styles.scrim} onPress={() => close()} accessibilityRole="button" accessibilityLabel="Close report problem" />
         <View pointerEvents="box-none" style={[styles.sheetWrap, { paddingBottom: keyboardHeight }]}>
