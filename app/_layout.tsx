@@ -207,6 +207,7 @@ function AppStack() {
           <Stack.Screen name="mirror-browse" options={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: "#0B0A08" } }} />
           <Stack.Screen name="visual-search" options={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: "#0B0A08" } }} />
           <Stack.Screen name="onboard" options={{ headerShown: false, animation: "none" }} />
+          <Stack.Screen name="seller/[id]" options={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: colors.ink } }} />
           <Stack.Screen
             name="product/[id]"
             options={{
