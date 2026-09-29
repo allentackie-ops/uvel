@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, PanResponder, Share as NativeShare, StyleSheet, Text, View } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { Drawer } from "react-native-drawer-layout";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
@@ -45,6 +45,8 @@ export default function ImmersiveShopping() {
   const [findHint, setFindHint] = useState(false);
   const menuPressRef = useRef(false);
   const activeIndexRef = useRef(0);
+  const swipeAnimatingRef = useRef(false);
+  const swipeY = useSharedValue(0);
   useEffect(() => {
     if (!findHint) return;
     const timer = setTimeout(() => setFindHint(false), 3200);
@@ -58,20 +60,32 @@ export default function ImmersiveShopping() {
   }, [app.country, app.saved]);
 
   useEffect(() => { activeIndexRef.current = activeIndex; }, [activeIndex]);
+  const swipeStyle = useAnimatedStyle(() => ({ transform: [{ translateY: swipeY.value }] }));
+  const finishSwipe = useCallback(() => { swipeAnimatingRef.current = false; }, []);
+  const showNextPiece = useCallback((nextIndex: number, direction: number) => {
+    activeIndexRef.current = nextIndex;
+    setActiveIndex(nextIndex);
+    swipeY.value = direction > 0 ? SCREEN_HEIGHT : -SCREEN_HEIGHT;
+    swipeY.value = withTiming(0, { duration: 180 }, (finished) => {
+      if (finished) runOnJS(finishSwipe)();
+    });
+  }, [finishSwipe, swipeY]);
   const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => false,
     onMoveShouldSetPanResponderCapture: (_, gesture) => !drawerOpen && Math.abs(gesture.dy) > Math.abs(gesture.dx) && Math.abs(gesture.dy) > 10,
     onPanResponderRelease: (_, gesture) => {
-      if (drawerOpen || pieces.length < 2) return;
+      if (drawerOpen || pieces.length < 2 || swipeAnimatingRef.current) return;
       if (Math.abs(gesture.dy) < 42 && Math.abs(gesture.vy) < 0.35) return;
       const direction = gesture.dy < 0 ? 1 : -1;
       const nextIndex = Math.max(0, Math.min(pieces.length - 1, activeIndexRef.current + direction));
       if (nextIndex !== activeIndexRef.current) {
-        activeIndexRef.current = nextIndex;
-        setActiveIndex(nextIndex);
+        swipeAnimatingRef.current = true;
+        swipeY.value = withTiming(direction > 0 ? -SCREEN_HEIGHT : SCREEN_HEIGHT, { duration: 180 }, (finished) => {
+          if (finished) runOnJS(showNextPiece)(nextIndex, direction);
+        });
       }
     },
-  }), [drawerOpen, pieces.length]);
+  }), [drawerOpen, pieces.length, showNextPiece, swipeY]);
   const activePiece = pieces[activeIndex];
 
   return (
@@ -101,7 +115,8 @@ export default function ImmersiveShopping() {
       )}
     >
       <View style={styles.page} {...panResponder.panHandlers}>
-        {activePiece ? <ImmersiveItem
+        {activePiece ? <Animated.View style={[{ height: contentHeight }, swipeStyle]}>
+          <ImmersiveItem
           piece={activePiece}
           active
           colors={colors}
@@ -112,7 +127,8 @@ export default function ImmersiveShopping() {
           contentHeight={contentHeight}
           onFirstFind={() => setFindHint(true)}
           firstFindLabel={C.firstFind}
-        /> : <View style={[styles.empty, { height: contentHeight, paddingTop: insets.top + 24 }]}>
+          />
+        </Animated.View> : <View style={[styles.empty, { height: contentHeight, paddingTop: insets.top + 24 }]}>
           <Text style={styles.emptyKicker}>IMMERSIVE SHOPPING</Text>
           <Text style={styles.emptyTitle}>The edit is quiet for now.</Text>
           <Text style={styles.emptyBody}>Come back soon for more pieces to discover.</Text>
