@@ -11,12 +11,13 @@ import { useUvel } from "../../lib/store";
 import { useColors, useResolvedAppearance, type Colors } from "../../lib/theme";
 import { useBrandListingDrafts } from "../../lib/brandListingDraft";
 
-const HERO_IMAGE = require("../../assets/catalog/hero.jpg");
+const HERO_IMAGE = require("../../assets/create/idea-to-brand.jpg");
 const FORMAT_IMAGES = [
-  require("../../assets/catalog/trend-utility.jpg"),
-  require("../../assets/catalog/oxford-shirt.jpg"),
-  require("../../assets/catalog/satin-skirt.jpg"),
+  require("../../assets/create/collection.jpg"),
+  require("../../assets/create/listing.jpg"),
+  require("../../assets/create/announcement.jpg"),
 ];
+const DRAFT_IMAGE = require("../../assets/create/draft.jpg");
 const FORMAT_ITEMS = [
   { label: "Collection", body: "Launch a curated set of products.", kind: "collection" as const },
   { label: "Listing", body: "Add a single product to your catalog.", kind: "listing" as const },
@@ -79,7 +80,7 @@ function EditorialHeader({ brand, styles }: { brand?: Brand; styles: ScreenStyle
         <Text style={styles.kicker}>{brand ? "YOUR BRAND" : "YOUR NEXT IDEA"}</Text>
         <Text style={styles.brandName} numberOfLines={1}>{brand?.name || "Create"}</Text>
       </View>
-      {brand ? <BrandLogo brand={brand} styles={styles} size={54} /> : <View style={styles.headerMark}><Ionicons name="sparkles-outline" size={24} color={styles.headerMarkIcon.color} /></View>}
+      {brand ? <BrandLogo brand={brand} styles={styles} size={54} /> : <View style={styles.headerMark}><Ionicons name="add" size={28} color={styles.headerMarkIcon.color} /></View>}
     </View>
   );
 }
@@ -136,7 +137,7 @@ function DraftShelf({ brand, colors, styles }: SharedProps & { brand?: Brand }) 
         accessibilityRole="button"
         accessibilityLabel="Open saved drafts"
       >
-        <Image source={require("../../assets/catalog/trend-romantic.jpg")} style={styles.draftImage} contentFit="cover" />
+        <Image source={DRAFT_IMAGE} style={styles.draftImage} contentFit="cover" />
         <View style={styles.draftInfo}>
           <Text style={styles.draftTitle}>{brand ? "Your brand listing drafts" : "Your next direction"}</Text>
           <Text style={styles.draftMeta}>{brand ? "Resume a saved listing" : "Resume in Founder Studio"}</Text>
