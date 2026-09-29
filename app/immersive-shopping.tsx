@@ -35,7 +35,6 @@ export default function ImmersiveShopping() {
   }).current;
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 65 }).current;
-  const close = useCallback(() => router.back(), []);
   const openPiece = useCallback((piece: ClosetPiece) => {
     router.push({ pathname: "/closet/[id]", params: { id: piece.id } });
   }, []);
@@ -55,9 +54,6 @@ export default function ImmersiveShopping() {
   if (!pieces.length) {
     return (
       <View style={[styles.empty, { paddingTop: insets.top + 24 }]}>
-        <AccessiblePressable onPress={close} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Close Immersive Shopping">
-          <Ionicons name="chevron-back" size={28} color={colors.bone} />
-        </AccessiblePressable>
         <Text style={styles.emptyKicker}>IMMERSIVE SHOPPING</Text>
         <Text style={styles.emptyTitle}>The edit is quiet for now.</Text>
         <Text style={styles.emptyBody}>Come back soon for more pieces to discover.</Text>
@@ -84,15 +80,6 @@ export default function ImmersiveShopping() {
         windowSize={3}
         initialNumToRender={2}
       />
-      <View pointerEvents="box-none" style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
-        <AccessiblePressable onPress={close} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Leave Immersive Shopping">
-          <Ionicons name="chevron-back" size={28} color={colors.bone} />
-        </AccessiblePressable>
-        <View style={styles.modeLabel} pointerEvents="none">
-          <View style={styles.modeBars}><View style={styles.modeBarShort} /><View style={styles.modeBarTall} /><View style={styles.modeBarMedium} /><View style={styles.modeBarTall} /></View>
-          <Text style={styles.modeText}>IMMERSIVE SHOPPING</Text>
-        </View>
-      </View>
       <View pointerEvents="box-none" style={styles.rightRail}>
         <Text style={styles.scrollHint}>KEEP SCROLLING</Text>
       </View>
@@ -128,7 +115,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         <Image source={{ uri: piece.photo }} style={styles.itemImage} contentFit="cover" accessible={false} />
         <View pointerEvents="none" style={styles.itemShade} />
       </AccessiblePressable>
-      <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 92, paddingBottom: insets.bottom + 48 }]}>
+      <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 48 }]}>
         <View style={styles.copySpacer} />
         <View>
           {firstFind.matches(piece) ? <Text style={styles.firstFind}>FIRST FIND</Text> : null}
@@ -164,14 +151,6 @@ function make(colors: Colors) {
     itemShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.20)" },
     itemCopy: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, paddingHorizontal: 24, justifyContent: "space-between" },
     copySpacer: { flex: 1 },
-    topBar: { position: "absolute", top: 0, left: 0, right: 0, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 10 },
-    topIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-    modeLabel: { flexDirection: "row", alignItems: "center", gap: 8, paddingRight: 4 },
-    modeBars: { height: 22, flexDirection: "row", alignItems: "center", gap: 3 },
-    modeBarShort: { width: 3, height: 10, backgroundColor: colors.success, borderRadius: 2 },
-    modeBarMedium: { width: 3, height: 16, backgroundColor: colors.success, borderRadius: 2 },
-    modeBarTall: { width: 3, height: 22, backgroundColor: colors.success, borderRadius: 2 },
-    modeText: { color: colors.bone, fontSize: 10, fontWeight: "800", letterSpacing: 1.1 },
     rightRail: { position: "absolute", right: 18, bottom: 0, top: 0, justifyContent: "center", zIndex: 5 },
     scrollHint: { color: `${colors.bone}C7`, fontSize: 9, fontWeight: "800", letterSpacing: 1.5, transform: [{ rotate: "90deg" }] },
     firstFind: { alignSelf: "flex-start", color: colors.successInk, backgroundColor: colors.success, borderRadius: 15, paddingHorizontal: 11, paddingVertical: 7, fontSize: 11, fontWeight: "900", letterSpacing: 0.2, marginBottom: 10 },
@@ -186,7 +165,6 @@ function make(colors: Colors) {
     nextControl: { position: "absolute", right: 15, zIndex: 12 },
     playerAction: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
     empty: { flex: 1, backgroundColor: colors.ink, paddingHorizontal: 24 },
-    backButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
     emptyKicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.7, marginTop: 80 },
     emptyTitle: { color: colors.bone, fontSize: 30, fontWeight: "800", marginTop: 12 },
     emptyBody: { color: colors.muted, fontSize: 16, lineHeight: 23, marginTop: 10 },
