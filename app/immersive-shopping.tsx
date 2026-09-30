@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
 import { FriendShareSheet, type FriendSharePayload } from "../components/FriendShareSheet";
 import { ImmersiveListingDetails } from "../components/ImmersiveListingDetails";
+import { ListingOfferSheet } from "../components/ListingOfferSheet";
 import { TodayCartFab } from "../components/TodayCartFab";
 import TodayToolsDrawer from "../components/TodayToolsDrawer";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
@@ -369,6 +370,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   const [shareOpen, setShareOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [offerOpen, setOfferOpen] = useState(false);
   const cart = useCart();
   const lastImageTap = useRef(0);
   const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -382,6 +384,9 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const catalogBrandId = !brandRecord && piece.brand ? CATALOG_BRAND_IDS[piece.brand] : undefined;
   const followId = brandRecord?.id || piece.ownerId || piece.listedByUid || catalogBrandId || "";
   const isBrand = Boolean(brandRecord);
+  const sellerId = piece.ownerId || piece.listedByUid || "";
+  const canMakeOffer = !piece.brandId && !brandRecord && !catalogBrandId && Boolean(sellerId) && sellerId !== app.uid && piece.status === "listed" && piece.listPriceCents > 1;
+  const hasFirstFindMatch = firstFind.matches(piece);
   const market = getMarket(app.country);
   const itemCurrency = piece.currency || getMarket(piece.country || app.country).currency;
   const localPrice = moneyInMarket(piece.listPriceCents, itemCurrency, market);
@@ -433,6 +438,10 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
     if (brandRecord) router.push({ pathname: "/brand/[id]", params: { id: brandRecord.id } });
     else if (followId) router.push({ pathname: "/seller/[id]", params: { id: followId } });
   }
+  function openOfferSheet() {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    setOfferOpen(true);
+  }
 
   return (
     <View
@@ -448,13 +457,44 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
       </AccessiblePressable>
       <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: 24 }]}>
         <View style={styles.copySpacer} />
-        <View>
-          <AccessiblePressable onPress={() => router.back()} style={styles.copyBackButton} accessibilityRole="button" accessibilityLabel="Back to Today">
-            <Ionicons name="arrow-back" size={23} color={overlayColor} />
-          </AccessiblePressable>
-          {firstFind.matches(piece) ? <AccessiblePressable onPress={onFirstFind} style={styles.firstFind} accessibilityRole="button" accessibilityLabel="What First Find is" accessibilityHint="Double tap to hear how First Find works on this piece.">
-            <Text style={styles.firstFindText}>{firstFindLabel}</Text>
-          </AccessiblePressable> : null}
+        {canMakeOffer ? (
+          <View style={styles.offerFooter}>
+            <View style={styles.offerControlStack}>
+              {hasFirstFindMatch ? <AccessiblePressable onPress={onFirstFind} style={[styles.firstFind, styles.firstFindInStack]} accessibilityRole="button" accessibilityLabel="What First Find is" accessibilityHint="Double tap to hear how First Find works on this piece.">
+                <Text style={styles.firstFindText}>{firstFindLabel}</Text>
+              </AccessiblePressable> : null}
+              <AccessiblePressable onPress={openOfferSheet} style={styles.immersiveOfferControl} accessibilityRole="button" accessibilityLabel={`Make an offer for ${piece.name}`} accessibilityHint="Opens the offer form with a suggested price.">
+                <Ionicons name="pricetag-outline" size={16} color={colors.success} />
+                <Text style={styles.immersiveOfferText}>Offer</Text>
+              </AccessiblePressable>
+              <AccessiblePressable onPress={() => router.back()} style={styles.stackBackButton} accessibilityRole="button" accessibilityLabel="Back to Today">
+                <Ionicons name="arrow-back" size={23} color={overlayColor} />
+              </AccessiblePressable>
+            </View>
+            <View style={styles.listingCaption}>
+              <AccessiblePressable
+                onPress={() => setDetailsOpen(true)}
+                style={styles.nameDetailsButton}
+                accessibilityRole="button"
+                accessibilityLabel={`View details for ${piece.name}`}
+                accessibilityHint="Opens the listing description, seller location, and item details."
+              >
+                <Text style={styles.name} numberOfLines={2}>{piece.name}</Text>
+                <Ionicons name="chevron-up" size={18} color={overlayColor} />
+              </AccessiblePressable>
+              {credit > 0 ? (
+                <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{salePrice}</Text></View>
+              ) : <Text style={styles.price}>{localPrice}</Text>}
+            </View>
+          </View>
+        ) : (
+          <View>
+            <AccessiblePressable onPress={() => router.back()} style={styles.copyBackButton} accessibilityRole="button" accessibilityLabel="Back to Today">
+              <Ionicons name="arrow-back" size={23} color={overlayColor} />
+            </AccessiblePressable>
+            {hasFirstFindMatch ? <AccessiblePressable onPress={onFirstFind} style={styles.firstFind} accessibilityRole="button" accessibilityLabel="What First Find is" accessibilityHint="Double tap to hear how First Find works on this piece.">
+              <Text style={styles.firstFindText}>{firstFindLabel}</Text>
+            </AccessiblePressable> : null}
           <AccessiblePressable
             onPress={() => setDetailsOpen(true)}
             style={styles.nameDetailsButton}
@@ -468,7 +508,8 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           {credit > 0 ? (
             <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{salePrice}</Text></View>
           ) : <Text style={styles.price}>{localPrice}</Text>}
-        </View>
+          </View>
+        )}
       </View>
       <View style={[styles.actions, { bottom: 118 }]} onLayout={(event) => {
         const { x, y, width, height } = event.nativeEvent.layout;
@@ -515,6 +556,12 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         buyerCountry={app.country}
         price={credit > 0 ? salePrice : localPrice}
         originalPrice={credit > 0 ? localPrice : undefined}
+      />
+      <ListingOfferSheet
+        visible={active && offerOpen && canMakeOffer}
+        piece={piece}
+        onClose={() => setOfferOpen(false)}
+        onGoToInbox={(threadId) => router.push({ pathname: "/ask/[id]", params: { id: piece.id, threadId, pieceName: piece.name, piecePhoto: piece.photo, piecePriceCents: String(piece.listPriceCents) } })}
       />
     </View>
   );
@@ -629,6 +676,13 @@ function make(colors: Colors) {
     copySpacer: { flex: 1 },
     copyBackButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", marginBottom: 4 },
     firstFind: { alignSelf: "flex-start", backgroundColor: colors.success, borderRadius: 15, paddingHorizontal: 11, paddingVertical: 7, marginBottom: 10 },
+    offerFooter: { flexDirection: "column", alignItems: "flex-start" },
+    offerControlStack: { alignItems: "flex-start", gap: 8, marginBottom: 12 },
+    firstFindInStack: { marginBottom: 0 },
+    immersiveOfferControl: { minHeight: 40, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: `${colors.success}B8`, backgroundColor: "rgba(0,0,0,0.48)", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
+    immersiveOfferText: { color: overlayColor, fontSize: 12, fontWeight: "800" },
+    stackBackButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: "rgba(244,240,230,0.30)", backgroundColor: "rgba(0,0,0,0.46)", alignItems: "center", justifyContent: "center" },
+    listingCaption: { maxWidth: "88%" },
     brand: { color: `${overlayColor}E0`, fontSize: 11, fontWeight: "800", letterSpacing: 2.2, marginBottom: 5, textShadowColor: "#000", textShadowRadius: 6 },
     nameDetailsButton: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 4, maxWidth: "100%" },
     name: { color: overlayColor, fontSize: 31, lineHeight: 36, fontWeight: "800", maxWidth: "88%", textShadowColor: "#000", textShadowRadius: 8 },
