@@ -26,25 +26,26 @@ Then deploy the review callables and tightened listing rules from the project's 
 firebase deploy --only functions:uploadPersonalListingAsset,functions:submitPersonalListingForReview,firestore:rules
 ```
 
-This development sandbox cannot verify the production Firebase secret or deploy the functions/rules.
+Firebase deployment runs through the repository's GitHub Actions workflow; secret values are not readable through this session.
 
-## Deferred rollout: Blaze required
+## Rollout status: OTA published; backend pending Blaze
 
-On 2026-09-30, the Firebase deploy workflow reached `Configure admin bridge parameters` and stopped before any Firestore rules or Functions were deployed. Firebase reported that project `uvel-32d32` must be on the **Blaze (pay-as-you-go)** plan because `secretmanager.googleapis.com` cannot be enabled on the current plan. The production OTA was intentionally not started because its app code depends on these backend callables and rules.
+On 2026-09-30, the Firebase deploy workflow reached `Configure admin bridge parameters` and stopped before any Firestore rules or Functions were deployed. Firebase reported that project `uvel-32d32` must be on the **Blaze (pay-as-you-go)** plan because `secretmanager.googleapis.com` cannot be enabled on the current plan. [Firebase workflow run](https://github.com/allentackie-ops/uvel/actions/runs/36744760608).
 
-After the project has been upgraded to Blaze, rerun the backend deployment first from the feature branch:
+Per the user's direction, the app update was then published to the **production** EAS channel for both platforms, without deploying the backend. **The new personal-listing review flow will not work until the backend callables and rules below are deployed.** OTA workflow run: [36752510448](https://github.com/allentackie-ops/uvel/actions/runs/36752510448).
+
+| Platform | Update group ID | Update ID | EAS update |
+|---|---|---|---|
+| iOS | `997a4d8a-4a90-4323-9c66-e656a700c934` | `01a0f364-a689-72b5-a933-82118e549fd1` | [View](https://expo.dev/accounts/allentackie/projects/uvel/updates/997a4d8a-4a90-4323-9c66-e656a700c934) |
+| Android | `e28301dd-560f-4d0f-bddc-d8a3f5ef82c0` | `01a0f365-b5cc-7cbb-b223-2d4f26ff16de` | [View](https://expo.dev/accounts/allentackie/projects/uvel/updates/e28301dd-560f-4d0f-bddc-d8a3f5ef82c0) |
+
+Both updates used runtime version `1.0.0`, branch `production`, commit `8502a7d96def0b6863cbe5fc746e0700cd9791d0`, and message `Personal listing review and Claude AI image screening`.
+
+After the project has been upgraded to Blaze, deploy the backend from the feature branch:
 
 ```sh
 gh workflow run firebase-deploy.yml --repo allentackie-ops/uvel --ref fix/social-share-sheet-stable \
   -f only='firestore:rules,functions:uploadPersonalListingAsset,functions:submitPersonalListingForReview'
 ```
 
-Confirm that workflow succeeds. Then publish the approved commit to production on both iOS and Android:
-
-```sh
-gh workflow run ota-publish.yml --repo allentackie-ops/uvel --ref fix/social-share-sheet-stable \
-  -f action=publish \
-  -f message='Personal listing review and Claude AI image screening'
-```
-
-The OTA workflow consumes the repository's `EXPO_TOKEN` secret. Do not run the production OTA until the backend deployment has succeeded.
+Confirm that workflow succeeds. **The OTA is already live**, so it does not need to be republished unless client code changes. The OTA workflow used the repository's `EXPO_TOKEN` secret.
