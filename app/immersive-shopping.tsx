@@ -272,7 +272,7 @@ export default function ImmersiveShopping() {
     >
       <GestureDetector gesture={panGesture}>
       <View style={styles.page}>
-        <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
+        <StatusBar style="light" />
         {activePiece ? <>
           {previousPiece ? <Animated.View key={`${activeIndex - 1}:${previousPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle]}>
             <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
@@ -608,7 +608,7 @@ function make(colors: Colors) {
     itemImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     itemShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.20)" },
     topControls: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, zIndex: 12 },
-    menuButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(0,0,0,0.28)", alignItems: "center", justifyContent: "center" },
+    menuButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
     itemCopy: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, paddingHorizontal: 24, justifyContent: "space-between" },
     copySpacer: { flex: 1 },
     copyBackButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", marginBottom: 4 },

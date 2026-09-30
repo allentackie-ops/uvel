@@ -120,7 +120,7 @@ export function ImmersiveListingDetails({
             accessibilityViewIsModal
           >
           <View pointerEvents="none" style={styles.glassLayer}>
-            {Platform.OS === "ios" ? <GlassView glassEffectStyle="regular" colorScheme="dark" style={styles.glassSurface} /> : <View style={styles.glassFallback} />}
+            {Platform.OS === "ios" ? <GlassView glassEffectStyle="regular" colorScheme={colors.ink === "#000000" ? "dark" : "light"} style={styles.glassSurface} /> : <View style={styles.glassFallback} />}
             <View style={styles.warmTint} />
           </View>
           <View style={styles.sheetContent}>
@@ -209,6 +209,7 @@ export function ImmersiveListingDetails({
 }
 
 function make(colors: ReturnType<typeof useColors>) {
+  const light = colors.ink !== "#000000";
   return StyleSheet.create({
     modalRoot: { flex: 1, justifyContent: "flex-end" },
     backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.16)" },
@@ -219,44 +220,44 @@ function make(colors: ReturnType<typeof useColors>) {
       borderTopRightRadius: 27,
       borderWidth: StyleSheet.hairlineWidth,
       borderBottomWidth: 0,
-      borderColor: "rgba(244,240,230,0.14)",
+      borderColor: light ? "rgba(24,23,20,0.14)" : "rgba(244,240,230,0.14)",
       paddingTop: 8,
       paddingHorizontal: 20,
       overflow: "hidden",
     },
     glassLayer: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderTopLeftRadius: 27, borderTopRightRadius: 27 },
     glassSurface: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderTopLeftRadius: 27, borderTopRightRadius: 27 },
-    glassFallback: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderTopLeftRadius: 27, borderTopRightRadius: 27, backgroundColor: "rgba(25,23,21,0.36)" },
-    warmTint: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(39,33,27,0.34)" },
+    glassFallback: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderTopLeftRadius: 27, borderTopRightRadius: 27, backgroundColor: light ? "rgba(247,246,242,0.96)" : "rgba(25,23,21,0.92)" },
+    warmTint: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: light ? "rgba(255,255,255,0.18)" : "rgba(39,33,27,0.34)" },
     sheetContent: { flex: 1, minHeight: 0 },
     dragCue: { height: 28, alignItems: "center", justifyContent: "flex-start", paddingTop: 1 },
-    grip: { width: 36, height: 4, borderRadius: 2, backgroundColor: "rgba(244,240,230,0.72)" },
+    grip: { width: 36, height: 4, borderRadius: 2, backgroundColor: light ? "rgba(24,23,20,0.35)" : "rgba(244,240,230,0.72)" },
     scroll: { flexGrow: 0, flexShrink: 1 },
     content: { paddingTop: 10, paddingBottom: 14 },
     brand: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.7, marginBottom: 5 },
     title: { color: colors.bone, fontSize: 24, lineHeight: 29, fontWeight: "800" },
     priceRow: { flexDirection: "row", alignItems: "baseline", gap: 9, marginTop: 4, marginBottom: 10 },
     price: { color: colors.success, fontSize: 19, fontWeight: "800", fontVariant: ["tabular-nums"] },
-    originalPrice: { color: "rgba(244,240,230,0.63)", fontSize: 14, fontWeight: "600", textDecorationLine: "line-through" },
+    originalPrice: { color: light ? colors.muted : "rgba(244,240,230,0.63)", fontSize: 14, fontWeight: "600", textDecorationLine: "line-through" },
     factSummary: { color: colors.bone, fontSize: 12, lineHeight: 19 },
-    factLabel: { color: "rgba(244,240,230,0.62)", fontWeight: "600" },
+    factLabel: { color: light ? colors.muted : "rgba(244,240,230,0.62)", fontWeight: "600" },
     factValue: { color: colors.bone, fontWeight: "700" },
-    factSeparator: { color: "rgba(244,240,230,0.38)" },
+    factSeparator: { color: light ? colors.subtle : "rgba(244,240,230,0.38)" },
     section: { marginTop: 15 },
     sectionTitle: { color: colors.bone, fontSize: 14, fontWeight: "800", marginBottom: 7 },
-    description: { color: "rgba(244,240,230,0.84)", fontSize: 13, lineHeight: 19 },
+    description: { color: light ? colors.muted : "rgba(244,240,230,0.84)", fontSize: 13, lineHeight: 19 },
     sellerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(30,25,20,0.55)" },
     avatarFallback: { alignItems: "center", justifyContent: "center", backgroundColor: colors.success },
     avatarInitial: { color: colors.ink, fontSize: 16, fontWeight: "900" },
     sellerInfo: { flex: 1 },
     sellerName: { color: colors.bone, fontSize: 13, fontWeight: "700" },
-    sellerMeta: { color: "rgba(244,240,230,0.69)", fontSize: 12, marginTop: 2 },
+    sellerMeta: { color: light ? colors.muted : "rgba(244,240,230,0.69)", fontSize: 12, marginTop: 2 },
     availabilityRow: { flexDirection: "row", alignItems: "center", gap: 9, minHeight: 30, paddingTop: 8 },
-    availabilityText: { color: "rgba(244,240,230,0.88)", fontSize: 12, fontWeight: "600", flex: 1 },
+    availabilityText: { color: light ? colors.bone : "rgba(244,240,230,0.88)", fontSize: 12, fontWeight: "600", flex: 1 },
     measurements: { paddingHorizontal: 1 },
     measurementRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 34, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(244,240,230,0.10)" },
-    measurementLabel: { color: "rgba(244,240,230,0.63)", fontSize: 12, textTransform: "capitalize" },
+    measurementLabel: { color: light ? colors.muted : "rgba(244,240,230,0.63)", fontSize: 12, textTransform: "capitalize" },
     measurementValue: { color: colors.bone, fontSize: 13, fontWeight: "600" },
   });
 }
