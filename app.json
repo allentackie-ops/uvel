@@ -134,6 +134,15 @@
       "expo-tracking-transparency",
       "expo-sharing",
       [
+        "expo-audio",
+        {
+          "microphonePermission": "Uvel uses your microphone to record audio.",
+          "recordAudioAndroid": true,
+          "enableBackgroundRecording": false,
+          "enableBackgroundPlayback": false
+        }
+      ],
+      [
         "@stripe/stripe-react-native",
         {
           "merchantIdentifier": "merchant.com.uvel.dressandshop"
