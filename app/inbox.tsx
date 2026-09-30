@@ -37,6 +37,7 @@ export default function Inbox() {
   const [mode, setMode] = useState<InboxMode>("Messages");
   const [filter, setFilter] = useState<Filter>("All");
   const [conversationQuery, setConversationQuery] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const refreshTriggered = useRef(false);
   const [friendSearchOpen, setFriendSearchOpen] = useState(false);
   const [friendPanelMode, setFriendPanelMode] = useState<"friends" | "messages">("friends");
