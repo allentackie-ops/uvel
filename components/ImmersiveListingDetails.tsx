@@ -37,6 +37,7 @@ export function ImmersiveListingDetails({
 }: Props) {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
+  const light = colors.ink !== "#000000";
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
   const dragY = useSharedValue(0);
@@ -120,7 +121,7 @@ export function ImmersiveListingDetails({
             accessibilityViewIsModal
           >
           <View pointerEvents="none" style={styles.glassLayer}>
-            {Platform.OS === "ios" ? <GlassView glassEffectStyle="regular" colorScheme={colors.ink === "#000000" ? "dark" : "light"} style={styles.glassSurface} /> : <View style={styles.glassFallback} />}
+            {!light && Platform.OS === "ios" ? <GlassView glassEffectStyle="regular" colorScheme="dark" style={styles.glassSurface} /> : <View style={styles.glassFallback} />}
             <View style={styles.warmTint} />
           </View>
           <View style={styles.sheetContent}>
@@ -227,8 +228,8 @@ function make(colors: ReturnType<typeof useColors>) {
     },
     glassLayer: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderTopLeftRadius: 27, borderTopRightRadius: 27 },
     glassSurface: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderTopLeftRadius: 27, borderTopRightRadius: 27 },
-    glassFallback: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderTopLeftRadius: 27, borderTopRightRadius: 27, backgroundColor: light ? "rgba(247,246,242,0.96)" : "rgba(25,23,21,0.92)" },
-    warmTint: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: light ? "rgba(255,255,255,0.18)" : "rgba(39,33,27,0.34)" },
+    glassFallback: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderTopLeftRadius: 27, borderTopRightRadius: 27, backgroundColor: light ? colors.surface : "rgba(25,23,21,0.92)" },
+    warmTint: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: light ? "transparent" : "rgba(39,33,27,0.34)" },
     sheetContent: { flex: 1, minHeight: 0 },
     dragCue: { height: 28, alignItems: "center", justifyContent: "flex-start", paddingTop: 1 },
     grip: { width: 36, height: 4, borderRadius: 2, backgroundColor: light ? "rgba(24,23,20,0.35)" : "rgba(244,240,230,0.72)" },
