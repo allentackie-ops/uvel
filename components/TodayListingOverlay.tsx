@@ -388,8 +388,12 @@ export function TodayListingOverlay({
   }
 
   function openSeller() {
-    if (brandRecord) router.push({ pathname: "/brand/[id]", params: { id: brandRecord.id } });
-    else if (sellerId) router.push({ pathname: "/seller/[id]", params: { id: sellerId } });
+    if (!brandRecord && !sellerId) return;
+    closeToPin();
+    setTimeout(() => {
+      if (brandRecord) router.push({ pathname: "/brand/[id]", params: { id: brandRecord.id } });
+      else router.push({ pathname: "/seller/[id]", params: { id: sellerId } });
+    }, 280);
   }
 
   return (
