@@ -75,7 +75,7 @@ export function ListingOfferSheet({ visible, piece, onClose, onGoToInbox }: Prop
   }
 
   return (
-    <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={closeIfIdle}>
+    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={closeIfIdle}>
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <Pressable
           style={StyleSheet.absoluteFill}
