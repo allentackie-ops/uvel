@@ -46,7 +46,7 @@ export default function TabsLayout() {
       { key: "today", screen: <Today onOpenTools={() => setOpen(true)} /> },
       { key: "create", screen: <Create /> },
       { key: "you", screen: <You /> },
-      { key: "settings", screen: <Settings embedded onBack={backToYou} /> },
+      { key: "settings", screen: <Settings onBack={backToYou} /> },
     ],
     [C.today, C.create, C.you, backToYou],
   );

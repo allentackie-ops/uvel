@@ -260,9 +260,7 @@ function AppStack() {
           <Stack.Screen
             name="settings"
             options={{
-              headerTitle: C.settings,
-              headerTransparent: false,
-              headerShadowVisible: false,
+              headerShown: false,
             }}
           />
           <Stack.Screen

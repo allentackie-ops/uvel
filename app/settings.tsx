@@ -15,12 +15,13 @@ import { loadHapticsEnabled, setHapticsEnabled } from "../lib/haptics";
 const HELP = "mailto:himforson@gmail.com?subject=Uvel%20help";
 const VERSION = Constants.expoConfig?.version ?? "1.0.0";
 
-export default function Settings({ embedded = false, onBack }: { embedded?: boolean; onBack?: () => void }) {
+export default function Settings({ onBack }: { onBack?: () => void }) {
   const app = useUvel();
   const C = useCopy();
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
+  const goBack = onBack ?? (() => router.back());
   const localeLabel = LANGS.find((l) => l.id === app.locale)?.label ?? "English, US";
   const market = getMarket(app.country);
   const [hapticsEnabled, setHapticsEnabledState] = useState(true);
@@ -63,16 +64,14 @@ export default function Settings({ embedded = false, onBack }: { embedded?: bool
 
   return (
     <View style={styles.page}>
-      {embedded ? (
-        <View style={[styles.embeddedHeader, { paddingTop: insets.top }]}>
-          <Pressable onPress={onBack} style={styles.embeddedBack} accessibilityRole="button" accessibilityLabel="Back to You">
-            <Ionicons name="chevron-back" size={25} color={colors.bone} />
-          </Pressable>
-          <Text style={styles.embeddedTitle}>{C.settings}</Text>
-          <View style={styles.embeddedHeaderSpacer} />
-        </View>
-      ) : null}
-      <ScrollView style={embedded ? styles.embeddedScroll : styles.page} contentContainerStyle={styles.content}>
+      <View style={[styles.embeddedHeader, { paddingTop: insets.top }]}>
+        <Pressable onPress={goBack} style={styles.embeddedBack} accessibilityRole="button" accessibilityLabel="Back to You">
+          <Ionicons name="chevron-back" size={25} color={colors.bone} />
+        </Pressable>
+        <Text style={styles.embeddedTitle}>{C.settings}</Text>
+        <View style={styles.embeddedHeaderSpacer} />
+      </View>
+      <ScrollView style={styles.embeddedScroll} contentContainerStyle={styles.content}>
       <Text style={styles.section}>{C.support}</Text>
       <View style={styles.group}>
         <Row icon="book-outline" label={C.howToUse} onPress={() => router.push("/guide")} colors={colors} />
