@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
+import { Dimensions, PanResponder, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "../../lib/haptics";
 import { BrandVerifiedMark } from "../../components/VerifiedMark";
@@ -79,6 +79,18 @@ export default function You() {
   const [refreshing, setRefreshing] = useState(false);
   const refreshTriggered = useRef(false);
   const hapticTriggered = useRef(false);
+  const openSettings = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    router.push("/settings");
+  }, []);
+  const settingsSwipe = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponderCapture: (_, gestureState) =>
+      gestureState.dx < -8 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.1,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderRelease: (_, gestureState) => {
+      if (gestureState.dx <= -24 || gestureState.vx <= -0.25) openSettings();
+    },
+  }), [openSettings]);
 
   const listed = pieces.filter((p) => p.status === "listed" && Boolean(app.uid) && p.ownerId === app.uid);
   const soldPieces = pieces.filter((p) => p.status === "sold" && Boolean(app.uid) && p.ownerId === app.uid);
@@ -192,7 +204,7 @@ export default function You() {
   }, [buyOrders, buyFilter]);
 
   return (
-    <View style={[styles.page, { paddingTop: insets.top + 20 }]}>
+    <View {...settingsSwipe.panHandlers} style={[styles.page, { paddingTop: insets.top + 20 }]}>
       <View style={styles.content}>
         <View style={styles.top}>
           <View style={{ flex: 1, paddingRight: 12 }}>
@@ -219,7 +231,7 @@ export default function You() {
               <Text style={styles.faceDotTxt}>+</Text>
             </View>
           </Pressable>
-          <Pressable onPress={() => router.push("/settings")} style={styles.menuBtn} accessibilityLabel={C.settings}>
+          <Pressable onPress={openSettings} style={styles.menuBtn} accessibilityLabel={C.settings}>
             <View style={styles.dash} />
             <View style={styles.dash} />
             <View style={styles.dash} />

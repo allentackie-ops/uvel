@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "../../lib/haptics";
 import { router, usePathname } from "expo-router";
 import PagerView, { type PagerViewOnPageSelectedEvent } from "react-native-pager-view";
-import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { interpolate, useAnimatedStyle } from "react-native-reanimated";
@@ -12,12 +12,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Today from "./index";
 import Create from "./create";
 import You from "./you";
-import Settings from "../settings";
 import { useColors, useResolvedAppearance } from "../../lib/theme";
 import { useCopy } from "../../lib/useCopy";
 
 const ROUTES = ["/", "/create", "/you"] as const;
-const PAGER_ROUTES = ["/", "/create", "/you", "/settings"] as const;
 const ICONS = ["compass-outline", "pricetag-outline", "person-outline"] as const;
 const ACTIVE_ICONS = ["compass", "pricetag", "person"] as const;
 const TAB_ICON_SIZE = 26;
@@ -37,28 +35,19 @@ export default function TabsLayout() {
   const [pageIndex, setPageIndex] = useState(() => routeIndex(pathname) ?? 0);
   const [open, setOpen] = useState(false);
   const [listingOpen, setListingOpen] = useState(false);
-  const backToYou = useCallback(() => {
-    setPageIndex(2);
-    pagerRef.current?.setPage(2);
-  }, []);
 
   const tabs = useMemo<TabScreen[]>(
     () => [
       { key: "today", screen: <Today onOpenTools={() => setOpen(true)} drawerOpen={open} onListingOpenChange={setListingOpen} /> },
       { key: "create", screen: <Create /> },
       { key: "you", screen: <You /> },
-      { key: "settings", screen: <Settings onBack={backToYou} /> },
     ],
-    [C.today, C.create, C.you, backToYou, open],
+    [C.today, C.create, C.you, open],
   );
 
   useEffect(() => {
     const next = routeIndex(pathname);
     if (next === null) return;
-    // Settings is also rendered as the fourth pager page. When the user
-    // swipes there from You, keep the pager page visible instead of pushing a
-    // second Settings route on top of it.
-    if (pathname === "/you" && pageIndex === 3) return;
     if (next === pageIndex) return;
     setPageIndex(next);
     pagerRef.current?.setPageWithoutAnimation(next);
@@ -77,10 +66,7 @@ export default function TabsLayout() {
     if (next === pageIndex) return;
     setPageIndex(next);
     void Haptics.selectionAsync().catch(() => undefined);
-    const route = PAGER_ROUTES[next];
-    if (route === "/settings") {
-      return;
-    }
+    const route = ROUTES[next];
     if (route && route !== pathname) router.navigate(route);
   }
 
