@@ -407,6 +407,7 @@ export default function ClosetPiece() {
   const seller = owningBrand?.name || (mine && app.displayName) || piece.ownerName || "Uvel member";
   const sellerPhoto = owningBrand?.logoUri || ((mine && (app.avatarUri || app.personUri)) || piece.ownerPhoto || null);
   const sellerLabel = owningBrand ? "Sold by brand" : "Sold by";
+  const sellerId = piece.ownerId || piece.listedByUid || "";
   const ship = getMarket(piece.country || app.country);
   const onThisFloor = listingVisibleIn({
     origin: piece.country,
@@ -417,6 +418,11 @@ export default function ClosetPiece() {
 
   function tryOnMe() {
     router.push({ pathname: "/try-on", params: { piece: pieceId } });
+  }
+
+  function openSeller() {
+    if (owningBrand) router.push({ pathname: "/brand/[id]", params: { id: owningBrand.id } });
+    else if (sellerId) router.push({ pathname: "/seller/[id]", params: { id: sellerId } });
   }
 
   return (
@@ -621,10 +627,10 @@ export default function ClosetPiece() {
           {!mine ? <AlertPanel piece={piece} uid={app.uid} saved={app.saved.includes(piece.id)} preference={alertPreference} onSave={app.toggleSaved} styles={styles} /> : null}
 
           <Pressable
-            onPress={owningBrand ? () => router.push({ pathname: "/brand/[id]", params: { id: owningBrand.id } }) : undefined}
-            disabled={!owningBrand}
-            accessibilityRole={owningBrand ? "button" : undefined}
-            accessibilityLabel={owningBrand ? `Open ${owningBrand.name} brand page` : undefined}
+            onPress={openSeller}
+            disabled={!owningBrand && !sellerId}
+            accessibilityRole={owningBrand || sellerId ? "button" : undefined}
+            accessibilityLabel={owningBrand ? `Open ${owningBrand.name} brand page` : `Open ${seller} seller page`}
             style={styles.seller}
           >
             {sellerPhoto ? (

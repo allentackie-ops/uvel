@@ -60,6 +60,7 @@ export function TodayListingOverlay({
   const baseColors = useColors();
   const app = useUvel();
   const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
+  const sellerId = piece.ownerId || piece.listedByUid || "";
   const customLook = piece.shopLook || brandRecord
     ? shopLookOf(piece.shopLook, brandRecord ? themeFor(brandRecord) : null)
     : null;
@@ -386,6 +387,11 @@ export function TodayListingOverlay({
     }, 280);
   }
 
+  function openSeller() {
+    if (brandRecord) router.push({ pathname: "/brand/[id]", params: { id: brandRecord.id } });
+    else if (sellerId) router.push({ pathname: "/seller/[id]", params: { id: sellerId } });
+  }
+
   return (
     <GestureHandlerRootView style={[styles.root, coverTop ? { top: -coverTop, height: screenH } : null]}>
       <View
@@ -459,21 +465,29 @@ export function TodayListingOverlay({
             </Animated.ScrollView>
           ) : null}
           <View style={styles.sellerCard}>
-            {sellerPhoto ? (
-              <Image cachePolicy="memory-disk" source={{ uri: sellerPhoto }} style={styles.avatarImage} contentFit="cover" />
-            ) : (
-              <View style={styles.avatarFallback}>
-                <Text style={styles.avatarInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text>
+            <Pressable
+              onPress={openSeller}
+              disabled={!brandRecord && !sellerId}
+              style={styles.sellerTap}
+              accessibilityRole={brandRecord || sellerId ? "button" : undefined}
+              accessibilityLabel={brandRecord ? `Open ${sellerName} brand page` : `Open ${sellerName} seller page`}
+            >
+              {sellerPhoto ? (
+                <Image cachePolicy="memory-disk" source={{ uri: sellerPhoto }} style={styles.avatarImage} contentFit="cover" />
+              ) : (
+                <View style={styles.avatarFallback}>
+                  <Text style={styles.avatarInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text>
+                </View>
+              )}
+              <View style={styles.sellerCopy}>
+                <Text style={styles.sellerEyebrow}>{brandRecord ? "Sold by" : "Listed by"}</Text>
+                <View style={styles.sellerNameRow}>
+                  <Text style={styles.sellerName} numberOfLines={1}>{sellerName}</Text>
+                  <BrandVerifiedMark brand={brandRecord} size={15} />
+                </View>
+                <Text style={styles.sellerMeta} numberOfLines={1}>Ships from {sellerLocation}</Text>
               </View>
-            )}
-            <View style={styles.sellerCopy}>
-              <Text style={styles.sellerEyebrow}>{brandRecord ? "Sold by" : "Listed by"}</Text>
-              <View style={styles.sellerNameRow}>
-                <Text style={styles.sellerName} numberOfLines={1}>{sellerName}</Text>
-                <BrandVerifiedMark brand={brandRecord} size={15} />
-              </View>
-              <Text style={styles.sellerMeta} numberOfLines={1}>Ships from {sellerLocation}</Text>
-            </View>
+            </Pressable>
             <Pressable onPress={openMessage} style={styles.messageButton} accessibilityRole="button" accessibilityLabel={`Message ${sellerName}`}>
               <Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.bone} />
               <Text style={styles.messageText}>Message</Text>
@@ -652,6 +666,7 @@ function make(colors: Colors) {
     conditionLabel: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" },
     notes: { color: `${colors.bone}B0`, fontSize: 14, lineHeight: 21, marginTop: 18 },
     sellerCard: { marginTop: 22, padding: 13, borderRadius: 18, borderWidth: 1, borderColor: `${colors.bone}1F`, backgroundColor: `${colors.surface}B8`, flexDirection: "row", alignItems: "center", gap: 10 },
+    sellerTap: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10 },
     avatarImage: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface },
     avatarFallback: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     avatarInitial: { color: colors.ink, fontSize: 18, fontWeight: "800" },
