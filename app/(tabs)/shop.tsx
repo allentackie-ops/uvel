@@ -162,7 +162,7 @@ function TodaySwipeHint({ onDismiss }: { onDismiss: () => void }) {
   );
 }
 
-export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: boolean; onOpenTools?: () => void }) {
+export default function Shop({ todayHome = false, onOpenTools, drawerOpen = false, onListingOpenChange }: { todayHome?: boolean; onOpenTools?: () => void; drawerOpen?: boolean; onListingOpenChange?: (open: boolean) => void }) {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
@@ -219,6 +219,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
   const openTodayListing = useCallback(async (piece: ClosetPiece, origin: ListingOrigin) => {
     setOpenOrigin(origin);
     setOpenPiece(piece);
+    onListingOpenChange?.(true);
     if (!app.profileDone) return;
     listingOpenWorkRef.current = listingOpenWorkRef.current.then(async () => {
       if (doubleTapHintShownRef.current) return;
@@ -240,7 +241,15 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
         setShowDoubleTapHint(true);
       }
     }).catch(() => undefined);
-  }, [app.profileDone]);
+  }, [app.profileDone, onListingOpenChange]);
+  useEffect(() => {
+    if (!todayHome || !drawerOpen || !openPiece) return;
+    setOpenPiece(null);
+    setOpenOrigin(null);
+    dismissDoubleTapHint();
+    setFirstListingForHint(false);
+    onListingOpenChange?.(false);
+  }, [dismissDoubleTapHint, drawerOpen, onListingOpenChange, openPiece, todayHome]);
   useEffect(() => {
     if (!findHint) return;
     const timer = setTimeout(() => setFindHint(false), 3200);
@@ -849,6 +858,7 @@ export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: b
           onClose={() => {
             setOpenPiece(null);
             setOpenOrigin(null);
+            onListingOpenChange?.(false);
             dismissDoubleTapHint();
             setFirstListingForHint(false);
           }}

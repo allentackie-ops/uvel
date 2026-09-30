@@ -36,6 +36,7 @@ export default function TabsLayout() {
   const pagerRef = useRef<PagerView>(null);
   const [pageIndex, setPageIndex] = useState(() => routeIndex(pathname) ?? 0);
   const [open, setOpen] = useState(false);
+  const [listingOpen, setListingOpen] = useState(false);
   const backToYou = useCallback(() => {
     setPageIndex(2);
     pagerRef.current?.setPage(2);
@@ -43,12 +44,12 @@ export default function TabsLayout() {
 
   const tabs = useMemo<TabScreen[]>(
     () => [
-      { key: "today", screen: <Today onOpenTools={() => setOpen(true)} /> },
+      { key: "today", screen: <Today onOpenTools={() => setOpen(true)} drawerOpen={open} onListingOpenChange={setListingOpen} /> },
       { key: "create", screen: <Create /> },
       { key: "you", screen: <You /> },
       { key: "settings", screen: <Settings onBack={backToYou} /> },
     ],
-    [C.today, C.create, C.you, backToYou],
+    [C.today, C.create, C.you, backToYou, open],
   );
 
   useEffect(() => {
@@ -88,7 +89,7 @@ export default function TabsLayout() {
   }
 
   const onToday = pageIndex === 0;
-  const swipeEnabled = onToday || open;
+  const swipeEnabled = !listingOpen && (onToday || open);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.ink }]}>
