@@ -147,28 +147,30 @@ export default function TabsLayout() {
               <View key={key} style={[styles.page, { backgroundColor: colors.ink }]} collapsable={false}>{screen}</View>
             ))}
           </DrawerAwarePager>
-          <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]} pointerEvents={open || !showTabBar ? "none" : "auto"}>
-            <View style={[styles.bar, { backgroundColor: colors.ink }]}>
-              {ROUTES.map((_, index) => {
-                const active = pageIndex === index;
-                return (
-                  <Pressable
-                    key={index}
-                    onPress={() => selectTab(index)}
-                    style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
-                    accessibilityRole="tab"
-                    accessibilityLabel={[C.today, C.create ?? "Create", C.you][index]}
-                    accessibilityState={{ selected: active }}
-                  >
-                    <View style={styles.iconSlot} accessibilityElementsHidden>
-                      <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={TAB_ICON_SIZE} color={active ? colors.success : inactiveIcon} />
-                    </View>
-                    <Text style={[styles.label, { color: active ? colors.success : inactiveIcon }]}>{[C.today, C.create ?? "Create", C.you][index]}</Text>
-                  </Pressable>
-                );
-              })}
+          {showTabBar ? (
+            <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]} pointerEvents={open ? "none" : "auto"}>
+              <View style={[styles.bar, { backgroundColor: colors.ink }]}>
+                {ROUTES.map((_, index) => {
+                  const active = pageIndex === index;
+                  return (
+                    <Pressable
+                      key={index}
+                      onPress={() => selectTab(index)}
+                      style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
+                      accessibilityRole="tab"
+                      accessibilityLabel={[C.today, C.create ?? "Create", C.you][index]}
+                      accessibilityState={{ selected: active }}
+                    >
+                      <View style={styles.iconSlot} accessibilityElementsHidden>
+                        <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={TAB_ICON_SIZE} color={active ? colors.success : inactiveIcon} />
+                      </View>
+                      <Text style={[styles.label, { color: active ? colors.success : inactiveIcon }]}>{[C.today, C.create ?? "Create", C.you][index]}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
-          </View>
+          ) : null}
           {open ? (
             <Pressable
               onPress={closeDrawer}

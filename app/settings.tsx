@@ -71,7 +71,11 @@ export default function Settings({ onBack }: { onBack?: () => void }) {
         <Text style={styles.embeddedTitle}>{C.settings}</Text>
         <View style={styles.embeddedHeaderSpacer} />
       </View>
-      <ScrollView style={styles.embeddedScroll} contentContainerStyle={styles.content}>
+      <ScrollView
+        style={styles.embeddedScroll}
+        contentContainerStyle={[styles.content, { paddingBottom: styles.content.paddingBottom + insets.bottom }]}
+        scrollIndicatorInsets={{ bottom: insets.bottom }}
+      >
       <Text style={styles.section}>{C.support}</Text>
       <View style={styles.group}>
         <Row icon="book-outline" label={C.howToUse} onPress={() => router.push("/guide")} colors={colors} />
