@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Share as NativeShare, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -40,6 +41,7 @@ type ShopFloorPiece = ReturnType<typeof shopFloor>[number];
 export default function ImmersiveShopping() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
+  const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   const insets = useSafeAreaInsets();
   const app = useUvel();
   const firstFind = useFirstFind();
@@ -270,6 +272,7 @@ export default function ImmersiveShopping() {
     >
       <GestureDetector gesture={panGesture}>
       <View style={styles.page}>
+        <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
         {activePiece ? <>
           {previousPiece ? <Animated.View key={`${activeIndex - 1}:${previousPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle]}>
             <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
@@ -295,10 +298,10 @@ export default function ImmersiveShopping() {
         </> : null}
         <View pointerEvents="box-none" style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
           <AccessiblePressable onPress={() => { menuPressRef.current = true; setDrawerOpen(true); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); }} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Open Today drawer">
-            <Ionicons name="menu" size={28} color={colors.bone} />
+            <Ionicons name="menu" size={28} color={overlayColor} />
           </AccessiblePressable>
           <AccessiblePressable onPress={() => router.push("/search")} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Search">
-            <Ionicons name="search-outline" size={23} color={colors.bone} />
+            <Ionicons name="search-outline" size={23} color={overlayColor} />
           </AccessiblePressable>
         </View>
         {findHint ? <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 68 }]} accessibilityLiveRegion="polite">
@@ -347,6 +350,7 @@ function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: Re
 }
 
 function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, refreshImageScale, onFirstFind, firstFindLabel }: any) {
+  const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   const [shareOpen, setShareOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const cart = useCart();
@@ -430,7 +434,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         <View style={styles.copySpacer} />
         <View>
           <AccessiblePressable onPress={() => router.back()} style={styles.copyBackButton} accessibilityRole="button" accessibilityLabel="Back to Today">
-            <Ionicons name="arrow-back" size={23} color={colors.bone} />
+            <Ionicons name="arrow-back" size={23} color={overlayColor} />
           </AccessiblePressable>
           {firstFind.matches(piece) ? <AccessiblePressable onPress={onFirstFind} style={styles.firstFind} accessibilityRole="button" accessibilityLabel="What First Find is" accessibilityHint="Double tap to hear how First Find works on this piece.">
             <Text style={styles.firstFindText}>{firstFindLabel}</Text>
@@ -443,7 +447,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
             accessibilityHint="Opens the listing description, seller location, and item details."
           >
             <Text style={styles.name} numberOfLines={2}>{piece.name}</Text>
-            <Ionicons name="chevron-up" size={18} color={colors.bone} />
+            <Ionicons name="chevron-up" size={18} color={overlayColor} />
           </AccessiblePressable>
           {credit > 0 ? (
             <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{salePrice}</Text></View>
@@ -501,6 +505,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
 }
 
 function FollowControl({ followId, isBrand, sellerName, uid, colors, styles }: { followId: string; isBrand: boolean; sellerName: string; uid: string; colors: Colors; styles: ReturnType<typeof make> }) {
+  const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   const followUid = uid || "me";
   const [following, setFollowing] = useState(() => isBrand ? isFollowing(followId, followUid) : isSellerFollowed(followId));
   const [showStatus, setShowStatus] = useState(false);
@@ -576,7 +581,7 @@ function FollowControl({ followId, isBrand, sellerName, uid, colors, styles }: {
   return !following || showStatus ? (
     <Animated.View style={following && showStatus ? feedbackStyle : undefined}>
       <AccessiblePressable onPress={pressFollow} style={[styles.followButton, following && styles.followingButton]} accessibilityRole="button" accessibilityLabel={following ? `Unfollow ${sellerName}` : `Follow ${sellerName}`} accessibilityState={{ selected: following }}>
-        <Ionicons name={following ? "checkmark" : "add"} size={15} color={following ? colors.bone : colors.successInk} />
+        <Ionicons name={following ? "checkmark" : "add"} size={15} color={following ? overlayColor : colors.successInk} />
         <Text style={[styles.followText, following && styles.followingText]}>{following ? "Following" : "Follow"}</Text>
       </AccessiblePressable>
     </Animated.View>
@@ -584,15 +589,17 @@ function FollowControl({ followId, isBrand, sellerName, uid, colors, styles }: {
 }
 
 function Action({ icon, label, active, onPress, styles, colors }: { icon: keyof typeof Ionicons.glyphMap; label: string; active?: boolean; onPress: () => void; styles: ReturnType<typeof make>; colors: Colors }) {
+  const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   return (
     <AccessiblePressable onPress={onPress} style={styles.action} accessibilityRole="button" accessibilityLabel={`${label} listing`} accessibilityState={{ selected: active }}>
-      <Ionicons name={icon} size={24} color={active ? colors.success : colors.bone} />
+      <Ionicons name={icon} size={24} color={active ? colors.success : overlayColor} />
       <Text style={styles.actionLabel}>{label}</Text>
     </AccessiblePressable>
   );
 }
 
 function make(colors: Colors) {
+  const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink, overflow: "hidden" },
     cardLayer: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" },
@@ -601,30 +608,30 @@ function make(colors: Colors) {
     itemImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     itemShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.20)" },
     topControls: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, zIndex: 12 },
-    menuButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
+    menuButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(0,0,0,0.28)", alignItems: "center", justifyContent: "center" },
     itemCopy: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, paddingHorizontal: 24, justifyContent: "space-between" },
     copySpacer: { flex: 1 },
     copyBackButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", marginBottom: 4 },
     firstFind: { alignSelf: "flex-start", backgroundColor: colors.success, borderRadius: 15, paddingHorizontal: 11, paddingVertical: 7, marginBottom: 10 },
-    brand: { color: `${colors.bone}B8`, fontSize: 11, fontWeight: "800", letterSpacing: 2.2, marginBottom: 5, textShadowColor: "#000", textShadowRadius: 6 },
+    brand: { color: `${overlayColor}E0`, fontSize: 11, fontWeight: "800", letterSpacing: 2.2, marginBottom: 5, textShadowColor: "#000", textShadowRadius: 6 },
     nameDetailsButton: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 4, maxWidth: "100%" },
-    name: { color: colors.bone, fontSize: 31, lineHeight: 36, fontWeight: "800", maxWidth: "88%", textShadowColor: "#000", textShadowRadius: 8 },
+    name: { color: overlayColor, fontSize: 31, lineHeight: 36, fontWeight: "800", maxWidth: "88%", textShadowColor: "#000", textShadowRadius: 8 },
     priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 7 },
     price: { color: colors.success, fontSize: 19, fontWeight: "900", textShadowColor: "#000", textShadowRadius: 6 },
-    was: { color: `${colors.bone}D0`, fontSize: 16, fontWeight: "700", textDecorationLine: "line-through", textShadowColor: "#000", textShadowRadius: 6 },
+    was: { color: `${overlayColor}D0`, fontSize: 16, fontWeight: "700", textDecorationLine: "line-through", textShadowColor: "#000", textShadowRadius: 6 },
     profileRail: { alignItems: "center", gap: 7 },
-    profileButton: { width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: colors.bone, overflow: "hidden" },
+    profileButton: { width: 50, height: 50, borderRadius: 25, borderWidth: 2, borderColor: overlayColor, overflow: "hidden" },
     profileAvatar: { width: "100%", height: "100%", backgroundColor: colors.surface },
     profileFallback: { width: "100%", height: "100%", backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     sellerInitial: { color: colors.successInk, fontSize: 14, fontWeight: "900" },
-    sellerName: { color: colors.bone, fontSize: 14, fontWeight: "800", textShadowColor: "#000", textShadowRadius: 6 },
+    sellerName: { color: overlayColor, fontSize: 14, fontWeight: "800", textShadowColor: "#000", textShadowRadius: 6 },
     followButton: { minHeight: 30, paddingHorizontal: 10, borderRadius: 15, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", gap: 4 },
     followingButton: { backgroundColor: "rgba(0,0,0,0.38)", borderWidth: 1, borderColor: `${colors.bone}70` },
     followText: { color: colors.successInk, fontSize: 12, fontWeight: "900" },
-    followingText: { color: colors.bone },
+    followingText: { color: overlayColor },
     actions: { position: "absolute", right: 15, gap: 18, alignItems: "center", zIndex: 9 },
     action: { width: 54, minHeight: 54, alignItems: "center", justifyContent: "center", gap: 3 },
-    actionLabel: { color: colors.bone, fontSize: 10, fontWeight: "700", textShadowColor: "#000", textShadowRadius: 5 },
+    actionLabel: { color: overlayColor, fontSize: 10, fontWeight: "700", textShadowColor: "#000", textShadowRadius: 5 },
     heartPop: { position: "absolute", left: 0, top: 0, zIndex: 20, color: colors.success, fontSize: 68, lineHeight: 72, textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
     empty: { flex: 1, backgroundColor: colors.ink, paddingHorizontal: 24 },
     emptyKicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.7, marginTop: 80 },
@@ -634,7 +641,7 @@ function make(colors: Colors) {
     findToast: { position: "absolute", left: 20, right: 20, zIndex: 20, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "rgba(12,11,9,0.88)", borderWidth: 1, borderColor: `${colors.success}66` },
     refreshOrbit: { position: "absolute", left: 0, right: 0, height: 58, alignItems: "center", justifyContent: "center", zIndex: 30 },
     findToastK: { color: colors.success, fontSize: 11, fontWeight: "900", letterSpacing: 1.2, textTransform: "uppercase" },
-    findToastTxt: { color: colors.bone, fontSize: 13, fontWeight: "700", marginTop: 3 },
+    findToastTxt: { color: overlayColor, fontSize: 13, fontWeight: "700", marginTop: 3 },
     taskbarWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingTop: 4, zIndex: 15 },
     taskbar: { minHeight: 60, flexDirection: "row", alignItems: "center", paddingHorizontal: 10 },
     taskbarTab: { flex: 1, minHeight: 52, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 3 },
