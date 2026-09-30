@@ -50,6 +50,10 @@ export default function TabsLayout() {
   useEffect(() => {
     const next = routeIndex(pathname);
     if (next === null) return;
+    // Settings is also rendered as the fourth pager page. When the user
+    // swipes there from You, keep the pager page visible instead of pushing a
+    // second Settings route on top of it.
+    if (pathname === "/you" && pageIndex === 3) return;
     if (next === pageIndex) return;
     setPageIndex(next);
     pagerRef.current?.setPageWithoutAnimation(next);
@@ -70,7 +74,6 @@ export default function TabsLayout() {
     void Haptics.selectionAsync().catch(() => undefined);
     const route = PAGER_ROUTES[next];
     if (route === "/settings") {
-      if (pathname !== route) router.push(route);
       return;
     }
     if (route && route !== pathname) router.navigate(route);
@@ -224,7 +227,6 @@ function routeIndex(pathname: string): number | null {
   if (pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/")) return 0;
   if (pathname === "/create" || pathname.endsWith("/(tabs)/create") || pathname === "/closet" || pathname.endsWith("/(tabs)/closet")) return 1;
   if (pathname.includes("/you")) return 2;
-  if (pathname === "/settings") return 3;
   return null;
 }
 
