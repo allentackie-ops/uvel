@@ -13,8 +13,9 @@ import { useColors, type Colors } from "../lib/theme";
 import { respondFriendRequest, searchUsers, sendFriendRequest, subscribeFriendNotifications, type FriendNotification, type PublicUser } from "../lib/friends";
 import { createFriendChat, listFriendChats, listFriends, type FriendChatPreview } from "../lib/friendChat";
 
-type Filter = "All" | "Messages" | "Selling" | "Buying";
-const FILTERS: Filter[] = ["All", "Messages", "Selling", "Buying"];
+type Filter = "All" | "Unread" | "Selling" | "Buying";
+type InboxMode = "Messages" | "Activity";
+const FILTERS: Filter[] = ["All", "Unread", "Selling", "Buying"];
 const MIN_REFRESH_MS = 1100;
 
 function when(ms: number) {
@@ -33,7 +34,9 @@ export default function Inbox() {
   useBrands();
   const me = uid || "me";
   const threads = useInbox(me);
+  const [mode, setMode] = useState<InboxMode>("Messages");
   const [filter, setFilter] = useState<Filter>("All");
+  const [conversationQuery, setConversationQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const refreshTriggered = useRef(false);
   const [friendSearchOpen, setFriendSearchOpen] = useState(false);
@@ -45,7 +48,10 @@ export default function Inbox() {
   const [friends, setFriends] = useState<PublicUser[]>([]);
   const [friendChats, setFriendChats] = useState<FriendChatPreview[]>([]);
   useEffect(() => subscribeFriendNotifications(uid, setFriendNotifications), [uid]);
-  useEffect(() => { if (friendSearchOpen) { void listFriends().then(setFriends).catch(() => undefined); void listFriendChats().then(setFriendChats).catch(() => undefined); } }, [friendSearchOpen]);
+  useEffect(() => {
+    void listFriends().then(setFriends).catch(() => setFriends([]));
+    void listFriendChats().then(setFriendChats).catch(() => setFriendChats([]));
+  }, [friendSearchOpen]);
 
   async function runFriendSearch() {
     if (friendTerm.trim().length < 2) return;
@@ -82,15 +88,17 @@ export default function Inbox() {
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
 
   const visible = useMemo(() => {
+    const query = conversationQuery.trim().toLowerCase();
     return threads.filter((t) => {
       const selling = t.sellerId === me || (t.recipientIds || []).includes(me);
       const buying = t.buyerId === me;
-      if (filter === "Selling") return selling;
-      if (filter === "Buying") return buying;
-      if (filter === "Messages") return Boolean(t.lastText);
-      return true;
+      if (filter === "Selling" && !selling) return false;
+      if (filter === "Buying" && !buying) return false;
+      if (filter === "Unread" && !unreadFor(t, me)) return false;
+      if (!query) return true;
+      return [t.lastText, t.pieceName, t.brandName, t.sellerName, t.buyerName].filter(Boolean).join(" ").toLowerCase().includes(query);
     });
-  }, [threads, filter, me]);
+  }, [conversationQuery, threads, filter, me]);
 
   const empty =
     filter === "Selling"
@@ -132,39 +140,61 @@ export default function Inbox() {
         {!friendResults.length && !friendNotifications.some((item) => item.kind === "friend_request" && !item.readAt) && friendTerm.length >= 2 && !friendBusy ? <Text style={styles.noFriends}>No users found.</Text> : null}
       </View> : null}
 
-      <View style={styles.chipWrap}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chips}
-          style={styles.chipScroll}
-        >
-          {FILTERS.map((f) => {
-            const on = filter === f;
-            return (
-              <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, on && styles.chipOn]}>
-                <Text style={[styles.chipTxt, on && styles.chipTxtOn]}>{f}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+      <View style={styles.modeToggle}>
+        {(["Messages", "Activity"] as InboxMode[]).map((item) => <Pressable key={item} onPress={() => setMode(item)} style={[styles.modeButton, mode === item && styles.modeButtonOn]} accessibilityRole="tab" accessibilityState={{ selected: mode === item }}><Text style={[styles.modeText, mode === item && styles.modeTextOn]}>{item}</Text></Pressable>)}
       </View>
 
-      <FlatList
-        data={visible}
-        keyExtractor={(t) => t.id}
-        renderItem={({ item }) => <Row thread={item} uid={me} colors={colors} />}
-        ListHeaderComponent={orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
-        ListEmptyComponent={<Text style={styles.empty}>{empty}</Text>}
-        alwaysBounceVertical
-        bounces
-        scrollEventThrottle={16}
-        onScroll={onScroll}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
-        style={styles.list}
-      />
+      {mode === "Messages" ? <>
+        <View style={styles.searchField}><Text style={styles.searchGlyph}>⌕</Text><TextInput value={conversationQuery} onChangeText={setConversationQuery} placeholder="Search people, listings, or messages" placeholderTextColor={colors.subtle} style={styles.conversationInput} returnKeyType="search" /></View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipScroll}>
+          {FILTERS.map((f) => <Pressable key={f} onPress={() => setFilter(f)} style={[styles.chip, filter === f && styles.chipOn]}><Text style={[styles.chipTxt, filter === f && styles.chipTxtOn]}>{f}</Text></Pressable>)}
+        </ScrollView>
+        {visible.length && visible.some((item) => item.lastFrom !== me && item.lastText) ? <View style={styles.priorityWrap}><Text style={styles.priorityLabel}>NEEDS YOUR REPLY</Text><PriorityCard thread={visible.find((item) => item.lastFrom !== me && item.lastText) as ChatThread} uid={me} colors={colors} /></View> : null}
+        <FlatList
+          data={visible}
+          keyExtractor={(t) => t.id}
+          renderItem={({ item }) => <Row thread={item} uid={me} colors={colors} />}
+          ListHeaderComponent={orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
+          ListEmptyComponent={<Text style={styles.empty}>{empty}</Text>}
+          ListFooterComponent={friends.length <= 5 || visible.length === 0 ? <FindFriendsBanner onPress={() => { setFriendSearchOpen(true); setFriendError(""); }} colors={colors} styles={styles} /> : null}
+          alwaysBounceVertical
+          bounces
+          scrollEventThrottle={16}
+          onScroll={onScroll}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+          style={styles.list}
+        />
+      </> : <ActivityView friends={friends} friendChats={friendChats} notifications={friendNotifications} uid={me} onOpenFriends={() => { setFriendSearchOpen(true); setFriendError(""); }} colors={colors} styles={styles} />}
     </View>
   );
+}
+
+function PriorityCard({ thread: t, uid, colors }: { thread: ChatThread; uid: string; colors: Colors }) {
+  const styles = make(colors);
+  const brand = t.brandId ? getBrand(t.brandId) : undefined;
+  const who = brand?.name || t.sellerName || t.buyerName || "Uvel member";
+  return <Pressable onPress={() => router.push({ pathname: "/ask/[id]", params: { id: t.pieceId, threadId: t.id, pieceName: t.pieceName, piecePhoto: t.piecePhoto, piecePriceCents: String(t.piecePriceCents), brandId: t.brandId || "" } })} style={styles.priorityCard} accessibilityRole="button" accessibilityLabel={`Reply to ${who}`}>
+    {t.piecePhoto ? <Image source={{ uri: t.piecePhoto }} style={styles.priorityImage} contentFit="cover" /> : <View style={[styles.priorityImage, styles.avatar]}><Text style={styles.avatarTxt}>{who.slice(0, 1).toUpperCase()}</Text></View>}
+    <View style={styles.priorityCopy}><Text style={styles.priorityName} numberOfLines={1}>{who}</Text><Text style={styles.priorityMessage} numberOfLines={1}>{t.lastText || t.pieceName}</Text><Text style={styles.priorityMeta} numberOfLines={1}>{t.pieceName}</Text></View><Text style={styles.priorityArrow}>›</Text>
+  </Pressable>;
+}
+
+function FindFriendsBanner({ onPress, colors, styles }: { onPress: () => void; colors: Colors; styles: ReturnType<typeof make> }) {
+  return <Pressable onPress={onPress} style={styles.findBanner} accessibilityRole="button" accessibilityLabel="Find friends">
+    <View style={styles.findBannerIcon}><Text style={styles.findBannerIconText}>＋</Text></View><View style={styles.findBannerCopy}><Text style={styles.findBannerTitle}>Find friends</Text><Text style={styles.findBannerBody}>Connect with friends to buy, sell, and discover together.</Text></View><Text style={styles.findBannerArrow}>›</Text>
+  </Pressable>;
+}
+
+function ActivityView({ friends, friendChats, notifications, uid, onOpenFriends, colors, styles }: { friends: PublicUser[]; friendChats: FriendChatPreview[]; notifications: FriendNotification[]; uid: string; onOpenFriends: () => void; colors: Colors; styles: ReturnType<typeof make> }) {
+  const pending = notifications.filter((item) => item.kind === "friend_request" && !item.readAt);
+  return <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }} style={styles.activityScroll}>
+    <View style={styles.activityHeader}><Text style={styles.activityTitle}>Your circle</Text><Pressable onPress={onOpenFriends}><Text style={styles.activityLink}>Friends ›</Text></Pressable></View>
+    {friends.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendRail}>{friends.map((user) => <Pressable key={user.uid} onPress={onOpenFriends} style={styles.friendBubble}><Avatar user={user} /><Text style={styles.friendBubbleName} numberOfLines={1}>{user.displayName || user.username}</Text></Pressable>)}</ScrollView> : null}
+    {pending.length ? <View style={styles.requestCard}><View style={styles.requestCardCopy}><Text style={styles.requestCardTitle}>Friend requests</Text><Text style={styles.requestCardBody}>{pending.length} waiting for you</Text></View><Pressable onPress={onOpenFriends} style={styles.reviewBtn}><Text style={styles.reviewTxt}>Review</Text></Pressable></View> : null}
+    <Text style={styles.activitySection}>RECENT CONVERSATIONS</Text>
+    {friendChats.length ? friendChats.map((chat) => { const other = chat.participantIds.find((id) => id !== uid) || ""; const user = friends.find((item) => item.uid === other); const unread = Number(chat.unreadBy?.[uid] || 0); return <Pressable key={chat.id} onPress={() => router.push({ pathname: "/friends/chat/[id]", params: { id: chat.id, name: user?.displayName || user?.username || "Friend" } })} style={styles.activityRow}><Avatar user={user || { uid: other, username: "friend", displayName: "Friend" }} /><View style={{ flex: 1 }}><Text style={[styles.requestText, unread ? { fontWeight: "900" } : null]}>{user?.displayName || user?.username || "Friend"}</Text><Text style={styles.usernameTxt} numberOfLines={1}>{chat.lastText || "Start chatting"}</Text></View>{unread ? <View style={styles.chatUnread}><Text style={styles.chatUnreadTxt}>{unread}</Text></View> : <Text style={styles.chatArrow}>›</Text>}</Pressable>; }) : <Text style={styles.empty}>Friend conversations will appear here.</Text>}
+    {friends.length <= 5 ? <FindFriendsBanner onPress={onOpenFriends} colors={colors} styles={styles} /> : null}
+  </ScrollView>;
 }
 
 function Row({
@@ -252,6 +282,14 @@ function make(colors: Colors) {
       marginRight: 8,
     },
     bellTxt: { fontSize: 16 },
+    modeToggle: { marginHorizontal: 16, marginBottom: 14, padding: 3, borderRadius: 22, backgroundColor: `${colors.bone}10`, flexDirection: "row" },
+    modeButton: { flex: 1, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+    modeButtonOn: { backgroundColor: colors.surface },
+    modeText: { color: colors.muted, fontSize: 14, fontWeight: "700" },
+    modeTextOn: { color: colors.bone },
+    searchField: { marginHorizontal: 16, minHeight: 48, borderRadius: 24, paddingHorizontal: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}18`, flexDirection: "row", alignItems: "center", gap: 8 },
+    searchGlyph: { color: colors.muted, fontSize: 25, lineHeight: 27 },
+    conversationInput: { flex: 1, minHeight: 46, color: colors.bone, fontSize: 14 },
     friendPanel: { marginHorizontal: 12, marginBottom: 12, padding: 14, borderRadius: 18, backgroundColor: colors.surface },
     friendPanelHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
     friendPanelTitle: { color: colors.bone, fontWeight: "800", fontSize: 17 },
@@ -289,6 +327,37 @@ function make(colors: Colors) {
     chipOn: { backgroundColor: colors.success, borderColor: colors.success },
     chipTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
     chipTxtOn: { color: colors.successInk },
+    priorityWrap: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 6 },
+    priorityLabel: { color: colors.subtle, fontSize: 10, letterSpacing: 1.5, fontWeight: "800", marginBottom: 8 },
+    priorityCard: { minHeight: 82, borderRadius: 18, padding: 10, backgroundColor: colors.surface, flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1, borderColor: `${colors.success}55` },
+    priorityImage: { width: 58, height: 58, borderRadius: 12, backgroundColor: `${colors.bone}12` },
+    priorityCopy: { flex: 1 },
+    priorityName: { color: colors.bone, fontSize: 15, fontWeight: "800" },
+    priorityMessage: { color: colors.bone, fontSize: 13, marginTop: 3 },
+    priorityMeta: { color: colors.muted, fontSize: 11, marginTop: 3 },
+    priorityArrow: { color: colors.success, fontSize: 28, marginRight: 3 },
+    findBanner: { marginHorizontal: 16, marginTop: 16, padding: 16, minHeight: 90, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.success}55`, flexDirection: "row", alignItems: "center", gap: 12 },
+    findBannerIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    findBannerIconText: { color: colors.successInk, fontSize: 25, lineHeight: 26 },
+    findBannerCopy: { flex: 1 },
+    findBannerTitle: { color: colors.bone, fontSize: 16, fontWeight: "800" },
+    findBannerBody: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 3 },
+    findBannerArrow: { color: colors.success, fontSize: 28 },
+    activityScroll: { flex: 1 },
+    activityHeader: { paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
+    activityTitle: { color: colors.bone, fontSize: 27, fontWeight: "800", letterSpacing: -0.5 },
+    activityLink: { color: colors.muted, fontSize: 14, fontWeight: "700" },
+    friendRail: { gap: 14, paddingHorizontal: 16, paddingBottom: 18 },
+    friendBubble: { width: 62, alignItems: "center", gap: 5 },
+    friendBubbleName: { color: colors.muted, fontSize: 11, textAlign: "center" },
+    requestCard: { marginHorizontal: 16, padding: 16, minHeight: 88, borderRadius: 18, backgroundColor: colors.surface, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    requestCardCopy: { flex: 1 },
+    requestCardTitle: { color: colors.bone, fontSize: 17, fontWeight: "800" },
+    requestCardBody: { color: colors.muted, fontSize: 13, marginTop: 4 },
+    reviewBtn: { minHeight: 40, paddingHorizontal: 17, borderRadius: 20, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    reviewTxt: { color: colors.successInk, fontWeight: "800" },
+    activitySection: { color: colors.subtle, fontSize: 10, letterSpacing: 1.5, fontWeight: "800", marginHorizontal: 16, marginTop: 28, marginBottom: 4 },
+    activityRow: { flexDirection: "row", gap: 12, alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}15` },
     empty: { color: colors.muted, padding: 24, lineHeight: 22, fontSize: 15 },
     refreshOrbit: { height: 58, alignItems: "center", justifyContent: "flex-start" },
     list: { flex: 1 },
