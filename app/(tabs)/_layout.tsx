@@ -12,10 +12,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Today from "./index";
 import Create from "./create";
 import You from "./you";
+import Settings from "../settings";
 import { useColors, useResolvedAppearance } from "../../lib/theme";
 import { useCopy } from "../../lib/useCopy";
 
 const ROUTES = ["/", "/create", "/you"] as const;
+const SETTINGS_INDEX = 3;
 const ICONS = ["compass-outline", "pricetag-outline", "person-outline"] as const;
 const ACTIVE_ICONS = ["compass", "pricetag", "person"] as const;
 const TAB_ICON_SIZE = 26;
@@ -36,11 +38,23 @@ export default function TabsLayout() {
   const [open, setOpen] = useState(false);
   const [listingOpen, setListingOpen] = useState(false);
 
+  function openSettings() {
+    if (open) setOpen(false);
+    setPageIndex(SETTINGS_INDEX);
+    pagerRef.current?.setPage(SETTINGS_INDEX);
+  }
+
+  function closeSettings() {
+    setPageIndex(2);
+    pagerRef.current?.setPage(2);
+  }
+
   const tabs = useMemo<TabScreen[]>(
     () => [
       { key: "today", screen: <Today onOpenTools={() => setOpen(true)} drawerOpen={open} onListingOpenChange={setListingOpen} /> },
       { key: "create", screen: <Create /> },
-      { key: "you", screen: <You /> },
+      { key: "you", screen: <You onOpenSettings={openSettings} /> },
+      { key: "settings", screen: <Settings onBack={closeSettings} /> },
     ],
     [C.today, C.create, C.you, open],
   );
@@ -48,6 +62,9 @@ export default function TabsLayout() {
   useEffect(() => {
     const next = routeIndex(pathname);
     if (next === null) return;
+    // Settings is an adjacent pager page while the URL remains /you. Do not
+    // snap it back to You on the next render while the page is open.
+    if (pageIndex === SETTINGS_INDEX && next === 2 && pathname === "/you") return;
     if (next === pageIndex) return;
     setPageIndex(next);
     pagerRef.current?.setPageWithoutAnimation(next);
@@ -58,7 +75,8 @@ export default function TabsLayout() {
     if (tabIndex === pageIndex) return;
     setPageIndex(tabIndex);
     pagerRef.current?.setPage(tabIndex);
-    router.navigate(ROUTES[tabIndex]);
+    const route = ROUTES[tabIndex];
+    if (route) router.navigate(route);
   }
 
   function onPageSelected(event: PagerViewOnPageSelectedEvent) {
@@ -75,6 +93,7 @@ export default function TabsLayout() {
   }
 
   const onToday = pageIndex === 0;
+  const showTabBar = pageIndex !== SETTINGS_INDEX;
   const swipeEnabled = !listingOpen && (onToday || open);
 
   return (
@@ -128,7 +147,7 @@ export default function TabsLayout() {
               <View key={key} style={[styles.page, { backgroundColor: colors.ink }]} collapsable={false}>{screen}</View>
             ))}
           </DrawerAwarePager>
-          <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]} pointerEvents={open ? "none" : "auto"}>
+          <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]} pointerEvents={open || !showTabBar ? "none" : "auto"}>
             <View style={[styles.bar, { backgroundColor: colors.ink }]}>
               {ROUTES.map((_, index) => {
                 const active = pageIndex === index;
