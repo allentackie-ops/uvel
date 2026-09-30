@@ -362,30 +362,6 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const catalogBrandId = !brandRecord && piece.brand ? CATALOG_BRAND_IDS[piece.brand] : undefined;
   const followId = brandRecord?.id || piece.ownerId || piece.listedByUid || catalogBrandId || "";
   const isBrand = Boolean(brandRecord);
-  const followTargetKey = `${isBrand ? "brand" : "seller"}:${followId}`;
-  const [following, setFollowing] = useState(() => isBrand ? isFollowing(followId, app.uid) : isSellerFollowed(followId));
-  const [showFollowingStatus, setShowFollowingStatus] = useState(false);
-  const interactedFollowTarget = useRef<string | null>(null);
-  const followingStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const followingFeedbackOpacity = useSharedValue(1);
-  const followingFeedbackScale = useSharedValue(1);
-  const followingFeedbackY = useSharedValue(0);
-  const followingFeedbackStyle = useAnimatedStyle(() => ({
-    opacity: followingFeedbackOpacity.value,
-    transform: [{ translateY: followingFeedbackY.value }, { scale: followingFeedbackScale.value }],
-  }));
-  useEffect(() => {
-    // A quick first tap can beat this mount/auth sync; don't let its stale
-    // snapshot undo the optimistic Follow state for the same listing.
-    if (interactedFollowTarget.current === followTargetKey) return;
-    setFollowing(isBrand ? isFollowing(followId, app.uid) : isSellerFollowed(followId));
-  }, [app.uid, followId, followTargetKey, isBrand]);
-  useEffect(() => () => {
-    if (followingStatusTimer.current) clearTimeout(followingStatusTimer.current);
-    cancelAnimation(followingFeedbackOpacity);
-    cancelAnimation(followingFeedbackScale);
-    cancelAnimation(followingFeedbackY);
-  }, [followingFeedbackOpacity, followingFeedbackScale, followingFeedbackY]);
   const market = getMarket(app.country);
   const itemCurrency = piece.currency || getMarket(piece.country || app.country).currency;
   const localPrice = moneyInMarket(piece.listPriceCents, itemCurrency, market);
@@ -432,48 +408,6 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
       lastImageTap.current = 0;
       imageTapTimer.current = null;
     }, 450);
-  }
-  function follow() {
-    if (!followId) return;
-    interactedFollowTarget.current = followTargetKey;
-    const next = isBrand ? toggleFollow(followId, app.uid || "me") : toggleSellerFollow(followId);
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
-    cancelAnimation(followingFeedbackOpacity);
-    cancelAnimation(followingFeedbackScale);
-    cancelAnimation(followingFeedbackY);
-    setFollowing(next);
-    if (followingStatusTimer.current) clearTimeout(followingStatusTimer.current);
-    if (next) {
-      followingFeedbackOpacity.value = 0;
-      followingFeedbackScale.value = 0.88;
-      followingFeedbackY.value = 5;
-      setShowFollowingStatus(true);
-      followingFeedbackOpacity.value = withTiming(1, { duration: 130 });
-      followingFeedbackScale.value = withSequence(
-        withTiming(1.08, { duration: 150 }),
-        withSpring(1, { damping: 13, stiffness: 260 }),
-      );
-      followingFeedbackY.value = withSpring(0, { damping: 15, stiffness: 230 });
-      followingStatusTimer.current = setTimeout(() => {
-        followingFeedbackOpacity.value = withTiming(0, { duration: 200 });
-        followingFeedbackScale.value = withTiming(0.94, { duration: 200 });
-        followingFeedbackY.value = withTiming(-5, { duration: 200 });
-        followingStatusTimer.current = setTimeout(() => {
-          setShowFollowingStatus(false);
-          followingFeedbackOpacity.value = 1;
-          followingFeedbackScale.value = 1;
-          followingFeedbackY.value = 0;
-          followingStatusTimer.current = null;
-        }, 200);
-      }, 1300);
-    } else {
-      setShowFollowingStatus(false);
-      followingFeedbackOpacity.value = 1;
-      followingFeedbackScale.value = 1;
-      followingFeedbackY.value = 0;
-      followingStatusTimer.current = null;
-    }
-    if (!isBrand) void syncSellerFollow(app.uid, followId, next);
   }
   function openSeller() {
     if (brandRecord) router.push({ pathname: "/brand/[id]", params: { id: brandRecord.id } });
@@ -525,12 +459,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           <AccessiblePressable onPress={openSeller} style={styles.profileButton} accessibilityRole="button" accessibilityLabel={`View ${sellerName} profile`}>
             {sellerPhoto ? <Image source={{ uri: sellerPhoto }} style={styles.profileAvatar} contentFit="cover" /> : <View style={styles.profileFallback}><Text style={styles.sellerInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}
           </AccessiblePressable>
-          {!following || showFollowingStatus ? <Animated.View style={following && showFollowingStatus ? followingFeedbackStyle : undefined}>
-            <AccessiblePressable onPress={follow} style={[styles.followButton, following && styles.followingButton]} accessibilityRole="button" accessibilityLabel={following ? `Unfollow ${sellerName}` : `Follow ${sellerName}`} accessibilityState={{ selected: following }}>
-              <Ionicons name={following ? "checkmark" : "add"} size={15} color={following ? colors.bone : colors.successInk} />
-              <Text style={[styles.followText, following && styles.followingText]}>{following ? "Following" : "Follow"}</Text>
-            </AccessiblePressable>
-          </Animated.View> : null}
+          <FollowControl followId={followId} isBrand={isBrand} sellerName={sellerName} uid={app.uid} colors={colors} styles={styles} />
         </View> : null}
         <Action
           icon={cart.has(piece.id) ? "checkmark" : "bag-handle-outline"}
@@ -569,6 +498,89 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
       />
     </View>
   );
+}
+
+function FollowControl({ followId, isBrand, sellerName, uid, colors, styles }: { followId: string; isBrand: boolean; sellerName: string; uid: string; colors: Colors; styles: ReturnType<typeof make> }) {
+  const followUid = uid || "me";
+  const [following, setFollowing] = useState(() => isBrand ? isFollowing(followId, followUid) : isSellerFollowed(followId));
+  const [showStatus, setShowStatus] = useState(false);
+  const followingRef = useRef(following);
+  const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const feedbackOpacity = useSharedValue(1);
+  const feedbackScale = useSharedValue(1);
+  const feedbackY = useSharedValue(0);
+  const feedbackStyle = useAnimatedStyle(() => ({
+    opacity: feedbackOpacity.value,
+    transform: [{ translateY: feedbackY.value }, { scale: feedbackScale.value }],
+  }));
+
+  useEffect(() => {
+    const stored = isBrand ? isFollowing(followId, followUid) : isSellerFollowed(followId);
+    followingRef.current = stored;
+    setFollowing(stored);
+  }, [followId, followUid, isBrand]);
+
+  useEffect(() => () => {
+    if (statusTimer.current) clearTimeout(statusTimer.current);
+    cancelAnimation(feedbackOpacity);
+    cancelAnimation(feedbackScale);
+    cancelAnimation(feedbackY);
+  }, [feedbackOpacity, feedbackScale, feedbackY]);
+
+  function pressFollow() {
+    if (!followId) return;
+    const next = !followingRef.current;
+    followingRef.current = next;
+    setFollowing(next);
+    if (isBrand) toggleFollow(followId, followUid);
+    else {
+      toggleSellerFollow(followId);
+      void syncSellerFollow(uid, followId, next);
+    }
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+
+    if (statusTimer.current) clearTimeout(statusTimer.current);
+    cancelAnimation(feedbackOpacity);
+    cancelAnimation(feedbackScale);
+    cancelAnimation(feedbackY);
+    if (!next) {
+      setShowStatus(false);
+      feedbackOpacity.value = 1;
+      feedbackScale.value = 1;
+      feedbackY.value = 0;
+      statusTimer.current = null;
+      return;
+    }
+    feedbackOpacity.value = 0;
+    feedbackScale.value = 0.88;
+    feedbackY.value = 5;
+    setShowStatus(true);
+    feedbackOpacity.value = withTiming(1, { duration: 130 });
+    feedbackScale.value = withSequence(withTiming(1.08, { duration: 150 }), withSpring(1, { damping: 13, stiffness: 260 }));
+    feedbackY.value = withSpring(0, { damping: 15, stiffness: 230 });
+    statusTimer.current = setTimeout(() => {
+      feedbackOpacity.value = withTiming(0, { duration: 200 });
+      feedbackScale.value = withTiming(0.94, { duration: 200 });
+      feedbackY.value = withTiming(-5, { duration: 200 });
+      statusTimer.current = setTimeout(() => {
+        setShowStatus(false);
+        feedbackOpacity.value = 1;
+        feedbackScale.value = 1;
+        feedbackY.value = 0;
+        statusTimer.current = null;
+      }, 200);
+    }, 1300);
+  }
+
+  if (!followId) return null;
+  return !following || showStatus ? (
+    <Animated.View style={following && showStatus ? feedbackStyle : undefined}>
+      <AccessiblePressable onPress={pressFollow} style={[styles.followButton, following && styles.followingButton]} accessibilityRole="button" accessibilityLabel={following ? `Unfollow ${sellerName}` : `Follow ${sellerName}`} accessibilityState={{ selected: following }}>
+        <Ionicons name={following ? "checkmark" : "add"} size={15} color={following ? colors.bone : colors.successInk} />
+        <Text style={[styles.followText, following && styles.followingText]}>{following ? "Following" : "Follow"}</Text>
+      </AccessiblePressable>
+    </Animated.View>
+  ) : null;
 }
 
 function Action({ icon, label, active, onPress, styles, colors }: { icon: keyof typeof Ionicons.glyphMap; label: string; active?: boolean; onPress: () => void; styles: ReturnType<typeof make>; colors: Colors }) {
