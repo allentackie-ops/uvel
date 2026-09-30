@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   gestureRoot: { flex: 1 },
   scrim: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.58)" },
   keyboardRoot: { flex: 1, justifyContent: "flex-end" },
-  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingBottom: 30, paddingTop: 4, minHeight: 390 },
+  sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingBottom: 30, paddingTop: 14, minHeight: 390 },
   head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   title: { fontSize: 22, fontWeight: "800" },
   preview: { marginTop: 5, fontSize: 14 },
