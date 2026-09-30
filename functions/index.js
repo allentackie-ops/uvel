@@ -19,6 +19,9 @@ const stripeConnect = require("./stripeConnect");
 const { notifyUid } = require("./notify");
 const { assertListingOfferLock, assertOfferOrderPricing } = require("./offerPricing");
 Object.assign(exports, require("./listingOffers"));
+const listingReview = require("./listingReview");
+exports.uploadPersonalListingAsset = listingReview.uploadPersonalListingAsset;
+exports.submitPersonalListingForReview = listingReview.submitPersonalListingForReview;
 
 const PAYSTACK = new Set(["GH", "NG", "KE", "ZA"]);
 const RESERVATION_MINUTES = 30;

@@ -146,23 +146,31 @@ service cloud.firestore {
     match /listings/{listingId} {
       allow read: if resource.data.status == "listed" ||
         (signedIn() && (resource.data.ownerId == request.auth.uid || resource.data.listedByUid == request.auth.uid));
-      // Brand catalog writes must use the role-checked backend callable. Generic personal listings remain client-writable.
+      // Personal listings may be drafted by clients, but publication and moderation fields are server-controlled.
       allow create: if signedIn() &&
         !request.resource.data.keys().hasAny(["brandId"]) &&
+        !request.resource.data.keys().hasAny(["moderationStatus", "moderationHeadline", "moderationReasons", "moderationCheckedAt", "aiGeneratedReview", "duplicateImageFingerprints", "duplicateFingerprintUpdatedAt", "photoStoragePaths", "listedAt"]) &&
+        request.resource.data.ownerId == request.auth.uid &&
         request.resource.data.listedByUid == request.auth.uid &&
         request.resource.data.stockQuantity is int &&
         request.resource.data.stockQuantity > 0 &&
-        request.resource.data.status in ["owned", "draft", "listed"];
+        request.resource.data.status in ["owned", "draft", "review_pending"];
       allow update: if signedIn() &&
         !resource.data.keys().hasAny(["brandId"]) &&
         resource.data.listedByUid == request.auth.uid &&
+        request.resource.data.ownerId == resource.data.ownerId &&
         request.resource.data.listedByUid == resource.data.listedByUid &&
-        request.resource.data.brandId == resource.data.brandId &&
+        request.resource.data.get("brandId", null) == resource.data.get("brandId", null) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(["moderationStatus", "moderationHeadline", "moderationReasons", "moderationCheckedAt", "aiGeneratedReview", "duplicateImageFingerprints", "duplicateFingerprintUpdatedAt", "photoStoragePaths", "listedAt"]) &&
         request.resource.data.stockQuantity is int &&
-        ((request.resource.data.status in ["owned", "draft", "listed"] && request.resource.data.stockQuantity > 0) ||
+        ((request.resource.data.status in ["owned", "draft", "review_pending", "rejected"] && request.resource.data.stockQuantity > 0) ||
          (request.resource.data.status == "archived" && request.resource.data.stockQuantity >= 0) ||
-         (request.resource.data.status == "sold" && request.resource.data.stockQuantity == 0)) &&
-        request.resource.data.status in ["owned", "draft", "listed", "archived", "sold"];
+         (request.resource.data.status == "sold" && request.resource.data.stockQuantity == 0) ||
+         (resource.data.status == "listed" && request.resource.data.status == "listed" && request.resource.data.stockQuantity > 0)) &&
+        request.resource.data.status in ["owned", "draft", "review_pending", "rejected", "listed", "archived", "sold"] &&
+        (request.resource.data.status != "listed" || resource.data.status == "listed") &&
+        (resource.data.status != "listed" || request.resource.data.status != "listed" ||
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(["photo", "photos", "clipUri", "name", "brand", "category", "color", "size", "condition", "material", "notes", "listPriceCents", "originalPriceCents", "country", "currency", "shipsTo", "shippingMethod", "shippingCarriers", "shippingBuyerPays", "shopLook", "ownerName", "ownerPhoto"]));
       allow delete: if signedIn() && !resource.data.keys().hasAny(["brandId"]) && resource.data.listedByUid == request.auth.uid;
     }
 

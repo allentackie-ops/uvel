@@ -58,6 +58,8 @@ export type ClosetPiece = {
   views?: number;
   /** Available units remaining after active checkout reservations. */
   stockQuantity?: number;
+  /** Firebase Storage object paths assigned by the trusted listing-review backend. */
+  photoStoragePaths?: string[];
   /** Units currently held by pending checkout reservations. */
   reservedQuantity?: number;
   /** Reserved units keyed by size for variant-aware brand inventory. */
@@ -302,9 +304,13 @@ async function persistRemote(piece: ClosetPiece) {
   if (!firebaseReady()) return;
   const listedByUid = piece.listedByUid || piece.ownerId;
   if (!listedByUid) return;
+  const clientPiece = { ...piece } as ClosetPiece & Record<string, unknown>;
+  for (const key of ["photoStoragePaths", "moderationStatus", "moderationHeadline", "moderationReasons", "moderationCheckedAt", "aiGeneratedReview", "duplicateImageFingerprints", "duplicateFingerprintUpdatedAt", "listedAt"]) {
+    delete clientPiece[key];
+  }
   try {
     await setDoc(doc(firebaseDb(), "listings", piece.id), {
-      ...piece,
+      ...clientPiece,
       listedByUid,
       ownerId: piece.ownerId || listedByUid,
       stockQuantity: typeof piece.stockQuantity === "number" ? piece.stockQuantity : piece.status === "sold" ? 0 : 1,
@@ -423,6 +429,7 @@ export async function analyzePhoto(photo: string): Promise<Omit<ClosetPiece, "id
 
 export function addPiece(
   draft: Omit<ClosetPiece, "id" | "status" | "createdAt" | "photos" | "material" | "originalPriceCents"> & {
+    id?: string;
     photos?: string[];
     material?: string;
     originalPriceCents?: number;
@@ -436,7 +443,7 @@ export function addPiece(
     photo: photos[0] ?? draft.photo,
     material: draft.material ?? "",
     originalPriceCents: draft.originalPriceCents ?? 0,
-    id: `w-${Date.now().toString(36)}`,
+    id: draft.id || `w-${Date.now().toString(36)}`,
     status: draft.status ?? "owned",
     createdAt: Date.now(),
   };
@@ -509,7 +516,7 @@ export function updatePiece(id: string, patch: Partial<ClosetPiece>) {
 }
 
 export function listPiece(id: string, patch: Partial<ClosetPiece> = {}) {
-  updatePiece(id, { ...patch, status: "listed" });
+  updatePiece(id, { ...patch, status: "review_pending" });
 }
 
 export function unlistPiece(id: string) {

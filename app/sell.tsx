@@ -28,7 +28,8 @@ import { getMarket, getMarketByCurrency, moneyExact } from "../lib/markets";
 import { takePendingListingPrice } from "../lib/listingPriceDraft";
 import { clearListingDraft, loadListingDraft, saveListingDraft } from "../lib/listingDraft";
 import { pickListingClip, pickListingPhotos, takeListingClip, takeListingPhoto } from "../lib/photo";
-import { reviewListingForFeed, reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
+import { reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
+import { submitPersonalListingForReview, type PersonalListingReviewResult } from "../lib/listingReview";
 import { encodeShipsTo, shipsToLabel, type ShipsTo } from "../lib/ships";
 import { carriersForCountry, loadSellerShippingSettings, shippingMethodLabel, type SellerShippingSettings } from "../lib/sellerShipping";
 import { SHOP_LOOKS, shopLookOf } from "../lib/shopLook";
@@ -36,7 +37,7 @@ import { takePendingListingSelection } from "../lib/listingOptions";
 import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
 import { useColors, type Colors } from "../lib/theme";
-import { addPiece, getPiece, listPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
+import { addPiece, getPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
 
 const MAX = 10;
 const SELL_WELCOME_SEEN_KEY = "uvel.sell-welcome-seen";
@@ -45,13 +46,13 @@ const UVEL_ICON = require("../assets/icon.png");
 const COVER_W = 112;
 const COVER_H = 140;
 const ADD_W = 64;
-// Temporary testing switch: set to true when sell-page verification should be restored.
-const SELL_VERIFICATION_ENABLED = false;
+// Personal seller listings must pass the server-side checks before publication.
+const SELL_VERIFICATION_ENABLED = true;
 const STAGES = [
-  "Looking at the photos…",
-  "Is this something we sell?",
-  "Checking the listing…",
-  "Looking for anything that shouldn’t be here…",
+  "Checking your listing photos…",
+  "Comparing against active store images…",
+  "Checking for AI-generated media…",
+  "Finishing the safety review…",
 ];
 
 type Slot = {
@@ -123,6 +124,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const [shippingSettings, setShippingSettings] = useState<SellerShippingSettings | null>(null);
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
+  const [newListingId, setNewListingId] = useState<string>();
   const [draftReady, setDraftReady] = useState(draftParam !== "1");
   const [draftDisabled, setDraftDisabled] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -591,37 +593,9 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
 
   async function publish() {
     if (!canList) return;
-    if (SELL_VERIFICATION_ENABLED) {
-      setGate({ phase: "review", line: STAGES[0] });
-      const started = Date.now();
-      let result;
-      try {
-        result = await reviewListingForFeed({
-          photos: photos.map((p) => p.uri),
-          name: name.trim(),
-          notes: notes.trim(),
-          category: category ?? "Tops",
-          brand: brand.trim() || "Unlabeled",
-          color: color.trim(),
-          size: size.trim(),
-          condition: condition || "Excellent",
-          price,
-        });
-      } catch {
-        result = {
-          ok: false,
-          headline: "Couldn’t finish the check",
-          reasons: ["Try again in a moment. Nothing went on the floor."],
-        };
-      }
-      const wait = Math.max(0, 20000 - (Date.now() - started));
-      if (wait) await new Promise((r) => setTimeout(r, wait));
-      if (!result.ok) {
-        setGate({ phase: "block", headline: result.headline, reasons: result.reasons });
-        return;
-      }
-    }
     const uris = photos.map((p) => p.uri);
+    const listingId = existing?.id || newListingId || `w-${Date.now().toString(36)}`;
+    if (!existing?.id && !newListingId) setNewListingId(listingId);
     const draft = {
       photo: uris[0],
       photos: uris,
@@ -654,18 +628,56 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       currency: listingCurrency,
       shipsTo,
     };
-    if (existing) listPiece(existing.id, listed);
-    else {
-      setDraftDisabled(true);
-      void clearListingDraft();
-      addPiece({ ...listed, status: "listed" });
+    setGate({ phase: "review", line: STAGES[0] });
+    let result: PersonalListingReviewResult;
+    try {
+      result = await submitPersonalListingForReview({
+        listingId,
+        photos: uris,
+        name: listed.name,
+        brand: listed.brand,
+        category: String(listed.category),
+        color: listed.color,
+        size: listed.size,
+        condition: listed.condition,
+        material: listed.material,
+        notes: listed.notes,
+        listPriceCents: listed.listPriceCents,
+        originalPriceCents: listed.originalPriceCents,
+        country: listed.country || origin,
+        currency: listed.currency || listingCurrency,
+        shipsTo: listed.shipsTo,
+        shippingMethod,
+        shippingCarriers: shippingCarrierIds,
+        shippingBuyerPays,
+        shopLook,
+        clipUri: clipUri || undefined,
+        ownerName: displayName,
+        ownerPhoto: face || undefined,
+      });
+    } catch (error) {
+      if (!existing && !getPiece(listingId)) addPiece({ ...listed, id: listingId, status: "draft" });
+      const message = error instanceof Error ? error.message : "The review service is unavailable.";
+      setGate({ phase: "block", headline: "Couldn’t finish the review", reasons: [`${message} Nothing went live. Please try again shortly.`] });
+      return;
     }
-    if (SELL_VERIFICATION_ENABLED) {
-      setGate({ phase: "pass" });
-      setTimeout(() => completeNavigation(existing?.id), 1100);
-    } else {
-      completeNavigation(existing?.id);
+    const reviewed = {
+      ...listed,
+      photo: result.photos[0] || listed.photo,
+      photos: result.photos.length ? result.photos : uris,
+      photoStoragePaths: result.photoStoragePaths,
+      status: result.status,
+    };
+    if (getPiece(listingId)) updatePiece(listingId, reviewed);
+    else addPiece({ ...reviewed, id: listingId });
+    if (!result.ok) {
+      setGate({ phase: "block", headline: result.headline, reasons: result.reasons });
+      return;
     }
+    setDraftDisabled(true);
+    void clearListingDraft();
+    setGate({ phase: "pass" });
+    setTimeout(() => completeNavigation(listingId), 1100);
   }
 
   function confirmDeleteDraft() {
@@ -1188,7 +1200,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             <>
               <OrbitLoader size={24} />
               <Text style={styles.gateH}>{STAGES[stage]}</Text>
-              <Text style={styles.gateP}>About 20 seconds. Nothing goes live until this is clean.</Text>
+              <Text style={styles.gateP}>Nothing goes live until every review check is complete.</Text>
             </>
           ) : null}
           {gate.phase === "block" ? (
