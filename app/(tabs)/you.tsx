@@ -86,10 +86,10 @@ export default function You() {
   }, []);
   const settingsSwipe = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponderCapture: (_, gestureState) =>
-      gestureState.x0 > W * 0.55 && gestureState.dx < -8 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.1,
+      gestureState.dx < -8 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.1,
     onPanResponderTerminationRequest: () => false,
     onPanResponderRelease: (_, gestureState) => {
-      if (gestureState.x0 > W * 0.55 && (gestureState.dx <= -24 || gestureState.vx <= -0.25)) openSettings();
+      if (gestureState.dx <= -24 || gestureState.vx <= -0.25) openSettings();
     },
   }), [openSettings]);
 
