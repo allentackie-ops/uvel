@@ -87,6 +87,17 @@ function PushSync() {
         const handle = (res: { notification: { request: { content: { data?: Record<string, unknown> } } } }) => {
           const data = res.notification.request.content.data || {};
           const kind = String(data.kind || "");
+          const listingId = typeof data.listingId === "string" ? data.listingId : typeof data.pieceId === "string" ? data.pieceId : "";
+          const offerId = typeof data.offerId === "string" ? data.offerId : "";
+          const offerThreadId = typeof data.threadId === "string" ? data.threadId : "";
+          if (kind === "offer_accepted" && listingId && offerId) {
+            router.push({ pathname: "/checkout/[id]", params: { id: listingId, offerId } });
+            return;
+          }
+          if (["offer_received", "offer_declined", "offer_expired"].includes(kind) && listingId && offerThreadId) {
+            router.push({ pathname: "/ask/[id]", params: { id: listingId, threadId: offerThreadId } });
+            return;
+          }
           if (kind === "founder_desk") {
             void revealFounderDesk().then(() => {
               const next = getFounderDeskJob();

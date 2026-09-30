@@ -47,6 +47,7 @@ import { getBrand } from "../../lib/brands";
 import { brandMakes } from "../../lib/brandMake";
 import { carriersForListing } from "../../lib/sellerShipping";
 import { GroupedCheckout } from "../../components/GroupedCheckout";
+import { watchListingOffer, type ListingOffer } from "../../lib/offers";
 
 export default function Checkout() {
   const colors = useColors();
@@ -61,6 +62,7 @@ export default function Checkout() {
     collectionId,
     promotionId,
     campaignChannel,
+    offerId: offerIdParam,
   } = useLocalSearchParams<{
     id: string;
     ids?: string | string[];
@@ -70,7 +72,9 @@ export default function Checkout() {
     collectionId?: string;
     promotionId?: string;
     campaignChannel?: string;
+    offerId?: string;
   }>();
+  const acceptedOfferId = typeof offerIdParam === "string" ? offerIdParam : "";
   const checkoutIds = useMemo(() => {
     const supplied = Array.isArray(idsParam)
       ? idsParam
@@ -109,6 +113,24 @@ export default function Checkout() {
   );
   const [promotionBusy, setPromotionBusy] = useState(false);
   const [promotionMessage, setPromotionMessage] = useState("");
+  const [acceptedOffer, setAcceptedOffer] = useState<ListingOffer | null>(null);
+  const [offerLoading, setOfferLoading] = useState(Boolean(acceptedOfferId));
+
+  useEffect(() => {
+    if (!acceptedOfferId) {
+      setAcceptedOffer(null);
+      setOfferLoading(false);
+      return;
+    }
+    setOfferLoading(true);
+    setPromotionQuote(null);
+    setPromotionCode("");
+    setPromotionMessage("");
+    return watchListingOffer(acceptedOfferId, (next) => {
+      setAcceptedOffer(next);
+      setOfferLoading(false);
+    });
+  }, [acceptedOfferId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -117,13 +139,14 @@ export default function Checkout() {
   );
 
   const currency = piece?.currency || "USD";
-  const item = piece?.listPriceCents || 0;
+  const agreedPriceCents = Number(acceptedOffer?.agreedPriceCents ?? acceptedOffer?.offerCents ?? 0);
+  const item = acceptedOfferId ? (Number.isSafeInteger(agreedPriceCents) ? agreedPriceCents : 0) : piece?.listPriceCents || 0;
   const itemLocal = piece ? convertCents(item, currency, market) : 0;
   const fee = piece ? uvelFeeCents(item, currency, market) : 0;
-  const discountCents = Math.min(itemLocal, promotionQuote?.discountCents || 0);
+  const discountCents = acceptedOfferId ? 0 : Math.min(itemLocal, promotionQuote?.discountCents || 0);
   const discountedItem = Math.max(0, itemLocal - discountCents);
   const firstFind = useFirstFind();
-  const creditCents = piece ? firstFind.applyTo(piece, discountedItem) : 0;
+  const creditCents = piece && !acceptedOfferId ? firstFind.applyTo(piece, discountedItem) : 0;
   const billedItem = Math.max(0, discountedItem - creditCents);
   const effectiveShipsTo = piece
     ? restrictShipsTo(
@@ -149,6 +172,9 @@ export default function Checkout() {
       : false;
   const availabilityConfirmed =
     marketplaceSync === "confirmed" && isRemoteListedPiece(piece?.id || "");
+  const checkoutExpiry = acceptedOffer?.checkoutExpiresAt as { toMillis?: () => number } | number | undefined;
+  const checkoutExpiryMs = typeof checkoutExpiry === "number" ? checkoutExpiry : typeof checkoutExpiry?.toMillis === "function" ? checkoutExpiry.toMillis() : 0;
+  const acceptedOfferReady = !acceptedOfferId || Boolean(acceptedOffer && acceptedOffer.id === acceptedOfferId && acceptedOffer.status === "accepted" && acceptedOffer.buyerId === app.uid && acceptedOffer.listingId === piece?.id && acceptedOffer.sellerId === (piece?.ownerId || piece?.listedByUid) && acceptedOffer.currency === currency && checkoutExpiryMs > Date.now());
   const same = Boolean(
     address && piece && address.country === (piece.country || market.code),
   );
@@ -184,7 +210,7 @@ export default function Checkout() {
   useEffect(() => {
     const linkedPromotionId =
       typeof promotionId === "string" ? promotionId.trim() : "";
-    if (!linkedPromotionId || !piece || promotionQuote || promotionBusy) return;
+    if (acceptedOfferId || !linkedPromotionId || !piece || promotionQuote || promotionBusy) return;
     setPromotionBusy(true);
     void validatePromotion({
       brandId: piece.brandId || "",
@@ -206,7 +232,7 @@ export default function Checkout() {
         ),
       )
       .finally(() => setPromotionBusy(false));
-  }, [promotionId, piece?.brandId, piece?.id, market.currency, itemLocal]);
+  }, [acceptedOfferId, promotionId, piece?.brandId, piece?.id, market.currency, itemLocal]);
 
   useEffect(() => {
     if (
@@ -287,10 +313,15 @@ export default function Checkout() {
     !paying &&
     piece.status === "listed" &&
     inventoryAvailable &&
-    !needsVariant;
+    !needsVariant &&
+    (!acceptedOfferId || (!offerLoading && acceptedOfferReady));
 
   async function payNow() {
     if (!address || !piece) return;
+    if (acceptedOfferId && !acceptedOfferReady) {
+      Alert.alert("Offer unavailable", offerLoading ? "Checking the seller’s accepted offer…" : "This accepted offer has expired or is no longer available.");
+      return;
+    }
     if (piece.sellerPaused) {
       Alert.alert(
         "Listing unavailable",
@@ -333,10 +364,13 @@ export default function Checkout() {
         pieceName: piece.name,
         piecePhoto: piece.photo,
         brandId: piece.brandId,
+        offerId: acceptedOfferId || undefined,
+        offerPriceCents: acceptedOfferId ? agreedPriceCents : undefined,
+        offerCurrency: acceptedOfferId ? currency : undefined,
         variantKey: selectedVariant || undefined,
         variantLabel: selectedVariantLabel || undefined,
         buyerId: app.uid,
-        sellerId: piece.ownerId || "seller",
+        sellerId: piece.ownerId || piece.listedByUid || "seller",
         itemCents: itemLocal,
         feeCents: fee,
         discountCents: discountCents || undefined,
@@ -458,6 +492,8 @@ export default function Checkout() {
         contentContainerStyle={{ paddingBottom: 390 }}
         showsVerticalScrollIndicator={false}
       >
+        {acceptedOfferId && acceptedOfferReady ? <Text style={[styles.notice, { color: colors.success }]}>Seller accepted your offer. This item price is locked to the agreed amount.</Text> : null}
+        {acceptedOfferId && !offerLoading && !acceptedOfferReady ? <Text style={[styles.notice, { color: colors.danger }]}>This accepted offer is unavailable or has expired. Ask the seller to send a new offer.</Text> : null}
         {!availabilityConfirmed ? (
           <Text style={[styles.notice, { color: colors.warning }]}>
             {marketplaceSync === "loading"
@@ -484,7 +520,7 @@ export default function Checkout() {
           />
           <View style={styles.priceBadge}>
             <Text style={styles.priceBadgeText}>
-              {moneyExact(itemLocal, market.currency)}
+              {acceptedOfferId && offerLoading ? "Checking offer…" : acceptedOfferId && !acceptedOfferReady ? "Offer unavailable" : moneyExact(itemLocal, market.currency)}
             </Text>
           </View>
         </View>
@@ -509,7 +545,9 @@ export default function Checkout() {
           <View style={styles.detailCopy}>
             <Text style={styles.detailLabel}>Total</Text>
             <Text style={styles.detailSub}>
-              {promotionQuote
+              {acceptedOfferId
+                ? "Seller accepted your offer · item price locked"
+                : promotionQuote
                 ? `${promotionQuote.code} applied`
                 : "Includes shipping and buyer protection"}
             </Text>
@@ -574,7 +612,7 @@ export default function Checkout() {
           </Text>
           <Text style={styles.chevron}>›</Text>
         </AccessiblePressable>
-        <AccessiblePressable
+        {!acceptedOfferId ? <AccessiblePressable
           onPress={() => setPromotionOpen(true)}
           style={styles.secondaryRow}
           accessibilityRole="button"
@@ -586,7 +624,7 @@ export default function Checkout() {
               : "Have a promo code?"}
           </Text>
           <Text style={styles.chevron}>›</Text>
-        </AccessiblePressable>
+        </AccessiblePressable> : null}
       </ScrollView>
       <View
         style={[styles.purchasePanel, { paddingBottom: insets.bottom + 14 }]}

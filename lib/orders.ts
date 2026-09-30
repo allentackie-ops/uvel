@@ -64,6 +64,9 @@ export type Order = {
   pieceName: string;
   piecePhoto: string;
   brandId?: string;
+  offerId?: string;
+  offerPriceCents?: number;
+  offerCurrency?: string;
   /** This order is made by Uvel and sent by the manufacturer. */
   madeByUvel?: boolean;
   /** Exact size or variant selected by the buyer, when the listing has variants. */

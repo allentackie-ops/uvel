@@ -36,10 +36,26 @@ export default function Alerts() {
   const pieces = useWardrobe();
   const { preferences, events } = useAlertCenter(app.uid);
   const activity = useActivityNotifications(app.uid || "guest");
+  const offerActivity = activity.filter((item) => item.kind.startsWith("offer_"));
+  const otherActivity = activity.filter((item) => !item.kind.startsWith("offer_"));
 
   function openListing(id: string, eventId?: string) {
     if (eventId) void markAlertRead(app.uid, eventId);
     router.push({ pathname: "/closet/[id]", params: { id } });
+  }
+
+  function openActivity(item: (typeof activity)[number]) {
+    void markActivityNotificationRead(app.uid || "guest", item.id);
+    if (item.kind === "offer_accepted" && item.lookId && item.offerId) {
+      router.push({ pathname: "/checkout/[id]", params: { id: item.lookId, offerId: item.offerId } });
+      return;
+    }
+    if (["offer_received", "offer_declined", "offer_expired"].includes(item.kind) && item.lookId && item.threadId) {
+      router.push({ pathname: "/ask/[id]", params: { id: item.lookId, threadId: item.threadId } });
+      return;
+    }
+    if (item.target === "saved") router.push("/saved-looks");
+    else if (item.lookId) router.push({ pathname: "/closet/[id]", params: { id: item.lookId } });
   }
 
 
@@ -87,18 +103,28 @@ export default function Alerts() {
           </View>
         )}
 
+        <Text style={styles.sectionTitle}>Offers & sales</Text>
+        {offerActivity.length ? offerActivity.slice(0, 20).map((item) => (
+          <Pressable key={item.id} onPress={() => openActivity(item)} style={[styles.event, !item.read && styles.eventUnread]} accessibilityRole="button" accessibilityLabel={item.kind === "offer_accepted" ? `${item.title}. Open offer checkout.` : `${item.title}. Open offer conversation.`}>
+            {item.imageUrl ? <Image cachePolicy="memory-disk" source={{ uri: item.imageUrl }} style={styles.eventThumb} contentFit="cover" /> : <View style={styles.eventThumb} />}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={styles.eventTop}><Text style={styles.eventTitle} numberOfLines={1}>{item.title}</Text>{!item.read ? <View style={styles.unread} /> : null}</View>
+              <Text style={styles.eventBody} numberOfLines={2}>{item.body}</Text>
+              <Text style={styles.eventTime}>{ago(item.at)}</Text>
+            </View>
+          </Pressable>
+        )) : (
+          <View style={styles.panel}><Text style={styles.panelTitle}>No offers or sales yet</Text><Text style={styles.panelCopy}>Offers you send or receive and seller responses will appear here.</Text></View>
+        )}
+
         <Text style={styles.sectionTitle}>Recent activity</Text>
-        {activity.length ? activity.slice(0, 20).map((item) => (
+        {otherActivity.length ? otherActivity.slice(0, 20).map((item) => (
           <Pressable
             key={item.id}
-            onPress={() => {
-              void markActivityNotificationRead(app.uid || "guest", item.id);
-              if (item.target === "saved") router.push("/saved-looks");
-              else if (item.lookId) router.push({ pathname: "/closet/[id]", params: { id: item.lookId } });
-            }}
+            onPress={() => openActivity(item)}
             style={[styles.event, !item.read && styles.eventUnread]}
             accessibilityRole="button"
-            accessibilityLabel={item.target === "saved" ? `${item.title}. Open Saved Fits.` : item.lookId ? `${item.title}. Open listing.` : item.title}
+            accessibilityLabel={item.kind === "offer_accepted" ? `${item.title}. Open offer checkout.` : ["offer_received", "offer_declined", "offer_expired"].includes(item.kind) ? `${item.title}. Open offer conversation.` : item.target === "saved" ? `${item.title}. Open Saved Fits.` : item.lookId ? `${item.title}. Open listing.` : item.title}
           >
             {item.imageUrl ? <Image cachePolicy="memory-disk" source={{ uri: item.imageUrl }} style={styles.eventThumb} contentFit="cover" /> : <View style={styles.eventThumb} />}
             <View style={{ flex: 1, minWidth: 0 }}>

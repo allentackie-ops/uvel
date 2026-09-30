@@ -29,7 +29,14 @@ export type ChatMsg = {
   createdAt: number;
   photoUrl?: string;
   offerCents?: number;
+  offerId?: string;
   offerStatus?: OfferStatus;
+  offerExpiresAt?: unknown;
+  checkoutExpiresAt?: unknown;
+  responseMessage?: string;
+  fromName?: string;
+  fromUsername?: string;
+  fromPhoto?: string;
   status?: MsgStatus;
 };
 
@@ -43,6 +50,8 @@ export type ChatThread = {
   piecePriceCents: number;
   sellerName: string;
   buyerName: string;
+  buyerPhoto?: string;
+  buyerUsername?: string;
   brandId?: string;
   brandName?: string;
   brandLogo?: string;
@@ -267,7 +276,14 @@ export function listenMessages(id: string, onMsgs: (msgs: ChatMsg[]) => void) {
               createdAt: typeof v.createdAt === "number" ? v.createdAt : Date.now(),
               photoUrl: v.photoUrl,
               offerCents: v.offerCents,
+              offerId: v.offerId,
               offerStatus: v.offerStatus,
+              offerExpiresAt: v.offerExpiresAt,
+              checkoutExpiresAt: v.checkoutExpiresAt,
+              responseMessage: v.responseMessage,
+              fromName: v.fromName,
+              fromUsername: v.fromUsername,
+              fromPhoto: v.fromPhoto,
               status: v.status ?? "delivered",
             };
           });
@@ -500,6 +516,7 @@ export async function sendChat(opts: {
   photoUrl?: string;
   fromName: string;
   pieceId: string;
+  pieceName?: string;
   toIds?: string[];
 }): Promise<ChatMsg> {
   const msg: ChatMsg = {

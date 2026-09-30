@@ -3,7 +3,7 @@ import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { firebaseDb, firebaseReady } from "./firebase";
 
-export type ActivityNotificationKind = "more_like" | "not_interested" | "bookmark" | "seller_listing";
+export type ActivityNotificationKind = "more_like" | "not_interested" | "bookmark" | "seller_listing" | "offer_received" | "offer_accepted" | "offer_declined" | "offer_expired";
 
 export type ActivityNotification = {
   id: string;
@@ -13,6 +13,8 @@ export type ActivityNotification = {
   lookId: string;
   imageUrl?: string;
   target: "saved" | "none";
+  offerId?: string;
+  threadId?: string;
   at: number;
   read: boolean;
 };
@@ -63,15 +65,23 @@ async function hydrate(uid: string) {
     remoteUnsubscribe = onSnapshot(collection(firebaseDb(), "users", uid, "notifications"), (snapshot) => {
       const remote = snapshot.docs.map((item) => {
         const data = item.data() as Record<string, unknown>;
+        const rawKind = String(data.kind || "seller_listing");
+        const kind: ActivityNotificationKind = ["offer_received", "offer_accepted", "offer_declined", "offer_expired"].includes(rawKind)
+          ? rawKind as ActivityNotificationKind
+          : "seller_listing";
+        const createdAt = data.createdAt as { toMillis?: () => number } | undefined;
+        const at = typeof data.createdAt === "number" ? data.createdAt : typeof createdAt?.toMillis === "function" ? createdAt.toMillis() : Date.now();
         return {
           id: item.id,
-          kind: "seller_listing" as const,
+          kind,
           title: String(data.title || "New listing from someone you follow"),
           body: String(data.body || "A seller or brand you follow just posted something new."),
           lookId: String(data.listingId || data.lookId || ""),
           imageUrl: typeof data.imageUrl === "string" ? data.imageUrl : undefined,
           target: "none" as const,
-          at: typeof data.createdAt === "number" ? data.createdAt : Date.now(),
+          offerId: typeof data.offerId === "string" ? data.offerId : undefined,
+          threadId: typeof data.threadId === "string" ? data.threadId : undefined,
+          at,
           read: Boolean(data.readAt),
         };
       });

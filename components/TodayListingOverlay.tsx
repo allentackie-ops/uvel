@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import * as Haptics from "../lib/haptics";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, Share as NativeShare, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Alert, Pressable, Share as NativeShare, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector, GestureHandlerRootView, ScrollView as GHScrollView } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -21,6 +21,7 @@ import { getBrand, themeFor } from "../lib/brands";
 import { addToCart, useCart } from "../lib/cart";
 import { useFirstFind } from "../lib/firstFind";
 import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
+import { createListingOffer, suggestedOfferCents } from "../lib/offers";
 import { shipsToLabel } from "../lib/ships";
 import { shopLookOf } from "../lib/shopLook";
 import { useUvel } from "../lib/store";
@@ -110,9 +111,47 @@ export function TodayListingOverlay({
   const [measurementsOpen, setMeasurementsOpen] = useState(false);
   const [shippingOpen, setShippingOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [offerOpen, setOfferOpen] = useState(false);
+  const [offerSent, setOfferSent] = useState(false);
+  const [offerValue, setOfferValue] = useState("");
+  const [offerBusy, setOfferBusy] = useState(false);
+  const [offerThreadId, setOfferThreadId] = useState("");
   const [showTryOnHint, setShowTryOnHint] = useState(false);
   const cart = useCart();
   const inBag = cart.has(piece.id);
+  const canMakeOffer = !previewOnly && !piece.brandId && !brandRecord && Boolean(sellerId) && sellerId !== app.uid && piece.status === "listed" && piece.listPriceCents > 1;
+  const offerCurrency = piece.currency || getMarket(app.country).currency;
+  const suggestedCents = suggestedOfferCents(piece.listPriceCents);
+  const zeroDecimalOffer = ["ARS", "COP", "CLP", "NGN", "JPY", "KRW", "IDR", "VND"].includes(offerCurrency.toUpperCase());
+  function openOfferSheet() {
+    const suggested = suggestedCents / 100;
+    setOfferValue(suggested.toFixed(zeroDecimalOffer ? 0 : 2));
+    setOfferSent(false);
+    setOfferOpen(true);
+  }
+  async function submitListingOffer() {
+    const amountCents = Math.round(Number(offerValue.replace(/,/g, "")) * 100);
+    if (!app.uid) {
+      Alert.alert("Sign in to make an offer", "Create or sign in to your Uvel account first.");
+      return;
+    }
+    if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || amountCents >= piece.listPriceCents) {
+      Alert.alert("Enter a valid offer", "Your offer must be a positive amount below the listed price.");
+      return;
+    }
+    setOfferBusy(true);
+    try {
+      const result = await createListingOffer(piece.id, amountCents);
+      setOfferThreadId(result.threadId);
+      setOfferSent(true);
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+    } catch (error) {
+      const message = error instanceof Error ? error.message.replace(/^Firebase: /, "") : "Please try again.";
+      Alert.alert("Offer not sent", message);
+    } finally {
+      setOfferBusy(false);
+    }
+  }
   const lastImageTap = useRef(0);
   const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const openedAt = useRef(Date.now());
@@ -570,6 +609,16 @@ export function TodayListingOverlay({
                 <Ionicons name={inBag ? "checkmark" : "bag-handle-outline"} size={17} color={previewOnly ? colors.muted : colors.successInk} />
               </Pressable>
             </View>
+            {canMakeOffer ? (
+              <Pressable onPress={openOfferSheet} style={styles.offerCta} accessibilityRole="button" accessibilityLabel={`Offer ${moneyInMarket(suggestedCents, offerCurrency, market)} for ${piece.name}`}>
+                <View style={styles.offerCtaCopy}>
+                  <Text style={styles.offerCtaTitle}>Offer this</Text>
+                  <Text style={styles.offerCtaHint}>Suggested · 25% below asking</Text>
+                </View>
+                <Text style={styles.offerCtaPrice}>{moneyInMarket(suggestedCents, offerCurrency, market)}</Text>
+                <Ionicons name="arrow-forward" size={17} color={colors.successInk} />
+              </Pressable>
+            ) : null}
           </View>
           </View>
         </AnimatedScrollView>
@@ -617,6 +666,42 @@ export function TodayListingOverlay({
         </Animated.View>
         <Animated.Text pointerEvents="none" style={[styles.heartPop, heartPopStyle]}>♥</Animated.Text>
         <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
+        {offerOpen ? (
+          <View style={styles.offerBackdrop}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => { if (!offerBusy) setOfferOpen(false); }} accessibilityRole="button" accessibilityLabel="Close offer sheet" />
+            <View style={[styles.offerSheet, { paddingBottom: insets.bottom + 18 }]}>
+              {offerSent ? (
+                <>
+                  <View style={styles.offerSentIcon}><Ionicons name="checkmark" size={23} color={colors.successInk} /></View>
+                  <Text style={styles.offerSheetTitle}>Offer sent</Text>
+                  <Text style={styles.offerSheetBody}>The seller has 24 hours to respond. If they accept, you’ll get a checkout link in your inbox at the agreed price.</Text>
+                  <Pressable onPress={() => { setOfferOpen(false); closeToPin(); setTimeout(() => router.push({ pathname: "/ask/[id]", params: { id: piece.id, threadId: offerThreadId, pieceName: piece.name, piecePhoto: piece.photo, piecePriceCents: String(piece.listPriceCents) } }), 280); }} style={styles.offerSubmit} accessibilityRole="button">
+                    <Text style={styles.offerSubmitText}>Go to inbox</Text>
+                    <Ionicons name="arrow-forward" size={17} color={colors.successInk} />
+                  </Pressable>
+                  <Pressable onPress={() => setOfferOpen(false)} style={styles.offerCancel} accessibilityRole="button"><Text style={styles.offerCancelText}>Done</Text></Pressable>
+                </>
+              ) : (
+                <>
+                  <View style={styles.offerSheetTop}><Text style={styles.offerSheetTitle}>Make an offer</Text><Pressable onPress={() => setOfferOpen(false)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close"><Ionicons name="close" size={23} color={colors.muted} /></Pressable></View>
+                  <Text style={styles.offerSheetBody}>Listed at {moneyInMarket(piece.listPriceCents, offerCurrency, market)}. The seller can accept or decline in their inbox.</Text>
+                  <Pressable onPress={() => setOfferValue((suggestedCents / 100).toFixed(zeroDecimalOffer ? 0 : 2))} style={styles.offerSuggestion} accessibilityRole="button" accessibilityLabel="Use suggested offer, 25 percent below asking">
+                    <Text style={styles.offerSuggestionLabel}>Suggested · 25% off</Text><Text style={styles.offerSuggestionValue}>{moneyInMarket(suggestedCents, offerCurrency, market)}</Text>
+                  </Pressable>
+                  <View style={styles.offerInputWrap}>
+                    <Text style={styles.offerCurrency}>{offerCurrency}</Text>
+                    <TextInput value={offerValue} onChangeText={(value) => setOfferValue(value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1").slice(0, 12))} keyboardType="decimal-pad" style={styles.offerInput} placeholder={zeroDecimalOffer ? "0" : "0.00"} placeholderTextColor={colors.subtle} accessibilityLabel="Your offer amount" editable={!offerBusy} />
+                  </View>
+                  <Pressable onPress={() => void submitListingOffer()} disabled={offerBusy} style={[styles.offerSubmit, offerBusy && { opacity: 0.6 }]} accessibilityRole="button">
+                    <Text style={styles.offerSubmitText}>{offerBusy ? "Sending…" : "Send offer"}</Text>
+                    {!offerBusy ? <Ionicons name="arrow-forward" size={17} color={colors.successInk} /> : null}
+                  </Pressable>
+                  <Pressable onPress={() => setOfferOpen(false)} disabled={offerBusy} style={styles.offerCancel} accessibilityRole="button"><Text style={styles.offerCancelText}>Cancel</Text></Pressable>
+                </>
+              )}
+            </View>
+          </View>
+        ) : null}
       </View>
     </GestureHandlerRootView>
   );
@@ -708,5 +793,26 @@ function make(colors: Colors) {
     primaryAction: { flex: 1.3, minHeight: 52, borderRadius: 26, paddingHorizontal: 12, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     primaryText: { color: colors.successInk, fontSize: 14, fontWeight: "800" },
     primaryTextDisabled: { color: colors.muted },
+    offerCta: { minHeight: 58, borderRadius: 29, paddingHorizontal: 18, backgroundColor: colors.success, marginTop: 10, flexDirection: "row", alignItems: "center", gap: 10 },
+    offerCtaCopy: { flex: 1 },
+    offerCtaTitle: { color: colors.successInk, fontSize: 15, fontWeight: "900" },
+    offerCtaHint: { color: `${colors.successInk}B8`, fontSize: 11, fontWeight: "700", marginTop: 2 },
+    offerCtaPrice: { color: colors.successInk, fontSize: 15, fontWeight: "900", fontVariant: ["tabular-nums"] },
+    offerBackdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 50, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.52)" },
+    offerSheet: { backgroundColor: colors.surface, borderTopLeftRadius: 23, borderTopRightRadius: 23, paddingHorizontal: 22, paddingTop: 22 },
+    offerSheetTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    offerSheetTitle: { color: colors.bone, fontFamily: "Georgia", fontSize: 25 },
+    offerSheetBody: { color: colors.muted, fontSize: 13, lineHeight: 20, marginTop: 9 },
+    offerSuggestion: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 18, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, backgroundColor: `${colors.success}18`, borderWidth: 1, borderColor: `${colors.success}66` },
+    offerSuggestionLabel: { color: colors.success, fontSize: 13, fontWeight: "800" },
+    offerSuggestionValue: { color: colors.bone, fontSize: 14, fontWeight: "800" },
+    offerInputWrap: { minHeight: 62, marginTop: 12, borderRadius: 14, backgroundColor: colors.ink, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 12 },
+    offerCurrency: { color: colors.muted, fontSize: 15, fontWeight: "700" },
+    offerInput: { flex: 1, color: colors.bone, fontSize: 25, fontWeight: "800", paddingVertical: 10 },
+    offerSubmit: { minHeight: 52, borderRadius: 26, marginTop: 16, paddingHorizontal: 18, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 },
+    offerSubmitText: { color: colors.successInk, fontSize: 15, fontWeight: "900" },
+    offerCancel: { minHeight: 44, alignItems: "center", justifyContent: "center", marginTop: 3 },
+    offerCancelText: { color: colors.muted, fontSize: 14, fontWeight: "700" },
+    offerSentIcon: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: colors.success, marginBottom: 12 },
   });
 }

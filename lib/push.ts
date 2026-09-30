@@ -61,7 +61,7 @@ async function ensureAndroidChannels() {
 }
 
 function channelFor(kind: string) {
-  if (kind === "friend_message" || kind === "listing_message" || kind === "friend_request" || kind === "friend_accepted") return "social-stitch";
+  if (kind === "friend_message" || kind === "listing_message" || kind === "friend_request" || kind === "friend_accepted" || kind.startsWith("offer_")) return "social-stitch";
   if (kind === "sold" || kind === "shipped" || kind === "delivered" || kind === "wallet") return "orders-stitch";
   return "activity-stitch";
 }

@@ -292,6 +292,11 @@ service cloud.firestore {
       }
     }
 
+    match /listingOffers/{offerId} {
+      allow read: if signedIn() && (resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid);
+      allow create, update, delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

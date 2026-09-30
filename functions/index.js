@@ -17,6 +17,8 @@ const wallet = require("./wallet");
 const { quoteGroupedLine, groupedCarrier } = require("./groupedCheckoutMath");
 const stripeConnect = require("./stripeConnect");
 const { notifyUid } = require("./notify");
+const { assertListingOfferLock, assertOfferOrderPricing } = require("./offerPricing");
+Object.assign(exports, require("./listingOffers"));
 
 const PAYSTACK = new Set(["GH", "NG", "KE", "ZA"]);
 const RESERVATION_MINUTES = 30;
@@ -81,6 +83,8 @@ async function reserveOrderInventory(orderId, listingId, brandId, variantKey, re
     const reservationSnap = await tx.get(reservationRef);
     if (!orderSnap.exists || !listingSnap.exists) throw new HttpsError("not-found", "Order or listing not found.");
     const order = orderSnap.data() || {};
+    const listing = listingSnap.data() || {};
+    assertListingOfferLock(listing, order);
     const existing = reservationSnap.exists ? reservationSnap.data() || {} : {};
     if (existing.status === "active" && timestampMillis(existing.expiresAt) > Date.now()) {
       if (refreshActive) {
@@ -91,7 +95,6 @@ async function reserveOrderInventory(orderId, listingId, brandId, variantKey, re
       return;
     }
     const refreshingExpiredReservation = existing.status === "active" && timestampMillis(existing.expiresAt) > 0 && timestampMillis(existing.expiresAt) <= Date.now();
-    const listing = listingSnap.data() || {};
     if (listing.status !== "listed" || String(listing.brandId || "") !== String(brandId || "")) throw new HttpsError("failed-precondition", "Listing is no longer available.");
     const stock = Number(listing.stockQuantity);
     const hasStock = Number.isFinite(stock);
@@ -185,6 +188,8 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
     if (!listingSnap.exists || listing.status !== "listed" || listing.sellerPaused === true) {
       throw new HttpsError("failed-precondition", "This listing is currently unavailable.");
     }
+    if (order.offerId) await assertOfferOrderPricing(admin.firestore(), order, req.auth.uid);
+    else assertListingOfferLock(listing, order);
     const brandSnap = order.brandId ? await admin.firestore().collection("brands").doc(String(order.brandId)).get() : null;
     const brand = brandSnap?.exists ? brandSnap.data() || {} : {};
     const destination = String(order.address?.country || normalizedCountry || "").toUpperCase();
@@ -213,10 +218,10 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
   }
   await orderRef.set({ discountCents: promotionQuote?.discountCents || 0, ...(promotionQuote ? { promotionId: promotionQuote.promotionId, promotionCode: promotionQuote.code, promotionSource: promotionQuote.source } : {}) }, { merge: true });
 
-  if (order.brandId && order.pieceId) {
+  if ((order.brandId || order.offerId) && order.pieceId) {
     const listingSnap = await admin.firestore().collection("listings").doc(String(order.pieceId)).get();
     const listing = listingSnap.data() || {};
-    if (!listingSnap.exists || listing.status !== "listed" || listing.brandId !== order.brandId) {
+    if (!listingSnap.exists || listing.status !== "listed" || String(listing.brandId || "") !== String(order.brandId || "")) {
       throw new HttpsError("failed-precondition", "Listing is no longer available.");
     }
     const orderVariant = String(order.variantKey || "").trim();
@@ -328,22 +333,31 @@ exports.createStripePaymentIntent = onCall({ secrets: [stripeSecret] }, async (r
   if (!orderSnap.exists) throw new HttpsError("not-found", "Order not found.");
   const order = orderSnap.data() || {};
   if (order.buyerId !== req.auth.uid || order.status !== "pending") throw new HttpsError("failed-precondition", "Order is not available for payment.");
+  if (order.offerId) await assertOfferOrderPricing(db, order, req.auth.uid);
   const amountCents = Math.floor(Number(order.totalCents || 0));
   const currency = String(order.currency || "USD").toUpperCase();
   if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || currency !== "USD") throw new HttpsError("failed-precondition", "Stripe PaymentSheet is currently available for US-dollar orders only.");
   const stripe = require("stripe")(stripeSecret.value());
+  if (order.pieceId && !order.offerId) {
+    const currentListing = await db.collection("listings").doc(String(order.pieceId)).get();
+    if (currentListing.exists) assertListingOfferLock(currentListing.data() || {}, order);
+  }
   if (order.paymentIntentId) {
     const existing = await stripe.paymentIntents.retrieve(String(order.paymentIntentId));
     if (["requires_payment_method", "requires_confirmation", "requires_action"].includes(existing.status)) return { clientSecret: existing.client_secret, paymentIntentId: existing.id };
   }
   const listingId = String(order.pieceId || "");
   let reserved = false;
-  if (listingId && order.brandId) {
+  if (listingId) {
     const listingSnap = await db.collection("listings").doc(listingId).get();
     const listing = listingSnap.data() || {};
     if (!listingSnap.exists || listing.status !== "listed" || listing.sellerPaused === true) throw new HttpsError("failed-precondition", "This listing is currently unavailable.");
-    await reserveOrderInventory(orderId, listingId, String(order.brandId), String(order.variantKey || ""));
-    reserved = true;
+    if (order.offerId) await assertOfferOrderPricing(db, order, req.auth.uid);
+    else assertListingOfferLock(listing, order);
+    if (order.brandId || order.offerId) {
+      await reserveOrderInventory(orderId, listingId, String(order.brandId || ""), String(order.variantKey || ""));
+      reserved = true;
+    }
   }
   try {
     const paymentIntent = await stripe.paymentIntents.create({
@@ -885,8 +899,16 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
     const listingRef = order.pieceId ? db.collection("listings").doc(String(order.pieceId)) : null;
     const listingSnap = listingRef ? await tx.get(listingRef) : null;
     const listingData = listingSnap && listingSnap.exists ? listingSnap.data() || {} : {};
+    const offerRef = order.offerId ? db.collection("listingOffers").doc(String(order.offerId)) : null;
+    const offerSnap = offerRef ? await tx.get(offerRef) : null;
+    const offer = offerSnap && offerSnap.exists ? offerSnap.data() || {} : {};
     const listingStock = Number(listingData.stockQuantity);
-    const hasTrackedStock = Boolean(order.brandId && Number.isFinite(listingStock));
+    const hasTrackedStock = Boolean((order.brandId || order.offerId) && Number.isFinite(listingStock));
+    const activeOfferUntil = timestampMillis(listingData.activeOfferExpiresAt);
+    if (listingData.activeOfferId && activeOfferUntil > Date.now() && listingData.activeOfferId !== order.offerId) return { ok: false, reason: "offer-active" };
+    if (order.offerId && (!listingSnap?.exists || listingData.status !== "listed" || (listingData.activeOfferId !== order.offerId && !reservationActive) || !offerSnap?.exists || offer.status !== "accepted" || offer.buyerId !== order.buyerId || offer.listingId !== order.pieceId)) return { ok: false, reason: "offer-unavailable" };
+    if (order.offerId && reservationExpired) return { ok: false, reason: "inventory-reservation-expired" };
+    if (order.offerId && !reservationActive && (!hasTrackedStock || listingStock <= 0)) return { ok: false, reason: "listing-unavailable" };
     if (order.brandId && reservationExpired) return { ok: false, reason: "inventory-reservation-expired" };
     if (order.brandId && (!listingSnap || !listingSnap.exists || listingData.status !== "listed") && !reservationActive) return { ok: false, reason: "listing-unavailable" };
     if (order.brandId && !reservationActive && (!hasTrackedStock || listingStock <= 0)) return { ok: false, reason: "listing-unavailable" };
@@ -905,6 +927,10 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
         }
         tx.set(listingRef, reservationPatch, { merge: true });
       }
+    }
+    if (order.offerId && listingRef) {
+      tx.set(listingRef, { activeOfferId: null, activeOfferExpiresAt: null, updatedAt: paidAt }, { merge: true });
+      tx.set(offerRef, { status: "purchased", purchasedAt: paidAt, updatedAt: paidAt }, { merge: true });
     }
     tx.update(orderRef, paidUpdate);
     if (order.promotionId) {

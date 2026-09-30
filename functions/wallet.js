@@ -1,5 +1,6 @@
 const { HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
+const { assertListingOfferLock, assertOfferOrderPricing, millis } = require("./offerPricing");
 
 const RELEASE_MS = 2 * 24 * 60 * 60 * 1000;
 
@@ -236,11 +237,37 @@ async function payWithWalletHandler(req) {
   if (!/^[a-zA-Z0-9._:-]{1,120}$/.test(orderId)) throw new HttpsError("invalid-argument", "Invalid order.");
   const db = admin.firestore();
   const orderRef = db.collection("orders").doc(orderId);
+  const orderSnap = await orderRef.get();
+  if (!orderSnap.exists) throw new HttpsError("not-found", "Order not found.");
+  const checkedOrder = orderSnap.data() || {};
+  if (checkedOrder.buyerId !== req.auth.uid || checkedOrder.status !== "pending") throw new HttpsError("failed-precondition", "Order is not available for payment.");
+  if (checkedOrder.offerId) await assertOfferOrderPricing(db, checkedOrder, req.auth.uid);
   await db.runTransaction(async (tx) => {
     const snap = await tx.get(orderRef);
     if (!snap.exists) throw new HttpsError("not-found", "Order not found.");
     const order = snap.data() || {};
     if (order.buyerId !== req.auth.uid || order.status !== "pending") throw new HttpsError("failed-precondition", "Order is not available for payment.");
+    let listingRef = null;
+    let listingSnap = null;
+    let listing = {};
+    let offerRef = null;
+    let offerSnap = null;
+    let offer = {};
+    if (order.pieceId) {
+      listingRef = db.collection("listings").doc(String(order.pieceId));
+      listingSnap = await tx.get(listingRef);
+      listing = listingSnap.exists ? listingSnap.data() || {} : {};
+      if (!listingSnap.exists || listing.status !== "listed" || listing.sellerPaused === true) throw new HttpsError("failed-precondition", "This listing is currently unavailable.");
+      assertListingOfferLock(listing, order);
+      if (order.offerId) {
+        offerRef = db.collection("listingOffers").doc(String(order.offerId));
+        offerSnap = await tx.get(offerRef);
+        offer = offerSnap.exists ? offerSnap.data() || {} : {};
+        if (!offerSnap.exists || offer.status !== "accepted" || offer.buyerId !== req.auth.uid || offer.listingId !== order.pieceId || millis(offer.checkoutExpiresAt) <= Date.now() || Number(listing.stockQuantity) <= 0) {
+          throw new HttpsError("failed-precondition", "This accepted offer or listing is no longer available.");
+        }
+      }
+    }
     const total = Math.max(0, Math.floor(Number(order.totalCents || 0)));
     const wref = walletRef(db, req.auth.uid);
     const wsnap = await tx.get(wref);
@@ -270,6 +297,18 @@ async function payWithWalletHandler(req) {
       payMethod: "Uvel balance",
       paidAt,
     }, { merge: true });
+    if (order.offerId && listingRef && offerRef) {
+      const stock = Math.max(0, Math.floor(Number(listing.stockQuantity) || 0));
+      const remaining = Math.max(0, stock - 1);
+      tx.set(listingRef, {
+        stockQuantity: remaining,
+        ...(remaining === 0 ? { status: "sold", soldAt: paidAt } : {}),
+        activeOfferId: null,
+        activeOfferExpiresAt: null,
+        updatedAt: paidAt,
+      }, { merge: true });
+      tx.set(offerRef, { status: "purchased", purchasedAt: paidAt, updatedAt: paidAt }, { merge: true });
+    }
     if (order.promotionId) {
       const collectionName = order.promotionSource === "listing" || !order.brandId ? "listingPromotions" : "brandPromotions";
       const promotionRef = db.collection(collectionName).doc(String(order.promotionId));

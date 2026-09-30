@@ -1,7 +1,7 @@
 async function sendExpoPush(token, title, body, data = {}) {
   if (!token) return;
   const kind = String(data.kind || "");
-  const channel = kind === "friend_message" || kind === "listing_message" || kind === "friend_request" || kind === "friend_accepted" ? "social-stitch" : kind === "sold" || kind === "shipped" || kind === "delivered" || kind === "wallet" ? "orders-stitch" : "activity-stitch";
+  const channel = kind === "friend_message" || kind === "listing_message" || kind === "friend_request" || kind === "friend_accepted" || kind.startsWith("offer_") ? "social-stitch" : kind === "sold" || kind === "shipped" || kind === "delivered" || kind === "wallet" ? "orders-stitch" : "activity-stitch";
   try {
     await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",

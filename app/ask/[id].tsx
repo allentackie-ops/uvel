@@ -34,10 +34,10 @@ import {
   readUserLite,
   sendChat,
   setTyping,
-  updateOfferStatus,
   type ChatMsg,
   type ChatThread,
 } from "../../lib/chat";
+import { createListingOffer, respondToListingOffer } from "../../lib/offers";
 import { pickFromLibrary, takePhoto } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
@@ -90,6 +90,10 @@ export default function Ask() {
   const [sending, setSending] = useState(false);
   const [offerOn, setOfferOn] = useState(false);
   const [offer, setOffer] = useState("");
+  const [decliningOfferId, setDecliningOfferId] = useState("");
+  const [declineMessage, setDeclineMessage] = useState("");
+  const [respondingOfferId, setRespondingOfferId] = useState("");
+  const [offerSubmitting, setOfferSubmitting] = useState(false);
   const [seen, setSeen] = useState("");
   const [place, setPlace] = useState("");
   const [sellerHandle, setSellerHandle] = useState("Seller");
@@ -113,7 +117,7 @@ export default function Ask() {
   const supportOrder = linkedOrderId ? orders.find((order) => order.id === linkedOrderId) : undefined;
   const brandRecipients = brand ? (activeThread?.recipientIds?.length ? activeThread.recipientIds : inquiryRecipients(brand)) : [];
   const isTeamRecipient = Boolean(brand && brandRecipients.includes(mine));
-  const isSellerSide = Boolean(activeThread && (activeThread.sellerId === mine || (activeThread.recipientIds || []).includes(mine))) || isTeamRecipient;
+  const isSellerSide = Boolean(activeThread && (activeThread.sellerId === mine || (activeThread.recipientIds || []).includes(mine))) || isTeamRecipient || Boolean(piece?.ownerId === mine || piece?.listedByUid === mine);
   const sellerId = activeThread?.sellerId || (brand ? brandRecipients[0] || brand.ownerId : piece?.ownerId && piece.ownerId !== app.uid ? piece.ownerId : piece?.ownerId || "");
   const otherId = isSellerSide ? activeThread?.buyerId || "" : sellerId && sellerId !== mine ? sellerId : "";
 
@@ -288,6 +292,40 @@ export default function Ask() {
     setLoadingOlder(false);
   }
 
+  async function respondToOffer(offerId: string, decision: "accepted" | "declined", message = "") {
+    if (!offerId || respondingOfferId) return;
+    setRespondingOfferId(offerId);
+    try {
+      await respondToListingOffer(offerId, decision, message);
+      setDecliningOfferId("");
+      setDeclineMessage("");
+    } catch (error) {
+      const raw = error instanceof Error ? error.message : "Please try again.";
+      Alert.alert("Couldn’t respond", raw.replace(/^Firebase: /, ""));
+    } finally {
+      setRespondingOfferId("");
+    }
+  }
+
+  async function submitOfferFromChat() {
+    if (!piece) return;
+    const amount = Number(offer);
+    const amountCents = Math.round(amount * 100);
+    if (!Number.isFinite(amount) || amount <= 0 || !Number.isSafeInteger(amountCents)) return;
+    setOfferSubmitting(true);
+    try {
+      await createListingOffer(piece.id, amountCents);
+      setOfferOn(false);
+      setOffer("");
+      Alert.alert("Offer sent", "The seller has 24 hours to respond. You’ll see their answer here.");
+    } catch (error) {
+      const raw = error instanceof Error ? error.message : "Please try again.";
+      Alert.alert("Offer not sent", raw.replace(/^Firebase: /, ""));
+    } finally {
+      setOfferSubmitting(false);
+    }
+  }
+
   function retryMessage(message: ChatMsg) {
     if (message.from !== mine || message.status !== "failed") return;
     void send(message.text, message.kind, message.offerCents, message.photoUrl, message.offerStatus);
@@ -371,7 +409,7 @@ export default function Ask() {
           </View>
         </View>
 
-        {linkedOrderId ? <View style={styles.supportContext}><Text style={styles.supportKicker}>ORDER SUPPORT</Text><Text style={styles.supportTitle}>{supportOrder ? `Help with ${supportOrder.pieceName}` : "Order-linked conversation"}</Text><Text style={styles.supportMeta}>{supportOrder ? `Order #${supportOrder.id} · ${supportOrder.fulfillmentStatus || supportOrder.status}` : `Order #${linkedOrderId}`}</Text><Text style={styles.supportHint}>The brand team can see this order context. Internal notes stay private to the brand.</Text></View> : <View style={styles.actions}><Pressable onPress={() => setOfferOn(true)} style={styles.offerBtn}><Text style={styles.offerTxt}>Make an offer</Text></Pressable><Pressable onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id } })} style={styles.buyBtn}><Text style={styles.buyTxt}>Buy now</Text></Pressable></View>}
+        {linkedOrderId ? <View style={styles.supportContext}><Text style={styles.supportKicker}>ORDER SUPPORT</Text><Text style={styles.supportTitle}>{supportOrder ? `Help with ${supportOrder.pieceName}` : "Order-linked conversation"}</Text><Text style={styles.supportMeta}>{supportOrder ? `Order #${supportOrder.id} · ${supportOrder.fulfillmentStatus || supportOrder.status}` : `Order #${linkedOrderId}`}</Text><Text style={styles.supportHint}>The brand team can see this order context. Internal notes stay private to the brand.</Text></View> : !isSellerSide ? <View style={styles.actions}>{!brand && !piece.brandId ? <Pressable onPress={() => setOfferOn(true)} style={styles.offerBtn}><Text style={styles.offerTxt}>Make an offer</Text></Pressable> : null}<Pressable onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id } })} style={styles.buyBtn}><Text style={styles.buyTxt}>Buy now</Text></Pressable></View> : null}
 
         <View style={styles.rule} />
 
@@ -419,9 +457,30 @@ export default function Ask() {
                 {newDay ? <Text style={styles.day}>{dayLabel(m.createdAt)}</Text> : null}
                 {m.kind === "offer" ? (
                   <View style={[styles.bubble, mineMsg ? styles.bubbleMine : styles.bubbleThem]}>
-                    <Text style={styles.offerTag}>Offer · {m.offerStatus || "pending"}</Text>
+                    {isSellerSide ? <View style={styles.offerIdentity}>{m.fromPhoto ? <Image cachePolicy="memory-disk" source={{ uri: m.fromPhoto }} style={styles.offerAvatar} contentFit="cover" /> : <View style={styles.offerAvatarFallback}><Text style={styles.offerAvatarInitial}>{(m.fromName || activeThread?.buyerName || "B").slice(0, 1).toUpperCase()}</Text></View>}<View><Text style={styles.offerIdentityName}>{m.fromName || activeThread?.buyerName || "Buyer"}</Text>{m.fromUsername ? <Text style={styles.offerIdentityHandle}>@{m.fromUsername}</Text> : null}</View></View> : null}
+                    <Text style={styles.offerTag}>OFFER · {(m.offerStatus || "pending").toUpperCase()}</Text>
                     <Text style={[styles.bubbleTxt, mineMsg && styles.bubbleTxtMine]}>{m.text}</Text>
-                    {!mineMsg && (m.offerStatus || "pending") === "pending" ? <View style={styles.offerActions}><Pressable onPress={() => void updateOfferStatus(thread, m.id, "declined")} accessibilityRole="button"><Text style={styles.offerActionText}>Decline</Text></Pressable><Pressable onPress={() => void updateOfferStatus(thread, m.id, "accepted")} accessibilityRole="button"><Text style={styles.offerActionText}>Accept</Text></Pressable></View> : null}
+                    {m.responseMessage ? <Text style={styles.offerResponseNote}>Seller’s note: {m.responseMessage}</Text> : null}
+                    {isSellerSide && (m.offerStatus || "pending") === "pending" ? <Text style={styles.offerPrompt}>Do you accept this offer?</Text> : null}
+                    {isSellerSide && !brand && !piece.brandId && m.offerId && (m.offerStatus || "pending") === "pending" ? (
+                      decliningOfferId === m.offerId ? (
+                        <View style={styles.declineComposer}>
+                          <Text style={styles.declineHint}>Add an optional note, then send your no.</Text>
+                          <TextInput value={declineMessage} onChangeText={setDeclineMessage} maxLength={500} multiline placeholder="Why are you declining?" placeholderTextColor={colors.subtle} style={styles.declineInput} accessibilityLabel="Optional reason for declining" />
+                          <View style={styles.offerActions}>
+                            <Pressable onPress={() => { setDecliningOfferId(""); setDeclineMessage(""); }} accessibilityRole="button"><Text style={styles.offerActionText}>Cancel</Text></Pressable>
+                            <Pressable disabled={respondingOfferId === m.offerId} onPress={() => void respondToOffer(m.offerId!, "declined", declineMessage)} accessibilityRole="button"><Text style={styles.offerActionText}>{respondingOfferId === m.offerId ? "Sending…" : "Send no"}</Text></Pressable>
+                          </View>
+                          {!declineMessage.trim() ? <Pressable disabled={respondingOfferId === m.offerId} onPress={() => void respondToOffer(m.offerId!, "declined")} accessibilityRole="button" style={styles.declineWithoutNote}><Text style={styles.offerActionText}>Decline without a note</Text></Pressable> : null}
+                        </View>
+                      ) : (
+                        <View style={styles.offerActions}>
+                          <Pressable onPress={() => { setDecliningOfferId(m.offerId!); setDeclineMessage(""); }} accessibilityRole="button"><Text style={styles.offerActionText}>No</Text></Pressable>
+                          <Pressable disabled={respondingOfferId === m.offerId} onPress={() => void respondToOffer(m.offerId!, "accepted")} accessibilityRole="button"><Text style={styles.offerActionText}>{respondingOfferId === m.offerId ? "Sending…" : "Yes, accept"}</Text></Pressable>
+                        </View>
+                      )
+                    ) : null}
+                    {!isSellerSide && m.offerId && m.offerStatus === "accepted" ? <Pressable onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id, offerId: m.offerId } })} style={styles.offerCheckoutLink} accessibilityRole="button"><Text style={styles.offerCheckoutText}>Check out at the agreed price</Text><Text style={styles.offerCheckoutArrow}>›</Text></Pressable> : null}
                   </View>
                 ) : (
                   <View style={[styles.bubble, mineMsg ? styles.bubbleMine : styles.bubbleThem]}>
@@ -488,28 +547,25 @@ export default function Ask() {
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setOfferOn(false)} />
           <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
             <Text style={styles.sheetH}>Make an offer</Text>
-            <Text style={styles.sheetP}>Listed at {usd(piece.listPriceCents, piece.currency || "USD")}. Be fair — they’ll see it as a message.</Text>
+            <Text style={styles.sheetP}>Listed at {usd(piece.listPriceCents, piece.currency || "USD")}. The seller can accept or decline within 24 hours.</Text>
             <View style={styles.offerRow}>
-              <Text style={styles.dollar}>$</Text>
+              <Text style={styles.dollar}>{piece.currency || "USD"}</Text>
               <TextInput
                 style={styles.offerIn}
                 value={offer}
-                onChangeText={(v) => setOffer(v.replace(/[^0-9]/g, ""))}
-                keyboardType="number-pad"
-                placeholder="0"
+                onChangeText={(v) => setOffer(v.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1").replace(/^(\d+\.\d{0,2}).*$/, "$1"))}
+                keyboardType="decimal-pad"
+                placeholder={["JPY", "KRW", "CLP", "VND", "XAF", "XOF"].includes((piece.currency || "USD").toUpperCase()) ? "0" : "0.00"}
                 placeholderTextColor={colors.subtle}
                 autoFocus
               />
             </View>
             <Pressable
-              onPress={() => {
-                const n = Number(offer);
-                if (!n) return;
-                void send(`Offered ${usd(n * 100, piece.currency || "USD")}`, "offer", n * 100, undefined, "pending");
-              }}
-              style={[styles.buyBtn, { marginTop: 16, opacity: Number(offer) > 0 ? 1 : 0.4 }]}
+              onPress={() => void submitOfferFromChat()}
+              disabled={offerSubmitting || Number(offer) <= 0}
+              style={[styles.buyBtn, { marginTop: 16, opacity: Number(offer) > 0 && !offerSubmitting ? 1 : 0.4 }]}
             >
-              <Text style={styles.buyTxt}>Send offer</Text>
+              <Text style={styles.buyTxt}>{offerSubmitting ? "Sending…" : "Send offer"}</Text>
             </Pressable>
           </View>
         </View>
@@ -625,6 +681,21 @@ function make(colors: Colors) {
     offerTag: { color: colors.success, fontSize: 11, fontWeight: "700", letterSpacing: 1, marginBottom: 4 },
     offerActions: { flexDirection: "row", gap: 18, marginTop: 10 },
     offerActionText: { color: colors.success, fontSize: 13, fontWeight: "800" },
+    offerIdentity: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 9 },
+    offerAvatar: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.ink },
+    offerAvatarFallback: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    offerAvatarInitial: { color: colors.successInk, fontSize: 14, fontWeight: "900" },
+    offerIdentityName: { color: colors.bone, fontSize: 13, fontWeight: "800" },
+    offerIdentityHandle: { color: colors.muted, fontSize: 11, marginTop: 1 },
+    offerResponseNote: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 8 },
+    offerPrompt: { color: colors.bone, fontSize: 13, fontWeight: "800", marginTop: 10 },
+    declineComposer: { marginTop: 8 },
+    declineHint: { color: colors.muted, fontSize: 12 },
+    declineInput: { minHeight: 54, maxHeight: 100, color: colors.bone, backgroundColor: colors.ink, borderRadius: 10, padding: 10, marginTop: 8, textAlignVertical: "top" },
+    declineWithoutNote: { marginTop: 9, alignSelf: "flex-start" },
+    offerCheckoutLink: { marginTop: 11, borderRadius: 12, paddingHorizontal: 12, minHeight: 42, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    offerCheckoutText: { color: colors.successInk, fontSize: 13, fontWeight: "900" },
+    offerCheckoutArrow: { color: colors.successInk, fontSize: 22, fontWeight: "800" },
     msgPhoto: { width: 180, height: 180, borderRadius: 12, marginBottom: 8 },
     day: { color: colors.subtle, textAlign: "center", fontSize: 12, marginVertical: 10 },
     meta: { color: colors.subtle, fontSize: 11, alignSelf: "flex-end", marginBottom: 10, marginRight: 4 },
