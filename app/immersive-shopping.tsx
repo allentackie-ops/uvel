@@ -57,7 +57,7 @@ export default function ImmersiveShopping() {
   const [findHint, setFindHint] = useState(false);
   const [refreshState, setRefreshState] = useState<{ active: boolean; epoch: number; anchorId?: string }>({ active: false, epoch: 0 });
   const refreshing = refreshState.active;
-  const [sessionSeed] = useState(() => Math.floor(Math.random() * 0x7fffffff));
+  const [sessionSeed, setSessionSeed] = useState(() => Math.floor(Math.random() * 0x7fffffff));
   const menuPressRef = useRef(false);
   const refreshInFlight = useRef(false);
   const feedEpochRef = useRef(0);
@@ -120,7 +120,8 @@ export default function ImmersiveShopping() {
       // Keep the local feed usable if the marketplace refresh is unavailable.
     } finally {
       const nextEpoch = feedEpochRef.current + 1;
-      const refreshedFeed = feedPage(shopFloor(app.country), 0, sessionSeed ^ nextEpoch);
+      const nextSeed = Math.floor(Math.random() * 0x7fffffff);
+      const refreshedFeed = feedPage(shopFloor(app.country), 0, nextSeed ^ nextEpoch);
       const incomingImages = refreshedFeed
         .slice(0, 3)
         .map((piece) => piece.photo)
@@ -131,6 +132,7 @@ export default function ImmersiveShopping() {
         // The refreshed card can still load normally if prefetch is unavailable.
       }
       feedEpochRef.current = nextEpoch;
+      setSessionSeed(nextSeed);
       setActiveIndex(0);
       activeIndexShared.value = 0;
       swipeY.value = 0;
