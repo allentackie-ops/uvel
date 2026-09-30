@@ -10,6 +10,7 @@ import { getBrand, useBrands } from "../lib/brands";
 import { unreadFor, useInbox, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
+import * as Haptics from "../lib/haptics";
 import { respondFriendRequest, searchUsers, sendFriendRequest, subscribeFriendNotifications, type FriendNotification, type PublicUser } from "../lib/friends";
 import { createFriendChat, listFriendChats, listFriends, type FriendChatPreview } from "../lib/friendChat";
 
@@ -83,6 +84,7 @@ export default function Inbox() {
     if (y > -10) refreshTriggered.current = false;
     if (y < -48 && !refreshing && !refreshTriggered.current) {
       refreshTriggered.current = true;
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
       void onRefresh();
     }
   }, [onRefresh, refreshing]);
