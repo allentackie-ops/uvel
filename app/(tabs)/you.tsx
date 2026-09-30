@@ -34,6 +34,7 @@ import { draftProgress, useListingDraft, type ListingDraft } from "../../lib/lis
 const W = Dimensions.get("window").width;
 const COL = (W - 52) / 2;
 const MIN_REFRESH_MS = 650;
+const PULL_REFRESH_DISTANCE = 28;
 
 type Hub = "shop" | "sold" | "purchases" | "likes";
 
@@ -152,11 +153,11 @@ export default function You() {
       refreshTriggered.current = false;
       hapticTriggered.current = false;
     }
-    if (y < -48 && !hapticTriggered.current) {
+    if (y < -PULL_REFRESH_DISTANCE && !hapticTriggered.current) {
       hapticTriggered.current = true;
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     }
-    if (y < -48 && !refreshing && !refreshTriggered.current) {
+    if (y < -PULL_REFRESH_DISTANCE && !refreshing && !refreshTriggered.current) {
       refreshTriggered.current = true;
       void onRefresh();
     }
