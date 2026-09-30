@@ -24,7 +24,7 @@ import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
 import { fallbackShopFloor, refreshMarketplaceListings, shopFloor, useWardrobe } from "../lib/wardrobe";
-import { feedItemAt, feedPage } from "../lib/feedOrder";
+import { feedItemAt } from "../lib/feedOrder";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const MIN_REFRESH_MS = 1200;
@@ -87,7 +87,15 @@ export default function ImmersiveShopping() {
   }, [app.country, bundledPieces, refreshState, refreshing, wardrobePieces]);
 
   const feedWindow = useMemo(() => {
-    const itemAt = (index: number) => feedItemAt(pieces, index, sessionSeed ^ refreshState.epoch);
+    // Refreshes start a new logical pass through the catalog. Without the
+    // offset, feedItemAt(0) always uses pass 0, whose contract preserves the
+    // ranked order, so the first immersive card never changes after refresh.
+    const refreshOffset = refreshState.epoch * pieces.length;
+    const refreshedFirst = refreshState.epoch > 0
+      ? feedItemAt(pieces, refreshOffset, sessionSeed ^ refreshState.epoch)
+      : undefined;
+    const firstCardShift = refreshedFirst?.id === refreshState.anchorId && pieces.length > 1 ? 1 : 0;
+    const itemAt = (index: number) => feedItemAt(pieces, index + refreshOffset + firstCardShift, sessionSeed ^ refreshState.epoch);
     const current = itemAt(activeIndex);
     const next = itemAt(activeIndex + 1);
     return {
@@ -121,7 +129,13 @@ export default function ImmersiveShopping() {
     } finally {
       const nextEpoch = feedEpochRef.current + 1;
       const nextSeed = Math.floor(Math.random() * 0x7fffffff);
-      const refreshedFeed = feedPage(shopFloor(app.country), 0, nextSeed ^ nextEpoch);
+      const refreshedPieces = shopFloor(app.country);
+      const refreshOffset = nextEpoch * refreshedPieces.length;
+      const refreshedFirst = feedItemAt(refreshedPieces, refreshOffset, nextSeed ^ nextEpoch);
+      const firstCardShift = refreshedFirst?.id === refreshOriginId.current && refreshedPieces.length > 1 ? 1 : 0;
+      const refreshedFeed = Array.from({ length: Math.min(3, refreshedPieces.length) }, (_, index) =>
+        feedItemAt(refreshedPieces, index + refreshOffset + firstCardShift, nextSeed ^ nextEpoch),
+      ).filter((piece): piece is ShopFloorPiece => Boolean(piece));
       const incomingImages = refreshedFeed
         .slice(0, 3)
         .map((piece) => piece.photo)
