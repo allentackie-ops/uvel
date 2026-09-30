@@ -89,6 +89,7 @@ function Hero({ brand, colors, styles }: SharedProps & { brand?: Brand }) {
   return (
     <Pressable onPress={() => router.push("/brand/founder")} style={({ pressed }) => [styles.hero, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="Open Founder Studio">
       {brand?.bannerUri ? <BrandBanner uri={brand.bannerUri} kind={brand.bannerKind} style={styles.heroImage} /> : <Image source={HERO_IMAGE} style={styles.heroImage} contentFit="cover" cachePolicy="memory-disk" />}
+      <View pointerEvents="none" style={styles.heroScrim} />
       <View style={styles.heroCopy}>
         {!brand ? <Text style={styles.heroKicker}>START WITH AN IDEA</Text> : null}
         <Text style={styles.heroTitle}>{brand ? "Build what’s next\nfor your brand." : "Turn your idea\ninto something real."}</Text>
@@ -209,7 +210,6 @@ function BrandLogo({ brand, styles, size, floating }: { brand: Brand; styles: Sc
 }
 
 function make(colors: Colors) {
-  const light = colors.ink !== "#000000";
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     content: { paddingHorizontal: 18 },
@@ -231,9 +231,10 @@ function make(colors: Colors) {
     hero: { height: 305, borderRadius: 26, overflow: "hidden", backgroundColor: colors.surface, marginBottom: 28 },
     heroImage: StyleSheet.absoluteFill,
     heroCopy: { position: "absolute", left: 20, right: 20, bottom: 20 },
-    heroKicker: { color: light ? colors.bone : colors.success, fontSize: 10, letterSpacing: 2.6, fontWeight: "800" },
-    heroTitle: { color: light ? colors.bone : colors.bone, fontSize: 31, lineHeight: 34, fontWeight: "800", letterSpacing: -0.8, marginTop: 8 },
-    heroBody: { color: light ? colors.bone : colors.muted, fontSize: 14, lineHeight: 20, marginTop: 9, maxWidth: 290 },
+    heroScrim: { position: "absolute", left: 0, right: 0, bottom: 0, height: 190, backgroundColor: "rgba(0,0,0,0.52)" },
+    heroKicker: { color: colors.success, fontSize: 10, letterSpacing: 2.6, fontWeight: "800" },
+    heroTitle: { color: "#F4F0E6", fontSize: 31, lineHeight: 34, fontWeight: "800", letterSpacing: -0.8, marginTop: 8 },
+    heroBody: { color: "#F4F0E6", fontSize: 14, lineHeight: 20, marginTop: 9, maxWidth: 290 },
     heroRule: { width: 42, height: 2, backgroundColor: colors.success, marginTop: 16 },
     heroTap: { position: "absolute", right: 18, bottom: 18, flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: colors.ink + "B8", borderRadius: 18, paddingHorizontal: 11, paddingVertical: 8 },
     heroTapText: { color: colors.bone, fontSize: 11, fontWeight: "800" },
