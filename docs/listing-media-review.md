@@ -27,3 +27,24 @@ firebase deploy --only functions:uploadPersonalListingAsset,functions:submitPers
 ```
 
 This development sandbox cannot verify the production Firebase secret or deploy the functions/rules.
+
+## Deferred rollout: Blaze required
+
+On 2026-09-30, the Firebase deploy workflow reached `Configure admin bridge parameters` and stopped before any Firestore rules or Functions were deployed. Firebase reported that project `uvel-32d32` must be on the **Blaze (pay-as-you-go)** plan because `secretmanager.googleapis.com` cannot be enabled on the current plan. The production OTA was intentionally not started because its app code depends on these backend callables and rules.
+
+After the project has been upgraded to Blaze, rerun the backend deployment first from the feature branch:
+
+```sh
+gh workflow run firebase-deploy.yml --repo allentackie-ops/uvel --ref fix/social-share-sheet-stable \
+  -f only='firestore:rules,functions:uploadPersonalListingAsset,functions:submitPersonalListingForReview'
+```
+
+Confirm that workflow succeeds. Then publish the approved commit to production on both iOS and Android:
+
+```sh
+gh workflow run ota-publish.yml --repo allentackie-ops/uvel --ref fix/social-share-sheet-stable \
+  -f action=publish \
+  -f message='Personal listing review and Claude AI image screening'
+```
+
+The OTA workflow consumes the repository's `EXPO_TOKEN` secret. Do not run the production OTA until the backend deployment has succeeded.
