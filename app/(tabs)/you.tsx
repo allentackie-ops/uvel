@@ -4,6 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
 import * as Haptics from "../../lib/haptics";
 import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
@@ -78,6 +80,18 @@ export default function You() {
   const [refreshing, setRefreshing] = useState(false);
   const refreshTriggered = useRef(false);
   const hapticTriggered = useRef(false);
+
+  const openSettings = useCallback(() => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    router.push("/settings");
+  }, []);
+  const settingsSwipe = useMemo(() => Gesture.Pan()
+    .activeOffsetX([24, Infinity])
+    .failOffsetY([-24, 24])
+    .maxPointers(1)
+    .onEnd((event) => {
+      if (event.translationX >= 80 || event.velocityX >= 500) runOnJS(openSettings)();
+    }), [openSettings]);
 
   const listed = pieces.filter((p) => p.status === "listed" && Boolean(app.uid) && p.ownerId === app.uid);
   const soldPieces = pieces.filter((p) => p.status === "sold" && Boolean(app.uid) && p.ownerId === app.uid);
@@ -191,7 +205,8 @@ export default function You() {
   }, [buyOrders, buyFilter]);
 
   return (
-    <View style={[styles.page, { paddingTop: insets.top + 20 }]}>
+    <GestureDetector gesture={settingsSwipe}>
+      <View style={[styles.page, { paddingTop: insets.top + 20 }]}>
       <View style={styles.content}>
         <View style={styles.top}>
           <View style={{ flex: 1, paddingRight: 12 }}>
@@ -329,7 +344,8 @@ export default function You() {
           </Pressable>
         ))}
       </ScrollView>
-    </View>
+      </View>
+    </GestureDetector>
   );
 }
 
