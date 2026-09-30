@@ -12,10 +12,12 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Today from "./index";
 import Create from "./create";
 import You from "./you";
+import Settings from "../settings";
 import { useColors, useResolvedAppearance } from "../../lib/theme";
 import { useCopy } from "../../lib/useCopy";
 
 const ROUTES = ["/", "/create", "/you"] as const;
+const PAGER_ROUTES = ["/", "/create", "/you", "/settings"] as const;
 const ICONS = ["compass-outline", "pricetag-outline", "person-outline"] as const;
 const ACTIVE_ICONS = ["compass", "pricetag", "person"] as const;
 const TAB_ICON_SIZE = 26;
@@ -40,6 +42,7 @@ export default function TabsLayout() {
       { key: "today", screen: <Today onOpenTools={() => setOpen(true)} /> },
       { key: "create", screen: <Create /> },
       { key: "you", screen: <You /> },
+      { key: "settings", screen: <Settings /> },
     ],
     [C.today, C.create, C.you],
   );
@@ -65,8 +68,12 @@ export default function TabsLayout() {
     if (next === pageIndex) return;
     setPageIndex(next);
     void Haptics.selectionAsync().catch(() => undefined);
-    const route = ROUTES[next];
-    if (route !== pathname) router.navigate(route);
+    const route = PAGER_ROUTES[next];
+    if (route === "/settings") {
+      if (pathname !== route) router.push(route);
+      return;
+    }
+    if (route && route !== pathname) router.navigate(route);
   }
 
   function closeDrawer() {
@@ -217,6 +224,7 @@ function routeIndex(pathname: string): number | null {
   if (pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/")) return 0;
   if (pathname === "/create" || pathname.endsWith("/(tabs)/create") || pathname === "/closet" || pathname.endsWith("/(tabs)/closet")) return 1;
   if (pathname.includes("/you")) return 2;
+  if (pathname === "/settings") return 3;
   return null;
 }
 
