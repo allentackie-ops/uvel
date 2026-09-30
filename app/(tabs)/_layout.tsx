@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "../../lib/haptics";
 import { router, usePathname } from "expo-router";
 import PagerView, { type PagerViewOnPageSelectedEvent } from "react-native-pager-view";
-import { useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { interpolate, useAnimatedStyle } from "react-native-reanimated";
@@ -36,15 +36,19 @@ export default function TabsLayout() {
   const pagerRef = useRef<PagerView>(null);
   const [pageIndex, setPageIndex] = useState(() => routeIndex(pathname) ?? 0);
   const [open, setOpen] = useState(false);
+  const backToYou = useCallback(() => {
+    setPageIndex(2);
+    pagerRef.current?.setPage(2);
+  }, []);
 
   const tabs = useMemo<TabScreen[]>(
     () => [
       { key: "today", screen: <Today onOpenTools={() => setOpen(true)} /> },
       { key: "create", screen: <Create /> },
       { key: "you", screen: <You /> },
-      { key: "settings", screen: <Settings /> },
+      { key: "settings", screen: <Settings embedded onBack={backToYou} /> },
     ],
-    [C.today, C.create, C.you],
+    [C.today, C.create, C.you, backToYou],
   );
 
   useEffect(() => {

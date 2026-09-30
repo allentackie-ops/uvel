@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LANGS } from "../lib/i18n";
 import { getMarket } from "../lib/markets";
 import { requestFeedback } from "../lib/feedback";
@@ -14,11 +15,12 @@ import { loadHapticsEnabled, setHapticsEnabled } from "../lib/haptics";
 const HELP = "mailto:himforson@gmail.com?subject=Uvel%20help";
 const VERSION = Constants.expoConfig?.version ?? "1.0.0";
 
-export default function Settings() {
+export default function Settings({ embedded = false, onBack }: { embedded?: boolean; onBack?: () => void }) {
   const app = useUvel();
   const C = useCopy();
   const colors = useColors();
   const styles = make(colors);
+  const insets = useSafeAreaInsets();
   const localeLabel = LANGS.find((l) => l.id === app.locale)?.label ?? "English, US";
   const market = getMarket(app.country);
   const [hapticsEnabled, setHapticsEnabledState] = useState(true);
@@ -60,7 +62,17 @@ export default function Settings() {
   }
 
   return (
-    <ScrollView style={styles.page} contentContainerStyle={styles.content}>
+    <View style={styles.page}>
+      {embedded ? (
+        <View style={[styles.embeddedHeader, { paddingTop: insets.top }]}>
+          <Pressable onPress={onBack} style={styles.embeddedBack} accessibilityRole="button" accessibilityLabel="Back to You">
+            <Ionicons name="chevron-back" size={25} color={colors.bone} />
+          </Pressable>
+          <Text style={styles.embeddedTitle}>{C.settings}</Text>
+          <View style={styles.embeddedHeaderSpacer} />
+        </View>
+      ) : null}
+      <ScrollView style={embedded ? styles.embeddedScroll : styles.page} contentContainerStyle={styles.content}>
       <Text style={styles.section}>{C.support}</Text>
       <View style={styles.group}>
         <Row icon="book-outline" label={C.howToUse} onPress={() => router.push("/guide")} colors={colors} />
@@ -187,7 +199,8 @@ export default function Settings() {
       ) : null}
 
       <Text style={styles.ver}>Uvel {VERSION}</Text>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -236,6 +249,11 @@ const stylesRow = StyleSheet.create({
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
+    embeddedScroll: { flex: 1 },
+    embeddedHeader: { flexDirection: "row", alignItems: "center", minHeight: 56, paddingHorizontal: 12, backgroundColor: colors.ink },
+    embeddedBack: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+    embeddedTitle: { flex: 1, color: colors.bone, fontSize: 17, fontWeight: "700", textAlign: "center" },
+    embeddedHeaderSpacer: { width: 44, height: 44 },
     content: { padding: 20, paddingBottom: 72 },
     sell: {
       flexDirection: "row",
