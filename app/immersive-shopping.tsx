@@ -273,7 +273,6 @@ export default function ImmersiveShopping() {
       <GestureDetector gesture={panGesture}>
       <View style={styles.page}>
         <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
-        <View pointerEvents="none" style={[styles.statusBarSurface, { height: insets.top, backgroundColor: colors.ink === "#000000" ? "rgba(0,0,0,0.28)" : colors.ink }]} />
         {activePiece ? <>
           {previousPiece ? <Animated.View key={`${activeIndex - 1}:${previousPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle]}>
             <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
@@ -603,7 +602,6 @@ function make(colors: Colors) {
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink, overflow: "hidden" },
-    statusBarSurface: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 11 },
     cardLayer: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" },
     item: { width: SCREEN_WIDTH, backgroundColor: colors.ink, overflow: "hidden" },
     itemImageFrame: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" },
