@@ -121,7 +121,7 @@ export default function TabsLayout() {
             pagerRef={pagerRef}
             pageIndex={pageIndex}
             onPageSelected={onPageSelected}
-            scrollEnabled={!open && pageIndex !== 2}
+            scrollEnabled={!open}
           >
             {tabs.map(({ key, screen }) => (
               <View key={key} style={[styles.page, { backgroundColor: colors.ink }]} collapsable={false}>{screen}</View>
