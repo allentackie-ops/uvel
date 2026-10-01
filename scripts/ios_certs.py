@@ -123,16 +123,11 @@ def main() -> None:
         print(exc)
         if exc.status != 409:
             die("Certificate create failed", exc.body)
-        print("Distribution cert slot full — revoking leftover CI certs, then retrying once")
-        existing_certs = api("GET", "/certificates?limit=200", jwt_token)
-        for item in (existing_certs or {}).get("data", []):
-            ctype = (item.get("attributes") or {}).get("certificateType") or ""
-            if ctype not in {"DISTRIBUTION", "IOS_DISTRIBUTION"}:
-                continue
-            cid = item["id"]
-            print("Revoking leftover", ctype, cid)
-            api("DELETE", f"/certificates/{cid}", jwt_token)
-        created = create_cert()
+        die(
+            "Apple's distribution-certificate limit was reached. No existing certificates were revoked. "
+            "Review Apple Developer and intentionally remove only an unused Uvel certificate before retrying.",
+            exc.body,
+        )
 
     cert_id = created["data"]["id"]
     der_b64 = created["data"]["attributes"]["certificateContent"]
