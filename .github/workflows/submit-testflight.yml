@@ -79,6 +79,5 @@ jobs:
           --platform ios
           --id "${{ inputs.build_id }}"
           --profile production
-          --what-to-test "${{ inputs.what_to_test }}"
           --non-interactive
           --wait
