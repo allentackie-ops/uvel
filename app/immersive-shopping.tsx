@@ -26,6 +26,7 @@ import { useColors, type Colors } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
 import { fallbackShopFloor, refreshMarketplaceListings, shopFloor, useWardrobe } from "../lib/wardrobe";
 import { feedItemAt } from "../lib/feedOrder";
+import { usePersonalization, type RecommendationChoice } from "../lib/personalization";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const MIN_REFRESH_MS = 1200;
@@ -37,6 +38,26 @@ const CATALOG_BRAND_IDS: Record<string, string> = {
 
 type ShopFloorPiece = ReturnType<typeof shopFloor>[number];
 
+type FeedSession = { queue: ShopFloorPiece[]; repeat: ShopFloorPiece[]; seed: number };
+
+function firstFeedPass(items: ShopFloorPiece[], seed: number, anchorId?: string) {
+  const first = Array.from({ length: items.length }, (_, index) => feedItemAt(items, index, seed))
+    .filter((piece): piece is ShopFloorPiece => Boolean(piece));
+  if (anchorId && first.length > 1 && first[0]?.id === anchorId) return [...first.slice(1), first[0]];
+  return first;
+}
+
+function sessionItemAt(session: FeedSession, index: number) {
+  if (index < 0) return undefined;
+  if (index < session.queue.length) return session.queue[index];
+  if (!session.repeat.length) return undefined;
+  return feedItemAt(session.repeat, session.repeat.length + index - session.queue.length, session.seed);
+}
+
+function randomPromptGap(min: number, max: number) {
+  return min + Math.floor(Math.random() * (max - min + 1));
+}
+
 
 
 export default function ImmersiveShopping() {
@@ -45,6 +66,15 @@ export default function ImmersiveShopping() {
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   const insets = useSafeAreaInsets();
   const app = useUvel();
+  const personalization = usePersonalization(app.uid || "guest");
+  const {
+    ready: personalizationReady,
+    rank: rankPersonalized,
+    record: recordPersonalization,
+    hasRecommendationFeedback,
+    hasPromptedRecently,
+    markRecommendationPromptShown,
+  } = personalization;
   const firstFind = useFirstFind();
   const C = useCopy();
   const taskbarHeight = 64 + Math.max(insets.bottom, 8);
@@ -59,12 +89,20 @@ export default function ImmersiveShopping() {
   const [refreshState, setRefreshState] = useState<{ active: boolean; epoch: number; anchorId?: string }>({ active: false, epoch: 0 });
   const refreshing = refreshState.active;
   const [sessionSeed, setSessionSeed] = useState(() => Math.floor(Math.random() * 0x7fffffff));
+  const [feedSession, setFeedSession] = useState<FeedSession>({ queue: [], repeat: [], seed: 0 });
+  const [feedbackPromptPieceId, setFeedbackPromptPieceId] = useState<string | null>(null);
+  const [feedbackToast, setFeedbackToast] = useState<{ choice: RecommendationChoice; message: string } | null>(null);
   const menuPressRef = useRef(false);
   const refreshInFlight = useRef(false);
   const feedEpochRef = useRef(0);
   const refreshFeedSnapshot = useRef<ReturnType<typeof shopFloor> | null>(null);
   const refreshOriginId = useRef<string | undefined>(undefined);
   const visiblePieceId = useRef<string | undefined>(undefined);
+  const activeIndexRef = useRef(activeIndex);
+  activeIndexRef.current = activeIndex;
+  const feedbackPromptRef = useRef<{ pieceId: string; index: number } | null>(null);
+  const feedbackPromptTiming = useRef({ nextIndex: randomPromptGap(3, 6), shownThisSession: new Set<string>() });
+  const feedbackToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipeY = useSharedValue(0);
   const activeIndexShared = useSharedValue(0);
   const swipeLock = useSharedValue(0);
@@ -87,16 +125,16 @@ export default function ImmersiveShopping() {
     return localListed.length ? localListed : bundledPieces;
   }, [app.country, bundledPieces, refreshState, refreshing, wardrobePieces]);
 
+  const rankedPieces = useMemo(() => rankPersonalized(pieces, app.country), [app.country, pieces, rankPersonalized]);
+  const fallbackFeedSession = useMemo<FeedSession>(() => ({
+    queue: firstFeedPass(rankedPieces, sessionSeed),
+    repeat: rankedPieces,
+    seed: sessionSeed,
+  }), [rankedPieces, sessionSeed]);
+  const activeFeedSession = feedSession.queue.length ? feedSession : fallbackFeedSession;
+
   const feedWindow = useMemo(() => {
-    // Refreshes start a new logical pass through the catalog. Without the
-    // offset, feedItemAt(0) always uses pass 0, whose contract preserves the
-    // ranked order, so the first immersive card never changes after refresh.
-    const refreshOffset = refreshState.epoch * pieces.length;
-    const refreshedFirst = refreshState.epoch > 0
-      ? feedItemAt(pieces, refreshOffset, sessionSeed ^ refreshState.epoch)
-      : undefined;
-    const firstCardShift = refreshedFirst?.id === refreshState.anchorId && pieces.length > 1 ? 1 : 0;
-    const itemAt = (index: number) => feedItemAt(pieces, index + refreshOffset + firstCardShift, sessionSeed ^ refreshState.epoch);
+    const itemAt = (index: number) => sessionItemAt(activeFeedSession, index);
     const current = itemAt(activeIndex);
     const next = itemAt(activeIndex + 1);
     return {
@@ -105,11 +143,66 @@ export default function ImmersiveShopping() {
       next,
       preload: [current, next, itemAt(activeIndex + 2)].filter((piece): piece is ShopFloorPiece => Boolean(piece)),
     };
-  }, [activeIndex, pieces, refreshState.epoch, sessionSeed]);
+  }, [activeFeedSession, activeIndex]);
   const previousPiece = feedWindow.previous;
   const activePiece = feedWindow.current;
   const nextPiece = feedWindow.next;
   visiblePieceId.current = activePiece?.id;
+
+  useEffect(() => {
+    if (!personalizationReady || refreshing || !rankedPieces.length) return;
+    setFeedSession((current) => {
+      const source = current.queue.length ? current : fallbackFeedSession;
+      const prefix = Array.from({ length: Math.max(1, activeIndexRef.current + 1) }, (_, index) => sessionItemAt(source, index))
+        .filter((piece): piece is ShopFloorPiece => Boolean(piece));
+      const seen = new Set(prefix.map((piece) => piece.id));
+      const future = rankedPieces.filter((piece) => !seen.has(piece.id));
+      return { queue: [...prefix, ...future], repeat: rankedPieces, seed: current.queue.length ? current.seed : sessionSeed };
+    });
+  }, [fallbackFeedSession, personalizationReady, rankedPieces, refreshing, sessionSeed]);
+
+  useEffect(() => () => {
+    if (feedbackToastTimer.current) clearTimeout(feedbackToastTimer.current);
+  }, []);
+
+  useEffect(() => {
+    if (!activePiece || !personalizationReady || refreshing || drawerOpen) return;
+    const currentPrompt = feedbackPromptRef.current;
+    if (currentPrompt?.pieceId === activePiece.id && currentPrompt.index === activeIndex) return;
+    if (activeIndex < feedbackPromptTiming.current.nextIndex) return;
+    const alreadyAsked = feedbackPromptTiming.current.shownThisSession.has(activePiece.id);
+    const ineligible = activePiece.id.startsWith("test-")
+      || Boolean(app.uid && (activePiece.ownerId || activePiece.listedByUid) === app.uid)
+      || hasRecommendationFeedback(activePiece.id)
+      || hasPromptedRecently(activePiece.id)
+      || alreadyAsked;
+    if (ineligible) {
+      feedbackPromptTiming.current.nextIndex = activeIndex + randomPromptGap(2, 4);
+      return;
+    }
+    feedbackPromptRef.current = { pieceId: activePiece.id, index: activeIndex };
+    feedbackPromptTiming.current.shownThisSession.add(activePiece.id);
+    markRecommendationPromptShown(activePiece.id);
+    setFeedbackPromptPieceId(activePiece.id);
+  }, [activeIndex, activePiece?.id, activePiece?.ownerId, activePiece?.listedByUid, app.uid, drawerOpen, hasPromptedRecently, hasRecommendationFeedback, markRecommendationPromptShown, personalizationReady, refreshing]);
+
+  const respondToRecommendation = useCallback((piece: ShopFloorPiece, choice: RecommendationChoice) => {
+    if (feedbackPromptRef.current?.pieceId !== piece.id) return;
+    recordPersonalization(choice, piece);
+    feedbackPromptRef.current = null;
+    setFeedbackPromptPieceId(null);
+    feedbackPromptTiming.current.nextIndex = activeIndexRef.current + randomPromptGap(4, 8);
+    const message = choice === "interested"
+      ? "We’ll suggest more listings like this."
+      : "We’ll show you fewer listings like this.";
+    setFeedbackToast({ choice, message });
+    void Haptics.notificationAsync(choice === "interested" ? Haptics.NotificationFeedbackType.Success : Haptics.NotificationFeedbackType.Warning).catch(() => undefined);
+    if (feedbackToastTimer.current) clearTimeout(feedbackToastTimer.current);
+    feedbackToastTimer.current = setTimeout(() => {
+      setFeedbackToast(null);
+      feedbackToastTimer.current = null;
+    }, 2600);
+  }, [recordPersonalization]);
 
   const onRefresh = useCallback(async () => {
     if (refreshInFlight.current) return;
@@ -131,11 +224,14 @@ export default function ImmersiveShopping() {
       const nextEpoch = feedEpochRef.current + 1;
       const nextSeed = Math.floor(Math.random() * 0x7fffffff);
       const refreshedPieces = shopFloor(app.country);
-      const refreshOffset = nextEpoch * refreshedPieces.length;
-      const refreshedFirst = feedItemAt(refreshedPieces, refreshOffset, nextSeed ^ nextEpoch);
-      const firstCardShift = refreshedFirst?.id === refreshOriginId.current && refreshedPieces.length > 1 ? 1 : 0;
-      const refreshedFeed = Array.from({ length: Math.min(3, refreshedPieces.length) }, (_, index) =>
-        feedItemAt(refreshedPieces, index + refreshOffset + firstCardShift, nextSeed ^ nextEpoch),
+      const refreshedRanked = rankPersonalized(refreshedPieces, app.country);
+      const refreshedSession: FeedSession = {
+        queue: firstFeedPass(refreshedRanked, nextSeed, refreshOriginId.current),
+        repeat: refreshedRanked,
+        seed: nextSeed,
+      };
+      const refreshedFeed = Array.from({ length: Math.min(3, refreshedSession.queue.length) }, (_, index) =>
+        sessionItemAt(refreshedSession, index),
       ).filter((piece): piece is ShopFloorPiece => Boolean(piece));
       const incomingImages = refreshedFeed
         .slice(0, 3)
@@ -148,9 +244,13 @@ export default function ImmersiveShopping() {
       }
       feedEpochRef.current = nextEpoch;
       setSessionSeed(nextSeed);
+      setFeedSession(refreshedSession);
       setActiveIndex(0);
       activeIndexShared.value = 0;
       swipeY.value = 0;
+      feedbackPromptRef.current = null;
+      feedbackPromptTiming.current.nextIndex = randomPromptGap(3, 6);
+      setFeedbackPromptPieceId(null);
       refreshFeedSnapshot.current = null;
       setRefreshState({ active: false, epoch: nextEpoch, anchorId: refreshOriginId.current });
       refreshInFlight.current = false;
@@ -158,7 +258,7 @@ export default function ImmersiveShopping() {
       refreshImageScale.value = withTiming(1, { duration: 240, easing: Easing.out(Easing.cubic) });
       swipeLock.value = 0;
     }
-  }, [activeIndexShared, app.country, pieces, refreshActiveShared, refreshImageScale, sessionSeed, swipeLock, swipeY]);
+  }, [activeIndexShared, app.country, pieces, rankPersonalized, refreshActiveShared, refreshImageScale, swipeLock, swipeY]);
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
 
   useEffect(() => {
@@ -177,6 +277,12 @@ export default function ImmersiveShopping() {
     transform: [{ translateY: swipeY.value + (activeIndex - 1 - activeIndexShared.value) * contentHeight }],
   }));
   const commitSwipe = useCallback((nextIndex: number) => {
+    const currentPrompt = feedbackPromptRef.current;
+    if (currentPrompt && currentPrompt.index !== nextIndex) {
+      feedbackPromptRef.current = null;
+      setFeedbackPromptPieceId(null);
+      if (nextIndex > currentPrompt.index) feedbackPromptTiming.current.nextIndex = nextIndex + randomPromptGap(4, 8);
+    }
     setActiveIndex(nextIndex);
   }, []);
   const panGesture = useMemo(() => Gesture.Pan()
@@ -298,6 +404,8 @@ export default function ImmersiveShopping() {
           <ImmersiveItem
           piece={activePiece}
           active
+          feedbackPrompted={feedbackPromptPieceId === activePiece.id}
+          onRecommendationFeedback={respondToRecommendation}
           colors={colors}
           styles={styles}
           insets={insets}
@@ -324,6 +432,10 @@ export default function ImmersiveShopping() {
         {findHint ? <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 68 }]} accessibilityLiveRegion="polite">
           <Text style={styles.findToastK}>{C.firstFind}</Text>
           <Text style={styles.findToastTxt}>{C.matchingPiece} · {moneyExact(firstFind.remaining, firstFind.currency)}</Text>
+        </View> : null}
+        {feedbackToast ? <View pointerEvents="none" style={[styles.preferenceToast, { top: insets.top + (findHint ? 132 : 68) }]} accessibilityLiveRegion="polite">
+          <Ionicons name={feedbackToast.choice === "interested" ? "checkmark-circle" : "close-circle-outline"} size={20} color={feedbackToast.choice === "interested" ? colors.success : overlayColor} />
+          <Text style={styles.preferenceToastText}>{feedbackToast.message}</Text>
         </View> : null}
         {orbitOn ? <View pointerEvents="none" style={[styles.refreshOrbit, { top: insets.top + 68 }]}><OrbitLoader /></View> : null}
         <ImmersiveTaskbar colors={colors} C={C} insets={insets} styles={styles} />
@@ -366,7 +478,7 @@ function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: Re
   );
 }
 
-function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, refreshImageScale, onFirstFind, firstFindLabel }: any) {
+function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, refreshImageScale, onFirstFind, firstFindLabel, feedbackPrompted, onRecommendationFeedback }: any) {
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   const [shareOpen, setShareOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -455,7 +567,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         </Animated.View>
         <View pointerEvents="none" style={styles.itemShade} />
       </AccessiblePressable>
-      <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: 24 }]}>
+      <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: feedbackPrompted ? 88 : 24 }]}>
         <View style={styles.copySpacer} />
         {canMakeOffer ? (
           <View style={styles.offerFooter}>
@@ -511,7 +623,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           </View>
         )}
       </View>
-      <View style={[styles.actions, { bottom: 118 }]} onLayout={(event) => {
+      <View style={[styles.actions, { bottom: feedbackPrompted ? 164 : 118 }]} onLayout={(event) => {
         const { x, y, width, height } = event.nativeEvent.layout;
         saveTargetX.value = x + width / 2;
         saveTargetY.value = y + height - 99;
@@ -544,6 +656,28 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         <Action icon={liked ? "heart" : "heart-outline"} label="Save" active={liked} onPress={() => { if (!liked) app.likePiece(piece.id); else void app.toggleSaved(piece.id); }} styles={styles} colors={colors} />
         <Action icon="share-outline" label="Share" onPress={() => setShareOpen(true)} styles={styles} colors={colors} />
       </View>
+      {active && feedbackPrompted ? <View style={styles.recommendationPrompt}>
+        <AccessiblePressable
+          onPress={() => onRecommendationFeedback(piece, "not_interested")}
+          style={({ pressed }) => [styles.recommendationChoice, pressed && styles.recommendationChoicePressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Not interested in this listing"
+          accessibilityHint="We’ll show fewer listings with similar styles."
+        >
+          <Ionicons name="close-circle-outline" size={18} color={overlayColor} />
+          <Text style={styles.recommendationChoiceText}>Not interested</Text>
+        </AccessiblePressable>
+        <AccessiblePressable
+          onPress={() => onRecommendationFeedback(piece, "interested")}
+          style={({ pressed }) => [styles.recommendationChoice, styles.recommendationChoiceInterested, pressed && styles.recommendationChoicePressed]}
+          accessibilityRole="button"
+          accessibilityLabel="Interested in this listing"
+          accessibilityHint="We’ll suggest more listings with similar styles."
+        >
+          <Ionicons name="checkmark" size={18} color={colors.successInk} />
+          <Text style={[styles.recommendationChoiceText, styles.recommendationChoiceInterestedText]}>Interested</Text>
+        </AccessiblePressable>
+      </View> : null}
       {active ? <Animated.Text pointerEvents="none" style={[styles.heartPop, heartStyle]}>♥</Animated.Text> : null}
       <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
       <ImmersiveListingDetails
@@ -702,6 +836,12 @@ function make(colors: Colors) {
     actions: { position: "absolute", right: 15, gap: 18, alignItems: "center", zIndex: 9 },
     action: { width: 54, minHeight: 54, alignItems: "center", justifyContent: "center", gap: 3 },
     actionLabel: { color: overlayColor, fontSize: 10, fontWeight: "700", textShadowColor: "#000", textShadowRadius: 5 },
+    recommendationPrompt: { position: "absolute", left: 16, right: 16, bottom: 12, zIndex: 14, flexDirection: "row", gap: 9, padding: 4, borderRadius: 30, backgroundColor: "rgba(7,7,7,0.66)", borderWidth: 1, borderColor: "rgba(255,255,255,0.20)" },
+    recommendationChoice: { flex: 1, minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.26)", backgroundColor: "rgba(255,255,255,0.06)", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, paddingHorizontal: 8 },
+    recommendationChoiceInterested: { backgroundColor: colors.success, borderColor: colors.success },
+    recommendationChoicePressed: { opacity: 0.78, transform: [{ scale: 0.98 }] },
+    recommendationChoiceText: { color: overlayColor, fontSize: 12, fontWeight: "800" },
+    recommendationChoiceInterestedText: { color: colors.successInk },
     heartPop: { position: "absolute", left: 0, top: 0, zIndex: 20, color: colors.success, fontSize: 68, lineHeight: 72, textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
     empty: { flex: 1, backgroundColor: colors.ink, paddingHorizontal: 24 },
     emptyKicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.7, marginTop: 80 },
@@ -709,6 +849,8 @@ function make(colors: Colors) {
     emptyBody: { color: colors.muted, fontSize: 16, lineHeight: 23, marginTop: 10 },
     firstFindText: { color: colors.successInk, fontSize: 11, fontWeight: "900", letterSpacing: 0.2 },
     findToast: { position: "absolute", left: 20, right: 20, zIndex: 20, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: "rgba(12,11,9,0.88)", borderWidth: 1, borderColor: `${colors.success}66` },
+    preferenceToast: { position: "absolute", left: 20, right: 20, zIndex: 21, borderRadius: 15, paddingHorizontal: 15, paddingVertical: 13, backgroundColor: "rgba(12,11,9,0.92)", borderWidth: 1, borderColor: `${colors.success}70`, flexDirection: "row", alignItems: "center", gap: 10 },
+    preferenceToastText: { flex: 1, color: overlayColor, fontSize: 14, fontWeight: "700", lineHeight: 19 },
     refreshOrbit: { position: "absolute", left: 0, right: 0, height: 58, alignItems: "center", justifyContent: "center", zIndex: 30 },
     findToastK: { color: colors.success, fontSize: 11, fontWeight: "900", letterSpacing: 1.2, textTransform: "uppercase" },
     findToastTxt: { color: overlayColor, fontSize: 13, fontWeight: "700", marginTop: 3 },
