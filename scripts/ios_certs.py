@@ -138,7 +138,14 @@ def main() -> None:
             ),
             None,
         )
-        if not match:
+        if match:
+            print("Revoking explicitly authorized certificate", revoke_serial, match["id"])
+            api("DELETE", f"/certificates/{match['id']}", jwt_token)
+        else:
+            print("Authorized certificate is already absent; retrying certificate creation without revoking another certificate.")
+        try:
+            created = create_cert()
+        except AppleApiError as retry_exc:
             print("Available Apple certificates:")
             for item in (certificates or {}).get("data", []):
                 attrs = item.get("attributes") or {}
@@ -149,10 +156,7 @@ def main() -> None:
                     attrs.get("displayName"),
                     attrs.get("expirationDate"),
                 )
-            die(f"Authorized certificate serial {revoke_serial} was not found; no certificates were revoked.")
-        print("Revoking explicitly authorized certificate", revoke_serial, match["id"])
-        api("DELETE", f"/certificates/{match['id']}", jwt_token)
-        created = create_cert()
+            die("Apple still rejected replacement certificate creation after the authorized revocation.", retry_exc.body)
 
     cert_id = created["data"]["id"]
     der_b64 = created["data"]["attributes"]["certificateContent"]
