@@ -120,14 +120,29 @@ def main() -> None:
     try:
         created = create_cert()
     except AppleApiError as exc:
-        print(exc)
         if exc.status != 409:
             die("Certificate create failed", exc.body)
-        die(
-            "Apple's distribution-certificate limit was reached. No existing certificates were revoked. "
-            "Review Apple Developer and intentionally remove only an unused Uvel certificate before retrying.",
-            exc.body,
+        revoke_serial = os.environ.get("REVOKE_CERT_SERIAL", "").strip()
+        if not revoke_serial:
+            die(
+                "Apple's distribution-certificate limit was reached. No existing certificates were revoked. "
+                "Review Apple Developer and intentionally remove only an unused Uvel certificate before retrying.",
+                exc.body,
+            )
+        certificates = api("GET", "/certificates?limit=200", jwt_token)
+        match = next(
+            (
+                item
+                for item in (certificates or {}).get("data", [])
+                if str((item.get("attributes") or {}).get("serialNumber", "")) == revoke_serial
+            ),
+            None,
         )
+        if not match:
+            die(f"Authorized certificate serial {revoke_serial} was not found; no certificates were revoked.")
+        print("Revoking explicitly authorized certificate", revoke_serial, match["id"])
+        api("DELETE", f"/certificates/{match['id']}", jwt_token)
+        created = create_cert()
 
     cert_id = created["data"]["id"]
     der_b64 = created["data"]["attributes"]["certificateContent"]

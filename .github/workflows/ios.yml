@@ -39,6 +39,7 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
           CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
+          REVOKE_CERT_SERIAL: "56BCD8703847FD5B68683B6870A8287"
         run: python3 scripts/ios_certs.py
 
       - name: Link EAS project
