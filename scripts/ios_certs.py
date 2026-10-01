@@ -139,6 +139,16 @@ def main() -> None:
             None,
         )
         if not match:
+            print("Available Apple certificates:")
+            for item in (certificates or {}).get("data", []):
+                attrs = item.get("attributes") or {}
+                print(
+                    item.get("id"),
+                    attrs.get("certificateType"),
+                    attrs.get("serialNumber"),
+                    attrs.get("displayName"),
+                    attrs.get("expirationDate"),
+                )
             die(f"Authorized certificate serial {revoke_serial} was not found; no certificates were revoked.")
         print("Revoking explicitly authorized certificate", revoke_serial, match["id"])
         api("DELETE", f"/certificates/{match['id']}", jwt_token)
