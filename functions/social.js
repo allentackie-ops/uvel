@@ -90,6 +90,32 @@ exports.sendFriendRequest = onCall(async (req) => {
   return { requestId, status: "pending" };
 });
 
+exports.addFriendFromShare = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before adding a friend.");
+  const sharedByUid = String(req.data && req.data.sharedByUid || "").trim();
+  if (!sharedByUid || sharedByUid === req.auth.uid) throw new HttpsError("invalid-argument", "That friend link is not valid.");
+  const db = admin.firestore();
+  if (await isBlocked(db, req.auth.uid, sharedByUid)) throw new HttpsError("permission-denied", "You can’t add this user.");
+  const [meSnap, friendSnap] = await Promise.all([db.collection("users").doc(req.auth.uid).get(), db.collection("users").doc(sharedByUid).get()]);
+  if (!friendSnap.exists) throw new HttpsError("not-found", "That Uvel member is no longer available.");
+  const me = publicUser(req.auth.uid, meSnap.data() || {});
+  const friend = publicUser(sharedByUid, friendSnap.data() || {});
+  const pair = [req.auth.uid, sharedByUid].sort().join("_");
+  const friendshipRef = db.collection("friendships").doc(pair);
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  await db.runTransaction(async (tx) => {
+    const existing = await tx.get(friendshipRef);
+    if (!existing.exists) tx.set(friendshipRef, { userIds: [req.auth.uid, sharedByUid], createdAt: now, source: "shared_link" });
+    tx.set(db.collection("users").doc(req.auth.uid).collection("notifications").doc(`friend_added_${pair}_${req.auth.uid}`), { kind: "friend_added", requestId: pair, actor: friend, readAt: null, createdAt: now }, { merge: true });
+    tx.set(db.collection("users").doc(sharedByUid).collection("notifications").doc(`friend_added_${pair}_${sharedByUid}`), { kind: "friend_added", requestId: pair, actor: me, readAt: null, createdAt: now }, { merge: true });
+  });
+  await Promise.all([
+    notifyUid(db, req.auth.uid, `${friend.displayName || "Your friend"} has been added`, "You’re now friends on Uvel.", { kind: "friend_added", friendUid: sharedByUid }),
+    notifyUid(db, sharedByUid, `${me.displayName || "Your friend"} added you`, "You’re now friends on Uvel.", { kind: "friend_added", friendUid: req.auth.uid }),
+  ]);
+  return { status: "added", friendshipId: pair };
+});
+
 exports.respondFriendRequest = onCall(async (req) => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before responding to a friend request.");
   const requestId = String(req.data && req.data.requestId || "").trim();

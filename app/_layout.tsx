@@ -27,6 +27,7 @@ import { armFounderDesk, founderDeskRoute, getFounderDeskJob, revealFounderDesk 
 import { useFounderCheckSync } from "../lib/founderCheck";
 import { FounderDeskNotice } from "../components/FounderDeskNotice";
 import { FounderCheckNotice } from "../components/FounderCheckNotice";
+import { FriendShareLinkNotice } from "../components/FriendShareLinkNotice";
 import Onboard from "./onboard";
 import ProfileSetup from "./setup";
 
@@ -109,7 +110,7 @@ function PushSync() {
             router.push({ pathname: "/brand/[id]", params: { id: data.brandId } });
             return;
           }
-          if (kind === "friend_request" || kind === "friend_accepted") {
+          if (kind === "friend_request" || kind === "friend_accepted" || kind === "friend_added") {
             router.push("/inbox");
             return;
           }
@@ -752,6 +753,7 @@ export default function Root() {
         {signedIn && gateReady && !intro ? <DraftResumeNotice /> : null}
         {signedIn && gateReady && !intro ? <FounderDeskNotice /> : null}
         {signedIn && gateReady && !intro ? <FounderCheckNotice /> : null}
+        {signedIn && gateReady && !intro ? <FriendShareLinkNotice uid={uid} /> : null}
         {intro || !gateReady ? <LaunchSplash ready={gateReady} onDone={dismiss} /> : null}
       </GestureHandlerRootView>
     </SafeAreaProvider>

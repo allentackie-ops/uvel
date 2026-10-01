@@ -3,7 +3,7 @@ import { httpsCallable } from "firebase/functions";
 import { firebaseDb, firebaseFunctions, firebaseReady } from "./firebase";
 
 export type PublicUser = { uid: string; username: string; displayName: string; avatarUri?: string };
-export type FriendNotification = { id: string; kind: "friend_request" | "friend_accepted"; requestId: string; actor: PublicUser; readAt?: unknown; createdAt?: unknown };
+export type FriendNotification = { id: string; kind: "friend_request" | "friend_accepted" | "friend_added"; requestId: string; actor: PublicUser; readAt?: unknown; createdAt?: unknown };
 
 export async function searchUsers(term: string) {
   if (!firebaseReady()) return [] as PublicUser[];
@@ -18,6 +18,12 @@ export async function sendFriendRequest(toUid: string) {
   return (await call({ toUid })).data;
 }
 
+export async function addFriendFromShare(sharedByUid: string) {
+  if (!firebaseReady()) throw new Error("Friends are unavailable offline.");
+  const call = httpsCallable<{ sharedByUid: string }, { status: string; friendshipId: string }>(firebaseFunctions(), "addFriendFromShare");
+  return (await call({ sharedByUid })).data;
+}
+
 export async function respondFriendRequest(requestId: string, action: "accepted" | "declined") {
   if (!firebaseReady()) throw new Error("Friends are unavailable offline.");
   const call = httpsCallable<{ requestId: string; action: string }, { requestId: string; status: string }>(firebaseFunctions(), "respondFriendRequest");
@@ -26,7 +32,7 @@ export async function respondFriendRequest(requestId: string, action: "accepted"
 
 export function subscribeFriendNotifications(uid: string, callback: (items: FriendNotification[]) => void) {
   if (!firebaseReady() || !uid) return () => undefined;
-  const q = query(collection(firebaseDb(), "users", uid, "notifications"), where("kind", "in", ["friend_request", "friend_accepted"]), orderBy("createdAt", "desc"));
+  const q = query(collection(firebaseDb(), "users", uid, "notifications"), where("kind", "in", ["friend_request", "friend_accepted", "friend_added"]), orderBy("createdAt", "desc"));
   return onSnapshot(q, (snap) => {
     callback(snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Omit<FriendNotification, "id">) })));
   }, () => callback([]));

@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createFriendChat, listFriends, sendFriendMessage, uploadFriendAttachment } from "../lib/friendChat";
 import { searchUsers, sendFriendRequest, type PublicUser } from "../lib/friends";
 import { useColors } from "../lib/theme";
+import { useUvel } from "../lib/store";
 
 export type FriendSharePayload = { kind: "listing" | "mirror"; id?: string; title: string; deepLink: string; imageUri?: string; previewText?: string };
 
@@ -24,6 +25,7 @@ type FriendShareSheetProps = {
 
 export function FriendShareSheet({ visible, payload, onClose, onExternalShare }: FriendShareSheetProps) {
   const colors = useColors();
+  const app = useUvel();
   const insets = useSafeAreaInsets();
   const [friends, setFriends] = useState<PublicUser[]>([]);
   const [message, setMessage] = useState("");
@@ -43,6 +45,13 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
   const scrollHandler = useAnimatedScrollHandler({ onScroll: (event) => { scrollY.value = event.contentOffset.y; } });
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
   const backdropStyle = useAnimatedStyle(() => ({ opacity: interpolate(translateY.value, [0, 360], [1, 0], Extrapolation.CLAMP) }));
+  const shareLink = useMemo(() => {
+    if (!payload) return "";
+    const separator = payload.deepLink.includes("?") ? "&" : "?";
+    const name = encodeURIComponent(app.displayName || (app.username ? `@${app.username}` : "A friend"));
+    const username = encodeURIComponent(app.username || "");
+    return `${payload.deepLink}${separator}sharedBy=${encodeURIComponent(app.uid)}&sharedByName=${name}${username ? `&sharedByUsername=${username}` : ""}`;
+  }, [app.displayName, app.uid, app.username, payload]);
 
   useEffect(() => {
     if (!visible) return;
@@ -93,7 +102,7 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
         const base64 = await FileSystem.readAsStringAsync(payload.imageUri, { encoding: FileSystem.EncodingType.Base64 });
         photoUrl = await uploadFriendAttachment(base64, "image/jpeg");
       }
-      await sendFriendMessage(id, `${message.trim() ? `${message.trim()}\n\n` : ""}${payload.previewText || `Check this out: ${payload.title}`}\n${payload.deepLink}`, photoUrl);
+      await sendFriendMessage(id, `${message.trim() ? `${message.trim()}\n\n` : ""}${payload.previewText || `Check this out: ${payload.title}`}\n${shareLink}`, photoUrl);
       setMessage("");
       Alert.alert("Shared", `Sent to ${friend.displayName || `@${friend.username}`}.`);
       onClose();
@@ -118,7 +127,7 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
   async function openExternal(kind: "copy" | "message" | "whatsapp" | "email" | "more") {
     if (!payload) return;
     Keyboard.dismiss();
-    const text = `${payload.previewText || `Check this out: ${payload.title}`}\n${payload.deepLink}`;
+    const text = `${payload.previewText || `Check this out: ${payload.title}`}\n${shareLink}`;
     if (kind === "more") { await Share.share({ message: text, title: payload.title }); return; }
     const urls: Record<Exclude<typeof kind, "copy" | "more">, string> = {
       message: `sms:&body=${encodeURIComponent(text)}`,
