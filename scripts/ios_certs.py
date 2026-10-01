@@ -122,8 +122,8 @@ def main() -> None:
     except AppleApiError as exc:
         if exc.status != 409:
             die("Certificate create failed", exc.body)
-        revoke_serial = os.environ.get("REVOKE_CERT_SERIAL", "").strip()
-        if not revoke_serial:
+        revoke_serials = [value.strip() for value in os.environ.get("REVOKE_CERT_SERIALS", "").split(",") if value.strip()]
+        if not revoke_serials:
             die(
                 "Apple's distribution-certificate limit was reached. No existing certificates were revoked. "
                 "Review Apple Developer and intentionally remove only an unused Uvel certificate before retrying.",
@@ -134,15 +134,21 @@ def main() -> None:
             (
                 item
                 for item in (certificates or {}).get("data", [])
-                if str((item.get("attributes") or {}).get("serialNumber", "")) == revoke_serial
+                if str((item.get("attributes") or {}).get("serialNumber", "")) in revoke_serials
             ),
             None,
         )
-        if match:
-            print("Revoking explicitly authorized certificate", revoke_serial, match["id"])
-            api("DELETE", f"/certificates/{match['id']}", jwt_token)
-        else:
-            print("Authorized certificate is already absent; retrying certificate creation without revoking another certificate.")
+        matches = [
+            item
+            for item in (certificates or {}).get("data", [])
+            if str((item.get("attributes") or {}).get("serialNumber", "")) in revoke_serials
+        ]
+        for item in matches:
+            attrs = item.get("attributes") or {}
+            print("Revoking explicitly authorized certificate", attrs.get("serialNumber"), item["id"])
+            api("DELETE", f"/certificates/{item['id']}", jwt_token)
+        if not matches:
+            print("Authorized certificates are already absent; retrying certificate creation without revoking another certificate.")
         try:
             created = create_cert()
         except AppleApiError as retry_exc:
