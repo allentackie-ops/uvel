@@ -78,13 +78,13 @@ export default function CategoryListings() {
         ListHeaderComponent={
           <View>
             {hero ? <View style={[styles.heroCard, { height }]}>
-              <Image source={{ uri: hero.photo }} style={styles.heroImage} contentFit="contain" />
+              <Image source={{ uri: hero.photo }} style={styles.heroImage} contentFit="cover" />
               <View style={styles.heroShade} />
               <View style={[styles.heroTop, { top: insets.top + 10 }]}>
                 <Pressable onPress={() => router.back()} hitSlop={12} style={styles.heroBack} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="arrow-back" size={22} color={colors.bone} /></Pressable>
                 <View style={styles.heroHeading}><Text style={styles.heroKicker}>SHOP ANY LISTING</Text><Text style={styles.heroPageTitle}>{page.title}</Text></View>
               </View>
-              <Animated.View style={{ opacity: scrollY.interpolate({ inputRange: [0, height * 0.52], outputRange: [1, 0.35], extrapolate: "clamp" }) }}>
+              <Animated.View style={{ opacity: scrollY.interpolate({ inputRange: [0, height * 0.52], outputRange: [1, 0], extrapolate: "clamp" }) }}>
               <FlatList
                 horizontal
                 data={CATEGORY_RAIL}
@@ -114,6 +114,16 @@ export default function CategoryListings() {
         renderItem={({ item }) => <View style={styles.cell}><ListingCard piece={item} framed onInteraction={personalization.record} /></View>}
         ListEmptyComponent={sync === "loading" ? <ActivityIndicator color={colors.success} style={styles.empty} /> : <View style={styles.emptyWrap}><Ionicons name="search-outline" size={26} color={colors.subtle} /><Text style={styles.emptyTitle}>Nothing here yet</Text><Text style={styles.empty}>Try another category or come back soon.</Text></View>}
       />
+      <Animated.View pointerEvents="box-none" style={[styles.floatingRail, { top: insets.top + 74, opacity: scrollY.interpolate({ inputRange: [0, height * 0.24, height * 0.52], outputRange: [0, 0, 1], extrapolate: "clamp" }) }]}>
+        <FlatList
+          horizontal
+          data={CATEGORY_RAIL}
+          keyExtractor={(item) => `floating-${item.slug}`}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.floatingRailContent}
+          renderItem={({ item }) => { const active = item.slug === activeSlug; return <Pressable onPress={() => router.replace({ pathname: "/category/[slug]", params: { slug: item.slug } })} style={[styles.railItem, active && styles.railItemOn]} accessibilityRole="tab" accessibilityState={{ selected: active }}><Text style={[styles.railText, active && styles.railTextOn]}>{item.label}</Text></Pressable>; }}
+        />
+      </Animated.View>
     </View>
   );
 }
@@ -122,7 +132,7 @@ function make(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     content: { flexGrow: 1, paddingHorizontal: 0 },
-    heroCard: { width: "100%", overflow: "hidden", backgroundColor: colors.ink, marginBottom: 24 },
+    heroCard: { width: "100%", overflow: "hidden", backgroundColor: colors.surface, marginBottom: 24 },
     heroImage: { ...StyleSheet.absoluteFillObject },
     heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.44)" },
     heroTop: { position: "absolute", left: 16, right: 16, flexDirection: "row", alignItems: "center", gap: 10 },
@@ -131,6 +141,8 @@ function make(colors: ReturnType<typeof useColors>) {
     heroKicker: { color: colors.success, fontSize: 10, letterSpacing: 1.6, fontWeight: "900" },
     heroPageTitle: { color: colors.bone, fontSize: 28, lineHeight: 32, fontWeight: "900", marginTop: 2 },
     heroRail: { position: "absolute", left: 16, right: 16, gap: 8 },
+    floatingRail: { position: "absolute", left: 0, right: 0, zIndex: 10 },
+    floatingRailContent: { paddingHorizontal: 16, gap: 8 },
     railItem: { paddingHorizontal: 13, height: 32, borderRadius: 16, borderWidth: 1, borderColor: "#F4F0E640", backgroundColor: "#00000045", alignItems: "center", justifyContent: "center" },
     railItemOn: { backgroundColor: colors.bone, borderColor: colors.bone },
     railText: { color: colors.bone, fontSize: 11, fontWeight: "800" },
