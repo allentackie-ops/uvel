@@ -1,136 +1,24 @@
 import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "../../lib/haptics";
-import { alertKindLabel, enableAlert, setAlertPreference, type AlertKind, useAlertPreference } from "../../lib/alerts";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useRef, useEffect, useMemo, useState } from "react";
-import { Alert, Animated, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo } from "react";
+import { Alert, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { usd } from "../../lib/catalog";
-import { recordAnalyticsEvent } from "../../lib/analytics";
-import { getMarket } from "../../lib/markets";
-import { getBrand, themeFor, useBrands } from "../../lib/brands";
-import { listingVisibleIn, shipsToLine } from "../../lib/ships";
-import { shopLookOf, type ShopLook } from "../../lib/shopLook";
-import { useUvel } from "../../lib/store";
-import { useColors, type Colors } from "../../lib/theme";
-import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { MotionClip } from "../../components/MotionClip";
 import { TodayListingOverlay } from "../../components/TodayListingOverlay";
-import { getPiece, isRemoteListedPiece, likeCount, markSold, recordPieceView, unlistPiece, updatePiece, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { recordAnalyticsEvent } from "../../lib/analytics";
+import { getBrand, themeFor, useBrands } from "../../lib/brands";
+import { usd } from "../../lib/catalog";
+import { getMarket } from "../../lib/markets";
+import { shopLookOf } from "../../lib/shopLook";
+import { useUvel } from "../../lib/store";
+import { useColors, type Colors } from "../../lib/theme";
+import { getPiece, markSold, recordPieceView, unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
 const W = Dimensions.get("window").width;
-const HERO_H = Math.round(W * 1.28);
-
-const SWATCH: Record<string, string> = {
-  olive: "#6E7C3A",
-  green: "#2F6B3A",
-  black: "#111111",
-  white: "#F4F0E6",
-  cream: "#E8DFD0",
-  ivory: "#F4F0E6",
-  navy: "#1B2A4A",
-  blue: "#2C4C8A",
-  red: "#9B1C2C",
-  burgundy: "#6B1D2A",
-  wine: "#5A1824",
-  brown: "#5C3A24",
-  tan: "#C4A574",
-  beige: "#D8C7A8",
-  pink: "#D9A3B0",
-  gold: "#C9A96E",
-  silver: "#C5C0B6",
-  grey: "#8A8580",
-  gray: "#8A8580",
-  yellow: "#D6C25A",
-  orange: "#C4652A",
-  purple: "#5C3D7A",
-  camel: "#C4A574",
-  khaki: "#9A8B5C",
-  rust: "#A24A2A",
-};
-
-function swatchOf(color?: string) {
-  if (!color) return null;
-  const n = color.toLowerCase();
-  const hit = Object.keys(SWATCH).find((k) => n.includes(k));
-  return hit ? SWATCH[hit] : null;
-}
 
 function isMine(piece: ClosetPiece, uid: string) {
   return Boolean(uid) && Boolean(piece.ownerId) && piece.ownerId === uid;
-}
-
-function AlertPanel({
-  piece,
-  uid,
-  saved,
-  preference,
-  onSave,
-  styles,
-}: {
-  piece: ClosetPiece;
-  uid: string;
-  saved: boolean;
-  preference: ReturnType<typeof useAlertPreference>;
-  onSave: (id: string) => Promise<void>;
-  styles: ReturnType<typeof make>;
-}) {
-  const [busy, setBusy] = useState(false);
-
-
-  async function choose(kind: AlertKind) {
-    if (!uid || busy) return;
-    setBusy(true);
-    try {
-      if (!saved) await onSave(piece.id);
-      const result = await enableAlert(uid, piece, kind);
-      if (!result.permission) {
-        Alert.alert("Alert saved", "Your alert is saved in Uvel. Turn on notifications in Settings if you want device notifications when a change is recorded.");
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function turnOff() {
-    if (!uid || busy) return;
-    setBusy(true);
-    try {
-      await setAlertPreference(uid, piece, "off");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  const selected = preference?.kind;
-  return (
-    <View style={styles.alertCard}>
-      <View style={styles.alertHead}>
-        <Text style={styles.alertTitle}>Price & restock alerts</Text>
-        {busy ? <Text style={styles.alertOff}>Saving…</Text> : null}
-      </View>
-      <Text style={styles.alertCopy}>Save this item and get notified when its recorded price drops or its published inventory returns.</Text>
-      <View style={styles.alertOptions}>
-        {(["price_drop", "restock", "both"] as const).map((kind) => {
-          const on = selected === kind;
-          return (
-            <Pressable key={kind} onPress={() => void choose(kind)} disabled={busy} style={[styles.alertOption, on && styles.alertOptionOn]} accessibilityRole="button" accessibilityState={{ selected: on, disabled: busy }} accessibilityLabel={`Set ${alertKindLabel(kind)} alert for ${piece.name}`}>
-              <Text style={[styles.alertOptionText, on && styles.alertOptionTextOn]}>{kind === "price_drop" ? "Price drops" : kind === "restock" ? "Restocks" : "Both"}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-      {preference ? (
-        <Pressable onPress={() => void turnOff()} disabled={busy} accessibilityRole="button" accessibilityLabel={`Turn off ${alertKindLabel(preference.kind)} alerts for ${piece.name}`}>
-          <Text style={styles.alertOff}>Watching for {alertKindLabel(preference.kind)} · Turn off</Text>
-        </Pressable>
-      ) : (
-        <Text style={styles.alertOff}>Choose an alert to save this item and start watching it.</Text>
-      )}
-    </View>
-  );
 }
 
 function OwnerListing({ piece, insets, onBack }: { piece: ClosetPiece; insets: { top: number; bottom: number }; onBack: () => void }) {
@@ -249,27 +137,17 @@ function OwnerListing({ piece, insets, onBack }: { piece: ClosetPiece; insets: {
 
 export default function ClosetPiece() {
   const insets = useSafeAreaInsets();
-  const { id, v, campaignId, collectionId, promotionId, campaignChannel } = useLocalSearchParams<{ id: string; v?: string; campaignId?: string; collectionId?: string; promotionId?: string; campaignChannel?: string }>();
+  const { id, v } = useLocalSearchParams<{ id: string; v?: string }>();
   useWardrobe();
-  const marketplaceSync = useMarketplaceSyncState();
   useBrands();
   const app = useUvel();
-  const preview = v === "buy";
-  const [page, setPage] = useState(0);
-  const [clipMuted, setClipMuted] = useState(true);
-  const [selectedSize, setSelectedSize] = useState("");
+  const colors = useColors();
   const piece = getPiece(id);
-  const alertPreference = useAlertPreference(app.uid, piece?.id || "");
-  const owningBrand = piece?.brandId ? getBrand(piece.brandId) : undefined;
-  const look = shopLookOf(piece?.shopLook, owningBrand ? themeFor(owningBrand) : null);
+  const preview = v === "buy";
+  const mine = Boolean(piece && isMine(piece, app.uid));
 
   useEffect(() => {
-    const sizes = piece?.sizes?.length ? piece.sizes : piece?.size ? [piece.size] : [];
-    setSelectedSize((current) => (current && sizes.includes(current) ? current : sizes[0] || ""));
-  }, [piece?.id, piece?.size, piece?.sizes?.join("|")]);
-
-  useEffect(() => {
-    if (!piece || !piece.brandId || !app.uid || (isMine(piece, app.uid) && !preview)) return;
+    if (!piece || !piece.brandId || !app.uid || (mine && !preview)) return;
     void recordAnalyticsEvent({
       type: "listing_view",
       brandId: piece.brandId,
@@ -277,423 +155,39 @@ export default function ClosetPiece() {
       listingName: piece.name,
       listingPhoto: piece.photo,
     }).catch(() => undefined);
-  }, [piece?.id, piece?.brandId, piece?.name, piece?.photo, app.uid, preview]);
-  const colors = useColors();
-  const styles = useMemo(() => make(look, colors), [look, colors]);
-  const liked =
-    !!piece &&
-    Boolean(app.uid) &&
-    (app.saved.includes(piece.id) || (piece.likedBy || []).some((l) => l.uid === app.uid));
-  const hearts = piece ? likeCount(piece, app.saved, app.uid) : 0;
-  const heartPopOpacity = useRef(new Animated.Value(0)).current;
-  const heartPopScale = useRef(new Animated.Value(0.55)).current;
-  const heartPopX = useRef(new Animated.Value(0)).current;
-  const heartPopY = useRef(new Animated.Value(0)).current;
-  const lastImageTap = useRef(0);
-  const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [saveTarget, setSaveTarget] = useState({ x: W - 36, y: insets.top + 26 });
-
-  function recordLike() {
-    if (!piece || liked) return;
-    app.likePiece(piece.id);
-    if (piece.brandId && app.uid) {
-      void recordAnalyticsEvent({
-        type: "listing_like",
-        brandId: piece.brandId,
-        listingId: piece.id,
-        listingName: piece.name,
-        listingPhoto: piece.photo,
-      }).catch(() => undefined);
-    }
-  }
-
-  function showHeartPop(x: number, y: number) {
-    heartPopX.setValue(x);
-    heartPopY.setValue(y);
-    heartPopScale.setValue(0.55);
-    heartPopOpacity.setValue(1);
-    Animated.parallel([
-      Animated.timing(heartPopX, { toValue: saveTarget.x, duration: 520, useNativeDriver: true }),
-      Animated.timing(heartPopY, { toValue: saveTarget.y, duration: 520, useNativeDriver: true }),
-      Animated.sequence([
-        Animated.spring(heartPopScale, { toValue: 1.15, speed: 28, bounciness: 8, useNativeDriver: true }),
-        Animated.timing(heartPopScale, { toValue: 0.7, duration: 300, useNativeDriver: true }),
-      ]),
-      Animated.sequence([
-        Animated.delay(180),
-        Animated.timing(heartPopOpacity, { toValue: 0, duration: 340, useNativeDriver: true }),
-      ]),
-    ]).start();
-  }
-
-  function onImageDoubleTap(x: number, y: number) {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
-    recordLike();
-    showHeartPop(x, y);
-  }
-
-  function onImagePress(x: number, y: number) {
-    const now = Date.now();
-    if (now - lastImageTap.current <= 450) {
-      if (imageTapTimer.current) clearTimeout(imageTapTimer.current);
-      lastImageTap.current = 0;
-      onImageDoubleTap(x, y);
-      return;
-    }
-    lastImageTap.current = now;
-    if (imageTapTimer.current) clearTimeout(imageTapTimer.current);
-    imageTapTimer.current = setTimeout(() => {
-      lastImageTap.current = 0;
-      imageTapTimer.current = null;
-    }, 450);
-  }
+  }, [piece?.id, piece?.brandId, piece?.name, piece?.photo, app.uid, mine, preview]);
 
   useEffect(() => {
-    if (!piece) return;
-    if (isMine(piece, app.uid) && v !== "buy") return;
+    if (!piece || (mine && !preview)) return;
     recordPieceView(piece.id);
-  }, [piece?.id, app.uid, v]);
+  }, [piece?.id, mine, preview]);
 
   if (!piece) {
     return (
-      <View style={[styles.page, { paddingTop: insets.top + 24, paddingHorizontal: 20 }]}>
-        <Text style={styles.p}>That piece isn’t on the floor.</Text>
+      <View style={[styles.missingPage, { paddingTop: insets.top + 24, backgroundColor: colors.ink }]}>
+        <Text style={[styles.missingText, { color: colors.bone }]}>That piece isn’t on the floor.</Text>
       </View>
     );
   }
 
-  if (isMine(piece, app.uid) && preview) {
-    return (
-      <TodayListingOverlay
-        piece={piece}
-        origin={{ x: W / 2, y: insets.top, width: 1, height: 1 }}
-        onClose={() => router.back()}
-        previewOnly
-      />
-    );
-  }
-
-  if (isMine(piece, app.uid) && !preview) {
-    return (
-      <OwnerListing
-        piece={piece}
-        insets={insets}
-        onBack={() => router.back()}
-      />
-    );
-  }
-
-  const onFloor = piece.status === "listed";
-  const remoteListing = isRemoteListedPiece(piece.id);
-  const availabilityConfirmed = marketplaceSync === "confirmed" && remoteListing;
-  const sizeOptions = piece.sizes?.length ? piece.sizes : piece.size ? [piece.size] : [];
-  const selectedStock = selectedSize && piece.sizeStock ? piece.sizeStock[selectedSize] : piece.stockQuantity;
-  const inventoryTracked = Boolean(piece.brandId && (typeof piece.stockQuantity === "number" || Boolean(piece.sizeStock)));
-  const inStock = !inventoryTracked || (typeof selectedStock === "number" && selectedStock > 0);
-  const gallery = piece.photos?.length ? piece.photos : piece.photo ? [piece.photo] : [];
-  const slides = [
-    ...(piece.clipUri ? [{ key: "clip", kind: "clip" as const, uri: piece.clipUri }] : []),
-    ...gallery.map((uri, index) => ({ key: `photo-${index}`, kind: "photo" as const, uri })),
-  ];
-  const pieceId = piece.id;
-  const framed = look.photo === "frame";
-  const runway = look.photo === "runway";
-  const heroH = framed ? Math.round(W * 1.12) : HERO_H;
-  const imgW = framed ? W - 28 : W;
-  const imgH = framed ? heroH - 28 : heroH;
-  const brand = piece.brand !== "Unlabeled" ? piece.brand : "Uvel closet";
-  const chip = swatchOf(piece.color);
-  const mine = isMine(piece, app.uid);
-  const seller = owningBrand?.name || (mine && app.displayName) || piece.ownerName || "Uvel member";
-  const sellerPhoto = owningBrand?.logoUri || ((mine && (app.avatarUri || app.personUri)) || piece.ownerPhoto || null);
-  const sellerLabel = owningBrand ? "Sold by brand" : "Sold by";
-  const sellerId = piece.ownerId || piece.listedByUid || "";
-  const ship = getMarket(piece.country || app.country);
-  const onThisFloor = listingVisibleIn({
-    origin: piece.country,
-    shipsTo: piece.shipsTo,
-    buyer: app.country,
-  });
-  const canBuy = availabilityConfirmed && onFloor && onThisFloor && inStock && (!inventoryTracked || sizeOptions.length === 0 || Boolean(selectedSize));
-
-  function tryOnMe() {
-    router.push({ pathname: "/try-on", params: { piece: pieceId } });
-  }
-
-  function openSeller() {
-    if (owningBrand) router.push({ pathname: "/brand/[id]", params: { id: owningBrand.id } });
-    else if (sellerId) router.push({ pathname: "/seller/[id]", params: { id: sellerId } });
+  if (mine && !preview) {
+    return <OwnerListing piece={piece} insets={insets} onBack={() => router.back()} />;
   }
 
   return (
-    <View style={styles.page}>
-      <StatusBar style={look.status} />
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: onFloor ? 176 : 56 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={{ height: heroH, paddingHorizontal: framed ? 14 : 0, paddingTop: framed ? 12 : 0 }}>
-          <ScrollView
-            horizontal
-            pagingEnabled={!framed}
-            snapToInterval={framed ? imgW + 8 : undefined}
-            decelerationRate="fast"
-            showsHorizontalScrollIndicator={false}
-            onMomentumScrollEnd={(e) =>
-              setPage(Math.round(e.nativeEvent.contentOffset.x / (framed ? imgW + 8 : W)))
-            }
-          >
-            {slides.map((slide) => (
-              <Pressable
-                key={slide.key}
-                onPress={(event) => onImagePress(event.nativeEvent.locationX, event.nativeEvent.locationY)}
-                style={[styles.imageGesture, { width: imgW, height: imgH }]}
-              >
-                {slide.kind === "clip" ? (
-                  <MotionClip uri={slide.uri} muted={clipMuted} playing={page === 0} style={[styles.hero, { width: imgW, height: imgH, borderRadius: framed ? 4 : 0 }]} />
-                ) : (
-                  <Image cachePolicy="memory-disk"
-                    source={{ uri: slide.uri }}
-                    style={[styles.hero, { width: imgW, height: imgH, borderRadius: framed ? 4 : 0 }]}
-                    contentFit="cover"
-                    pointerEvents="none"
-                  />
-                )}
-              </Pressable>
-            ))}
-          </ScrollView>
-          <Animated.Text
-            pointerEvents="none"
-            style={[
-              styles.heartPop,
-              { color: look.accent },
-              { opacity: heartPopOpacity, transform: [{ translateX: heartPopX }, { translateY: heartPopY }, { scale: heartPopScale }] },
-            ]}
-          >
-            ♥
-          </Animated.Text>
-          {piece.brandId && typeof selectedStock === "number" && selectedStock > 0 && selectedStock <= 10 ? (
-            <View style={[styles.stockBadge, { top: insets.top + 58, left: 16 }]}>
-              <Text style={styles.stockBadgeTxt}>{selectedStock} remaining{selectedSize ? ` · ${selectedSize}` : ""}</Text>
-            </View>
-          ) : null}
-          {slides.length > 1 ? (
-            <View style={[styles.count, { top: insets.top + 10 }]}>
-              <Text style={styles.countTxt}>
-                {String(page + 1).padStart(2, "0")} / {String(slides.length).padStart(2, "0")}
-              </Text>
-            </View>
-          ) : null}
-          {piece.clipUri && page === 0 ? (
-            <Pressable
-              onPress={() => setClipMuted((value) => !value)}
-              style={[styles.muteBtn, { top: insets.top + (slides.length > 1 ? 44 : 10) }]}
-              accessibilityRole="button"
-              accessibilityLabel={clipMuted ? "Unmute clip" : "Mute clip"}
-            >
-              <Ionicons name={clipMuted ? "volume-mute" : "volume-high"} size={18} color="#F4F0E6" />
-            </Pressable>
-          ) : null}
-          {runway ? (
-            <View style={styles.runway}>
-              <Text style={styles.brand}>{brand}</Text>
-              <Text style={styles.runwayTitle}>{piece.name}</Text>
-              <Text style={styles.price}>{usd(piece.listPriceCents, piece.currency || "USD")}</Text>
-            </View>
-          ) : null}
-          <Pressable onPress={() => router.back()} style={[styles.iconBtn, { top: insets.top + 6, left: 16 }]} hitSlop={8}>
-            <Text style={[styles.iconTxt, { color: look.status === "dark" ? "#16140F" : "#F4F0E6" }]}>‹</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              const nowLiked = !liked;
-              app.likePiece(piece.id);
-              if (piece.brandId && app.uid) {
-                void recordAnalyticsEvent({
-                  type: nowLiked ? "listing_like" : "listing_unlike",
-                  brandId: piece.brandId,
-                  listingId: piece.id,
-                  listingName: piece.name,
-                  listingPhoto: piece.photo,
-                }).catch(() => undefined);
-              }
-            }}
-            onLayout={(event) => {
-              const { x, y, width, height } = event.nativeEvent.layout;
-              setSaveTarget({ x: x + width / 2, y: y + height / 2 });
-            }}
-            style={[styles.heartBtn, { top: insets.top + 6, right: 16 }]}
-            hitSlop={8}
-          >
-            <Text style={[styles.heart, { color: liked ? look.accent : look.status === "dark" ? "#16140F" : "#F4F0E6" }]}>
-              {liked ? "♥" : "♡"}
-            </Text>
-            <Text style={[styles.heartN, { color: look.status === "dark" ? "#16140F" : "#F4F0E6" }]}>{hearts}</Text>
-          </Pressable>
-        </View>
-
-        {preview && mine ? (
-          <Pressable onPress={() => router.back()} style={styles.previewBar}>
-            <Text style={styles.previewBarTxt}>Buyer preview</Text>
-            <Text style={styles.previewBarGo}>Done</Text>
-          </Pressable>
-        ) : null}
-
-        <View style={styles.body}>
-          {!runway ? (
-            <>
-              <View style={styles.kicker}>
-                <Text style={styles.brand}>{brand}</Text>
-                <View style={styles.rule} />
-                {piece.status === "sold" ? <Text style={styles.sold}>Sold</Text> : null}
-              </View>
-              <Text style={styles.title}>{piece.name}</Text>
-              <View style={styles.priceRow}>
-                <Text style={styles.price}>{usd(piece.listPriceCents, piece.currency || "USD")}</Text>
-                {piece.originalPriceCents > 0 ? (
-                  <Text style={styles.was}>{usd(piece.originalPriceCents, piece.currency || "USD")}</Text>
-                ) : null}
-              </View>
-            </>
-          ) : null}
-
-          <View style={styles.specs}>
-            {sizeOptions.length ? (
-              <View style={styles.spec}>
-                <Text style={styles.factK}>{inventoryTracked ? "Choose size" : "Size"}</Text>
-                <View style={styles.sizeOptions}>
-                  {sizeOptions.map((size) => {
-                    const stock = piece.sizeStock?.[size];
-                    const unavailable = inventoryTracked && typeof stock === "number" && stock <= 0;
-                    return (
-                      <Pressable
-                        key={size}
-                        disabled={unavailable}
-                        onPress={() => setSelectedSize(size)}
-                        style={[styles.sizePill, selectedSize === size && styles.sizePillOn, unavailable && styles.sizePillOff]}
-                      >
-                        <Text style={[styles.sizeTxt, selectedSize === size && styles.sizeTxtOn, unavailable && styles.sizeTxtOff]}>{size}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                {inventoryTracked && typeof selectedStock === "number" && selectedStock <= 0 ? <Text style={styles.stockHint}>This size is sold out.</Text> : null}
-              </View>
-            ) : null}
-            {piece.color ? (
-              <View style={styles.spec}>
-                <Text style={styles.factK}>Colour</Text>
-                <View style={styles.colorRow}>
-                  {chip ? <View style={[styles.swatch, { backgroundColor: chip }]} /> : null}
-                  <Text style={styles.factV}>{piece.color}</Text>
-                </View>
-              </View>
-            ) : null}
-            {piece.condition ? (
-              <View style={styles.spec}>
-                <Text style={styles.factK}>Condition</Text>
-                <Text style={styles.factV}>{piece.condition}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {piece.notes ? (
-            <View style={styles.block}>
-              <Text style={styles.section}>About this piece</Text>
-              <Text style={styles.notes}>{piece.notes}</Text>
-            </View>
-          ) : null}
-
-          {piece.material || piece.category ? (
-            <View style={styles.block}>
-              <Text style={styles.section}>The details</Text>
-              <View style={styles.metaRow}>
-                {piece.material ? (
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.factK}>Material</Text>
-                    <Text style={styles.factV}>{piece.material}</Text>
-                  </View>
-                ) : null}
-                {piece.category ? (
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.factK}>Category</Text>
-                    <Text style={styles.factV}>{piece.category}</Text>
-                  </View>
-                ) : null}
-              </View>
-            </View>
-          ) : null}
-
-          {!mine ? <AlertPanel piece={piece} uid={app.uid} saved={app.saved.includes(piece.id)} preference={alertPreference} onSave={app.toggleSaved} styles={styles} /> : null}
-
-          <Pressable
-            onPress={openSeller}
-            disabled={!owningBrand && !sellerId}
-            accessibilityRole={owningBrand || sellerId ? "button" : undefined}
-            accessibilityLabel={owningBrand ? `Open ${owningBrand.name} brand page` : `Open ${seller} seller page`}
-            style={styles.seller}
-          >
-            {sellerPhoto ? (
-              <Image cachePolicy="memory-disk" source={{ uri: sellerPhoto }} style={styles.avatarImg} contentFit="cover" />
-            ) : (
-              <View style={styles.avatar}>
-                <Text style={styles.avatarTxt}>{(seller[0] || "U").toUpperCase()}</Text>
-              </View>
-            )}
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sellerK}>{sellerLabel}</Text>
-              <View style={styles.sellerNameRow}>
-                <Text style={styles.sellerN}>{seller}</Text>
-                <BrandVerifiedMark brand={owningBrand} size={17} />
-              </View>
-              <Text style={styles.sellerP}>Ships from {ship.name}</Text>
-              <Text style={styles.sellerP}>{shipsToLine(piece.country || app.country, piece.shipsTo)}</Text>
-              {owningBrand?.madeByUvel ? <Text style={styles.sellerP}>Made by Uvel. We send it.</Text> : null}
-            </View>
-          </Pressable>
-        </View>
-      </ScrollView>
-
-      {onFloor && onThisFloor ? (
-        <View style={[styles.dock, { paddingBottom: insets.bottom + 10 }]}>
-          <Text accessibilityRole="text" style={styles.availabilityNotice}>
-            {marketplaceSync === "loading" ? "Checking live availability…" : marketplaceSync === "unavailable" ? "Live availability is unavailable. Checkout is paused until the marketplace reconnects." : !remoteListing ? "This listing is not currently confirmed by Uvel’s marketplace service." : "Live availability confirmed."}
-          </Text>
-          <Pressable onPress={tryOnMe} style={styles.try}>
-            <Text style={styles.tryTxt}>Try on me</Text>
-          </Pressable>
-          <View style={styles.dockRow}>
-            <Pressable onPress={() => router.push({ pathname: "/ask/[id]", params: { id: piece.id } })} style={styles.ask}>
-              <Text style={styles.askTxt}>Ask</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id, variantKey: selectedSize, variantLabel: selectedSize, campaignId: typeof campaignId === "string" ? campaignId : "", collectionId: typeof collectionId === "string" ? collectionId : "", promotionId: typeof promotionId === "string" ? promotionId : "", campaignChannel: typeof campaignChannel === "string" ? campaignChannel : "" } })}
-              disabled={!canBuy}
-              style={[styles.buy, !canBuy && styles.buyOff]}
-            >
-              <Text style={styles.ctaTxt}>{!availabilityConfirmed ? "Availability unavailable" : !inStock ? "Sold out" : !selectedSize && sizeOptions.length ? "Choose a size" : `Buy · ${usd(piece.listPriceCents, piece.currency || "USD")}`}</Text>
-            </Pressable>
-          </View>
-        </View>
-      ) : null}
-      {onFloor && !onThisFloor && !mine ? (
-        <View style={[styles.dock, { paddingBottom: insets.bottom + 10 }]}>
-          <Text style={styles.p}>
-            This piece is in the {ship.name} store. It isn’t for sale in {getMarket(app.country).name}.
-          </Text>
-          <Pressable
-            onPress={() => {
-              app.setCountry(ship.code);
-            }}
-            style={styles.buy}
-          >
-            <Text style={styles.ctaTxt}>Go to the {ship.name} store</Text>
-          </Pressable>
-        </View>
-      ) : null}
-    </View>
+    <TodayListingOverlay
+      piece={piece}
+      origin={{ x: W / 2, y: insets.top, width: 1, height: 1 }}
+      onClose={() => router.back()}
+      previewOnly={mine && preview}
+    />
   );
 }
+
+const styles = StyleSheet.create({
+  missingPage: { flex: 1, paddingHorizontal: 20 },
+  missingText: { fontSize: 16, lineHeight: 23 },
+});
 
 function ownerStyles(colors: Colors) {
   return StyleSheet.create({
@@ -770,231 +264,5 @@ function ownerStyles(colors: Colors) {
       justifyContent: "center",
     },
     ghostTxt: { color: colors.muted, fontWeight: "700", fontSize: 13 },
-  });
-}
-
-function make(look: ShopLook, colors: Colors) {
-  const lightBar = look.status === "dark";
-  const line = look.status === "dark" ? `${colors.bone}24` : `${colors.bone}29`;
-  return StyleSheet.create({
-    page: { flex: 1, backgroundColor: look.page },
-    hero: { backgroundColor: look.surface },
-    imageGesture: { overflow: "hidden" },
-    muteBtn: {
-      position: "absolute",
-      right: 16,
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: "rgba(22,20,15,0.62)",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 8,
-    },
-    count: {
-      position: "absolute",
-      alignSelf: "center",
-      left: 0,
-      right: 0,
-      alignItems: "center",
-    },
-    countTxt: {
-      color: lightBar ? "#16140F" : "#F4F0E6",
-      fontSize: 11,
-      letterSpacing: 1.6,
-      fontWeight: "600",
-      backgroundColor: lightBar ? `${colors.surface}E6` : `${colors.ink}73`,
-      overflow: "hidden",
-      paddingHorizontal: 10,
-      paddingVertical: 4,
-      borderRadius: 999,
-    },
-    iconBtn: {
-      position: "absolute",
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: lightBar ? `${colors.surface}E6` : `${colors.surface}80`,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    iconTxt: { fontSize: 28, lineHeight: 30, marginTop: -2 },
-    stockBadge: { position: "absolute", left: 16, backgroundColor: "#D6E27A", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5, zIndex: 4 },
-    stockBadgeTxt: { color: "#16140F", fontSize: 11, fontWeight: "800", letterSpacing: 0.2 },
-    heart: { fontSize: 18, marginTop: 1 },
-    heartPop: { position: "absolute", left: -18, top: -28, zIndex: 8, fontSize: 56, lineHeight: 64, textShadowColor: "rgba(0,0,0,0.2)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
-    heartBtn: {
-      position: "absolute",
-      minWidth: 40,
-      height: 40,
-      paddingHorizontal: 12,
-      borderRadius: 20,
-      backgroundColor: lightBar ? `${colors.surface}E6` : `${colors.surface}80`,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-    },
-    heartN: { fontSize: 13, fontWeight: "700" },
-    previewBar: {
-      marginHorizontal: 22,
-      marginTop: 14,
-      marginBottom: 4,
-      borderRadius: 14,
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      backgroundColor: look.surface,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-    },
-    previewBarTxt: { color: look.muted, fontSize: 13 },
-    previewBarGo: { color: look.bone, fontWeight: "700", fontSize: 13 },
-    body: { paddingHorizontal: 22, paddingTop: 20 },
-    kicker: { flexDirection: "row", alignItems: "center", gap: 10 },
-    brand: { color: look.muted, letterSpacing: 1.8, fontSize: 11, textTransform: "uppercase" },
-    rule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: look.accent, opacity: 0.55 },
-    sold: { color: look.accent, fontSize: 11, fontWeight: "700", letterSpacing: 1.2, textTransform: "uppercase" },
-    title: { color: look.bone, fontFamily: "Georgia", fontSize: 30, lineHeight: 36, marginTop: 12 },
-    runwayTitle: { color: "#F4F0E6", fontFamily: "Georgia", fontSize: 28, lineHeight: 32, marginTop: 6 },
-    priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 14 },
-    price: { color: look.bone, fontWeight: "700", fontSize: 26, letterSpacing: -0.3 },
-    was: { color: look.muted, fontSize: 16, textDecorationLine: "line-through" },
-    specs: {
-      flexDirection: "row",
-      gap: 8,
-      marginTop: 22,
-      paddingTop: 18,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderColor: line,
-    },
-    spec: { flex: 1, backgroundColor: look.surface, borderRadius: 16, padding: 12 },
-    factK: { color: look.muted, fontSize: 10, letterSpacing: 1, textTransform: "uppercase" },
-    factV: { color: look.bone, fontSize: 14, fontWeight: "600", marginTop: 6 },
-    sizePill: {
-      alignSelf: "auto",
-      marginTop: 0,
-      borderWidth: 1,
-      borderColor: look.accent,
-      borderRadius: 999,
-      paddingHorizontal: 10,
-      paddingVertical: 6,
-    },
-    sizeOptions: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 8 },
-    sizePillOn: { backgroundColor: look.accent },
-    sizePillOff: { opacity: 0.35 },
-    sizeTxt: { color: look.bone, fontSize: 13, fontWeight: "700" },
-    sizeTxtOn: { color: look.accentInk },
-    sizeTxtOff: { textDecorationLine: "line-through" },
-    stockHint: { color: look.muted, fontSize: 11, marginTop: 8 },
-    colorRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6 },
-    swatch: {
-      width: 14,
-      height: 14,
-      borderRadius: 7,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: line,
-    },
-    block: {
-      marginTop: 22,
-      paddingTop: 18,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderColor: line,
-    },
-    section: {
-      color: look.muted,
-      fontSize: 11,
-      letterSpacing: 1.6,
-      textTransform: "uppercase",
-      marginBottom: 8,
-    },
-    notes: { color: look.bone, fontSize: 16, lineHeight: 24 },
-    metaRow: { flexDirection: "row", gap: 16 },
-    alertCard: { marginTop: 22, paddingTop: 18, borderTopWidth: StyleSheet.hairlineWidth, borderColor: line },
-    alertHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-    alertTitle: { color: look.bone, fontSize: 16, fontWeight: "700" },
-    alertCopy: { color: look.muted, fontSize: 12, lineHeight: 18, marginTop: 5 },
-    alertOptions: { flexDirection: "row", gap: 8, marginTop: 12 },
-    alertOption: { flex: 1, minHeight: 40, borderRadius: 20, borderWidth: 1, borderColor: line, alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
-    alertOptionOn: { backgroundColor: look.accent, borderColor: look.accent },
-    alertOptionText: { color: look.bone, fontSize: 11, fontWeight: "700", textAlign: "center" },
-    alertOptionTextOn: { color: look.accentInk },
-    alertOff: { color: look.muted, fontSize: 12, marginTop: 9 },
-    seller: {
-      marginTop: 22,
-      paddingTop: 18,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderColor: line,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-    },
-    avatar: {
-      width: 52,
-      height: 52,
-      borderRadius: 26,
-      backgroundColor: look.accent,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    avatarImg: { width: 52, height: 52, borderRadius: 26, backgroundColor: look.surface },
-    avatarTxt: { color: look.accentInk, fontWeight: "700", fontSize: 16 },
-    sellerK: { color: look.muted, fontSize: 10, letterSpacing: 1.2, textTransform: "uppercase" },
-    sellerNameRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
-    sellerN: { color: look.bone, fontSize: 16, fontWeight: "600" },
-    sellerP: { color: look.muted, fontSize: 13, marginTop: 2 },
-    availabilityNotice: { color: look.muted, fontSize: 12, lineHeight: 18, marginBottom: 2 },
-    p: { color: look.muted, lineHeight: 22 },
-    ctaTxt: { color: look.accentInk, fontWeight: "700", fontSize: 16 },
-    dock: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
-      gap: 8,
-      paddingHorizontal: 16,
-      paddingTop: 12,
-      backgroundColor: look.page,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: line,
-    },
-    try: {
-      height: 48,
-      borderRadius: 24,
-      borderWidth: 1,
-      borderColor: look.accent,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    tryTxt: { color: look.accent, fontWeight: "700", fontSize: 15 },
-    dockRow: { flexDirection: "row", gap: 10 },
-    ask: {
-      height: 54,
-      paddingHorizontal: 22,
-      borderRadius: 27,
-      backgroundColor: look.surface,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    askTxt: { color: look.bone, fontWeight: "600", fontSize: 16 },
-    buy: {
-      flex: 1,
-      height: 54,
-      borderRadius: 27,
-      backgroundColor: look.accent,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    buyOff: { opacity: 0.45 },
-    runway: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
-      paddingHorizontal: 22,
-      paddingBottom: 28,
-      paddingTop: 64,
-      backgroundColor: `${colors.ink}6B`,
-    },
   });
 }
