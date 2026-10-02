@@ -128,7 +128,7 @@ export default function CategoryListings() {
             )}
             <View style={styles.heroShade} pointerEvents="none" />
             <View style={[styles.heroTop, { top: insets.top + 10 }]}>
-              <AccessiblePressable onPress={() => router.replace("/")} hitSlop={12} style={({ pressed }) => [styles.heroBack, pressed && styles.heroBackPressed]} accessibilityRole="button" accessibilityLabel="Go back to Today">
+              <AccessiblePressable onPress={() => router.replace("/search")} hitSlop={12} style={({ pressed }) => [styles.heroBack, pressed && styles.heroBackPressed]} accessibilityRole="button" accessibilityLabel="Go back to Search">
                 <Ionicons name="arrow-back" size={22} color={colors.bone} />
               </AccessiblePressable>
               <View style={styles.heroHeading}>
