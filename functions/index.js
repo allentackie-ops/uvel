@@ -22,6 +22,7 @@ Object.assign(exports, require("./listingOffers"));
 const listingReview = require("./listingReview");
 exports.uploadPersonalListingAsset = listingReview.uploadPersonalListingAsset;
 exports.submitPersonalListingForReview = listingReview.submitPersonalListingForReview;
+Object.assign(exports, require("./profileAvatar"));
 
 const PAYSTACK = new Set(["GH", "NG", "KE", "ZA"]);
 const RESERVATION_MINUTES = 30;

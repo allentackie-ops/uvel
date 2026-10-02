@@ -462,6 +462,17 @@ export function stampMine(uid: string, patch: Partial<ClosetPiece>) {
   void persist();
 }
 
+export function updateMineAvatar(uid: string, ownerPhoto: string) {
+  if (!uid || !ownerPhoto) return;
+  let changed = false;
+  pieces = pieces.map((piece) => {
+    if ((piece.ownerId !== uid && piece.listedByUid !== uid) || piece.brandId || piece.ownerPhoto === ownerPhoto) return piece;
+    changed = true;
+    return { ...piece, ownerPhoto };
+  });
+  if (changed) void persist();
+}
+
 export function likeCount(p: ClosetPiece, saved: string[] = [], uid?: string) {
   const n = uid ? (p.likedBy || []).filter((l) => l.uid !== uid).length : (p.likedBy?.length ?? 0);
   if (n > 0) return n;

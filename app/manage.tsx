@@ -62,11 +62,20 @@ export default function Manage() {
     }
   }
 
+  async function applyPhoto(uri: string | null) {
+    if (!uri) return;
+    try {
+      await app.setAvatar(uri);
+    } catch (error) {
+      Alert.alert("Couldn’t update profile picture", error instanceof Error ? error.message : "Please try again.");
+    }
+  }
+
   function changePhoto() {
     Alert.alert("Profile picture", "", [
       { text: "Cancel", style: "cancel" },
-      { text: "Take photo", onPress: () => { void takeAvatar().then((uri) => { if (uri) void app.setAvatar(uri); }).catch(() => undefined); } },
-      { text: "Choose photo", onPress: () => { void pickAvatar().then((uri) => { if (uri) void app.setAvatar(uri); }).catch(() => undefined); } },
+      { text: "Take photo", onPress: () => { void takeAvatar().then(applyPhoto).catch((error) => Alert.alert("Couldn’t choose photo", error instanceof Error ? error.message : "Please try again.")); } },
+      { text: "Choose photo", onPress: () => { void pickAvatar().then(applyPhoto).catch((error) => Alert.alert("Couldn’t choose photo", error instanceof Error ? error.message : "Please try again.")); } },
     ]);
   }
 

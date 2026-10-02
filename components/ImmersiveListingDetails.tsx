@@ -140,7 +140,9 @@ export function ImmersiveListingDetails({
                 setContentHeight((current) => Math.abs(current - height) > 1 ? height : current);
               }}
             >
-              <Text style={styles.brand}>{brandLabel.toUpperCase()}</Text>
+              {brandLabel.trim() && brandLabel.trim().toLowerCase() !== sellerName.trim().toLowerCase() ? (
+                <Text style={styles.brand}>{brandLabel.toUpperCase()}</Text>
+              ) : null}
               <Text style={styles.title}>{piece.name}</Text>
               <View style={styles.priceRow}>
                 <Text style={styles.price}>{price}</Text>

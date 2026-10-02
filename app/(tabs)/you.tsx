@@ -28,7 +28,7 @@ import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
 import { useColors, type Colors } from "../../lib/theme";
 import { semanticStatus, statusToneFor } from "../../lib/status";
-import { getPiece, likesOnMine, refreshMarketplaceListings, stampMine, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { getPiece, likesOnMine, refreshMarketplaceListings, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { draftProgress, useListingDraft, type ListingDraft } from "../../lib/listingDraft";
 
 const W = Dimensions.get("window").width;
@@ -113,8 +113,11 @@ export default function You({ onOpenSettings }: { onOpenSettings?: () => void })
 
   async function setFace(uri: string | null) {
     if (!uri) return;
-    app.setAvatar(uri);
-    stampMine(app.uid, { ownerPhoto: uri, ownerName: app.displayName || undefined, ownerId: app.uid || undefined });
+    try {
+      await app.setAvatar(uri);
+    } catch (error) {
+      Alert.alert("Couldn’t update profile picture", error instanceof Error ? error.message : "Please try again.");
+    }
   }
 
   function changeFace() {

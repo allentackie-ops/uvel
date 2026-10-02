@@ -221,20 +221,26 @@ export default function ProfileSetup() {
     }
     const dt = parseDob(mm, dd, yyyy);
     const iso = dt ? dt.toISOString().slice(0, 10) : "";
-    await app.completeProfile({
-      displayName: name.trim(),
-      birthday: iso,
-      gender,
-      personUri: photo,
-      avatarUri: avatar,
-      styles: [],
-      wardrobeUris: [],
-      wantsUpdates,
-      username: normalized,
-      archetype: arch,
-      palette: pal,
-      silhouette: sil,
-    });
+    try {
+      await app.completeProfile({
+        displayName: name.trim(),
+        birthday: iso,
+        gender,
+        personUri: photo,
+        avatarUri: avatar,
+        styles: [],
+        wardrobeUris: [],
+        wantsUpdates,
+        username: normalized,
+        archetype: arch,
+        palette: pal,
+        silhouette: sil,
+      });
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Could not save your profile picture. Please try again.");
+      setAsking(false);
+      return;
+    }
     setAsking(false);
   }
 

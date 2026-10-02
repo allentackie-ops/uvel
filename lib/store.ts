@@ -219,13 +219,15 @@ async function applyAccount(
     wantsUpdates: typeof remote?.wantsUpdates === "boolean" ? remote.wantsUpdates : typeof stashed?.wantsUpdates === "boolean" ? stashed.wantsUpdates : memory.wantsUpdates,
     accessibilityMode: typeof remote?.accessibilityMode === "boolean" ? remote.accessibilityMode : typeof stashed?.accessibilityMode === "boolean" ? stashed.accessibilityMode : memory.accessibilityMode,
     locale: typeof remote?.locale === "string" && remote.locale ? remote.locale : (typeof stashed?.locale === "string" && stashed.locale) || memory.locale,
-    avatarUri: (stashed?.avatarUri as string) || memory.avatarUri,
+    avatarUri: (typeof remote?.avatarUri === "string" && remote.avatarUri) || (stashed?.avatarUri as string) || memory.avatarUri,
   };
   listeners.forEach((l) => l());
   void persist();
   attachAccountStores(user.uid);
   if (done) {
     void stashProfile();
+    const restoredAvatar = memory.avatarUri || memory.personUri;
+    if (restoredAvatar) void syncRestoredProfileAvatar(user.uid, restoredAvatar);
     if (!remoteProfileFlag(remote)) {
       void import("./auth").then(({ writeUserProfile }) =>
         writeUserProfile(user.uid, {
@@ -242,6 +244,23 @@ async function applyAccount(
         }),
       );
     }
+  }
+}
+
+async function syncRestoredProfileAvatar(uid: string, sourceUri: string) {
+  if (/^https?:\/\//i.test(sourceUri)) return;
+  try {
+    const { uploadProfileAvatar } = await import("./avatar");
+    const avatarUri = await uploadProfileAvatar(sourceUri);
+    if (memory.uid !== uid) return;
+    memory = { ...memory, avatarUri };
+    listeners.forEach((l) => l());
+    await persist();
+    await stashProfile();
+    const { updateMineAvatar } = await import("./wardrobe");
+    updateMineAvatar(uid, avatarUri);
+  } catch {
+    // Keep the existing local photo if an older device URI can no longer be uploaded.
   }
 }
 
@@ -367,7 +386,17 @@ export function useUvel() {
     setStyle: (patch: Partial<State>) => save(patch),
     setAppearance: (appearance: AppearancePreference) => save({ appearance }),
     setPerson: (uri: string | null) => save({ personUri: uri }),
-    setAvatar: (uri: string | null) => save({ avatarUri: uri }).then(() => stashProfile()),
+    setAvatar: async (uri: string | null) => {
+      const uid = memory.uid;
+      const avatarUri = uri && uid ? await (await import("./avatar")).uploadProfileAvatar(uri) : uri;
+      await save({ avatarUri });
+      if (uid && avatarUri) {
+        const { updateMineAvatar } = await import("./wardrobe");
+        updateMineAvatar(uid, avatarUri);
+      }
+      await stashProfile();
+      return avatarUri;
+    },
     setAccessibilityMode: (accessibilityMode: boolean) => {
       if (memory.uid) {
         void import("./auth").then(({ writeUserProfile }) =>
@@ -400,7 +429,7 @@ export function useUvel() {
     acceptSession: async (s: Session) => {
       await applyAccount(s, { restored: false });
     },
-    completeProfile: (patch: {
+    completeProfile: async (patch: {
       displayName?: string;
       username: string;
       birthday: string;
@@ -414,9 +443,22 @@ export function useUvel() {
       palette?: string;
       silhouette?: string;
     }) => {
-      void import("./auth").then(({ writeUserProfile }) => {
-        if (!memory.uid) return;
-        void writeUserProfile(memory.uid, {
+      const uid = memory.uid;
+      const sourceAvatar = patch.avatarUri || patch.personUri;
+      const avatarUri = uid && sourceAvatar
+        ? await (await import("./avatar")).uploadProfileAvatar(sourceAvatar)
+        : patch.avatarUri || null;
+      await save({
+        ...patch,
+        avatarUri,
+        profileDone: true,
+        profileChecked: true,
+        onboarded: true,
+        onboardVersion: 4,
+      });
+      if (uid) {
+        const { writeUserProfile } = await import("./auth");
+        await writeUserProfile(uid, {
           profileDone: true,
           seen: true,
           name: patch.displayName || memory.displayName,
@@ -425,19 +467,17 @@ export function useUvel() {
           styles: patch.styles,
           wantsUpdates: patch.wantsUpdates,
           username: patch.username,
-          avatarUri: patch.avatarUri || "",
+          avatarUri: avatarUri || "",
           archetype: patch.archetype || "",
           palette: patch.palette || "",
           silhouette: patch.silhouette || "",
         });
-      });
-      return save({
-        ...patch,
-        profileDone: true,
-        profileChecked: true,
-        onboarded: true,
-        onboardVersion: 4,
-      }).then(() => stashProfile());
+        if (avatarUri) {
+          const { updateMineAvatar } = await import("./wardrobe");
+          updateMineAvatar(uid, avatarUri);
+        }
+      }
+      await stashProfile();
     },
     signOutAccount: async () => {
       const { signOut } = await import("./auth");
