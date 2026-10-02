@@ -75,6 +75,8 @@ function PushSync() {
   const uid = app.uid;
   const cart = useCart();
   const find = useFirstFind();
+  const pieces = useWardrobe();
+  const hasClosetItems = Boolean(uid && pieces.some((piece) => piece.ownerId === uid));
   useEffect(() => {
     armNotificationHandler();
   }, []);
@@ -122,6 +124,10 @@ function PushSync() {
             router.push("/");
             return;
           }
+          if (kind === "closet_reminder") {
+            router.push("/you");
+            return;
+          }
           if (kind === "cart") {
             router.push("/cart");
             return;
@@ -162,13 +168,14 @@ function PushSync() {
     };
   }, [uid]);
   useEffect(() => {
-    if (!uid) return;
     void syncEngagement({
-      allowed: app.wantsUpdates,
+      allowed: Boolean(uid && app.wantsUpdates),
       hasBag: cart.count > 0,
       hasFirstFind: find.remaining > 10,
+      hasClosetItems,
+      uid,
     });
-  }, [uid, app.wantsUpdates, cart.count, find.remaining]);
+  }, [uid, app.wantsUpdates, cart.count, find.remaining, hasClosetItems]);
   return null;
 }
 

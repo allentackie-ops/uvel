@@ -5,12 +5,15 @@ import { useEffect, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LANGS } from "../lib/i18n";
+import { useCart } from "../lib/cart";
+import { useFirstFind } from "../lib/firstFind";
 import { getMarket } from "../lib/markets";
 import { requestFeedback } from "../lib/feedback";
 import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
 import { useColors, type Colors } from "../lib/theme";
 import { loadHapticsEnabled, setHapticsEnabled } from "../lib/haptics";
+import { useWardrobe } from "../lib/wardrobe";
 
 const HELP = "mailto:himforson@gmail.com?subject=Uvel%20help";
 const VERSION = Constants.expoConfig?.version ?? "1.0.0";
@@ -21,6 +24,10 @@ export default function Settings({ onBack }: { onBack?: () => void }) {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
+  const pieces = useWardrobe();
+  const cart = useCart();
+  const find = useFirstFind();
+  const hasClosetItems = Boolean(app.uid && pieces.some((piece) => piece.ownerId === app.uid));
   const goBack = onBack ?? (() => router.back());
   const localeLabel = LANGS.find((l) => l.id === app.locale)?.label ?? "English, US";
   const market = getMarket(app.country);
@@ -44,7 +51,7 @@ export default function Settings({ onBack }: { onBack?: () => void }) {
   async function toggleNotes(on: boolean) {
     if (!on) {
       void app.setWantsUpdates(false);
-      void import("../lib/engagement").then((m) => m.syncEngagement({ allowed: false, hasBag: false, hasFirstFind: false })).catch(() => undefined);
+      void import("../lib/engagement").then((m) => m.syncEngagement({ allowed: false, hasBag: false, hasFirstFind: false, hasClosetItems: false, uid: app.uid })).catch(() => undefined);
       return;
     }
     if (!app.uid) {
@@ -59,7 +66,13 @@ export default function Settings({ onBack }: { onBack?: () => void }) {
       Alert.alert(C.turnNotificationsOn, C.notificationsSettings);
       return;
     }
-    void import("../lib/engagement").then((m) => m.syncEngagement({ allowed: true, hasBag: false, hasFirstFind: false })).catch(() => undefined);
+    void import("../lib/engagement").then((m) => m.syncEngagement({
+      allowed: true,
+      hasBag: cart.count > 0,
+      hasFirstFind: find.remaining > 10,
+      hasClosetItems,
+      uid: app.uid,
+    })).catch(() => undefined);
   }
 
   return (
