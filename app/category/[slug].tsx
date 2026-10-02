@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "../../components/ListingCard";
+import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { usePersonalization } from "../../lib/personalization";
 import { useUvel } from "../../lib/store";
 import { getMarket, moneyInMarket } from "../../lib/markets";
@@ -87,10 +88,6 @@ export default function CategoryListings() {
     setHeroImageFailed(false);
   }, [hero?.id]);
 
-  function goBack() {
-    router.replace("/search");
-  }
-
   function browseToListings() {
     scrollRef.current?.scrollTo({ y: Math.max(0, heroHeight), animated: true });
   }
@@ -131,9 +128,9 @@ export default function CategoryListings() {
             )}
             <View style={styles.heroShade} pointerEvents="none" />
             <View style={[styles.heroTop, { top: insets.top + 10 }]}>
-              <Pressable onPress={goBack} hitSlop={12} style={styles.heroBack} accessibilityRole="button" accessibilityLabel="Go back">
+              <AccessiblePressable onPress={() => router.navigate("/search")} hitSlop={12} style={({ pressed }) => [styles.heroBack, pressed && styles.heroBackPressed]} accessibilityRole="button" accessibilityLabel="Go back to Search">
                 <Ionicons name="arrow-back" size={22} color={colors.bone} />
-              </Pressable>
+              </AccessiblePressable>
               <View style={styles.heroHeading}>
                 <Text style={styles.heroKicker}>SHOP ANY LISTING</Text>
                 <Text style={styles.heroPageTitle}>{page.title}</Text>
@@ -268,8 +265,9 @@ function make(colors: ReturnType<typeof useColors>) {
     fallbackName: { color: colors.bone, fontSize: 22, fontWeight: "900", textAlign: "center", marginTop: 7 },
     fallbackHint: { color: colors.muted, fontSize: 13, marginTop: 7 },
     heroShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.44)" },
-    heroTop: { position: "absolute", left: 16, right: 16, flexDirection: "row", alignItems: "center", gap: 10 },
+    heroTop: { position: "absolute", left: 16, right: 16, flexDirection: "row", alignItems: "center", gap: 10, zIndex: 20, elevation: 20 },
     heroBack: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#00000070", alignItems: "center", justifyContent: "center" },
+    heroBackPressed: { opacity: 0.68, transform: [{ scale: 0.96 }] },
     heroHeading: { flex: 1 },
     heroKicker: { color: colors.success, fontSize: 10, letterSpacing: 1.6, fontWeight: "900" },
     heroPageTitle: { color: colors.bone, fontSize: 28, lineHeight: 32, fontWeight: "900", marginTop: 2 },
