@@ -88,8 +88,7 @@ export default function CategoryListings() {
   }, [hero?.id]);
 
   function goBack() {
-    if (router.canGoBack()) router.back();
-    else router.replace("/search");
+    router.replace("/search");
   }
 
   function browseToListings() {
