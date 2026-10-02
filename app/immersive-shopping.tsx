@@ -109,11 +109,6 @@ export default function ImmersiveShopping() {
   const refreshTriggered = useSharedValue(0);
   const refreshActiveShared = useSharedValue(0);
   const refreshImageScale = useSharedValue(1);
-  const profileSwipeX = useSharedValue(0);
-  const profileSwipeLock = useSharedValue(0);
-  const gestureMode = useSharedValue(0);
-  const touchStartX = useSharedValue(0);
-  const touchStartY = useSharedValue(0);
   useEffect(() => {
     if (!findHint) return;
     const timer = setTimeout(() => setFindHint(false), 3200);
@@ -153,20 +148,6 @@ export default function ImmersiveShopping() {
   const activePiece = feedWindow.current;
   const nextPiece = feedWindow.next;
   visiblePieceId.current = activePiece?.id;
-  const activeProfileId = useMemo(() => {
-    if (!activePiece || (activePiece.brandId && getBrand(activePiece.brandId))) return "";
-    return activePiece.ownerId || activePiece.listedByUid || (activePiece.brand ? CATALOG_BRAND_IDS[activePiece.brand] : "");
-  }, [activePiece]);
-  const openSellerForPiece = useCallback((piece?: ShopFloorPiece) => {
-    if (!piece) return;
-    const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
-    if (brandRecord) {
-      router.push({ pathname: "/brand/[id]", params: { id: brandRecord.id } });
-      return;
-    }
-    const followId = piece.ownerId || piece.listedByUid || (piece.brand ? CATALOG_BRAND_IDS[piece.brand] : undefined);
-    if (followId) router.push({ pathname: "/seller/[id]", params: { id: followId } });
-  }, []);
 
   useEffect(() => {
     if (!personalizationReady || refreshing || !rankedPieces.length) return;
@@ -295,9 +276,6 @@ export default function ImmersiveShopping() {
   const previousCardStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: swipeY.value + (activeIndex - 1 - activeIndexShared.value) * contentHeight }],
   }));
-  const profileSceneStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: -profileSwipeX.value * 0.16 }],
-  }));
   const commitSwipe = useCallback((nextIndex: number) => {
     const currentPrompt = feedbackPromptRef.current;
     if (currentPrompt && currentPrompt.index !== nextIndex) {
@@ -307,51 +285,22 @@ export default function ImmersiveShopping() {
     }
     setActiveIndex(nextIndex);
   }, []);
-  const feedGesture = useMemo(() => Gesture.Pan()
+  const panGesture = useMemo(() => Gesture.Pan()
     .enabled(!drawerOpen && pieces.length > 0)
     .maxPointers(1)
-    .manualActivation(true)
-    .onTouchesDown((event) => {
-      touchStartX.value = event.allTouches[0]?.absoluteX ?? 0;
-      touchStartY.value = event.allTouches[0]?.absoluteY ?? 0;
-    })
-    .onTouchesMove((event, state) => {
-      const x = event.allTouches[0]?.absoluteX ?? touchStartX.value;
-      const y = event.allTouches[0]?.absoluteY ?? touchStartY.value;
-      const dx = x - touchStartX.value;
-      const dy = y - touchStartY.value;
-      if (Math.max(Math.abs(dx), Math.abs(dy)) < 8) return;
-      if (Math.abs(dx) > Math.abs(dy) * 1.15) {
-        if (dx < 0 && activeProfileId) {
-          gestureMode.value = 2;
-          state.activate();
-        } else {
-          // Let the Drawer own right-edge swipes; never turn them into a feed swipe.
-          state.fail();
-        }
-        return;
-      }
-      gestureMode.value = 1;
-      state.activate();
-    })
-    .onStart(() => {
-      if (gestureMode.value === 2) {
-        profileSwipeLock.value = 0;
-        profileSwipeX.value = 0;
-      } else if (!refreshActiveShared.value) {
-        refreshTriggered.value = 0;
-      }
+    .activeOffsetY([-12, 12])
+    .failOffsetX([-18, 18])
+    .onBegin(() => {
+      if (!refreshActiveShared.value) refreshTriggered.value = 0;
     })
     .onUpdate((event) => {
-      if (gestureMode.value === 2) {
-        if (!profileSwipeLock.value) profileSwipeX.value = Math.max(0, Math.min(SCREEN_WIDTH, -event.translationX));
-        return;
-      }
       const currentIndex = activeIndexShared.value;
       if (currentIndex === 0 && event.translationY > 0) {
         const pull = Math.min(180, event.translationY);
         swipeY.value = 0;
-        if (!refreshTriggered.value || refreshActiveShared.value) refreshImageScale.value = 1 + (pull / 180) * 0.22;
+        if (!refreshTriggered.value || refreshActiveShared.value) {
+          refreshImageScale.value = 1 + (pull / 180) * 0.22;
+        }
         if (pull > 48 && !refreshTriggered.value) {
           refreshTriggered.value = 1;
           swipeLock.value = 1;
@@ -366,26 +315,13 @@ export default function ImmersiveShopping() {
       swipeY.value = Math.max(-contentHeight, Math.min(contentHeight, translation));
     })
     .onEnd((event) => {
-      if (gestureMode.value === 2) {
-        if (profileSwipeLock.value) return;
-        const shouldOpen = profileSwipeX.value > SCREEN_WIDTH * 0.24 || event.velocityX < -650;
-        profileSwipeLock.value = 1;
-        profileSwipeX.value = withTiming(shouldOpen ? SCREEN_WIDTH : 0, { duration: shouldOpen ? 220 : 180, easing: Easing.out(Easing.cubic) }, (finished) => {
-          if (!finished) return;
-          if (shouldOpen) {
-            runOnJS(openSellerForPiece)(activePiece);
-            profileSwipeX.value = 0;
-          }
-          profileSwipeLock.value = 0;
-        });
-        return;
-      }
       if (refreshTriggered.value) {
         swipeY.value = 0;
         swipeLock.value = refreshActiveShared.value ? 1 : 0;
         return;
       }
       if (swipeLock.value) return;
+
       const currentIndex = activeIndexShared.value;
       const direction = event.translationY < 0 ? 1 : -1;
       const nextIndex = direction > 0 ? currentIndex + 1 : Math.max(0, currentIndex - 1);
@@ -393,8 +329,12 @@ export default function ImmersiveShopping() {
       const enoughVelocity = Math.abs(event.velocityY) >= 650;
       const shouldAdvance = nextIndex !== currentIndex && (enoughDistance || enoughVelocity);
       const target = shouldAdvance ? (direction > 0 ? -contentHeight : contentHeight) : 0;
+
       swipeLock.value = 1;
-      swipeY.value = withTiming(target, { duration: shouldAdvance ? 240 : 180, easing: Easing.out(Easing.cubic) }, (finished) => {
+      swipeY.value = withTiming(target, {
+        duration: shouldAdvance ? 240 : 180,
+        easing: Easing.out(Easing.cubic),
+      }, (finished) => {
         if (finished && shouldAdvance) {
           activeIndexShared.value = nextIndex;
           swipeY.value = 0;
@@ -405,11 +345,6 @@ export default function ImmersiveShopping() {
       });
     })
     .onFinalize(() => {
-      if (gestureMode.value === 2) {
-        if (!profileSwipeLock.value && profileSwipeX.value !== 0) profileSwipeX.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
-        gestureMode.value = 0;
-        return;
-      }
       if (refreshTriggered.value) {
         swipeY.value = 0;
         if (!refreshActiveShared.value) {
@@ -418,10 +353,11 @@ export default function ImmersiveShopping() {
         }
         return;
       }
-      if (!swipeLock.value && swipeY.value !== 0) swipeY.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
+      if (!swipeLock.value && swipeY.value !== 0) {
+        swipeY.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
+      }
       refreshImageScale.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.cubic) });
-      gestureMode.value = 0;
-    }), [activeIndexShared, activePiece, activeProfileId, commitSwipe, contentHeight, drawerOpen, openSellerForPiece, onRefresh, pieces.length, profileSwipeLock, profileSwipeX, refreshActiveShared, refreshImageScale, refreshTriggered, swipeLock, swipeY, touchStartX, touchStartY, gestureMode]);
+    }), [activeIndexShared, commitSwipe, contentHeight, drawerOpen, onRefresh, pieces.length, refreshActiveShared, refreshImageScale, refreshTriggered, swipeLock, swipeY]);
   useEffect(() => {
     // Keep the next couple of images warm so rapid swipes don't reveal an
     // unloaded image while the incoming card is already moving on screen.
@@ -457,14 +393,14 @@ export default function ImmersiveShopping() {
         />
       )}
     >
-      <GestureDetector gesture={feedGesture}>
+      <GestureDetector gesture={panGesture}>
       <View style={styles.page}>
         <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
         {activePiece ? <>
-          {previousPiece ? <Animated.View key={`${activeIndex - 1}:${previousPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle, profileSceneStyle]}>
+          {previousPiece ? <Animated.View key={`${activeIndex - 1}:${previousPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle]}>
             <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
-          <Animated.View key={`${activeIndex}:${activePiece.id}`} style={[styles.cardLayer, { height: contentHeight }, currentCardStyle, profileSceneStyle]}>
+          <Animated.View key={`${activeIndex}:${activePiece.id}`} style={[styles.cardLayer, { height: contentHeight }, currentCardStyle]}>
           <ImmersiveItem
           piece={activePiece}
           active
@@ -481,7 +417,7 @@ export default function ImmersiveShopping() {
           firstFindLabel={C.firstFind}
           />
           </Animated.View>
-          {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle, profileSceneStyle]}>
+          {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
             <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
         </> : null}
