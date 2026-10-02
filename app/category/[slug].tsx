@@ -39,7 +39,8 @@ export default function CategoryListings() {
   const listRef = useRef<FlatList<ClosetPiece>>(null);
   const [availableOnly, setAvailableOnly] = useState(false);
   const [sort, setSort] = useState<SortMode>("curated");
-  const page = CATEGORY_PAGES[String(slug || "").toLowerCase()] || CATEGORY_PAGES.outerwear;
+  const activeSlug = String(slug || "outerwear").toLowerCase();
+  const page = CATEGORY_PAGES[activeSlug] || CATEGORY_PAGES.outerwear;
   const live = shopFloor(app.country);
   const categoryRows = useMemo(() => live.filter((piece) => {
     if (page.category) return piece.category === page.category;
@@ -65,33 +66,51 @@ export default function CategoryListings() {
         keyExtractor={(piece) => piece.id}
         numColumns={2}
         columnWrapperStyle={styles.row}
-        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 34 }]}
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 34 }]}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View>
-            {hero ? <View style={[styles.heroCard, { width: "100%", marginTop: -insets.top, marginLeft: -16, borderRadius: 0 }]}>
+            <View style={styles.topBar}>
+              <Pressable onPress={() => router.back()} hitSlop={12} style={styles.iconButton} accessibilityRole="button" accessibilityLabel="Go back">
+                <Ionicons name="arrow-back" size={22} color={colors.bone} />
+              </Pressable>
+              <View style={styles.headerCopy}>
+                <Text style={styles.kicker}>SHOP ANY LISTING</Text>
+                <Text style={styles.title}>{page.title}</Text>
+              </View>
+            </View>
+            <FlatList
+              horizontal
+              data={CATEGORY_RAIL}
+              keyExtractor={(item) => item.slug}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.rail}
+              renderItem={({ item }) => {
+                const active = item.slug === activeSlug;
+                return <Pressable onPress={() => router.replace({ pathname: "/category/[slug]", params: { slug: item.slug } })} style={[styles.railItem, active && styles.railItemOn]} accessibilityRole="tab" accessibilityState={{ selected: active }}><Text style={[styles.railText, active && styles.railTextOn]}>{item.label}</Text></Pressable>;
+              }}
+            />
+            {hero ? <Pressable onPress={() => router.push({ pathname: "/closet/[id]", params: { id: hero.id } })} style={styles.heroCard} accessibilityRole="button" accessibilityLabel={`Open ${hero.name}`}>
               <Image source={{ uri: hero.photo }} style={styles.heroImage} contentFit="cover" />
               <View style={styles.heroShade} />
-              <View style={[styles.heroTop, { top: insets.top + 10 }]}>
-                <Pressable onPress={() => router.replace("/search")} hitSlop={12} style={styles.heroBack} accessibilityRole="button" accessibilityLabel="Back to search"><Ionicons name="arrow-back" size={22} color={colors.bone} /></Pressable>
-                <View style={{ flex: 1 }}><Text style={styles.heroKicker}>SHOP ANY LISTING</Text><Text style={styles.heroPageTitle}>{page.title}</Text></View>
+              <View style={styles.heroCopy}>
+                <Text style={styles.heroTitle}>{page.heroTitle}</Text>
+                <Text style={styles.heroBody}>{page.heroBody}</Text>
+                <View style={styles.heroCta}><Text style={styles.heroCtaText}>Browse pieces</Text><Ionicons name="arrow-forward" size={16} color={colors.successInk} /></View>
               </View>
-              <FlatList
-                horizontal
-                data={CATEGORY_RAIL}
-                keyExtractor={(item) => item.slug}
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={[styles.heroRail, { top: insets.top + 68 }]}
-                renderItem={({ item }) => { const active = item.slug === String(slug || "").toLowerCase(); return <Pressable onPress={() => router.replace({ pathname: "/category/[slug]", params: { slug: item.slug } })} style={[styles.railItem, active && styles.railItemOn]} accessibilityRole="tab" accessibilityState={{ selected: active }}><Text style={[styles.railText, active && styles.railTextOn]}>{item.label}</Text></Pressable>; }}
-              />
-              <View style={styles.heroCopy}><Text style={styles.heroTitle}>{page.heroTitle}</Text><Text style={styles.heroBody}>{page.heroBody}</Text><View style={styles.heroCta}><Text style={styles.heroCtaText}>Browse pieces</Text><Ionicons name="arrow-forward" size={16} color={colors.successInk} /></View></View>
               <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>{hero.brand || "UVEL"}</Text></View>
-            </View> : null}
+            </Pressable> : null}
             {curated.length ? <View style={styles.curatedSection}>
-              <View style={styles.sectionHeader}><View><Text style={styles.sectionKicker}>SELECTED FOR YOU</Text><Text style={styles.sectionTitle}>Featured pieces</Text></View><Pressable onPress={() => listRef.current?.scrollToOffset({ offset: 520, animated: true })} hitSlop={10}><Text style={styles.seeAll}>See all <Ionicons name="arrow-forward" size={14} color={colors.success} /></Text></Pressable></View>
+              <View style={styles.sectionHeader}><View><Text style={styles.sectionKicker}>SELECTED FOR YOU</Text><Text style={styles.sectionTitle}>Featured pieces</Text></View><Pressable onPress={() => listRef.current?.scrollToOffset({ offset: 500, animated: true })} hitSlop={10}><Text style={styles.seeAll}>See all <Ionicons name="arrow-forward" size={14} color={colors.success} /></Text></Pressable></View>
               <FlatList horizontal data={curated} keyExtractor={(piece) => `curated-${piece.id}`} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.curatedRail} renderItem={({ item }) => <Pressable onPress={() => router.push({ pathname: "/closet/[id]", params: { id: item.id } })} style={styles.curatedCard} accessibilityRole="button" accessibilityLabel={`Open ${item.name}`}><Image source={{ uri: item.photo }} style={styles.curatedImage} contentFit="cover" /><View style={styles.curatedMeta}><Text style={styles.curatedBrand} numberOfLines={1}>{item.brand || "UVEL"}</Text><Text style={styles.curatedName} numberOfLines={1}>{item.name}</Text><Text style={styles.curatedPrice}>{moneyInMarket(item.listPriceCents, item.currency || market.currency, market)}</Text></View></Pressable>} />
             </View> : null}
-            <View style={styles.catalogHeader}><View><Text style={styles.sectionKicker}>LIVE MARKETPLACE</Text><Text style={styles.sectionTitle}>{availableOnly ? "Available now" : "All listings"}</Text></View><View style={styles.catalogControls}><Pressable onPress={cycleSort} style={styles.control} accessibilityRole="button" accessibilityLabel={`Sort listings by ${sortLabel}`}><Ionicons name="swap-vertical-outline" size={16} color={colors.bone} /><Text style={styles.controlText}>{sortLabel}</Text></Pressable><Pressable onPress={() => setAvailableOnly((value) => !value)} style={[styles.control, availableOnly && styles.controlOn]} accessibilityRole="button" accessibilityState={{ selected: availableOnly }}><Ionicons name="options-outline" size={16} color={availableOnly ? colors.successInk : colors.bone} /><Text style={[styles.controlText, availableOnly && styles.controlTextOn]}>Filter</Text></Pressable></View></View>
+            <View style={styles.catalogHeader}>
+              <View><Text style={styles.sectionKicker}>LIVE MARKETPLACE</Text><Text style={styles.sectionTitle}>{availableOnly ? "Available now" : "All listings"}</Text></View>
+              <View style={styles.catalogControls}>
+                <Pressable onPress={cycleSort} style={styles.control} accessibilityRole="button" accessibilityLabel={`Sort listings by ${sortLabel}`}><Ionicons name="swap-vertical-outline" size={16} color={colors.bone} /><Text style={styles.controlText}>{sortLabel}</Text></Pressable>
+                <Pressable onPress={() => setAvailableOnly((value) => !value)} style={[styles.control, availableOnly && styles.controlOn]} accessibilityRole="button" accessibilityState={{ selected: availableOnly }}><Ionicons name="options-outline" size={16} color={availableOnly ? colors.successInk : colors.bone} /><Text style={[styles.controlText, availableOnly && styles.controlTextOn]}>Filter</Text></Pressable>
+              </View>
+            </View>
           </View>
         }
         renderItem={({ item }) => <View style={styles.cell}><ListingCard piece={item} framed onInteraction={personalization.record} /></View>}
@@ -104,32 +123,31 @@ export default function CategoryListings() {
 function make(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    content: { flexGrow: 1, paddingHorizontal: 16, paddingTop: 0 },
-    heroCard: { height: 560, overflow: "hidden", backgroundColor: colors.surface, marginBottom: 24 },
-    heroImage: { ...StyleSheet.absoluteFillObject },
-    heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.48)" },
-    heroTop: { position: "absolute", top: 16, left: 14, right: 14, flexDirection: "row", alignItems: "center", gap: 8 },
-    heroBack: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#00000070", alignItems: "center", justifyContent: "center" },
-    heroKicker: { color: colors.success, fontSize: 10, letterSpacing: 1.6, fontWeight: "900" },
-    heroPageTitle: { color: colors.bone, fontSize: 27, lineHeight: 30, fontWeight: "900", marginTop: 2 },
-    heroRail: { position: "absolute", top: 74, left: 16, right: 16, gap: 8 },
-    railItem: { paddingHorizontal: 13, height: 32, borderRadius: 16, borderWidth: 1, borderColor: "#F4F0E640", backgroundColor: "#00000045", alignItems: "center", justifyContent: "center" },
+    content: { flexGrow: 1, paddingHorizontal: 16 },
+    topBar: { flexDirection: "row", alignItems: "center", gap: 10, paddingBottom: 10 },
+    iconButton: { width: 36, height: 40, alignItems: "center", justifyContent: "center" },
+    headerCopy: { flex: 1 },
+    kicker: { color: colors.success, fontSize: 10, letterSpacing: 1.6, fontWeight: "900" },
+    title: { color: colors.bone, fontSize: 28, lineHeight: 32, fontWeight: "900", letterSpacing: -0.6, marginTop: 2 },
+    rail: { gap: 8, paddingBottom: 15 },
+    railItem: { paddingHorizontal: 13, height: 32, borderRadius: 16, borderWidth: 1, borderColor: `${colors.bone}25`, alignItems: "center", justifyContent: "center" },
     railItemOn: { backgroundColor: colors.bone, borderColor: colors.bone },
-    railText: { color: colors.bone, fontSize: 11, fontWeight: "800" },
+    railText: { color: colors.muted, fontSize: 11, fontWeight: "800" },
     railTextOn: { color: colors.ink },
-    heroCopy: { position: "absolute", left: 22, right: 22, bottom: 24 },
-    heroTitle: { color: colors.bone, fontSize: 34, lineHeight: 38, fontWeight: "900", letterSpacing: -0.7 },
-    heroBody: { color: "#F4F0E6D9", fontSize: 14, lineHeight: 20, maxWidth: 290, marginTop: 6 },
-    heroCta: { alignSelf: "flex-start", height: 42, borderRadius: 21, backgroundColor: colors.success, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 8, marginTop: 15 },
-    heroCtaText: { color: colors.successInk, fontSize: 13, fontWeight: "900" },
-    heroBadge: { position: "absolute", top: 126, right: 16, borderRadius: 14, paddingHorizontal: 10, height: 28, justifyContent: "center", backgroundColor: "#00000080" },
+    heroCard: { height: 272, borderRadius: 22, overflow: "hidden", backgroundColor: colors.surface, marginBottom: 24 },
+    heroImage: { ...StyleSheet.absoluteFillObject },
+    heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.42)" },
+    heroCopy: { position: "absolute", left: 20, right: 20, bottom: 20 },
+    heroTitle: { color: colors.bone, fontSize: 30, lineHeight: 34, fontWeight: "900", letterSpacing: -0.5 },
+    heroBody: { color: "#F4F0E6D9", fontSize: 13, lineHeight: 18, maxWidth: 280, marginTop: 5 },
+    heroCta: { alignSelf: "flex-start", height: 38, borderRadius: 19, backgroundColor: colors.success, paddingHorizontal: 15, flexDirection: "row", alignItems: "center", gap: 8, marginTop: 13 },
+    heroCtaText: { color: colors.successInk, fontSize: 12, fontWeight: "900" },
+    heroBadge: { position: "absolute", top: 14, right: 14, borderRadius: 14, paddingHorizontal: 10, height: 28, justifyContent: "center", backgroundColor: "#00000080" },
     heroBadgeText: { color: colors.bone, fontSize: 9, letterSpacing: 1.2, fontWeight: "900" },
-    statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.subtle },
-    statusDotOn: { backgroundColor: colors.successInk },
     curatedSection: { paddingBottom: 22 },
     sectionHeader: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", paddingBottom: 11 },
     sectionKicker: { color: colors.subtle, fontSize: 10, letterSpacing: 1.5, fontWeight: "900" },
-    sectionTitle: { color: colors.bone, fontSize: 25, lineHeight: 29, fontWeight: "900", letterSpacing: -0.4, marginTop: 3 },
+    sectionTitle: { color: colors.bone, fontSize: 23, lineHeight: 27, fontWeight: "900", letterSpacing: -0.4, marginTop: 3 },
     seeAll: { color: colors.success, fontSize: 12, fontWeight: "800", paddingBottom: 3 },
     curatedRail: { gap: 10 },
     curatedCard: { width: 132, borderRadius: 17, backgroundColor: colors.surface, overflow: "hidden" },
@@ -138,7 +156,7 @@ function make(colors: ReturnType<typeof useColors>) {
     curatedBrand: { color: colors.subtle, fontSize: 9, letterSpacing: 1.1, fontWeight: "800" },
     curatedName: { color: colors.bone, fontSize: 12, fontWeight: "700", marginTop: 4 },
     curatedPrice: { color: colors.success, fontSize: 12, fontWeight: "800", marginTop: 6 },
-    catalogHeader: { borderTopWidth: 1, borderTopColor: `${colors.bone}16`, paddingTop: 20, paddingBottom: 14, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
+    catalogHeader: { borderTopWidth: 1, borderTopColor: `${colors.bone}16`, paddingTop: 18, paddingBottom: 14, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
     catalogControls: { flexDirection: "row", gap: 6 },
     control: { height: 32, borderRadius: 16, borderWidth: 1, borderColor: `${colors.bone}20`, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 5 },
     controlOn: { backgroundColor: colors.success, borderColor: colors.success },
