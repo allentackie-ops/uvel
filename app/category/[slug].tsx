@@ -78,7 +78,7 @@ export default function CategoryListings() {
         ListHeaderComponent={
           <View>
             {hero ? <View style={[styles.heroCard, { height }]}>
-              <Image source={{ uri: hero.photo }} style={styles.heroImage} contentFit="cover" />
+              <Image source={{ uri: hero.photo }} style={styles.heroImage} contentFit="contain" />
               <View style={styles.heroShade} />
               <View style={[styles.heroTop, { top: insets.top + 10 }]}>
                 <Pressable onPress={() => router.back()} hitSlop={12} style={styles.heroBack} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="arrow-back" size={22} color={colors.bone} /></Pressable>
@@ -122,7 +122,7 @@ function make(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     content: { flexGrow: 1, paddingHorizontal: 0 },
-    heroCard: { width: "100%", overflow: "hidden", backgroundColor: colors.surface, marginBottom: 24 },
+    heroCard: { width: "100%", overflow: "hidden", backgroundColor: colors.ink, marginBottom: 24 },
     heroImage: { ...StyleSheet.absoluteFillObject },
     heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.44)" },
     heroTop: { position: "absolute", left: 16, right: 16, flexDirection: "row", alignItems: "center", gap: 10 },
