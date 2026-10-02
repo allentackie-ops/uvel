@@ -112,6 +112,9 @@ export default function ImmersiveShopping() {
   const refreshImageScale = useSharedValue(1);
   const profileSwipeX = useSharedValue(0);
   const profileSwipeLock = useSharedValue(0);
+  const gestureMode = useSharedValue(0);
+  const touchStartX = useSharedValue(0);
+  const touchStartY = useSharedValue(0);
   useEffect(() => {
     if (!findHint) return;
     const timer = setTimeout(() => setFindHint(false), 3200);
@@ -308,22 +311,51 @@ export default function ImmersiveShopping() {
     }
     setActiveIndex(nextIndex);
   }, []);
-  const panGesture = useMemo(() => Gesture.Pan()
+  const feedGesture = useMemo(() => Gesture.Pan()
     .enabled(!drawerOpen && pieces.length > 0)
     .maxPointers(1)
-    .activeOffsetY([-12, 12])
-    .failOffsetX([-18, 18])
-    .onBegin(() => {
-      if (!refreshActiveShared.value) refreshTriggered.value = 0;
+    .manualActivation(true)
+    .onTouchesDown((event) => {
+      touchStartX.value = event.allTouches[0]?.absoluteX ?? 0;
+      touchStartY.value = event.allTouches[0]?.absoluteY ?? 0;
+    })
+    .onTouchesMove((event, state) => {
+      const x = event.allTouches[0]?.absoluteX ?? touchStartX.value;
+      const y = event.allTouches[0]?.absoluteY ?? touchStartY.value;
+      const dx = x - touchStartX.value;
+      const dy = y - touchStartY.value;
+      if (Math.max(Math.abs(dx), Math.abs(dy)) < 8) return;
+      if (Math.abs(dx) > Math.abs(dy) * 1.15) {
+        if (dx < 0 && activeProfileId) {
+          gestureMode.value = 2;
+          state.activate();
+        } else {
+          // Let the Drawer own right-edge swipes; never turn them into a feed swipe.
+          state.fail();
+        }
+        return;
+      }
+      gestureMode.value = 1;
+      state.activate();
+    })
+    .onStart(() => {
+      if (gestureMode.value === 2) {
+        profileSwipeLock.value = 0;
+        profileSwipeX.value = 0;
+      } else if (!refreshActiveShared.value) {
+        refreshTriggered.value = 0;
+      }
     })
     .onUpdate((event) => {
+      if (gestureMode.value === 2) {
+        if (!profileSwipeLock.value) profileSwipeX.value = Math.max(0, Math.min(SCREEN_WIDTH, -event.translationX));
+        return;
+      }
       const currentIndex = activeIndexShared.value;
       if (currentIndex === 0 && event.translationY > 0) {
         const pull = Math.min(180, event.translationY);
         swipeY.value = 0;
-        if (!refreshTriggered.value || refreshActiveShared.value) {
-          refreshImageScale.value = 1 + (pull / 180) * 0.22;
-        }
+        if (!refreshTriggered.value || refreshActiveShared.value) refreshImageScale.value = 1 + (pull / 180) * 0.22;
         if (pull > 48 && !refreshTriggered.value) {
           refreshTriggered.value = 1;
           swipeLock.value = 1;
@@ -338,13 +370,26 @@ export default function ImmersiveShopping() {
       swipeY.value = Math.max(-contentHeight, Math.min(contentHeight, translation));
     })
     .onEnd((event) => {
+      if (gestureMode.value === 2) {
+        if (profileSwipeLock.value) return;
+        const shouldOpen = profileSwipeX.value > SCREEN_WIDTH * 0.24 || event.velocityX < -650;
+        profileSwipeLock.value = 1;
+        profileSwipeX.value = withTiming(shouldOpen ? SCREEN_WIDTH : 0, { duration: shouldOpen ? 220 : 180, easing: Easing.out(Easing.cubic) }, (finished) => {
+          if (!finished) return;
+          if (shouldOpen) {
+            runOnJS(openSellerForPiece)(activePiece);
+            profileSwipeX.value = 0;
+          }
+          profileSwipeLock.value = 0;
+        });
+        return;
+      }
       if (refreshTriggered.value) {
         swipeY.value = 0;
         swipeLock.value = refreshActiveShared.value ? 1 : 0;
         return;
       }
       if (swipeLock.value) return;
-
       const currentIndex = activeIndexShared.value;
       const direction = event.translationY < 0 ? 1 : -1;
       const nextIndex = direction > 0 ? currentIndex + 1 : Math.max(0, currentIndex - 1);
@@ -352,12 +397,8 @@ export default function ImmersiveShopping() {
       const enoughVelocity = Math.abs(event.velocityY) >= 650;
       const shouldAdvance = nextIndex !== currentIndex && (enoughDistance || enoughVelocity);
       const target = shouldAdvance ? (direction > 0 ? -contentHeight : contentHeight) : 0;
-
       swipeLock.value = 1;
-      swipeY.value = withTiming(target, {
-        duration: shouldAdvance ? 240 : 180,
-        easing: Easing.out(Easing.cubic),
-      }, (finished) => {
+      swipeY.value = withTiming(target, { duration: shouldAdvance ? 240 : 180, easing: Easing.out(Easing.cubic) }, (finished) => {
         if (finished && shouldAdvance) {
           activeIndexShared.value = nextIndex;
           swipeY.value = 0;
@@ -368,6 +409,11 @@ export default function ImmersiveShopping() {
       });
     })
     .onFinalize(() => {
+      if (gestureMode.value === 2) {
+        if (!profileSwipeLock.value && profileSwipeX.value !== 0) profileSwipeX.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
+        gestureMode.value = 0;
+        return;
+      }
       if (refreshTriggered.value) {
         swipeY.value = 0;
         if (!refreshActiveShared.value) {
@@ -376,41 +422,10 @@ export default function ImmersiveShopping() {
         }
         return;
       }
-      if (!swipeLock.value && swipeY.value !== 0) {
-        swipeY.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
-      }
+      if (!swipeLock.value && swipeY.value !== 0) swipeY.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
       refreshImageScale.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.cubic) });
-    }), [activeIndexShared, commitSwipe, contentHeight, drawerOpen, onRefresh, pieces.length, refreshActiveShared, refreshImageScale, refreshTriggered, swipeLock, swipeY]);
-  const profileSwipeGesture = useMemo(() => Gesture.Pan()
-    .enabled(!drawerOpen && Boolean(activePiece) && Boolean(activePiece?.ownerId || activePiece?.listedByUid || activePiece?.brandId || activePiece?.brand))
-    .maxPointers(1)
-    .activeOffsetX([-12, 9999])
-    .failOffsetY([-18, 18])
-    .onBegin(() => {
-      profileSwipeLock.value = 0;
-      profileSwipeX.value = 0;
-    })
-    .onUpdate((event) => {
-      if (profileSwipeLock.value) return;
-      profileSwipeX.value = Math.max(0, Math.min(SCREEN_WIDTH, -event.translationX));
-    })
-    .onEnd((event) => {
-      if (profileSwipeLock.value) return;
-      const shouldOpen = profileSwipeX.value > SCREEN_WIDTH * 0.24 || event.velocityX < -650;
-      profileSwipeLock.value = 1;
-      profileSwipeX.value = withTiming(shouldOpen ? SCREEN_WIDTH : 0, {
-        duration: shouldOpen ? 220 : 180,
-        easing: Easing.out(Easing.cubic),
-      }, (finished) => {
-        if (!finished) return;
-        if (shouldOpen) {
-          runOnJS(openSellerForPiece)(activePiece);
-          profileSwipeX.value = 0;
-        }
-        profileSwipeLock.value = 0;
-      });
-    }), [activePiece, drawerOpen, openSellerForPiece, profileSwipeLock, profileSwipeX]);
-  const feedGesture = useMemo(() => Gesture.Exclusive(profileSwipeGesture, panGesture), [panGesture, profileSwipeGesture]);
+      gestureMode.value = 0;
+    }), [activeIndexShared, activePiece, activeProfileId, commitSwipe, contentHeight, drawerOpen, openSellerForPiece, onRefresh, pieces.length, profileSwipeLock, profileSwipeX, refreshActiveShared, refreshImageScale, refreshTriggered, swipeLock, swipeY, touchStartX, touchStartY, gestureMode]);
   useEffect(() => {
     // Keep the next couple of images warm so rapid swipes don't reveal an
     // unloaded image while the incoming card is already moving on screen.
