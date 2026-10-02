@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "../../components/ListingCard";
 import { usePersonalization } from "../../lib/personalization";
@@ -38,10 +38,8 @@ export default function CategoryListings() {
   const sync = useMarketplaceSyncState();
   useWardrobe();
   const listRef = useRef<FlatList<ClosetPiece>>(null);
-  const scrollY = useRef(new Animated.Value(0)).current;
   const [availableOnly, setAvailableOnly] = useState(false);
   const [sort, setSort] = useState<SortMode>("curated");
-  const [floatingRailVisible, setFloatingRailVisible] = useState(false);
   const activeSlug = String(slug || "outerwear").toLowerCase();
   const page = CATEGORY_PAGES[activeSlug] || CATEGORY_PAGES.outerwear;
   const live = shopFloor(app.country);
@@ -71,12 +69,6 @@ export default function CategoryListings() {
         columnWrapperStyle={styles.row}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 34 }]}
         showsVerticalScrollIndicator={false}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
-        onMomentumScrollEnd={(event) => setFloatingRailVisible(event.nativeEvent.contentOffset.y > height * 0.24)}
-        scrollEventThrottle={16}
-        snapToOffsets={[0, height * 0.52]}
-        snapToAlignment="start"
-        decelerationRate="fast"
         ListHeaderComponent={
           <View>
             {hero ? <View style={[styles.heroCard, { height }]}>
@@ -86,7 +78,6 @@ export default function CategoryListings() {
                 <Pressable onPress={() => router.back()} hitSlop={12} style={styles.heroBack} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="arrow-back" size={22} color={colors.bone} /></Pressable>
                 <View style={styles.heroHeading}><Text style={styles.heroKicker}>SHOP ANY LISTING</Text><Text style={styles.heroPageTitle}>{page.title}</Text></View>
               </View>
-              <Animated.View style={{ opacity: scrollY.interpolate({ inputRange: [0, height * 0.52], outputRange: [1, 0], extrapolate: "clamp" }) }}>
               <FlatList
                 horizontal
                 data={CATEGORY_RAIL}
@@ -95,12 +86,11 @@ export default function CategoryListings() {
                 contentContainerStyle={[styles.heroRail, { top: insets.top + 74 }]}
                 renderItem={({ item }) => { const active = item.slug === activeSlug; return <Pressable onPress={() => router.replace({ pathname: "/category/[slug]", params: { slug: item.slug } })} style={[styles.railItem, active && styles.railItemOn]} accessibilityRole="tab" accessibilityState={{ selected: active }}><Text style={[styles.railText, active && styles.railTextOn]}>{item.label}</Text></Pressable>; }}
               />
-              </Animated.View>
-              <Animated.View style={[styles.heroCopy, { transform: [{ translateY: scrollY.interpolate({ inputRange: [0, height * 0.52], outputRange: [0, -height * 0.08], extrapolate: "clamp" }) }] }]}>
+              <View style={styles.heroCopy}>
                 <Text style={styles.heroTitle}>{page.heroTitle}</Text>
                 <Text style={styles.heroBody}>{page.heroBody}</Text>
                 <View style={styles.swipeCue}><View style={styles.swipeArrow}><Ionicons name="chevron-up" size={15} color={colors.successInk} /><Ionicons name="chevron-up" size={15} color={colors.successInk} /></View><Text style={styles.swipeText}>Swipe to browse</Text></View>
-              </Animated.View>
+              </View>
               <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>{hero.brand || "UVEL"}</Text></View>
             </View> : null}
             {curated.length ? <View style={styles.curatedSection}>
@@ -116,11 +106,6 @@ export default function CategoryListings() {
         renderItem={({ item }) => <View style={styles.cell}><ListingCard piece={item} framed onInteraction={personalization.record} /></View>}
         ListEmptyComponent={sync === "loading" ? <ActivityIndicator color={colors.success} style={styles.empty} /> : <View style={styles.emptyWrap}><Ionicons name="search-outline" size={26} color={colors.subtle} /><Text style={styles.emptyTitle}>Nothing here yet</Text><Text style={styles.empty}>Try another category or come back soon.</Text></View>}
       />
-      <Animated.View pointerEvents={floatingRailVisible ? "auto" : "none"} style={[styles.floatingRail, { top: insets.top + 74, opacity: scrollY.interpolate({ inputRange: [0, height * 0.24, height * 0.52], outputRange: [0, 0, 1], extrapolate: "clamp" }) }]}>
-        <View style={styles.floatingRailContent}>
-          {CATEGORY_RAIL.map((item) => { const active = item.slug === activeSlug; return <Pressable key={`floating-${item.slug}`} onPress={() => router.replace({ pathname: "/category/[slug]", params: { slug: item.slug } })} style={[styles.railItem, active && styles.railItemOn]} accessibilityRole="tab" accessibilityState={{ selected: active }}><Text style={[styles.railText, active && styles.railTextOn]}>{item.label}</Text></Pressable>; })}
-        </View>
-      </Animated.View>
     </View>
   );
 }
@@ -138,8 +123,6 @@ function make(colors: ReturnType<typeof useColors>) {
     heroKicker: { color: colors.success, fontSize: 10, letterSpacing: 1.6, fontWeight: "900" },
     heroPageTitle: { color: colors.bone, fontSize: 28, lineHeight: 32, fontWeight: "900", marginTop: 2 },
     heroRail: { position: "absolute", left: 16, right: 16, gap: 8 },
-    floatingRail: { position: "absolute", left: 0, right: 0, zIndex: 10 },
-    floatingRailContent: { paddingHorizontal: 16, gap: 8, flexDirection: "row" },
     railItem: { paddingHorizontal: 13, height: 32, borderRadius: 16, borderWidth: 1, borderColor: "#F4F0E640", backgroundColor: "#00000045", alignItems: "center", justifyContent: "center" },
     railItemOn: { backgroundColor: colors.bone, borderColor: colors.bone },
     railText: { color: colors.bone, fontSize: 11, fontWeight: "800" },
