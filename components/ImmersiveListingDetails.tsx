@@ -7,6 +7,7 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-g
 import Animated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "./AccessiblePressable";
+import { ListingAlertControls } from "./ListingAlertControls";
 import { getMarket } from "../lib/markets";
 import { shipsToLine } from "../lib/ships";
 import type { ClosetPiece } from "../lib/wardrobe";
@@ -157,6 +158,8 @@ export function ImmersiveListingDetails({
                   ))}
                 </Text>
               ) : null}
+
+              <ListingAlertControls piece={piece} colors={colors} appearance="popup" />
 
               {piece.notes?.trim() ? (
                 <View style={styles.section}>

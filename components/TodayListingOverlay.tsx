@@ -28,7 +28,7 @@ import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { type ClosetPiece } from "../lib/wardrobe";
 import type { PersonalizationAction } from "../lib/personalization";
-import { alertKindLabel, enableAlert, setAlertPreference, type AlertKind, useAlertPreference } from "../lib/alerts";
+import { ListingAlertControls } from "./ListingAlertControls";
 import { BrandVerifiedMark } from "./VerifiedMark";
 import { FriendShareSheet, type FriendSharePayload } from "./FriendShareSheet";
 
@@ -120,8 +120,6 @@ export function TodayListingOverlay({
   const [showTryOnHint, setShowTryOnHint] = useState(false);
   const cart = useCart();
   const inBag = cart.has(piece.id);
-  const alertPreference = useAlertPreference(app.uid, piece.id);
-  const [alertBusy, setAlertBusy] = useState(false);
   const canMakeOffer = !previewOnly && !piece.brandId && !brandRecord && Boolean(sellerId) && sellerId !== app.uid && piece.status === "listed" && piece.listPriceCents > 1;
   const offerCurrency = piece.currency || getMarket(app.country).currency;
   const suggestedCents = suggestedOfferCents(piece.listPriceCents);
@@ -131,36 +129,6 @@ export function TodayListingOverlay({
     setOfferValue(suggested.toFixed(zeroDecimalOffer ? 0 : 2));
     setOfferSent(false);
     setOfferOpen(true);
-  }
-  async function chooseAlert(kind: AlertKind) {
-    if (!app.uid) {
-      Alert.alert("Sign in to set an alert", "Create or sign in to your Uvel account first.");
-      return;
-    }
-    if (alertBusy) return;
-    setAlertBusy(true);
-    try {
-      if (!app.saved.includes(piece.id)) await app.toggleSaved(piece.id);
-      const result = await enableAlert(app.uid, piece, kind);
-      if (!result.permission) {
-        Alert.alert("Alert saved", "Your alert is saved in Uvel. Turn on notifications in Settings if you want device notifications when a change is recorded.");
-      }
-    } catch (error) {
-      Alert.alert("Couldn’t save alert", error instanceof Error ? error.message : "Please try again.");
-    } finally {
-      setAlertBusy(false);
-    }
-  }
-  async function turnOffAlert() {
-    if (!app.uid || alertBusy) return;
-    setAlertBusy(true);
-    try {
-      await setAlertPreference(app.uid, piece, "off");
-    } catch (error) {
-      Alert.alert("Couldn’t update alert", error instanceof Error ? error.message : "Please try again.");
-    } finally {
-      setAlertBusy(false);
-    }
   }
   async function submitListingOffer() {
     const amountCents = Math.round(Number(offerValue.replace(/,/g, "")) * 100);
@@ -612,31 +580,7 @@ export function TodayListingOverlay({
             ) : null}
           </View>
           {!previewOnly && (!app.uid || sellerId !== app.uid) ? (
-            <View style={styles.alertCard}>
-              <View style={styles.alertHead}>
-                <Text style={styles.alertTitle}>Price & restock alerts</Text>
-                {alertBusy ? <Text style={styles.alertStatus}>Saving…</Text> : null}
-              </View>
-              <Text style={styles.alertCopy}>Save this item and get notified when its recorded price drops or its published inventory returns.</Text>
-              <View style={styles.alertOptions}>
-                {(["price_drop", "restock", "both"] as const).map((kind) => {
-                  const selected = alertPreference?.kind === kind;
-                  const label = kind === "price_drop" ? "Price drops" : kind === "restock" ? "Restocks" : "Both";
-                  return (
-                    <Pressable key={kind} onPress={() => void chooseAlert(kind)} disabled={alertBusy} style={[styles.alertOption, selected && styles.alertOptionOn]} accessibilityRole="button" accessibilityState={{ selected, disabled: alertBusy }} accessibilityLabel={`Set ${alertKindLabel(kind)} alert for ${piece.name}`}>
-                      <Text style={[styles.alertOptionText, selected && styles.alertOptionTextOn]} numberOfLines={1}>{label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-              {alertPreference ? (
-                <Pressable onPress={() => void turnOffAlert()} disabled={alertBusy} accessibilityRole="button" accessibilityLabel={`Turn off ${alertKindLabel(alertPreference.kind)} alerts for ${piece.name}`}>
-                  <Text style={styles.alertStatus}>Watching for {alertKindLabel(alertPreference.kind)} · Turn off</Text>
-                </Pressable>
-              ) : (
-                <Text style={styles.alertStatus}>Choose an alert to save this item and start watching it.</Text>
-              )}
-            </View>
+            <ListingAlertControls piece={piece} colors={colors} />
           ) : null}
           <View style={styles.actions}>
             {showTryOnHint ? (
@@ -839,16 +783,6 @@ function make(colors: Colors) {
     expandContent: { paddingVertical: 14, gap: 10 },
     emptyDetail: { color: colors.muted, fontSize: 13, lineHeight: 20 },
     expandBody: { color: colors.muted, fontSize: 13, lineHeight: 20 },
-    alertCard: { marginTop: 22, paddingTop: 18, borderTopWidth: 1, borderTopColor: `${colors.bone}20` },
-    alertHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-    alertTitle: { color: colors.bone, fontSize: 16, fontWeight: "800" },
-    alertCopy: { color: colors.muted, fontSize: 13, lineHeight: 19, marginTop: 7 },
-    alertOptions: { flexDirection: "row", gap: 7, marginTop: 13 },
-    alertOption: { flex: 1, minHeight: 43, paddingHorizontal: 7, borderRadius: 24, borderWidth: 1, borderColor: `${colors.bone}32`, alignItems: "center", justifyContent: "center" },
-    alertOptionOn: { backgroundColor: colors.success, borderColor: colors.success },
-    alertOptionText: { color: colors.bone, fontSize: 11, fontWeight: "800", textAlign: "center" },
-    alertOptionTextOn: { color: colors.successInk },
-    alertStatus: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 10 },
     actions: { marginTop: 26 },
     actionRow: { flexDirection: "row", gap: 10 },
     tryAction: { flex: 1, minHeight: 52, borderRadius: 26, paddingHorizontal: 12, borderWidth: 1, borderColor: `${colors.bone}32`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
