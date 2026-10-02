@@ -72,7 +72,7 @@ export default function CategoryListings() {
         showsVerticalScrollIndicator={false}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
         scrollEventThrottle={16}
-        snapToOffsets={[0, height]}
+        snapToOffsets={[0, height * 0.52]}
         snapToAlignment="start"
         decelerationRate="fast"
         ListHeaderComponent={
@@ -84,7 +84,7 @@ export default function CategoryListings() {
                 <Pressable onPress={() => router.back()} hitSlop={12} style={styles.heroBack} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="arrow-back" size={22} color={colors.bone} /></Pressable>
                 <View style={styles.heroHeading}><Text style={styles.heroKicker}>SHOP ANY LISTING</Text><Text style={styles.heroPageTitle}>{page.title}</Text></View>
               </View>
-              <Animated.View style={{ opacity: scrollY.interpolate({ inputRange: [0, height * 0.72], outputRange: [1, 0], extrapolate: "clamp" }) }}>
+              <Animated.View style={{ opacity: scrollY.interpolate({ inputRange: [0, height * 0.52], outputRange: [1, 0.35], extrapolate: "clamp" }) }}>
               <FlatList
                 horizontal
                 data={CATEGORY_RAIL}
@@ -94,7 +94,7 @@ export default function CategoryListings() {
                 renderItem={({ item }) => { const active = item.slug === activeSlug; return <Pressable onPress={() => router.replace({ pathname: "/category/[slug]", params: { slug: item.slug } })} style={[styles.railItem, active && styles.railItemOn]} accessibilityRole="tab" accessibilityState={{ selected: active }}><Text style={[styles.railText, active && styles.railTextOn]}>{item.label}</Text></Pressable>; }}
               />
               </Animated.View>
-              <Animated.View style={[styles.heroCopy, { transform: [{ translateY: scrollY.interpolate({ inputRange: [0, height], outputRange: [0, -height * 0.16], extrapolate: "clamp" }) }] }]}>
+              <Animated.View style={[styles.heroCopy, { transform: [{ translateY: scrollY.interpolate({ inputRange: [0, height * 0.52], outputRange: [0, -height * 0.08], extrapolate: "clamp" }) }] }]}>
                 <Text style={styles.heroTitle}>{page.heroTitle}</Text>
                 <Text style={styles.heroBody}>{page.heroBody}</Text>
                 <View style={styles.swipeCue}><View style={styles.swipeArrow}><Ionicons name="chevron-up" size={15} color={colors.successInk} /><Ionicons name="chevron-up" size={15} color={colors.successInk} /></View><Text style={styles.swipeText}>Swipe to browse</Text></View>
