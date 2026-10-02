@@ -111,6 +111,7 @@ export default function ImmersiveShopping() {
   const refreshImageScale = useSharedValue(1);
   const sellerPeekX = useSharedValue(0);
   const sellerPeekLock = useSharedValue(0);
+  const sellerPeekMode = useSharedValue(0);
   useEffect(() => {
     if (!findHint) return;
     const timer = setTimeout(() => setFindHint(false), 3200);
@@ -153,13 +154,12 @@ export default function ImmersiveShopping() {
   const openSellerForPiece = useCallback((piece?: ShopFloorPiece) => {
     if (!piece) return;
     const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
-    const catalogBrandId = !brandRecord && piece.brand ? CATALOG_BRAND_IDS[piece.brand] : undefined;
-    if (brandRecord || catalogBrandId) {
-      router.push({ pathname: "/brand/[id]", params: { id: brandRecord?.id || catalogBrandId } });
+    if (brandRecord) {
+      router.push({ pathname: "/brand/[id]", params: { id: brandRecord.id } });
       return;
     }
-    const sellerId = piece.ownerId || piece.listedByUid;
-    if (sellerId) router.push({ pathname: "/seller/[id]", params: { id: sellerId } });
+    const followId = piece.ownerId || piece.listedByUid || (piece.brand ? CATALOG_BRAND_IDS[piece.brand] : undefined);
+    if (followId) router.push({ pathname: "/seller/[id]", params: { id: followId } });
   }, []);
 
   useEffect(() => {
@@ -307,12 +307,23 @@ export default function ImmersiveShopping() {
   const panGesture = useMemo(() => Gesture.Pan()
     .enabled(!drawerOpen && pieces.length > 0)
     .maxPointers(1)
-    .activeOffsetY([-12, 12])
-    .failOffsetX([-18, 18])
+    .minDistance(12)
     .onBegin(() => {
       if (!refreshActiveShared.value) refreshTriggered.value = 0;
+      sellerPeekMode.value = 0;
+      sellerPeekLock.value = 0;
+      sellerPeekX.value = 0;
     })
     .onUpdate((event) => {
+      const isHorizontal = Math.abs(event.translationX) > Math.abs(event.translationY) * 1.15;
+      if (isHorizontal) {
+        if (event.translationX <= 0 || !activePiece || (!activePiece.ownerId && !activePiece.listedByUid && !activePiece.brandId && !activePiece.brand)) return;
+        sellerPeekMode.value = 1;
+        if (swipeLock.value || refreshActiveShared.value || sellerPeekLock.value) return;
+        sellerPeekX.value = Math.max(0, Math.min(SCREEN_WIDTH, event.translationX));
+        return;
+      }
+      if (sellerPeekMode.value) return;
       const currentIndex = activeIndexShared.value;
       if (currentIndex === 0 && event.translationY > 0) {
         const pull = Math.min(180, event.translationY);
@@ -334,6 +345,24 @@ export default function ImmersiveShopping() {
       swipeY.value = Math.max(-contentHeight, Math.min(contentHeight, translation));
     })
     .onEnd((event) => {
+      if (sellerPeekMode.value) {
+        if (swipeLock.value || refreshActiveShared.value || sellerPeekLock.value) return;
+        const shouldOpen = sellerPeekX.value > SCREEN_WIDTH * 0.28 || event.velocityX > 700;
+        sellerPeekLock.value = 1;
+        sellerPeekX.value = withTiming(shouldOpen ? SCREEN_WIDTH : 0, {
+          duration: shouldOpen ? 220 : 180,
+          easing: Easing.out(Easing.cubic),
+        }, (finished) => {
+          if (!finished) return;
+          if (shouldOpen) {
+            runOnJS(openSellerForPiece)(activePiece);
+            sellerPeekX.value = 0;
+          }
+          sellerPeekMode.value = 0;
+          sellerPeekLock.value = 0;
+        });
+        return;
+      }
       if (refreshTriggered.value) {
         swipeY.value = 0;
         swipeLock.value = refreshActiveShared.value ? 1 : 0;
@@ -375,43 +404,11 @@ export default function ImmersiveShopping() {
       if (!swipeLock.value && swipeY.value !== 0) {
         swipeY.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
       }
-      refreshImageScale.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.cubic) });
-    }), [activeIndexShared, commitSwipe, contentHeight, drawerOpen, onRefresh, pieces.length, refreshActiveShared, refreshImageScale, refreshTriggered, swipeLock, swipeY]);
-  const sellerPeekGesture = useMemo(() => Gesture.Pan()
-    .enabled(!drawerOpen && Boolean(activePiece) && Boolean(activePiece?.ownerId || activePiece?.listedByUid || activePiece?.brandId || activePiece?.brand))
-    .maxPointers(1)
-    .activeOffsetX([12, 9999])
-    .failOffsetY([-18, 18])
-    .onBegin(() => {
-      if (swipeLock.value || refreshActiveShared.value) return;
-      sellerPeekLock.value = 0;
-    })
-    .onUpdate((event) => {
-      if (swipeLock.value || refreshActiveShared.value || sellerPeekLock.value) return;
-      sellerPeekX.value = Math.max(0, Math.min(SCREEN_WIDTH, event.translationX));
-    })
-    .onEnd((event) => {
-      if (swipeLock.value || refreshActiveShared.value || sellerPeekLock.value) return;
-      const shouldOpen = sellerPeekX.value > SCREEN_WIDTH * 0.28 || event.velocityX > 700;
-      sellerPeekLock.value = 1;
-      sellerPeekX.value = withTiming(shouldOpen ? SCREEN_WIDTH : 0, {
-        duration: shouldOpen ? 220 : 180,
-        easing: Easing.out(Easing.cubic),
-      }, (finished) => {
-        if (!finished) return;
-        if (shouldOpen) {
-          runOnJS(openSellerForPiece)(activePiece);
-          sellerPeekX.value = 0;
-        }
-        sellerPeekLock.value = 0;
-      });
-    })
-    .onFinalize(() => {
       if (!sellerPeekLock.value && sellerPeekX.value !== 0) {
         sellerPeekX.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
       }
-    }), [activePiece, drawerOpen, refreshActiveShared, sellerPeekLock, sellerPeekX, swipeLock]);
-  const feedGesture = useMemo(() => Gesture.Race(sellerPeekGesture, panGesture), [panGesture, sellerPeekGesture]);
+      refreshImageScale.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.cubic) });
+    }), [activeIndexShared, activePiece, commitSwipe, contentHeight, drawerOpen, onRefresh, openSellerForPiece, pieces.length, refreshActiveShared, refreshImageScale, refreshTriggered, sellerPeekLock, sellerPeekMode, sellerPeekX, swipeLock, swipeY]);
   useEffect(() => {
     // Keep the next couple of images warm so rapid swipes don't reveal an
     // unloaded image while the incoming card is already moving on screen.
@@ -444,7 +441,7 @@ export default function ImmersiveShopping() {
         />
       )}
     >
-      <GestureDetector gesture={feedGesture}>
+      <GestureDetector gesture={panGesture}>
       <View style={styles.page}>
         <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
         {activePiece ? <>
