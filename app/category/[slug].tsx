@@ -134,6 +134,10 @@ export default function CategoryListings() {
             </ScrollView>
 
             <View style={styles.heroCopy}>
+              <View style={styles.heroSignature}>
+                <View style={styles.heroSignatureRule} />
+                <Text style={styles.heroSignatureText}>{hero.brand || "UVEL"}</Text>
+              </View>
               <Text style={styles.heroTitle}>{page.heroTitle}</Text>
               <Text style={styles.heroBody}>{page.heroBody}</Text>
               <View style={styles.swipeCue}>
@@ -143,9 +147,6 @@ export default function CategoryListings() {
                 </View>
                 <Text style={styles.swipeText}>Swipe to browse</Text>
               </View>
-            </View>
-            <View style={styles.heroBadge}>
-              <Text style={styles.heroBadgeText}>{hero.brand || "UVEL"}</Text>
             </View>
           </View>
         ) : null}
@@ -244,13 +245,14 @@ function make(colors: ReturnType<typeof useColors>) {
     railText: { color: colors.bone, fontSize: 11, fontWeight: "800" },
     railTextOn: { color: colors.ink },
     heroCopy: { position: "absolute", left: 22, right: 22, bottom: 28 },
+    heroSignature: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 },
+    heroSignatureRule: { width: 24, height: 1, backgroundColor: colors.success },
+    heroSignatureText: { color: colors.success, fontSize: 10, letterSpacing: 1.8, fontWeight: "900", textTransform: "uppercase" },
     heroTitle: { color: colors.bone, fontSize: 36, lineHeight: 40, fontWeight: "900", letterSpacing: -0.7 },
     heroBody: { color: "#F4F0E6D9", fontSize: 14, lineHeight: 20, maxWidth: 290, marginTop: 6 },
     swipeCue: { alignSelf: "flex-start", minWidth: 166, height: 44, borderRadius: 22, backgroundColor: colors.success, paddingHorizontal: 15, flexDirection: "row", alignItems: "center", gap: 9, marginTop: 16 },
     swipeArrow: { width: 20, height: 25, alignItems: "center", justifyContent: "center", marginTop: -3 },
     swipeText: { color: colors.successInk, fontSize: 13, fontWeight: "900", letterSpacing: 0.1 },
-    heroBadge: { position: "absolute", top: 126, right: 16, borderRadius: 14, paddingHorizontal: 10, height: 28, justifyContent: "center", backgroundColor: "#00000080" },
-    heroBadgeText: { color: colors.bone, fontSize: 9, letterSpacing: 1.2, fontWeight: "900" },
     curatedSection: { paddingHorizontal: 16, paddingBottom: 22 },
     sectionHeader: { flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", paddingBottom: 11 },
     sectionKicker: { color: colors.subtle, fontSize: 10, letterSpacing: 1.5, fontWeight: "900" },
