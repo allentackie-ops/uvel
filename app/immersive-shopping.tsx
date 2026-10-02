@@ -109,9 +109,6 @@ export default function ImmersiveShopping() {
   const refreshTriggered = useSharedValue(0);
   const refreshActiveShared = useSharedValue(0);
   const refreshImageScale = useSharedValue(1);
-  const sellerPeekX = useSharedValue(0);
-  const sellerPeekLock = useSharedValue(0);
-  const sellerPeekMode = useSharedValue(0);
   useEffect(() => {
     if (!findHint) return;
     const timer = setTimeout(() => setFindHint(false), 3200);
@@ -289,12 +286,6 @@ export default function ImmersiveShopping() {
   const previousCardStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: swipeY.value + (activeIndex - 1 - activeIndexShared.value) * contentHeight }],
   }));
-  const sellerPeekSceneStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: -sellerPeekX.value * 0.12 }],
-  }));
-  const sellerPeekPanelStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: SCREEN_WIDTH - sellerPeekX.value }],
-  }));
   const commitSwipe = useCallback((nextIndex: number) => {
     const currentPrompt = feedbackPromptRef.current;
     if (currentPrompt && currentPrompt.index !== nextIndex) {
@@ -307,23 +298,12 @@ export default function ImmersiveShopping() {
   const panGesture = useMemo(() => Gesture.Pan()
     .enabled(!drawerOpen && pieces.length > 0)
     .maxPointers(1)
-    .minDistance(12)
+    .activeOffsetY([-12, 12])
+    .failOffsetX([-18, 18])
     .onBegin(() => {
       if (!refreshActiveShared.value) refreshTriggered.value = 0;
-      sellerPeekMode.value = 0;
-      sellerPeekLock.value = 0;
-      sellerPeekX.value = 0;
     })
     .onUpdate((event) => {
-      const isHorizontal = Math.abs(event.translationX) > Math.abs(event.translationY) * 1.15;
-      if (isHorizontal) {
-        if (event.translationX <= 0 || !activePiece || (!activePiece.ownerId && !activePiece.listedByUid && !activePiece.brandId && !activePiece.brand)) return;
-        sellerPeekMode.value = 1;
-        if (swipeLock.value || refreshActiveShared.value || sellerPeekLock.value) return;
-        sellerPeekX.value = Math.max(0, Math.min(SCREEN_WIDTH, event.translationX));
-        return;
-      }
-      if (sellerPeekMode.value) return;
       const currentIndex = activeIndexShared.value;
       if (currentIndex === 0 && event.translationY > 0) {
         const pull = Math.min(180, event.translationY);
@@ -345,24 +325,6 @@ export default function ImmersiveShopping() {
       swipeY.value = Math.max(-contentHeight, Math.min(contentHeight, translation));
     })
     .onEnd((event) => {
-      if (sellerPeekMode.value) {
-        if (swipeLock.value || refreshActiveShared.value || sellerPeekLock.value) return;
-        const shouldOpen = sellerPeekX.value > SCREEN_WIDTH * 0.28 || event.velocityX > 700;
-        sellerPeekLock.value = 1;
-        sellerPeekX.value = withTiming(shouldOpen ? SCREEN_WIDTH : 0, {
-          duration: shouldOpen ? 220 : 180,
-          easing: Easing.out(Easing.cubic),
-        }, (finished) => {
-          if (!finished) return;
-          if (shouldOpen) {
-            runOnJS(openSellerForPiece)(activePiece);
-            sellerPeekX.value = 0;
-          }
-          sellerPeekMode.value = 0;
-          sellerPeekLock.value = 0;
-        });
-        return;
-      }
       if (refreshTriggered.value) {
         swipeY.value = 0;
         swipeLock.value = refreshActiveShared.value ? 1 : 0;
@@ -404,11 +366,17 @@ export default function ImmersiveShopping() {
       if (!swipeLock.value && swipeY.value !== 0) {
         swipeY.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
       }
-      if (!sellerPeekLock.value && sellerPeekX.value !== 0) {
-        sellerPeekX.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
-      }
       refreshImageScale.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.cubic) });
-    }), [activeIndexShared, activePiece, commitSwipe, contentHeight, drawerOpen, onRefresh, openSellerForPiece, pieces.length, refreshActiveShared, refreshImageScale, refreshTriggered, sellerPeekLock, sellerPeekMode, sellerPeekX, swipeLock, swipeY]);
+    }), [activeIndexShared, commitSwipe, contentHeight, drawerOpen, onRefresh, pieces.length, refreshActiveShared, refreshImageScale, refreshTriggered, swipeLock, swipeY]);
+  const profileSwipeGesture = useMemo(() => Gesture.Pan()
+    .enabled(!drawerOpen && Boolean(activePiece) && Boolean(activePiece?.ownerId || activePiece?.listedByUid || activePiece?.brandId || activePiece?.brand))
+    .maxPointers(1)
+    .activeOffsetX([-12, 9999])
+    .failOffsetY([-18, 18])
+    .onEnd((event) => {
+      if (event.translationX < -72 || event.velocityX < -650) runOnJS(openSellerForPiece)(activePiece);
+    }), [activePiece, drawerOpen, openSellerForPiece]);
+  const feedGesture = useMemo(() => Gesture.Exclusive(profileSwipeGesture, panGesture), [panGesture, profileSwipeGesture]);
   useEffect(() => {
     // Keep the next couple of images warm so rapid swipes don't reveal an
     // unloaded image while the incoming card is already moving on screen.
@@ -427,7 +395,10 @@ export default function ImmersiveShopping() {
         else void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
       }}
       onClose={() => setDrawerOpen(false)}
-      swipeEnabled={false}
+      swipeEnabled
+      swipeEdgeWidth={SCREEN_WIDTH}
+      swipeMinDistance={10}
+      swipeMinVelocity={100}
       drawerType="slide"
       drawerPosition="left"
       drawerStyle={{ width: Math.min(SCREEN_WIDTH * 0.78, 340), backgroundColor: colors.ink }}
@@ -441,14 +412,14 @@ export default function ImmersiveShopping() {
         />
       )}
     >
-      <GestureDetector gesture={panGesture}>
+      <GestureDetector gesture={feedGesture}>
       <View style={styles.page}>
         <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
         {activePiece ? <>
-          {previousPiece ? <Animated.View key={`${activeIndex - 1}:${previousPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle, sellerPeekSceneStyle]}>
-            <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} onOpenSeller={openSellerForPiece} />
+          {previousPiece ? <Animated.View key={`${activeIndex - 1}:${previousPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle]}>
+            <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
-          <Animated.View key={`${activeIndex}:${activePiece.id}`} style={[styles.cardLayer, { height: contentHeight }, currentCardStyle, sellerPeekSceneStyle]}>
+          <Animated.View key={`${activeIndex}:${activePiece.id}`} style={[styles.cardLayer, { height: contentHeight }, currentCardStyle]}>
           <ImmersiveItem
           piece={activePiece}
           active
@@ -463,15 +434,11 @@ export default function ImmersiveShopping() {
           refreshImageScale={refreshImageScale}
           onFirstFind={() => setFindHint(true)}
           firstFindLabel={C.firstFind}
-          onOpenSeller={openSellerForPiece}
           />
           </Animated.View>
-          {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle, sellerPeekSceneStyle]}>
-            <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} onOpenSeller={openSellerForPiece} />
+          {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
+            <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
-          <Animated.View pointerEvents="none" style={[styles.sellerPeekPanel, sellerPeekPanelStyle]}>
-            {activePiece ? <SellerPeekPanel piece={activePiece} colors={colors} insets={insets} /> : null}
-          </Animated.View>
         </> : null}
         <View pointerEvents="box-none" style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
           <AccessiblePressable onPress={() => { menuPressRef.current = true; setDrawerOpen(true); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); }} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Open Today drawer">
@@ -530,67 +497,7 @@ function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: Re
   );
 }
 
-function SellerPeekPanel({ piece, colors, insets }: { piece: ShopFloorPiece; colors: Colors; insets: { top: number; bottom: number } }) {
-  const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
-  const sellerName = brandRecord?.name || piece.ownerName || piece.listedByName || piece.brand || "Uvel seller";
-  const sellerPhoto = brandRecord?.logoUri || piece.ownerPhoto || piece.photo;
-  const isBrand = Boolean(brandRecord);
-  const panelStyles = useMemo(() => makePeekPanelStyles(colors), [colors]);
-  return (
-    <View style={panelStyles.panel}>
-      <View style={[panelStyles.header, { paddingTop: insets.top + 14 }]}>
-        <View style={panelStyles.headerHandle} />
-        <Text style={panelStyles.kicker}>{isBrand ? "BRAND SHOP" : "SELLER SHOP"}</Text>
-        <Text style={panelStyles.title} numberOfLines={1}>{sellerName}</Text>
-        <Text style={panelStyles.subtitle}>Swipe farther to open the full page</Text>
-      </View>
-      <View style={panelStyles.profileRow}>
-        <Image source={{ uri: sellerPhoto }} style={panelStyles.avatar} contentFit="cover" />
-        <View style={panelStyles.profileCopy}>
-          <Text style={panelStyles.profileName} numberOfLines={1}>{sellerName}</Text>
-          <Text style={panelStyles.profileMeta}>{isBrand ? "Curated pieces on Uvel" : "Independent seller"}</Text>
-        </View>
-        <View style={panelStyles.followPill}><Text style={panelStyles.followText}>Follow</Text></View>
-      </View>
-      <Text style={panelStyles.sectionTitle}>From this shop</Text>
-      <View style={panelStyles.grid}>
-        <Image source={{ uri: piece.photo }} style={panelStyles.gridImage} contentFit="cover" />
-        <View style={panelStyles.gridPlaceholder}><Ionicons name="sparkles-outline" size={24} color={colors.success} /><Text style={panelStyles.placeholderText}>More pieces</Text></View>
-      </View>
-      <View style={[panelStyles.openHint, { bottom: Math.max(insets.bottom, 14) + 12 }]}>
-        <Ionicons name="arrow-forward" size={17} color={colors.successInk} />
-        <Text style={panelStyles.openHintText}>Release to open shop</Text>
-      </View>
-    </View>
-  );
-}
-
-function makePeekPanelStyles(colors: Colors) {
-  return StyleSheet.create({
-    panel: { flex: 1, backgroundColor: colors.ink, paddingHorizontal: 20 },
-    header: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20`, paddingBottom: 18 },
-    headerHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: `${colors.bone}50`, alignSelf: "center", marginBottom: 26 },
-    kicker: { color: colors.success, fontSize: 11, fontWeight: "900", letterSpacing: 1.8 },
-    title: { color: colors.bone, fontSize: 28, fontWeight: "900", marginTop: 7 },
-    subtitle: { color: colors.muted, fontSize: 13, marginTop: 5 },
-    profileRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 20 },
-    avatar: { width: 54, height: 54, borderRadius: 27, backgroundColor: colors.surface },
-    profileCopy: { flex: 1, gap: 4 },
-    profileName: { color: colors.bone, fontSize: 16, fontWeight: "800" },
-    profileMeta: { color: colors.muted, fontSize: 12 },
-    followPill: { backgroundColor: colors.success, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9 },
-    followText: { color: colors.successInk, fontSize: 12, fontWeight: "900" },
-    sectionTitle: { color: colors.bone, fontSize: 15, fontWeight: "800", marginBottom: 10 },
-    grid: { flexDirection: "row", gap: 8 },
-    gridImage: { flex: 1, aspectRatio: 0.78, borderRadius: 12, backgroundColor: colors.surface },
-    gridPlaceholder: { flex: 1, aspectRatio: 0.78, borderRadius: 12, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", gap: 6 },
-    placeholderText: { color: colors.muted, fontSize: 12, fontWeight: "700" },
-    openHint: { position: "absolute", left: 20, right: 20, minHeight: 48, borderRadius: 24, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-    openHintText: { color: colors.successInk, fontSize: 13, fontWeight: "900" },
-  });
-}
-
-function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, refreshImageScale, onFirstFind, firstFindLabel, feedbackPrompted, onRecommendationFeedback, onOpenSeller }: any) {
+function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, refreshImageScale, onFirstFind, firstFindLabel, feedbackPrompted, onRecommendationFeedback }: any) {
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   const [shareOpen, setShareOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -659,7 +566,8 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
     }, 450);
   }
   function openSeller() {
-    onOpenSeller?.(piece);
+    if (brandRecord) router.push({ pathname: "/brand/[id]", params: { id: brandRecord.id } });
+    else if (followId) router.push({ pathname: "/seller/[id]", params: { id: followId } });
   }
   function openOfferSheet() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
@@ -911,7 +819,6 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink, overflow: "hidden" },
     cardLayer: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" },
-    sellerPeekPanel: { position: "absolute", top: 0, right: 0, bottom: 0, width: SCREEN_WIDTH, zIndex: 50 },
     item: { width: SCREEN_WIDTH, backgroundColor: colors.ink, overflow: "hidden" },
     itemImageFrame: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" },
     itemImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
