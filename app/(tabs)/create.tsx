@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMemo } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { BrandBanner } from "../../components/BrandBanner";
 import { ownedBrand, themeFor, useBrands, type Brand } from "../../lib/brands";
@@ -74,13 +74,24 @@ type ScreenStyles = ReturnType<typeof make>;
 type SharedProps = { colors: Colors; styles: ScreenStyles };
 
 function EditorialHeader({ brand, styles }: { brand?: Brand; styles: ScreenStyles }) {
+  function showBrandLogoPrompt() {
+    Alert.alert(
+      "Your brand logo lives here",
+      "Set up your brand to add a logo that will appear in this spot across your Create experience.",
+      [
+        { text: "Not now", style: "cancel" },
+        { text: "Set up my brand", onPress: () => router.push("/brand/founder") },
+      ],
+    );
+  }
+
   return (
     <View style={styles.header}>
       <View style={styles.headerIdentity}>
         <Text style={styles.kicker}>{brand ? "YOUR BRAND" : "YOUR NEXT IDEA"}</Text>
         <Text style={styles.brandName} numberOfLines={1}>{brand?.name || "Create"}</Text>
       </View>
-      {brand ? <BrandLogo brand={brand} styles={styles} size={54} /> : <View style={styles.headerMark}><Ionicons name="add" size={28} color={styles.headerMarkIcon.color} /></View>}
+      {brand ? <BrandLogo brand={brand} styles={styles} size={54} /> : <Pressable onPress={showBrandLogoPrompt} style={({ pressed }) => [styles.headerMark, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="Set up your brand logo" accessibilityHint="Explains where your brand logo will appear and opens brand setup."><Ionicons name="camera-outline" size={25} color={styles.headerMarkIcon.color} /></Pressable>}
     </View>
   );
 }
