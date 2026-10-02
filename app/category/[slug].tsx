@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router, useLocalSearchParams } from "expo-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "../../components/ListingCard";
@@ -48,6 +48,8 @@ export default function CategoryListings() {
   const scrollRef = useRef<ScrollView>(null);
   const [availableOnly, setAvailableOnly] = useState(false);
   const [sort, setSort] = useState<SortMode>("curated");
+  const [heroImageFailed, setHeroImageFailed] = useState(false);
+  const [heroHeight, setHeroHeight] = useState(height);
   const activeSlug = String(slug || "outerwear").toLowerCase();
   const page = CATEGORY_PAGES[activeSlug] || CATEGORY_PAGES.outerwear;
   const live = shopFloor(app.country);
@@ -81,6 +83,19 @@ export default function CategoryListings() {
   }, [rows]);
   const sortLabel = sort === "curated" ? "Curated" : sort === "newest" ? "Newest" : "Price";
 
+  useEffect(() => {
+    setHeroImageFailed(false);
+  }, [hero?.id]);
+
+  function goBack() {
+    if (router.canGoBack()) router.back();
+    else router.replace("/search");
+  }
+
+  function browseToListings() {
+    scrollRef.current?.scrollTo({ y: Math.max(0, heroHeight), animated: true });
+  }
+
   function cycleSort() {
     setSort((current) => current === "curated" ? "newest" : current === "newest" ? "price" : "curated");
   }
@@ -99,11 +114,25 @@ export default function CategoryListings() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 34 }]}
       >
         {hero ? (
-          <View style={[styles.heroCard, { height }]}>
-            <Image source={{ uri: hero.photo }} style={styles.heroImage} contentFit="cover" />
+          <View style={[styles.heroCard, { height }]} onLayout={(event) => setHeroHeight(event.nativeEvent.layout.height)}>
+            {hero.photo && !heroImageFailed ? (
+              <Image
+                source={{ uri: hero.photo }}
+                style={styles.heroImage}
+                contentFit="cover"
+                onError={() => setHeroImageFailed(true)}
+              />
+            ) : (
+              <View style={styles.heroFallback}>
+                <View style={styles.fallbackMark}><Text style={styles.fallbackMarkText}>{(hero.brand || page.title).slice(0, 1).toUpperCase()}</Text></View>
+                <Text style={styles.fallbackBrand}>{hero.brand || "UVEL"}</Text>
+                <Text style={styles.fallbackName}>{hero.name}</Text>
+                <Text style={styles.fallbackHint}>A preview from this edit</Text>
+              </View>
+            )}
             <View style={styles.heroShade} pointerEvents="none" />
             <View style={[styles.heroTop, { top: insets.top + 10 }]}>
-              <Pressable onPress={() => router.back()} hitSlop={12} style={styles.heroBack} accessibilityRole="button" accessibilityLabel="Go back">
+              <Pressable onPress={goBack} hitSlop={12} style={styles.heroBack} accessibilityRole="button" accessibilityLabel="Go back">
                 <Ionicons name="arrow-back" size={22} color={colors.bone} />
               </Pressable>
               <View style={styles.heroHeading}>
@@ -140,13 +169,13 @@ export default function CategoryListings() {
               </View>
               <Text style={styles.heroTitle}>{page.heroTitle}</Text>
               <Text style={styles.heroBody}>{page.heroBody}</Text>
-              <View style={styles.swipeCue}>
+              <Pressable onPress={browseToListings} style={styles.swipeCue} accessibilityRole="button" accessibilityLabel="Swipe to browse listings" accessibilityHint="Scrolls down to the featured listings.">
                 <View style={styles.swipeArrow}>
                   <Ionicons name="chevron-up" size={15} color={colors.successInk} />
                   <Ionicons name="chevron-up" size={15} color={colors.successInk} />
                 </View>
                 <Text style={styles.swipeText}>Swipe to browse</Text>
-              </View>
+              </Pressable>
             </View>
           </View>
         ) : null}
@@ -232,8 +261,14 @@ function make(colors: ReturnType<typeof useColors>) {
     page: { flex: 1, backgroundColor: colors.ink },
     content: { flexGrow: 1, paddingHorizontal: 0 },
     heroCard: { width: "100%", overflow: "hidden", backgroundColor: colors.surface, marginBottom: 24 },
-    heroImage: { ...StyleSheet.absoluteFillObject },
-    heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.44)" },
+    heroImage: { ...StyleSheet.absoluteFill },
+    heroFallback: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, backgroundColor: colors.surface },
+    fallbackMark: { width: 88, height: 88, borderRadius: 44, borderWidth: 1, borderColor: `${colors.success}88`, backgroundColor: `${colors.success}22`, alignItems: "center", justifyContent: "center", marginBottom: 16 },
+    fallbackMarkText: { color: colors.success, fontSize: 38, fontWeight: "900", letterSpacing: -1 },
+    fallbackBrand: { color: colors.success, fontSize: 12, fontWeight: "900", letterSpacing: 2, textTransform: "uppercase" },
+    fallbackName: { color: colors.bone, fontSize: 22, fontWeight: "900", textAlign: "center", marginTop: 7 },
+    fallbackHint: { color: colors.muted, fontSize: 13, marginTop: 7 },
+    heroShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.44)" },
     heroTop: { position: "absolute", left: 16, right: 16, flexDirection: "row", alignItems: "center", gap: 10 },
     heroBack: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#00000070", alignItems: "center", justifyContent: "center" },
     heroHeading: { flex: 1 },
