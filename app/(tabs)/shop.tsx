@@ -10,7 +10,7 @@ import { Alert, Animated, Dimensions, FlatList, ScrollView, StyleSheet, Text, Te
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "../../lib/haptics";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
-import { ListingCard } from "../../components/ListingCard";
+import { ListingCard, ListingCardSkeleton } from "../../components/ListingCard";
 import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayListingOverlay";
 import { TodayCartFab } from "../../components/TodayCartFab";
 import { ImmersiveShoppingButton } from "../../components/ImmersiveShoppingButton";
@@ -803,7 +803,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
             const piece = item.piece;
             return (
               <View style={[styles.cell, openPiece?.id === piece.id && { opacity: 0 }]}>
-                <ListingCard piece={piece} framed firstFind={firstFind.matches(piece)} onFirstFind={() => setFindHint(true)} onOpen={openTodayListing} onInteraction={personalization.record} />
+                {refreshing ? <ListingCardSkeleton framed /> : <ListingCard piece={piece} framed firstFind={firstFind.matches(piece)} onFirstFind={() => setFindHint(true)} onOpen={openTodayListing} onInteraction={personalization.record} />}
               </View>
             );
           }}
@@ -825,7 +825,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           maxToRenderPerBatch={12}
           updateCellsBatchingPeriod={40}
           windowSize={9}
-          extraData={openPiece?.id}
+          extraData={[openPiece?.id, refreshing]}
         />
       ) : (
         <ScrollView
@@ -843,7 +843,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           <View style={[styles.grid, !scanning && { marginTop: 14 }]}>
             {scanning ? null : feedRanked.map((piece) => (
               <View key={piece.id} style={[styles.cell, openPiece?.id === piece.id && { opacity: 0 }]}>
-                <ListingCard piece={piece} framed firstFind={todayHome && firstFind.matches(piece)} onFirstFind={todayHome ? () => setFindHint(true) : undefined} onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />
+                {refreshing ? <ListingCardSkeleton framed /> : <ListingCard piece={piece} framed firstFind={todayHome && firstFind.matches(piece)} onFirstFind={todayHome ? () => setFindHint(true) : undefined} onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />}
               </View>
             ))}
           </View>

@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import {  StyleSheet, Text, View } from "react-native";
-import { useRef } from "react";
+import { Animated, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef } from "react";
 import { AccessiblePressable } from "./AccessiblePressable";
 import { MotionClip } from "./MotionClip";
 import { getBrand, themeFor } from "../lib/brands";
@@ -15,6 +15,35 @@ import { BrandVerifiedMark } from "./VerifiedMark";
 import type { PersonalizationAction } from "../lib/personalization";
 
 const IMAGE_OVERLAY_TEXT = "#F4F0E6";
+
+export function ListingCardSkeleton({ wide, framed }: { wide?: number; framed?: boolean }) {
+  const colors = useColors();
+  const styles = make(colors);
+  const pulse = useRef(new Animated.Value(0.62)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.92, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.62, duration: 700, useNativeDriver: true }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [pulse]);
+
+  return (
+    <Animated.View style={[styles.wrap, wide ? { width: wide, flex: undefined } : null, framed && styles.framed, { opacity: pulse }]} pointerEvents="none">
+      <View style={[styles.skeletonImg, wide ? { width: wide, borderRadius: framed ? 0 : 18 } : null, framed && styles.framedImg]} />
+      <View style={framed ? styles.framedMeta : undefined}>
+        <View style={[styles.skeletonLine, styles.skeletonBrand]} />
+        <View style={[styles.skeletonLine, styles.skeletonName]} />
+        <View style={[styles.skeletonLine, styles.skeletonPrice]} />
+        <View style={[styles.skeletonLine, styles.skeletonDetail]} />
+      </View>
+    </Animated.View>
+  );
+}
 
 export function ListingCard({
   piece,
@@ -160,6 +189,12 @@ function make(colors: ReturnType<typeof useColors>) {
     focused: { borderWidth: 2, borderColor: colors.success },
     framed: { backgroundColor: colors.surface, borderRadius: 18, overflow: "hidden" },
     img: { width: "100%", aspectRatio: 3 / 4, borderRadius: 18, backgroundColor: colors.surface },
+    skeletonImg: { width: "100%", aspectRatio: 3 / 4, borderRadius: 18, backgroundColor: `${colors.bone}18` },
+    skeletonLine: { borderRadius: 5, backgroundColor: `${colors.bone}18` },
+    skeletonBrand: { width: "42%", height: 9, marginTop: 12 },
+    skeletonName: { width: "78%", height: 14, marginTop: 8 },
+    skeletonPrice: { width: "31%", height: 13, marginTop: 9 },
+    skeletonDetail: { width: "62%", height: 9, marginTop: 8, marginBottom: 12 },
     clip: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
     framedImg: { borderRadius: 0, backgroundColor: colors.surface },
     motionPill: { position: "absolute", left: 10, bottom: 10, zIndex: 7, paddingHorizontal: 8, height: 22, borderRadius: 11, backgroundColor: "rgba(22,20,15,0.72)", alignItems: "center", justifyContent: "center" },
