@@ -28,6 +28,7 @@ export default function Settings({ onBack }: { onBack?: () => void }) {
   const cart = useCart();
   const find = useFirstFind();
   const hasClosetItems = Boolean(app.uid && pieces.some((piece) => piece.ownerId === app.uid));
+  const cartSignature = cart.items.map((item) => `${item.pieceId}:${item.addedAt}`).sort().join("|");
   const goBack = onBack ?? (() => router.back());
   const localeLabel = LANGS.find((l) => l.id === app.locale)?.label ?? "English, US";
   const market = getMarket(app.country);
@@ -51,7 +52,7 @@ export default function Settings({ onBack }: { onBack?: () => void }) {
   async function toggleNotes(on: boolean) {
     if (!on) {
       void app.setWantsUpdates(false);
-      void import("../lib/engagement").then((m) => m.syncEngagement({ allowed: false, hasBag: false, hasFirstFind: false, hasClosetItems: false, uid: app.uid })).catch(() => undefined);
+      void import("../lib/engagement").then((m) => m.syncEngagement({ allowed: false, hasFirstFind: false, hasClosetItems: false, uid: app.uid, cartSignature })).catch(() => undefined);
       return;
     }
     if (!app.uid) {
@@ -68,10 +69,10 @@ export default function Settings({ onBack }: { onBack?: () => void }) {
     }
     void import("../lib/engagement").then((m) => m.syncEngagement({
       allowed: true,
-      hasBag: cart.count > 0,
       hasFirstFind: find.remaining > 10,
       hasClosetItems,
       uid: app.uid,
+      cartSignature,
     })).catch(() => undefined);
   }
 

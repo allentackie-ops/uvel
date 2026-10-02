@@ -77,6 +77,7 @@ function PushSync() {
   const find = useFirstFind();
   const pieces = useWardrobe();
   const hasClosetItems = Boolean(uid && pieces.some((piece) => piece.ownerId === uid));
+  const cartSignature = cart.items.map((item) => `${item.pieceId}:${item.addedAt}`).sort().join("|");
   useEffect(() => {
     armNotificationHandler();
   }, []);
@@ -170,12 +171,12 @@ function PushSync() {
   useEffect(() => {
     void syncEngagement({
       allowed: Boolean(uid && app.wantsUpdates),
-      hasBag: cart.count > 0,
       hasFirstFind: find.remaining > 10,
       hasClosetItems,
       uid,
+      cartSignature,
     });
-  }, [uid, app.wantsUpdates, cart.count, find.remaining, hasClosetItems]);
+  }, [uid, app.wantsUpdates, cartSignature, find.remaining, hasClosetItems]);
   return null;
 }
 

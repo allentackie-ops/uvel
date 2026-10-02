@@ -555,7 +555,7 @@ export default function ProfileSetup() {
                   "Pieces that match your style",
                   "Price drops and new listings",
                   "Messages about things you like",
-                  "If your closet has items: one daily reminder at a randomly chosen daytime time",
+                  "Daily Uvel reminders at randomly chosen daytime times; a closet reminder if you have items",
                 ].map((line) => (
                   <View key={line} style={styles.bulletRow}>
                     <View style={styles.dot} />
