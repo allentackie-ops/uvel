@@ -24,27 +24,30 @@ const COL = (W - 48) / 2;
 
 export default function BrandPage() {
   const { id, preview } = useLocalSearchParams<{ id: string; preview?: string }>();
-  const previewMode = preview === "1";
+  return <BrandPageView routeId={typeof id === "string" ? id : ""} previewMode={preview === "1"} />;
+}
+
+export function BrandPageView({ routeId, previewMode = false, onBack }: { routeId: string; previewMode?: boolean; onBack?: () => void }) {
   useBrands();
   const brandsReady = useBrandsHydrated();
   useWardrobe();
   const app = useUvel();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const brand = getBrand(id);
-  const liveCampaigns = useLiveCampaigns(id || "");
+  const brand = getBrand(routeId);
+  const liveCampaigns = useLiveCampaigns(routeId || "");
   const [tick, setTick] = useState(0);
   const [actionsOpen, setActionsOpen] = useState(false);
   useEffect(() => {
-    if (!id || !app.uid) return;
-    void recordAnalyticsEvent({ type: "brand_view", brandId: id }).catch(() => undefined);
-  }, [id, app.uid]);
+    if (!routeId || !app.uid) return;
+    void recordAnalyticsEvent({ type: "brand_view", brandId: routeId }).catch(() => undefined);
+  }, [routeId, app.uid]);
 
   const brandTheme = brand ? themeFor(brand) : null;
   const theme = brandTheme && colors.ink === "#F7F6F2"
     ? { ...brandTheme, bg: colors.ink, ink: colors.bone, muted: colors.muted, card: colors.surface, accent: colors.success, accentInk: colors.successInk, lineColor: "rgba(24,23,20,0.12)" }
     : brandTheme;
-  const listings = useMemo(() => (id ? brandListings(id) : []), [id, tick, brand?.id]);
+  const listings = useMemo(() => (routeId ? brandListings(routeId) : []), [routeId, tick, brand?.id]);
   const collections = useMemo(() => {
     const map = new Map<string, typeof listings>();
     for (const p of listings) {
@@ -72,7 +75,7 @@ export default function BrandPage() {
   if (!brand || !theme) {
     return (
       <View style={[styles.missing, { paddingTop: insets.top + 20 }]}>
-        <AccessiblePressable onPress={() => router.back()}>
+        <AccessiblePressable onPress={onBack || (() => router.back())}>
           <Text style={{ color: "#F4F0E6", fontSize: 16 }}>‹ Back</Text>
         </AccessiblePressable>
         <Text style={styles.missingH}>This house isn’t here</Text>
@@ -225,7 +228,7 @@ export default function BrandPage() {
             <BrandBanner uri={brand.bannerUri} kind={brand.bannerKind} style={[styles.banner, { backgroundColor: theme.bg }]} />
           )}
           <View style={[styles.nav, { top: insets.top + 4 }]}>
-            <AccessiblePressable              onPress={() => router.back()}
+            <AccessiblePressable              onPress={onBack || (() => router.back())}
               style={({ pressed }) => [styles.orb, { backgroundColor: "rgba(0,0,0,0.42)" }, pressed && { opacity: 0.92 }]}
               accessibilityRole="button"
               accessibilityLabel="Go back"

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
+import PagerView from "react-native-pager-view";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Share as NativeShare, StyleSheet, Text, View } from "react-native";
@@ -14,6 +15,8 @@ import { ImmersiveListingDetails } from "../components/ImmersiveListingDetails";
 import { ListingOfferSheet } from "../components/ListingOfferSheet";
 import { TodayCartFab } from "../components/TodayCartFab";
 import TodayToolsDrawer from "../components/TodayToolsDrawer";
+import { SellerProfileView } from "./seller/[id]";
+import { BrandPageView } from "./brand/[id]";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
 import * as Haptics from "../lib/haptics";
 import { addToCart, useCart } from "../lib/cart";
@@ -85,6 +88,8 @@ export default function ImmersiveShopping() {
   const bundledPieces = useMemo(() => fallbackShopFloor(), []);
   const [activeIndex, setActiveIndex] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [profilePiece, setProfilePiece] = useState<ShopFloorPiece | null>(null);
+  const profilePagerRef = useRef<PagerView>(null);
   const [findHint, setFindHint] = useState(false);
   const [refreshState, setRefreshState] = useState<{ active: boolean; epoch: number; anchorId?: string }>({ active: false, epoch: 0 });
   const refreshing = refreshState.active;
@@ -148,6 +153,18 @@ export default function ImmersiveShopping() {
   const activePiece = feedWindow.current;
   const nextPiece = feedWindow.next;
   visiblePieceId.current = activePiece?.id;
+  const profileSource = profilePiece || activePiece;
+  const profileBrand = profileSource?.brandId ? getBrand(profileSource.brandId) : undefined;
+  const profileSellerId = profileSource && !profileBrand
+    ? profileSource.ownerId || profileSource.listedByUid || (profileSource.brand ? CATALOG_BRAND_IDS[profileSource.brand] : "")
+    : "";
+  const openProfile = useCallback((piece: ShopFloorPiece) => {
+    setProfilePiece(piece);
+    setTimeout(() => profilePagerRef.current?.setPage(1), 0);
+  }, []);
+  const closeProfile = useCallback(() => {
+    profilePagerRef.current?.setPage(0);
+  }, []);
 
   useEffect(() => {
     if (!personalizationReady || refreshing || !rankedPieces.length) return;
@@ -376,7 +393,7 @@ export default function ImmersiveShopping() {
         else void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
       }}
       onClose={() => setDrawerOpen(false)}
-      swipeEnabled
+      swipeEnabled={!profilePiece}
       swipeEdgeWidth={SCREEN_WIDTH}
       swipeMinDistance={10}
       swipeMinVelocity={100}
@@ -384,7 +401,7 @@ export default function ImmersiveShopping() {
       drawerPosition="left"
       drawerStyle={{ width: Math.min(SCREEN_WIDTH * 0.78, 340), backgroundColor: colors.ink }}
       overlayStyle={{ backgroundColor: "rgba(0,0,0,0.32)" }}
-      configureGestureHandler={(handler) => drawerOpen ? handler.activeOffsetX([-1, 1]) : handler.failOffsetX(-1).activeOffsetX(5)}
+      configureGestureHandler={(handler) => drawerOpen ? handler.activeOffsetX([-1, 1]) : profilePiece ? handler.failOffsetX([0, 0]).failOffsetY([0, 0]) : handler.failOffsetX(-1).activeOffsetX(5)}
       renderDrawerContent={() => (
         <TodayToolsDrawer
           onClose={() => setDrawerOpen(false)}
@@ -393,6 +410,17 @@ export default function ImmersiveShopping() {
         />
       )}
     >
+      <PagerView
+        ref={profilePagerRef}
+        style={styles.pager}
+        initialPage={0}
+        scrollEnabled={!drawerOpen && Boolean(profileBrand || profileSellerId)}
+        onPageSelected={(event) => {
+          if (event.nativeEvent.position === 0) setProfilePiece(null);
+          else if (!profilePiece && activePiece) setProfilePiece(activePiece);
+        }}
+      >
+      <View key="immersive-feed" style={styles.pagerPage}>
       <GestureDetector gesture={panGesture}>
       <View style={styles.page}>
         <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
@@ -415,6 +443,7 @@ export default function ImmersiveShopping() {
           refreshImageScale={refreshImageScale}
           onFirstFind={() => setFindHint(true)}
           firstFindLabel={C.firstFind}
+          onOpenSeller={openProfile}
           />
           </Animated.View>
           {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
@@ -442,6 +471,17 @@ export default function ImmersiveShopping() {
         <TodayCartFab listingOpen />
       </View>
       </GestureDetector>
+      </View>
+      <View key="profile-page" style={styles.pagerPage}>
+        {profileBrand ? (
+          <BrandPageView routeId={profileBrand.id} onBack={closeProfile} />
+        ) : profileSellerId ? (
+          <SellerProfileView routeId={profileSellerId} onBack={closeProfile} />
+        ) : (
+          <View style={styles.page} />
+        )}
+      </View>
+      </PagerView>
     </Drawer>
   );
 }
@@ -478,7 +518,7 @@ function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: Re
   );
 }
 
-function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, refreshImageScale, onFirstFind, firstFindLabel, feedbackPrompted, onRecommendationFeedback }: any) {
+function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, refreshImageScale, onFirstFind, firstFindLabel, feedbackPrompted, onRecommendationFeedback, onOpenSeller }: any) {
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   const [shareOpen, setShareOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -547,6 +587,10 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
     }, 450);
   }
   function openSeller() {
+    if (onOpenSeller) {
+      onOpenSeller(piece);
+      return;
+    }
     if (brandRecord) router.push({ pathname: "/brand/[id]", params: { id: brandRecord.id } });
     else if (followId) router.push({ pathname: "/seller/[id]", params: { id: followId } });
   }
@@ -798,6 +842,8 @@ function Action({ icon, label, active, onPress, styles, colors }: { icon: keyof 
 function make(colors: Colors) {
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   return StyleSheet.create({
+    pager: { flex: 1 },
+    pagerPage: { flex: 1 },
     page: { flex: 1, backgroundColor: colors.ink, overflow: "hidden" },
     cardLayer: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" },
     item: { width: SCREEN_WIDTH, backgroundColor: colors.ink, overflow: "hidden" },

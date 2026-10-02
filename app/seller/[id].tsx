@@ -12,17 +12,21 @@ import { hydrateFollowedSellers, isSellerFollowed, syncSellerFollow, toggleSelle
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { normalizeUsername } from "../../lib/username";
-import { useMarketplaceSyncState, useWardrobe } from "../../lib/wardrobe";
+import { shopFloor, useMarketplaceSyncState, useWardrobe } from "../../lib/wardrobe";
 
 export default function SellerProfile() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  return <SellerProfileView routeId={typeof id === "string" ? id : ""} />;
+}
+
+export function SellerProfileView({ routeId, onBack }: { routeId: string; onBack?: () => void }) {
   const colors = useColors();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => make(colors, width), [colors, width]);
   const app = useUvel();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const routeId = typeof id === "string" ? id : "";
   const pieces = useWardrobe();
+  const marketplacePieces = useMemo(() => shopFloor(app.country), [app.country]);
   const syncState = useMarketplaceSyncState();
   const [followed, setFollowed] = useState(false);
   const [sellerUsername, setSellerUsername] = useState("");
@@ -31,14 +35,14 @@ export default function SellerProfile() {
   const interactedWithSeller = useRef<string | null>(null);
   const usernameCopyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const listings = useMemo(
-    () => routeId
-      ? pieces
-          .filter((piece) => piece.status === "listed" && !piece.sellerPaused && (piece.ownerId === routeId || piece.listedByUid === routeId))
-          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-      : [],
-    [routeId, pieces],
-  );
+  const listings = useMemo(() => {
+    if (!routeId) return [];
+    const byId = new Map<string, typeof pieces[number]>();
+    [...pieces, ...marketplacePieces].forEach((piece) => {
+      if (piece.status === "listed" && !piece.sellerPaused && (piece.ownerId === routeId || piece.listedByUid === routeId)) byId.set(piece.id, piece);
+    });
+    return [...byId.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  }, [marketplacePieces, pieces, routeId]);
   const seller = listings[0];
   const sellerId = routeId || seller?.ownerId || seller?.listedByUid || "";
   const sellerName = seller?.ownerName || seller?.listedByName || "Uvel seller";
@@ -134,7 +138,7 @@ export default function SellerProfile() {
     <View style={styles.page}>
       <View style={[styles.topBar, { paddingTop: insets.top + 4 }]}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={onBack || (() => router.back())}
           hitSlop={10}
           style={({ pressed }) => [styles.navButton, pressed && styles.navPressed]}
           accessibilityRole="button"
@@ -177,7 +181,7 @@ export default function SellerProfile() {
           </View>
           <Text style={styles.emptyTitle}>Seller unavailable</Text>
           <Text style={styles.emptyCopy}>This seller doesn’t have any active listings right now.</Text>
-          <Pressable onPress={() => router.back()} style={styles.emptyBack} accessibilityRole="button" accessibilityLabel="Go back">
+          <Pressable onPress={onBack || (() => router.back())} style={styles.emptyBack} accessibilityRole="button" accessibilityLabel="Go back">
             <Text style={styles.emptyBackText}>Go back</Text>
           </Pressable>
         </ScrollView>
