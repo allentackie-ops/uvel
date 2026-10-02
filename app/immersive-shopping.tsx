@@ -14,7 +14,6 @@ import { ImmersiveListingDetails } from "../components/ImmersiveListingDetails";
 import { ListingOfferSheet } from "../components/ListingOfferSheet";
 import { TodayCartFab } from "../components/TodayCartFab";
 import TodayToolsDrawer from "../components/TodayToolsDrawer";
-import { SellerProfileView } from "./seller/[id]";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
 import * as Haptics from "../lib/haptics";
 import { addToCart, useCart } from "../lib/cart";
@@ -299,9 +298,6 @@ export default function ImmersiveShopping() {
   const profileSceneStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: -profileSwipeX.value * 0.16 }],
   }));
-  const profileSurfaceStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: SCREEN_WIDTH - profileSwipeX.value }],
-  }));
   const commitSwipe = useCallback((nextIndex: number) => {
     const currentPrompt = feedbackPromptRef.current;
     if (currentPrompt && currentPrompt.index !== nextIndex) {
@@ -488,7 +484,6 @@ export default function ImmersiveShopping() {
           {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle, profileSceneStyle]}>
             <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
-          {activeProfileId ? <Animated.View pointerEvents="none" style={[styles.profileSurface, profileSurfaceStyle]}><SellerProfileView routeId={activeProfileId} /></Animated.View> : null}
         </> : null}
         <View pointerEvents="box-none" style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
           <AccessiblePressable onPress={() => { menuPressRef.current = true; setDrawerOpen(true); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); }} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Open Today drawer">
@@ -869,7 +864,6 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink, overflow: "hidden" },
     cardLayer: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" },
-    profileSurface: { position: "absolute", top: 0, right: 0, bottom: 0, width: SCREEN_WIDTH, zIndex: 50, backgroundColor: colors.ink },
     item: { width: SCREEN_WIDTH, backgroundColor: colors.ink, overflow: "hidden" },
     itemImageFrame: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" },
     itemImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
