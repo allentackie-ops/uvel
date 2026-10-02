@@ -446,7 +446,7 @@ export default function ImmersiveShopping() {
         <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
         {activePiece ? <>
           {previousPiece ? <Animated.View key={`${activeIndex - 1}:${previousPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle, sellerPeekSceneStyle]}>
-            <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
+            <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} onOpenSeller={openSellerForPiece} />
           </Animated.View> : null}
           <Animated.View key={`${activeIndex}:${activePiece.id}`} style={[styles.cardLayer, { height: contentHeight }, currentCardStyle, sellerPeekSceneStyle]}>
           <ImmersiveItem
@@ -463,10 +463,11 @@ export default function ImmersiveShopping() {
           refreshImageScale={refreshImageScale}
           onFirstFind={() => setFindHint(true)}
           firstFindLabel={C.firstFind}
+          onOpenSeller={openSellerForPiece}
           />
           </Animated.View>
           {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle, sellerPeekSceneStyle]}>
-            <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
+            <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} onOpenSeller={openSellerForPiece} />
           </Animated.View> : null}
           <Animated.View pointerEvents="none" style={[styles.sellerPeekPanel, sellerPeekPanelStyle]}>
             {activePiece ? <SellerPeekPanel piece={activePiece} colors={colors} insets={insets} /> : null}
@@ -589,7 +590,7 @@ function makePeekPanelStyles(colors: Colors) {
   });
 }
 
-function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, refreshImageScale, onFirstFind, firstFindLabel, feedbackPrompted, onRecommendationFeedback }: any) {
+function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, refreshImageScale, onFirstFind, firstFindLabel, feedbackPrompted, onRecommendationFeedback, onOpenSeller }: any) {
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   const [shareOpen, setShareOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -658,8 +659,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
     }, 450);
   }
   function openSeller() {
-    if (brandRecord) router.push({ pathname: "/brand/[id]", params: { id: brandRecord.id } });
-    else if (followId) router.push({ pathname: "/seller/[id]", params: { id: followId } });
+    onOpenSeller?.(piece);
   }
   function openOfferSheet() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
