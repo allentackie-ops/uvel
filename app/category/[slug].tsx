@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Animated, FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "../../components/ListingCard";
 import { usePersonalization } from "../../lib/personalization";
@@ -38,6 +38,7 @@ export default function CategoryListings() {
   const sync = useMarketplaceSyncState();
   useWardrobe();
   const listRef = useRef<FlatList<ClosetPiece>>(null);
+  const scrollY = useRef(new Animated.Value(0)).current;
   const [availableOnly, setAvailableOnly] = useState(false);
   const [sort, setSort] = useState<SortMode>("curated");
   const activeSlug = String(slug || "outerwear").toLowerCase();
@@ -69,6 +70,11 @@ export default function CategoryListings() {
         columnWrapperStyle={styles.row}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 34 }]}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+        scrollEventThrottle={16}
+        snapToOffsets={[0, height]}
+        snapToAlignment="start"
+        decelerationRate="fast"
         ListHeaderComponent={
           <View>
             {hero ? <View style={[styles.heroCard, { height }]}>
@@ -78,6 +84,7 @@ export default function CategoryListings() {
                 <Pressable onPress={() => router.back()} hitSlop={12} style={styles.heroBack} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="arrow-back" size={22} color={colors.bone} /></Pressable>
                 <View style={styles.heroHeading}><Text style={styles.heroKicker}>SHOP ANY LISTING</Text><Text style={styles.heroPageTitle}>{page.title}</Text></View>
               </View>
+              <Animated.View style={{ opacity: scrollY.interpolate({ inputRange: [0, height * 0.72], outputRange: [1, 0], extrapolate: "clamp" }) }}>
               <FlatList
                 horizontal
                 data={CATEGORY_RAIL}
@@ -86,7 +93,12 @@ export default function CategoryListings() {
                 contentContainerStyle={[styles.heroRail, { top: insets.top + 74 }]}
                 renderItem={({ item }) => { const active = item.slug === activeSlug; return <Pressable onPress={() => router.replace({ pathname: "/category/[slug]", params: { slug: item.slug } })} style={[styles.railItem, active && styles.railItemOn]} accessibilityRole="tab" accessibilityState={{ selected: active }}><Text style={[styles.railText, active && styles.railTextOn]}>{item.label}</Text></Pressable>; }}
               />
-              <View style={styles.heroCopy}><Text style={styles.heroTitle}>{page.heroTitle}</Text><Text style={styles.heroBody}>{page.heroBody}</Text><View style={styles.heroCta}><Text style={styles.heroCtaText}>Browse pieces</Text><Ionicons name="arrow-forward" size={16} color={colors.successInk} /></View></View>
+              </Animated.View>
+              <Animated.View style={[styles.heroCopy, { transform: [{ translateY: scrollY.interpolate({ inputRange: [0, height], outputRange: [0, -height * 0.16], extrapolate: "clamp" }) }] }]}>
+                <Text style={styles.heroTitle}>{page.heroTitle}</Text>
+                <Text style={styles.heroBody}>{page.heroBody}</Text>
+                <View style={styles.swipeCue}><View style={styles.swipeArrow}><Ionicons name="chevron-up" size={15} color={colors.successInk} /><Ionicons name="chevron-up" size={15} color={colors.successInk} /></View><Text style={styles.swipeText}>Swipe to browse</Text></View>
+              </Animated.View>
               <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>{hero.brand || "UVEL"}</Text></View>
             </View> : null}
             {curated.length ? <View style={styles.curatedSection}>
@@ -126,8 +138,9 @@ function make(colors: ReturnType<typeof useColors>) {
     heroCopy: { position: "absolute", left: 22, right: 22, bottom: 28 },
     heroTitle: { color: colors.bone, fontSize: 36, lineHeight: 40, fontWeight: "900", letterSpacing: -0.7 },
     heroBody: { color: "#F4F0E6D9", fontSize: 14, lineHeight: 20, maxWidth: 290, marginTop: 6 },
-    heroCta: { alignSelf: "flex-start", height: 42, borderRadius: 21, backgroundColor: colors.success, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 8, marginTop: 15 },
-    heroCtaText: { color: colors.successInk, fontSize: 13, fontWeight: "900" },
+    swipeCue: { alignSelf: "flex-start", minWidth: 166, height: 44, borderRadius: 22, backgroundColor: colors.success, paddingHorizontal: 15, flexDirection: "row", alignItems: "center", gap: 9, marginTop: 16 },
+    swipeArrow: { width: 20, height: 25, alignItems: "center", justifyContent: "center", marginTop: -3 },
+    swipeText: { color: colors.successInk, fontSize: 13, fontWeight: "900", letterSpacing: 0.1 },
     heroBadge: { position: "absolute", top: 126, right: 16, borderRadius: 14, paddingHorizontal: 10, height: 28, justifyContent: "center", backgroundColor: "#00000080" },
     heroBadgeText: { color: colors.bone, fontSize: 9, letterSpacing: 1.2, fontWeight: "900" },
     curatedSection: { paddingHorizontal: 16, paddingBottom: 22 },
