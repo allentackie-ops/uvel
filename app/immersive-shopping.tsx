@@ -89,10 +89,6 @@ export default function ImmersiveShopping() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [profilePiece, setProfilePiece] = useState<ShopFloorPiece | null>(null);
-  const [drawerReady, setDrawerReady] = useState(true);
-  const pagerPageRef = useRef<0 | 1>(0);
-  const pagerStateRef = useRef<"idle" | "dragging" | "settling">("idle");
-  const drawerReadyRef = useRef(true);
   const profilePagerRef = useRef<PagerView>(null);
   const [findHint, setFindHint] = useState(false);
   const [refreshState, setRefreshState] = useState<{ active: boolean; epoch: number; anchorId?: string }>({ active: false, epoch: 0 });
@@ -163,22 +159,11 @@ export default function ImmersiveShopping() {
     ? profileSource.ownerId || profileSource.listedByUid || (profileSource.brand ? CATALOG_BRAND_IDS[profileSource.brand] : "")
     : "";
   const openProfile = useCallback((piece: ShopFloorPiece) => {
-    drawerReadyRef.current = false;
-    setDrawerReady(false);
     setProfilePiece(piece);
     setTimeout(() => profilePagerRef.current?.setPage(1), 0);
   }, []);
   const closeProfile = useCallback(() => {
-    drawerReadyRef.current = false;
-    setDrawerReady(false);
     profilePagerRef.current?.setPage(0);
-  }, []);
-  const armDrawerAfterPagerIdle = useCallback(() => {
-    requestAnimationFrame(() => {
-      if (pagerPageRef.current !== 0 || pagerStateRef.current !== "idle") return;
-      drawerReadyRef.current = true;
-      setDrawerReady(true);
-    });
   }, []);
 
   useEffect(() => {
@@ -408,7 +393,7 @@ export default function ImmersiveShopping() {
         else void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
       }}
       onClose={() => setDrawerOpen(false)}
-      swipeEnabled={drawerReady}
+      swipeEnabled={!profilePiece}
       swipeEdgeWidth={SCREEN_WIDTH}
       swipeMinDistance={10}
       swipeMinVelocity={100}
@@ -416,7 +401,7 @@ export default function ImmersiveShopping() {
       drawerPosition="left"
       drawerStyle={{ width: Math.min(SCREEN_WIDTH * 0.78, 340), backgroundColor: colors.ink }}
       overlayStyle={{ backgroundColor: "rgba(0,0,0,0.32)" }}
-      configureGestureHandler={(handler) => drawerOpen ? handler.activeOffsetX([-1, 1]) : drawerReady ? handler.failOffsetX(-1).activeOffsetX(5) : handler.failOffsetX([0, 0]).failOffsetY([0, 0])}
+      configureGestureHandler={(handler) => drawerOpen ? handler.activeOffsetX([-1, 1]) : profilePiece ? handler.failOffsetX([0, 0]).failOffsetY([0, 0]) : handler.failOffsetX(-1).activeOffsetX(5)}
       renderDrawerContent={() => (
         <TodayToolsDrawer
           onClose={() => setDrawerOpen(false)}
@@ -431,26 +416,8 @@ export default function ImmersiveShopping() {
         initialPage={0}
         scrollEnabled={!drawerOpen && Boolean(profileBrand || profileSellerId)}
         onPageSelected={(event) => {
-          const page = event.nativeEvent.position === 0 ? 0 : 1;
-          pagerPageRef.current = page;
-          if (page === 0) {
-            setProfilePiece(null);
-            if (pagerStateRef.current === "idle") armDrawerAfterPagerIdle();
-          } else {
-            drawerReadyRef.current = false;
-            setDrawerReady(false);
-            if (!profilePiece && activePiece) setProfilePiece(activePiece);
-          }
-        }}
-        onPageScrollStateChanged={(event) => {
-          const state = event.nativeEvent.pageScrollState as "idle" | "dragging" | "settling";
-          pagerStateRef.current = state;
-          if (state !== "idle") {
-            drawerReadyRef.current = false;
-            setDrawerReady(false);
-          } else if (pagerPageRef.current === 0) {
-            armDrawerAfterPagerIdle();
-          }
+          if (event.nativeEvent.position === 0) setProfilePiece(null);
+          else if (!profilePiece && activePiece) setProfilePiece(activePiece);
         }}
       >
       <View key="immersive-feed" style={styles.pagerPage}>
