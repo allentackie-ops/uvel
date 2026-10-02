@@ -15,13 +15,16 @@ import { normalizeUsername } from "../../lib/username";
 import { useMarketplaceSyncState, useWardrobe } from "../../lib/wardrobe";
 
 export default function SellerProfile() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  return <SellerProfileView routeId={typeof id === "string" ? id : ""} />;
+}
+
+export function SellerProfileView({ routeId }: { routeId: string }) {
   const colors = useColors();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => make(colors, width), [colors, width]);
   const app = useUvel();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const routeId = typeof id === "string" ? id : "";
   const pieces = useWardrobe();
   const syncState = useMarketplaceSyncState();
   const [followed, setFollowed] = useState(false);

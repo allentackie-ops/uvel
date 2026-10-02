@@ -14,6 +14,7 @@ import { ImmersiveListingDetails } from "../components/ImmersiveListingDetails";
 import { ListingOfferSheet } from "../components/ListingOfferSheet";
 import { TodayCartFab } from "../components/TodayCartFab";
 import TodayToolsDrawer from "../components/TodayToolsDrawer";
+import { SellerProfileView } from "./seller/[id]";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
 import * as Haptics from "../lib/haptics";
 import { addToCart, useCart } from "../lib/cart";
@@ -109,6 +110,8 @@ export default function ImmersiveShopping() {
   const refreshTriggered = useSharedValue(0);
   const refreshActiveShared = useSharedValue(0);
   const refreshImageScale = useSharedValue(1);
+  const profileSwipeX = useSharedValue(0);
+  const profileSwipeLock = useSharedValue(0);
   useEffect(() => {
     if (!findHint) return;
     const timer = setTimeout(() => setFindHint(false), 3200);
@@ -148,6 +151,10 @@ export default function ImmersiveShopping() {
   const activePiece = feedWindow.current;
   const nextPiece = feedWindow.next;
   visiblePieceId.current = activePiece?.id;
+  const activeProfileId = useMemo(() => {
+    if (!activePiece || (activePiece.brandId && getBrand(activePiece.brandId))) return "";
+    return activePiece.ownerId || activePiece.listedByUid || (activePiece.brand ? CATALOG_BRAND_IDS[activePiece.brand] : "");
+  }, [activePiece]);
   const openSellerForPiece = useCallback((piece?: ShopFloorPiece) => {
     if (!piece) return;
     const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
@@ -286,6 +293,12 @@ export default function ImmersiveShopping() {
   const previousCardStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: swipeY.value + (activeIndex - 1 - activeIndexShared.value) * contentHeight }],
   }));
+  const profileSceneStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: -profileSwipeX.value * 0.16 }],
+  }));
+  const profileSurfaceStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: SCREEN_WIDTH - profileSwipeX.value }],
+  }));
   const commitSwipe = useCallback((nextIndex: number) => {
     const currentPrompt = feedbackPromptRef.current;
     if (currentPrompt && currentPrompt.index !== nextIndex) {
@@ -373,9 +386,30 @@ export default function ImmersiveShopping() {
     .maxPointers(1)
     .activeOffsetX([-12, 9999])
     .failOffsetY([-18, 18])
+    .onBegin(() => {
+      profileSwipeLock.value = 0;
+      profileSwipeX.value = 0;
+    })
+    .onUpdate((event) => {
+      if (profileSwipeLock.value) return;
+      profileSwipeX.value = Math.max(0, Math.min(SCREEN_WIDTH, -event.translationX));
+    })
     .onEnd((event) => {
-      if (event.translationX < -72 || event.velocityX < -650) runOnJS(openSellerForPiece)(activePiece);
-    }), [activePiece, drawerOpen, openSellerForPiece]);
+      if (profileSwipeLock.value) return;
+      const shouldOpen = profileSwipeX.value > SCREEN_WIDTH * 0.24 || event.velocityX < -650;
+      profileSwipeLock.value = 1;
+      profileSwipeX.value = withTiming(shouldOpen ? SCREEN_WIDTH : 0, {
+        duration: shouldOpen ? 220 : 180,
+        easing: Easing.out(Easing.cubic),
+      }, (finished) => {
+        if (!finished) return;
+        if (shouldOpen) {
+          runOnJS(openSellerForPiece)(activePiece);
+          profileSwipeX.value = 0;
+        }
+        profileSwipeLock.value = 0;
+      });
+    }), [activePiece, drawerOpen, openSellerForPiece, profileSwipeLock, profileSwipeX]);
   const feedGesture = useMemo(() => Gesture.Exclusive(profileSwipeGesture, panGesture), [panGesture, profileSwipeGesture]);
   useEffect(() => {
     // Keep the next couple of images warm so rapid swipes don't reveal an
@@ -416,10 +450,10 @@ export default function ImmersiveShopping() {
       <View style={styles.page}>
         <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
         {activePiece ? <>
-          {previousPiece ? <Animated.View key={`${activeIndex - 1}:${previousPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle]}>
+          {previousPiece ? <Animated.View key={`${activeIndex - 1}:${previousPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle, profileSceneStyle]}>
             <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
-          <Animated.View key={`${activeIndex}:${activePiece.id}`} style={[styles.cardLayer, { height: contentHeight }, currentCardStyle]}>
+          <Animated.View key={`${activeIndex}:${activePiece.id}`} style={[styles.cardLayer, { height: contentHeight }, currentCardStyle, profileSceneStyle]}>
           <ImmersiveItem
           piece={activePiece}
           active
@@ -436,9 +470,10 @@ export default function ImmersiveShopping() {
           firstFindLabel={C.firstFind}
           />
           </Animated.View>
-          {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
+          {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle, profileSceneStyle]}>
             <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
+          {activeProfileId ? <Animated.View pointerEvents="none" style={[styles.profileSurface, profileSurfaceStyle]}><SellerProfileView routeId={activeProfileId} /></Animated.View> : null}
         </> : null}
         <View pointerEvents="box-none" style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
           <AccessiblePressable onPress={() => { menuPressRef.current = true; setDrawerOpen(true); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); }} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Open Today drawer">
@@ -819,6 +854,7 @@ function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink, overflow: "hidden" },
     cardLayer: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" },
+    profileSurface: { position: "absolute", top: 0, right: 0, bottom: 0, width: SCREEN_WIDTH, zIndex: 50, backgroundColor: colors.ink },
     item: { width: SCREEN_WIDTH, backgroundColor: colors.ink, overflow: "hidden" },
     itemImageFrame: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden" },
     itemImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
