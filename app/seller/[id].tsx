@@ -12,7 +12,7 @@ import { hydrateFollowedSellers, isSellerFollowed, syncSellerFollow, toggleSelle
 import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import { normalizeUsername } from "../../lib/username";
-import { useMarketplaceSyncState, useWardrobe } from "../../lib/wardrobe";
+import { shopFloor, useMarketplaceSyncState, useWardrobe } from "../../lib/wardrobe";
 
 export default function SellerProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,6 +26,7 @@ export function SellerProfileView({ routeId }: { routeId: string }) {
   const styles = useMemo(() => make(colors, width), [colors, width]);
   const app = useUvel();
   const pieces = useWardrobe();
+  const marketplacePieces = useMemo(() => shopFloor(app.country), [app.country]);
   const syncState = useMarketplaceSyncState();
   const [followed, setFollowed] = useState(false);
   const [sellerUsername, setSellerUsername] = useState("");
@@ -34,14 +35,14 @@ export function SellerProfileView({ routeId }: { routeId: string }) {
   const interactedWithSeller = useRef<string | null>(null);
   const usernameCopyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const listings = useMemo(
-    () => routeId
-      ? pieces
-          .filter((piece) => piece.status === "listed" && !piece.sellerPaused && (piece.ownerId === routeId || piece.listedByUid === routeId))
-          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
-      : [],
-    [routeId, pieces],
-  );
+  const listings = useMemo(() => {
+    if (!routeId) return [];
+    const byId = new Map<string, typeof pieces[number]>();
+    [...pieces, ...marketplacePieces].forEach((piece) => {
+      if (piece.status === "listed" && !piece.sellerPaused && (piece.ownerId === routeId || piece.listedByUid === routeId)) byId.set(piece.id, piece);
+    });
+    return [...byId.values()].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  }, [marketplacePieces, pieces, routeId]);
   const seller = listings[0];
   const sellerId = routeId || seller?.ownerId || seller?.listedByUid || "";
   const sellerName = seller?.ownerName || seller?.listedByName || "Uvel seller";
