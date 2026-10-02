@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, usePathname } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, Dimensions, FlatList, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -190,6 +190,8 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const hapticTriggered = useRef(false);
   const scrollY = useRef(new Animated.Value(0)).current;
   const [feedEpoch, setFeedEpoch] = useState(0);
+  const [showRefreshSkeleton, setShowRefreshSkeleton] = useState(false);
+  const refreshSkeletonUsed = useRef(false);
   const frozenOrder = useRef<string[] | null>(null);
   const [todayFeedPageState, setTodayFeedPageState] = useState<{ key: string; pages: number }>({ key: "", pages: INITIAL_TODAY_FEED_PAGES });
   const [todayShuffleSeed] = useState(() => Math.floor(Math.random() * 0x7fffffff));
@@ -210,6 +212,8 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const followedKey = followedIds.join("|");
   const personalization = usePersonalization(app.uid || "guest");
   const firstFind = useFirstFind();
+  const pathname = usePathname();
+  const todayRouteActive = pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/");
   const dismissSwipeHint = useCallback(() => setShowSwipeHint(false), []);
   const dismissDoubleTapHint = useCallback(() => setShowDoubleTapHint(false), []);
   const dna = useMemo(
@@ -276,6 +280,12 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
     };
   }, [app.hydrated, todayHome]);
 
+  useEffect(() => {
+    if (!todayHome || todayRouteActive) return;
+    refreshSkeletonUsed.current = false;
+    setShowRefreshSkeleton(false);
+  }, [todayHome, todayRouteActive]);
+
   const look = useMemo(
     () => (typeof lookParam === "string" ? bundledLooks().find((l) => l.id === lookParam) : undefined),
     [lookParam],
@@ -302,6 +312,11 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const freezeAt = job?.time || 0;
   const marketplaceSync = useMarketplaceSyncState();
   const onRefresh = useCallback(async () => {
+    const firstRefreshThisVisit = todayHome && !refreshSkeletonUsed.current;
+    if (firstRefreshThisVisit) {
+      refreshSkeletonUsed.current = true;
+      setShowRefreshSkeleton(true);
+    }
     setRefreshing(true);
     try {
       await Promise.all([
@@ -312,8 +327,9 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
       frozenOrder.current = null;
       setFeedEpoch((n) => n + 1);
       setRefreshing(false);
+      setShowRefreshSkeleton(false);
     }
-  }, []);
+  }, [todayHome]);
 
   const onScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
     const y = event.nativeEvent.contentOffset.y;
@@ -357,6 +373,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   }, []);
 
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
+  const refreshSkeletonActive = todayHome && showRefreshSkeleton;
   const live = useMemo(() => shopFloor(country), [country, wardrobePieces]);
   const liveCampaigns = useLiveShopCampaigns();
   const scanningLook = Boolean(scan === "1" || look || frame || videoUrl);
@@ -590,7 +607,9 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const listHeaderContent = (
     <>
       {!todayHome && orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
-      {editorialHome && featured ? (
+      {editorialHome && refreshSkeletonActive ? (
+        <TodayOverviewSkeleton styles={styles} insets={insets} heroHeight={stretchedHeroHeight} />
+      ) : editorialHome && featured ? (
         <Animated.View
           ref={featuredRef}
           collapsable={false}
@@ -803,7 +822,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
             const piece = item.piece;
             return (
               <View style={[styles.cell, openPiece?.id === piece.id && { opacity: 0 }]}>
-                {refreshing ? <ListingCardSkeleton framed /> : <ListingCard piece={piece} framed firstFind={firstFind.matches(piece)} onFirstFind={() => setFindHint(true)} onOpen={openTodayListing} onInteraction={personalization.record} />}
+                {refreshSkeletonActive ? <ListingCardSkeleton framed /> : <ListingCard piece={piece} framed firstFind={firstFind.matches(piece)} onFirstFind={() => setFindHint(true)} onOpen={openTodayListing} onInteraction={personalization.record} />}
               </View>
             );
           }}
@@ -825,7 +844,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           maxToRenderPerBatch={12}
           updateCellsBatchingPeriod={40}
           windowSize={9}
-          extraData={[openPiece?.id, refreshing]}
+          extraData={[openPiece?.id, refreshing, refreshSkeletonActive]}
         />
       ) : (
         <ScrollView
@@ -843,7 +862,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           <View style={[styles.grid, !scanning && { marginTop: 14 }]}>
             {scanning ? null : feedRanked.map((piece) => (
               <View key={piece.id} style={[styles.cell, openPiece?.id === piece.id && { opacity: 0 }]}>
-                {refreshing ? <ListingCardSkeleton framed /> : <ListingCard piece={piece} framed firstFind={todayHome && firstFind.matches(piece)} onFirstFind={todayHome ? () => setFindHint(true) : undefined} onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />}
+                {refreshSkeletonActive ? <ListingCardSkeleton framed /> : <ListingCard piece={piece} framed firstFind={todayHome && firstFind.matches(piece)} onFirstFind={todayHome ? () => setFindHint(true) : undefined} onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />}
               </View>
             ))}
           </View>
@@ -880,6 +899,40 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   );
 }
 
+function TodayOverviewSkeleton({ styles, insets, heroHeight }: { styles: ReturnType<typeof make>; insets: { top: number }; heroHeight: any }) {
+  const pulse = useRef(new Animated.Value(0.62)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.92, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.62, duration: 700, useNativeDriver: true }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [pulse]);
+
+  return (
+    <Animated.View style={[styles.editorialHero, styles.todaySkeletonHero, { height: heroHeight, width: Dimensions.get("window").width, marginTop: -insets.top, marginLeft: -16, opacity: pulse }]} pointerEvents="none">
+      <View style={[styles.todaySkeletonHeader, { paddingTop: insets.top + 8 }]}>
+        <View style={styles.todaySkeletonCircle} />
+        <View style={styles.todaySkeletonWordmark} />
+        <View style={styles.todaySkeletonActions}>
+          <View style={styles.todaySkeletonCircle} />
+          <View style={styles.todaySkeletonCircle} />
+        </View>
+      </View>
+      <View style={styles.todaySkeletonCopy}>
+        <View style={styles.todaySkeletonKicker} />
+        <View style={styles.todaySkeletonTitle} />
+        <View style={styles.todaySkeletonTitleShort} />
+        <View style={styles.todaySkeletonPrice} />
+      </View>
+    </Animated.View>
+  );
+}
+
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
@@ -905,6 +958,16 @@ function make(colors: Colors) {
     editorialHeroShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.34)", zIndex: 1 },
     editorialHeroImageAction: { ...StyleSheet.absoluteFill, backgroundColor: "transparent", zIndex: 2 },
     editorialHeroContent: { ...StyleSheet.absoluteFill, paddingHorizontal: 22, paddingBottom: 27, justifyContent: "space-between", zIndex: 3 },
+    todaySkeletonHero: { backgroundColor: `${colors.bone}16`, justifyContent: "space-between", paddingHorizontal: 22, paddingBottom: 27 },
+    todaySkeletonHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    todaySkeletonCircle: { width: 38, height: 38, borderRadius: 19, backgroundColor: `${colors.bone}18` },
+    todaySkeletonWordmark: { width: 88, height: 22, borderRadius: 7, backgroundColor: `${colors.bone}18` },
+    todaySkeletonActions: { flexDirection: "row", gap: 4 },
+    todaySkeletonCopy: { gap: 10 },
+    todaySkeletonKicker: { width: 104, height: 10, borderRadius: 5, backgroundColor: `${colors.bone}18` },
+    todaySkeletonTitle: { width: "82%", height: 30, borderRadius: 8, backgroundColor: `${colors.bone}18` },
+    todaySkeletonTitleShort: { width: "58%", height: 30, borderRadius: 8, backgroundColor: `${colors.bone}18` },
+    todaySkeletonPrice: { width: 86, height: 15, borderRadius: 7, backgroundColor: `${colors.bone}18`, marginTop: 3 },
     editorialListingCopy: { maxWidth: 350, gap: 6 },
     editorialListingFirstFind: { alignSelf: "flex-start", minHeight: 30, paddingHorizontal: 12, marginBottom: 4, borderRadius: 15, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     editorialListingFirstFindText: { color: colors.successInk, fontSize: 11, fontWeight: "800" },
