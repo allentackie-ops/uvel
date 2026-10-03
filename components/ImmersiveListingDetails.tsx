@@ -161,7 +161,7 @@ export function ImmersiveListingDetails({
                 </Text>
               ) : null}
 
-              <ListingAlertControls piece={piece} colors={colors} appearance="popup" />
+              <ListingAlertControls key={piece.id} piece={piece} colors={colors} appearance="popup" collapsible />
 
               {piece.notes?.trim() ? (
                 <View style={styles.section}>
