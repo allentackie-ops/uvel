@@ -1,38 +1,19 @@
-import { Image } from "expo-image";
-import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ActionSheetIOS,
-  Alert,
-  Platform,
-  Pressable,
-  ScrollView,
-  Share as NativeShare,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { OrbitLoader } from "../../components/OrbitLoader";
-import { usd } from "../../lib/catalog";
-import { pickFromLibrary, takePhoto } from "../../lib/photo";
-import { useUvel } from "../../lib/store";
-import { useColors, type Colors } from "../../lib/theme";
-import { dressPerson } from "../../lib/tryon";
-import { refreshMarketplaceListings, shopFloor, getPiece, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
-import { onMirrorPick } from "../../lib/mirrorPick";
+import { useEffect, useState } from "react";
+import { ActionSheetIOS, Alert, Platform, Share as NativeShare } from "react-native";
 import { FriendShareSheet, type FriendSharePayload } from "../../components/FriendShareSheet";
+import { MirrorStudioView } from "../../components/MirrorStudioView";
+import { pickFromLibrary, pickListingPhoto } from "../../lib/photo";
+import { useUvel } from "../../lib/store";
+import { dressPerson } from "../../lib/tryon";
+import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { onMirrorPick } from "../../lib/mirrorPick";
 
 type GarmentPick =
   | { kind: "uvel"; piece: ClosetPiece }
   | { kind: "photo"; uri: string; name: string };
 
 export default function Mirror({ standalone = false }: { standalone?: boolean } = {}) {
-  const colors = useColors();
-  const styles = useMemo(() => make(colors), [colors]);
-  const insets = useSafeAreaInsets();
   const app = useUvel();
   useWardrobe();
   const marketplaceSync = useMarketplaceSyncState();
@@ -47,8 +28,6 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
   const [linkBusy, setLinkBusy] = useState(false);
   const [retryingMarketplace, setRetryingMarketplace] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
-  const sourceY = useRef(0);
 
   useEffect(() => {
     return onMirrorPick((id) => {
@@ -69,14 +48,14 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         { options, cancelButtonIndex: 2, title: "Full-length photo of you" },
-        (i) => {
-          if (i === 0) void fromCamera();
-          if (i === 1) void fromLibrary();
+        (index) => {
+          if (index === 0) void fromCamera();
+          if (index === 1) void fromLibrary();
         },
       );
       return;
     }
-    Alert.alert("Full-length photo of you", "Mirror pic, head to shoes.", [
+    Alert.alert("Full-length photo of you", "Use a clear Mirror pic from head to shoes.", [
       { text: "Camera", onPress: () => void fromCamera() },
       { text: "Library", onPress: () => void fromLibrary() },
       { text: "Cancel", style: "cancel" },
@@ -93,45 +72,24 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
       if (uri) {
         app.setPerson(uri);
         setResult(null);
+        setErr("");
       }
     } catch (e) {
       Alert.alert("Photos", e instanceof Error ? e.message : "Couldn’t open photos.");
     }
   }
 
-  function chooseGarmentPhoto() {
-    const options = ["Take clothing photo", "Choose clothing photo", "Cancel"];
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        { options, cancelButtonIndex: 2, title: "Add a clothing piece" },
-        (i) => {
-          if (i === 0) void pickGarment(true);
-          if (i === 1) void pickGarment(false);
-        },
-      );
-      return;
-    }
-    Alert.alert("Add a clothing piece", "Choose a clothing photo to try on.", [
-      { text: "Take clothing photo", onPress: () => void pickGarment(true) },
-      { text: "Choose clothing photo", onPress: () => void pickGarment(false) },
-      { text: "Cancel", style: "cancel" },
-    ]);
-  }
-
-  async function pickGarment(fromCamera: boolean) {
+  async function pickGarmentFromPhotos() {
     try {
-      const uri = fromCamera ? await takePhoto(false) : await pickFromLibrary();
+      // Expo's native crop editor lets the user frame the garment before it enters Mirror.
+      const uri = await pickListingPhoto();
       if (!uri) return;
       setPicked({ kind: "photo", uri, name: "Selected clothing" });
       setResult(null);
       setErr("");
     } catch (e) {
-      Alert.alert("Photo", e instanceof Error ? e.message : "Couldn’t open that.");
+      Alert.alert("Photos", e instanceof Error ? e.message : "Couldn’t open that photo.");
     }
-  }
-
-  async function pickGarmentFromLibrary() {
-    await pickGarment(false);
   }
 
   async function useLink() {
@@ -140,6 +98,7 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
       setErr("Paste an item link first.");
       return;
     }
+
     let itemUrl: URL;
     try {
       itemUrl = new URL(raw);
@@ -152,7 +111,9 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
     setLinkBusy(true);
     setErr("");
     try {
-      const response = await fetch(itemUrl.toString());
+      const response = await fetch(itemUrl.toString(), {
+        headers: { Accept: "text/html,image/*,*/*;q=0.8" },
+      });
       if (!response.ok) throw new Error("unavailable");
       const contentType = response.headers.get("content-type")?.toLowerCase() || "";
       let imageUrl = itemUrl.toString();
@@ -166,8 +127,9 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
       setPicked({ kind: "photo", uri: imageUrl, name: "Pasted item" });
       setShowLink(false);
       setResult(null);
+      setErr("");
     } catch {
-      setErr("Couldn’t find an item photo at that link. Try a direct image or a product page with a visible item photo.");
+      setErr("Couldn’t find a product photo at that link. Try a direct image or a product page with a public item photo.");
     } finally {
       setLinkBusy(false);
     }
@@ -220,403 +182,60 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
     }
   }
 
-  const canTry = Boolean(person && picked && !busy);
-  const mirrorShare: FriendSharePayload | null = result ? { kind: "mirror", title: `${garmentName} on me`, deepLink: "uvel://mirror", imageUri: result, previewText: `I tried ${garmentName} in Mirror on Uvel.` } : null;
+  const mirrorShare: FriendSharePayload | null = result
+    ? { kind: "mirror", title: `${garmentName} on me`, deepLink: "uvel://mirror", imageUri: result, previewText: `I tried ${garmentName} in Mirror on Uvel.` }
+    : null;
 
   return (
-    <View style={styles.page}>
-      <ScrollView
-        ref={scrollRef}
-        contentContainerStyle={{ paddingTop: insets.top + (standalone ? 12 : 20), paddingBottom: insets.bottom + (standalone ? 30 : 152), flexGrow: 1 }}
-        showsVerticalScrollIndicator={false}
-        nestedScrollEnabled
-      >
-        {standalone ? <View style={styles.standaloneHeader}><Pressable onPress={() => router.back()} style={styles.standaloneBack} accessibilityRole="button" accessibilityLabel="Go back"><Ionicons name="arrow-back" size={22} color={colors.bone} /></Pressable></View> : null}
-        <View style={styles.progress} accessibilityLabel="Mirror setup progress">
-          {[{ label: "Add photo", done: Boolean(person) }, { label: "Choose clothing", done: Boolean(picked) }, { label: "Try look", done: Boolean(result) }].map((step, index) => (
-            <View key={step.label} style={styles.progressStep}>
-              <View style={[styles.progressDot, step.done && styles.progressDotDone]}>
-                {step.done ? <Ionicons name="checkmark" size={12} color={colors.successInk} /> : <Text style={styles.progressNumber}>{index + 1}</Text>}
-              </View>
-              <Text style={[styles.progressText, step.done && styles.progressTextDone]}>{step.label}</Text>
-              {index < 2 ? <View style={[styles.progressLine, step.done && styles.progressLineDone]} /> : null}
-            </View>
-          ))}
-        </View>
-        <View style={[styles.hero, !person && styles.heroNeed]}>
-          {result ? (
-            <Image cachePolicy="memory-disk" source={{ uri: result }} style={styles.fill} contentFit="contain" />
-          ) : person ? (
-            <Image cachePolicy="memory-disk" source={{ uri: person }} style={styles.fill} contentFit="contain" />
-          ) : (
-            <View style={styles.need}>
-              <View style={styles.cameraPlaceholder}>
-                <Ionicons name="camera-outline" size={34} color={colors.success} />
-              </View>
-              <Text style={styles.needH}>Add your full length photo</Text>
-              <View style={styles.needRow}>
-                <Pressable onPress={() => void fromCamera()} style={styles.needBtn}>
-                  <Text style={styles.needBtnTxt}>Add your photo</Text>
-                </Pressable>
-                <Pressable onPress={() => void fromLibrary()} style={styles.needBtnGhost} accessibilityRole="button" accessibilityLabel="Choose from library">
-                  <Ionicons name="images-outline" size={18} color={colors.bone} />
-                  <Text style={styles.needBtnGhostTxt}>Choose from library</Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-          {person && !busy ? (
-            <View style={styles.changeWrap} pointerEvents="box-none">
-              <Pressable onPress={askPerson} style={styles.change}>
-                <Text style={styles.changeTxt}>📷  Change photo</Text>
-              </Pressable>
-              <Pressable onPress={clearPerson} style={styles.removePhoto} accessibilityRole="button" accessibilityLabel="Remove photo" accessibilityHint="Double tap to remove your saved Mirror photo.">
-                <Text style={styles.removePhotoTxt}>Remove</Text>
-              </Pressable>
-            </View>
-          ) : null}
-          {busy ? (
-            <View style={styles.spin}>
-              <OrbitLoader />
-            </View>
-          ) : null}
-          {result ? <Pressable onPress={() => setShareOpen(true)} style={styles.shareResult} accessibilityRole="button" accessibilityLabel="Share this Mirror fit with friends"><Ionicons name="share-outline" size={18} color={colors.successInk} /><Text style={styles.shareResultTxt}>Share with friends</Text></Pressable> : null}
-        </View>
-
-        {live.length ? (
-          <View style={styles.headRow}>
-            <Text style={styles.h2}>From Uvel</Text>
-            <Pressable onPress={() => router.push("/mirror-browse")} hitSlop={8} accessibilityRole="button" accessibilityLabel="See all Uvel pieces">
-              <Text style={styles.seeAll}>See all</Text>
-            </Pressable>
-          </View>
-        ) : null}
-        {live.length ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.strip}>
-            {live.slice(0, 16).map((p) => {
-              const on = picked?.kind === "uvel" && picked.piece.id === p.id;
-              return (
-                <Pressable
-                  key={p.id}
-                  onPress={() => {
-                    setPicked({ kind: "uvel", piece: p });
-                    setResult(null);
-                    setErr("");
-                  }}
-                  style={[styles.uvelCard, on && styles.uvelOn]}
-                >
-                  <View>
-                    <Image cachePolicy="memory-disk" source={{ uri: p.photo }} style={styles.uvelImg} contentFit="cover" />
-                    {on ? (
-                      <View style={styles.trying}>
-                        <Text style={styles.tryingTxt}>Trying</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <View style={styles.uvelMeta}>
-                    <Text style={styles.uvelName} numberOfLines={2}>
-                      {p.name}
-                    </Text>
-                    <Text style={styles.uvelPrice}>{usd(p.listPriceCents, p.currency || "USD")}</Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        ) : (
-          <View style={styles.emptySource}>
-            <Text style={styles.empty}>{marketplaceSync === "confirmed" ? "No Uvel pieces are live yet. Bring in a look from anywhere and try it here." : "Uvel pieces are temporarily unavailable. You can still bring in a look from anywhere and try it here."}</Text>
-            {marketplaceSync === "unavailable" ? (
-              <Pressable onPress={() => void retryMarketplace()} style={styles.emptyLink} accessibilityRole="button" accessibilityLabel="Retry loading Uvel pieces">
-                <Text style={styles.emptyLinkTxt}>{retryingMarketplace ? "Reconnecting…" : "Retry connection"}</Text>
-              </Pressable>
-            ) : null}
-            <Pressable onPress={() => router.push("/")} style={styles.emptyLink}>
-              <Text style={styles.emptyLinkTxt}>Explore Today’s edit</Text>
-            </Pressable>
-          </View>
-        )}
-
-        <View style={styles.sourceCard} onLayout={(event) => { sourceY.current = event.nativeEvent.layout.y; }}>
-          <View style={styles.sourceHead}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sourceKicker}>OR</Text>
-              <Text style={styles.sourceTitle}>{person ? "Choose something to try" : "Add your photo"}</Text>
-            </View>
-            {person ? <Text style={styles.step}>1 of 2</Text> : null}
-          </View>
-          <View style={styles.anywhere}>
-            <Pressable onPress={chooseGarmentPhoto} style={[styles.chip, picked?.kind === "photo" && styles.chipOn]}>
-              <Text style={[styles.chipTxt, picked?.kind === "photo" && styles.chipTxtOn]}>Add clothing photo</Text>
-            </Pressable>
-            <Pressable onPress={() => setShowLink((v) => !v)} style={[styles.chip, showLink && styles.chipOn]}>
-              <Text style={[styles.chipTxt, showLink && styles.chipTxtOn]}>Paste item link</Text>
-            </Pressable>
-          </View>
-          {showLink ? (
-            <View style={styles.linkRow}>
-              <TextInput
-                placeholder="Paste an image or product link"
-                placeholderTextColor={`59`}
-                value={link}
-                onChangeText={setLink}
-                autoCapitalize="none"
-                keyboardType="url"
-                style={styles.input}
-              />
-              <Pressable onPress={() => void useLink()} disabled={linkBusy} style={[styles.linkGo, linkBusy && styles.linkGoOff]}>
-                <Text style={styles.linkGoTxt}>{linkBusy ? "Checking…" : "Use"}</Text>
-              </Pressable>
-            </View>
-          ) : null}
-        </View>
-
-        {picked?.kind === "photo" ? (
-          <View style={styles.selected}>
-            <Image cachePolicy="memory-disk" source={{ uri: picked.uri }} style={styles.selectedImage} contentFit="cover" />
-            <Pressable onPress={clearGarment} style={styles.selectedRemove} accessibilityRole="button" accessibilityLabel="Remove selected clothing photo">
-              <Ionicons name="close" size={18} color={colors.bone} />
-            </Pressable>
-          </View>
-        ) : null}
-
-        {err ? <Text style={styles.err}>{err}</Text> : null}
-
-        {person ? (
-          <View style={[styles.stickyAction, { paddingBottom: insets.bottom + 12 }]}>
-            <Pressable
-              onPress={() => {
-                if (!picked) void pickGarmentFromLibrary();
-                else void run();
-              }}
-              disabled={busy}
-              style={[styles.cta, busy && styles.ctaOff]}
-              accessibilityRole="button"
-              accessibilityLabel={!picked ? "Choose clothing from your photos" : "Try this look"}
-            >
-              <Text style={[styles.ctaTxt, busy && styles.ctaTxtOff]}>
-                {busy ? "Dressing you…" : !picked ? "Choose clothing" : "Try this look"}
-              </Text>
-            </Pressable>
-            {picked ? <Pressable onPress={() => void pickGarmentFromLibrary()} style={styles.ghostCta}><Text style={styles.ghostCtaTxt}>Pick something else</Text></Pressable> : null}
-          </View>
-        ) : null}
-      </ScrollView>
-      <FriendShareSheet visible={shareOpen} payload={mirrorShare} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: mirrorShare?.title || "Mirror fit", message: `${mirrorShare?.previewText || "Check out my Mirror fit on Uvel."}` }); }} />
-    </View>
+    <>
+      <MirrorStudioView
+        standalone={standalone}
+        personUri={person}
+        resultUri={result}
+        garmentUri={garmentUri || null}
+        garmentName={garmentName}
+        error={err}
+        busy={busy}
+        pieces={live}
+        marketplaceUnavailable={marketplaceSync === "unavailable"}
+        retryingMarketplace={retryingMarketplace}
+        link={link}
+        linkBusy={linkBusy}
+        showLink={showLink}
+        onBack={() => router.back()}
+        onAddPerson={askPerson}
+        onChangePerson={askPerson}
+        onRemovePerson={clearPerson}
+        onPickPiece={(piece) => {
+          setPicked({ kind: "uvel", piece });
+          setResult(null);
+          setErr("");
+        }}
+        onPickPhoto={() => void pickGarmentFromPhotos()}
+        onClearGarment={clearGarment}
+        onChangeLink={setLink}
+        onOpenLink={() => {
+          setErr("");
+          setShowLink(true);
+        }}
+        onCloseLink={() => setShowLink(false)}
+        onUseLink={() => void useLink()}
+        onTryOn={() => void run()}
+        onShare={() => setShareOpen(true)}
+        onRetryMarketplace={() => void retryMarketplace()}
+      />
+      <FriendShareSheet
+        visible={shareOpen}
+        payload={mirrorShare}
+        onClose={() => setShareOpen(false)}
+        onExternalShare={() => {
+          setShareOpen(false);
+          void NativeShare.share({
+            title: mirrorShare?.title || "Mirror fit",
+            message: `${mirrorShare?.previewText || "Check out my Mirror fit on Uvel."}`,
+          });
+        }}
+      />
+    </>
   );
-}
-
-function make(colors: Colors) {
-  return StyleSheet.create({
-    page: { flex: 1, backgroundColor: colors.ink },
-    standaloneHeader: { height: 42, marginHorizontal: 16, marginBottom: 12 },
-    standaloneBack: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.subtle + "55" },
-    progress: { marginHorizontal: 20, marginBottom: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    progressStep: { flexDirection: "row", alignItems: "center", gap: 6 },
-    progressDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 1, borderColor: `${colors.bone}47`, alignItems: "center", justifyContent: "center" },
-    progressDotDone: { backgroundColor: colors.success, borderColor: colors.success },
-    progressNumber: { color: `${colors.bone}A3`, fontSize: 11, fontWeight: "800" },
-    progressText: { color: `${colors.bone}8C`, fontSize: 11, fontWeight: "700" },
-    progressTextDone: { color: colors.bone },
-    progressLine: { width: 14, height: 1, backgroundColor: `${colors.bone}29`, marginHorizontal: 2 },
-    progressLineDone: { backgroundColor: colors.success },
-    syncNotice: { color: `${colors.bone}9E`, fontSize: 12, lineHeight: 18, marginHorizontal: 20, marginTop: 10, marginBottom: 4 },
-    lede: { color: `${colors.bone}A3`, fontSize: 16, lineHeight: 23, paddingHorizontal: 20, marginTop: 8, marginBottom: 18 },
-    heroNeed: { height: 360 },
-    sourceCard: { marginTop: 24, marginHorizontal: 16, padding: 16, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}1F` },
-    sourceHead: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-    sourceKicker: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
-    sourceTitle: { color: colors.bone, fontSize: 19, fontWeight: "800", marginTop: 5 },
-    sourceCopy: { color: `${colors.bone}94`, fontSize: 13, lineHeight: 19, marginTop: 4 },
-    step: { color: `${colors.bone}6B`, fontSize: 11, fontWeight: "800" },
-
-    search: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      borderWidth: 1,
-      borderColor: `${colors.bone}47`,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: 4,
-    },
-    searchTxt: { color: colors.bone, fontSize: 18, fontWeight: "500" },
-    hero: {
-      marginHorizontal: 16,
-      height: 560,
-      borderRadius: 22,
-      overflow: "hidden",
-      backgroundColor: colors.surface,
-    },
-    fill: { width: "100%", height: "100%" },
-    shareResult: { position: "absolute", bottom: 14, alignSelf: "center", flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 15, paddingVertical: 10, borderRadius: 18, backgroundColor: colors.success },
-    shareResultTxt: { color: colors.successInk, fontWeight: "800", fontSize: 13 },
-    need: { flex: 1, alignItems: "center", justifyContent: "center", padding: 28, gap: 8 },
-    cameraPlaceholder: { width: 84, height: 84, borderRadius: 24, borderWidth: 1, borderColor: `${colors.success}80`, backgroundColor: `${colors.success}12`, alignItems: "center", justifyContent: "center", marginBottom: 8 },
-    needH: { color: colors.bone, fontSize: 24, fontWeight: "800" },
-    needP: { color: `${colors.bone}9E`, textAlign: "center", marginBottom: 8 },
-    needRow: { flexDirection: "row", gap: 10, marginTop: 8 },
-    needBtn: {
-      height: 44,
-      paddingHorizontal: 20,
-      borderRadius: 22,
-      backgroundColor: colors.success,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    needBtnTxt: { color: colors.successInk, fontWeight: "700" },
-    needBtnGhost: {
-      height: 44,
-      paddingHorizontal: 16,
-      borderRadius: 22,
-      backgroundColor: `${colors.surface}F2`,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-    },
-    needBtnGhostTxt: { color: colors.bone, fontWeight: "600" },
-    spin: {
-      ...StyleSheet.absoluteFill,
-      backgroundColor: `${colors.ink}80`,
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-    },
-    spinTxt: { color: colors.bone, letterSpacing: 1.2, textTransform: "uppercase", fontSize: 12 },
-    changeWrap: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 16,
-      alignItems: "center",
-      flexDirection: "row",
-      justifyContent: "center",
-      gap: 8,
-    },
-    change: {
-      backgroundColor: `${colors.surface}D1`,
-      borderWidth: 1,
-      borderColor: `${colors.bone}2E`,
-      height: 36,
-      paddingHorizontal: 16,
-      borderRadius: 18,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    changeTxt: { color: colors.bone, fontSize: 13, fontWeight: "600" },
-    removePhoto: { backgroundColor: `${colors.surface}D1`, borderWidth: 1, borderColor: `${colors.bone}2E`, height: 36, paddingHorizontal: 16, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-    removePhotoTxt: { color: `${colors.bone}B8`, fontSize: 13, fontWeight: "600" },
-    headRow: {
-      flexDirection: "row",
-      alignItems: "baseline",
-      justifyContent: "space-between",
-      paddingHorizontal: 20,
-      marginTop: 26,
-      marginBottom: 14,
-    },
-    h2: { color: colors.bone, fontSize: 22, fontWeight: "800" },
-    seeAll: { color: colors.success, fontSize: 15, fontWeight: "700" },
-    strip: { paddingHorizontal: 16, gap: 12, paddingRight: 28 },
-    uvelCard: {
-      width: 168,
-      borderRadius: 18,
-      overflow: "hidden",
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: "transparent",
-    },
-    uvelOn: { borderColor: `${colors.bone}47` },
-    uvelImg: { width: 168, height: 210, backgroundColor: colors.surface },
-    trying: {
-      position: "absolute",
-      top: 10,
-      left: 10,
-      backgroundColor: colors.success,
-      paddingHorizontal: 10,
-      height: 24,
-      borderRadius: 12,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    tryingTxt: { color: colors.successInk, fontSize: 11, fontWeight: "700" },
-    uvelMeta: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12 },
-    uvelName: { color: colors.bone, fontSize: 14, fontWeight: "600", lineHeight: 18 },
-    uvelPrice: { color: colors.bone, fontSize: 14, fontWeight: "700", marginTop: 4 },
-    empty: { color: `${colors.bone}94`, fontSize: 13, lineHeight: 19 },
-    emptySource: { marginHorizontal: 20, marginTop: 12, padding: 16, borderRadius: 16, backgroundColor: colors.surface },
-    emptyLink: { marginTop: 10 },
-    emptyLinkTxt: { color: colors.success, fontSize: 13, fontWeight: "800" },
-    anywhere: { flexDirection: "row", gap: 8, marginTop: 14, flexWrap: "wrap" },
-    selected: { marginHorizontal: 20, marginTop: 24, borderRadius: 18, borderWidth: 1, borderColor: `${colors.success}47`, backgroundColor: `${colors.success}0F`, overflow: "hidden" },
-    selectedImage: { width: "100%", height: 190, backgroundColor: colors.surface },
-    selectedRemove: { position: "absolute", top: 12, right: 12, width: 34, height: 34, borderRadius: 17, backgroundColor: `${colors.ink}D9`, borderWidth: 1, borderColor: `${colors.bone}52`, alignItems: "center", justifyContent: "center" },
-    selectedCopyWrap: { padding: 16 },
-    selectedKicker: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.5 },
-    selectedTitle: { color: colors.bone, fontSize: 18, fontWeight: "800", marginTop: 5 },
-    selectedCopy: { color: `${colors.bone}94`, fontSize: 13, marginTop: 4 },
-    allowance: { color: `${colors.bone}7A`, textAlign: "center", fontSize: 12, marginTop: 10 },
-    trust: { color: `${colors.bone}57`, textAlign: "center", fontSize: 11, lineHeight: 16, paddingHorizontal: 28, marginTop: 10 },
-    chip: {
-      height: 42,
-      paddingHorizontal: 16,
-      borderRadius: 21,
-      borderWidth: 1,
-      borderColor: `${colors.bone}29`,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: `${colors.surface}F2`,
-    },
-    chipOn: { backgroundColor: colors.success, borderColor: colors.success },
-    chipTxt: { color: colors.bone, fontWeight: "600", fontSize: 14 },
-    chipTxtOn: { color: colors.successInk },
-    linkRow: {
-      marginHorizontal: 16,
-      marginTop: 10,
-      flexDirection: "row",
-      alignItems: "center",
-      backgroundColor: colors.surface,
-      borderRadius: 16,
-      paddingLeft: 14,
-    },
-    input: { flex: 1, color: colors.bone, height: 46, fontSize: 15 },
-    linkGo: { paddingHorizontal: 16, height: 46, alignItems: "center", justifyContent: "center" },
-    linkGoOff: { opacity: 0.5 },
-    linkGoTxt: { color: colors.success, fontWeight: "700" },
-    err: { color: colors.danger, marginTop: 14, marginHorizontal: 20, fontSize: 14, lineHeight: 20 },
-    cta: {
-      marginHorizontal: 16,
-      marginTop: 22,
-      height: 54,
-      borderRadius: 27,
-      backgroundColor: colors.success,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    ctaOff: { opacity: 0.45 },
-    ctaTxt: { color: colors.successInk, fontWeight: "700", fontSize: 16 },
-    ctaTxtOff: { color: colors.successInk },
-    ghostCta: {
-      marginHorizontal: 16,
-      marginTop: 10,
-      height: 54,
-      borderRadius: 27,
-      borderWidth: 1,
-      borderColor: `${colors.bone}24`,
-      backgroundColor: `${colors.surface}F2`,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    ghostCtaTxt: { color: colors.bone, fontWeight: "600", fontSize: 16 },
-    stickyAction: { backgroundColor: colors.ink, paddingTop: 8 },
-    foot: {
-      color: `${colors.bone}61`,
-      textAlign: "center",
-      fontSize: 13,
-      lineHeight: 19,
-      marginTop: 16,
-      paddingHorizontal: 40,
-    },
-  });
 }
