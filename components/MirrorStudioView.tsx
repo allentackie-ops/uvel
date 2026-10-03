@@ -23,6 +23,7 @@ import { CATEGORIES } from "../lib/catalog";
 import type { ClosetPiece } from "../lib/wardrobe";
 import type { MirrorJobSource, MirrorJobStatus } from "../lib/mirrorJobs";
 import { useColors, type Colors } from "../lib/theme";
+import { OrbitLoader } from "./OrbitLoader";
 import { MirrorUvelPickerSheet } from "./MirrorUvelPickerSheet";
 
 export type MirrorStudioViewProps = {
@@ -375,7 +376,7 @@ export function MirrorStudioView({
             </View>
           ) : isPending ? (
             <View style={styles.pendingPanel}>
-              <ActivityIndicator size="small" color={colors.success} />
+              <OrbitLoader size={34} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.pendingTitle}>{busy ? "Starting your look…" : "Creating your look…"}</Text>
                 {error ? <Text style={styles.errorText}>{error}</Text> : <Text style={styles.pendingCopy}>You can leave Mirror. We’ll let you know when it’s ready.</Text>}
