@@ -4,7 +4,8 @@ import { router } from "expo-router";
 import PagerView from "react-native-pager-view";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dimensions, Share as NativeShare, StyleSheet, Text, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Animated as RNAnimated, Dimensions, Share as NativeShare, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { Drawer } from "react-native-drawer-layout";
@@ -33,6 +34,7 @@ import { usePersonalization, type RecommendationChoice } from "../lib/personaliz
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const MIN_REFRESH_MS = 1200;
+const IMMERSIVE_WELCOME_KEY = "uvel-immersive-welcome-seen-v1";
 const CATALOG_BRAND_IDS: Record<string, string> = {
   "Maison Found": "maison-found",
   "Archive 1982": "archive-1982",
@@ -96,6 +98,8 @@ export default function ImmersiveShopping() {
   const [sessionSeed, setSessionSeed] = useState(() => Math.floor(Math.random() * 0x7fffffff));
   const [feedSession, setFeedSession] = useState<FeedSession>({ queue: [], repeat: [], seed: 0 });
   const [feedbackPromptPieceId, setFeedbackPromptPieceId] = useState<string | null>(null);
+  const [welcomeVisible, setWelcomeVisible] = useState<boolean | null>(null);
+  const [detailsHintVisible, setDetailsHintVisible] = useState(false);
   const [feedbackToast, setFeedbackToast] = useState<{ choice: RecommendationChoice; message: string } | null>(null);
   const menuPressRef = useRef(false);
   const refreshInFlight = useRef(false);
@@ -114,6 +118,15 @@ export default function ImmersiveShopping() {
   const refreshTriggered = useSharedValue(0);
   const refreshActiveShared = useSharedValue(0);
   const refreshImageScale = useSharedValue(1);
+  useEffect(() => {
+    let mounted = true;
+    void AsyncStorage.getItem(IMMERSIVE_WELCOME_KEY).then((seen) => {
+      if (mounted) setWelcomeVisible(seen !== "1");
+    }).catch(() => {
+      if (mounted) setWelcomeVisible(true);
+    });
+    return () => { mounted = false; };
+  }, []);
   useEffect(() => {
     if (!findHint) return;
     const timer = setTimeout(() => setFindHint(false), 3200);
@@ -301,9 +314,16 @@ export default function ImmersiveShopping() {
       if (nextIndex > currentPrompt.index) feedbackPromptTiming.current.nextIndex = nextIndex + randomPromptGap(4, 8);
     }
     setActiveIndex(nextIndex);
-  }, []);
+    if (nextIndex > 0 && welcomeVisible) {
+      setWelcomeVisible(false);
+      setDetailsHintVisible(true);
+      void AsyncStorage.setItem(IMMERSIVE_WELCOME_KEY, "1").catch(() => undefined);
+    } else if (nextIndex !== 1) {
+      setDetailsHintVisible(false);
+    }
+  }, [welcomeVisible]);
   const panGesture = useMemo(() => Gesture.Pan()
-    .enabled(!drawerOpen && pieces.length > 0)
+    .enabled(!drawerOpen && pieces.length > 0 && welcomeVisible !== null)
     .maxPointers(1)
     .activeOffsetY([-12, 12])
     .failOffsetX([-18, 18])
@@ -374,7 +394,7 @@ export default function ImmersiveShopping() {
         swipeY.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
       }
       refreshImageScale.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.cubic) });
-    }), [activeIndexShared, commitSwipe, contentHeight, drawerOpen, onRefresh, pieces.length, refreshActiveShared, refreshImageScale, refreshTriggered, swipeLock, swipeY]);
+    }), [activeIndexShared, commitSwipe, contentHeight, drawerOpen, onRefresh, pieces.length, refreshActiveShared, refreshImageScale, refreshTriggered, swipeLock, swipeY, welcomeVisible]);
   useEffect(() => {
     // Keep the next couple of images warm so rapid swipes don't reveal an
     // unloaded image while the incoming card is already moving on screen.
@@ -444,6 +464,8 @@ export default function ImmersiveShopping() {
           onFirstFind={() => setFindHint(true)}
           firstFindLabel={C.firstFind}
           onOpenSeller={openProfile}
+          showDetailsHint={activeIndex === 1 && detailsHintVisible}
+          onDetailsHintDismiss={() => setDetailsHintVisible(false)}
           />
           </Animated.View>
           {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
@@ -469,6 +491,7 @@ export default function ImmersiveShopping() {
         {orbitOn ? <View pointerEvents="none" style={[styles.refreshOrbit, { top: insets.top + 68 }]}><OrbitLoader /></View> : null}
         <ImmersiveTaskbar colors={colors} C={C} insets={insets} styles={styles} />
         <TodayCartFab listingOpen />
+        {welcomeVisible ? <ImmersiveWelcomeOverlay /> : null}
       </View>
       </GestureDetector>
       </View>
@@ -485,6 +508,52 @@ export default function ImmersiveShopping() {
     </Drawer>
   );
 }
+
+function ImmersiveWelcomeOverlay() {
+  const handY = useRef(new RNAnimated.Value(0)).current;
+  useEffect(() => {
+    const hand = RNAnimated.loop(RNAnimated.sequence([
+      RNAnimated.timing(handY, { toValue: 28, duration: 900, useNativeDriver: true }),
+      RNAnimated.timing(handY, { toValue: 0, duration: 700, useNativeDriver: true }),
+      RNAnimated.delay(260),
+    ]));
+    hand.start();
+    const pulse = setInterval(() => {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }, 800);
+    return () => {
+      hand.stop();
+      clearInterval(pulse);
+    };
+  }, [handY]);
+
+  return (
+    <View pointerEvents="none" style={welcomeStyles.overlay}>
+      <View style={welcomeStyles.dim} />
+      <View style={welcomeStyles.content} accessibilityRole="text" accessibilityLabel="Welcome to immersive shopping. Scroll to browse listings.">
+        <Text style={welcomeStyles.kicker}>WELCOME TO</Text>
+        <Text style={welcomeStyles.title}>Immersive Shopping</Text>
+        <Text style={welcomeStyles.copy}>A new way of instant shopping. Scroll through listings and discover your next piece.</Text>
+        <RNAnimated.View style={[welcomeStyles.gesture, { transform: [{ translateY: handY }] }]}>
+          <Ionicons name="hand-left-outline" size={48} color="#F4F0E6" />
+          <Text style={welcomeStyles.scroll}>Scroll</Text>
+          <Ionicons name="chevron-down" size={20} color="#B7F36B" />
+        </RNAnimated.View>
+      </View>
+    </View>
+  );
+}
+
+const welcomeStyles = StyleSheet.create({
+  overlay: { ...StyleSheet.absoluteFill, zIndex: 40, justifyContent: "center", alignItems: "center" },
+  dim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.76)" },
+  content: { width: "86%", alignItems: "center", paddingBottom: 76 },
+  kicker: { color: "#B7F36B", fontSize: 11, fontWeight: "900", letterSpacing: 2.4, marginBottom: 12 },
+  title: { color: "#F4F0E6", fontSize: 32, lineHeight: 38, fontWeight: "800", textAlign: "center", letterSpacing: -0.4 },
+  copy: { color: "rgba(244,240,230,0.82)", fontSize: 15, lineHeight: 22, textAlign: "center", marginTop: 12, maxWidth: 310 },
+  gesture: { alignItems: "center", marginTop: 42, gap: 4 },
+  scroll: { color: "#F4F0E6", fontSize: 16, fontWeight: "800", letterSpacing: 0.4 },
+});
 
 function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: ReturnType<typeof useCopy>; insets: { bottom: number }; styles: ReturnType<typeof make> }) {
   const tabs = [
@@ -518,7 +587,7 @@ function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: Re
   );
 }
 
-function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, refreshImageScale, onFirstFind, firstFindLabel, feedbackPrompted, onRecommendationFeedback, onOpenSeller }: any) {
+function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, refreshImageScale, onFirstFind, firstFindLabel, feedbackPrompted, onRecommendationFeedback, onOpenSeller, showDetailsHint, onDetailsHintDismiss }: any) {
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   const [shareOpen, setShareOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -628,6 +697,11 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
               </AccessiblePressable>
             </View>
             <View style={styles.listingCaption}>
+              {showDetailsHint ? <AccessiblePressable onPress={onDetailsHintDismiss} style={styles.detailsHint} accessibilityRole="button" accessibilityLabel="Dismiss details tip">
+                <Text style={styles.detailsHintTitle}>Tap here for more details</Text>
+                <Text style={styles.detailsHintCopy}>See the listing info, seller, and item details.</Text>
+                <View pointerEvents="none" style={styles.detailsHintCaret} />
+              </AccessiblePressable> : null}
               <AccessiblePressable
                 onPress={() => setDetailsOpen(true)}
                 style={styles.nameDetailsButton}
@@ -651,6 +725,11 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
             {hasFirstFindMatch ? <AccessiblePressable onPress={onFirstFind} style={styles.firstFind} accessibilityRole="button" accessibilityLabel="What First Find is" accessibilityHint="Double tap to hear how First Find works on this piece.">
               <Text style={styles.firstFindText}>{firstFindLabel}</Text>
             </AccessiblePressable> : null}
+          {showDetailsHint ? <AccessiblePressable onPress={onDetailsHintDismiss} style={styles.detailsHint} accessibilityRole="button" accessibilityLabel="Dismiss details tip">
+            <Text style={styles.detailsHintTitle}>Tap here for more details</Text>
+            <Text style={styles.detailsHintCopy}>See the listing info, seller, and item details.</Text>
+            <View pointerEvents="none" style={styles.detailsHintCaret} />
+          </AccessiblePressable> : null}
           <AccessiblePressable
             onPress={() => setDetailsOpen(true)}
             style={styles.nameDetailsButton}
@@ -863,6 +942,10 @@ function make(colors: Colors) {
     immersiveOfferText: { color: overlayColor, fontSize: 12, fontWeight: "800" },
     stackBackButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: "rgba(244,240,230,0.30)", backgroundColor: "rgba(0,0,0,0.46)", alignItems: "center", justifyContent: "center" },
     listingCaption: { maxWidth: "88%" },
+    detailsHint: { alignSelf: "flex-start", maxWidth: 238, paddingHorizontal: 13, paddingVertical: 9, marginBottom: 9, borderRadius: 13, backgroundColor: "#F4F0E6", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8, position: "relative" },
+    detailsHintTitle: { color: "#171510", fontSize: 12, fontWeight: "900" },
+    detailsHintCopy: { color: "#514D43", fontSize: 11, lineHeight: 15, marginTop: 2 },
+    detailsHintCaret: { position: "absolute", bottom: -6, left: 22, width: 12, height: 12, backgroundColor: "#F4F0E6", transform: [{ rotate: "45deg" }] },
     brand: { color: `${overlayColor}E0`, fontSize: 11, fontWeight: "800", letterSpacing: 2.2, marginBottom: 5, textShadowColor: "#000", textShadowRadius: 6 },
     nameDetailsButton: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 4, maxWidth: "100%" },
     name: { color: overlayColor, fontSize: 31, lineHeight: 36, fontWeight: "800", maxWidth: "88%", textShadowColor: "#000", textShadowRadius: 8 },
