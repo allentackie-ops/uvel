@@ -107,6 +107,7 @@ export function MirrorStudioView({
   const [rating, setRating] = useState(0);
   const [toast, setToast] = useState("");
   const [buyPromptDismissed, setBuyPromptDismissed] = useState(false);
+  const [imageViewportSize, setImageViewportSize] = useState({ width: screenWidth, height: screenHeight });
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const displayUri = resultUri || personUri;
   const isPending = busy || jobStatus === "queued" || jobStatus === "processing";
@@ -118,24 +119,28 @@ export function MirrorStudioView({
   const startZoom = useSharedValue(1);
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
-  const focalX = useSharedValue(0);
-  const focalY = useSharedValue(0);
+  const pinchStartFocalX = useSharedValue(0);
+  const pinchStartFocalY = useSharedValue(0);
   const viewportWidth = useSharedValue(screenWidth);
   const viewportHeight = useSharedValue(screenHeight);
   const renderedWidth = useSharedValue(screenWidth);
   const renderedHeight = useSharedValue(screenHeight);
 
-  const imageTransform = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }, { translateY: translateY.value }, { scale: zoom.value }],
+  const imageTranslateStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }, { translateY: translateY.value }],
+  }));
+  const imageScaleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: zoom.value }],
   }));
 
   const panGesture = useMemo(() => Gesture.Pan()
     .maxPointers(1)
-    .onBegin(() => {
+    .onStart(() => {
       startX.value = translateX.value;
       startY.value = translateY.value;
     })
     .onUpdate((event) => {
+      if (event.numberOfPointers > 1) return;
       const maxX = Math.max(0, (renderedWidth.value * zoom.value - viewportWidth.value) / 2);
       const maxY = Math.max(0, (renderedHeight.value * zoom.value - viewportHeight.value) / 2);
       translateX.value = Math.max(-maxX, Math.min(maxX, startX.value + event.translationX));
@@ -143,17 +148,20 @@ export function MirrorStudioView({
     }), [renderedHeight, renderedWidth, startX, startY, translateX, translateY, viewportHeight, viewportWidth, zoom]);
 
   const pinchGesture = useMemo(() => Gesture.Pinch()
-    .onBegin((event) => {
+    .onStart((event) => {
       startZoom.value = zoom.value;
       startX.value = translateX.value;
       startY.value = translateY.value;
-      focalX.value = event.focalX;
-      focalY.value = event.focalY;
+      // Pinch focal coordinates are reliable once the gesture is ACTIVE.
+      // Capturing them in onBegin can use the pre-activation touch state and
+      // creates the visible hitch/jump at the beginning of a pinch.
+      pinchStartFocalX.value = event.focalX;
+      pinchStartFocalY.value = event.focalY;
     })
     .onUpdate((event) => {
       const nextZoom = Math.max(1, Math.min(4, startZoom.value * event.scale));
-      const localX = (focalX.value - viewportWidth.value / 2 - startX.value) / startZoom.value;
-      const localY = (focalY.value - viewportHeight.value / 2 - startY.value) / startZoom.value;
+      const localX = (pinchStartFocalX.value - viewportWidth.value / 2 - startX.value) / startZoom.value;
+      const localY = (pinchStartFocalY.value - viewportHeight.value / 2 - startY.value) / startZoom.value;
       const maxX = Math.max(0, (renderedWidth.value * nextZoom - viewportWidth.value) / 2);
       const maxY = Math.max(0, (renderedHeight.value * nextZoom - viewportHeight.value) / 2);
       // Keep the image point between the user's fingers under the moving focal point.
@@ -162,7 +170,7 @@ export function MirrorStudioView({
       translateX.value = Math.max(-maxX, Math.min(maxX, event.focalX - viewportWidth.value / 2 - localX * nextZoom));
       translateY.value = Math.max(-maxY, Math.min(maxY, event.focalY - viewportHeight.value / 2 - localY * nextZoom));
       zoom.value = nextZoom;
-    }), [focalX, focalY, renderedHeight, renderedWidth, startX, startY, startZoom, translateX, translateY, viewportHeight, viewportWidth, zoom]);
+    }), [pinchStartFocalX, pinchStartFocalY, renderedHeight, renderedWidth, startX, startY, startZoom, translateX, translateY, viewportHeight, viewportWidth, zoom]);
 
   const imageGesture = useMemo(() => Gesture.Simultaneous(panGesture, pinchGesture), [panGesture, pinchGesture]);
 
@@ -178,11 +186,13 @@ export function MirrorStudioView({
   }, [category, pieces, query]);
 
   useEffect(() => {
-    viewportWidth.value = screenWidth;
-    viewportHeight.value = screenHeight;
+    const width = imageViewportSize.width || screenWidth;
+    const height = imageViewportSize.height || screenHeight;
+    viewportWidth.value = width;
+    viewportHeight.value = height;
     if (!displayUri) {
-      renderedWidth.value = screenWidth;
-      renderedHeight.value = screenHeight;
+      renderedWidth.value = width;
+      renderedHeight.value = height;
       return;
     }
     zoom.value = 1;
@@ -191,17 +201,17 @@ export function MirrorStudioView({
     let active = true;
     NativeImage.getSize(displayUri, (width, height) => {
       if (!active || width <= 0 || height <= 0) return;
-      const scale = Math.max(screenWidth / width, screenHeight / height);
+      const scale = Math.max(viewportWidth.value / width, viewportHeight.value / height);
       renderedWidth.value = width * scale;
       renderedHeight.value = height * scale;
     }, () => {
       if (active) {
-        renderedWidth.value = screenWidth;
-        renderedHeight.value = screenHeight;
+        renderedWidth.value = viewportWidth.value;
+        renderedHeight.value = viewportHeight.value;
       }
     });
     return () => { active = false; };
-  }, [displayUri, renderedHeight, renderedWidth, screenHeight, screenWidth, translateX, translateY, viewportHeight, viewportWidth, zoom]);
+  }, [displayUri, imageViewportSize.height, imageViewportSize.width, renderedHeight, renderedWidth, screenHeight, screenWidth, translateX, translateY, viewportHeight, viewportWidth, zoom]);
 
   useEffect(() => {
     setRating(0);
@@ -263,15 +273,26 @@ export function MirrorStudioView({
       <StatusBar style="light" />
       {displayUri ? (
         <GestureDetector gesture={imageGesture}>
-          <View style={styles.imageViewport}>
-            <Animated.View style={[StyleSheet.absoluteFill, imageTransform]}>
-              <Image
-                cachePolicy="memory-disk"
-                source={{ uri: displayUri }}
-                style={StyleSheet.absoluteFill}
-                contentFit="cover"
-                transition={160}
-              />
+          <View
+            style={styles.imageViewport}
+            onLayout={(event) => {
+              const { width, height } = event.nativeEvent.layout;
+              if (width <= 0 || height <= 0) return;
+              viewportWidth.value = width;
+              viewportHeight.value = height;
+              setImageViewportSize((current) => current.width === width && current.height === height ? current : { width, height });
+            }}
+          >
+            <Animated.View style={[StyleSheet.absoluteFill, imageTranslateStyle]}>
+              <Animated.View style={[StyleSheet.absoluteFill, imageScaleStyle]}>
+                <Image
+                  cachePolicy="memory-disk"
+                  source={{ uri: displayUri }}
+                  style={StyleSheet.absoluteFill}
+                  contentFit="cover"
+                  transition={160}
+                />
+              </Animated.View>
             </Animated.View>
           </View>
         </GestureDetector>
