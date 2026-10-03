@@ -46,6 +46,9 @@ const CATALOG_BRAND_IDS: Record<string, string> = {
 type ShopFloorPiece = ReturnType<typeof shopFloor>[number];
 
 type FeedSession = { queue: ShopFloorPiece[]; repeat: ShopFloorPiece[]; seed: number };
+type ImmersiveResumeState = { activeIndex: number; sessionSeed: number; feedSession: FeedSession };
+
+let immersiveResumeState: ImmersiveResumeState | null = null;
 
 function firstFeedPass(items: ShopFloorPiece[], seed: number, anchorId?: string) {
   const first = Array.from({ length: items.length }, (_, index) => feedItemAt(items, index, seed))
@@ -92,15 +95,15 @@ export default function ImmersiveShopping() {
   useEffect(() => { void hydrateFollowedSellers(); }, []);
   const wardrobePieces = useWardrobe();
   const bundledPieces = useMemo(() => fallbackShopFloor(), []);
-  const [activeIndex, setActiveIndex] = useState(() => immersiveResumeIndex);
+  const [activeIndex, setActiveIndex] = useState(() => immersiveResumeState?.activeIndex ?? 0);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [profilePiece, setProfilePiece] = useState<ShopFloorPiece | null>(null);
   const profilePagerRef = useRef<PagerView>(null);
   const [findHint, setFindHint] = useState(false);
   const [refreshState, setRefreshState] = useState<{ active: boolean; epoch: number; anchorId?: string }>({ active: false, epoch: 0 });
   const refreshing = refreshState.active;
-  const [sessionSeed, setSessionSeed] = useState(() => Math.floor(Math.random() * 0x7fffffff));
-  const [feedSession, setFeedSession] = useState<FeedSession>({ queue: [], repeat: [], seed: 0 });
+  const [sessionSeed, setSessionSeed] = useState(() => immersiveResumeState?.sessionSeed ?? Math.floor(Math.random() * 0x7fffffff));
+  const [feedSession, setFeedSession] = useState<FeedSession>(() => immersiveResumeState?.feedSession ?? { queue: [], repeat: [], seed: 0 });
   const [feedbackPromptPieceId, setFeedbackPromptPieceId] = useState<string | null>(null);
   const [welcomeVisible, setWelcomeVisible] = useState<boolean | null>(null);
   const [guideStep, setGuideStep] = useState<number | null>(null);
@@ -118,7 +121,7 @@ export default function ImmersiveShopping() {
   const feedbackPromptTiming = useRef({ nextIndex: randomPromptGap(3, 6), shownThisSession: new Set<string>() });
   const feedbackToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipeY = useSharedValue(0);
-  const activeIndexShared = useSharedValue(immersiveResumeIndex);
+  const activeIndexShared = useSharedValue(immersiveResumeState?.activeIndex ?? 0);
   const swipeLock = useSharedValue(0);
   const refreshTriggered = useSharedValue(0);
   const refreshActiveShared = useSharedValue(0);
@@ -297,10 +300,10 @@ export default function ImmersiveShopping() {
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
 
   useEffect(() => {
-    immersiveResumeIndex = activeIndex;
+    immersiveResumeState = { activeIndex, sessionSeed, feedSession };
     activeIndexShared.value = activeIndex;
     swipeLock.value = 0;
-  }, [activeIndex, activeIndexShared, swipeLock]);
+  }, [activeIndex, activeIndexShared, feedSession, sessionSeed, swipeLock]);
   // Position cards by absolute item index, not by their React slot. During the
   // UI-thread handoff React can still hold the previous slot order for a frame.
   const currentCardStyle = useAnimatedStyle(() => ({
