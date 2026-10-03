@@ -36,7 +36,7 @@ function OwnerListing({ piece, insets, onBack }: { piece: ClosetPiece; insets: {
     const patch: Partial<ClosetPiece> = {};
     if (app.uid && piece.ownerId !== app.uid) patch.ownerId = app.uid;
     if (app.displayName && piece.ownerName !== app.displayName) patch.ownerName = app.displayName;
-    const face = app.avatarUri || app.personUri;
+    const face = app.avatarUri;
     if (face && piece.ownerPhoto !== face) patch.ownerPhoto = face;
     if (Object.keys(patch).length) updatePiece(piece.id, patch);
   }, [app.uid, app.displayName, app.personUri, app.avatarUri, piece.id, piece.ownerId, piece.ownerName, piece.ownerPhoto]);

@@ -24,7 +24,7 @@ function userName(data, fallback) {
   return safeName(data?.displayName || data?.name, fallback);
 }
 function userPhoto(data) {
-  return String(data?.avatarUri || data?.personUri || data?.photoURL || data?.photo || "").slice(0, 2000);
+  return String(data?.avatarUri || data?.photoURL || data?.photo || "").slice(0, 2000);
 }
 function profileUsername(data) {
   return String(data?.username || data?.handle || "").replace(/^@/, "").slice(0, 40);

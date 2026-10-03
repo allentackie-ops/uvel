@@ -130,7 +130,7 @@ export default function LegalBrandApply() {
           logoUri,
           ownerId: app.uid,
           ownerName: app.displayName || "Owner",
-          ownerPhoto: app.avatarUri || app.personUri || undefined,
+          ownerPhoto: app.avatarUri || undefined,
         });
       } else {
         updateBrand(brand.id, {

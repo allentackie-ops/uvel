@@ -26,7 +26,7 @@ export default function Manage() {
     if (!app.usernameChangedAt) return "";
     return new Date(app.usernameChangedAt + YEAR_MS).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
   }, [app.usernameChangedAt]);
-  const face = app.avatarUri || app.personUri;
+  const face = app.avatarUri;
   const initials = (app.displayName || "U").split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 
   async function save() {

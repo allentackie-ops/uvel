@@ -82,7 +82,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const { id, fits, draft: draftParam, returnTo } = useLocalSearchParams<{ id?: string; fits?: string; draft?: string; returnTo?: string }>();
   useWardrobe();
   const existing = id ? getPiece(id) : undefined;
-  const { wardrobeUris, uid, displayName, country, personUri, avatarUri } = useUvel();
+  const { wardrobeUris, uid, displayName, country, avatarUri } = useUvel();
   const C = useCopy();
   const market = getMarket(country);
   const [draftOrigin, setDraftOrigin] = useState<string | undefined>();
@@ -618,7 +618,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       shippingBuyerPays,
       shopLook,
     };
-    const face = avatarUri || personUri || existing?.ownerPhoto;
+    const face = avatarUri || existing?.ownerPhoto;
     const listed = {
       ...draft,
       ownerId: uid,

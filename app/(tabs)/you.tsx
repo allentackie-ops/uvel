@@ -109,7 +109,7 @@ export default function You({ onOpenSettings }: { onOpenSettings?: () => void })
     .join("")
     .slice(0, 2)
     .toUpperCase();
-  const face = app.avatarUri || app.personUri;
+  const face = app.avatarUri;
 
   async function setFace(uri: string | null) {
     if (!uri) return;

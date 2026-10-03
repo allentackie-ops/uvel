@@ -31,7 +31,7 @@ export default function AcceptBrandInvite() {
     }
     void (async () => {
       try {
-        await acceptInvite(String(id), app.uid, app.displayName || "Uvel member", app.avatarUri || app.personUri || undefined);
+        await acceptInvite(String(id), app.uid, app.displayName || "Uvel member", app.avatarUri || undefined);
         await AsyncStorage.removeItem(PENDING_INVITE);
         router.replace({ pathname: "/brand/hq", params: { id: invite.brandId } });
       } catch (error) {

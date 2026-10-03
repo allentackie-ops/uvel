@@ -251,7 +251,7 @@ export function FounderLaunchReview({ project, colors }: { project: FounderProje
         project,
         uid: app.uid,
         displayName: app.displayName || "Owner",
-        avatarUri: app.avatarUri || app.personUri || undefined,
+        avatarUri: app.avatarUri || undefined,
         country: app.country,
       });
       router.replace("/");

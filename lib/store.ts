@@ -226,8 +226,6 @@ async function applyAccount(
   attachAccountStores(user.uid);
   if (done) {
     void stashProfile();
-    const restoredAvatar = memory.avatarUri || memory.personUri;
-    if (restoredAvatar) void syncRestoredProfileAvatar(user.uid, restoredAvatar);
     if (!remoteProfileFlag(remote)) {
       void import("./auth").then(({ writeUserProfile }) =>
         writeUserProfile(user.uid, {
@@ -244,23 +242,6 @@ async function applyAccount(
         }),
       );
     }
-  }
-}
-
-async function syncRestoredProfileAvatar(uid: string, sourceUri: string) {
-  if (/^https?:\/\//i.test(sourceUri)) return;
-  try {
-    const { uploadProfileAvatar } = await import("./avatar");
-    const avatarUri = await uploadProfileAvatar(sourceUri);
-    if (memory.uid !== uid) return;
-    memory = { ...memory, avatarUri };
-    listeners.forEach((l) => l());
-    await persist();
-    await stashProfile();
-    const { updateMineAvatar } = await import("./wardrobe");
-    updateMineAvatar(uid, avatarUri);
-  } catch {
-    // Keep the existing local photo if an older device URI can no longer be uploaded.
   }
 }
 
@@ -354,7 +335,7 @@ export function useUvel() {
       const liker = {
         uid,
         name: memory.displayName || "Uvel member",
-        photo: memory.avatarUri || memory.personUri || undefined,
+        photo: memory.avatarUri || undefined,
         at: Date.now(),
       };
       const { liked, piece } = toggleLiker(id, liker);
@@ -377,7 +358,7 @@ export function useUvel() {
       syncSavedLikes(memory.saved, {
         uid: memory.uid || "me",
         name: memory.displayName || "Uvel member",
-        photo: memory.avatarUri || memory.personUri || undefined,
+        photo: memory.avatarUri || undefined,
         at: Date.now(),
       });
     },
@@ -444,9 +425,8 @@ export function useUvel() {
       silhouette?: string;
     }) => {
       const uid = memory.uid;
-      const sourceAvatar = patch.avatarUri || patch.personUri;
-      const avatarUri = uid && sourceAvatar
-        ? await (await import("./avatar")).uploadProfileAvatar(sourceAvatar)
+      const avatarUri = uid && patch.avatarUri
+        ? await (await import("./avatar")).uploadProfileAvatar(patch.avatarUri)
         : patch.avatarUri || null;
       await save({
         ...patch,

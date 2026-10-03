@@ -26,7 +26,7 @@ export function TodayToolsDrawer({ onClose, onOpenSell, onOpenMirror }: TodayToo
   const cart = useCart();
   const name = app.displayName || "Uvel member";
   const handle = app.username ? `@${app.username}` : "";
-  const photo = app.avatarUri || app.personUri;
+  const photo = app.avatarUri;
   const shopTools: Tool[] = [
     { icon: "bag-handle-outline", label: cart.count ? `Your bag · ${cart.count} ${cart.count === 1 ? "item" : "items"}` : "Your bag", onPress: () => router.push("/cart") },
     { icon: "body-outline", label: "Mirror", onPress: onOpenMirror },

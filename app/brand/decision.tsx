@@ -30,7 +30,7 @@ export default function FounderDecision() {
       project,
       uid: app.uid,
       displayName: app.displayName || "Owner",
-      avatarUri: app.avatarUri || app.personUri,
+      avatarUri: app.avatarUri || undefined,
       country: app.country,
     });
     router.replace("/");
