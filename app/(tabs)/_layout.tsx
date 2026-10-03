@@ -23,6 +23,8 @@ const ACTIVE_ICONS = ["compass", "pricetag", "person"] as const;
 const TAB_ICON_SIZE = 26;
 const SCREEN_W = Dimensions.get("window").width;
 const DRAWER_W = Math.min(SCREEN_W * 0.78, 340);
+const TAB_BAR_HORIZONTAL_PADDING = 10;
+const TAB_TOOLTIP_WIDTH = Math.min(210, SCREEN_W - 24);
 const TAB_TOOLTIPS = [
   { title: "Today", body: "Discover fresh listings and shop what's new." },
   { title: "Create", body: "List an item, share your style, and build your closet." },
@@ -185,10 +187,10 @@ export default function TabsLayout() {
                     accessibilityState={{ selected: active }}
                   >
                     {tooltipIndex === index ? (
-                      <View pointerEvents="none" style={styles.tooltip}>
+                      <View pointerEvents="none" style={[styles.tooltip, tooltipLayout(index)]}>
                         <Text style={styles.tooltipTitle}>{TAB_TOOLTIPS[index].title}</Text>
                         <Text style={styles.tooltipBody}>{TAB_TOOLTIPS[index].body}</Text>
-                        <View style={styles.tooltipCaret} />
+                        <View style={[styles.tooltipCaret, { left: tooltipLayout(index).caretLeft }]} />
                       </View>
                     ) : null}
                     <View style={styles.iconSlot} accessibilityElementsHidden>
@@ -271,6 +273,17 @@ function routeIndex(pathname: string): number | null {
   return null;
 }
 
+function tooltipLayout(index: number) {
+  const tabWidth = (SCREEN_W - TAB_BAR_HORIZONTAL_PADDING * 2) / ROUTES.length;
+  const iconCenter = TAB_BAR_HORIZONTAL_PADDING + (index + 0.5) * tabWidth;
+  const left = Math.max(12, Math.min(iconCenter - TAB_TOOLTIP_WIDTH / 2, SCREEN_W - 12 - TAB_TOOLTIP_WIDTH));
+  return {
+    left: left - TAB_BAR_HORIZONTAL_PADDING - index * tabWidth,
+    width: TAB_TOOLTIP_WIDTH,
+    caretLeft: iconCenter - left - 6,
+  };
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1 },
   stage: { flex: 1, overflow: "hidden" },
@@ -286,9 +299,6 @@ const styles = StyleSheet.create({
   tooltip: {
     position: "absolute",
     bottom: 57,
-    left: "50%",
-    marginLeft: -105,
-    width: 210,
     paddingHorizontal: 14,
     paddingVertical: 11,
     borderRadius: 14,
@@ -305,8 +315,6 @@ const styles = StyleSheet.create({
   tooltipCaret: {
     position: "absolute",
     bottom: -6,
-    left: "50%",
-    marginLeft: -6,
     width: 12,
     height: 12,
     backgroundColor: "#F4F0E6",
