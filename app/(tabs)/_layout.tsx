@@ -23,6 +23,11 @@ const ACTIVE_ICONS = ["compass", "pricetag", "person"] as const;
 const TAB_ICON_SIZE = 26;
 const SCREEN_W = Dimensions.get("window").width;
 const DRAWER_W = Math.min(SCREEN_W * 0.78, 340);
+const TAB_TOOLTIPS = [
+  { title: "Today", body: "Discover fresh listings and shop what's new." },
+  { title: "Create", body: "List an item, share your style, and build your closet." },
+  { title: "You", body: "Manage your profile, wardrobe, and settings." },
+] as const;
 
 type TabScreen = { key: string; screen: React.ReactNode };
 
@@ -37,6 +42,8 @@ export default function TabsLayout() {
   const [pageIndex, setPageIndex] = useState(() => routeIndex(pathname) ?? 0);
   const [open, setOpen] = useState(false);
   const [listingOpen, setListingOpen] = useState(false);
+  const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
+  const longPressRef = useRef(false);
 
   function openSettings() {
     if (open) setOpen(false);
@@ -77,6 +84,22 @@ export default function TabsLayout() {
     pagerRef.current?.setPage(tabIndex);
     const route = ROUTES[tabIndex];
     if (route) router.navigate(route);
+  }
+
+  function handleTabPress(tabIndex: number) {
+    if (longPressRef.current) {
+      longPressRef.current = false;
+      setTooltipIndex(null);
+      return;
+    }
+    setTooltipIndex(null);
+    selectTab(tabIndex);
+  }
+
+  function handleTabLongPress(tabIndex: number) {
+    longPressRef.current = true;
+    setTooltipIndex(tabIndex);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
   }
 
   function onPageSelected(event: PagerViewOnPageSelectedEvent) {
@@ -153,12 +176,21 @@ export default function TabsLayout() {
                 return (
                   <Pressable
                     key={index}
-                    onPress={() => selectTab(index)}
+                    onPress={() => handleTabPress(index)}
+                    onLongPress={() => handleTabLongPress(index)}
+                    delayLongPress={450}
                     style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
                     accessibilityRole="tab"
                     accessibilityLabel={[C.today, C.create ?? "Create", C.you][index]}
                     accessibilityState={{ selected: active }}
                   >
+                    {tooltipIndex === index ? (
+                      <View pointerEvents="none" style={styles.tooltip}>
+                        <Text style={styles.tooltipTitle}>{TAB_TOOLTIPS[index].title}</Text>
+                        <Text style={styles.tooltipBody}>{TAB_TOOLTIPS[index].body}</Text>
+                        <View style={styles.tooltipCaret} />
+                      </View>
+                    ) : null}
                     <View style={styles.iconSlot} accessibilityElementsHidden>
                       <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={TAB_ICON_SIZE} color={active ? colors.success : inactiveIcon} />
                     </View>
@@ -251,4 +283,33 @@ const styles = StyleSheet.create({
   tabPressed: { opacity: 0.76 },
   iconSlot: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
   label: { color: "#A9A398", fontSize: 11, fontWeight: "700" },
+  tooltip: {
+    position: "absolute",
+    bottom: 57,
+    left: "50%",
+    marginLeft: -105,
+    width: 210,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 14,
+    backgroundColor: "#F4F0E6",
+    shadowColor: "#000",
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 8,
+    zIndex: 20,
+  },
+  tooltipTitle: { color: "#171510", fontSize: 13, fontWeight: "800", textAlign: "center" },
+  tooltipBody: { color: "#514D43", fontSize: 12, lineHeight: 16, marginTop: 3, textAlign: "center" },
+  tooltipCaret: {
+    position: "absolute",
+    bottom: -6,
+    left: "50%",
+    marginLeft: -6,
+    width: 12,
+    height: 12,
+    backgroundColor: "#F4F0E6",
+    transform: [{ rotate: "45deg" }],
+  },
 });
