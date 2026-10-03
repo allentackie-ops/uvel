@@ -44,6 +44,7 @@ export function MirrorUvelPickerSheet({
   const contentScrollGesture = useMemo(() => Gesture.Native(), []);
   const [contentHeight, setContentHeight] = useState(0);
   const [searchFocused, setSearchFocused] = useState(false);
+  const searchMode = searchFocused || query.trim().length > 0;
   const visiblePieces = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return pieces.filter((piece) => {
@@ -77,7 +78,7 @@ export function MirrorUvelPickerSheet({
   });
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value }] }));
   const dismissPan = useMemo(() => Gesture.Pan()
-    .enabled(!searchFocused)
+    .enabled(!searchMode)
     .activeOffsetY(6)
     .failOffsetX([-18, 18])
     .simultaneousWithExternalGesture(contentScrollGesture)
@@ -95,7 +96,7 @@ export function MirrorUvelPickerSheet({
       } else {
         dragY.value = withSpring(0, { damping: 22, stiffness: 240, overshootClamping: true });
       }
-    }), [contentScrollGesture, dragY, onClose, panStartScrollY, scrollY, searchFocused, sheetHeight]);
+    }), [contentScrollGesture, dragY, onClose, panStartScrollY, scrollY, searchMode, sheetHeight]);
 
   if (!open) return null;
 
@@ -121,7 +122,9 @@ export function MirrorUvelPickerSheet({
                     <Text style={styles.title}>Choose a piece</Text>
                     <Text style={styles.subtitle}>Pick something from Uvel</Text>
                   </View>
-                  <Ionicons name="chevron-down" size={18} color={colors.subtle} />
+                    <Pressable onPress={onClose} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close Uvel picker" accessibilityHint="Dismiss the From Uvel picker.">
+                      <Ionicons name="chevron-down" size={18} color={colors.subtle} />
+                    </Pressable>
                 </View>
                 <View style={styles.searchBox}>
                   <Ionicons name="search-outline" size={18} color={colors.subtle} />
