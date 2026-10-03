@@ -320,7 +320,7 @@ export function MirrorStudioView({
                 </Pressable>
               </View>
             ) : (
-              <View style={styles.selectedPlaceholder}><Ionicons name="shirt-outline" size={22} color={colors.success} /></View>
+              <View style={styles.selectedPlaceholder}><Ionicons name="layers-outline" size={22} color={colors.success} /></View>
             )}
           </View>
 
