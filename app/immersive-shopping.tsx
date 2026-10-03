@@ -315,6 +315,20 @@ export default function ImmersiveShopping() {
   const previousCardStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: swipeY.value + (activeIndex - 1 - activeIndexShared.value) * contentHeight }],
   }));
+  // Keep labels and actions from sliding through the fixed iOS status-bar area
+  // while the full-bleed listing images continue to move with the swipe.
+  const currentContentOpacityStyle = useAnimatedStyle(() => {
+    const offset = swipeY.value + (activeIndex - activeIndexShared.value) * contentHeight;
+    return { opacity: Math.max(0, 1 - Math.abs(offset) / (contentHeight * 0.5)) };
+  });
+  const nextContentOpacityStyle = useAnimatedStyle(() => {
+    const offset = swipeY.value + (activeIndex + 1 - activeIndexShared.value) * contentHeight;
+    return { opacity: Math.max(0, 1 - Math.abs(offset) / (contentHeight * 0.5)) };
+  });
+  const previousContentOpacityStyle = useAnimatedStyle(() => {
+    const offset = swipeY.value + (activeIndex - 1 - activeIndexShared.value) * contentHeight;
+    return { opacity: Math.max(0, 1 - Math.abs(offset) / (contentHeight * 0.5)) };
+  });
   const commitSwipe = useCallback((nextIndex: number) => {
     const currentPrompt = feedbackPromptRef.current;
     if (currentPrompt && currentPrompt.index !== nextIndex) {
@@ -457,7 +471,7 @@ export default function ImmersiveShopping() {
         <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
         {activePiece ? <>
           {previousPiece ? <Animated.View key={`${activeIndex - 1}:${previousPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle]}>
-            <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
+            <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} contentOpacityStyle={previousContentOpacityStyle} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
           <Animated.View key={`${activeIndex}:${activePiece.id}`} style={[styles.cardLayer, { height: contentHeight }, currentCardStyle]}>
           <ImmersiveItem
@@ -471,6 +485,7 @@ export default function ImmersiveShopping() {
           app={app}
           firstFind={firstFind}
           contentHeight={contentHeight}
+          contentOpacityStyle={currentContentOpacityStyle}
           refreshImageScale={refreshImageScale}
           onFirstFind={() => setFindHint(true)}
           firstFindLabel={C.firstFind}
@@ -480,7 +495,7 @@ export default function ImmersiveShopping() {
           />
           </Animated.View>
           {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
-            <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
+            <ImmersiveItem piece={nextPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} contentOpacityStyle={nextContentOpacityStyle} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
           </Animated.View> : null}
         </> : null}
         <View pointerEvents="box-none" style={[styles.topControls, { paddingTop: insets.top + 8 }]}>
@@ -615,7 +630,7 @@ function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: Re
   );
 }
 
-function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, refreshImageScale, onFirstFind, firstFindLabel, feedbackPrompted, onRecommendationFeedback, onOpenSeller, guideStep, onGuideDismiss }: any) {
+function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, contentOpacityStyle, refreshImageScale, onFirstFind, firstFindLabel, feedbackPrompted, onRecommendationFeedback, onOpenSeller, guideStep, onGuideDismiss }: any) {
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   const [shareOpen, setShareOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -709,7 +724,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         <View pointerEvents="none" style={styles.itemShade} />
       </AccessiblePressable>
       {active && guideStep !== null ? <AccessiblePressable onPress={onGuideDismiss} style={styles.guideDismissLayer} accessibilityRole="button" accessibilityLabel="Dismiss shopping tip" /> : null}
-      <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: feedbackPrompted ? 88 : 24 }]}>
+      <Animated.View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: feedbackPrompted ? 88 : 24 }, contentOpacityStyle]}>
         <View style={styles.copySpacer} />
         {canMakeOffer ? (
           <View style={styles.offerFooter}>
@@ -766,8 +781,8 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           ) : <Text style={styles.price}>{localPrice}</Text>}
           </View>
         )}
-      </View>
-      <View style={[styles.actions, { bottom: feedbackPrompted ? 164 : 118 }]} onLayout={(event) => {
+      </Animated.View>
+      <Animated.View style={[styles.actions, { bottom: feedbackPrompted ? 164 : 118 }, contentOpacityStyle]} onLayout={(event) => {
         const { x, y, width, height } = event.nativeEvent.layout;
         saveTargetX.value = x + width / 2;
         saveTargetY.value = y + height - 99;
@@ -812,7 +827,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           {guideStep === 5 ? <GuideBubble action styles={styles} title="Share this listing" copy="Send it to friends who would love it." onDismiss={onGuideDismiss} /> : null}
           <Action icon="share-outline" label="Share" onPress={() => { onGuideDismiss(); setShareOpen(true); }} styles={styles} colors={colors} />
         </View>
-      </View>
+      </Animated.View>
       {active && feedbackPrompted ? <View style={styles.recommendationPrompt}>
         <AccessiblePressable
           onPress={() => onRecommendationFeedback(piece, "not_interested")}
