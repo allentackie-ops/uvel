@@ -51,7 +51,7 @@ const SELL_VERIFICATION_ENABLED = true;
 const STAGES = [
   "Checking your listing photos…",
   "Comparing against active store images…",
-  "Checking for AI-generated media…",
+  "Checking the media format…",
   "Finishing the safety review…",
 ];
 
@@ -501,15 +501,15 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
 
   function openPrice() {
     if (!hasPhoto) {
-      Alert.alert("Add a product photo first", "Uvel needs to analyze the product photo before it can show price recommendations.");
+      Alert.alert("Add a product photo first", "Uvel needs to review the product photo before it can show price recommendations.");
       return;
     }
     if (checking) {
-      Alert.alert("Analyzing your photo", "Price recommendations will be available after the AI review finishes.");
+      Alert.alert("Checking your photo", "Price recommendations will be available after the photo review finishes.");
       return;
     }
     if (SELL_VERIFICATION_ENABLED && !photoReadyForPricing) {
-      Alert.alert("Photo analysis required", "Add a clear product photo that passes the AI review before opening price recommendations.");
+      Alert.alert("Photo review required", "Add a clear product photo that passes the photo review before opening price recommendations.");
       return;
     }
     router.push({
@@ -928,8 +928,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
 
           {SELL_VERIFICATION_ENABLED && hasPhoto && !photoReadyForPricing && !checking ? (
             <View style={styles.analysisNotice} accessibilityLiveRegion="polite">
-              <Text style={styles.analysisTitle}>AI review required for price recommendations</Text>
-              <Text style={styles.analysisCopy}>Uvel will show recommendations only after a product photo has been analyzed successfully.</Text>
+              <Text style={styles.analysisTitle}>Photo review required for price recommendations</Text>
+              <Text style={styles.analysisCopy}>Uvel will show recommendations after a product photo has been reviewed successfully.</Text>
             </View>
           ) : null}
 
