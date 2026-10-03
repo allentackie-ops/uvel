@@ -43,6 +43,7 @@ export function MirrorUvelPickerSheet({
   const panStartScrollY = useSharedValue(0);
   const contentScrollGesture = useMemo(() => Gesture.Native(), []);
   const [contentHeight, setContentHeight] = useState(0);
+  const [searchFocused, setSearchFocused] = useState(false);
   const visiblePieces = useMemo(() => {
     const needle = query.trim().toLowerCase();
     return pieces.filter((piece) => {
@@ -55,7 +56,7 @@ export function MirrorUvelPickerSheet({
   }, [category, pieces, query]);
 
   const bottomPadding = Math.max(insets.bottom + 10, 16);
-  const sheetChrome = 36 + 8 + bottomPadding;
+  const sheetChrome = 8 + bottomPadding;
   const maxSheetHeight = windowHeight - insets.top - 10;
   const maxScrollHeight = Math.max(150, maxSheetHeight - sheetChrome);
   const fallbackScrollHeight = Math.min(maxScrollHeight, windowHeight * 0.48);
@@ -76,6 +77,7 @@ export function MirrorUvelPickerSheet({
   });
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value }] }));
   const dismissPan = useMemo(() => Gesture.Pan()
+    .enabled(!searchFocused)
     .activeOffsetY(6)
     .failOffsetX([-18, 18])
     .simultaneousWithExternalGesture(contentScrollGesture)
@@ -93,7 +95,7 @@ export function MirrorUvelPickerSheet({
       } else {
         dragY.value = withSpring(0, { damping: 22, stiffness: 240, overshootClamping: true });
       }
-    }), [contentScrollGesture, dragY, onClose, panStartScrollY, scrollY, sheetHeight]);
+    }), [contentScrollGesture, dragY, onClose, panStartScrollY, scrollY, searchFocused, sheetHeight]);
 
   if (!open) return null;
 
@@ -103,9 +105,6 @@ export function MirrorUvelPickerSheet({
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close Uvel picker" />
         <GestureDetector gesture={dismissPan}>
           <Animated.View style={[styles.sheet, { height: sheetHeight, paddingBottom: bottomPadding }, sheetStyle]} accessibilityViewIsModal>
-            <View pointerEvents="none" style={styles.dragCue}>
-              <View style={styles.grip} />
-            </View>
             <GestureDetector gesture={contentScrollGesture}>
               <Animated.ScrollView
                 style={[styles.scroll, { height: scrollHeight, maxHeight: maxScrollHeight }]}
@@ -126,7 +125,7 @@ export function MirrorUvelPickerSheet({
                 </View>
                 <View style={styles.searchBox}>
                   <Ionicons name="search-outline" size={18} color={colors.subtle} />
-                  <TextInput value={query} onChangeText={onQueryChange} placeholder="Search pieces" placeholderTextColor={colors.subtle} style={styles.searchInput} returnKeyType="search" autoCorrect={false} accessibilityLabel="Search Uvel pieces" />
+                  <TextInput value={query} onChangeText={onQueryChange} onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)} placeholder="Search pieces" placeholderTextColor={colors.subtle} style={styles.searchInput} returnKeyType="search" autoCorrect={false} accessibilityLabel="Search Uvel pieces" />
                   {query ? <Pressable onPress={() => onQueryChange("")} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear search"><Ionicons name="close-circle" size={18} color={colors.subtle} /></Pressable> : null}
                 </View>
                 <Animated.ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categories} nativeID="uvel-picker-categories">
@@ -159,8 +158,6 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     modalRoot: { flex: 1, justifyContent: "flex-end" },
     sheet: { width: "100%", backgroundColor: colors.ink, borderTopLeftRadius: 27, borderTopRightRadius: 27, borderWidth: StyleSheet.hairlineWidth, borderBottomWidth: 0, borderColor: `${colors.bone}22`, paddingTop: 8, paddingHorizontal: 16, overflow: "hidden" },
-    dragCue: { height: 28, alignItems: "center", justifyContent: "flex-start", paddingTop: 1 },
-    grip: { width: 40, height: 4, borderRadius: 2, backgroundColor: `${colors.bone}55` },
     scroll: { flexGrow: 0, flexShrink: 1 },
     content: { paddingTop: 2, paddingBottom: 14 },
     headingRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
