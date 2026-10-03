@@ -36,8 +36,6 @@ export function LensHeroClip() {
         surfaceType="textureView"
         onFirstFrameRender={() => setFirstFrameReady(true)}
       />
-      <View style={styles.tint} />
-      <View style={styles.bottomShade} />
     </View>
   );
 }
@@ -45,6 +43,4 @@ export function LensHeroClip() {
 const styles = StyleSheet.create({
   clip: { ...StyleSheet.absoluteFill, overflow: "hidden", backgroundColor: "#0B0A08" },
   waitingForFrame: { opacity: 0 },
-  tint: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(11,10,8,0.12)" },
-  bottomShade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 76, backgroundColor: "rgba(11,10,8,0.36)" },
 });

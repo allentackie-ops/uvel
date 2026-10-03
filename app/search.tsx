@@ -8,6 +8,7 @@ import * as Haptics from "../lib/haptics";
 import { AccessiblePressable } from "../components/AccessiblePressable";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
 import { ListingCard } from "../components/ListingCard";
+import { BottomTaskbar } from "../components/BottomTaskbar";
 import { usePersonalization } from "../lib/personalization";
 import { useCopy } from "../lib/useCopy";
 import { useUvel } from "../lib/store";
@@ -135,7 +136,7 @@ export default function Search() {
         keyExtractor={(piece) => piece.id}
         numColumns={2}
         columnWrapperStyle={styles.resultsRow}
-        contentContainerStyle={[styles.results, { paddingBottom: insets.bottom + 34 }]}
+        contentContainerStyle={[styles.results, { paddingBottom: 24 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -149,6 +150,7 @@ export default function Search() {
         ListEmptyComponent={hasQuery && Boolean(needle) ? <View style={styles.empty}>{marketplaceSync === "loading" ? <ActivityIndicator color={colors.success} /> : <><Text style={styles.emptyTitle}>Nothing here yet.</Text><Text style={styles.emptyText}>{marketplaceSync === "unavailable" ? C.searchUnavailable ?? "Search is unavailable right now." : "Try a wider mood, color or material."}</Text></>}</View> : null}
       />
       {orbitOn ? <View pointerEvents="none" style={[styles.refreshOrbit, { top: insets.top + 72 }]}><OrbitLoader /></View> : null}
+      <BottomTaskbar />
       <Modal visible={filterOpen} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)}><View style={styles.modalBackdrop}><View style={styles.sheet}><View style={styles.sheetHandle} /><View style={styles.sheetTitleRow}><Text style={styles.sheetTitle}>Tune your find</Text><Pressable onPress={() => setFilterOpen(false)} hitSlop={10}><Ionicons name="close" size={24} color={colors.bone} /></Pressable></View><Text style={styles.filterLabel}>CATEGORY</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterChips}>{["All", ...CATEGORIES.map((item) => item.label)].map((category) => <Pressable key={category} onPress={() => setSelectedCategory(category)} style={[styles.filterChip, selectedCategory === category && styles.filterChipActive]}><Text style={[styles.filterChipText, selectedCategory === category && styles.filterChipTextActive]}>{category}</Text></Pressable>)}</ScrollView><Text style={styles.filterLabel}>SIZE</Text><View style={styles.sizeGrid}>{["Any size", "XS", "S", "M", "L", "XL"].map((size) => <Pressable key={size} onPress={() => setSelectedSize(size)} style={[styles.sizeChip, selectedSize === size && styles.sizeChipActive]}><Text style={[styles.sizeText, selectedSize === size && styles.sizeTextActive]}>{size}</Text></Pressable>)}</View><Pressable onPress={() => setFilterOpen(false)} style={styles.applyButton}><Text style={styles.applyText}>Show pieces</Text><Ionicons name="arrow-forward" size={18} color={colors.successInk} /></Pressable></View></View></Modal>
     </View>
   );

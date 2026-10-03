@@ -8,6 +8,7 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "./ListingCard";
+import { BottomTaskbar } from "./BottomTaskbar";
 import { LensHeroClip } from "./LensHeroClip";
 import type { ClosetPiece } from "../lib/wardrobe";
 import type { NormalizedBox } from "../lib/lookMatch";
@@ -174,7 +175,7 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
       </View>
 
       {!uri ? (
-        <View style={[styles.empty, { paddingBottom: insets.bottom + 24 }]}>
+        <View style={[styles.empty, { paddingBottom: 12 }]}>
           <Text style={styles.title}>Find it on Uvel.</Text>
           <View style={styles.sourceList}>
             <SourceButton icon="camera-outline" label="Take a photo" onPress={onTakePhoto} primary colors={colors} styles={styles} />
@@ -211,7 +212,7 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
               ) : null}
             </View>
           </View>
-          <View style={[styles.resultsSheet, { paddingBottom: insets.bottom + 10 }]}>
+          <View style={[styles.resultsSheet, { paddingBottom: 10 }]}>
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeading}>
                 <Text style={styles.sheetTitle}>Live matches</Text>
@@ -232,6 +233,7 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
           </View>
         </>
       )}
+      <BottomTaskbar />
     </View>
   );
 }
