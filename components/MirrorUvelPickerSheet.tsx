@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { Keyboard, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -44,6 +44,7 @@ export function MirrorUvelPickerSheet({
   const contentScrollGesture = useMemo(() => Gesture.Native(), []);
   const [contentHeight, setContentHeight] = useState(0);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const searchMode = searchFocused || query.trim().length > 0;
   const visiblePieces = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -58,11 +59,12 @@ export function MirrorUvelPickerSheet({
 
   const bottomPadding = Math.max(insets.bottom + 10, 16);
   const sheetChrome = 8 + bottomPadding;
-  const maxSheetHeight = windowHeight - insets.top - 10;
+  const sheetPaddingBottom = keyboardHeight ? 12 : bottomPadding;
+  const maxSheetHeight = Math.max(220, windowHeight - keyboardHeight - insets.top - 10);
   const maxScrollHeight = Math.max(150, maxSheetHeight - sheetChrome);
   const fallbackScrollHeight = Math.min(maxScrollHeight, windowHeight * 0.48);
   const scrollHeight = Math.min(maxScrollHeight, contentHeight || fallbackScrollHeight);
-  const sheetHeight = scrollHeight + sheetChrome;
+  const sheetHeight = Math.min(maxSheetHeight, scrollHeight + 8 + sheetPaddingBottom);
 
   useEffect(() => {
     if (open) dragY.value = 0;
@@ -70,6 +72,27 @@ export function MirrorUvelPickerSheet({
   useEffect(() => {
     setContentHeight(0);
   }, [category, query]);
+
+  useEffect(() => {
+    if (!open) {
+      setKeyboardHeight(0);
+      return;
+    }
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const show = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+      dragY.value = withSpring(0, { damping: 22, stiffness: 240, overshootClamping: true });
+    });
+    const hide = Keyboard.addListener(hideEvent, () => {
+      setKeyboardHeight(0);
+      dragY.value = withSpring(0, { damping: 22, stiffness: 240, overshootClamping: true });
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [dragY, open]);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -101,11 +124,12 @@ export function MirrorUvelPickerSheet({
   if (!open) return null;
 
   return (
-    <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
       <GestureHandlerRootView style={styles.modalRoot}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close Uvel picker" />
-        <GestureDetector gesture={dismissPan}>
-          <Animated.View style={[styles.sheet, { height: sheetHeight, paddingBottom: bottomPadding }, sheetStyle]} accessibilityViewIsModal>
+        <View pointerEvents="box-none" style={[styles.sheetWrap, { paddingBottom: keyboardHeight }]}>
+          <GestureDetector gesture={dismissPan}>
+            <Animated.View style={[styles.sheet, { height: sheetHeight, paddingBottom: sheetPaddingBottom }, sheetStyle]} accessibilityViewIsModal>
             <GestureDetector gesture={contentScrollGesture}>
               <Animated.ScrollView
                 style={[styles.scroll, { height: scrollHeight, maxHeight: maxScrollHeight }]}
@@ -150,8 +174,9 @@ export function MirrorUvelPickerSheet({
                 )}
               </Animated.ScrollView>
             </GestureDetector>
-          </Animated.View>
-        </GestureDetector>
+            </Animated.View>
+          </GestureDetector>
+        </View>
       </GestureHandlerRootView>
     </Modal>
   );
@@ -160,6 +185,7 @@ export function MirrorUvelPickerSheet({
 function makeStyles(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     modalRoot: { flex: 1, justifyContent: "flex-end" },
+    sheetWrap: { width: "100%", justifyContent: "flex-end" },
     sheet: { width: "100%", backgroundColor: colors.ink, borderTopLeftRadius: 27, borderTopRightRadius: 27, borderWidth: StyleSheet.hairlineWidth, borderBottomWidth: 0, borderColor: `${colors.bone}22`, paddingTop: 8, paddingHorizontal: 16, overflow: "hidden" },
     scroll: { flexGrow: 0, flexShrink: 1 },
     content: { paddingTop: 2, paddingBottom: 14 },
