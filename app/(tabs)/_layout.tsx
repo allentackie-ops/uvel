@@ -27,7 +27,7 @@ const TAB_BAR_HORIZONTAL_PADDING = 10;
 const TAB_TOOLTIP_WIDTH = Math.min(210, SCREEN_W - 24);
 const TAB_TOOLTIPS = [
   { title: "Today", body: "Discover fresh listings and shop what's new." },
-  { title: "Create", body: "List an item, share your style, and build your closet." },
+  { title: "Create", body: "Turn your ideas into a brand. Add your logo, list products, and grow your shop." },
   { title: "You", body: "Manage your profile, wardrobe, and settings." },
 ] as const;
 
@@ -78,6 +78,15 @@ export default function TabsLayout() {
     setPageIndex(next);
     pagerRef.current?.setPageWithoutAnimation(next);
   }, [pathname, pageIndex]);
+
+  useEffect(() => {
+    if (tooltipIndex === null) return;
+    const timeout = setTimeout(() => {
+      longPressRef.current = false;
+      setTooltipIndex(null);
+    }, 10_000);
+    return () => clearTimeout(timeout);
+  }, [tooltipIndex]);
 
   function selectTab(tabIndex: number) {
     if (open) setOpen(false);
@@ -171,6 +180,16 @@ export default function TabsLayout() {
               <View key={key} style={[styles.page, { backgroundColor: colors.ink }]} collapsable={false}>{screen}</View>
             ))}
           </DrawerAwarePager>
+          {tooltipIndex !== null ? (
+            <Pressable
+              onPress={() => {
+                longPressRef.current = false;
+                setTooltipIndex(null);
+              }}
+              style={styles.tooltipDismiss}
+              accessibilityLabel="Dismiss tab explanation"
+            />
+          ) : null}
           <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]} pointerEvents={open ? "none" : "auto"}>
             <View style={[styles.bar, { backgroundColor: colors.ink }]}>
               {ROUTES.map((_, index) => {
@@ -290,6 +309,7 @@ const styles = StyleSheet.create({
   pager: { flex: 1 },
   page: { flex: 1, backgroundColor: "#000000" },
   cardHit: { ...StyleSheet.absoluteFill, zIndex: 5 },
+  tooltipDismiss: { ...StyleSheet.absoluteFill, zIndex: 2 },
   barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 4, backgroundColor: "#000000", zIndex: 3 },
   bar: { minHeight: 60, borderRadius: 0, borderWidth: 0, backgroundColor: "#000000", flexDirection: "row", alignItems: "center", paddingHorizontal: 10 },
   tab: { flex: 1, minHeight: 52, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 3 },
