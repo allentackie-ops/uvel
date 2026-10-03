@@ -430,12 +430,8 @@ export function MirrorStudioView({
             <View style={styles.helpHeader}>
               <View style={styles.helpIcon}><Ionicons name="body-outline" size={24} color={colors.success} /></View>
               <View style={styles.helpTitleWrap}>
-                <Text style={styles.helpEyebrow}>MIRROR</Text>
                 <Text style={styles.helpTitle}>How Mirror works</Text>
               </View>
-              <Pressable onPress={() => setHelpOpen(false)} style={styles.helpClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close Mirror help">
-                <Ionicons name="close" size={19} color={colors.subtle} />
-              </Pressable>
             </View>
             <View style={styles.helpSection}>
               <Text style={styles.helpSectionLabel}>CREATE A LOOK</Text>
@@ -572,10 +568,8 @@ function make(colors: Colors) {
     helpCard: { width: "100%", maxWidth: 440, padding: 20, borderRadius: 26, backgroundColor: colors.ink, borderWidth: 1, borderColor: `${colors.bone}24` },
     helpHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 },
     helpIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: `${colors.success}14`, alignItems: "center", justifyContent: "center" },
-    helpTitleWrap: { flex: 1, gap: 3 },
-    helpEyebrow: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.8 },
+    helpTitleWrap: { flex: 1 },
     helpTitle: { color: colors.bone, fontSize: 21, lineHeight: 25, fontWeight: "800" },
-    helpClose: { width: 32, height: 32, borderRadius: 16, backgroundColor: `${colors.bone}0D`, alignItems: "center", justifyContent: "center" },
     helpSection: { padding: 14, borderRadius: 16, backgroundColor: `${colors.bone}08`, marginBottom: 10 },
     helpSectionLabel: { color: `${colors.bone}8C`, fontSize: 10, fontWeight: "800", letterSpacing: 1.5, marginBottom: 7 },
     helpCopy: { color: `${colors.bone}D1`, fontSize: 14, lineHeight: 21 },
