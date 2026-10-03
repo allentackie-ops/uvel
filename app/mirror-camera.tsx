@@ -4,13 +4,14 @@ import { router } from "expo-router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS, useSharedValue } from "react-native-reanimated";
 import { useEffect, useRef, useState } from "react";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useUvel } from "../lib/store";
 import type { LightSensorMeasurement } from "expo-sensors";
 
 import { OrbitLoader } from "../components/OrbitLoader";
+import { persistMirrorPhoto } from "../lib/mirrorPhoto";
 const BG = "#0B0A08";
 const INK = "#F4F0E6";
 const MUTED = "rgba(244,240,230,0.68)";
@@ -141,10 +142,18 @@ export default function MirrorCamera() {
     setBusy(false);
   }
 
-  function usePhoto() {
-    if (!photo) return;
-    app.setPerson(photo);
-    router.back();
+  async function usePhoto() {
+    if (!photo || busy) return;
+    setBusy(true);
+    try {
+      const savedUri = await persistMirrorPhoto(photo);
+      await app.setPerson(savedUri);
+      router.back();
+    } catch (error) {
+      Alert.alert("Couldn’t save photo", error instanceof Error ? error.message : "Please take the photo again.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (!permission) {
@@ -156,7 +165,7 @@ export default function MirrorCamera() {
       <View style={[styles.center, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
         <Text style={styles.kicker}>ON YOU</Text>
         <Text style={styles.title}>Camera access needed</Text>
-        <Text style={styles.copy}>Uvel uses your camera to create a full-length photo for Mirror. Your photo stays on your device unless you choose to use or share it.</Text>
+        <Text style={styles.copy}>Uvel uses your camera to create a full-length photo for Mirror. Your photo stays on your device until you create a look.</Text>
         <Pressable onPress={() => void requestPermission()} style={styles.primaryButton}>
           <Text style={styles.primaryText}>Allow camera</Text>
         </Pressable>
@@ -187,8 +196,8 @@ export default function MirrorCamera() {
             <Pressable onPress={() => setPhoto(null)} style={[styles.reviewAction, styles.reviewSecondary]}>
               <Text style={styles.secondaryText}>Retake</Text>
             </Pressable>
-            <Pressable onPress={usePhoto} style={[styles.reviewAction, styles.reviewPrimary]}>
-              <Text style={styles.primaryText}>Use this photo</Text>
+            <Pressable onPress={() => void usePhoto()} disabled={busy} style={[styles.reviewAction, styles.reviewPrimary, busy && { opacity: 0.7 }]}>
+              <Text style={styles.primaryText}>{busy ? "Saving…" : "Use this photo"}</Text>
             </Pressable>
           </View>
         </View>

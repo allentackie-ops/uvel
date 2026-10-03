@@ -23,6 +23,7 @@ const listingReview = require("./listingReview");
 exports.uploadPersonalListingAsset = listingReview.uploadPersonalListingAsset;
 exports.submitPersonalListingForReview = listingReview.submitPersonalListingForReview;
 Object.assign(exports, require("./profileAvatar"));
+Object.assign(exports, require("./mirrorJobs"));
 
 const PAYSTACK = new Set(["GH", "NG", "KE", "ZA"]);
 const RESERVATION_MINUTES = 30;
@@ -1337,6 +1338,17 @@ exports.getBrandAnalytics = onCall(async (req) => {
   };
 });
 
+async function deleteMirrorArtifacts(uid, db = admin.firestore()) {
+  const userRef = db.collection("users").doc(uid);
+  await Promise.all([
+    db.recursiveDelete(userRef.collection("mirrorJobs")),
+    db.recursiveDelete(userRef.collection("mirrorUsage")),
+    db.recursiveDelete(userRef.collection("mirrorFeedback")),
+    db.recursiveDelete(userRef.collection("notifications")),
+    admin.storage().bucket().deleteFiles({ prefix: `users/${uid}/mirror-jobs/` }),
+  ]);
+}
+
 exports.deleteMyAccount = onCall(async (req) => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
   const uid = req.auth.uid;
@@ -1404,6 +1416,7 @@ exports.deleteMyAccount = onCall(async (req) => {
   for (const brandDoc of brandsSnap.docs) {
     await db.recursiveDelete(brandDoc.ref.collection("audience").doc(uid));
   }
+  await deleteMirrorArtifacts(uid, db);
   await db.recursiveDelete(db.collection("users").doc(uid));
   await admin.auth().deleteUser(uid);
   return { ok: true };
@@ -1952,6 +1965,7 @@ async function restoreAccountListings(uid) {
 
 async function purgeAccount(uid) {
   const db = admin.firestore();
+  await deleteMirrorArtifacts(uid, db);
   const listingRefs = await accountListingRefs(uid);
   const usernameSnap = await db.collection("usernames").where("uid", "==", uid).get();
   const refs = [

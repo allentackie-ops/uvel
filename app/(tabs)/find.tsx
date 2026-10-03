@@ -3,17 +3,21 @@ import { useEffect, useState } from "react";
 import { ActionSheetIOS, Alert, Platform, Share as NativeShare } from "react-native";
 import { FriendShareSheet, type FriendSharePayload } from "../../components/FriendShareSheet";
 import { MirrorStudioView } from "../../components/MirrorStudioView";
+import { addToCart, inCart } from "../../lib/cart";
 import { pickFromLibrary, pickListingPhoto } from "../../lib/photo";
+import { enqueueMirrorJob, getActiveMirrorJobId, saveMirrorRating, setActiveMirrorJobId, watchMirrorJob, type MirrorJobSource, type MirrorJobStatus } from "../../lib/mirrorJobs";
+import { persistMirrorPhoto } from "../../lib/mirrorPhoto";
 import { useUvel } from "../../lib/store";
-import { dressPerson } from "../../lib/tryon";
 import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { onMirrorPick } from "../../lib/mirrorPick";
 
 type GarmentPick =
   | { kind: "uvel"; piece: ClosetPiece }
-  | { kind: "photo"; uri: string; name: string };
+  | { kind: "photo" | "link"; uri: string; name: string };
 
-export default function Mirror({ standalone = false }: { standalone?: boolean } = {}) {
+type MirrorProps = { standalone?: boolean; initialJobId?: string };
+
+export default function Mirror({ standalone = false, initialJobId }: MirrorProps = {}) {
   const app = useUvel();
   useWardrobe();
   const marketplaceSync = useMarketplaceSyncState();
@@ -28,6 +32,66 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
   const [linkBusy, setLinkBusy] = useState(false);
   const [retryingMarketplace, setRetryingMarketplace] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [jobId, setJobId] = useState<string | null>(initialJobId || null);
+  const [jobStatus, setJobStatus] = useState<MirrorJobStatus | null>(initialJobId ? "queued" : null);
+  const [jobSource, setJobSource] = useState<MirrorJobSource | null>(null);
+  const [jobPieceId, setJobPieceId] = useState("");
+  const [jobGarmentName, setJobGarmentName] = useState("");
+
+  const garmentUri = picked?.kind === "uvel" ? picked.piece.photo : picked?.uri;
+  const selectedGarmentName = picked?.kind === "uvel" ? picked.piece.name : picked?.name;
+  const garmentName = selectedGarmentName || jobGarmentName || "this look";
+  const garmentCat = picked?.kind === "uvel" ? picked.piece.category : "clothes";
+
+  useEffect(() => {
+    if (!app.hydrated || !app.uid || initialJobId) return;
+    let active = true;
+    void getActiveMirrorJobId(app.uid).then((savedId) => {
+      if (active && savedId) {
+        setJobStatus("queued");
+        setJobId((current) => current || savedId);
+      }
+    });
+    return () => { active = false; };
+  }, [app.hydrated, app.uid, initialJobId]);
+
+  useEffect(() => {
+    if (!initialJobId) return;
+    setJobStatus("queued");
+    setJobId(initialJobId);
+    if (app.uid) {
+      void getActiveMirrorJobId(app.uid).then((savedId) => {
+        if (!savedId) void setActiveMirrorJobId(app.uid, initialJobId);
+      });
+    }
+  }, [app.uid, initialJobId]);
+
+  useEffect(() => {
+    if (!app.uid || !jobId) return;
+    return watchMirrorJob(app.uid, jobId, (job) => {
+      if (!job) {
+        setJobStatus("failed");
+        setBusy(false);
+        setErr("This Mirror look is no longer available. Start another one whenever you’re ready.");
+        return;
+      }
+      setJobStatus(job.status);
+      setJobSource(job.sourceKind);
+      setJobPieceId(job.pieceId || "");
+      setJobGarmentName(job.garmentName || "Your look");
+      if (job.status === "completed" && job.resultUri) {
+        setResult(job.resultUri);
+        setBusy(false);
+        setErr("");
+      } else if (job.status === "failed") {
+        setResult(null);
+        setBusy(false);
+        setErr(job.errorMessage || "We couldn’t finish this look. Please try another photo or piece.");
+      }
+    }, () => {
+      setErr("We couldn’t reconnect to your Mirror look. Check your connection and try again.");
+    });
+  }, [app.uid, jobId]);
 
   useEffect(() => {
     return onMirrorPick((id) => {
@@ -35,13 +99,28 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
       if (!piece) return;
       setPicked({ kind: "uvel", piece });
       setResult(null);
+      setJobStatus(null);
+      setJobSource(null);
+      setJobPieceId("");
+      setJobGarmentName("");
       setErr("");
+      setJobId(null);
+      if (app.uid) void setActiveMirrorJobId(app.uid, null);
     });
-  }, []);
+  }, [app.uid]);
 
-  const garmentUri = picked?.kind === "uvel" ? picked.piece.photo : picked?.uri;
-  const garmentName = picked?.kind === "uvel" ? picked.piece.name : picked?.name ?? "this look";
-  const garmentCat = picked?.kind === "uvel" ? picked.piece.category : "clothes";
+  function clearOutput(clearPicked = false) {
+    setResult(null);
+    setBusy(false);
+    setJobStatus(null);
+    setJobSource(null);
+    setJobPieceId("");
+    setJobGarmentName("");
+    setErr("");
+    setJobId(null);
+    if (app.uid) void setActiveMirrorJobId(app.uid, null);
+    if (clearPicked) setPicked(null);
+  }
 
   function askPerson() {
     const options = ["Camera", "Library", "Cancel"];
@@ -70,9 +149,9 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
     try {
       const uri = await pickFromLibrary();
       if (uri) {
-        app.setPerson(uri);
-        setResult(null);
-        setErr("");
+        const durableUri = await persistMirrorPhoto(uri);
+        await app.setPerson(durableUri);
+        clearOutput();
       }
     } catch (e) {
       Alert.alert("Photos", e instanceof Error ? e.message : "Couldn’t open photos.");
@@ -81,12 +160,11 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
 
   async function pickGarmentFromPhotos() {
     try {
-      // Expo's native crop editor lets the user frame the garment before it enters Mirror.
+      // The native crop editor lets the user frame the garment before it enters Mirror.
       const uri = await pickListingPhoto();
       if (!uri) return;
       setPicked({ kind: "photo", uri, name: "Selected clothing" });
-      setResult(null);
-      setErr("");
+      clearOutput();
     } catch (e) {
       Alert.alert("Photos", e instanceof Error ? e.message : "Couldn’t open that photo.");
     }
@@ -124,10 +202,9 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
         if (!match?.[1]) throw new Error("no-image");
         imageUrl = new URL(match[1].replace(/&amp;/g, "&"), itemUrl).toString();
       }
-      setPicked({ kind: "photo", uri: imageUrl, name: "Pasted item" });
+      setPicked({ kind: "link", uri: imageUrl, name: "Pasted item" });
       setShowLink(false);
-      setResult(null);
-      setErr("");
+      clearOutput();
     } catch {
       setErr("Couldn’t find a product photo at that link. Try a direct image or a product page with a public item photo.");
     } finally {
@@ -135,16 +212,9 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
     }
   }
 
-  function clearPerson() {
-    app.setPerson(null);
-    setResult(null);
-    setErr("");
-  }
-
   function clearGarment() {
     setPicked(null);
-    setResult(null);
-    setErr("");
+    clearOutput();
   }
 
   async function retryMarketplace() {
@@ -158,32 +228,41 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
   }
 
   async function run() {
-    if (!person || !garmentUri) return;
+    if (!person || !garmentUri || busy || jobStatus === "queued" || jobStatus === "processing") return;
     setErr("");
     setBusy(true);
     try {
-      const dressed = await dressPerson({
-        personUri: person,
-        garment: { uri: garmentUri },
+      const durablePerson = await persistMirrorPhoto(person);
+      if (durablePerson !== person) await app.setPerson(durablePerson);
+      const sourceKind: MirrorJobSource = picked?.kind === "uvel" ? "uvel" : picked?.kind === "link" ? "link" : "photo";
+      const pieceId = picked?.kind === "uvel" ? picked.piece.id : "";
+      const createdJobId = await enqueueMirrorJob({
+        personUri: durablePerson,
+        garmentUri,
+        sourceKind,
         garmentName,
-        category: garmentCat,
+        pieceId,
       });
+      setJobId(createdJobId);
+      setJobStatus("queued");
+      setJobSource(sourceKind);
+      setJobPieceId(pieceId);
+      setJobGarmentName(garmentName);
+      setResult(null);
       app.consumeTryOn();
-      setResult(dressed);
     } catch (e) {
-      const raw = e instanceof Error ? e.message : "";
-      setErr(
-        /timeout|timed out|unexpectedexception|fetch failed|expo modules/i.test(raw)
-          ? "That look took too long. Try again."
-          : raw || "Couldn’t dress you in that.",
-      );
+      setErr(e instanceof Error ? e.message : "Couldn’t start that Mirror look. Check your connection and try again.");
     } finally {
       setBusy(false);
     }
   }
 
+  function tryAnother() {
+    clearOutput(true);
+  }
+
   const mirrorShare: FriendSharePayload | null = result
-    ? { kind: "mirror", title: `${garmentName} on me`, deepLink: "uvel://mirror", imageUri: result, previewText: `I tried ${garmentName} in Mirror on Uvel.` }
+    ? { kind: "mirror", title: `${garmentName} on me`, deepLink: `uvel://mirror${jobId ? `?jobId=${encodeURIComponent(jobId)}` : ""}`, imageUri: result, previewText: `I tried ${garmentName} in Mirror on Uvel.` }
     : null;
 
   return (
@@ -196,6 +275,9 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
         garmentName={garmentName}
         error={err}
         busy={busy}
+        jobStatus={jobStatus}
+        sourceKind={jobSource || (picked?.kind === "uvel" ? "uvel" : picked?.kind === "link" ? "link" : picked ? "photo" : null)}
+        pieceId={jobPieceId || (picked?.kind === "uvel" ? picked.piece.id : "")}
         pieces={live}
         marketplaceUnavailable={marketplaceSync === "unavailable"}
         retryingMarketplace={retryingMarketplace}
@@ -205,11 +287,9 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
         onBack={() => router.back()}
         onAddPerson={askPerson}
         onChangePerson={askPerson}
-        onRemovePerson={clearPerson}
         onPickPiece={(piece) => {
           setPicked({ kind: "uvel", piece });
-          setResult(null);
-          setErr("");
+          clearOutput();
         }}
         onPickPhoto={() => void pickGarmentFromPhotos()}
         onClearGarment={clearGarment}
@@ -221,6 +301,15 @@ export default function Mirror({ standalone = false }: { standalone?: boolean } 
         onCloseLink={() => setShowLink(false)}
         onUseLink={() => void useLink()}
         onTryOn={() => void run()}
+        onTryAnother={tryAnother}
+        onRate={(value) => { if (app.uid && jobId) void saveMirrorRating(app.uid, jobId, value); }}
+        onAddToCart={() => {
+          const id = jobPieceId || (picked?.kind === "uvel" ? picked.piece.id : "");
+          if (!id) return false;
+          const alreadyInCart = inCart(id);
+          if (!alreadyInCart) addToCart(id);
+          return !alreadyInCart;
+        }}
         onShare={() => setShareOpen(true)}
         onRetryMarketplace={() => void retryMarketplace()}
       />

@@ -40,12 +40,13 @@ export const privacy: LegalDoc = {
       body: [
         "Try-on and wardrobe scanning use photos you choose or take. Those images run the feature you asked for. We do not use your photos to train public models without asking you.",
         "Visual search sends a resized copy of the photo you choose to Firebase AI (Google Gemini) to locate a garment and suggest similar Uvel listings. Visual-search photos are not published as listings or saved to your profile by this feature.",
+        "When you create a Mirror look, your chosen person and clothing images are sent securely to OpenAI through Uvel’s backend to generate the preview. Temporary input uploads are deleted after processing; the finished result is stored privately with your account so you can return to it from a notification.",
       ],
     },
     {
       heading: "Who we share with",
       body: [
-        "Only what is needed to run Uvel: Firebase and Firebase AI (accounts, files, and requested photo analysis), Apple / Google / Meta if you sign in with them, Expo for app updates, and Apple or Google for in-app purchases.",
+        "Only what is needed to run Uvel: Firebase (accounts and private files), Firebase AI (requested visual-search photo analysis), OpenAI (requested Mirror image editing), Apple / Google / Meta if you sign in with them, Expo for app updates, and Apple or Google for in-app purchases.",
       ],
     },
     {

@@ -54,6 +54,10 @@ export default function Alerts() {
       router.push({ pathname: "/ask/[id]", params: { id: item.lookId, threadId: item.threadId } });
       return;
     }
+    if ((item.kind === "mirror_ready" || item.kind === "mirror_failed") && item.mirrorJobId) {
+      router.push({ pathname: "/mirror", params: { jobId: item.mirrorJobId } });
+      return;
+    }
     if (item.target === "saved") router.push("/saved-looks");
     else if (item.lookId) router.push({ pathname: "/closet/[id]", params: { id: item.lookId } });
   }

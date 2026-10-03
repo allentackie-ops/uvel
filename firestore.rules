@@ -75,6 +75,26 @@ service cloud.firestore {
       allow create, delete: if false;
     }
 
+    match /users/{uid}/mirrorJobs/{jobId} {
+      allow read: if isSelf(uid);
+      allow create, update, delete: if false;
+    }
+
+    match /users/{uid}/mirrorUsage/{usageId} {
+      allow read, write: if false;
+    }
+
+    match /users/{uid}/mirrorFeedback/{jobId} {
+      allow read: if isSelf(uid);
+      allow create, update: if isSelf(uid)
+        && request.resource.data.keys().hasOnly(["rating", "updatedAt"])
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
     match /friendChats/{chatId} {
       allow read: if signedIn() && resource.data.participantIds is list && resource.data.participantIds.hasAny([request.auth.uid]);
       allow write: if false;

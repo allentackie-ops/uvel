@@ -129,6 +129,11 @@ function PushSync() {
             router.push({ pathname: "/friends/chat/[id]", params: { id: data.conversationId } });
             return;
           }
+          if (kind === "mirror_ready" || kind === "mirror_failed") {
+            const jobId = typeof data.jobId === "string" ? data.jobId : typeof data.mirrorJobId === "string" ? data.mirrorJobId : "";
+            router.push({ pathname: "/mirror", ...(jobId ? { params: { jobId } } : {}) });
+            return;
+          }
           if (kind === "today" || kind === "first_find") {
             router.push("/");
             return;
