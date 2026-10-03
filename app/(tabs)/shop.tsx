@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, usePathname } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, Dimensions, FlatList, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Animated, Dimensions, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "../../lib/haptics";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
@@ -204,6 +204,8 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const [findHint, setFindHint] = useState(false);
   const [showSwipeHint, setShowSwipeHint] = useState(false);
   const [showDoubleTapHint, setShowDoubleTapHint] = useState(false);
+  const [showImmersiveHint, setShowImmersiveHint] = useState(false);
+  const immersiveHintDismissRef = useRef<(() => void) | null>(null);
   const [firstListingForHint, setFirstListingForHint] = useState(false);
   const listingOpensRef = useRef<number | null>(null);
   const doubleTapHintShownRef = useRef(false);
@@ -219,6 +221,10 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const todayRouteActive = pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/");
   const dismissSwipeHint = useCallback(() => setShowSwipeHint(false), []);
   const dismissDoubleTapHint = useCallback(() => setShowDoubleTapHint(false), []);
+  const handleImmersiveHintVisibility = useCallback((visible: boolean, dismiss?: () => void) => {
+    setShowImmersiveHint(visible);
+    immersiveHintDismissRef.current = visible ? (dismiss || null) : null;
+  }, []);
   const dna = useMemo(
     () => dnaFrom(app),
     [app.archetype, app.palette, app.silhouette, app.styles, app.gender],
@@ -584,7 +590,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
             <View style={[styles.menuLine, overHero && styles.editorialMenuLine]} />
           </View>
         </AccessiblePressable>
-        {overHero && todayHome ? <ImmersiveShoppingButton onPress={() => router.push("/immersive-shopping")} /> : null}
+        {overHero && todayHome ? <ImmersiveShoppingButton onPress={() => router.push("/immersive-shopping")} onHintVisibilityChange={handleImmersiveHintVisibility} /> : null}
       </View>
       <View pointerEvents="box-none" style={overHero ? styles.editorialWordmarkCenter : undefined}>
         <AccessiblePressable
@@ -651,6 +657,17 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
             <View style={StyleSheet.absoluteFill} />
           </AccessiblePressable>
           <View pointerEvents="box-none" style={[styles.editorialHeroContent, { paddingTop: insets.top + 8 }]}>
+            {showImmersiveHint ? (
+              <Pressable
+                onPress={() => {
+                  immersiveHintDismissRef.current?.();
+                  immersiveHintDismissRef.current = null;
+                  setShowImmersiveHint(false);
+                }}
+                style={styles.immersiveHintDismiss}
+                accessibilityLabel="Dismiss immersive shopping tip"
+              />
+            ) : null}
             {renderTodayHeader(true)}
             <View pointerEvents="box-none" style={styles.editorialListingCopy}>
               {firstFind.matches(featured) ? (
@@ -980,6 +997,7 @@ function make(colors: Colors) {
     editorialHeroShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.34)", zIndex: 1 },
     editorialHeroImageAction: { ...StyleSheet.absoluteFill, backgroundColor: "transparent", zIndex: 2 },
     editorialHeroContent: { ...StyleSheet.absoluteFill, paddingHorizontal: 22, paddingBottom: 27, justifyContent: "space-between", zIndex: 3 },
+    immersiveHintDismiss: { ...StyleSheet.absoluteFill, zIndex: 1 },
     todaySkeletonHero: { backgroundColor: `${colors.bone}16`, justifyContent: "space-between", paddingHorizontal: 22, paddingBottom: 27 },
     todaySkeletonHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     todaySkeletonCircle: { width: 38, height: 38, borderRadius: 19, backgroundColor: `${colors.bone}18` },
