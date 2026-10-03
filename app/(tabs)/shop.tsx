@@ -14,6 +14,7 @@ import { ListingCard, ListingCardSkeleton } from "../../components/ListingCard";
 import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayListingOverlay";
 import { TodayCartFab } from "../../components/TodayCartFab";
 import { ImmersiveShoppingButton } from "../../components/ImmersiveShoppingButton";
+import { TodayMessagesButton } from "../../components/TodayMessagesButton";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
@@ -206,6 +207,8 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const [showDoubleTapHint, setShowDoubleTapHint] = useState(false);
   const [showImmersiveHint, setShowImmersiveHint] = useState(false);
   const immersiveHintDismissRef = useRef<(() => void) | null>(null);
+  const [showMessagesHint, setShowMessagesHint] = useState(false);
+  const messagesHintDismissRef = useRef<(() => void) | null>(null);
   const [firstListingForHint, setFirstListingForHint] = useState(false);
   const listingOpensRef = useRef<number | null>(null);
   const doubleTapHintShownRef = useRef(false);
@@ -224,6 +227,10 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const handleImmersiveHintVisibility = useCallback((visible: boolean, dismiss?: () => void) => {
     setShowImmersiveHint(visible);
     immersiveHintDismissRef.current = visible ? (dismiss || null) : null;
+  }, []);
+  const handleMessagesHintVisibility = useCallback((visible: boolean, dismiss?: () => void) => {
+    setShowMessagesHint(visible);
+    messagesHintDismissRef.current = visible ? (dismiss || null) : null;
   }, []);
   const dna = useMemo(
     () => dnaFrom(app),
@@ -616,15 +623,19 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
             <Ionicons name="search-outline" size={22} color="#F4F0E6" />
           </AccessiblePressable>
         ) : null}
-        <AccessiblePressable
-          onPress={() => router.push("/inbox")}
-          style={({ pressed }) => [styles.messageButton, pressed && { opacity: 0.84 }]}
-          accessibilityRole="button"
-          accessibilityLabel={`${C.messages}${unread ? `, ${unread} unread` : ""}`}
-        >
-          <Ionicons name="chatbubble-ellipses-outline" size={24} color={overHero ? "#F4F0E6" : colors.bone} />
-          {unread ? <View style={styles.messageBadge}><Text style={styles.messageBadgeText}>{unread > 9 ? "9+" : unread}</Text></View> : null}
-        </AccessiblePressable>
+        {overHero && todayHome ? (
+          <TodayMessagesButton onPress={() => router.push("/inbox")} unread={unread} onHintVisibilityChange={handleMessagesHintVisibility} />
+        ) : (
+          <AccessiblePressable
+            onPress={() => router.push("/inbox")}
+            style={({ pressed }) => [styles.messageButton, pressed && { opacity: 0.84 }]}
+            accessibilityRole="button"
+            accessibilityLabel={`${C.messages}${unread ? `, ${unread} unread` : ""}`}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={24} color={overHero ? "#F4F0E6" : colors.bone} />
+            {unread ? <View style={styles.messageBadge}><Text style={styles.messageBadgeText}>{unread > 9 ? "9+" : unread}</Text></View> : null}
+          </AccessiblePressable>
+        )}
       </View>
     </View>
   );
@@ -657,12 +668,15 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
             <View style={StyleSheet.absoluteFill} />
           </AccessiblePressable>
           <View pointerEvents="box-none" style={[styles.editorialHeroContent, { paddingTop: insets.top + 8 }]}>
-            {showImmersiveHint ? (
+            {showImmersiveHint || showMessagesHint ? (
               <Pressable
                 onPress={() => {
                   immersiveHintDismissRef.current?.();
                   immersiveHintDismissRef.current = null;
+                  messagesHintDismissRef.current?.();
+                  messagesHintDismissRef.current = null;
                   setShowImmersiveHint(false);
+                  setShowMessagesHint(false);
                 }}
                 style={styles.immersiveHintDismiss}
                 accessibilityLabel="Dismiss immersive shopping tip"
