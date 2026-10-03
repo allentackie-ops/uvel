@@ -46,7 +46,7 @@ export const privacy: LegalDoc = {
     {
       heading: "Who we share with",
       body: [
-        "Only what is needed to run Uvel: Firebase (accounts and private files), Firebase AI (requested visual-search photo analysis), OpenAI (requested Mirror image editing), Apple / Google / Meta if you sign in with them, Expo for app updates, and Apple or Google for in-app purchases.",
+        "Only what is needed to run Uvel: Firebase (accounts and private files), Firebase AI (requested visual-search photo analysis), OpenAI (requested Mirror image editing), Apple / Google / Meta if you sign in with them, Expo for app updates and requested push notifications, and Apple or Google for in-app purchases.",
       ],
     },
     {

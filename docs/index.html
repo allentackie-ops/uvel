@@ -13,7 +13,7 @@
   </header>
   <main>
     <h1>Privacy Policy</h1>
-    <p class="meta">Last updated: 21 September 2026</p>
+    <p class="meta">Last updated: 3 October 2026</p>
 
     <p>Uvel (“we”, “us”) is a dress-and-shop app from Fitza. This policy explains what we collect, why, and how you can ask us to delete it. By using Uvel you agree to this policy and the <a href="terms.html">Terms and Conditions</a>.</p>
 
@@ -42,13 +42,16 @@
 
     <h2>4. Photos, camera, and AI</h2>
     <p>Try-on and wardrobe scanning need photos you choose or take. Those images are used to run the feature you asked for. We do not use your photos to train public models without asking you. You can delete photos from your wardrobe in the app, or ask us to delete your account (see Data deletion below).</p>
+    <p><strong>Mirror.</strong> When you create a Mirror look, Uvel uploads temporary copies of your chosen person photo and garment image to private Firebase Storage and sends them securely to OpenAI through Uvel’s backend for image editing. Uvel deletes those temporary input copies after processing. The finished preview is stored privately with your account so you can return to it in Mirror or from a notification.</p>
+    <p><strong>Visual search.</strong> When you use “Find it on Uvel”, a resized copy of the image you choose is sent to Firebase AI (Google Gemini) to identify a garment and suggest similar Uvel listings. Visual-search images are not posted as listings or saved to your profile by this feature.</p>
 
     <h2>5. Who we share with</h2>
     <p>Only what is needed to run Uvel:</p>
     <ul>
-      <li><strong>Firebase (Google).</strong> Accounts, profiles, and stored files.</li>
+      <li><strong>Firebase (Google).</strong> Accounts, profiles, private files, and Firebase AI (Google Gemini) visual-search analysis when you request it.</li>
+      <li><strong>OpenAI.</strong> Image editing for a Mirror preview when you request a look.</li>
       <li><strong>Apple, Google, Meta (Facebook).</strong> If you sign in with them. Their own policies apply to that sign-in.</li>
-      <li><strong>Expo.</strong> App updates.</li>
+      <li><strong>Expo.</strong> App updates and push-notification delivery for requested Mirror jobs when notifications are enabled.</li>
       <li><strong>Apple and Google.</strong> In-app purchases, if you subscribe.</li>
     </ul>
     <p>We may share information if the law requires it, or if Fitza is sold or merged — you would still have these rights.</p>
