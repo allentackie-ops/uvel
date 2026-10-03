@@ -328,8 +328,10 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
       setFeedEpoch((n) => n + 1);
       setRefreshing(false);
       setShowRefreshSkeleton(false);
+      scrollY.stopAnimation();
+      scrollY.setValue(0);
     }
-  }, [todayHome]);
+  }, [scrollY, todayHome]);
 
   const onScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
     const y = event.nativeEvent.contentOffset.y;
@@ -608,7 +610,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
     <>
       {!todayHome && orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
       {editorialHome && refreshSkeletonActive ? (
-        <TodayOverviewSkeleton styles={styles} insets={insets} heroHeight={stretchedHeroHeight} />
+        <TodayOverviewSkeleton styles={styles} insets={insets} heroHeight={stretchedHeroHeight} heroOffset={heroOffset} />
       ) : editorialHome && featured ? (
         <Animated.View
           ref={featuredRef}
@@ -899,7 +901,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   );
 }
 
-function TodayOverviewSkeleton({ styles, insets, heroHeight }: { styles: ReturnType<typeof make>; insets: { top: number }; heroHeight: any }) {
+function TodayOverviewSkeleton({ styles, insets, heroHeight, heroOffset }: { styles: ReturnType<typeof make>; insets: { top: number }; heroHeight: any; heroOffset: any }) {
   const pulse = useRef(new Animated.Value(0.62)).current;
 
   useEffect(() => {
@@ -914,7 +916,7 @@ function TodayOverviewSkeleton({ styles, insets, heroHeight }: { styles: ReturnT
   }, [pulse]);
 
   return (
-    <Animated.View style={[styles.editorialHero, styles.todaySkeletonHero, { height: heroHeight, width: Dimensions.get("window").width, marginTop: -insets.top, marginLeft: -16, opacity: pulse }]} pointerEvents="none">
+    <Animated.View style={[styles.editorialHero, styles.todaySkeletonHero, { height: heroHeight, width: Dimensions.get("window").width, marginTop: -insets.top, marginLeft: -16, opacity: pulse, transform: [{ translateY: heroOffset }] }]} pointerEvents="none">
       <View style={[styles.todaySkeletonHeader, { paddingTop: insets.top + 8 }]}>
         <View style={styles.todaySkeletonCircle} />
         <View style={styles.todaySkeletonWordmark} />
