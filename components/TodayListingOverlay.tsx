@@ -111,6 +111,7 @@ export function TodayListingOverlay({
   const [activePhoto, setActivePhoto] = useState(0);
   const [measurementsOpen, setMeasurementsOpen] = useState(false);
   const [shippingOpen, setShippingOpen] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [offerOpen, setOfferOpen] = useState(false);
   const [offerSent, setOfferSent] = useState(false);
@@ -578,10 +579,23 @@ export function TodayListingOverlay({
                 <Text style={styles.expandBody}>Returns and delivery details are confirmed at checkout.</Text>
               </View>
             ) : null}
+            {!previewOnly && (!app.uid || sellerId !== app.uid) ? (
+              <>
+                <Pressable onPress={() => setAlertsOpen((open) => !open)} style={styles.expandRow} accessibilityRole="button" accessibilityState={{ expanded: alertsOpen }}>
+                  <View style={styles.expandTitleWrap}>
+                    <Ionicons name="notifications-outline" size={18} color={colors.success} />
+                    <Text style={styles.expandTitle}>Price & restock alerts</Text>
+                  </View>
+                  <Ionicons name={alertsOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.bone} />
+                </Pressable>
+                {alertsOpen ? (
+                  <View style={styles.expandContent}>
+                    <ListingAlertControls piece={piece} colors={colors} appearance="popup" />
+                  </View>
+                ) : null}
+              </>
+            ) : null}
           </View>
-          {!previewOnly && (!app.uid || sellerId !== app.uid) ? (
-            <ListingAlertControls piece={piece} colors={colors} />
-          ) : null}
           <View style={styles.actions}>
             {showTryOnHint ? (
               <View pointerEvents="none" style={styles.tryOnHint}>

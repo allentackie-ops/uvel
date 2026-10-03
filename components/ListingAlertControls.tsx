@@ -54,10 +54,12 @@ export function ListingAlertControls({ piece, colors, appearance = "inline" }: P
 
   return (
     <View style={[styles.root, appearance === "popup" && styles.popupRoot]}>
-      <View style={styles.head}>
-        <Text style={styles.title}>Price & restock alerts</Text>
-        {busy ? <Text style={styles.status}>Saving…</Text> : null}
-      </View>
+      {appearance === "inline" ? (
+        <View style={styles.head}>
+          <Text style={styles.title}>Price & restock alerts</Text>
+          {busy ? <Text style={styles.status}>Saving…</Text> : null}
+        </View>
+      ) : busy ? <Text style={styles.status}>Saving…</Text> : null}
       <Text style={styles.copy}>Save this item and get notified when its recorded price drops or its published inventory returns.</Text>
       <View style={styles.options}>
         {(["price_drop", "restock", "both"] as const).map((kind) => {
@@ -103,12 +105,12 @@ function make(colors: Colors) {
       borderTopColor: `${colors.bone}20`,
     },
     popupRoot: {
-      marginTop: 15,
+      marginTop: 0,
       paddingTop: 14,
       paddingHorizontal: 0,
       paddingBottom: 0,
       borderWidth: 0,
-      borderTopWidth: 1,
+      borderTopWidth: 0,
       borderRadius: 0,
       borderColor: "transparent",
       borderTopColor: `${colors.bone}20`,
