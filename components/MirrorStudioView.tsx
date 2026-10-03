@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
   ActivityIndicator,
@@ -108,6 +108,8 @@ export function MirrorStudioView({
   const [toast, setToast] = useState("");
   const [buyPromptDismissed, setBuyPromptDismissed] = useState(false);
   const [imageViewportSize, setImageViewportSize] = useState({ width: screenWidth, height: screenHeight });
+  const pickerSheetY = useSharedValue(0);
+  const pickerSheetStartY = useSharedValue(0);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const displayUri = resultUri || personUri;
   const isPending = busy || jobStatus === "queued" || jobStatus === "processing";
@@ -133,6 +135,26 @@ export function MirrorStudioView({
     .onEnd(() => {
       if (zoom.value <= 1.001) zoom.value = 1;
     }), [savedZoom, zoom]);
+  const pickerSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: pickerSheetY.value }],
+  }));
+  const pickerDragGesture = useMemo(() => Gesture.Pan()
+    .onStart(() => {
+      pickerSheetStartY.value = pickerSheetY.value;
+    })
+    .onUpdate((event) => {
+      pickerSheetY.value = Math.max(0, pickerSheetStartY.value + event.translationY);
+    })
+    .onEnd((event) => {
+      const closeDistance = screenHeight * 0.24;
+      if (pickerSheetY.value > closeDistance || event.velocityY > 1200) {
+        pickerSheetY.value = withTiming(screenHeight, { duration: 190 }, (finished) => {
+          if (finished) runOnJS(setUvelPickerOpen)(false);
+        });
+        return;
+      }
+      pickerSheetY.value = withSpring(0, { damping: 24, stiffness: 250, mass: 0.8 });
+    }), [pickerSheetStartY, pickerSheetY, screenHeight]);
 
   const visiblePieces = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -193,7 +215,7 @@ export function MirrorStudioView({
       return;
     }
     if (!garmentUri) {
-      setUvelPickerOpen(true);
+      openUvelPicker();
       return;
     }
     onTryOn();
@@ -204,6 +226,11 @@ export function MirrorStudioView({
     setUvelPickerOpen(false);
     setQuery("");
     setCategory("All");
+  }
+
+  function openUvelPicker() {
+    pickerSheetY.value = Math.min(220, screenHeight * 0.26);
+    setUvelPickerOpen(true);
   }
 
   function chooseRating(value: number) {
@@ -381,7 +408,7 @@ export function MirrorStudioView({
           ) : (
             <>
               <View style={styles.sourceRow}>
-                <Pressable onPress={() => setUvelPickerOpen(true)} style={styles.sourceButton} accessibilityRole="button" accessibilityLabel="Choose a piece from Uvel">
+                <Pressable onPress={openUvelPicker} style={styles.sourceButton} accessibilityRole="button" accessibilityLabel="Choose a piece from Uvel">
                   <Ionicons name="pricetag-outline" size={19} color={colors.success} />
                   <Text style={styles.sourceLabel}>From Uvel</Text>
                 </Pressable>
@@ -434,16 +461,22 @@ export function MirrorStudioView({
         </View>
       </Modal>
 
-      <Modal visible={uvelPickerOpen} transparent animationType="slide" onRequestClose={() => setUvelPickerOpen(false)}>
+      <Modal visible={uvelPickerOpen} transparent animationType="none" onRequestClose={() => setUvelPickerOpen(false)}>
         <View style={styles.modalRoot}>
           <Pressable style={styles.backdrop} onPress={() => setUvelPickerOpen(false)} accessibilityRole="button" accessibilityLabel="Close Uvel picker" />
-          <View style={[styles.pickerSheet, { height: Math.min(screenHeight * 0.84, 760), paddingBottom: insets.bottom + 8 }]}>
-            <View style={styles.modalHeader}>
-              <View>
-                <Text style={styles.modalTitle}>Choose a piece</Text>
-                <Text style={styles.modalSubTitle}>Pick something from Uvel</Text>
+          <Animated.View style={[styles.pickerSheet, pickerSheetStyle, { height: Math.min(screenHeight * 0.84, 760), paddingBottom: insets.bottom + 8 }]}>
+            <GestureDetector gesture={pickerDragGesture}>
+              <View style={styles.pickerDragHandle} accessible accessibilityLabel="Drag up to expand or down to close">
+                <View style={styles.pickerHandleBar} />
+                <View style={styles.modalHeader}>
+                  <View>
+                    <Text style={styles.modalTitle}>Choose a piece</Text>
+                    <Text style={styles.modalSubTitle}>Pick something from Uvel</Text>
+                  </View>
+                  <Ionicons name="chevron-up" size={18} color={colors.subtle} />
+                </View>
               </View>
-            </View>
+            </GestureDetector>
             <View style={styles.searchBox}>
               <Ionicons name="search-outline" size={18} color={colors.subtle} />
               <TextInput
@@ -496,7 +529,7 @@ export function MirrorStudioView({
                 ) : null}
               </View>
             )}
-          </View>
+          </Animated.View>
         </View>
       </Modal>
 
@@ -595,6 +628,8 @@ function make(colors: Colors) {
     modalRoot: { flex: 1, justifyContent: "flex-end" },
     backdrop: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.58)" },
     pickerSheet: { backgroundColor: colors.ink, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 22, paddingHorizontal: 16, borderWidth: 1, borderColor: `${colors.bone}20` },
+    pickerDragHandle: { paddingBottom: 2 },
+    pickerHandleBar: { width: 42, height: 5, borderRadius: 3, backgroundColor: `${colors.bone}45`, alignSelf: "center", marginBottom: 16 },
     modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
     modalTitle: { color: colors.bone, fontSize: 21, fontWeight: "800" },
     modalSubTitle: { color: `${colors.bone}9C`, fontSize: 13, marginTop: 3 },
