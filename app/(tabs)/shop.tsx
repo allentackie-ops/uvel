@@ -528,6 +528,8 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
     });
   }, [featured, openTodayListing]);
   const heroHeight = Math.max(430, Math.min(560, Dimensions.get("window").height * 0.53));
+  const stretchedHeroHeight = scrollY.interpolate({ inputRange: [-180, 0], outputRange: [heroHeight + 180, heroHeight], extrapolateLeft: "extend", extrapolateRight: "clamp" });
+  const heroOffset = scrollY.interpolate({ inputRange: [-180, 0], outputRange: [-180, 0], extrapolateLeft: "extend", extrapolateRight: "clamp" });
   const searchBar = (
     <View style={styles.search}>
       <Text style={styles.searchIcon} accessible={false}>⌕</Text>
@@ -624,12 +626,12 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
     <>
       {!todayHome && orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
       {editorialHome && refreshSkeletonActive ? (
-        <TodayOverviewSkeleton styles={styles} insets={insets} heroHeight={heroHeight} />
+        <TodayOverviewSkeleton styles={styles} insets={insets} heroHeight={stretchedHeroHeight} heroOffset={heroOffset} />
       ) : editorialHome && featured ? (
         <Animated.View
           ref={featuredRef}
           collapsable={false}
-          style={[styles.editorialHero, { height: heroHeight, width: Dimensions.get("window").width, marginTop: -insets.top, marginLeft: -16 }]}
+          style={[styles.editorialHero, { height: stretchedHeroHeight, width: Dimensions.get("window").width, marginTop: -insets.top, marginLeft: -16, transform: [{ translateY: heroOffset }] }]}
         >
           {featured.photo ? (
             <Image cachePolicy="memory-disk" source={{ uri: featured.photo }} style={styles.editorialHeroImage} contentFit="cover" accessible={false} />
@@ -916,7 +918,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   );
 }
 
-function TodayOverviewSkeleton({ styles, insets, heroHeight }: { styles: ReturnType<typeof make>; insets: { top: number }; heroHeight: number }) {
+function TodayOverviewSkeleton({ styles, insets, heroHeight, heroOffset }: { styles: ReturnType<typeof make>; insets: { top: number }; heroHeight: any; heroOffset: any }) {
   const pulse = useRef(new Animated.Value(0.62)).current;
 
   useEffect(() => {
@@ -931,7 +933,7 @@ function TodayOverviewSkeleton({ styles, insets, heroHeight }: { styles: ReturnT
   }, [pulse]);
 
   return (
-    <Animated.View style={[styles.editorialHero, styles.todaySkeletonHero, { height: heroHeight, width: Dimensions.get("window").width, marginTop: -insets.top, marginLeft: -16, opacity: pulse }]} pointerEvents="none">
+    <Animated.View style={[styles.editorialHero, styles.todaySkeletonHero, { height: heroHeight, width: Dimensions.get("window").width, marginTop: -insets.top, marginLeft: -16, opacity: pulse, transform: [{ translateY: heroOffset }] }]} pointerEvents="none">
       <View style={[styles.todaySkeletonHeader, { paddingTop: insets.top + 8 }]}>
         <View style={styles.todaySkeletonCircle} />
         <View style={styles.todaySkeletonWordmark} />
