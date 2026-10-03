@@ -31,6 +31,7 @@ import { useCopy } from "../lib/useCopy";
 import { fallbackShopFloor, refreshMarketplaceListings, shopFloor, useWardrobe } from "../lib/wardrobe";
 import { feedItemAt } from "../lib/feedOrder";
 import { usePersonalization, type RecommendationChoice } from "../lib/personalization";
+import { unreadFor, useInbox } from "../lib/chat";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const MIN_REFRESH_MS = 1200;
@@ -71,6 +72,8 @@ export default function ImmersiveShopping() {
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   const insets = useSafeAreaInsets();
   const app = useUvel();
+  const chats = useInbox(app.uid || "me");
+  const unreadMessages = chats.reduce((count, thread) => count + unreadFor(thread, app.uid || "me"), 0);
   const personalization = usePersonalization(app.uid || "guest");
   const {
     ready: personalizationReady,
@@ -479,9 +482,15 @@ export default function ImmersiveShopping() {
           <AccessiblePressable onPress={() => { menuPressRef.current = true; setDrawerOpen(true); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); }} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Open Today drawer">
             <Ionicons name="menu" size={28} color={overlayColor} />
           </AccessiblePressable>
-          <AccessiblePressable onPress={() => router.push("/search")} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Search">
-            <Ionicons name="search-outline" size={23} color={overlayColor} />
-          </AccessiblePressable>
+          <View style={styles.topRightControls}>
+            <AccessiblePressable onPress={() => router.push("/search")} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Search">
+              <Ionicons name="search-outline" size={23} color={overlayColor} />
+            </AccessiblePressable>
+            <AccessiblePressable onPress={() => router.push("/inbox")} style={styles.menuButton} accessibilityRole="button" accessibilityLabel={`Messages${unreadMessages ? `, ${unreadMessages} unread` : ""}`}>
+              <Ionicons name="chatbubble-ellipses-outline" size={24} color={overlayColor} />
+              {unreadMessages ? <View style={styles.immersiveMessageBadge}><Text style={styles.immersiveMessageBadgeText}>{unreadMessages > 9 ? "9+" : unreadMessages}</Text></View> : null}
+            </AccessiblePressable>
+          </View>
         </View>
         {findHint ? <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 68 }]} accessibilityLiveRegion="polite">
           <Text style={styles.findToastK}>{C.firstFind}</Text>
@@ -980,6 +989,9 @@ function make(colors: Colors) {
     itemShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.20)" },
     topControls: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, zIndex: 12 },
     menuButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
+    topRightControls: { flexDirection: "row", alignItems: "center", gap: 2 },
+    immersiveMessageBadge: { position: "absolute", right: -1, top: -2, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    immersiveMessageBadgeText: { color: colors.successInk, fontSize: 9, fontWeight: "900" },
     itemCopy: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, paddingHorizontal: 24, justifyContent: "space-between", zIndex: 8 },
     guideDismissLayer: { ...StyleSheet.absoluteFill, zIndex: 7 },
     copySpacer: { flex: 1 },
