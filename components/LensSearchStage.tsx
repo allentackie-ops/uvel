@@ -3,10 +3,12 @@ import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Image as RNImage, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { StatusBar } from "expo-status-bar";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "./ListingCard";
+import { LensHeroClip } from "./LensHeroClip";
 import type { ClosetPiece } from "../lib/wardrobe";
 import type { NormalizedBox } from "../lib/lookMatch";
 import { useColors, type Colors } from "../lib/theme";
@@ -36,6 +38,7 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const heroHeight = Math.max(220, Math.min(screenWidth * 1.08, screenHeight * 0.42));
   const frameHeight = Math.max(190, Math.min(screenWidth * 1.24, screenHeight - insets.top - insets.bottom - 390));
   const frame = useMemo(() => ({ width: Math.min(screenWidth - 28, frameHeight * 0.82), height: frameHeight }), [frameHeight, screenWidth]);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
@@ -152,7 +155,13 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
 
   return (
     <View style={styles.page}>
-      <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
+      <StatusBar style="light" />
+      {!uri ? (
+        <View style={[styles.hero, { height: heroHeight }]}>
+          <LensHeroClip />
+        </View>
+      ) : null}
+      <View style={[styles.header, !uri && styles.headerOverHero, { paddingTop: insets.top + 4 }]}>
         <Pressable onPress={onBack} style={styles.headerButton} hitSlop={10} accessibilityRole="button" accessibilityLabel="Go back">
           <Ionicons name="chevron-back" size={26} color={colors.bone} />
         </Pressable>
@@ -166,7 +175,6 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
 
       {!uri ? (
         <View style={[styles.empty, { paddingBottom: insets.bottom + 24 }]}>
-          <View style={styles.emptyMark}><Ionicons name="scan-outline" size={40} color={colors.success} /></View>
           <Text style={styles.title}>Find it on Uvel.</Text>
           <View style={styles.sourceList}>
             <SourceButton icon="camera-outline" label="Take a photo" onPress={onTakePhoto} primary colors={colors} styles={styles} />
@@ -241,15 +249,16 @@ function SourceButton({ icon, label, onPress, primary, colors, styles }: { icon:
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: "#0B0A08" },
+    hero: { width: "100%", overflow: "hidden", backgroundColor: "#0B0A08" },
     header: { minHeight: 54, paddingHorizontal: 12, paddingBottom: 5, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    headerOverHero: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 2 },
     headerButton: { width: 48, height: 44, alignItems: "center", justifyContent: "center" },
     headerTitle: { color: colors.bone, fontSize: 16, fontWeight: "700" },
     changeButton: { minWidth: 48, alignItems: "flex-end", justifyContent: "center", paddingVertical: 10, paddingHorizontal: 4 },
     changeText: { color: colors.success, fontSize: 14, fontWeight: "700" },
-    empty: { flex: 1, justifyContent: "center", paddingHorizontal: 26 },
-    emptyMark: { width: 76, height: 76, alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: "rgba(255,255,255,0.06)", marginBottom: 22 },
-    title: { color: colors.bone, fontSize: 34, fontWeight: "700" },
-    sourceList: { gap: 10, marginTop: 26 },
+    empty: { flex: 1, justifyContent: "flex-start", paddingHorizontal: 26, paddingTop: 22 },
+    title: { color: colors.bone, fontSize: 34, fontWeight: "700", textAlign: "center" },
+    sourceList: { gap: 10, marginTop: 22 },
     sourceButton: { height: 58, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 13, borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", backgroundColor: "rgba(255,255,255,0.045)" },
     sourceButtonPrimary: { backgroundColor: colors.success, borderColor: colors.success },
     sourcePressed: { opacity: 0.78 },
