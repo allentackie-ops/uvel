@@ -99,7 +99,8 @@ export default function ImmersiveShopping() {
   const [feedSession, setFeedSession] = useState<FeedSession>({ queue: [], repeat: [], seed: 0 });
   const [feedbackPromptPieceId, setFeedbackPromptPieceId] = useState<string | null>(null);
   const [welcomeVisible, setWelcomeVisible] = useState<boolean | null>(null);
-  const [detailsHintVisible, setDetailsHintVisible] = useState(false);
+  const [guideStep, setGuideStep] = useState<number | null>(null);
+  const [guideDismissed, setGuideDismissed] = useState(false);
   const [feedbackToast, setFeedbackToast] = useState<{ choice: RecommendationChoice; message: string } | null>(null);
   const menuPressRef = useRef(false);
   const refreshInFlight = useRef(false);
@@ -316,10 +317,12 @@ export default function ImmersiveShopping() {
     setActiveIndex(nextIndex);
     if (nextIndex > 0 && welcomeVisible) {
       setWelcomeVisible(false);
-      setDetailsHintVisible(true);
+      setGuideStep(Math.min(nextIndex, 6));
+      setGuideDismissed(false);
       void AsyncStorage.setItem(IMMERSIVE_WELCOME_KEY, "1").catch(() => undefined);
-    } else if (nextIndex !== 1) {
-      setDetailsHintVisible(false);
+    } else if (guideStep !== null) {
+      setGuideStep(nextIndex >= 1 && nextIndex <= 6 ? nextIndex : null);
+      setGuideDismissed(false);
     }
   }, [welcomeVisible]);
   const panGesture = useMemo(() => Gesture.Pan()
@@ -394,7 +397,7 @@ export default function ImmersiveShopping() {
         swipeY.value = withTiming(0, { duration: 160, easing: Easing.out(Easing.cubic) });
       }
       refreshImageScale.value = withTiming(1, { duration: 180, easing: Easing.out(Easing.cubic) });
-    }), [activeIndexShared, commitSwipe, contentHeight, drawerOpen, onRefresh, pieces.length, refreshActiveShared, refreshImageScale, refreshTriggered, swipeLock, swipeY, welcomeVisible]);
+    }), [activeIndexShared, commitSwipe, contentHeight, drawerOpen, guideStep, onRefresh, pieces.length, refreshActiveShared, refreshImageScale, refreshTriggered, swipeLock, swipeY, welcomeVisible]);
   useEffect(() => {
     // Keep the next couple of images warm so rapid swipes don't reveal an
     // unloaded image while the incoming card is already moving on screen.
@@ -464,8 +467,8 @@ export default function ImmersiveShopping() {
           onFirstFind={() => setFindHint(true)}
           firstFindLabel={C.firstFind}
           onOpenSeller={openProfile}
-          showDetailsHint={activeIndex === 1 && detailsHintVisible}
-          onDetailsHintDismiss={() => setDetailsHintVisible(false)}
+          guideStep={activeIndex === guideStep && !guideDismissed ? guideStep : null}
+          onGuideDismiss={() => setGuideDismissed(true)}
           />
           </Animated.View>
           {nextPiece ? <Animated.View key={`${activeIndex + 1}:${nextPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, nextCardStyle]}>
@@ -598,7 +601,7 @@ function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: Re
   );
 }
 
-function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, refreshImageScale, onFirstFind, firstFindLabel, feedbackPrompted, onRecommendationFeedback, onOpenSeller, showDetailsHint, onDetailsHintDismiss }: any) {
+function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, refreshImageScale, onFirstFind, firstFindLabel, feedbackPrompted, onRecommendationFeedback, onOpenSeller, guideStep, onGuideDismiss }: any) {
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   const [shareOpen, setShareOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -691,6 +694,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         </Animated.View>
         <View pointerEvents="none" style={styles.itemShade} />
       </AccessiblePressable>
+      {active && guideStep !== null ? <AccessiblePressable onPress={onGuideDismiss} style={styles.guideDismissLayer} accessibilityRole="button" accessibilityLabel="Dismiss shopping tip" /> : null}
       <View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: feedbackPrompted ? 88 : 24 }]}>
         <View style={styles.copySpacer} />
         {canMakeOffer ? (
@@ -708,13 +712,9 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
               </AccessiblePressable>
             </View>
             <View style={styles.listingCaption}>
-              {showDetailsHint ? <AccessiblePressable onPress={onDetailsHintDismiss} style={styles.detailsHint} accessibilityRole="button" accessibilityLabel="Dismiss details tip">
-                <Text style={styles.detailsHintTitle}>Tap here for more details</Text>
-                <Text style={styles.detailsHintCopy}>See the listing info, seller, and item details.</Text>
-                <View pointerEvents="none" style={styles.detailsHintCaret} />
-              </AccessiblePressable> : null}
+              {guideStep === 1 ? <GuideBubble styles={styles} title="Tap here for more details" copy="See the listing info, seller, and item details." onDismiss={onGuideDismiss} /> : null}
               <AccessiblePressable
-                onPress={() => setDetailsOpen(true)}
+                onPress={() => { onGuideDismiss(); setDetailsOpen(true); }}
                 style={styles.nameDetailsButton}
                 accessibilityRole="button"
                 accessibilityLabel={`View details for ${piece.name}`}
@@ -736,13 +736,9 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
             {hasFirstFindMatch ? <AccessiblePressable onPress={onFirstFind} style={styles.firstFind} accessibilityRole="button" accessibilityLabel="What First Find is" accessibilityHint="Double tap to hear how First Find works on this piece.">
               <Text style={styles.firstFindText}>{firstFindLabel}</Text>
             </AccessiblePressable> : null}
-          {showDetailsHint ? <AccessiblePressable onPress={onDetailsHintDismiss} style={styles.detailsHint} accessibilityRole="button" accessibilityLabel="Dismiss details tip">
-            <Text style={styles.detailsHintTitle}>Tap here for more details</Text>
-            <Text style={styles.detailsHintCopy}>See the listing info, seller, and item details.</Text>
-            <View pointerEvents="none" style={styles.detailsHintCaret} />
-          </AccessiblePressable> : null}
+          {guideStep === 1 ? <GuideBubble styles={styles} title="Tap here for more details" copy="See the listing info, seller, and item details." onDismiss={onGuideDismiss} /> : null}
           <AccessiblePressable
-            onPress={() => setDetailsOpen(true)}
+            onPress={() => { onGuideDismiss(); setDetailsOpen(true); }}
             style={styles.nameDetailsButton}
             accessibilityRole="button"
             accessibilityLabel={`View details for ${piece.name}`}
@@ -768,27 +764,40 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           </AccessiblePressable>
           <FollowControl followId={followId} isBrand={isBrand} sellerName={sellerName} uid={app.uid} colors={colors} styles={styles} />
         </View> : null}
-        <Action
-          icon={cart.has(piece.id) ? "checkmark" : "bag-handle-outline"}
-          label={cart.has(piece.id) ? "In bag" : "Bag"}
-          active={cart.has(piece.id)}
-          onPress={() => {
-            if (cart.has(piece.id)) return;
-            addToCart(piece.id);
-            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
-          }}
-          styles={styles}
-          colors={colors}
-        />
-        <Action
-          icon="body-outline"
-          label="Try it on"
-          onPress={() => router.push({ pathname: "/try-on", params: { piece: piece.id } })}
-          styles={styles}
-          colors={colors}
-        />
-        <Action icon={liked ? "heart" : "heart-outline"} label="Save" active={liked} onPress={() => { if (!liked) app.likePiece(piece.id); else void app.toggleSaved(piece.id); }} styles={styles} colors={colors} />
-        <Action icon="share-outline" label="Share" onPress={() => setShareOpen(true)} styles={styles} colors={colors} />
+        <View style={styles.actionGuideAnchor}>
+          {guideStep === 2 ? <GuideBubble action styles={styles} title="Tap this to add to your bag" copy="Keep this listing close so you can find it again." onDismiss={onGuideDismiss} /> : null}
+          <Action
+            icon={cart.has(piece.id) ? "checkmark" : "bag-handle-outline"}
+            label={cart.has(piece.id) ? "In bag" : "Bag"}
+            active={cart.has(piece.id)}
+            onPress={() => {
+              onGuideDismiss();
+              if (cart.has(piece.id)) return;
+              addToCart(piece.id);
+              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+            }}
+            styles={styles}
+            colors={colors}
+          />
+        </View>
+        <View style={styles.actionGuideAnchor}>
+          {guideStep === 3 ? <GuideBubble action styles={styles} title="See how this fits on you" copy="Try this piece on in just one picture." onDismiss={onGuideDismiss} /> : null}
+          <Action
+            icon="body-outline"
+            label="Try it on"
+            onPress={() => { onGuideDismiss(); router.push({ pathname: "/try-on", params: { piece: piece.id } }); }}
+            styles={styles}
+            colors={colors}
+          />
+        </View>
+        <View style={styles.actionGuideAnchor}>
+          {guideStep === 4 ? <GuideBubble action styles={styles} title="Double-tap to save" copy="Save this listing so you can find it again." onDismiss={onGuideDismiss} /> : null}
+          <Action icon={liked ? "heart" : "heart-outline"} label="Save" active={liked} onPress={() => { onGuideDismiss(); if (!liked) app.likePiece(piece.id); else void app.toggleSaved(piece.id); }} styles={styles} colors={colors} />
+        </View>
+        <View style={styles.actionGuideAnchor}>
+          {guideStep === 5 ? <GuideBubble action styles={styles} title="Share this listing" copy="Send it to friends who would love it." onDismiss={onGuideDismiss} /> : null}
+          <Action icon="share-outline" label="Share" onPress={() => { onGuideDismiss(); setShareOpen(true); }} styles={styles} colors={colors} />
+        </View>
       </View>
       {active && feedbackPrompted ? <View style={styles.recommendationPrompt}>
         <AccessiblePressable
@@ -813,6 +822,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         </AccessiblePressable>
       </View> : null}
       {active ? <Animated.Text pointerEvents="none" style={[styles.heartPop, heartStyle]}>♥</Animated.Text> : null}
+      {active && guideStep === 6 ? <EnjoyGuide styles={styles} onDismiss={onGuideDismiss} /> : null}
       <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
       <ImmersiveListingDetails
         visible={active && detailsOpen}
@@ -919,6 +929,34 @@ function FollowControl({ followId, isBrand, sellerName, uid, colors, styles }: {
   ) : null;
 }
 
+function GuideBubble({ styles, title, copy, onDismiss, action = false }: { styles: ReturnType<typeof make>; title: string; copy: string; onDismiss: () => void; action?: boolean }) {
+  return (
+    <AccessiblePressable onPress={onDismiss} style={action ? styles.actionGuideBubble : styles.detailsHint} accessibilityRole="button" accessibilityLabel="Dismiss shopping tip">
+      <Text style={styles.detailsHintTitle}>{title}</Text>
+      <Text style={styles.detailsHintCopy}>{copy}</Text>
+      <View pointerEvents="none" style={action ? styles.actionGuideCaret : styles.detailsHintCaret} />
+    </AccessiblePressable>
+  );
+}
+
+function EnjoyGuide({ styles, onDismiss }: { styles: ReturnType<typeof make>; onDismiss: () => void }) {
+  const opacity = useRef(new RNAnimated.Value(0)).current;
+  const rise = useRef(new RNAnimated.Value(10)).current;
+  useEffect(() => {
+    RNAnimated.parallel([
+      RNAnimated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+      RNAnimated.timing(rise, { toValue: 0, duration: 700, useNativeDriver: true }),
+    ]).start();
+  }, [opacity, rise]);
+  return (
+    <RNAnimated.View style={[styles.enjoyGuide, { opacity, transform: [{ translateY: rise }] }]}>
+      <AccessiblePressable onPress={onDismiss} style={styles.enjoyGuideButton} accessibilityRole="button" accessibilityLabel="Dismiss immersive shopping message">
+        <Text style={styles.enjoyGuideText}>Enjoy immersive shopping</Text>
+      </AccessiblePressable>
+    </RNAnimated.View>
+  );
+}
+
 function Action({ icon, label, active, onPress, styles, colors }: { icon: keyof typeof Ionicons.glyphMap; label: string; active?: boolean; onPress: () => void; styles: ReturnType<typeof make>; colors: Colors }) {
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   return (
@@ -942,7 +980,8 @@ function make(colors: Colors) {
     itemShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.20)" },
     topControls: { position: "absolute", top: 0, left: 0, right: 0, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, zIndex: 12 },
     menuButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
-    itemCopy: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, paddingHorizontal: 24, justifyContent: "space-between" },
+    itemCopy: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, paddingHorizontal: 24, justifyContent: "space-between", zIndex: 8 },
+    guideDismissLayer: { ...StyleSheet.absoluteFill, zIndex: 7 },
     copySpacer: { flex: 1 },
     copyBackButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", marginBottom: 4 },
     firstFind: { alignSelf: "flex-start", backgroundColor: colors.success, borderRadius: 15, paddingHorizontal: 11, paddingVertical: 7, marginBottom: 10 },
@@ -957,6 +996,12 @@ function make(colors: Colors) {
     detailsHintTitle: { color: "#171510", fontSize: 12, fontWeight: "900" },
     detailsHintCopy: { color: "#514D43", fontSize: 11, lineHeight: 15, marginTop: 2 },
     detailsHintCaret: { position: "absolute", bottom: -6, left: 22, width: 12, height: 12, backgroundColor: "#F4F0E6", transform: [{ rotate: "45deg" }] },
+    actionGuideAnchor: { width: 54, minHeight: 54, position: "relative", zIndex: 10 },
+    actionGuideBubble: { position: "absolute", right: 44, bottom: 38, width: 210, paddingHorizontal: 13, paddingVertical: 9, borderRadius: 13, backgroundColor: "#F4F0E6", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8, zIndex: 20 },
+    actionGuideCaret: { position: "absolute", right: -6, top: "50%", marginTop: -6, width: 12, height: 12, backgroundColor: "#F4F0E6", transform: [{ rotate: "45deg" }] },
+    enjoyGuide: { position: "absolute", left: 24, right: 24, top: "45%", alignItems: "center", zIndex: 25 },
+    enjoyGuideButton: { paddingHorizontal: 18, paddingVertical: 12, borderRadius: 22, backgroundColor: "rgba(12,11,9,0.54)", borderWidth: 1, borderColor: "rgba(183,243,107,0.65)" },
+    enjoyGuideText: { color: colors.success, fontSize: 17, fontWeight: "900", letterSpacing: 0.2 },
     brand: { color: `${overlayColor}E0`, fontSize: 11, fontWeight: "800", letterSpacing: 2.2, marginBottom: 5, textShadowColor: "#000", textShadowRadius: 6 },
     nameDetailsButton: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 4, maxWidth: "100%" },
     name: { color: overlayColor, fontSize: 31, lineHeight: 36, fontWeight: "800", maxWidth: "88%", textShadowColor: "#000", textShadowRadius: 8 },

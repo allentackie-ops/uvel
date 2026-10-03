@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Immersive Shopping Guide Mockups</title>
+<style>
+  :root { color-scheme: dark; --ink:#11100d; --bone:#f4f0e6; --green:#b7f36b; --muted:#9b988e; }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:32px; background:#201f1b; color:var(--bone); font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif; }
+  h1 { margin:0 0 8px; font:700 28px Georgia,serif; }
+  .intro { color:#c5c1b6; max-width:760px; line-height:1.5; margin-bottom:28px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:24px; max-width:1120px; }
+  .card { display:flex; flex-direction:column; gap:10px; }
+  .label { color:var(--green); font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+  .phone { position:relative; height:480px; border:8px solid #080807; border-radius:32px; overflow:hidden; background:linear-gradient(145deg,#7c735f,#24231e 62%,#11110f); box-shadow:0 14px 32px #0008; }
+  .photo { position:absolute; inset:0; background:radial-gradient(circle at 62% 30%,#d6c0a4 0 8%,transparent 9%),linear-gradient(120deg,#9a836d 0 30%,#30312d 31% 55%,#181817 56%); opacity:.9; }
+  .shade { position:absolute; inset:0; background:linear-gradient(#0003,#0000 40%,#000b); }
+  .top { position:absolute; top:15px; left:14px; right:14px; display:flex; justify-content:space-between; font-size:22px; }
+  .copy { position:absolute; left:20px; bottom:28px; right:86px; }
+  .brand { color:#eee9de; font-size:11px; letter-spacing:.18em; font-weight:800; }
+  .name { font-size:25px; line-height:1.05; font-weight:850; margin-top:5px; }
+  .price { color:var(--green); font-weight:900; margin-top:8px; }
+  .actions { position:absolute; right:11px; bottom:72px; display:flex; flex-direction:column; gap:16px; align-items:center; font-size:20px; }
+  .action { width:43px; text-align:center; color:#fff; }
+  .action small { display:block; font-size:9px; margin-top:3px; }
+  .bubble { position:absolute; z-index:4; padding:10px 12px; border-radius:13px; background:var(--bone); color:#171510; width:190px; font-size:11px; line-height:1.35; box-shadow:0 8px 18px #0007; }
+  .bubble b { display:block; font-size:12px; margin-bottom:2px; }
+  .bubble:after { content:""; position:absolute; width:11px; height:11px; background:var(--bone); transform:rotate(45deg); }
+  .details { left:20px; bottom:102px; }
+  .details:after { left:20px; bottom:-5px; }
+  .actionBubble { right:60px; bottom:178px; }
+  .actionBubble:after { right:-5px; top:50%; margin-top:-5px; }
+  .actionBubble.try { bottom:128px; }
+  .actionBubble.save { bottom:78px; }
+  .actionBubble.share { bottom:28px; }
+  .dim { position:absolute; inset:0; background:#000c; z-index:3; display:flex; align-items:center; justify-content:center; text-align:center; padding:28px; }
+  .welcome h2 { font:700 27px Georgia,serif; margin:8px 0; }
+  .welcome p { color:#d9d4c8; line-height:1.45; font-size:13px; }
+  .kicker { color:var(--green); font-size:10px; letter-spacing:.2em; font-weight:900; }
+  .hand { margin:25px auto 7px; width:36px; height:45px; position:relative; }
+  .palm { position:absolute; bottom:0; left:2px; width:29px; height:36px; background:var(--bone); border-radius:16px; }
+  .thumb { position:absolute; right:-2px; bottom:7px; width:23px; height:15px; background:var(--bone); border-radius:10px; transform:rotate(-38deg); }
+  .trail { height:28px; width:2px; background:#b7f36b88; margin:0 auto; }
+  .scroll { color:var(--bone); font-weight:800; }
+  .enjoy { position:absolute; left:20px; right:20px; top:45%; text-align:center; padding:12px; border:1px solid #b7f36baa; border-radius:24px; color:var(--green); background:#0c0b0988; font-weight:900; }
+  .note { color:#aaa69b; font-size:12px; line-height:1.4; }
+</style>
+</head>
+<body>
+<h1>Immersive Shopping — onboarding sequence</h1>
+<p class="intro">These mockups show the intended progression. The bubbles are anchored to the exact control they describe, dismiss on any tap, and do not use a timeout. The welcome state is the only dimmed state; the final enjoyment message does not dim the listing.</p>
+<div class="grid">
+  <div class="card"><div class="label">First visit · Welcome</div><div class="phone"><div class="photo"></div><div class="dim"><div class="welcome"><div class="kicker">WELCOME TO</div><h2>Immersive Shopping</h2><p>A new way of instant shopping. Scroll through listings and discover your next piece.</p><div class="trail"></div><div class="hand"><div class="palm"></div><div class="thumb"></div></div><div class="scroll">Scroll ↑</div></div></div></div><div class="note">Dimmed screen. The thumb repeats an upward swipe and haptic pulses continue until the user scrolls.</div></div>
+  <div class="card"><div class="label">Listing two · Details</div><div class="phone"><div class="photo"></div><div class="shade"></div><div class="top">☰ <span>⌕</span></div><div class="details bubble"><b>Tap here for more details</b>See the listing info, seller, and item details.</div><div class="copy"><div class="brand">ARCHIVE 1982</div><div class="name">Soft wool jacket</div><div class="price">$128</div></div><div class="actions"><div class="action">♡<small>Save</small></div><div class="action">↗<small>Share</small></div></div></div><div class="note">Bubble points to the listing name/details control at bottom-left.</div></div>
+  <div class="card"><div class="label">Listing three · Bag</div><div class="phone"><div class="photo"></div><div class="shade"></div><div class="copy"><div class="brand">MAISON FOUND</div><div class="name">Relaxed cotton shirt</div><div class="price">$74</div></div><div class="actions"><div class="action">👜<small>Bag</small></div><div class="action">◉<small>Try it on</small></div><div class="action">♡<small>Save</small></div><div class="action">↗<small>Share</small></div></div><div class="actionBubble bubble"><b>Tap this to add to your bag</b>Keep this listing close so you can find it again.</div></div><div class="note">Bubble points to the bag icon on the right.</div></div>
+  <div class="card"><div class="label">Listing four · Try it on</div><div class="phone"><div class="photo"></div><div class="shade"></div><div class="copy"><div class="brand">ATELIER NO. 4</div><div class="name">Linen evening dress</div><div class="price">$156</div></div><div class="actions"><div class="action">👜<small>Bag</small></div><div class="action">◉<small>Try it on</small></div><div class="action">♡<small>Save</small></div><div class="action">↗<small>Share</small></div></div><div class="actionBubble try bubble"><b>See how this fits on you</b>Try this piece on in just one picture.</div></div><div class="note">Bubble points to the try-on icon.</div></div>
+  <div class="card"><div class="label">Listing five · Save</div><div class="phone"><div class="photo"></div><div class="shade"></div><div class="copy"><div class="brand">ARCHIVE 1982</div><div class="name">Leather shoulder bag</div><div class="price">$92</div></div><div class="actions"><div class="action">👜<small>Bag</small></div><div class="action">◉<small>Try it on</small></div><div class="action">♡<small>Save</small></div><div class="action">↗<small>Share</small></div></div><div class="actionBubble save bubble"><b>Double-tap to save</b>Save this listing so you can find it again.</div></div><div class="note">Bubble points to the save icon. The existing double-tap gesture remains available.</div></div>
+  <div class="card"><div class="label">Listing six · Share</div><div class="phone"><div class="photo"></div><div class="shade"></div><div class="copy"><div class="brand">MAISON FOUND</div><div class="name">Silk scarf</div><div class="price">$48</div></div><div class="actions"><div class="action">👜<small>Bag</small></div><div class="action">◉<small>Try it on</small></div><div class="action">♡<small>Save</small></div><div class="action">↗<small>Share</small></div></div><div class="actionBubble share bubble"><b>Share this listing</b>Send it to friends who would love it.</div></div><div class="note">Bubble points to the share icon.</div></div>
+  <div class="card"><div class="label">Listing seven · Finish</div><div class="phone"><div class="photo"></div><div class="shade"></div><div class="copy"><div class="brand">UVEL EDIT</div><div class="name">A new favorite</div><div class="price">$110</div></div><div class="actions"><div class="action">👜<small>Bag</small></div><div class="action">◉<small>Try it on</small></div><div class="action">♡<small>Save</small></div><div class="action">↗<small>Share</small></div></div><div class="enjoy">Enjoy immersive shopping</div></div><div class="note">Animated text appears without dimming the listing.</div></div>
+</div>
+</body>
+</html>
