@@ -189,6 +189,8 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const refreshTriggered = useRef(false);
   const hapticTriggered = useRef(false);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const todayListRef = useRef<FlatList<TodayFeedCard> | null>(null);
+  const resettingAfterRefresh = useRef(false);
   const [feedEpoch, setFeedEpoch] = useState(0);
   const [showRefreshSkeleton, setShowRefreshSkeleton] = useState(false);
   const refreshSkeletonUsed = useRef(false);
@@ -326,15 +328,29 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
     } finally {
       frozenOrder.current = null;
       setFeedEpoch((n) => n + 1);
+      if (todayHome) {
+        resettingAfterRefresh.current = true;
+        todayListRef.current?.scrollToOffset({ offset: 0, animated: false });
+        scrollY.stopAnimation();
+        scrollY.setValue(0);
+        await new Promise<void>((resolve) => setTimeout(resolve, 32));
+        todayListRef.current?.scrollToOffset({ offset: 0, animated: false });
+        scrollY.stopAnimation();
+        scrollY.setValue(0);
+      }
       setRefreshing(false);
       setShowRefreshSkeleton(false);
-      scrollY.stopAnimation();
-      scrollY.setValue(0);
+      resettingAfterRefresh.current = false;
     }
   }, [scrollY, todayHome]);
 
   const onScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
     const y = event.nativeEvent.contentOffset.y;
+    if (resettingAfterRefresh.current) {
+      if (y < 0) todayListRef.current?.scrollToOffset({ offset: 0, animated: false });
+      scrollY.setValue(0);
+      return;
+    }
     scrollY.setValue(y);
     if (y > -10) {
       refreshTriggered.current = false;
@@ -816,6 +832,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
     <View style={[styles.page, editorialHome && styles.editorialPage]}>
       {editorialHome ? (
         <FlatList
+          ref={todayListRef}
           data={todayFeedItems}
           numColumns={2}
           columnWrapperStyle={styles.gridRow}
