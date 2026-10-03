@@ -1,12 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
-import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, usePathname } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, Dimensions, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Animated, Dimensions, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "../../lib/haptics";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
@@ -382,27 +381,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   }, [onRefresh, refreshing, scrollY, todayHome]);
 
   const openVisualSearch = useCallback(() => {
-    Alert.alert(C.searchWithPhoto, C.takePictureOrChooseFit, [
-      {
-        text: C.takePhoto,
-        onPress: () => {
-          void ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.85, allowsEditing: false }).then((result) => {
-            const image = result.canceled ? undefined : result.assets[0];
-            if (image?.uri) router.push({ pathname: "/visual-search", params: { uri: image.uri } });
-          }).catch(() => undefined);
-        },
-      },
-      {
-        text: C.chooseFromCameraRoll,
-        onPress: () => {
-          void ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.85, allowsEditing: false }).then((result) => {
-            const image = result.canceled ? undefined : result.assets[0];
-            if (image?.uri) router.push({ pathname: "/visual-search", params: { uri: image.uri } });
-          }).catch(() => undefined);
-        },
-      },
-      { text: C.cancel, style: "cancel" },
-    ]);
+    router.push("/lens-search");
   }, []);
 
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);

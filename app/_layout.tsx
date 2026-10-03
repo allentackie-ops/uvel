@@ -233,7 +233,7 @@ function AppStack() {
           <Stack.Screen name="immersive-shopping" options={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: colors.ink } }} />
           <Stack.Screen name="mirror-camera" options={{ headerShown: false, animation: "slide_from_bottom", contentStyle: { backgroundColor: "#0B0A08" } }} />
           <Stack.Screen name="mirror-browse" options={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: "#0B0A08" } }} />
-          <Stack.Screen name="visual-search" options={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: "#0B0A08" } }} />
+          <Stack.Screen name="lens-search" options={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: "#0B0A08" } }} />
           <Stack.Screen name="onboard" options={{ headerShown: false, animation: "none" }} />
           <Stack.Screen name="seller/[id]" options={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: colors.ink } }} />
           <Stack.Screen
@@ -457,14 +457,6 @@ function AppStack() {
           />
           <Stack.Screen
             name="try-on"
-            options={{
-              headerShown: false,
-              animation: "slide_from_right",
-              contentStyle: { backgroundColor: colors.ink },
-            }}
-          />
-          <Stack.Screen
-            name="scan"
             options={{
               headerShown: false,
               animation: "slide_from_right",

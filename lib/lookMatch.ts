@@ -1,4 +1,6 @@
-import { openaiKey } from "./tryon";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
+import { getGenerativeModel } from "firebase/ai";
+import { firebaseAi } from "./firebase";
 import type { Category } from "./catalog";
 import { allPieces, type ClosetPiece } from "./wardrobe";
 import type { Look } from "./trends";
@@ -88,11 +90,7 @@ export function forYou(pieces: ClosetPiece[], styles: string[], country: string,
     });
 }
 
-async function asRemoteImage(uri: string) {
-  if (/^https?:/i.test(uri) || uri.startsWith("data:")) return uri;
-  const res = await fetch(uri);
-  if (!res.ok) throw new Error("photo");
-  const bytes = new Uint8Array(await res.arrayBuffer());
+function bytesToBase64(bytes: Uint8Array) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   let out = "";
   for (let i = 0; i < bytes.length; i += 3) {
@@ -104,7 +102,29 @@ async function asRemoteImage(uri: string) {
     out += i + 1 < bytes.length ? chars[(n >> 6) & 63] : "=";
     out += i + 2 < bytes.length ? chars[n & 63] : "=";
   }
-  return `data:image/jpeg;base64,${out}`;
+  return out;
+}
+
+async function imageData(uri: string) {
+  if (uri.startsWith("data:")) {
+    const comma = uri.indexOf(",");
+    if (comma < 0) throw new Error("That photo could not be read.");
+    const mimeType = uri.slice(5, comma).split(";")[0] || "image/jpeg";
+    return { mimeType, data: uri.slice(comma + 1) };
+  }
+  if (/^https?:/i.test(uri)) {
+    const res = await fetch(uri);
+    if (!res.ok) throw new Error("That photo could not be loaded.");
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    const mimeType = res.headers.get("content-type")?.split(";")[0] || "image/jpeg";
+    return { mimeType, data: bytesToBase64(bytes) };
+  }
+  const context = ImageManipulator.manipulate(uri);
+  context.resize({ width: 768 });
+  const rendered = await context.renderAsync();
+  const saved = await rendered.saveAsync({ format: SaveFormat.JPEG, compress: 0.78, base64: true });
+  if (!saved.base64) throw new Error("That photo could not be read.");
+  return { mimeType: "image/jpeg", data: saved.base64 };
 }
 
 export function asCategory(raw?: string): Category | null {
@@ -164,18 +184,32 @@ export function pieceFitsLook(
   return true;
 }
 
+export type NormalizedBox = { left: number; top: number; right: number; bottom: number };
+
 export type LensHit = {
   ids: string[];
   terms: string[];
   categories: Category[];
   wearer: "man" | "woman" | "unknown";
+  box: NormalizedBox | null;
+  detectedItem: string;
 };
 
+function normalizedBox(value: unknown): NormalizedBox | null {
+  const values = Array.isArray(value)
+    ? value.map(Number)
+    : value && typeof value === "object"
+      ? [Number((value as Record<string, unknown>).left), Number((value as Record<string, unknown>).top), Number((value as Record<string, unknown>).right), Number((value as Record<string, unknown>).bottom)]
+      : [];
+  if (values.length < 4 || values.slice(0, 4).some((v) => !Number.isFinite(v))) return null;
+  const scale = values.slice(0, 4).some((v) => Math.abs(v) > 1) ? 1000 : 1;
+  const [leftRaw, topRaw, rightRaw, bottomRaw] = values.slice(0, 4).map((v) => Math.max(0, Math.min(1, v / scale)));
+  if (rightRaw - leftRaw < 0.05 || bottomRaw - topRaw < 0.05) return null;
+  return { left: leftRaw, top: topRaw, right: rightRaw, bottom: bottomRaw };
+}
+
 export async function lensScan(imageUrl: string, pieces: ClosetPiece[]): Promise<LensHit | null> {
-  const empty: LensHit = { ids: [], terms: [], categories: [], wearer: "unknown" };
-  if (!pieces.length) return empty;
-  const key = openaiKey();
-  if (!key || !imageUrl) return null;
+  if (!imageUrl) return null;
   const inventory = pieces
     .slice(0, 50)
     .map(
@@ -187,78 +221,63 @@ export async function lensScan(imageUrl: string, pieces: ClosetPiece[]): Promise
     )
     .join("\n");
   try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        temperature: 0,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `You match clothes for a resale app. Be strict. Empty is better than wrong.
+    const photo = await imageData(imageUrl);
+    const model = getGenerativeModel(firebaseAi(), { model: "gemini-2.5-flash" });
+    const result = await model.generateContent([
+      { inlineData: { mimeType: photo.mimeType, data: photo.data } },
+      `You power Uvel visual shopping. Analyze this image, whether the garment is worn, on a mannequin, on a hanger, or laid flat. Be strict about matches; an empty result is better than a wrong one.
 
-1. Look at the person in this frozen frame. wearer = "man" or "woman" or "unknown".
-2. List only garments ON THEIR BODY. category must be one of: Outerwear, Dresses, Tops, Trousers, Knitwear, Skirts, Shoes, Bags, Accessories.
-   A t-shirt is Tops. Jeans/trousers/shorts are Trousers. A dress is Dresses. Never mix these.
-3. Inventory rows are what the seller is SELLING (SALE_ITEM + CATEGORY). Ignore other clothes that happen to appear in a listing photo. A Tops listing is not trousers just because jeans are in the photo.
-4. Match a listing only if ALL of these are true:
-   - same category as a garment on the person
-   - gender-right (men's tee ≠ women's bodysuit/corset/blouse/dress; women's top ≠ men's oxford)
-   - similar colour and silhouette
-5. If nothing qualifies, ids must be []. ids must be exact inventory ids like tee-m, never objects.
+Find the single most prominent clothing item to highlight. It may be any visible garment, including a dress on a mannequin. Give a tight rectangular bounding box around the garment itself, including its edges/sleeves/hem but excluding the person/mannequin and background where possible. Coordinates are normalized integers from 0 to 1000: [left, top, right, bottom], from the original full image. If no clothing item can be identified, set found=false and bbox=[0,0,1000,1000].
 
-A black graphic tee matches another dark graphic/print tee. The print text does not need to be the same band. A cream men's tee matches a cream men's tee, not a women's bodysuit.
+Identify up to three clearly visible garments and the wearer (man, woman, or unknown). Category must be one of: Outerwear, Dresses, Tops, Trousers, Knitwear, Skirts, Shoes, Bags, Accessories. A t-shirt is Tops; jeans/trousers/shorts are Trousers. Match a listing only when the listed item's category and visible colour/silhouette/material are reasonably similar to a garment in the image. Inventory rows describe the item being sold; do not match another garment merely because it appears in the listing photo. Return only exact inventory IDs, never objects. If nothing qualifies, ids must be [].
 
-Examples:
-- Man in a cream tee and beige trousers. Women's white corset bodysuit → not a match.
-- Shirtless man in jeans. Looking for trousers. A bodysuit listing whose photo also has jeans → not a match. Only a Trousers listing of similar jeans.
-
-JSON:
-{"wearer":"man","garments":[{"category":"Tops","color":"cream"},{"category":"Trousers","color":"beige"}],"ids":[]}
+Return ONLY JSON in this shape: {"found":true,"garment":"short item label","bbox":[100,100,900,900],"wearer":"unknown","garments":[{"category":"Dresses","color":"navy"}],"ids":[]}
 
 Inventory:
-${inventory}`,
-              },
-              { type: "image_url", image_url: { url: await asRemoteImage(imageUrl), detail: "high" } },
-            ],
-          },
-        ],
-      }),
-    });
-    if (!res.ok) return null;
-    const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-    const raw = json.choices?.[0]?.message?.content || "{}";
-    const parsed = JSON.parse(raw) as {
+${inventory || "(No listed items are available right now.)"}`,
+    ]);
+    const raw = result.response.text().trim();
+    const start = raw.indexOf("{");
+    const end = raw.lastIndexOf("}");
+    if (start < 0 || end < start) return null;
+    const parsed = JSON.parse(raw.slice(start, end + 1)) as {
       ids?: unknown;
       wearer?: string;
       garments?: { category?: string; color?: string; kind?: string }[];
+      found?: boolean;
+      garment?: string;
+      bbox?: unknown;
     };
     const wearer: LensHit["wearer"] =
       parsed.wearer === "man" || parsed.wearer === "woman" ? parsed.wearer : "unknown";
+    const garments = parsed.garments ?? [];
     const categories = [
       ...new Set(
-        (parsed.garments ?? [])
+        garments
           .map((g) => asCategory(g.category) || asCategory(g.kind))
           .filter((c): c is Category => Boolean(c)),
       ),
     ];
-    const have = new Set(pieces.map((p) => p.id));
+    const detectedCategory = asCategory(garments[0]?.category || garments[0]?.kind);
+    const normalizedCategories = detectedCategory && !categories.includes(detectedCategory) ? [...categories, detectedCategory] : categories;
     const rawIds = Array.isArray(parsed.ids)
       ? parsed.ids.map((id) => (typeof id === "string" ? id : "")).filter(Boolean)
       : [];
-    const ids = rawIds.filter((id) => {
+    const ids = (parsed.found === false ? [] : rawIds).filter((id) => {
       const piece = pieces.find((p) => p.id === id);
-      return piece ? pieceFitsLook(piece, { wearer, categories }) : false;
+      return piece ? pieceFitsLook(piece, { wearer, categories: normalizedCategories }) : false;
     });
-    const terms = (parsed.garments ?? [])
+    const terms = garments
       .flatMap((g) => [g.category, g.color, g.kind])
       .filter((x): x is string => Boolean(x && x.trim()));
-    return { ids, terms, categories, wearer };
+    return {
+      ids,
+      terms,
+      categories: normalizedCategories,
+      wearer,
+      box: parsed.found === false ? null : normalizedBox(parsed.bbox),
+      detectedItem: String(parsed.garment || "").trim().slice(0, 80),
+    };
   } catch {
     return null;
   }

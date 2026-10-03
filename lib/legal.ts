@@ -9,7 +9,7 @@ export type LegalDoc = {
 
 export const privacy: LegalDoc = {
   title: "Privacy Policy",
-  updated: "21 September 2026",
+  updated: "3 October 2026",
   sections: [
     {
       heading: "Who we are",
@@ -39,12 +39,13 @@ export const privacy: LegalDoc = {
       heading: "Photos, camera, and AI",
       body: [
         "Try-on and wardrobe scanning use photos you choose or take. Those images run the feature you asked for. We do not use your photos to train public models without asking you.",
+        "Visual search sends a resized copy of the photo you choose to Firebase AI (Google Gemini) to locate a garment and suggest similar Uvel listings. Visual-search photos are not published as listings or saved to your profile by this feature.",
       ],
     },
     {
       heading: "Who we share with",
       body: [
-        "Only what is needed to run Uvel: Firebase (accounts and files), Apple / Google / Meta if you sign in with them, Expo for app updates, and Apple or Google for in-app purchases.",
+        "Only what is needed to run Uvel: Firebase and Firebase AI (accounts, files, and requested photo analysis), Apple / Google / Meta if you sign in with them, Expo for app updates, and Apple or Google for in-app purchases.",
       ],
     },
     {
