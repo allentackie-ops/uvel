@@ -133,20 +133,6 @@ export function MirrorStudioView({
     transform: [{ scale: zoom.value }],
   }));
 
-  const panGesture = useMemo(() => Gesture.Pan()
-    .maxPointers(1)
-    .onStart(() => {
-      startX.value = translateX.value;
-      startY.value = translateY.value;
-    })
-    .onUpdate((event) => {
-      if (event.numberOfPointers > 1) return;
-      const maxX = Math.max(0, (renderedWidth.value * zoom.value - viewportWidth.value) / 2);
-      const maxY = Math.max(0, (renderedHeight.value * zoom.value - viewportHeight.value) / 2);
-      translateX.value = Math.max(-maxX, Math.min(maxX, startX.value + event.translationX));
-      translateY.value = Math.max(-maxY, Math.min(maxY, startY.value + event.translationY));
-    }), [renderedHeight, renderedWidth, startX, startY, translateX, translateY, viewportHeight, viewportWidth, zoom]);
-
   const pinchGesture = useMemo(() => Gesture.Pinch()
     .onStart((event) => {
       startZoom.value = zoom.value;
@@ -170,9 +156,16 @@ export function MirrorStudioView({
       translateX.value = Math.max(-maxX, Math.min(maxX, event.focalX - viewportWidth.value / 2 - localX * nextZoom));
       translateY.value = Math.max(-maxY, Math.min(maxY, event.focalY - viewportHeight.value / 2 - localY * nextZoom));
       zoom.value = nextZoom;
+    })
+    .onEnd(() => {
+      // There is no free-pan state to preserve between gestures. Return to the
+      // exact locked position whenever the image reaches its base scale.
+      if (zoom.value <= 1.001) {
+        zoom.value = 1;
+        translateX.value = 0;
+        translateY.value = 0;
+      }
     }), [pinchStartFocalX, pinchStartFocalY, renderedHeight, renderedWidth, startX, startY, startZoom, translateX, translateY, viewportHeight, viewportWidth, zoom]);
-
-  const imageGesture = useMemo(() => Gesture.Simultaneous(panGesture, pinchGesture), [panGesture, pinchGesture]);
 
   const visiblePieces = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -272,7 +265,7 @@ export function MirrorStudioView({
     <View style={styles.page}>
       <StatusBar style="light" />
       {displayUri ? (
-        <GestureDetector gesture={imageGesture}>
+        <GestureDetector gesture={pinchGesture}>
           <View
             style={styles.imageViewport}
             onLayout={(event) => {
