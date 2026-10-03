@@ -158,7 +158,7 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
       <StatusBar style="light" />
       {!uri ? (
         <View style={[styles.hero, { height: heroHeight }]}>
-          <LensHeroClip />
+          <LensHeroClip height={heroHeight} topInset={insets.top} />
         </View>
       ) : null}
       <View style={[styles.header, !uri && styles.headerOverHero, { paddingTop: insets.top + 4 }]}>
