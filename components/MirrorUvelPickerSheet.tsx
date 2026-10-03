@@ -46,7 +46,7 @@ export function MirrorUvelPickerSheet({
   }, [category, pieces, query]);
 
   return (
-    <Sheet open={open} onClose={onClose} expandable surfaceColor={colors.ink}>
+    <Sheet open={open} onClose={onClose} surfaceColor={colors.ink}>
       <View style={styles.content}>
         <View style={styles.headingRow}>
           <View>
@@ -120,7 +120,7 @@ export function MirrorUvelPickerSheet({
 
 function makeStyles(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
-    content: { flex: 1, minHeight: 0 },
+    content: { width: "100%" },
     headingRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
     title: { color: colors.bone, fontSize: 21, fontWeight: "800" },
     subtitle: { color: `${colors.bone}9C`, fontSize: 13, marginTop: 3 },
@@ -131,7 +131,7 @@ function makeStyles(colors: ReturnType<typeof useColors>) {
     categoryActive: { backgroundColor: colors.success, borderColor: colors.success },
     categoryText: { color: colors.bone, fontSize: 12, fontWeight: "700" },
     categoryTextActive: { color: colors.successInk },
-    resultsViewport: { flex: 1, minHeight: 0 },
+    resultsViewport: { height: 410 },
     resultsContent: { paddingTop: 0, paddingBottom: 18 },
     row: { flexDirection: "row", gap: 10, alignItems: "flex-start" },
     cell: { flex: 1, marginBottom: 10 },
