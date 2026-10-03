@@ -115,11 +115,9 @@ export function MirrorStudioView({
   const zoom = useSharedValue(1);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
-  const startZoom = useSharedValue(1);
-  const startX = useSharedValue(0);
-  const startY = useSharedValue(0);
-  const pinchStartFocalX = useSharedValue(0);
-  const pinchStartFocalY = useSharedValue(0);
+  const lastPinchScale = useSharedValue(1);
+  const lastPinchFocalX = useSharedValue(0);
+  const lastPinchFocalY = useSharedValue(0);
   const viewportWidth = useSharedValue(screenWidth);
   const viewportHeight = useSharedValue(screenHeight);
   const renderedWidth = useSharedValue(screenWidth);
@@ -134,27 +132,34 @@ export function MirrorStudioView({
 
   const pinchGesture = useMemo(() => Gesture.Pinch()
     .onStart((event) => {
-      startZoom.value = zoom.value;
-      startX.value = translateX.value;
-      startY.value = translateY.value;
-      // Pinch focal coordinates are reliable once the gesture is ACTIVE.
-      // Capturing them in onBegin can use the pre-activation touch state and
-      // creates the visible hitch/jump at the beginning of a pinch.
-      pinchStartFocalX.value = event.focalX;
-      pinchStartFocalY.value = event.focalY;
+      lastPinchScale.value = event.scale;
+      lastPinchFocalX.value = event.focalX;
+      lastPinchFocalY.value = event.focalY;
     })
     .onUpdate((event) => {
-      const nextZoom = Math.max(1, Math.min(4, startZoom.value * event.scale));
-      const localX = (pinchStartFocalX.value - viewportWidth.value / 2 - startX.value) / startZoom.value;
-      const localY = (pinchStartFocalY.value - viewportHeight.value / 2 - startY.value) / startZoom.value;
+      const currentZoom = zoom.value;
+      const requestedScaleDelta = event.scale / Math.max(lastPinchScale.value, 0.0001);
+      const nextZoom = Math.max(1, Math.min(4, currentZoom * requestedScaleDelta));
+      const appliedScaleDelta = nextZoom / Math.max(currentZoom, 0.0001);
+      const focalDeltaX = event.focalX - lastPinchFocalX.value;
+      const focalDeltaY = event.focalY - lastPinchFocalY.value;
       const maxX = Math.max(0, (renderedWidth.value * nextZoom - viewportWidth.value) / 2);
       const maxY = Math.max(0, (renderedHeight.value * nextZoom - viewportHeight.value) / 2);
-      // Keep the image point between the user's fingers under the moving focal point.
-      // Using the current focal point (rather than only the point captured on begin)
-      // makes two-finger zooming follow the exact area the user is pinching.
-      translateX.value = Math.max(-maxX, Math.min(maxX, event.focalX - viewportWidth.value / 2 - localX * nextZoom));
-      translateY.value = Math.max(-maxY, Math.min(maxY, event.focalY - viewportHeight.value / 2 - localY * nextZoom));
+      // Update from the previous frame instead of recalculating from the new
+      // gesture's first focal point. This prevents a second pinch from
+      // snapping the image to a different position.
+      const nextX = translateX.value
+        + focalDeltaX
+        + (1 - appliedScaleDelta) * (lastPinchFocalX.value - viewportWidth.value / 2 - translateX.value);
+      const nextY = translateY.value
+        + focalDeltaY
+        + (1 - appliedScaleDelta) * (lastPinchFocalY.value - viewportHeight.value / 2 - translateY.value);
+      translateX.value = Math.max(-maxX, Math.min(maxX, nextX));
+      translateY.value = Math.max(-maxY, Math.min(maxY, nextY));
       zoom.value = nextZoom;
+      lastPinchScale.value = event.scale;
+      lastPinchFocalX.value = event.focalX;
+      lastPinchFocalY.value = event.focalY;
     })
     .onEnd(() => {
       // There is no free-pan state to preserve between gestures. Return to the
@@ -164,7 +169,7 @@ export function MirrorStudioView({
         translateX.value = 0;
         translateY.value = 0;
       }
-    }), [pinchStartFocalX, pinchStartFocalY, renderedHeight, renderedWidth, startX, startY, startZoom, translateX, translateY, viewportHeight, viewportWidth, zoom]);
+    }), [lastPinchFocalX, lastPinchFocalY, lastPinchScale, renderedHeight, renderedWidth, translateX, translateY, viewportHeight, viewportWidth, zoom]);
 
   const visiblePieces = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -587,8 +592,8 @@ function make(colors: Colors) {
     topButtonGhost: { width: 42, height: 42 },
     helpButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
     topTitle: { color: colors.bone, fontSize: 18, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.55)", textShadowRadius: 8 },
-    photoActions: { position: "absolute", zIndex: 3, left: 18 },
-    photoAction: { height: 38, paddingHorizontal: 13, borderRadius: 19, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "rgba(11,10,8,0.78)", borderWidth: 1, borderColor: `${colors.bone}40` },
+    photoActions: { position: "absolute", zIndex: 3, right: 18 },
+    photoAction: { height: 38, paddingHorizontal: 4, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "transparent" },
     photoActionText: { color: colors.bone, fontSize: 12, fontWeight: "700" },
     drawer: { position: "absolute", zIndex: 4, left: 0, right: 0, bottom: 0, paddingTop: 8, paddingHorizontal: 18, backgroundColor: colors.ink, borderTopLeftRadius: 28, borderTopRightRadius: 28, borderTopWidth: 1, borderColor: `${colors.bone}20`, overflow: "hidden" },
     drawerContent: { paddingBottom: 2 },
