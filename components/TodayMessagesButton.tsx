@@ -86,7 +86,9 @@ export function TodayMessagesButton({
 
 function make(iconColor: string, accent: string, screenWidth: number) {
   const hintWidth = Math.min(240, Math.max(190, screenWidth - 24));
-  const hintLeft = 22 - hintWidth / 2;
+  // The anchor ends 22px inside the right edge. Keep the bubble 12px from
+  // that edge while placing its caret over the icon center.
+  const hintLeft = 54 - hintWidth;
   return StyleSheet.create({
     anchor: { width: 44, height: 44, position: "relative", zIndex: 8 },
     button: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
@@ -95,6 +97,6 @@ function make(iconColor: string, accent: string, screenWidth: number) {
     hint: { position: "absolute", top: 48, left: hintLeft, width: hintWidth, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: "#F4F0E6", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 8 },
     hintTitle: { color: "#171510", fontSize: 13, fontWeight: "800", textAlign: "center" },
     hintBody: { color: "#514D43", fontSize: 12, lineHeight: 16, marginTop: 3, textAlign: "center" },
-    hintCaret: { position: "absolute", top: -6, left: hintWidth / 2 - 6, width: 12, height: 12, backgroundColor: "#F4F0E6", transform: [{ rotate: "45deg" }] },
+    hintCaret: { position: "absolute", top: -6, left: hintWidth - 48, width: 12, height: 12, backgroundColor: "#F4F0E6", transform: [{ rotate: "45deg" }] },
   });
 }
