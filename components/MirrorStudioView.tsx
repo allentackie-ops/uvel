@@ -156,8 +156,11 @@ export function MirrorStudioView({
       const localY = (focalY.value - viewportHeight.value / 2 - startY.value) / startZoom.value;
       const maxX = Math.max(0, (renderedWidth.value * nextZoom - viewportWidth.value) / 2);
       const maxY = Math.max(0, (renderedHeight.value * nextZoom - viewportHeight.value) / 2);
-      translateX.value = Math.max(-maxX, Math.min(maxX, focalX.value - viewportWidth.value / 2 - localX * nextZoom));
-      translateY.value = Math.max(-maxY, Math.min(maxY, focalY.value - viewportHeight.value / 2 - localY * nextZoom));
+      // Keep the image point between the user's fingers under the moving focal point.
+      // Using the current focal point (rather than only the point captured on begin)
+      // makes two-finger zooming follow the exact area the user is pinching.
+      translateX.value = Math.max(-maxX, Math.min(maxX, event.focalX - viewportWidth.value / 2 - localX * nextZoom));
+      translateY.value = Math.max(-maxY, Math.min(maxY, event.focalY - viewportHeight.value / 2 - localY * nextZoom));
       zoom.value = nextZoom;
     }), [focalX, focalY, renderedHeight, renderedWidth, startX, startY, startZoom, translateX, translateY, viewportHeight, viewportWidth, zoom]);
 
@@ -260,15 +263,17 @@ export function MirrorStudioView({
       <StatusBar style="light" />
       {displayUri ? (
         <GestureDetector gesture={imageGesture}>
-          <Animated.View style={[StyleSheet.absoluteFill, imageTransform]}>
-            <Image
-              cachePolicy="memory-disk"
-              source={{ uri: displayUri }}
-              style={StyleSheet.absoluteFill}
-              contentFit="cover"
-              transition={160}
-            />
-          </Animated.View>
+          <View style={styles.imageViewport}>
+            <Animated.View style={[StyleSheet.absoluteFill, imageTransform]}>
+              <Image
+                cachePolicy="memory-disk"
+                source={{ uri: displayUri }}
+                style={StyleSheet.absoluteFill}
+                contentFit="cover"
+                transition={160}
+              />
+            </Animated.View>
+          </View>
         </GestureDetector>
       ) : (
         <View style={styles.emptyCanvas}>
@@ -299,7 +304,7 @@ export function MirrorStudioView({
       {personUri && !resultUri && !isPending ? (
         <View style={[styles.photoActions, { bottom: drawerHeight + 12 }]}>
           <Pressable onPress={onChangePerson} style={styles.photoAction} accessibilityRole="button" accessibilityLabel="Change your photo">
-            <Ionicons name="image-outline" size={15} color={colors.bone} />
+            <Ionicons name="camera-outline" size={16} color={colors.bone} />
             <Text style={styles.photoActionText}>Change photo</Text>
           </Pressable>
         </View>
@@ -557,6 +562,7 @@ export function MirrorStudioView({
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
+    imageViewport: { ...StyleSheet.absoluteFill, overflow: "hidden" },
     emptyCanvas: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", paddingHorizontal: 32, paddingBottom: 240 },
     emptyIcon: { width: 76, height: 76, borderRadius: 24, borderWidth: 1, borderColor: `${colors.success}77`, backgroundColor: `${colors.success}12`, alignItems: "center", justifyContent: "center", marginBottom: 18 },
     emptyTitle: { color: colors.bone, fontSize: 25, fontWeight: "800", textAlign: "center" },
@@ -564,9 +570,9 @@ function make(colors: Colors) {
     emptyButton: { height: 46, paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 23, backgroundColor: colors.success, marginTop: 20 },
     emptyButtonText: { color: colors.successInk, fontWeight: "800", fontSize: 14 },
     topBar: { position: "absolute", zIndex: 3, top: 0, left: 0, right: 0, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    topButton: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.18)" },
+    topButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
     topButtonGhost: { width: 42, height: 42 },
-    helpButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.12)" },
+    helpButton: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
     topTitle: { color: colors.bone, fontSize: 18, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.55)", textShadowRadius: 8 },
     photoActions: { position: "absolute", zIndex: 3, left: 18 },
     photoAction: { height: 38, paddingHorizontal: 13, borderRadius: 19, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "rgba(11,10,8,0.78)", borderWidth: 1, borderColor: `${colors.bone}40` },
