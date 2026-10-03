@@ -6,7 +6,6 @@ import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTi
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import {
   ActivityIndicator,
-  FlatList,
   Image as NativeImage,
   KeyboardAvoidingView,
   Modal,
@@ -146,8 +145,8 @@ export function MirrorStudioView({
       pickerSheetY.value = Math.max(0, pickerSheetStartY.value + event.translationY);
     })
     .onEnd((event) => {
-      const closeDistance = screenHeight * 0.24;
-      if (pickerSheetY.value > closeDistance || event.velocityY > 1200) {
+      const closeDistance = screenHeight * 0.14;
+      if (pickerSheetY.value > closeDistance || event.velocityY > 700) {
         pickerSheetY.value = withTiming(screenHeight, { duration: 190 }, (finished) => {
           if (finished) runOnJS(setUvelPickerOpen)(false);
         });
@@ -229,7 +228,7 @@ export function MirrorStudioView({
   }
 
   function openUvelPicker() {
-    pickerSheetY.value = Math.min(220, screenHeight * 0.26);
+    pickerSheetY.value = 0;
     setUvelPickerOpen(true);
   }
 
@@ -464,7 +463,7 @@ export function MirrorStudioView({
       <Modal visible={uvelPickerOpen} transparent animationType="none" onRequestClose={() => setUvelPickerOpen(false)}>
         <View style={styles.modalRoot}>
           <Pressable style={styles.backdrop} onPress={() => setUvelPickerOpen(false)} accessibilityRole="button" accessibilityLabel="Close Uvel picker" />
-          <Animated.View style={[styles.pickerSheet, pickerSheetStyle, { height: Math.min(screenHeight * 0.84, 760), paddingBottom: insets.bottom + 8 }]}>
+          <Animated.View style={[styles.pickerSheet, pickerSheetStyle, { height: Math.min(screenHeight * 0.72, 640), paddingBottom: insets.bottom + 8 }]}>
             <GestureDetector gesture={pickerDragGesture}>
               <View style={styles.pickerDragHandle} accessible accessibilityLabel="Drag up to expand or down to close">
                 <View style={styles.pickerHandleBar} />
@@ -502,22 +501,27 @@ export function MirrorStudioView({
               })}
             </ScrollView>
             {pieces.length ? (
-              <FlatList
-                style={{ flex: 1 }}
-                data={visiblePieces}
-                keyExtractor={(item) => item.id}
-                numColumns={2}
-                columnWrapperStyle={styles.pickerRow}
+              <ScrollView
+                style={styles.pickerScroll}
                 contentContainerStyle={styles.pickerList}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
-                renderItem={({ item }) => (
-                  <View style={styles.pickerCell}>
-                    <ListingCard piece={item} framed onOpen={() => choosePiece(item)} />
-                  </View>
-                )}
-                ListEmptyComponent={<Text style={styles.emptyListText}>No pieces match that search.</Text>}
-              />
+              >
+                {Array.from({ length: Math.ceil(visiblePieces.length / 2) }, (_, rowIndex) => {
+                  const row = visiblePieces.slice(rowIndex * 2, rowIndex * 2 + 2);
+                  return (
+                    <View key={`picker-row-${rowIndex}`} style={styles.pickerRow}>
+                      {row.map((item) => (
+                        <View key={item.id} style={styles.pickerCell}>
+                          <ListingCard piece={item} framed onOpen={() => choosePiece(item)} />
+                        </View>
+                      ))}
+                      {row.length === 1 ? <View style={[styles.pickerCell, styles.pickerSpacer]} /> : null}
+                    </View>
+                  );
+                })}
+                {!visiblePieces.length ? <Text style={styles.emptyListText}>No pieces match that search.</Text> : null}
+              </ScrollView>
             ) : (
               <View style={styles.noPieces}>
                 <Ionicons name="shirt-outline" size={28} color={colors.success} />
@@ -628,7 +632,7 @@ function make(colors: Colors) {
     modalRoot: { flex: 1, justifyContent: "flex-end" },
     backdrop: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.58)" },
     pickerSheet: { backgroundColor: colors.ink, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingTop: 22, paddingHorizontal: 16, borderWidth: 1, borderColor: `${colors.bone}20` },
-    pickerDragHandle: { paddingBottom: 2 },
+    pickerDragHandle: { minHeight: 58, paddingTop: 2, paddingBottom: 2, justifyContent: "center" },
     pickerHandleBar: { width: 42, height: 5, borderRadius: 3, backgroundColor: `${colors.bone}45`, alignSelf: "center", marginBottom: 16 },
     modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
     modalTitle: { color: colors.bone, fontSize: 21, fontWeight: "800" },
@@ -640,9 +644,11 @@ function make(colors: Colors) {
     categoryChipActive: { backgroundColor: colors.success, borderColor: colors.success },
     categoryText: { color: colors.bone, fontSize: 12, fontWeight: "700" },
     categoryTextActive: { color: colors.successInk },
-    pickerList: { paddingBottom: 18 },
+    pickerScroll: { flex: 1, minHeight: 0 },
+    pickerList: { paddingTop: 0, paddingBottom: 18 },
     pickerRow: { gap: 10 },
     pickerCell: { flex: 1, marginBottom: 10 },
+    pickerSpacer: { opacity: 0 },
     emptyListText: { color: `${colors.bone}91`, textAlign: "center", fontSize: 14, lineHeight: 20, padding: 20 },
     noPieces: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 50, gap: 12 },
     retryButton: { paddingHorizontal: 15, paddingVertical: 10, borderRadius: 18, backgroundColor: colors.surface },
