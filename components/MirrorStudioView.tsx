@@ -427,10 +427,24 @@ export function MirrorStudioView({
         <View style={styles.helpRoot}>
           <Pressable style={styles.helpBackdrop} onPress={() => setHelpOpen(false)} accessibilityRole="button" accessibilityLabel="Close Mirror help" />
           <View style={[styles.helpCard, { marginTop: insets.top + 36, marginBottom: insets.bottom + 20 }]}>
-            <View style={styles.helpIcon}><Ionicons name="scan-outline" size={22} color={colors.success} /></View>
-            <Text style={styles.helpTitle}>How Mirror works</Text>
-            <Text style={styles.helpCopy}>Add a full-length photo, choose a Uvel piece, a clothing photo, or a product link, then tap “Try this look.” Pinch to zoom your photo. You can leave while your look is being created.</Text>
-            <Text style={styles.helpPrivacy}>To create the preview, your photo and the selected clothing image are securely sent to OpenAI. Temporary processing uploads are deleted after the look is created. Your result stays private to your account.</Text>
+            <View style={styles.helpHeader}>
+              <View style={styles.helpIcon}><Ionicons name="body-outline" size={24} color={colors.success} /></View>
+              <View style={styles.helpTitleWrap}>
+                <Text style={styles.helpEyebrow}>MIRROR</Text>
+                <Text style={styles.helpTitle}>How Mirror works</Text>
+              </View>
+              <Pressable onPress={() => setHelpOpen(false)} style={styles.helpClose} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close Mirror help">
+                <Ionicons name="close" size={19} color={colors.subtle} />
+              </Pressable>
+            </View>
+            <View style={styles.helpSection}>
+              <Text style={styles.helpSectionLabel}>CREATE A LOOK</Text>
+              <Text style={styles.helpCopy}>Add a full-length photo, choose a Uvel piece, a clothing photo, or a product link, then tap “Try this look.” Pinch to zoom your photo. You can leave while your look is being created.</Text>
+            </View>
+            <View style={styles.helpSection}>
+              <Text style={styles.helpSectionLabel}>YOUR PRIVACY</Text>
+              <Text style={styles.helpPrivacy}>To create the preview, your photo and the selected clothing image are securely sent for rendering. Temporary processing uploads are immediately deleted after the look is created. Your result stays private to your account.</Text>
+            </View>
             <Pressable onPress={() => setHelpOpen(false)} style={styles.helpDone} accessibilityRole="button">
               <Text style={styles.helpDoneText}>Got it</Text>
             </Pressable>
@@ -555,12 +569,18 @@ function make(colors: Colors) {
     findLinkButtonDisabled: { opacity: 0.45 },
     helpRoot: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 20 },
     helpBackdrop: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.64)" },
-    helpCard: { width: "100%", maxWidth: 440, padding: 22, borderRadius: 26, backgroundColor: colors.ink, borderWidth: 1, borderColor: `${colors.bone}24` },
-    helpIcon: { width: 46, height: 46, borderRadius: 16, backgroundColor: `${colors.success}14`, alignItems: "center", justifyContent: "center", marginBottom: 14 },
-    helpTitle: { color: colors.bone, fontSize: 22, fontWeight: "800" },
-    helpCopy: { color: `${colors.bone}C4`, fontSize: 14, lineHeight: 21, marginTop: 9 },
-    helpPrivacy: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 12 },
-    helpDone: { height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: colors.success, marginTop: 20 },
+    helpCard: { width: "100%", maxWidth: 440, padding: 20, borderRadius: 26, backgroundColor: colors.ink, borderWidth: 1, borderColor: `${colors.bone}24` },
+    helpHeader: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 },
+    helpIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: `${colors.success}14`, alignItems: "center", justifyContent: "center" },
+    helpTitleWrap: { flex: 1, gap: 3 },
+    helpEyebrow: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.8 },
+    helpTitle: { color: colors.bone, fontSize: 21, lineHeight: 25, fontWeight: "800" },
+    helpClose: { width: 32, height: 32, borderRadius: 16, backgroundColor: `${colors.bone}0D`, alignItems: "center", justifyContent: "center" },
+    helpSection: { padding: 14, borderRadius: 16, backgroundColor: `${colors.bone}08`, marginBottom: 10 },
+    helpSectionLabel: { color: `${colors.bone}8C`, fontSize: 10, fontWeight: "800", letterSpacing: 1.5, marginBottom: 7 },
+    helpCopy: { color: `${colors.bone}D1`, fontSize: 14, lineHeight: 21 },
+    helpPrivacy: { color: `${colors.bone}A8`, fontSize: 13, lineHeight: 20 },
+    helpDone: { height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: colors.success, marginTop: 10 },
     helpDoneText: { color: colors.successInk, fontSize: 14, fontWeight: "800" },
   });
 }
