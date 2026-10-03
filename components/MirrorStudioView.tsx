@@ -435,7 +435,7 @@ export function MirrorStudioView({
             </View>
             <View style={styles.helpSection}>
               <Text style={styles.helpSectionLabel}>CREATE A LOOK</Text>
-              <Text style={styles.helpCopy}>Add a full-length photo, choose a Uvel piece, a clothing photo, or a product link, then tap “Try this look.” Pinch to zoom your photo. You can leave while your look is being created.</Text>
+              <Text style={styles.helpCopy}>Add a full-length photo, choose a Uvel piece, a clothing photo, or a product link, then tap “Try this look.” Pinch to zoom your photo. You can leave while your look is being created. It usually takes up to a minute to finish.</Text>
             </View>
             <View style={styles.helpSection}>
               <Text style={styles.helpSectionLabel}>YOUR PRIVACY</Text>
