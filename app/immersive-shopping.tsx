@@ -36,6 +36,7 @@ import { unreadFor, useInbox } from "../lib/chat";
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const MIN_REFRESH_MS = 1200;
 const IMMERSIVE_WELCOME_KEY = "uvel-immersive-welcome-seen-v1";
+let immersiveResumeIndex = 0;
 const CATALOG_BRAND_IDS: Record<string, string> = {
   "Maison Found": "maison-found",
   "Archive 1982": "archive-1982",
@@ -91,7 +92,7 @@ export default function ImmersiveShopping() {
   useEffect(() => { void hydrateFollowedSellers(); }, []);
   const wardrobePieces = useWardrobe();
   const bundledPieces = useMemo(() => fallbackShopFloor(), []);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(() => immersiveResumeIndex);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [profilePiece, setProfilePiece] = useState<ShopFloorPiece | null>(null);
   const profilePagerRef = useRef<PagerView>(null);
@@ -117,7 +118,7 @@ export default function ImmersiveShopping() {
   const feedbackPromptTiming = useRef({ nextIndex: randomPromptGap(3, 6), shownThisSession: new Set<string>() });
   const feedbackToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipeY = useSharedValue(0);
-  const activeIndexShared = useSharedValue(0);
+  const activeIndexShared = useSharedValue(immersiveResumeIndex);
   const swipeLock = useSharedValue(0);
   const refreshTriggered = useSharedValue(0);
   const refreshActiveShared = useSharedValue(0);
@@ -296,6 +297,7 @@ export default function ImmersiveShopping() {
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
 
   useEffect(() => {
+    immersiveResumeIndex = activeIndex;
     activeIndexShared.value = activeIndex;
     swipeLock.value = 0;
   }, [activeIndex, activeIndexShared, swipeLock]);
