@@ -21,7 +21,9 @@ export function TodayMessagesButton({
   const hintOffset = useRef(new Animated.Value(-5)).current;
 
   useEffect(() => {
-    const revealDelay = 13_000 + Math.floor(Math.random() * 14_000);
+    // Immersive Shopping is scheduled in the first 9–23 seconds and stays up
+    // for 10 seconds. Start Messages later so the two tips never overlap.
+    const revealDelay = 35_000 + Math.floor(Math.random() * 14_000);
     const revealTimer = setTimeout(() => {
       setHintVisible(true);
       onHintVisibilityChange?.(true, dismissHint);
