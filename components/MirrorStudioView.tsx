@@ -112,10 +112,6 @@ export function MirrorStudioView({
   const displayUri = resultUri || personUri;
   const isPending = busy || jobStatus === "queued" || jobStatus === "processing";
   const isUvelResult = Boolean(resultUri && sourceKind === "uvel" && pieceId);
-  // Portrait source captures can contain a narrow black edge. Keep the image
-  // locked at rest while cropping that edge out of the visible viewport.
-  const baseCropScale = 1.10;
-
   const zoom = useSharedValue(1);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -133,7 +129,7 @@ export function MirrorStudioView({
     transform: [{ translateX: translateX.value }, { translateY: translateY.value }],
   }));
   const imageScaleStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: baseCropScale * zoom.value }],
+    transform: [{ scale: zoom.value }],
   }));
 
   const pinchGesture = useMemo(() => Gesture.Pinch()
@@ -149,17 +145,15 @@ export function MirrorStudioView({
     })
     .onUpdate((event) => {
       const nextZoom = Math.max(1, Math.min(4, startZoom.value * event.scale));
-      const startRenderScale = baseCropScale * startZoom.value;
-      const nextRenderScale = baseCropScale * nextZoom;
-      const localX = (pinchStartFocalX.value - viewportWidth.value / 2 - startX.value) / startRenderScale;
-      const localY = (pinchStartFocalY.value - viewportHeight.value / 2 - startY.value) / startRenderScale;
-      const maxX = Math.max(0, (renderedWidth.value * nextRenderScale - viewportWidth.value) / 2);
-      const maxY = Math.max(0, (renderedHeight.value * nextRenderScale - viewportHeight.value) / 2);
+      const localX = (pinchStartFocalX.value - viewportWidth.value / 2 - startX.value) / startZoom.value;
+      const localY = (pinchStartFocalY.value - viewportHeight.value / 2 - startY.value) / startZoom.value;
+      const maxX = Math.max(0, (renderedWidth.value * nextZoom - viewportWidth.value) / 2);
+      const maxY = Math.max(0, (renderedHeight.value * nextZoom - viewportHeight.value) / 2);
       // Keep the image point between the user's fingers under the moving focal point.
       // Using the current focal point (rather than only the point captured on begin)
       // makes two-finger zooming follow the exact area the user is pinching.
-      translateX.value = Math.max(-maxX, Math.min(maxX, event.focalX - viewportWidth.value / 2 - localX * nextRenderScale));
-      translateY.value = Math.max(-maxY, Math.min(maxY, event.focalY - viewportHeight.value / 2 - localY * nextRenderScale));
+      translateX.value = Math.max(-maxX, Math.min(maxX, event.focalX - viewportWidth.value / 2 - localX * nextZoom));
+      translateY.value = Math.max(-maxY, Math.min(maxY, event.focalY - viewportHeight.value / 2 - localY * nextZoom));
       zoom.value = nextZoom;
     })
     .onEnd(() => {
@@ -272,7 +266,7 @@ export function MirrorStudioView({
       {displayUri ? (
         <GestureDetector gesture={pinchGesture}>
           <View
-            style={styles.imageViewport}
+            style={[styles.imageViewport, { bottom: drawerHeight }]}
             onLayout={(event) => {
               const { width, height } = event.nativeEvent.layout;
               if (width <= 0 || height <= 0) return;
@@ -288,7 +282,7 @@ export function MirrorStudioView({
                   source={{ uri: displayUri }}
                   style={StyleSheet.absoluteFill}
                   contentFit="cover"
-                  transition={160}
+                  transition={null}
                 />
               </Animated.View>
             </Animated.View>
