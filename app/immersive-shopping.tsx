@@ -513,7 +513,7 @@ function ImmersiveWelcomeOverlay() {
   const handY = useRef(new RNAnimated.Value(0)).current;
   useEffect(() => {
     const hand = RNAnimated.loop(RNAnimated.sequence([
-      RNAnimated.timing(handY, { toValue: 28, duration: 900, useNativeDriver: true }),
+      RNAnimated.timing(handY, { toValue: -28, duration: 900, useNativeDriver: true }),
       RNAnimated.timing(handY, { toValue: 0, duration: 700, useNativeDriver: true }),
       RNAnimated.delay(260),
     ]));
@@ -535,9 +535,15 @@ function ImmersiveWelcomeOverlay() {
         <Text style={welcomeStyles.title}>Immersive Shopping</Text>
         <Text style={welcomeStyles.copy}>A new way of instant shopping. Scroll through listings and discover your next piece.</Text>
         <RNAnimated.View style={[welcomeStyles.gesture, { transform: [{ translateY: handY }] }]}>
-          <Ionicons name="hand-left-outline" size={48} color="#F4F0E6" />
+          <View style={welcomeStyles.swipeTrail}>
+            <View style={welcomeStyles.swipeTrailLine} />
+            <Ionicons name="chevron-up" size={18} color="#B7F36B" />
+          </View>
+          <View style={welcomeStyles.hand}>
+            <View style={welcomeStyles.handPalm} />
+            <View style={welcomeStyles.handThumb} />
+          </View>
           <Text style={welcomeStyles.scroll}>Scroll</Text>
-          <Ionicons name="chevron-down" size={20} color="#B7F36B" />
         </RNAnimated.View>
       </View>
     </View>
@@ -551,7 +557,12 @@ const welcomeStyles = StyleSheet.create({
   kicker: { color: "#B7F36B", fontSize: 11, fontWeight: "900", letterSpacing: 2.4, marginBottom: 12 },
   title: { color: "#F4F0E6", fontSize: 32, lineHeight: 38, fontWeight: "800", textAlign: "center", letterSpacing: -0.4 },
   copy: { color: "rgba(244,240,230,0.82)", fontSize: 15, lineHeight: 22, textAlign: "center", marginTop: 12, maxWidth: 310 },
-  gesture: { alignItems: "center", marginTop: 42, gap: 4 },
+  gesture: { alignItems: "center", marginTop: 42, gap: 5 },
+  swipeTrail: { height: 39, width: 26, alignItems: "center", justifyContent: "flex-end" },
+  swipeTrailLine: { position: "absolute", top: 3, bottom: 5, width: 2, borderRadius: 2, backgroundColor: "rgba(183,243,107,0.48)" },
+  hand: { width: 42, height: 50, position: "relative", alignItems: "center" },
+  handPalm: { position: "absolute", bottom: 0, width: 34, height: 38, borderRadius: 17, backgroundColor: "#F4F0E6" },
+  handThumb: { position: "absolute", right: -1, bottom: 8, width: 25, height: 16, borderRadius: 10, backgroundColor: "#F4F0E6", transform: [{ rotate: "-38deg" }] },
   scroll: { color: "#F4F0E6", fontSize: 16, fontWeight: "800", letterSpacing: 0.4 },
 });
 
