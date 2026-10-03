@@ -23,6 +23,7 @@ import { useWardrobe } from "../lib/wardrobe";
 import { MERCHANT_ID, paymentsExtra } from "../lib/pay";
 import { watchMyOrders } from "../lib/orders";
 import { consumeListingDraftNotice } from "../lib/listingDraft";
+import { recordReviewSession } from "../lib/appReview";
 import { armFounderDesk, founderDeskRoute, getFounderDeskJob, revealFounderDesk } from "../lib/founderDesk";
 import { useFounderCheckSync } from "../lib/founderCheck";
 import { FounderDeskNotice } from "../components/FounderDeskNotice";
@@ -47,6 +48,13 @@ function LikesSync() {
     if (!app.hydrated || !pieces.length) return;
     app.seedSavedLikes();
   }, [app.hydrated, pieces.length, app.saved.join("|")]);
+  return null;
+}
+
+function ReviewSync({ enabled }: { enabled: boolean }) {
+  useEffect(() => {
+    if (enabled) void recordReviewSession();
+  }, [enabled]);
   return null;
 }
 
@@ -749,6 +757,7 @@ export default function Root() {
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: intro ? colors.pulse : colors.ink }}>
         <StatusBar style={appearance === "dark" ? "light" : "dark"} />
+        <ReviewSync enabled={Boolean(signedIn && gateReady && !intro && profileDone)} />
         {gateReady ? (
           !onboarded && !signedIn ? (
             <Onboard />

@@ -34,6 +34,7 @@ import { unreadFor, useInbox } from "../../lib/chat";
 import { usePersonalization } from "../../lib/personalization";
 import { useFirstFind } from "../../lib/firstFind";
 import { convertCents, getMarket, moneyExact, moneyInMarket } from "../../lib/markets";
+import { recordReviewListingView, requestNativeReviewIfEligible } from "../../lib/appReview";
 
 const MIN_REFRESH_MS = 1200;
 // Show the workspace drawer tutorial once per installation.
@@ -226,6 +227,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
     setOpenOrigin(origin);
     setOpenPiece(piece);
     onListingOpenChange?.(true);
+    if (todayHome) void recordReviewListingView();
     if (!app.profileDone) return;
     listingOpenWorkRef.current = listingOpenWorkRef.current.then(async () => {
       if (doubleTapHintShownRef.current) return;
@@ -247,7 +249,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
         setShowDoubleTapHint(true);
       }
     }).catch(() => undefined);
-  }, [app.profileDone, onListingOpenChange]);
+  }, [app.profileDone, onListingOpenChange, todayHome]);
   useEffect(() => {
     if (!todayHome || !drawerOpen || !openPiece) return;
     setOpenPiece(null);
@@ -899,6 +901,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
             onListingOpenChange?.(false);
             dismissDoubleTapHint();
             setFirstListingForHint(false);
+            void requestNativeReviewIfEligible();
           }}
           showDoubleTapHint={showDoubleTapHint}
           onDoubleTapHintDismiss={dismissDoubleTapHint}
