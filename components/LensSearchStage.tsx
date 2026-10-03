@@ -168,13 +168,11 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
         <View style={[styles.empty, { paddingBottom: insets.bottom + 24 }]}>
           <View style={styles.emptyMark}><Ionicons name="scan-outline" size={40} color={colors.success} /></View>
           <Text style={styles.title}>Find it on Uvel.</Text>
-          <Text style={styles.subtitle}>Take a photo or choose an image. We’ll find the clothing item and look for similar pieces automatically.</Text>
           <View style={styles.sourceList}>
             <SourceButton icon="camera-outline" label="Take a photo" onPress={onTakePhoto} primary colors={colors} styles={styles} />
             <SourceButton icon="images-outline" label="Choose from Photos" onPress={onPickPhotos} colors={colors} styles={styles} />
             <SourceButton icon="folder-open-outline" label="Choose from Files" onPress={onPickFiles} colors={colors} styles={styles} />
           </View>
-          <Text style={styles.privacyNote}>Your selected image is analyzed with Firebase AI to find a garment and similar Uvel listings. It isn’t posted as a listing.</Text>
         </View>
       ) : (
         <>
@@ -250,15 +248,13 @@ function make(colors: Colors) {
     changeText: { color: colors.success, fontSize: 14, fontWeight: "700" },
     empty: { flex: 1, justifyContent: "center", paddingHorizontal: 26 },
     emptyMark: { width: 76, height: 76, alignItems: "center", justifyContent: "center", borderRadius: 24, backgroundColor: "rgba(255,255,255,0.06)", marginBottom: 22 },
-    title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34 },
-    subtitle: { color: colors.muted, fontSize: 15, lineHeight: 22, marginTop: 10, maxWidth: 430 },
+    title: { color: colors.bone, fontSize: 34, fontWeight: "700" },
     sourceList: { gap: 10, marginTop: 26 },
     sourceButton: { height: 58, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 13, borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", backgroundColor: "rgba(255,255,255,0.045)" },
     sourceButtonPrimary: { backgroundColor: colors.success, borderColor: colors.success },
     sourcePressed: { opacity: 0.78 },
     sourceLabel: { color: colors.bone, fontSize: 15, fontWeight: "600", flex: 1 },
     sourceLabelPrimary: { color: colors.ink },
-    privacyNote: { marginTop: 18, color: colors.subtle, fontSize: 12, lineHeight: 17 },
     photoArea: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 8 },
     frame: { overflow: "hidden", backgroundColor: "#171613", alignItems: "center", justifyContent: "center", borderRadius: 8 },
     loadingImage: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
