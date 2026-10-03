@@ -113,70 +113,26 @@ export function MirrorStudioView({
   const isPending = busy || jobStatus === "queued" || jobStatus === "processing";
   const isUvelResult = Boolean(resultUri && sourceKind === "uvel" && pieceId);
   const zoom = useSharedValue(1);
-  const offsetX = useSharedValue(0);
-  const offsetY = useSharedValue(0);
-  const pinchReady = useSharedValue(false);
-  const pinchScaleAtFrame = useSharedValue(1);
-  const pinchFocalXAtFrame = useSharedValue(0);
-  const pinchFocalYAtFrame = useSharedValue(0);
+  const savedZoom = useSharedValue(1);
   const viewportWidth = useSharedValue(screenWidth);
   const viewportHeight = useSharedValue(screenHeight);
   const renderedWidth = useSharedValue(screenWidth);
   const renderedHeight = useSharedValue(screenHeight);
 
   const imageTransformStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: offsetX.value },
-      { translateY: offsetY.value },
-      { scale: zoom.value },
-    ],
+    transform: [{ scale: zoom.value }],
   }));
 
   const pinchGesture = useMemo(() => Gesture.Pinch()
-    .onStart((event) => {
-      // The first focal event can be provisional. Do not move the image here.
-      pinchReady.value = false;
-      pinchScaleAtFrame.value = event.scale;
+    .onStart(() => {
+      savedZoom.value = zoom.value;
     })
     .onUpdate((event) => {
-      if (!pinchReady.value) {
-        // Anchor from the first fully active frame so a new pinch cannot snap
-        // to the provisional midpoint reported at gesture start.
-        pinchReady.value = true;
-        pinchScaleAtFrame.value = event.scale;
-        pinchFocalXAtFrame.value = event.focalX;
-        pinchFocalYAtFrame.value = event.focalY;
-        return;
-      }
-      const currentZoom = zoom.value;
-      const requestedScaleDelta = event.scale / Math.max(pinchScaleAtFrame.value, 0.0001);
-      const nextZoom = Math.max(1, Math.min(4, currentZoom * requestedScaleDelta));
-      const appliedScaleDelta = nextZoom / Math.max(currentZoom, 0.0001);
-      const focalDeltaX = event.focalX - pinchFocalXAtFrame.value;
-      const focalDeltaY = event.focalY - pinchFocalYAtFrame.value;
-      const maxX = Math.max(0, (renderedWidth.value * nextZoom - viewportWidth.value) / 2);
-      const maxY = Math.max(0, (renderedHeight.value * nextZoom - viewportHeight.value) / 2);
-      const nextX = offsetX.value
-        + focalDeltaX
-        + (1 - appliedScaleDelta) * (pinchFocalXAtFrame.value - viewportWidth.value / 2 - offsetX.value);
-      const nextY = offsetY.value
-        + focalDeltaY
-        + (1 - appliedScaleDelta) * (pinchFocalYAtFrame.value - viewportHeight.value / 2 - offsetY.value);
-      offsetX.value = Math.max(-maxX, Math.min(maxX, nextX));
-      offsetY.value = Math.max(-maxY, Math.min(maxY, nextY));
-      zoom.value = nextZoom;
-      pinchScaleAtFrame.value = event.scale;
-      pinchFocalXAtFrame.value = event.focalX;
-      pinchFocalYAtFrame.value = event.focalY;
+      zoom.value = Math.max(1, Math.min(4, savedZoom.value * event.scale));
     })
     .onEnd(() => {
-      pinchReady.value = false;
-      if (zoom.value <= 1.001) {
-        zoom.value = 1;
-        offsetX.value = 0;
-        offsetY.value = 0;
-      }
-    }), [offsetX, offsetY, pinchFocalXAtFrame, pinchFocalYAtFrame, pinchReady, pinchScaleAtFrame, renderedHeight, renderedWidth, viewportHeight, viewportWidth, zoom]);
+      if (zoom.value <= 1.001) zoom.value = 1;
+    }), [savedZoom, zoom]);
 
   const visiblePieces = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -200,8 +156,6 @@ export function MirrorStudioView({
       return;
     }
     zoom.value = 1;
-    offsetX.value = 0;
-    offsetY.value = 0;
     let active = true;
     NativeImage.getSize(displayUri, (width, height) => {
       if (!active || width <= 0 || height <= 0) return;
@@ -215,7 +169,7 @@ export function MirrorStudioView({
       }
     });
     return () => { active = false; };
-  }, [displayUri, imageViewportSize.height, imageViewportSize.width, offsetX, offsetY, renderedHeight, renderedWidth, screenHeight, screenWidth, viewportHeight, viewportWidth, zoom]);
+  }, [displayUri, imageViewportSize.height, imageViewportSize.width, renderedHeight, renderedWidth, screenHeight, screenWidth, viewportHeight, viewportWidth, zoom]);
 
   useEffect(() => {
     setRating(0);
