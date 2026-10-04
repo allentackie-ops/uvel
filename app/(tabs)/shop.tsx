@@ -854,6 +854,8 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           onOpenTools={() => onOpenTools?.()}
           onOpenCreators={() => router.push("/find")}
           onOpenStyle={() => router.push("/style-dna")}
+          refreshing={refreshing}
+          onRefresh={() => void onRefresh()}
         />
       ) : (
         <ScrollView

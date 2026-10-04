@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRef } from "react";
-import { Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Animated, Dimensions, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "./AccessiblePressable";
 import type { ClosetPiece } from "../lib/wardrobe";
@@ -40,6 +40,8 @@ export type TodayCommerceFeedProps = {
   onOpenTools: () => void;
   onOpenCreators: () => void;
   onOpenStyle: () => void;
+  refreshing: boolean;
+  onRefresh: () => void;
 };
 
 export function TodayCommerceFeed({
@@ -52,6 +54,8 @@ export function TodayCommerceFeed({
   onOpenTools,
   onOpenCreators,
   onOpenStyle,
+  refreshing,
+  onRefresh,
 }: TodayCommerceFeedProps) {
   const colors = useColors();
   const styles = make(colors);
@@ -77,25 +81,24 @@ export function TodayCommerceFeed({
   };
 
   return (
-    <Animated.ScrollView
-      style={styles.page}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 10 }]}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-      alwaysBounceVertical
-      scrollEventThrottle={16}
-      onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
-    >
-      <View style={styles.topBar}>
+    <View style={styles.page}>
+      <View style={[styles.fixedHeader, { paddingTop: insets.top + 4 }]}>
         <AccessiblePressable onPress={onOpenTools} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open Today tools">
           <View style={styles.menuIcon}><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View>
         </AccessiblePressable>
-        <Animated.View style={logoMotion}><AccessiblePressable onPress={onOpenSearch} style={styles.wordmarkButton} accessibilityRole="button" accessibilityLabel="Open Uvel marketplace"><Text style={styles.wordmark}>uvel</Text></AccessiblePressable></Animated.View>
+        <Animated.View style={logoMotion}><AccessiblePressable onPress={onOpenSearch} style={styles.wordmarkButton} accessibilityRole="button" accessibilityLabel="Open Uvel marketplace"><Text style={styles.wordmark}>Uvel</Text></AccessiblePressable></Animated.View>
         <View style={styles.headerActions}><AccessiblePressable onPress={onOpenSearch} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Search Uvel"><Ionicons name="search-outline" size={24} color={colors.bone} /></AccessiblePressable><AccessiblePressable onPress={onOpenMessages} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open messages"><Ionicons name="chatbubble-ellipses-outline" size={23} color={colors.bone} /></AccessiblePressable></View>
       </View>
-
-      <View style={styles.searchHint}><Text style={styles.searchHintText}>Tap search to find a look, piece, or creator</Text><Pressable onPress={onOpenSearch} accessibilityRole="button" accessibilityLabel="Search Uvel"><Ionicons name="arrow-forward" size={15} color={colors.pulse} /></Pressable></View>
-
+      <Animated.ScrollView
+        style={styles.feedScroll}
+        contentContainerStyle={[styles.content, { paddingTop: 10 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        alwaysBounceVertical
+        scrollEventThrottle={16}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} progressViewOffset={8} tintColor={colors.pulse} colors={[colors.pulse]} />}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+      >
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         {COLOR_CHIPS.map((chip, index) => (
           <Pressable key={chip.label} onPress={() => index === 1 ? onOpenStyle() : undefined} style={[styles.chip, { backgroundColor: chip.color }]} accessibilityRole="button" accessibilityLabel={chip.label}>
@@ -104,30 +107,9 @@ export function TodayCommerceFeed({
         ))}
       </ScrollView>
 
-      <View style={styles.heroRow}>
-        <View style={[styles.fallCard, { backgroundColor: "#F05237" }]}>
-          <View style={styles.promoHeader}>
-            <View>
-              <Text style={styles.promoTitle}>The Fall Edit</Text>
-              <Text style={styles.promoSub}>Fresh layers, easy pieces</Text>
-            </View>
-            <Text style={styles.shopAll}>Shop all ›</Text>
-          </View>
-          <View style={styles.featureGrid}>
-            {featured.map((piece, index) => <MiniImage key={`${piece.id}-${index}`} piece={piece} onOpen={onOpenPiece} />)}
-          </View>
-        </View>
-        <View style={[styles.newCard, { backgroundColor: "#2762C5" }]}>
-          <Text style={styles.newTitle}>New in</Text>
-          <Text style={styles.newCopy}>Your next favorite fit is here.</Text>
-          <Pressable onPress={onOpenSearch} style={styles.whiteButton} accessibilityRole="button" accessibilityLabel="Shop new arrivals"><Text style={styles.whiteButtonText}>Shop now ›</Text></Pressable>
-          {pieces[0] ? <Image source={{ uri: pieces[0].photo }} style={styles.newImage} contentFit="cover" accessible={false} /> : null}
-          <View style={styles.newImageShade} pointerEvents="none" />
-          <Text style={styles.newFoot}>New season{`\n`}New you</Text>
-        </View>
-      </View>
+      <PosterCarousel featured={featured} onOpenPiece={onOpenPiece} onOpenSearch={onOpenSearch} styles={styles} />
 
-      <SectionTitle title="Recommended for you" onPress={onOpenSearch} />
+      <SectionTitle title="For you" onPress={onOpenSearch} />
       <ProductRail pieces={recommended.slice(0, 4)} market={market} onOpen={onOpenPiece} deals />
 
       <SectionTitle title="Keep shopping for" onPress={onOpenSearch} />
@@ -181,7 +163,62 @@ export function TodayCommerceFeed({
 
       <SectionTitle title="Recently viewed" onPress={onOpenSearch} />
       <ProductRail pieces={personalized.slice(4, 8).length ? personalized.slice(4, 8) : personalized.slice(0, 4)} market={market} onOpen={onOpenPiece} compact />
-    </Animated.ScrollView>
+      </Animated.ScrollView>
+    </View>
+  );
+}
+
+function PosterCarousel({
+  featured,
+  onOpenPiece,
+  onOpenSearch,
+  styles,
+}: {
+  featured: ClosetPiece[];
+  onOpenPiece: TodayCommerceFeedProps["onOpenPiece"];
+  onOpenSearch: () => void;
+  styles: ReturnType<typeof make>;
+}) {
+  const scrollX = useRef(new Animated.Value(0)).current;
+  const posterWidth = Math.min(430, Dimensions.get("window").width - 44);
+  const interval = posterWidth + 12;
+  const posterHeight = Math.round(posterWidth * 1.08);
+  const fallOpacity = scrollX.interpolate({ inputRange: [0, interval], outputRange: [0.22, 0.04], extrapolate: "clamp" });
+  const blueOpacity = scrollX.interpolate({ inputRange: [0, interval], outputRange: [0.04, 0.22], extrapolate: "clamp" });
+  return (
+    <View style={styles.posterStage}>
+      <Animated.View pointerEvents="none" style={[styles.posterAmbient, { backgroundColor: "#F05237", opacity: fallOpacity }]} />
+      <Animated.View pointerEvents="none" style={[styles.posterAmbient, { backgroundColor: "#2762C5", opacity: blueOpacity }]} />
+      <Animated.ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={interval}
+        decelerationRate="fast"
+        disableIntervalMomentum
+        contentContainerStyle={{ gap: 12, paddingHorizontal: 2 }}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: true })}
+      >
+        <View style={[styles.posterCard, { width: posterWidth, height: posterHeight, backgroundColor: "#F05237" }]}>
+          <View style={styles.promoHeader}>
+            <View><Text style={styles.promoTitle}>The Fall Edit</Text><Text style={styles.promoSub}>Fresh layers, easy pieces</Text></View>
+            <Text style={styles.shopAll}>Shop all ›</Text>
+          </View>
+          <View style={styles.featureGrid}>
+            {featured.map((piece, index) => <MiniImage key={`${piece.id}-${index}`} piece={piece} onOpen={onOpenPiece} />)}
+          </View>
+          <Text style={styles.posterFoot}>Layers for the everyday</Text>
+        </View>
+        <Pressable onPress={onOpenSearch} style={[styles.posterCard, { width: posterWidth, height: posterHeight, backgroundColor: "#2762C5" }]} accessibilityRole="button" accessibilityLabel="Shop new arrivals">
+          <View pointerEvents="none" style={styles.blueBlobOne} />
+          <View pointerEvents="none" style={styles.blueBlobTwo} />
+          <Text style={styles.newTitle}>New in</Text>
+          <Text style={styles.newCopy}>Your next favorite fit is here.</Text>
+          <View style={styles.posterButton}><Text style={styles.whiteButtonText}>Shop now ›</Text></View>
+          <Text style={styles.newFoot}>New season{`\n`}New you</Text>
+        </Pressable>
+      </Animated.ScrollView>
+    </View>
   );
 }
 
@@ -197,12 +234,14 @@ function ProductRail({ pieces, market, onOpen, deals, compact }: { pieces: Close
 function ProductCard({ piece, market, onOpen, deals, compact }: { piece: ClosetPiece; market: ReturnType<typeof getMarket>; onOpen: TodayCommerceFeedProps["onOpenPiece"]; deals?: boolean; compact?: boolean }) {
   const colors = useColors();
   const styles = make(colors);
+  const app = useUvel();
   const ref = useRef<View>(null);
   const brand = piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Uvel seller";
   const price = moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market);
+  const saved = app.saved.includes(piece.id);
   return <View ref={ref} collapsable={false} style={[styles.productCard, compact && styles.productCardCompact]}><AccessiblePressable onPress={() => ref.current?.measureInWindow((x, y, width, height) => onOpen(piece, { x, y, width, height }))} style={styles.productPress} accessibilityRole="button" accessibilityLabel={`Open ${piece.name} by ${brand}, ${price}`}>
-    <View style={styles.productImageWrap}>{deals ? <View style={styles.discount}><Text style={styles.discountText}>{["20% off", "15% off", "30% off", "10% off"][piece.id.length % 4]}</Text></View> : null}<Image source={{ uri: piece.photo }} style={styles.productImage} contentFit="cover" accessible={false} /><Ionicons name="heart-outline" size={22} color={colors.bone} style={styles.productHeart} /></View>
-    <Text style={styles.productName} numberOfLines={2}>{piece.name}</Text><Text style={styles.productPrice}>{price}</Text><Text style={styles.productBrand} numberOfLines={1}>{brand}</Text><Pressable onPress={() => undefined} style={styles.savePill} accessibilityRole="button" accessibilityLabel={`Save ${piece.name}`}><Text style={styles.saveText}>Save</Text></Pressable>
+    <View style={styles.productImageWrap}>{deals ? <View style={styles.discount}><Text style={styles.discountText}>{["20% off", "15% off", "30% off", "10% off"][piece.id.length % 4]}</Text></View> : null}<Image source={{ uri: piece.photo }} style={styles.productImage} contentFit="cover" accessible={false} /><AccessiblePressable onPress={() => void app.toggleSaved(piece.id)} hitSlop={8} style={styles.productHeart} accessibilityRole="button" accessibilityLabel={`${saved ? "Remove" : "Save"} ${piece.name}`} accessibilityState={{ selected: saved }}><Ionicons name={saved ? "heart" : "heart-outline"} size={24} color={saved ? colors.pulse : colors.bone} /></AccessiblePressable></View>
+    <Text style={styles.productName} numberOfLines={2}>{piece.name}</Text><Text style={styles.productPrice}>{price}</Text><Text style={styles.productBrand} numberOfLines={1}>{brand}</Text>
   </AccessiblePressable></View>;
 }
 
@@ -214,11 +253,13 @@ function MiniImage({ piece, onOpen }: { piece: ClosetPiece; onOpen: TodayCommerc
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
+    fixedHeader: { minHeight: 62, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.ink, zIndex: 5 },
+    feedScroll: { flex: 1 },
     content: { paddingTop: 10, paddingHorizontal: 16, paddingBottom: 130 },
     topBar: { height: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     headerActions: { flexDirection: "row", alignItems: "center", gap: 2 },
     wordmarkButton: { minHeight: 48, justifyContent: "center" },
-    wordmark: { color: colors.pulse, fontFamily: "Georgia", fontSize: 39, lineHeight: 42, fontStyle: "italic", fontWeight: "800", letterSpacing: -1.8 },
+    wordmark: { color: colors.pulse, fontFamily: "Georgia", fontSize: 31, lineHeight: 38, fontStyle: "normal", fontWeight: "600", letterSpacing: 0.35 },
     topIcon: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
     menuIcon: { width: 22, gap: 4 },
     menuLine: { width: 22, height: 2, borderRadius: 2, backgroundColor: colors.bone },
@@ -226,12 +267,15 @@ function make(colors: Colors) {
     input: { flex: 1, height: 50, color: colors.bone, fontSize: 17 },
     searchAction: { width: 34, height: 44, alignItems: "center", justifyContent: "center" },
     searchDivider: { height: 27, width: 1, backgroundColor: `${colors.bone}22` },
-    searchHint: { minHeight: 30, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-    searchHintText: { color: colors.muted, fontSize: 12, fontWeight: "600" },
     chips: { gap: 9, paddingVertical: 14 },
     chip: { height: 44, paddingHorizontal: 19, borderRadius: 22, alignItems: "center", justifyContent: "center" },
     chipText: { fontSize: 15, fontWeight: "800" },
-    heroRow: { flexDirection: "row", gap: 10 },
+    posterStage: { marginHorizontal: -2, borderRadius: 22, overflow: "hidden", backgroundColor: "#17191F", paddingVertical: 7 },
+    posterAmbient: { position: "absolute", width: 260, height: 260, borderRadius: 130, top: 86, left: 60 },
+    posterCard: { borderRadius: 19, overflow: "hidden", padding: 16, justifyContent: "flex-start" },
+    posterFoot: { position: "absolute", left: 18, bottom: 17, color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+    blueBlobOne: { position: "absolute", width: 300, height: 300, borderRadius: 150, backgroundColor: "#5B8CF3", opacity: 0.3, right: -110, top: 92 },
+    blueBlobTwo: { position: "absolute", width: 210, height: 210, borderRadius: 105, backgroundColor: "#9AB7FF", opacity: 0.18, left: -80, bottom: -50 },
     fallCard: { flex: 1.42, borderRadius: 18, padding: 13, minHeight: 308 },
     newCard: { flex: 0.82, borderRadius: 18, minHeight: 308, padding: 16, overflow: "hidden" },
     promoHeader: { flexDirection: "row", justifyContent: "space-between", gap: 4, marginBottom: 12 },
@@ -243,9 +287,8 @@ function make(colors: Colors) {
     newCopy: { color: "#FFFFFF", fontSize: 16, lineHeight: 21, marginTop: 8, maxWidth: 130 },
     whiteButton: { alignSelf: "flex-start", backgroundColor: "#FFFFFF", borderRadius: 22, paddingHorizontal: 14, minHeight: 40, justifyContent: "center", marginTop: 12 },
     whiteButtonText: { color: "#181714", fontSize: 13, fontWeight: "900" },
-    newImage: { position: "absolute", left: 0, right: 0, bottom: 0, width: "100%", height: 166, opacity: 0.96 },
-    newImageShade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 105, backgroundColor: "rgba(22,20,15,0.18)" },
     newFoot: { position: "absolute", left: 16, bottom: 13, color: "#FFFFFF", fontSize: 12, lineHeight: 15, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.55)", textShadowRadius: 4 },
+    posterButton: { alignSelf: "flex-start", backgroundColor: "#FFFFFF", borderRadius: 22, paddingHorizontal: 14, minHeight: 40, justifyContent: "center", marginTop: 12 },
     sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 22, marginBottom: 10 },
     editorHero: { minHeight: 168, borderRadius: 18, backgroundColor: "#E7DDD1", overflow: "hidden", flexDirection: "row" },
     editorCopy: { flex: 1.03, padding: 17, justifyContent: "center", zIndex: 2 },
@@ -276,8 +319,6 @@ function make(colors: Colors) {
     productName: { color: colors.bone, fontSize: 13, lineHeight: 17, fontWeight: "700", paddingHorizontal: 9, marginTop: 8, minHeight: 34 },
     productPrice: { color: colors.bone, fontSize: 16, fontWeight: "900", paddingHorizontal: 9, marginTop: 4 },
     productBrand: { color: colors.muted, fontSize: 11, paddingHorizontal: 9, marginTop: 3 },
-    savePill: { position: "absolute", right: 8, bottom: 9, backgroundColor: colors.success, borderRadius: 14, paddingHorizontal: 9, minHeight: 27, justifyContent: "center" },
-    saveText: { color: colors.successInk, fontSize: 10, fontWeight: "900" },
     creatorCard: { minHeight: 170, borderRadius: 18, backgroundColor: "#2865CF", padding: 16, flexDirection: "row", overflow: "hidden", marginTop: 19 },
     creatorCopy: { flex: 1, zIndex: 2 },
     creatorTitle: { color: "#FFFFFF", fontSize: 24, lineHeight: 27, fontWeight: "900" },
