@@ -645,7 +645,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const heartScale = useSharedValue(0);
   const heartOpacity = useSharedValue(0);
   const saveTargetX = useSharedValue(SCREEN_WIDTH - 42);
-  const saveTargetY = useSharedValue(SCREEN_HEIGHT - insets.bottom - 148 - 99);
+  const saveTargetY = useSharedValue(SCREEN_HEIGHT - insets.bottom - 132 - 99);
   const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
   const catalogBrandId = !brandRecord && piece.brand ? CATALOG_BRAND_IDS[piece.brand] : undefined;
   const followId = brandRecord?.id || piece.ownerId || piece.listedByUid || catalogBrandId || "";
@@ -784,7 +784,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           </View>
         )}
       </Animated.View>
-      <Animated.View style={[styles.actions, { bottom: feedbackPrompted ? 164 : 118 }, contentOpacityStyle]} onLayout={(event) => {
+      <Animated.View style={[styles.actions, { bottom: feedbackPrompted ? 148 : 102 }, contentOpacityStyle]} onLayout={(event) => {
         const { x, y, width, height } = event.nativeEvent.layout;
         saveTargetX.value = x + width / 2;
         saveTargetY.value = y + height - 99;
@@ -1052,7 +1052,7 @@ function make(colors: Colors) {
     followingButton: { backgroundColor: "rgba(0,0,0,0.38)", borderWidth: 1, borderColor: `${colors.bone}70` },
     followText: { color: colors.successInk, fontSize: 12, fontWeight: "900" },
     followingText: { color: overlayColor },
-    actions: { position: "absolute", right: 15, gap: 18, alignItems: "center", zIndex: 9 },
+    actions: { position: "absolute", right: 12, gap: 16, alignItems: "center", zIndex: 9 },
     action: { width: 54, minHeight: 54, alignItems: "center", justifyContent: "center", gap: 3 },
     actionLabel: { color: overlayColor, fontSize: 10, fontWeight: "700", textShadowColor: "#000", textShadowRadius: 5 },
     recommendationPrompt: { position: "absolute", left: 16, right: 16, bottom: 12, zIndex: 14, flexDirection: "row", gap: 9, padding: 4, borderRadius: 30, backgroundColor: "rgba(7,7,7,0.66)", borderWidth: 1, borderColor: "rgba(255,255,255,0.20)" },
