@@ -472,7 +472,7 @@ export default function ImmersiveShopping() {
       <View key="immersive-feed" style={styles.pagerPage}>
       <GestureDetector gesture={panGesture}>
       <View style={styles.page}>
-        <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
+        <StatusBar style="light" />
         {activePiece ? <>
           {previousPiece ? <Animated.View key={`${activeIndex - 1}:${previousPiece.id}`} pointerEvents="none" style={[styles.cardLayer, { height: contentHeight }, previousCardStyle]}>
             <ImmersiveItem piece={previousPiece} active={false} colors={colors} styles={styles} insets={insets} app={app} firstFind={firstFind} contentHeight={contentHeight} contentOpacityStyle={previousContentOpacityStyle} refreshImageScale={refreshImageScale} onFirstFind={() => setFindHint(true)} firstFindLabel={C.firstFind} />
