@@ -11,9 +11,10 @@ type Props = {
   colors: Colors;
   appearance?: "inline" | "popup";
   collapsible?: boolean;
+  compact?: boolean;
 };
 
-export function ListingAlertControls({ piece, colors, appearance = "inline", collapsible = false }: Props) {
+export function ListingAlertControls({ piece, colors, appearance = "inline", collapsible = false, compact = false }: Props) {
   const app = useUvel();
   const preference = useAlertPreference(app.uid, piece.id);
   const [busy, setBusy] = useState(false);
@@ -56,26 +57,21 @@ export function ListingAlertControls({ piece, colors, appearance = "inline", col
   if (app.uid && sellerId === app.uid) return null;
 
   return (
-    <View style={[styles.root, appearance === "popup" && styles.popupRoot]}>
+    <View style={[styles.root, appearance === "popup" && styles.popupRoot, compact && styles.compactRoot]}>
       {collapsible ? (
         <Pressable
           onPress={() => setExpanded((value) => !value)}
-          style={({ pressed }) => [styles.disclosureRow, pressed && styles.disclosurePressed]}
+          style={({ pressed }) => [compact ? styles.compactRow : styles.disclosureRow, pressed && styles.disclosurePressed]}
           accessibilityRole="button"
           accessibilityState={{ expanded, selected: Boolean(preference) }}
           accessibilityLabel={expanded ? "Hide price and restock alert options" : preference ? "Manage price and restock alerts" : "Set price and restock alerts"}
         >
-          <View style={styles.disclosureIcon}>
+          <View style={compact ? styles.compactTitleWrap : styles.disclosureIcon}>
             <Ionicons name="notifications-outline" size={18} color={colors.success} />
-          </View>
-          <View style={styles.disclosureCopy}>
-            <Text style={styles.disclosureTitle}>Price & restock alerts</Text>
-            <Text style={styles.disclosureSubtitle} numberOfLines={1}>
-              {busy ? "Saving your alert…" : preference ? `Watching for ${alertKindLabel(preference.kind)}` : "Get notified when prices drop or items return"}
-            </Text>
+            <Text style={compact ? styles.compactTitle : styles.disclosureTitle}>Price & restock alerts</Text>
           </View>
           <View style={styles.disclosureEnd}>
-            <Text style={styles.disclosureAction}>{expanded ? "Close" : preference ? "Manage" : "Set alert"}</Text>
+            {!compact ? <Text style={styles.disclosureAction}>{expanded ? "Close" : preference ? "Manage" : "Set alert"}</Text> : null}
             <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={17} color={colors.bone} />
           </View>
         </Pressable>
@@ -91,7 +87,7 @@ export function ListingAlertControls({ piece, colors, appearance = "inline", col
       )}
 
       {(!collapsible || expanded) ? (
-        <View style={collapsible ? styles.expandedContent : undefined}>
+        <View style={collapsible ? (compact ? styles.compactExpandedContent : styles.expandedContent) : undefined}>
           <Text style={styles.copy}>{collapsible ? "Choose when you’d like to be notified." : "Save this item and get notified when its recorded price drops or its published inventory returns."}</Text>
           <View style={styles.options}>
             {(["price_drop", "restock", "both"] as const).map((kind) => {
@@ -150,6 +146,12 @@ function make(colors: Colors) {
       borderTopColor: `${colors.bone}20`,
       backgroundColor: "transparent",
     },
+    compactRoot: {
+      marginTop: 14,
+      paddingTop: 0,
+      borderTopWidth: 1,
+      borderTopColor: `${colors.bone}18`,
+    },
     head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
     title: { color: colors.bone, fontSize: 16, lineHeight: 20, fontWeight: "800", flexShrink: 1 },
     disclosureRow: {
@@ -173,12 +175,15 @@ function make(colors: Colors) {
       justifyContent: "center",
       backgroundColor: `${colors.success}1A`,
     },
+    compactTitleWrap: { flexDirection: "row", alignItems: "center", gap: 9 },
+    compactTitle: { color: colors.bone, fontSize: 13, fontWeight: "800" },
     disclosureCopy: { flex: 1, minWidth: 0 },
     disclosureTitle: { color: colors.bone, fontSize: 13, lineHeight: 17, fontWeight: "800" },
     disclosureSubtitle: { color: colors.muted, fontSize: 10, lineHeight: 14, marginTop: 2 },
     disclosureEnd: { flexDirection: "row", alignItems: "center", gap: 4 },
     disclosureAction: { color: colors.success, fontSize: 10, fontWeight: "800" },
     expandedContent: { paddingTop: 11 },
+    compactExpandedContent: { paddingTop: 2, paddingBottom: 12 },
     copy: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 6 },
     options: { flexDirection: "row", gap: 7, marginTop: 12 },
     option: {
