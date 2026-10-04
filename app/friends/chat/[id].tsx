@@ -48,7 +48,7 @@ export default function FriendChat() {
   }
 
   return <View style={styles.page}>
-    <StatusBar style="light" />
+    <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
     <View style={[styles.nav, { paddingTop: insets.top + 4 }]}><Pressable onPress={() => router.back()} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Go back"><Text style={styles.back}>‹</Text></Pressable><Text style={styles.title} numberOfLines={1}>{name || "Friend"}</Text><Pressable onPress={safetyActions} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Friend chat options"><Text style={styles.more}>⋯</Text></Pressable></View>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <FlatList data={messages} keyExtractor={(item) => item.id} contentContainerStyle={styles.list} renderItem={({ item }) => <View style={[styles.bubble, item.from === uid ? styles.mine : styles.theirs]}>{item.photoUrl ? <Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.messagePhoto} contentFit="cover" /> : null}<Text style={styles.bubbleText}>{item.text}</Text></View>} ListEmptyComponent={<Text style={styles.empty}>Say hi and share a fit.</Text>} />
