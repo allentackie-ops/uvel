@@ -177,6 +177,7 @@ function make(colors: Colors) {
     },
     compactTitleWrap: { flexDirection: "row", alignItems: "center", gap: 9 },
     compactTitle: { color: colors.bone, fontSize: 13, fontWeight: "800" },
+    compactRow: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingVertical: 4 },
     disclosureCopy: { flex: 1, minWidth: 0 },
     disclosureTitle: { color: colors.bone, fontSize: 13, lineHeight: 17, fontWeight: "800" },
     disclosureSubtitle: { color: colors.muted, fontSize: 10, lineHeight: 14, marginTop: 2 },
