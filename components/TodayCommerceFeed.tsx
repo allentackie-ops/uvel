@@ -339,7 +339,6 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
     <View pointerEvents="none" style={styles.editorialGrain} />
     <Text style={styles.editorialTitle}>{story.title}</Text>
     <Text style={styles.editorialSubtitle}>{story.subtitle}</Text>
-    <View pointerEvents="none" style={[styles.editorialStamp, { borderColor: `${story.color}99` }]}><Text style={styles.editorialStampText}>{story.variant === "collage" ? "LOOK 04" : story.variant === "explode" ? "DROP 03" : "UVEL"}</Text></View>
     <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.hero, heroMotion]}>
       <Image source={{ uri: todayProductImage(pieces[0], story.image) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} />
     </Animated.View>
@@ -437,8 +436,6 @@ function make(colors: Colors) {
     editorialGrain: { position: "absolute", top: 0, right: 0, width: 180, height: 180, borderRadius: 90, backgroundColor: "rgba(255,255,255,0.1)", transform: [{ translateX: 78 }, { translateY: -70 }] },
     editorialTitle: { color: "#FFFFFF", fontSize: 34, lineHeight: 36, fontWeight: "900", letterSpacing: -0.9, maxWidth: 230, marginTop: 12, zIndex: 6 },
     editorialSubtitle: { color: "rgba(255,255,255,0.88)", fontSize: 15, lineHeight: 20, maxWidth: 226, marginTop: 9, zIndex: 6 },
-    editorialStamp: { position: "absolute", right: 18, top: 18, width: 55, height: 55, borderRadius: 28, borderWidth: 1, alignItems: "center", justifyContent: "center", transform: [{ rotate: "12deg" }], zIndex: 6 },
-    editorialStampText: { color: "rgba(255,255,255,0.82)", fontSize: 9, fontWeight: "900", letterSpacing: 1 },
     editorialCutout: { position: "absolute", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 8 }, elevation: 5, zIndex: 2 },
     editorialCutoutImage: { width: "100%", height: "100%" },
     editorialOrbit: { position: "absolute", left: -24, bottom: 28, width: 110, height: 38, borderWidth: 1, borderColor: "rgba(255,255,255,0.42)", borderRadius: 55, transform: [{ rotate: "-18deg" }], zIndex: 1 },
