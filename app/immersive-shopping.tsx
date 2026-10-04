@@ -756,7 +756,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         <View pointerEvents="none" style={styles.itemShade} />
       </AccessiblePressable>
       {active && guideStep !== null ? <AccessiblePressable onPress={onGuideDismiss} style={styles.guideDismissLayer} accessibilityRole="button" accessibilityLabel="Dismiss shopping tip" /> : null}
-      <Animated.View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: feedbackPrompted ? 88 : 24 }, contentOpacityStyle]}>
+      <Animated.View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: feedbackPrompted ? 88 : 10 }, contentOpacityStyle]}>
         <View style={styles.copySpacer} />
         {canMakeOffer ? (
           <View style={styles.offerFooter}>
