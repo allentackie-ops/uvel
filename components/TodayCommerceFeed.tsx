@@ -309,6 +309,7 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
   const newInOpacities = useRef([new Animated.Value(1), new Animated.Value(1), new Animated.Value(1), new Animated.Value(1)]).current;
   const newInScales = useRef([new Animated.Value(1), new Animated.Value(1), new Animated.Value(1), new Animated.Value(1)]).current;
   const cascadeGeneration = useRef(0);
+  const displayedPiecesRef = useRef<ClosetPiece[]>(pieces.slice(0, 4));
   const [displayedPieces, setDisplayedPieces] = useState(() => pieces.slice(0, 4));
   const [newInSetIndex, setNewInSetIndex] = useState(0);
   const activePieces = story.variant === "slide" ? displayedPieces : pieces;
@@ -333,13 +334,14 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
     const start = pool.length > 4 ? (newInSetIndex * 4) % pool.length : newInSetIndex % pool.length;
     const nextPieces = Array.from({ length: Math.min(4, pool.length) }, (_, index) => pool[(start + index) % pool.length]);
     const nextKey = nextPieces.map((piece) => `${piece.id}:${piece.cutoutPhoto || piece.photo}`).join("|");
-    const currentKey = displayedPieces.map((piece) => `${piece.id}:${piece.cutoutPhoto || piece.photo}`).join("|");
+    const currentKey = displayedPiecesRef.current.map((piece) => `${piece.id}:${piece.cutoutPhoto || piece.photo}`).join("|");
     if (nextKey === currentKey) return;
     const generation = ++cascadeGeneration.current;
     const exits = newInOpacities.map((value) => Animated.timing(value, { toValue: 0, duration: 220, useNativeDriver: true }));
     const exitSequence = Animated.stagger(80, exits);
     exitSequence.start(({ finished }) => {
       if (!finished || generation !== cascadeGeneration.current) return;
+      displayedPiecesRef.current = nextPieces;
       setDisplayedPieces(nextPieces);
       newInScales.forEach((value) => value.setValue(0.97));
       requestAnimationFrame(() => {
@@ -354,7 +356,7 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
       cascadeGeneration.current += 1;
       exitSequence.stop();
     };
-  }, [displayedPieces, newInOpacities, newInScales, newInSetIndex, pieces, story.variant]);
+  }, [newInOpacities, newInScales, newInSetIndex, pieces, story.variant]);
   useEffect(() => {
     const durations = story.variant === "luxury" ? [5200, 6200, 7000, 5800] : story.variant === "slide" ? [2800, 3600, 4400, 3200] : story.variant === "explode" ? [3000, 3900, 4700, 3400] : story.variant === "collage" ? [3400, 4300, 5100, 3700] : [3600, 4600, 5400, 4000];
     const createLoop = (value: Animated.Value, duration: number, delay: number) => Animated.loop(Animated.sequence([
