@@ -408,7 +408,6 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
           ? { hero: { right: -18, top: 112, width: 252, height: 308, zIndex: 2 }, secondary: { left: 0, top: 298, width: 152, height: 194, zIndex: 4 }, tertiary: { right: 2, top: 338, width: 136, height: 174, zIndex: 5 }, fourth: { left: 116, top: 220, width: 118, height: 152, transform: [{ rotate: "7deg" }], zIndex: 3 } }
           : { hero: { right: -10, top: 126, width: 214, height: 286, zIndex: 2 }, secondary: { left: -18, top: 284, width: 158, height: 202, zIndex: 1 }, tertiary: { right: -22, top: 306, width: 148, height: 188, zIndex: 4 }, fourth: { left: 92, top: 300, width: 116, height: 150, transform: [{ rotate: "-7deg" }], zIndex: 3 } };
   return <View style={[styles.editorialPoster, { backgroundColor: story.color }]}>
-    <View pointerEvents="none" style={styles.editorialGrain} />
     <Text style={styles.editorialTitle}>{story.title}</Text>
     <Text style={styles.editorialSubtitle}>{story.subtitle}</Text>
     {story.variant === "slide" ? <Animated.View pointerEvents="none" style={[styles.editorialLatestSticker, { transform: [{ translateX: latestStickerMotion.interpolate({ inputRange: [0, 1], outputRange: [-5, 5] }) }] }]}><Image source={NEW_IN_LATEST_STICKER} style={styles.editorialLatestStickerImage} contentFit="contain" accessible={false} /></Animated.View> : null}
@@ -418,7 +417,6 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
     {activePieces[1] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.secondary, story.variant === "slide" ? newInProductMotion(1) : secondaryMotion]}><Image source={{ uri: todayProductImage(activePieces[1]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
     {activePieces[2] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.tertiary, story.variant === "slide" ? newInProductMotion(2) : tertiaryMotion]}><Image source={{ uri: todayProductImage(activePieces[2]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
     {activePieces[3] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.fourth, story.variant === "slide" ? newInProductMotion(3) : fourthMotion, story.variant !== "slide" && { opacity: motion.interpolate({ inputRange: [0, 1], outputRange: [0.76, 1] }) }]}><Image source={{ uri: todayProductImage(activePieces[3]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
-    {story.variant !== "slide" ? <View pointerEvents="none" style={styles.editorialOrbit}><View style={styles.editorialOrbitDot} /></View> : null}
   </View>;
 }
 
@@ -506,15 +504,12 @@ function make(colors: Colors) {
     newFoot: { position: "absolute", left: 16, bottom: 13, color: "#FFFFFF", fontSize: 12, lineHeight: 15, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.55)", textShadowRadius: 4 },
     posterButton: { alignSelf: "flex-start", backgroundColor: "#FFFFFF", borderRadius: 24, paddingHorizontal: 17, minHeight: 46, justifyContent: "center", marginTop: 14 },
     editorialPoster: { flex: 1, borderRadius: 22, overflow: "hidden", padding: 20, position: "relative" },
-    editorialGrain: { position: "absolute", top: 0, right: 0, width: 180, height: 180, borderRadius: 90, backgroundColor: "rgba(255,255,255,0.1)", transform: [{ translateX: 78 }, { translateY: -70 }] },
     editorialTitle: { color: "#FFFFFF", fontSize: 34, lineHeight: 36, fontWeight: "900", letterSpacing: -0.9, maxWidth: 230, marginTop: 12, zIndex: 6 },
     editorialSubtitle: { color: "rgba(255,255,255,0.88)", fontSize: 15, lineHeight: 20, maxWidth: 226, marginTop: 9, zIndex: 6 },
     editorialLatestSticker: { position: "absolute", right: 13, top: 13, width: 94, height: 76, zIndex: 7, alignItems: "center", justifyContent: "center" },
     editorialLatestStickerImage: { width: "100%", height: "100%" },
     editorialCutout: { position: "absolute", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 8 }, elevation: 5, zIndex: 2 },
     editorialCutoutImage: { width: "100%", height: "100%" },
-    editorialOrbit: { position: "absolute", left: -24, bottom: 28, width: 110, height: 38, borderWidth: 1, borderColor: "rgba(255,255,255,0.42)", borderRadius: 55, transform: [{ rotate: "-18deg" }], zIndex: 1 },
-    editorialOrbitDot: { position: "absolute", right: 8, top: -4, width: 8, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.86)" },
     sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 22, marginBottom: 10 },
     editorHero: { minHeight: 168, borderRadius: 18, backgroundColor: "#E7DDD1", overflow: "hidden", flexDirection: "row" },
     editorCopy: { flex: 1.03, padding: 17, justifyContent: "center", zIndex: 2 },
