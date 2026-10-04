@@ -63,6 +63,9 @@ export function TodayCommerceFeed({
   const insets = useSafeAreaInsets();
   const market = getMarket(app.country);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const posterScrollX = useRef(new Animated.Value(0)).current;
+  const posterWidth = Math.min(300, Dimensions.get("window").width - 92);
+  const posterInterval = posterWidth + 12;
   const feedPieces = pieces.length
     ? Array.from({ length: Math.max(32, pieces.length * 3) }, (_, index) => pieces[index % pieces.length])
     : [];
@@ -82,6 +85,13 @@ export function TodayCommerceFeed({
 
   return (
     <View style={styles.page}>
+      <View pointerEvents="none" style={styles.topColorField}>
+        {["#F05237", "#2762C5", "#A5B98A", "#20A79A"].map((color, index) => {
+          const inputRange = index === 0 ? [0, posterInterval] : [(index - 1) * posterInterval, index * posterInterval, (index + 1) * posterInterval];
+          const outputRange = index === 0 ? [0.52, 0] : [0, 0.52, 0];
+          return <Animated.View key={color} style={[styles.topColorLayer, { backgroundColor: color, opacity: posterScrollX.interpolate({ inputRange, outputRange, extrapolate: "clamp" }) }]} />;
+        })}
+      </View>
       <View style={[styles.fixedHeader, { paddingTop: insets.top + 4 }]}>
         <AccessiblePressable onPress={onOpenTools} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open Today tools">
           <View style={styles.menuIcon}><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View>
@@ -107,7 +117,7 @@ export function TodayCommerceFeed({
         ))}
       </ScrollView>
 
-      <PosterCarousel featured={featured} onOpenPiece={onOpenPiece} onOpenSearch={onOpenSearch} styles={styles} />
+      <PosterCarousel featured={featured} onOpenPiece={onOpenPiece} onOpenSearch={onOpenSearch} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterInterval={posterInterval} />
 
       <SectionTitle title="For you" onPress={onOpenSearch} />
       <ProductRail pieces={recommended.slice(0, 4)} market={market} onOpen={onOpenPiece} deals />
@@ -173,18 +183,22 @@ function PosterCarousel({
   onOpenPiece,
   onOpenSearch,
   styles,
+  scrollX,
+  posterWidth,
+  posterInterval,
 }: {
   featured: ClosetPiece[];
   onOpenPiece: TodayCommerceFeedProps["onOpenPiece"];
   onOpenSearch: () => void;
   styles: ReturnType<typeof make>;
+  scrollX: Animated.Value;
+  posterWidth: number;
+  posterInterval: number;
 }) {
-  const scrollX = useRef(new Animated.Value(0)).current;
-  const posterWidth = Math.min(430, Dimensions.get("window").width - 44);
-  const interval = posterWidth + 12;
-  const posterHeight = Math.round(posterWidth * 1.08);
+  const interval = posterInterval;
+  const posterHeight = Math.round(posterWidth * 1.28);
   const fallOpacity = scrollX.interpolate({ inputRange: [0, interval], outputRange: [0.22, 0.04], extrapolate: "clamp" });
-  const blueOpacity = scrollX.interpolate({ inputRange: [0, interval], outputRange: [0.04, 0.22], extrapolate: "clamp" });
+  const blueOpacity = scrollX.interpolate({ inputRange: [0, interval, interval * 2], outputRange: [0.04, 0.22, 0.04], extrapolate: "clamp" });
   return (
     <View style={styles.posterStage}>
       <Animated.View pointerEvents="none" style={[styles.posterAmbient, { backgroundColor: "#F05237", opacity: fallOpacity }]} />
@@ -219,9 +233,21 @@ function PosterCarousel({
           <View style={styles.posterButton}><Text style={styles.whiteButtonText}>Shop now ›</Text></View>
           <Text style={styles.newFoot}>New season{`\n`}New you</Text>
         </Pressable>
+        <PosterPhotoCard title="Early Prime Big Deals" subtitle="Premium pieces, better prices" color="#A5B98A" image={featured[2]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} onPress={onOpenSearch} />
+        <PosterPhotoCard title="Focus on your health" subtitle="Movement-ready layers" color="#20A79A" image={featured[3]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} onPress={onOpenSearch} />
       </Animated.ScrollView>
     </View>
   );
+}
+
+function PosterPhotoCard({ title, subtitle, color, image, styles, width, height, onPress }: { title: string; subtitle: string; color: string; image?: string; styles: ReturnType<typeof make>; width: number; height: number; onPress: () => void }) {
+  return <Pressable onPress={onPress} style={[styles.posterCard, { width, height, backgroundColor: color }]} accessibilityRole="button" accessibilityLabel={title}>
+    {image ? <Image source={{ uri: image }} style={styles.posterFullImage} contentFit="cover" accessible={false} /> : null}
+    <View pointerEvents="none" style={[styles.posterTint, { backgroundColor: color }]} />
+    <Text style={styles.posterPhotoTitle}>{title}</Text>
+    <Text style={styles.posterPhotoSubtitle}>{subtitle}</Text>
+    <View style={styles.posterButton}><Text style={styles.whiteButtonText}>Shop now ›</Text></View>
+  </Pressable>;
 }
 
 function SectionTitle({ title, onPress }: { title: string; onPress: () => void }) {
@@ -255,7 +281,9 @@ function MiniImage({ piece, onOpen }: { piece: ClosetPiece; onOpen: TodayCommerc
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    fixedHeader: { minHeight: 62, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.ink, zIndex: 5 },
+    topColorField: { position: "absolute", top: 0, left: 0, right: 0, height: 520, overflow: "hidden", zIndex: 0 },
+    topColorLayer: { position: "absolute", top: 0, left: 0, right: 0, height: 520 },
+    fixedHeader: { minHeight: 62, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "transparent", zIndex: 5 },
     feedScroll: { flex: 1 },
     content: { paddingTop: 10, paddingHorizontal: 16, paddingBottom: 130 },
     topBar: { height: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -276,6 +304,9 @@ function make(colors: Colors) {
     posterAmbient: { position: "absolute", width: 260, height: 260, borderRadius: 130, top: 86, left: 60 },
     posterCard: { borderRadius: 19, overflow: "hidden", padding: 16, justifyContent: "flex-start", shadowColor: "#000000", shadowOpacity: 0.16, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 5 },
     posterFoot: { position: "absolute", left: 18, bottom: 17, color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+    posterTint: { ...StyleSheet.absoluteFill, opacity: 0.56 },
+    posterPhotoTitle: { color: "#FFFFFF", fontSize: 26, lineHeight: 29, fontWeight: "900", maxWidth: 225, zIndex: 2 },
+    posterPhotoSubtitle: { color: "#FFFFFF", fontSize: 15, lineHeight: 20, marginTop: 8, maxWidth: 220, zIndex: 2 },
     posterFullImage: { ...StyleSheet.absoluteFill, opacity: 0.52 },
     blueColorWash: { ...StyleSheet.absoluteFill, backgroundColor: "#2762C5", opacity: 0.58 },
     blueBlobOne: { position: "absolute", width: 300, height: 300, borderRadius: 150, backgroundColor: "#7EA4FF", opacity: 0.22, right: -110, top: 92 },
