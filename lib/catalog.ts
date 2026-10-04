@@ -37,6 +37,7 @@ export type Garment = {
   material: string;
   description: string;
   image: ImageSourcePropType;
+  cutout?: ImageSourcePropType;
   tags: string[];
   country: string;
 };
@@ -53,13 +54,17 @@ export type Trend = {
 
 const img = {
   leatherTrench: require("../assets/catalog/leather-trench.jpg"),
+  leatherTrenchCutout: require("../assets/catalog/cutouts/leather-trench.png"),
   silkSlip: require("../assets/catalog/silk-slip.jpg"),
   woolBlazer: require("../assets/catalog/wool-blazer.jpg"),
   wideTrousers: require("../assets/catalog/wide-trousers.jpg"),
   vintageDenim: require("../assets/catalog/vintage-denim.jpg"),
+  vintageDenimCutout: require("../assets/catalog/cutouts/vintage-denim.png"),
   cashmereCrew: require("../assets/catalog/cashmere-crew.jpg"),
   cowboyBoots: require("../assets/catalog/cowboy-boots.jpg"),
+  cowboyBootsCutout: require("../assets/catalog/cutouts/cowboy-boots.png"),
   poetBlouse: require("../assets/catalog/poet-blouse.jpg"),
+  poetBlouseCutout: require("../assets/catalog/cutouts/poet-blouse.png"),
   suedeJacket: require("../assets/catalog/suede-jacket.jpg"),
   satinSkirt: require("../assets/catalog/satin-skirt.jpg"),
   fieldJacket: require("../assets/catalog/field-jacket.jpg"),
@@ -74,14 +79,14 @@ const img = {
 };
 
 export const GARMENTS: Garment[] = [
-  { id: "leather-trench", name: "Espresso leather trench", brand: "Archive 1982", category: "Outerwear", color: "Espresso", size: "M", priceCents: 24800, condition: "Excellent", era: "1980s Italy", material: "Lamb leather", description: "A belted trench in espresso lamb with a wide lapel and a quietly broken-in shoulder.", image: img.leatherTrench, tags: ["trench", "leather", "vintage"], country: "US" },
+  { id: "leather-trench", name: "Espresso leather trench", brand: "Archive 1982", category: "Outerwear", color: "Espresso", size: "M", priceCents: 24800, condition: "Excellent", era: "1980s Italy", material: "Lamb leather", description: "A belted trench in espresso lamb with a wide lapel and a quietly broken-in shoulder.", image: img.leatherTrench, cutout: img.leatherTrenchCutout, tags: ["trench", "leather", "vintage"], country: "US" },
   { id: "silk-slip", name: "Ivory bias silk slip", brand: "Atelier No. 4", category: "Dresses", color: "Ivory", size: "S", priceCents: 16400, condition: "Excellent", era: "1990s", material: "Silk charmeuse", description: "A bias-cut slip that moves like water.", image: img.silkSlip, tags: ["slip", "silk"], country: "FR" },
   { id: "wool-blazer", name: "Charcoal oversized blazer", brand: "Mill & Co.", category: "Outerwear", color: "Charcoal", size: "L", priceCents: 18900, condition: "Very good", era: "1990s", material: "Wool twill", description: "Strong shoulder, easy body.", image: img.woolBlazer, tags: ["blazer", "wool"], country: "GB" },
   { id: "wide-trousers", name: "Stone wide-leg trousers", brand: "Private label", category: "Trousers", color: "Stone", size: "M", priceCents: 9800, condition: "Excellent", era: "2000s", material: "Wool blend", description: "Full-leg trousers in warm stone.", image: img.wideTrousers, tags: ["trousers", "wide-leg"], country: "NL" },
-  { id: "vintage-denim", name: "Indigo vintage denim", brand: "Unlabeled", category: "Trousers", color: "Indigo", size: "29", priceCents: 11200, condition: "Very good", era: "1980s", material: "Cotton denim", description: "High-rise vintage denim with a worn indigo.", image: img.vintageDenim, tags: ["denim"], country: "US" },
+  { id: "vintage-denim", name: "Indigo vintage denim", brand: "Unlabeled", category: "Trousers", color: "Indigo", size: "29", priceCents: 11200, condition: "Very good", era: "1980s", material: "Cotton denim", description: "High-rise vintage denim with a worn indigo.", image: img.vintageDenim, cutout: img.vintageDenimCutout, tags: ["denim"], country: "US" },
   { id: "cashmere-crew", name: "Camel cashmere crew", brand: "Maison Found", category: "Knitwear", color: "Camel", size: "M", priceCents: 14500, condition: "Excellent", era: "1990s", material: "Cashmere", description: "A fine camel crew that sits close without clinging.", image: img.cashmereCrew, tags: ["cashmere"], country: "GB" },
-  { id: "cowboy-boots", name: "Oxblood cowboy boots", brand: "Deadstock", category: "Shoes", color: "Oxblood", size: "8", priceCents: 22000, condition: "Excellent", era: "1970s", material: "Leather", description: "Stacked heel, pointed toe, oxblood leather.", image: img.cowboyBoots, tags: ["boots", "western"], country: "US" },
-  { id: "poet-blouse", name: "Cream silk poet blouse", brand: "Atelier No. 4", category: "Tops", color: "Cream", size: "S", priceCents: 8600, condition: "Very good", era: "1980s", material: "Silk", description: "Gathered cuffs, an open neck, cream silk.", image: img.poetBlouse, tags: ["blouse", "silk"], country: "FR" },
+  { id: "cowboy-boots", name: "Oxblood cowboy boots", brand: "Deadstock", category: "Shoes", color: "Oxblood", size: "8", priceCents: 22000, condition: "Excellent", era: "1970s", material: "Leather", description: "Stacked heel, pointed toe, oxblood leather.", image: img.cowboyBoots, cutout: img.cowboyBootsCutout, tags: ["boots", "western"], country: "US" },
+  { id: "poet-blouse", name: "Cream silk poet blouse", brand: "Atelier No. 4", category: "Tops", color: "Cream", size: "S", priceCents: 8600, condition: "Very good", era: "1980s", material: "Silk", description: "Gathered cuffs, an open neck, cream silk.", image: img.poetBlouse, cutout: img.poetBlouseCutout, tags: ["blouse", "silk"], country: "FR" },
   { id: "suede-jacket", name: "Rust suede western jacket", brand: "Archive 1982", category: "Outerwear", color: "Rust", size: "M", priceCents: 19800, condition: "Good", era: "1970s", material: "Suede", description: "A western cut in rust suede.", image: img.suedeJacket, tags: ["suede", "western"], country: "MX" },
   { id: "satin-skirt", name: "Champagne satin midi", brand: "Maison Found", category: "Skirts", color: "Champagne", size: "S", priceCents: 9200, condition: "Excellent", era: "1990s", material: "Acetate satin", description: "Bias midi in champagne satin.", image: img.satinSkirt, tags: ["skirt", "satin"], country: "IT" },
   { id: "field-jacket", name: "Olive field jacket", brand: "Unlabeled", category: "Outerwear", color: "Olive", size: "L", priceCents: 13400, condition: "Very good", era: "1990s", material: "Cotton twill", description: "Utility, not costume.", image: img.fieldJacket, tags: ["utility"], country: "DE" },

@@ -78,9 +78,11 @@ export type Liker = {
 function testShopPieces(): ClosetPiece[] {
   return GARMENTS.map((garment): ClosetPiece => {
     const photo = RNImage.resolveAssetSource(garment.image)?.uri || "";
+    const cutoutPhoto = garment.cutout ? RNImage.resolveAssetSource(garment.cutout)?.uri : undefined;
     return {
       id: `test-${garment.id}`,
       photo,
+      cutoutPhoto,
       photos: [photo],
       name: garment.name,
       brand: garment.brand,

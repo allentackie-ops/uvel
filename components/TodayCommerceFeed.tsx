@@ -239,11 +239,11 @@ function PosterCarousel({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeIndexRef = useRef(0);
   const stories: Array<{ title: string; subtitle: string; color: string; variant: EditorialVariant; image?: string }> = [
-    { title: "The Fall Edit", subtitle: "Fresh layers, easy pieces, and the details that make a look feel finished.", color: "#F05237", variant: "float", image: featured[0]?.photo },
-    { title: "New in", subtitle: "Your next favorite fit is here. Discover pieces with a point of view.", color: "#2762C5", variant: "slide", image: featured[1]?.photo },
-    { title: "Early Prime Big Deals", subtitle: "Premium pieces, better prices.", color: "#A5B98A", variant: "explode", image: featured[2]?.photo },
-    { title: "Focus on your health", subtitle: "Movement-ready layers for the days that keep moving.", color: "#20A79A", variant: "collage", image: featured[3]?.photo },
-    { title: "Minimal, with presence", subtitle: "One strong piece. A quieter kind of statement.", color: "#8D74D6", variant: "luxury", image: featured[0]?.photo },
+    { title: "The Fall Edit", subtitle: "Fresh layers, easy pieces, and the details that make a look feel finished.", color: "#F05237", variant: "float", image: featured[0]?.cutoutPhoto },
+    { title: "New in", subtitle: "Your next favorite fit is here. Discover pieces with a point of view.", color: "#2762C5", variant: "slide", image: featured[1]?.cutoutPhoto },
+    { title: "Early Prime Big Deals", subtitle: "Premium pieces, better prices.", color: "#A5B98A", variant: "explode", image: featured[2]?.cutoutPhoto },
+    { title: "Focus on your health", subtitle: "Movement-ready layers for the days that keep moving.", color: "#20A79A", variant: "collage", image: featured[3]?.cutoutPhoto },
+    { title: "Minimal, with presence", subtitle: "One strong piece. A quieter kind of statement.", color: "#8D74D6", variant: "luxury", image: featured[0]?.cutoutPhoto },
   ];
   const scheduleAutoAdvance = () => {
     if (timerRef.current) clearTimeout(timerRef.current);

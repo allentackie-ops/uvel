@@ -4,9 +4,10 @@ import type { ClosetPiece } from "./wardrobe";
  * Returns the subject-only asset for editorial Today compositions.
  *
  * `cutoutPhoto` is expected to be a transparent PNG/WebP generated from the
- * original listing photo. The original photo remains the fallback so older
- * listings continue to render until a cutout is available.
+ * original listing photo. Editorial compositions intentionally do not fall
+ * back to the original photograph: a rectangular source photo must never be
+ * shown where a subject cutout is required.
  */
-export function todayProductImage(piece?: Pick<ClosetPiece, "photo" | "cutoutPhoto">, fallback = "") {
-  return piece?.cutoutPhoto || piece?.photo || fallback;
+export function todayProductImage(piece?: Pick<ClosetPiece, "cutoutPhoto">, fallback = "") {
+  return piece?.cutoutPhoto || fallback;
 }
