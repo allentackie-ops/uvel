@@ -13,7 +13,7 @@ import { getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 
 const COLOR_CHIPS = [
-  { label: "Today", color: "#F7F6F2", text: "#2A320E" },
+  { label: "Today", color: "#2A320E", text: "#FFFFFF" },
   { label: "Looks", color: "#F58D91", text: "#181714" },
   { label: "Creators", color: "#CDB9F4", text: "#181714" },
   { label: "Brands", color: "#C7EA67", text: "#181714" },
@@ -149,16 +149,13 @@ export function TodayCommerceFeed({
         bounces
         onScroll={handleScroll}
       >
-      <View style={styles.tagDeck}>
-        <View pointerEvents="none" style={styles.tagDeckHighlight} />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          {COLOR_CHIPS.map((chip, index) => (
-            <Pressable key={chip.label} onPress={() => index === 1 ? onOpenStyle() : undefined} style={({ pressed }) => [styles.chip, { backgroundColor: chip.color }, pressed && styles.chipPressed]} accessibilityRole="button" accessibilityLabel={chip.label}>
-              <Text style={[styles.chipText, { color: chip.text }]}>{chip.label}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+        {COLOR_CHIPS.map((chip, index) => (
+          <Pressable key={chip.label} onPress={() => index === 1 ? onOpenStyle() : undefined} style={[styles.chip, { backgroundColor: chip.color }]} accessibilityRole="button" accessibilityLabel={chip.label}>
+            <Text style={[styles.chipText, { color: chip.text }]}>{chip.label}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
 
       <PosterCarousel featured={featured} onOpenPiece={onOpenPiece} onOpenSearch={onOpenSearch} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterInterval={posterInterval} />
 
@@ -341,12 +338,14 @@ function make(colors: Colors) {
     input: { flex: 1, height: 50, color: colors.bone, fontSize: 17 },
     searchAction: { width: 34, height: 44, alignItems: "center", justifyContent: "center" },
     searchDivider: { height: 27, width: 1, backgroundColor: `${colors.bone}22` },
-    tagDeck: { marginHorizontal: -8, borderRadius: 31, backgroundColor: `${colors.surface}18`, borderWidth: 1, borderColor: `${colors.bone}18`, paddingVertical: 5, overflow: "hidden", shadowColor: "#000000", shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 5 },
-    tagDeckHighlight: { position: "absolute", top: 0, left: 24, right: 24, height: 1, backgroundColor: `${colors.bone}35`, borderRadius: 1 },
-    chips: { gap: 10, paddingHorizontal: 8, paddingVertical: 8 },
-    chip: { height: 52, paddingHorizontal: 23, borderRadius: 26, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)", shadowColor: "#000000", shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-    chipPressed: { opacity: 0.86, transform: [{ scale: 0.97 }] },
-    chipText: { fontSize: 17, fontWeight: "900", letterSpacing: -0.25 },
+    chips: { gap: 9, paddingVertical: 14 },
+    chip: { height: 44, paddingHorizontal: 19, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+    chipText: { fontSize: 15, fontWeight: "800" },
+    featuredRule: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 2, marginBottom: 13, paddingHorizontal: 2 },
+    ruleLine: { flex: 1, height: 1, backgroundColor: `${colors.bone}30` },
+    ruleLabelWrap: { alignItems: "center" },
+    ruleEyebrow: { color: colors.pulse, fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 1.5 },
+    ruleTitle: { color: colors.bone, fontSize: 14, lineHeight: 18, fontWeight: "800", letterSpacing: -0.1 },
     posterStage: { marginHorizontal: -2, overflow: "visible", backgroundColor: "transparent", paddingVertical: 0 },
     posterAmbient: { position: "absolute", width: 260, height: 260, borderRadius: 130, top: 86, left: 60 },
     posterCard: { borderRadius: 22, overflow: "hidden", padding: 20, justifyContent: "flex-start", marginRight: 12 },
