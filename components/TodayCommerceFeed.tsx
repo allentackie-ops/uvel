@@ -26,6 +26,10 @@ const STYLE_LOOKS = [
 ];
 
 const BANNER_COLORS = ["#F05237", "#2762C5", "#A5B98A", "#20A79A", "#F4A73B", "#8D74D6", "#E96B91", "#5F8D56"];
+const FEED_FADE_STRIPS = Array.from({ length: 56 }, (_, index) => {
+  const progress = index / 55;
+  return Math.pow(progress, 1.65);
+});
 
 export type TodayCommerceFeedProps = {
   pieces: ClosetPiece[];
@@ -127,7 +131,7 @@ export function TodayCommerceFeed({
           return <Animated.View key={color} style={[styles.topColorLayer, { backgroundColor: color, opacity: Animated.multiply(horizontalOpacity, topColorFade) }]} />;
         })}
         <View style={styles.topColorFade}>
-          {[0.02, 0.05, 0.09, 0.14, 0.2, 0.28, 0.37, 0.48, 0.6, 0.73, 0.86, 1].map((opacity, index) => <View key={index} style={[styles.topColorFadeStrip, { opacity }]} />)}
+          {FEED_FADE_STRIPS.map((opacity, index) => <View key={index} style={[styles.topColorFadeStrip, { opacity }]} />)}
         </View>
       </View>
       <View style={[styles.fixedHeader, { height: insets.top + 62, paddingTop: insets.top }]}>
@@ -374,9 +378,9 @@ function MiniImage({ piece, onOpen }: { piece: ClosetPiece; onOpen: TodayCommerc
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    topColorField: { position: "absolute", top: 0, left: 0, right: 0, height: 680, overflow: "hidden", zIndex: 0 },
-    topColorLayer: { position: "absolute", top: 0, left: 0, right: 0, height: 680 },
-    topColorFade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 140, flexDirection: "column" },
+    topColorField: { position: "absolute", top: 0, left: 0, right: 0, height: 760, overflow: "hidden", zIndex: 0 },
+    topColorLayer: { position: "absolute", top: 0, left: 0, right: 0, height: 760 },
+    topColorFade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 230, flexDirection: "column" },
     topColorFadeStrip: { flex: 1, backgroundColor: colors.ink },
     fixedHeader: { minHeight: 62, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "transparent", zIndex: 5, position: "relative" },
     logoCenter: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", zIndex: 10 },
