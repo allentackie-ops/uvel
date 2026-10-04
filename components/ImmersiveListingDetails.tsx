@@ -155,8 +155,6 @@ export function ImmersiveListingDetails({
                 </Text>
               ) : null}
 
-              <ListingAlertControls key={piece.id} piece={piece} colors={colors} appearance="popup" collapsible />
-
               {piece.notes?.trim() ? (
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>About</Text>
@@ -206,6 +204,7 @@ export function ImmersiveListingDetails({
                   <Text style={styles.compactBody}>Returns and delivery details are confirmed at checkout.</Text>
                 </View> : null}
               </View>
+              <ListingAlertControls key={piece.id} piece={piece} colors={colors} appearance="popup" collapsible />
               </Animated.ScrollView>
             </GestureDetector>
           </View>
