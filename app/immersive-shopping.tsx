@@ -1058,7 +1058,7 @@ function make(colors: Colors) {
     immersiveOfferText: { color: overlayColor, fontSize: 12, fontWeight: "800" },
     stackBackButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: "rgba(244,240,230,0.30)", backgroundColor: "rgba(0,0,0,0.46)", alignItems: "center", justifyContent: "center" },
     listingCaption: { maxWidth: "88%" },
-    immersiveAudioRow: { width: "100%", minHeight: 68, marginTop: 18, paddingLeft: 16, paddingRight: 8, borderRadius: 34, borderWidth: 1, borderColor: "rgba(244,240,230,0.24)", backgroundColor: "rgba(7,7,7,0.72)", flexDirection: "row", alignItems: "center", gap: 12 },
+    immersiveAudioRow: { width: "100%", minHeight: 68, marginTop: 18, paddingLeft: 0, paddingRight: 0, flexDirection: "row", alignItems: "center", gap: 12 },
     immersiveAudioRowPressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
     immersiveAudioWaveform: { width: 116, height: 38, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     immersiveAudioWave: { width: 4, borderRadius: 3, backgroundColor: `${colors.success}B8` },
