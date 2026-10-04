@@ -242,7 +242,7 @@ export function TodayBannerStoryOverlay({
           onScroll={scrollHandler}
         >
           <GestureDetector gesture={pan}>
-            <Animated.View style={[styles.heroSlot, { height: heroH }, inFlowStyle]}>
+            <Animated.View style={[styles.heroSlot, { width: screenW, height: heroH, marginLeft: -20 }, inFlowStyle]}>
               <StoryHero story={story} pieces={pieces} topPadding={insets.top + 70} />
             </Animated.View>
           </GestureDetector>
