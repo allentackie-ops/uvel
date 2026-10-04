@@ -75,6 +75,7 @@ export function TodayCommerceFeed({
   const deals = feedPieces.slice(8, 12).length >= 3 ? feedPieces.slice(8, 12) : feedPieces.slice(0, 4);
   const followed = feedPieces.slice(12, 16).length >= 3 ? feedPieces.slice(12, 16) : feedPieces.slice(0, 4);
   const personalized = feedPieces.slice(16, 24).length >= 4 ? feedPieces.slice(16, 24) : feedPieces.slice(0, 8);
+  const topColorFade = scrollY.interpolate({ inputRange: [0, 180], outputRange: [1, 0], extrapolate: "clamp" });
   const logoMotion = {
     opacity: scrollY.interpolate({ inputRange: [0, 80], outputRange: [1, 0.86], extrapolate: "clamp" }),
     transform: [
@@ -89,7 +90,8 @@ export function TodayCommerceFeed({
         {["#F05237", "#2762C5", "#A5B98A", "#20A79A"].map((color, index) => {
           const inputRange = index === 0 ? [0, posterInterval] : [(index - 1) * posterInterval, index * posterInterval, (index + 1) * posterInterval];
           const outputRange = index === 0 ? [0.52, 0] : [0, 0.52, 0];
-          return <Animated.View key={color} style={[styles.topColorLayer, { backgroundColor: color, opacity: posterScrollX.interpolate({ inputRange, outputRange, extrapolate: "clamp" }) }]} />;
+          const horizontalOpacity = posterScrollX.interpolate({ inputRange, outputRange, extrapolate: "clamp" });
+          return <Animated.View key={color} style={[styles.topColorLayer, { backgroundColor: color, opacity: Animated.multiply(horizontalOpacity, topColorFade) }]} />;
         })}
       </View>
       <View style={[styles.fixedHeader, { paddingTop: insets.top + 4 }]}>
