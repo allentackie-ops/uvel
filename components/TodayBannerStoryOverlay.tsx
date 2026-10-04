@@ -111,28 +111,27 @@ export function TodayBannerStoryOverlay({
     <GestureHandlerRootView style={styles.root}>
       <Reanimated.View style={[styles.root, swipeStyle]}>
       <Animated.View style={[styles.root, { opacity, backgroundColor: colors.ink }]}>
-      <GestureDetector gesture={pan}>
-      <Animated.View style={[styles.heroMotion, { height: heroHeight, transform: [{ translateX: heroTranslateX }, { translateY: heroTranslateY }, { scale: heroScale }] }]}>
-        <View style={[styles.heroColor, { backgroundColor: story.color }]} />
-        <View style={[styles.heroCopy, { paddingTop: insets.top + 70 }]}>
-          <Text style={styles.eyebrow}>{story.eyebrow || "THE EDIT"}</Text>
-          <Text style={styles.title}>{story.title}</Text>
-          <Text style={styles.subtitle}>{story.subtitle}</Text>
-          <View style={styles.heroFeatureGrid} pointerEvents="none">
-            {pieces.slice(0, 4).map((piece, index) => <View key={`${piece.id}-hero-${index}`} style={styles.heroFeature}><Image source={{ uri: piece.photo }} style={styles.heroFeatureImage} contentFit="cover" accessible={false} /></View>)}
-          </View>
-          <Text style={styles.heroFooter}>{story.footer || "UVEL EDIT"}</Text>
-        </View>
-      </Animated.View>
-      </GestureDetector>
-
       <Reanimated.ScrollView
         style={styles.scroll}
-        contentContainerStyle={[styles.content, { paddingTop: heroHeight + 18, paddingBottom: insets.bottom + 34 }]}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 34 }]}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         onScroll={scrollHandler}
       >
+        <GestureDetector gesture={pan}>
+        <Animated.View style={[styles.heroMotion, { width: screen.width, marginLeft: -20, height: heroHeight, transform: [{ translateX: heroTranslateX }, { translateY: heroTranslateY }, { scale: heroScale }] }]}>
+          <View style={[styles.heroColor, { backgroundColor: story.color }]} />
+          <View style={[styles.heroCopy, { paddingTop: insets.top + 70 }]}>
+            <Text style={styles.eyebrow}>{story.eyebrow || "THE EDIT"}</Text>
+            <Text style={styles.title}>{story.title}</Text>
+            <Text style={styles.subtitle}>{story.subtitle}</Text>
+            <View style={styles.heroFeatureGrid} pointerEvents="none">
+              {pieces.slice(0, 4).map((piece, index) => <View key={`${piece.id}-hero-${index}`} style={styles.heroFeature}><Image source={{ uri: piece.photo }} style={styles.heroFeatureImage} contentFit="cover" accessible={false} /></View>)}
+            </View>
+            <Text style={styles.heroFooter}>{story.footer || "UVEL EDIT"}</Text>
+          </View>
+        </Animated.View>
+        </GestureDetector>
         <View style={styles.intro}>
           <Text style={[styles.kicker, { color: story.color }]}>A CURATED STORY</Text>
           <Text style={[styles.heading, { color: colors.bone }]}>Four edits, one easy point of view.</Text>
@@ -196,7 +195,7 @@ function StoryListPiece({ piece, color, colors, market, onOpenPiece }: { piece: 
 
 const styles = StyleSheet.create({
   root: { ...StyleSheet.absoluteFill, zIndex: 100, overflow: "hidden" },
-  heroMotion: { position: "absolute", left: 0, right: 0, top: 0, overflow: "hidden", zIndex: 2 },
+  heroMotion: { position: "relative", width: "100%", overflow: "hidden", zIndex: 2 },
   heroColor: { ...StyleSheet.absoluteFill },
   heroImage: { ...StyleSheet.absoluteFill, opacity: 0.34 },
   heroTint: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.26)" },
@@ -210,7 +209,7 @@ const styles = StyleSheet.create({
   heroFooter: { color: "#FFFFFF", fontSize: 13, fontWeight: "800", marginTop: 12 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 20 },
-  intro: { paddingBottom: 28 },
+  intro: { paddingTop: 18, paddingBottom: 28 },
   kicker: { fontSize: 10, letterSpacing: 1.8, fontWeight: "900" },
   heading: { fontSize: 28, lineHeight: 32, fontWeight: "900", marginTop: 10 },
   body: { fontSize: 15, lineHeight: 22, marginTop: 9 },
