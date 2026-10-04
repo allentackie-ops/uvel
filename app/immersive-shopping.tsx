@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { useAudioPlayer } from "expo-audio";
 import { router, useLocalSearchParams } from "expo-router";
 import PagerView from "react-native-pager-view";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -35,6 +36,7 @@ import { takeImmersivePreview } from "../lib/immersivePreview";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const MIN_REFRESH_MS = 1200;
+const IMMERSIVE_AUDIO_SOURCE = require("../assets/music/today/after-hours.m4a");
 const IMMERSIVE_WELCOME_KEY = "uvel-immersive-welcome-seen-v1";
 let immersiveResumeIndex = 0;
 const CATALOG_BRAND_IDS: Record<string, string> = {
@@ -632,11 +634,38 @@ function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: Re
   );
 }
 
+function ImmersiveAudioRow({ piece, styles, playing, onPress }: { piece: ShopFloorPiece; styles: ReturnType<typeof make>; playing: boolean; onPress: () => void }) {
+  const waveform = [12, 21, 30, 17, 26, 34, 20, 28, 15, 24, 31, 18, 27, 14, 22];
+  return (
+    <AccessiblePressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.immersiveAudioRow, pressed && styles.immersiveAudioRowPressed]}
+      accessibilityRole="button"
+      accessibilityLabel={playing ? "Pause Oxblood after dark" : "Play Oxblood after dark"}
+      accessibilityHint="Plays the immersive shopping soundtrack."
+    >
+      <View style={styles.immersiveAudioWaveform} accessibilityElementsHidden>
+        {waveform.map((height, index) => <View key={index} style={[styles.immersiveAudioWave, { height }, playing && styles.immersiveAudioWavePlaying]} />)}
+      </View>
+      <View style={styles.immersiveAudioTrack}>
+        <Text style={styles.immersiveAudioTitle} numberOfLines={1}>Oxblood after dark</Text>
+        <Text style={styles.immersiveAudioSubtitle} numberOfLines={1}>uvel original</Text>
+      </View>
+      <View style={styles.immersiveAudioDisc}>
+        <Image source={{ uri: piece.photo }} style={styles.immersiveAudioDiscImage} contentFit="cover" accessible={false} />
+        <View style={styles.immersiveAudioDiscCenter} />
+      </View>
+    </AccessiblePressable>
+  );
+}
+
 function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, contentHeight, contentOpacityStyle, refreshImageScale, onFirstFind, firstFindLabel, feedbackPrompted, onRecommendationFeedback, onOpenSeller, guideStep, onGuideDismiss }: any) {
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   const [shareOpen, setShareOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [offerOpen, setOfferOpen] = useState(false);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const audioPlayer = useAudioPlayer(IMMERSIVE_AUDIO_SOURCE);
   const cart = useCart();
   const lastImageTap = useRef(0);
   const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -712,6 +741,21 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     setOfferOpen(true);
   }
+  useEffect(() => {
+    audioPlayer.loop = true;
+    audioPlayer.volume = 0.16;
+    if (!active || !audioPlaying) audioPlayer.pause();
+    return () => audioPlayer.pause();
+  }, [active, audioPlaying, audioPlayer]);
+  function toggleAudio() {
+    if (audioPlaying) {
+      audioPlayer.pause();
+      setAudioPlaying(false);
+      return;
+    }
+    audioPlayer.play();
+    setAudioPlaying(true);
+  }
 
   return (
     <View
@@ -758,6 +802,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
                 <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{salePrice}</Text></View>
               ) : <Text style={styles.price}>{localPrice}</Text>}
             </View>
+            <ImmersiveAudioRow piece={piece} styles={styles} playing={audioPlaying} onPress={toggleAudio} />
           </View>
         ) : (
           <View>
@@ -781,6 +826,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           {credit > 0 ? (
             <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{salePrice}</Text></View>
           ) : <Text style={styles.price}>{localPrice}</Text>}
+          <ImmersiveAudioRow piece={piece} styles={styles} playing={audioPlaying} onPress={toggleAudio} />
           </View>
         )}
       </Animated.View>
@@ -1026,6 +1072,17 @@ function make(colors: Colors) {
     immersiveOfferText: { color: overlayColor, fontSize: 12, fontWeight: "800" },
     stackBackButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: "rgba(244,240,230,0.30)", backgroundColor: "rgba(0,0,0,0.46)", alignItems: "center", justifyContent: "center" },
     listingCaption: { maxWidth: "88%" },
+    immersiveAudioRow: { width: "100%", minHeight: 68, marginTop: 18, paddingLeft: 16, paddingRight: 8, borderRadius: 34, borderWidth: 1, borderColor: "rgba(244,240,230,0.24)", backgroundColor: "rgba(7,7,7,0.72)", flexDirection: "row", alignItems: "center", gap: 12 },
+    immersiveAudioRowPressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
+    immersiveAudioWaveform: { width: 116, height: 38, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    immersiveAudioWave: { width: 4, borderRadius: 3, backgroundColor: `${colors.success}B8` },
+    immersiveAudioWavePlaying: { backgroundColor: colors.success },
+    immersiveAudioTrack: { flex: 1, minWidth: 0, alignItems: "flex-end" },
+    immersiveAudioTitle: { color: overlayColor, fontSize: 13, lineHeight: 17, fontWeight: "800" },
+    immersiveAudioSubtitle: { color: `${overlayColor}99`, fontSize: 11, lineHeight: 15, marginTop: 1 },
+    immersiveAudioDisc: { width: 54, height: 54, borderRadius: 27, borderWidth: 1.5, borderColor: overlayColor, overflow: "hidden", alignItems: "center", justifyContent: "center" },
+    immersiveAudioDiscImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, opacity: 0.78 },
+    immersiveAudioDiscCenter: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#111", borderWidth: 2, borderColor: "rgba(244,240,230,0.8)" },
     detailsHint: { alignSelf: "flex-start", maxWidth: 238, paddingHorizontal: 13, paddingVertical: 9, marginBottom: 9, borderRadius: 13, backgroundColor: "#F4F0E6", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8, position: "relative" },
     detailsHintTitle: { color: "#171510", fontSize: 12, fontWeight: "900" },
     detailsHintCopy: { color: "#514D43", fontSize: 11, lineHeight: 15, marginTop: 2 },
