@@ -51,7 +51,8 @@ export function ImmersiveListingDetails({
     },
   });
   const dragStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value }] }));
-  const [contentHeight, setContentHeight] = useState(0);
+  const [measurementsOpen, setMeasurementsOpen] = useState(false);
+  const [shippingOpen, setShippingOpen] = useState(false);
   const originCode = piece.country || buyerCountry;
   const origin = getMarket(originCode);
   const rawAvailability = shipsToLine(originCode, piece.shipsTo);
@@ -67,22 +68,18 @@ export function ImmersiveListingDetails({
     { label: "Color", value: piece.color },
     { label: "Material", value: piece.material },
   ].filter((fact): fact is { label: string; value: string } => Boolean(fact.value?.trim()));
-  const measurements = Object.entries(piece.measurements || {}).filter(([, value]) => Boolean(value));
+  const fit = piece.measurements?.fit || piece.measurements?.length || "Not added yet";
+  const measurements = Object.entries(piece.measurements || {}).filter(([label, value]) => Boolean(value) && label !== "fit" && label !== "length");
   const bottomPadding = Math.max(insets.bottom + 10, 16);
   const sheetChrome = 36 + 8 + bottomPadding;
   const maxSheetHeight = windowHeight - insets.top - 10;
   const maxScrollHeight = Math.max(150, maxSheetHeight - sheetChrome);
-  const fallbackScrollHeight = Math.min(maxScrollHeight, windowHeight * 0.4);
-  const scrollHeight = Math.min(maxScrollHeight, contentHeight || fallbackScrollHeight);
+  const scrollHeight = Math.min(maxScrollHeight, Math.max(320, windowHeight * 0.72) - sheetChrome);
   const sheetHeight = scrollHeight + sheetChrome;
 
   useEffect(() => {
     if (visible) dragY.value = 0;
   }, [visible, dragY]);
-
-  useEffect(() => {
-    setContentHeight(0);
-  }, [piece.id]);
 
   const dismissPan = useMemo(() => Gesture.Pan()
     .activeOffsetY(6)
@@ -136,9 +133,6 @@ export function ImmersiveListingDetails({
                 overScrollMode="never"
                 scrollEventThrottle={16}
                 onScroll={scrollHandler}
-              onContentSizeChange={(_width, height) => {
-                setContentHeight((current) => Math.abs(current - height) > 1 ? height : current);
-              }}
             >
               {brandLabel.trim() && brandLabel.trim().toLowerCase() !== sellerName.trim().toLowerCase() ? (
                 <Text style={styles.brand}>{brandLabel.toUpperCase()}</Text>
@@ -189,22 +183,29 @@ export function ImmersiveListingDetails({
                   <Ionicons name="navigate-outline" size={17} color={colors.success} />
                   <Text style={styles.availabilityText}>{availability}</Text>
                 </View>
-                {piece.shippingMethod ? <Text style={styles.sellerMeta}>{piece.shippingMethod === "pickup" ? "Courier collection" : "Seller drop-off"} · {piece.shippingBuyerPays === false ? "Seller pays delivery" : "Buyer pays delivery"}</Text> : null}
               </View>
 
-              {measurements.length ? (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Measurements</Text>
-                  <View style={styles.measurements}>
-                    {measurements.map(([label, value]) => (
-                      <View key={label} style={styles.measurementRow}>
-                        <Text style={styles.measurementLabel}>{label.replace(/([A-Z])/g, " $1").replace(/[_-]/g, " ")}</Text>
-                        <Text style={styles.measurementValue}>{value}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              ) : null}
+              <View style={styles.compactSection}>
+                <AccessiblePressable onPress={() => setMeasurementsOpen((open) => !open)} style={styles.compactRow} accessibilityRole="button" accessibilityState={{ expanded: measurementsOpen }}>
+                  <View style={styles.compactTitleWrap}><Ionicons name="resize-outline" size={17} color={colors.success} /><Text style={styles.compactTitle}>Measurements & fit</Text></View>
+                  <Ionicons name={measurementsOpen ? "chevron-up" : "chevron-down"} size={17} color={colors.bone} />
+                </AccessiblePressable>
+                {measurementsOpen ? <View style={styles.compactContent}>
+                  <View style={styles.measurementRow}><Text style={styles.measurementLabel}>Fit</Text><Text style={styles.measurementValue}>{fit}</Text></View>
+                  {measurements.length ? measurements.map(([label, value]) => <View key={label} style={styles.measurementRow}><Text style={styles.measurementLabel}>{label.replace(/([A-Z])/g, " $1").replace(/[_-]/g, " ")}</Text><Text style={styles.measurementValue}>{value}</Text></View>) : <Text style={styles.compactBody}>No measurements added yet.</Text>}
+                </View> : null}
+              </View>
+              <View style={styles.compactSection}>
+                <AccessiblePressable onPress={() => setShippingOpen((open) => !open)} style={styles.compactRow} accessibilityRole="button" accessibilityState={{ expanded: shippingOpen }}>
+                  <View style={styles.compactTitleWrap}><Ionicons name="cube-outline" size={17} color={colors.success} /><Text style={styles.compactTitle}>Shipping & returns</Text></View>
+                  <Ionicons name={shippingOpen ? "chevron-up" : "chevron-down"} size={17} color={colors.bone} />
+                </AccessiblePressable>
+                {shippingOpen ? <View style={styles.compactContent}>
+                  <Text style={styles.compactBody}>Ships to {availability.replace(/^Available /, "")}.</Text>
+                  {piece.shippingMethod ? <Text style={styles.compactBody}>{piece.shippingMethod === "pickup" ? "Courier collection" : "Seller drop-off"} · {piece.shippingBuyerPays === false ? "Seller pays delivery" : "Buyer pays delivery"}</Text> : null}
+                  <Text style={styles.compactBody}>Returns and delivery details are confirmed at checkout.</Text>
+                </View> : null}
+              </View>
               </Animated.ScrollView>
             </GestureDetector>
           </View>
@@ -262,6 +263,12 @@ function make(colors: ReturnType<typeof useColors>) {
     sellerMeta: { color: light ? colors.muted : "rgba(244,240,230,0.69)", fontSize: 12, marginTop: 2 },
     availabilityRow: { flexDirection: "row", alignItems: "center", gap: 9, minHeight: 30, paddingTop: 8 },
     availabilityText: { color: light ? colors.bone : "rgba(244,240,230,0.88)", fontSize: 12, fontWeight: "600", flex: 1 },
+    compactSection: { marginTop: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}18` },
+    compactRow: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+    compactTitleWrap: { flexDirection: "row", alignItems: "center", gap: 9 },
+    compactTitle: { color: colors.bone, fontSize: 13, fontWeight: "800" },
+    compactContent: { paddingBottom: 8 },
+    compactBody: { color: light ? colors.muted : "rgba(244,240,230,0.72)", fontSize: 12, lineHeight: 18, paddingVertical: 2 },
     measurements: { paddingHorizontal: 1 },
     measurementRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 34, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "rgba(244,240,230,0.10)" },
     measurementLabel: { color: light ? colors.muted : "rgba(244,240,230,0.63)", fontSize: 12, textTransform: "capitalize" },
