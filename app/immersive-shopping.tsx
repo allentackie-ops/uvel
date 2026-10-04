@@ -71,7 +71,7 @@ function randomPromptGap(min: number, max: number) {
 
 
 export default function ImmersiveShopping() {
-  const { preview } = useLocalSearchParams<{ preview?: string }>();
+  const { preview, listingId } = useLocalSearchParams<{ preview?: string; listingId?: string }>();
   const previewPiece = useMemo(() => preview === "1" ? takeImmersivePreview() : null, [preview]);
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
@@ -122,6 +122,7 @@ export default function ImmersiveShopping() {
   const feedbackPromptRef = useRef<{ pieceId: string; index: number } | null>(null);
   const feedbackPromptTiming = useRef({ nextIndex: randomPromptGap(3, 6), shownThisSession: new Set<string>() });
   const feedbackToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openedListingRef = useRef<string | null>(null);
   const swipeY = useSharedValue(0);
   const activeIndexShared = useSharedValue(immersiveResumeState?.activeIndex ?? 0);
   const swipeLock = useSharedValue(0);
@@ -161,6 +162,21 @@ export default function ImmersiveShopping() {
     seed: sessionSeed,
   }), [rankedPieces, sessionSeed]);
   const activeFeedSession = previewPiece ? fallbackFeedSession : feedSession.queue.length ? feedSession : fallbackFeedSession;
+
+  useEffect(() => {
+    if (!listingId || previewPiece || openedListingRef.current === listingId) return;
+    const queueIndex = activeFeedSession.queue.findIndex((piece) => piece.id === listingId);
+    const repeatIndex = activeFeedSession.repeat.findIndex((piece) => piece.id === listingId);
+    const targetIndex = queueIndex >= 0
+      ? queueIndex
+      : repeatIndex >= 0
+        ? activeFeedSession.queue.length + repeatIndex
+        : -1;
+    if (targetIndex < 0) return;
+    openedListingRef.current = listingId;
+    setActiveIndex(targetIndex);
+    activeIndexShared.value = targetIndex;
+  }, [activeFeedSession, activeIndexShared, listingId, previewPiece]);
 
   const feedWindow = useMemo(() => {
     const itemAt = (index: number) => sessionItemAt(activeFeedSession, index);

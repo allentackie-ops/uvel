@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { alertKindLabel, enableAlert, setAlertPreference, type AlertKind, useAlertPreference } from "../lib/alerts";
+import { alertKindLabel, enableAlert, setAlertPreference, type AlertKind, type AlertSource, useAlertPreference } from "../lib/alerts";
 import type { ClosetPiece } from "../lib/wardrobe";
 import type { Colors } from "../lib/theme";
 import { useUvel } from "../lib/store";
@@ -12,9 +12,10 @@ type Props = {
   appearance?: "inline" | "popup";
   collapsible?: boolean;
   compact?: boolean;
+  source?: AlertSource;
 };
 
-export function ListingAlertControls({ piece, colors, appearance = "inline", collapsible = false, compact = false }: Props) {
+export function ListingAlertControls({ piece, colors, appearance = "inline", collapsible = false, compact = false, source = "today" }: Props) {
   const app = useUvel();
   const preference = useAlertPreference(app.uid, piece.id);
   const [busy, setBusy] = useState(false);
@@ -30,7 +31,7 @@ export function ListingAlertControls({ piece, colors, appearance = "inline", col
     setBusy(true);
     try {
       if (!app.saved.includes(piece.id)) await app.toggleSaved(piece.id);
-      const result = await enableAlert(app.uid, piece, kind);
+      const result = await enableAlert(app.uid, piece, kind, source);
       if (!result.permission) {
         Alert.alert("Alert saved", "Your alert is saved in Uvel. Turn on notifications in Settings if you want device notifications when a change is recorded.");
       }

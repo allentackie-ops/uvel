@@ -204,7 +204,7 @@ export function ImmersiveListingDetails({
                   <Text style={styles.compactBody}>Returns and delivery details are confirmed at checkout.</Text>
                 </View> : null}
               </View>
-              <ListingAlertControls key={piece.id} piece={piece} colors={colors} appearance="popup" collapsible compact />
+              <ListingAlertControls key={piece.id} piece={piece} colors={colors} appearance="popup" collapsible compact source="immersive" />
               </Animated.ScrollView>
             </GestureDetector>
           </View>

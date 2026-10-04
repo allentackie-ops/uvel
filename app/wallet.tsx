@@ -122,8 +122,6 @@ export default function Wallet() {
             <Text style={styles.splitL}>First Find</Text>
           </View>
         ) : null}
-        <Text style={styles.hint}>When someone buys from you, the money is held. It moves to available after they confirm, or two days after delivery. Then you can spend it on Uvel or withdraw it.</Text>
-
         <Pressable onPress={() => void withdraw()} disabled={busy || wallet.availableCents < 10} style={[styles.withdraw, (busy || wallet.availableCents < 10) && { opacity: 0.45 }]} accessibilityRole="button" accessibilityLabel="Withdraw available balance">
           <Text style={styles.withdrawTxt}>{busy ? "Working…" : "Withdraw available"}</Text>
         </Pressable>
@@ -131,7 +129,7 @@ export default function Wallet() {
         <Text style={styles.h}>Payout account</Text>
         {isUS ? (
           <View>
-            <Text style={styles.hint}>{connectStatus?.payoutsEnabled ? "Stripe has verified your payout account." : "Stripe securely verifies your identity and bank or debit-card details. Uvel never sees your full account number."}</Text>
+            {connectStatus?.payoutsEnabled ? <Text style={styles.hint}>Stripe has verified your payout account.</Text> : null}
             {connectStatus?.requirements?.length ? <Text style={styles.warning}>More information is required before you can withdraw.</Text> : null}
             {connectStatus?.disabledReason ? <Text style={styles.warning}>Payouts are temporarily restricted. Open Stripe setup to resolve this.</Text> : null}
             <Pressable onPress={() => void savePayout()} disabled={busy} style={styles.save}>

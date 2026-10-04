@@ -39,8 +39,12 @@ export default function Alerts() {
   const offerActivity = activity.filter((item) => item.kind.startsWith("offer_"));
   const otherActivity = activity.filter((item) => !item.kind.startsWith("offer_"));
 
-  function openListing(id: string, eventId?: string) {
+  function openListing(id: string, eventId?: string, source: "today" | "immersive" = "today") {
     if (eventId) void markAlertRead(app.uid, eventId);
+    if (source === "immersive") {
+      router.push({ pathname: "/immersive-shopping", params: { listingId: id } });
+      return;
+    }
     router.push({ pathname: "/closet/[id]", params: { id } });
   }
 
@@ -71,7 +75,7 @@ export default function Alerts() {
         {preferences.length ? preferences.map((preference) => {
           const piece = getPiece(preference.listingId) || pieces.find((item) => item.id === preference.listingId);
           return (
-            <Pressable key={preference.listingId} onPress={() => openListing(preference.listingId)} style={styles.row} accessibilityRole="button" accessibilityLabel={`Open ${piece?.name || "watched listing"}`}>
+            <Pressable key={preference.listingId} onPress={() => openListing(preference.listingId, undefined, preference.source === "immersive" ? "immersive" : "today")} style={styles.row} accessibilityRole="button" accessibilityLabel={`Open ${piece?.name || "watched listing"}`}>
               {piece?.photo ? <Image cachePolicy="memory-disk" source={{ uri: piece.photo }} style={styles.thumb} contentFit="cover" /> : <View style={styles.thumb} />}
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={styles.rowTitle} numberOfLines={1}>{piece?.name || "Saved listing"}</Text>
@@ -89,7 +93,7 @@ export default function Alerts() {
 
         <Text style={styles.sectionTitle}>Saved-item alerts</Text>
         {events.length ? events.slice(0, 20).map((event) => (
-          <Pressable key={event.id} onPress={() => openListing(event.listingId, event.id)} style={[styles.event, !event.read && styles.eventUnread]} accessibilityRole="button" accessibilityLabel={`Open ${event.title} for ${event.listingName}`}>
+          <Pressable key={event.id} onPress={() => openListing(event.listingId, event.id, event.source === "immersive" ? "immersive" : "today")} style={[styles.event, !event.read && styles.eventUnread]} accessibilityRole="button" accessibilityLabel={`Open ${event.title} for ${event.listingName}`}>
             {event.photo ? <Image cachePolicy="memory-disk" source={{ uri: event.photo }} style={styles.eventThumb} contentFit="cover" /> : <View style={styles.eventThumb} />}
             <View style={{ flex: 1, minWidth: 0 }}>
               <View style={styles.eventTop}>

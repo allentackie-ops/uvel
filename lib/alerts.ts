@@ -4,9 +4,11 @@ import type { ClosetPiece } from "./wardrobe";
 import { armNotificationHandler, UVEL_SOUND } from "./push";
 
 export type AlertKind = "price_drop" | "restock" | "both";
+export type AlertSource = "today" | "immersive";
 
 export type AlertPreference = {
   listingId: string;
+  source?: AlertSource;
   kind: AlertKind;
   baselinePriceCents: number;
   lastPriceCents: number;
@@ -19,6 +21,7 @@ export type AlertPreference = {
 export type AlertEvent = {
   id: string;
   listingId: string;
+  source?: AlertSource;
   kind: "price_drop" | "restock";
   title: string;
   body: string;
@@ -56,6 +59,7 @@ function normalizeKind(value: unknown): AlertKind {
 function normalizePreference(value: AlertPreference): AlertPreference {
   return {
     ...value,
+    source: value.source === "immersive" ? "immersive" : "today",
     kind: normalizeKind(value.kind),
     baselinePriceCents: Math.max(0, Number(value.baselinePriceCents) || 0),
     lastPriceCents: Math.max(0, Number(value.lastPriceCents) || 0),
@@ -67,6 +71,7 @@ function normalizePreference(value: AlertPreference): AlertPreference {
 function normalizeEvent(value: AlertEvent): AlertEvent {
   return {
     ...value,
+    source: value.source === "immersive" ? "immersive" : "today",
     kind: value.kind === "restock" ? "restock" : "price_drop",
     at: Number(value.at) || Date.now(),
     read: Boolean(value.read),
@@ -152,7 +157,7 @@ async function deliverLocal(event: AlertEvent) {
   }
 }
 
-export async function setAlertPreference(uid: string, piece: ClosetPiece, kind: AlertKind | "off") {
+export async function setAlertPreference(uid: string, piece: ClosetPiece, kind: AlertKind | "off", source: AlertSource = "today") {
   if (!uid || !piece.id) return false;
   await hydrateAlerts(uid);
   if (kind === "off") {
@@ -165,6 +170,7 @@ export async function setAlertPreference(uid: string, piece: ClosetPiece, kind: 
   const current = preferences[piece.id];
   preferences[piece.id] = {
     listingId: piece.id,
+    source,
     kind,
     baselinePriceCents: current?.baselinePriceCents ?? Math.max(0, piece.listPriceCents),
     lastPriceCents: Math.max(0, piece.listPriceCents),
@@ -178,9 +184,9 @@ export async function setAlertPreference(uid: string, piece: ClosetPiece, kind: 
   return true;
 }
 
-export async function enableAlert(uid: string, piece: ClosetPiece, kind: AlertKind) {
+export async function enableAlert(uid: string, piece: ClosetPiece, kind: AlertKind, source: AlertSource = "today") {
   const permission = await requestLocalPermission();
-  const saved = await setAlertPreference(uid, piece, kind);
+  const saved = await setAlertPreference(uid, piece, kind, source);
   return { saved, permission };
 }
 
@@ -218,6 +224,7 @@ export async function observeListing(uid: string, piece: ClosetPiece) {
     nextEvents.push({
       id: `${piece.id}:price:${currentPrice}:${at}`,
       listingId: piece.id,
+      source: preference.source === "immersive" ? "immersive" : "today",
       kind: "price_drop",
       title: "Price drop on a saved item",
       body: `${piece.name} is now priced lower than the last recorded check.`,
@@ -231,6 +238,7 @@ export async function observeListing(uid: string, piece: ClosetPiece) {
     nextEvents.push({
       id: `${piece.id}:restock:${at}`,
       listingId: piece.id,
+      source: preference.source === "immersive" ? "immersive" : "today",
       kind: "restock",
       title: "Back in stock",
       body: `${piece.name} has recorded inventory again.`,
