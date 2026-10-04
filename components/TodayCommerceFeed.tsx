@@ -74,6 +74,8 @@ export function TodayCommerceFeed({
   const posterScrollX = useRef(new Animated.Value(0)).current;
   const posterWidth = Math.min(352, Dimensions.get("window").width - 48);
   const posterInterval = posterWidth + 12;
+  const posterHeight = Math.round(Math.min(470, Math.max(390, posterWidth * 1.24)));
+  const bannerColorFieldHeight = insets.top + 62 + 10 + posterHeight;
   const feedPieces = pieces.length
     ? Array.from({ length: Math.max(32, pieces.length * 3) }, (_, index) => pieces[index % pieces.length])
     : [];
@@ -123,12 +125,12 @@ export function TodayCommerceFeed({
 
   return (
     <View style={styles.page}>
-      <View pointerEvents="none" style={styles.topColorField}>
+      <View pointerEvents="none" style={[styles.topColorField, { height: bannerColorFieldHeight }]}>
         {BANNER_COLORS.map((color, index) => {
           const inputRange = index === 0 ? [0, posterInterval] : [(index - 1) * posterInterval, index * posterInterval, (index + 1) * posterInterval];
           const outputRange = index === 0 ? [0.64, 0] : [0, 0.64, 0];
           const horizontalOpacity = posterScrollX.interpolate({ inputRange, outputRange, extrapolate: "clamp" });
-          return <Animated.View key={color} style={[styles.topColorLayer, { backgroundColor: color, opacity: Animated.multiply(horizontalOpacity, topColorFade) }]} />;
+          return <Animated.View key={color} style={[styles.topColorLayer, { height: bannerColorFieldHeight, backgroundColor: color, opacity: Animated.multiply(horizontalOpacity, topColorFade) }]} />;
         })}
         <View style={styles.topColorFade}>
           {FEED_FADE_STRIPS.map((opacity, index) => <View key={index} style={[styles.topColorFadeStrip, { opacity }]} />)}
@@ -151,7 +153,7 @@ export function TodayCommerceFeed({
         bounces
         onScroll={handleScroll}
       >
-      <PosterCarousel featured={featured} onOpenPiece={onOpenPiece} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterInterval={posterInterval} />
+      <PosterCarousel featured={featured} onOpenPiece={onOpenPiece} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterHeight={posterHeight} posterInterval={posterInterval} />
 
       <SectionTitle title="For you" onPress={onOpenSearch} />
       <ProductRail pieces={recommended.slice(0, 4)} market={market} onOpen={onOpenPiece} deals />
@@ -221,6 +223,7 @@ function PosterCarousel({
   styles,
   scrollX,
   posterWidth,
+  posterHeight,
   posterInterval,
 }: {
   featured: ClosetPiece[];
@@ -230,10 +233,10 @@ function PosterCarousel({
   styles: ReturnType<typeof make>;
   scrollX: Animated.Value;
   posterWidth: number;
+  posterHeight: number;
   posterInterval: number;
 }) {
   const interval = posterInterval;
-  const posterHeight = Math.round(Math.min(470, Math.max(390, posterWidth * 1.24)));
   const primaryRef = useRef<View>(null);
   const carouselRef = useRef<ScrollView>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
