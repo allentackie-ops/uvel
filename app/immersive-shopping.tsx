@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Animated as RNAnimated, Dimensions, Share as NativeShare, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from "react-native-reanimated";
+import Animated, { cancelAnimation, Easing, runOnJS, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { Drawer } from "react-native-drawer-layout";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
@@ -44,9 +44,60 @@ const CATALOG_BRAND_IDS: Record<string, string> = {
   "Atelier No. 4": "atelier-no4",
 };
 const IMMERSIVE_AUDIO_TRACKS = [
-  { title: "Mystical song", artist: "Dorfi", source: require("../assets/music/immersive/mystical-song-dorfi.mp3") },
-  { title: "Dark Ambient Cave Experience", artist: "techtheist", source: require("../assets/music/immersive/dark-ambient-cave-experience-techtheist.mp3") },
+  { title: "Mystical song", artist: "Dorfi", source: require("../assets/music/immersive/mystical-song-dorfi.mp3"), startAt: 78 },
+  { title: "Dark Ambient Cave Experience", artist: "techtheist", source: require("../assets/music/immersive/dark-ambient-cave-experience-techtheist.mp3"), startAt: 318 },
 ] as const;
+let immersiveAudioPlayer: ReturnType<typeof createAudioPlayer> | null = null;
+let immersiveAudioTrackIndex = 0;
+let immersiveAudioPlaying = false;
+let immersiveAudioEnabled = true;
+let immersiveAudioSeeked = false;
+let immersiveAudioStatusSubscription: { remove: () => void } | null = null;
+const immersiveAudioListeners = new Set<() => void>();
+
+function notifyImmersiveAudio() {
+  immersiveAudioListeners.forEach((listener) => listener());
+}
+
+function subscribeImmersiveAudio(listener: () => void) {
+  immersiveAudioListeners.add(listener);
+  return () => { immersiveAudioListeners.delete(listener); };
+}
+
+async function startImmersiveAudio(trackIndex: number) {
+  await setAudioModeAsync({ playsInSilentMode: true, interruptionMode: "mixWithOthers" });
+  await setIsAudioActiveAsync(true);
+  const track = IMMERSIVE_AUDIO_TRACKS[trackIndex];
+  if (!immersiveAudioPlayer || immersiveAudioTrackIndex !== trackIndex) {
+    immersiveAudioStatusSubscription?.remove();
+    immersiveAudioPlayer?.remove();
+    immersiveAudioPlayer = createAudioPlayer(track.source, { updateInterval: 250 });
+    immersiveAudioTrackIndex = trackIndex;
+    immersiveAudioSeeked = false;
+    immersiveAudioPlayer.loop = true;
+    immersiveAudioPlayer.volume = 0.16;
+    immersiveAudioStatusSubscription = immersiveAudioPlayer.addListener("playbackStatusUpdate", (status) => {
+      if (status.isLoaded && !immersiveAudioSeeked) {
+        immersiveAudioPlayer!.currentTime = track.startAt;
+        immersiveAudioSeeked = true;
+        immersiveAudioPlayer!.play();
+      }
+      immersiveAudioPlaying = status.playing;
+      notifyImmersiveAudio();
+    });
+  }
+  immersiveAudioEnabled = true;
+  immersiveAudioPlayer.play();
+  immersiveAudioPlaying = true;
+  notifyImmersiveAudio();
+}
+
+function pauseImmersiveAudio() {
+  immersiveAudioEnabled = false;
+  immersiveAudioPlayer?.pause();
+  immersiveAudioPlaying = false;
+  notifyImmersiveAudio();
+}
 
 type ShopFloorPiece = ReturnType<typeof shopFloor>[number];
 
@@ -637,28 +688,70 @@ function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: Re
   );
 }
 
+function useImmersiveAudio(trackIndex: number, active: boolean) {
+  const [, refresh] = useState(0);
+  useEffect(() => subscribeImmersiveAudio(() => refresh((value) => value + 1)), []);
+  useEffect(() => {
+    if (!active || !immersiveAudioEnabled) return;
+    void startImmersiveAudio(immersiveAudioPlayer ? immersiveAudioTrackIndex : trackIndex).catch(() => {
+      immersiveAudioEnabled = false;
+      immersiveAudioPlaying = false;
+      notifyImmersiveAudio();
+    });
+  }, [active, trackIndex]);
+  return { playing: immersiveAudioPlaying, trackIndex: immersiveAudioTrackIndex };
+}
+
 function ImmersiveAudioRow({ piece, styles, playing, onPress, track }: { piece: ShopFloorPiece; styles: ReturnType<typeof make>; playing: boolean; onPress: () => void; track: (typeof IMMERSIVE_AUDIO_TRACKS)[number] }) {
   const waveform = [12, 21, 30, 17, 26, 34, 20, 28, 15, 24, 31, 18, 27, 14, 22];
+  const spin = useSharedValue(0);
+  const waveformPulse = useSharedValue(0);
+  useEffect(() => {
+    if (playing) {
+      spin.value = withRepeat(withTiming(360, { duration: 6200, easing: Easing.linear }), -1, false);
+      waveformPulse.value = withRepeat(withTiming(1, { duration: 700, easing: Easing.inOut(Easing.ease) }), -1, true);
+    } else {
+      cancelAnimation(spin);
+      cancelAnimation(waveformPulse);
+      spin.value = withTiming(0, { duration: 250 });
+      waveformPulse.value = withTiming(0, { duration: 250 });
+    }
+  }, [playing, spin, waveformPulse]);
+  const discAnimation = useAnimatedStyle(() => ({ transform: [{ rotate: `${spin.value}deg` }] }));
+  const waveformAnimation = useAnimatedStyle(() => ({ transform: [{ scaleY: 1 + waveformPulse.value * 0.16 }] }));
   return (
     <AccessiblePressable
       onPress={onPress}
       style={({ pressed }) => [styles.immersiveAudioRow, pressed && styles.immersiveAudioRowPressed]}
       accessibilityRole="button"
-      accessibilityLabel={playing ? "Pause Oxblood after dark" : "Play Oxblood after dark"}
+      accessibilityLabel={playing ? `Pause ${track.title}` : `Play ${track.title}`}
       accessibilityHint="Plays the immersive shopping soundtrack."
     >
-      <View style={styles.immersiveAudioWaveform} accessibilityElementsHidden>
+      <Animated.View style={[styles.immersiveAudioWaveform, waveformAnimation]} accessibilityElementsHidden>
         {waveform.map((height, index) => <View key={index} style={[styles.immersiveAudioWave, { height }, playing && styles.immersiveAudioWavePlaying]} />)}
-      </View>
+      </Animated.View>
       <View style={styles.immersiveAudioTrack}>
         <Text style={styles.immersiveAudioTitle} numberOfLines={1}>{track.title}</Text>
         <Text style={styles.immersiveAudioSubtitle} numberOfLines={1}>CC0 ambient · {track.artist}</Text>
       </View>
-      <View style={styles.immersiveAudioDisc}>
+      <Animated.View style={[styles.immersiveAudioDisc, discAnimation]}>
         <Image source={{ uri: piece.photo }} style={styles.immersiveAudioDiscImage} contentFit="cover" accessible={false} />
         <View style={styles.immersiveAudioDiscCenter} />
-      </View>
+      </Animated.View>
     </AccessiblePressable>
+  );
+}
+
+function ImmersiveAudioPopup({ styles, track, playing }: { styles: ReturnType<typeof make>; track: (typeof IMMERSIVE_AUDIO_TRACKS)[number]; playing: boolean }) {
+  return (
+    <View style={styles.immersiveAudioPopup} accessibilityLiveRegion="polite">
+      <View style={styles.immersiveAudioPopupIcon}><Ionicons name={playing ? "volume-high" : "volume-mute"} size={15} color="#111" /></View>
+      <View style={styles.immersiveAudioPopupCopy}>
+        <Text style={styles.immersiveAudioPopupEyebrow}>{playing ? "NOW PLAYING" : "PAUSED"}</Text>
+        <Text style={styles.immersiveAudioPopupTitle} numberOfLines={1}>{track.title}</Text>
+        <Text style={styles.immersiveAudioPopupArtist} numberOfLines={1}>{track.artist} · CC0 ambient</Text>
+      </View>
+    </View>
   );
 }
 
@@ -667,9 +760,12 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const [shareOpen, setShareOpen] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [offerOpen, setOfferOpen] = useState(false);
-  const [audioPlaying, setAudioPlaying] = useState(false);
-  const audioTrack = IMMERSIVE_AUDIO_TRACKS[piece.id.split("").reduce((sum: number, char: string) => sum + char.charCodeAt(0), 0) % IMMERSIVE_AUDIO_TRACKS.length];
-  const audioPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
+  const [audioPopupOpen, setAudioPopupOpen] = useState(false);
+  const audioTrackIndex = piece.id.split("").reduce((sum: number, char: string) => sum + char.charCodeAt(0), 0) % IMMERSIVE_AUDIO_TRACKS.length;
+  const audioState = useImmersiveAudio(audioTrackIndex, active);
+  const audioPlaying = audioState.playing;
+  const audioTrack = IMMERSIVE_AUDIO_TRACKS[audioState.trackIndex];
+  const audioPopupTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cart = useCart();
   const lastImageTap = useRef(0);
   const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -747,36 +843,25 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   }
   async function toggleAudio() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    if (audioPopupTimer.current) clearTimeout(audioPopupTimer.current);
+    setAudioPopupOpen(true);
     try {
       if (audioPlaying) {
-        audioPlayerRef.current?.pause();
-        setAudioPlaying(false);
+        pauseImmersiveAudio();
         return;
       }
-      await setAudioModeAsync({ playsInSilentMode: true, interruptionMode: "mixWithOthers" });
-      await setIsAudioActiveAsync(true);
-      if (!audioPlayerRef.current) {
-        const player = createAudioPlayer(audioTrack.source);
-        player.loop = true;
-        player.volume = 0.16;
-        audioPlayerRef.current = player;
-      }
-      audioPlayerRef.current.play();
-      setAudioPlaying(true);
+      await startImmersiveAudio(audioTrackIndex);
     } catch {
-      setAudioPlaying(false);
+      immersiveAudioEnabled = false;
+      immersiveAudioPlaying = false;
+      notifyImmersiveAudio();
     }
   }
   useEffect(() => {
-    if (!active && audioPlaying) {
-      audioPlayerRef.current?.pause();
-      setAudioPlaying(false);
-    }
-  }, [active, audioPlaying]);
-  useEffect(() => () => {
-    audioPlayerRef.current?.pause();
-    audioPlayerRef.current?.release();
-  }, []);
+    if (!audioPopupOpen) return;
+    audioPopupTimer.current = setTimeout(() => setAudioPopupOpen(false), 3200);
+    return () => { if (audioPopupTimer.current) clearTimeout(audioPopupTimer.current); };
+  }, [audioPopupOpen]);
 
   return (
     <View
@@ -822,6 +907,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
               {credit > 0 ? (
                 <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{salePrice}</Text></View>
               ) : <Text style={styles.price}>{localPrice}</Text>}
+              {audioPopupOpen ? <ImmersiveAudioPopup styles={styles} track={audioTrack} playing={audioPlaying} /> : null}
             </View>
             <ImmersiveAudioRow piece={piece} styles={styles} playing={audioPlaying} onPress={toggleAudio} track={audioTrack} />
           </View>
@@ -847,6 +933,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           {credit > 0 ? (
             <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{salePrice}</Text></View>
           ) : <Text style={styles.price}>{localPrice}</Text>}
+          {audioPopupOpen ? <ImmersiveAudioPopup styles={styles} track={audioTrack} playing={audioPlaying} /> : null}
           <ImmersiveAudioRow piece={piece} styles={styles} playing={audioPlaying} onPress={toggleAudio} track={audioTrack} />
           </View>
         )}
@@ -1104,6 +1191,12 @@ function make(colors: Colors) {
     immersiveAudioDisc: { width: 48, height: 48, marginRight: -6, borderRadius: 24, borderWidth: 1.5, borderColor: overlayColor, overflow: "hidden", alignItems: "center", justifyContent: "center" },
     immersiveAudioDiscImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, opacity: 0.78 },
     immersiveAudioDiscCenter: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#111", borderWidth: 2, borderColor: "rgba(244,240,230,0.8)" },
+    immersiveAudioPopup: { alignSelf: "flex-end", maxWidth: "84%", marginTop: 12, marginBottom: 2, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 15, backgroundColor: "rgba(7,7,7,0.68)", borderWidth: 1, borderColor: "rgba(244,240,230,0.24)", flexDirection: "row", alignItems: "center", gap: 8 },
+    immersiveAudioPopupIcon: { width: 26, height: 26, borderRadius: 13, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    immersiveAudioPopupCopy: { minWidth: 0, maxWidth: 205 },
+    immersiveAudioPopupEyebrow: { color: colors.success, fontSize: 8, lineHeight: 10, fontWeight: "900", letterSpacing: 1.1 },
+    immersiveAudioPopupTitle: { color: overlayColor, fontSize: 11, lineHeight: 14, fontWeight: "800" },
+    immersiveAudioPopupArtist: { color: `${overlayColor}A0`, fontSize: 9, lineHeight: 12, marginTop: 1 },
     detailsHint: { alignSelf: "flex-start", maxWidth: 238, paddingHorizontal: 13, paddingVertical: 9, marginBottom: 9, borderRadius: 13, backgroundColor: "#F4F0E6", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8, position: "relative" },
     detailsHintTitle: { color: "#171510", fontSize: 12, fontWeight: "900" },
     detailsHintCopy: { color: "#514D43", fontSize: 11, lineHeight: 15, marginTop: 2 },
