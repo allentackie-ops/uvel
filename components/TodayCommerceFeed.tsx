@@ -266,7 +266,31 @@ function PosterCarousel({
   const interval = posterInterval;
   const posterHeight = Math.round(Math.min(470, Math.max(390, posterWidth * 1.24)));
   const primaryRef = useRef<View>(null);
-  const newRef = useRef<View>(null);
+  const carouselRef = useRef<ScrollView>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeIndexRef = useRef(0);
+  const stories: Array<{ title: string; subtitle: string; color: string; variant: EditorialVariant; image?: string }> = [
+    { title: "The Fall Edit", subtitle: "Fresh layers, easy pieces, and the details that make a look feel finished.", color: "#F05237", variant: "float", image: featured[0]?.photo },
+    { title: "New in", subtitle: "Your next favorite fit is here. Discover pieces with a point of view.", color: "#2762C5", variant: "slide", image: featured[1]?.photo },
+    { title: "Early Prime Big Deals", subtitle: "Premium pieces, better prices.", color: "#A5B98A", variant: "explode", image: featured[2]?.photo },
+    { title: "Focus on your health", subtitle: "Movement-ready layers for the days that keep moving.", color: "#20A79A", variant: "collage", image: featured[3]?.photo },
+    { title: "Minimal, with presence", subtitle: "One strong piece. A quieter kind of statement.", color: "#8D74D6", variant: "luxury", image: featured[0]?.photo },
+  ];
+  const scheduleAutoAdvance = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      const next = (activeIndexRef.current + 1) % stories.length;
+      activeIndexRef.current = next;
+      carouselRef.current?.scrollTo({ x: next * interval, animated: true });
+      scheduleAutoAdvance();
+    }, 10000);
+  };
+  useEffect(() => {
+    scheduleAutoAdvance();
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, [interval, stories.length]);
   const openBanner = (ref: RefObject<View | null>, story: BannerStory) => {
     if (!featured.length) {
       onOpenSearch();
@@ -277,6 +301,7 @@ function PosterCarousel({
   return (
     <View style={styles.posterStage}>
       <Animated.ScrollView
+        ref={carouselRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         snapToInterval={interval}
@@ -285,52 +310,72 @@ function PosterCarousel({
         contentContainerStyle={{ paddingHorizontal: 0 }}
         scrollEventThrottle={16}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: true })}
+        onTouchStart={() => { if (timerRef.current) clearTimeout(timerRef.current); }}
+        onTouchEnd={() => scheduleAutoAdvance()}
+        onMomentumScrollEnd={(event) => {
+          activeIndexRef.current = Math.max(0, Math.min(stories.length - 1, Math.round(event.nativeEvent.contentOffset.x / interval)));
+          scheduleAutoAdvance();
+        }}
       >
-        <Pressable ref={primaryRef} onPress={() => openBanner(primaryRef, { title: "The Fall Edit", subtitle: "Fresh layers, easy pieces, and the details that make a look feel finished.", color: "#F05237", eyebrow: "THE FALL EDIT", footer: "FALL EDIT", pieces: featured })} style={[styles.posterCard, styles.primaryPoster, { width: posterWidth, height: posterHeight }]} accessibilityRole="button" accessibilityLabel="Open the Fall Edit story">
-          <View style={styles.posterTopline}><Text style={styles.shopAll}>Shop all ›</Text></View>
-          <Text style={styles.promoTitle}>The Fall Edit</Text>
-          <Text style={styles.promoSub}>Fresh layers, easy pieces, and the details that make a look feel finished.</Text>
-          <View style={styles.featureGrid}>
-            {featured.slice(0, 4).map((piece, index) => <MiniImage key={`${piece.id}-${index}`} piece={piece} onOpen={onOpenPiece} />)}
-          </View>
-          <View style={styles.posterBottom}><Text style={styles.posterFoot}>Layers for the everyday</Text></View>
-        </Pressable>
-        <Pressable ref={newRef} onPress={() => openBanner(newRef, { title: "New in", subtitle: "Your next favorite fit is here. Discover pieces with a point of view.", color: "#2762C5", eyebrow: "NEW ARRIVALS", footer: "NEW IN", pieces: featured })} style={[styles.posterCard, { width: posterWidth, height: posterHeight, backgroundColor: "#2762C5" }]} accessibilityRole="button" accessibilityLabel="Open new arrivals story">
-          {featured[0] ? <Image source={{ uri: featured[0].photo }} style={styles.posterFullImage} contentFit="cover" accessible={false} /> : null}
-          <View pointerEvents="none" style={styles.blueColorWash} />
-          <View pointerEvents="none" style={styles.blueBlobOne} />
-          <View pointerEvents="none" style={styles.blueBlobTwo} />
-          <Text style={styles.newTitle}>New in</Text>
-          <Text style={styles.newCopy}>Your next favorite fit is here. Discover pieces with a point of view.</Text>
-          <View style={styles.posterButton}><Text style={styles.whiteButtonText}>Shop now ›</Text></View>
-          <View style={styles.posterBottom}><Text style={styles.newFoot}>New season{`\n`}New you</Text></View>
-        </Pressable>
-        <PosterPhotoCard title="Early Prime Big Deals" subtitle="Premium pieces, better prices" color="#A5B98A" image={featured[2]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} pieces={featured} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} />
-        <PosterPhotoCard title="Focus on your health" subtitle="Movement-ready layers" color="#20A79A" image={featured[3]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} pieces={featured} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} />
-        <PosterPhotoCard title="Weekend escape" subtitle="Color for wherever you go" color="#F4A73B" image={featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} pieces={featured} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} />
-        <PosterPhotoCard title="The color edit" subtitle="A little more joy, every day" color="#8D74D6" image={featured[1]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} pieces={featured} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} />
-        <PosterPhotoCard title="Soft power" subtitle="Easy pieces with presence" color="#E96B91" image={featured[2]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} pieces={featured} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} />
-        <PosterPhotoCard title="Grounded layers" subtitle="The calm edit" color="#5F8D56" image={featured[3]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} pieces={featured} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} />
+        {stories.map((story, index) => {
+          const ref = index === 0 ? primaryRef : undefined;
+          return <Pressable key={story.title} ref={ref} onPress={() => openBanner(ref || primaryRef, { title: story.title, subtitle: story.subtitle, color: story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: featured })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
+            <EditorialPoster story={story} pieces={featured} styles={styles} />
+          </Pressable>;
+        })}
       </Animated.ScrollView>
     </View>
   );
 }
-function PosterPhotoCard({ title, subtitle, color, image, styles, width, height, pieces, onOpenBanner, onOpenSearch }: { title: string; subtitle: string; color: string; image?: string; styles: ReturnType<typeof make>; width: number; height: number; pieces: ClosetPiece[]; onOpenBanner: TodayCommerceFeedProps["onOpenBanner"]; onOpenSearch: () => void }) {
-  const ref = useRef<View>(null);
-  const openBanner = () => {
-    if (!pieces.length) {
-      onOpenSearch();
-      return;
-    }
-    ref.current?.measureInWindow((x, y, measuredWidth, measuredHeight) => onOpenBanner({ title, subtitle, color, eyebrow: title.toUpperCase(), footer: title.toUpperCase(), pieces }, { x, y, width: measuredWidth, height: measuredHeight }));
-  };
-  return <Pressable ref={ref} onPress={openBanner} style={[styles.posterCard, { width, height, backgroundColor: color }]} accessibilityRole="button" accessibilityLabel={`Open ${title}`}>
-    {image ? <Image source={{ uri: image }} style={styles.posterFullImage} contentFit="cover" accessible={false} /> : null}
-    <View pointerEvents="none" style={[styles.posterTint, { backgroundColor: color }]} />
-    <Text style={styles.posterPhotoTitle}>{title}</Text>
-    <Text style={styles.posterPhotoSubtitle}>{subtitle}</Text>
-    <View style={styles.posterButton}><Text style={styles.whiteButtonText}>Shop now ›</Text></View>
-  </Pressable>;
+
+type EditorialVariant = "float" | "slide" | "explode" | "collage" | "luxury";
+
+function EditorialPoster({ story, pieces, styles }: { story: { title: string; subtitle: string; color: string; variant: EditorialVariant; image?: string }; pieces: ClosetPiece[]; styles: ReturnType<typeof make> }) {
+  const motion = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const duration = story.variant === "luxury" ? 4200 : story.variant === "slide" ? 2600 : 3200;
+    const animation = Animated.loop(Animated.sequence([
+      Animated.timing(motion, { toValue: 1, duration, useNativeDriver: true }),
+      Animated.timing(motion, { toValue: 0, duration, useNativeDriver: true }),
+    ]));
+    animation.start();
+    return () => animation.stop();
+  }, [motion, story.variant]);
+  const heroMotion = story.variant === "float"
+    ? { transform: [{ translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [0, -10] }) }, { rotate: motion.interpolate({ inputRange: [0, 1], outputRange: ["-4deg", "3deg"] }) }] }
+    : story.variant === "slide"
+      ? { transform: [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [16, -8] }) }, { rotate: "-8deg" }] }
+      : story.variant === "explode"
+        ? { transform: [{ translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [12, -12] }) }, { scale: motion.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1.04] }) }] }
+        : story.variant === "collage"
+          ? { transform: [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [-8, 10] }) }, { rotate: "7deg" }] }
+          : { transform: [{ scale: motion.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1.02] }) }, { translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [3, -3] }) }] };
+  const secondaryMotion = { transform: [{ translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [8, -6] }) }, { rotate: motion.interpolate({ inputRange: [0, 1], outputRange: ["8deg", "13deg"] }) }] };
+  const tertiaryMotion = { transform: [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [4, -9] }) }, { rotate: motion.interpolate({ inputRange: [0, 1], outputRange: ["-12deg", "-5deg"] }) }] };
+  const composition = story.variant === "slide"
+    ? { hero: { right: -8, top: 132, width: 178, height: 256 }, secondary: { left: 20, top: 244, width: 126, height: 164 }, tertiary: { right: 38, top: 286, width: 96, height: 126 }, fourth: { left: 154, top: 224, width: 90, height: 118 } }
+    : story.variant === "explode"
+      ? { hero: { left: 148, top: 142, width: 142, height: 190 }, secondary: { left: 12, top: 226, width: 134, height: 174 }, tertiary: { right: 16, top: 260, width: 106, height: 138 }, fourth: { left: 76, top: 296, width: 94, height: 122 } }
+      : story.variant === "collage"
+        ? { hero: { left: 82, top: 144, width: 176, height: 218 }, secondary: { left: 10, top: 246, width: 142, height: 176 }, tertiary: { right: -8, top: 208, width: 112, height: 148 }, fourth: { left: 184, top: 302, width: 96, height: 124 } }
+        : story.variant === "luxury"
+          ? { hero: { right: 18, top: 132, width: 224, height: 274 }, secondary: { left: 18, top: 272, width: 112, height: 144 }, tertiary: { right: 28, top: 350, width: 92, height: 118 }, fourth: { left: 22, top: 188, width: 84, height: 108 } }
+          : { hero: { right: 20, top: 142, width: 186, height: 232 }, secondary: { left: 10, top: 240, width: 128, height: 164 }, tertiary: { right: 2, top: 294, width: 106, height: 136 }, fourth: { left: 156, top: 270, width: 92, height: 118 } };
+  return <View style={[styles.editorialPoster, { backgroundColor: story.color }]}>
+    <View pointerEvents="none" style={styles.editorialGrain} />
+    <Text style={styles.editorialKicker}>{story.variant === "luxury" ? "THE QUIET EDIT" : "UVEl / EDIT"}</Text>
+    <Text style={styles.editorialTitle}>{story.title}</Text>
+    <Text style={styles.editorialSubtitle}>{story.subtitle}</Text>
+    <View pointerEvents="none" style={[styles.editorialStamp, { borderColor: `${story.color}99` }]}><Text style={styles.editorialStampText}>{story.variant === "collage" ? "LOOK 04" : story.variant === "explode" ? "DROP 03" : "UVEL"}</Text></View>
+    <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.hero, heroMotion]}>
+      <Image source={{ uri: pieces[0]?.photo || story.image }} style={styles.editorialCutoutImage} contentFit="cover" accessible={false} />
+    </Animated.View>
+    {pieces[1] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.secondary, secondaryMotion]}><Image source={{ uri: pieces[1].photo }} style={styles.editorialCutoutImage} contentFit="cover" accessible={false} /></Animated.View> : null}
+    {pieces[2] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.tertiary, tertiaryMotion]}><Image source={{ uri: pieces[2].photo }} style={styles.editorialCutoutImage} contentFit="cover" accessible={false} /></Animated.View> : null}
+    {pieces[3] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.fourth, { opacity: motion.interpolate({ inputRange: [0, 1], outputRange: [0.76, 1] }) }]}><Image source={{ uri: pieces[3].photo }} style={styles.editorialCutoutImage} contentFit="cover" accessible={false} /></Animated.View> : null}
+    <View pointerEvents="none" style={styles.editorialOrbit}><View style={styles.editorialOrbitDot} /></View>
+    <Text style={styles.editorialFooter}>{story.variant === "float" ? "FLOAT / MOVE / LAYER" : story.variant === "slide" ? "NEW SEASON / 01" : story.variant === "explode" ? "THE GOOD STUFF" : story.variant === "collage" ? "COMPOSE YOUR OWN" : "LESS, BUT BETTER"}</Text>
+  </View>;
 }
 
 function SectionTitle({ title, onPress }: { title: string; onPress: () => void }) {
@@ -422,6 +467,18 @@ function make(colors: Colors) {
     whiteButtonText: { color: "#181714", fontSize: 13, fontWeight: "900" },
     newFoot: { position: "absolute", left: 16, bottom: 13, color: "#FFFFFF", fontSize: 12, lineHeight: 15, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.55)", textShadowRadius: 4 },
     posterButton: { alignSelf: "flex-start", backgroundColor: "#FFFFFF", borderRadius: 24, paddingHorizontal: 17, minHeight: 46, justifyContent: "center", marginTop: 14 },
+    editorialPoster: { flex: 1, borderRadius: 22, overflow: "hidden", padding: 20, position: "relative" },
+    editorialGrain: { position: "absolute", top: 0, right: 0, width: 180, height: 180, borderRadius: 90, backgroundColor: "rgba(255,255,255,0.1)", transform: [{ translateX: 78 }, { translateY: -70 }] },
+    editorialKicker: { color: "rgba(255,255,255,0.72)", fontSize: 10, fontWeight: "900", letterSpacing: 1.8, zIndex: 6 },
+    editorialTitle: { color: "#FFFFFF", fontSize: 34, lineHeight: 36, fontWeight: "900", letterSpacing: -0.9, maxWidth: 230, marginTop: 12, zIndex: 6 },
+    editorialSubtitle: { color: "rgba(255,255,255,0.88)", fontSize: 15, lineHeight: 20, maxWidth: 226, marginTop: 9, zIndex: 6 },
+    editorialStamp: { position: "absolute", right: 18, top: 18, width: 55, height: 55, borderRadius: 28, borderWidth: 1, alignItems: "center", justifyContent: "center", transform: [{ rotate: "12deg" }], zIndex: 6 },
+    editorialStampText: { color: "rgba(255,255,255,0.82)", fontSize: 9, fontWeight: "900", letterSpacing: 1 },
+    editorialCutout: { position: "absolute", overflow: "hidden", borderRadius: 90, backgroundColor: "rgba(255,255,255,0.12)", borderWidth: 2, borderColor: "rgba(255,255,255,0.24)", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 8 }, elevation: 5, zIndex: 2 },
+    editorialCutoutImage: { width: "100%", height: "100%" },
+    editorialOrbit: { position: "absolute", left: -24, bottom: 28, width: 110, height: 38, borderWidth: 1, borderColor: "rgba(255,255,255,0.42)", borderRadius: 55, transform: [{ rotate: "-18deg" }], zIndex: 1 },
+    editorialOrbitDot: { position: "absolute", right: 8, top: -4, width: 8, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.86)" },
+    editorialFooter: { position: "absolute", left: 20, bottom: 18, color: "rgba(255,255,255,0.74)", fontSize: 10, fontWeight: "900", letterSpacing: 1.4, zIndex: 6 },
     sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 22, marginBottom: 10 },
     editorHero: { minHeight: 168, borderRadius: 18, backgroundColor: "#E7DDD1", overflow: "hidden", flexDirection: "row" },
     editorCopy: { flex: 1.03, padding: 17, justifyContent: "center", zIndex: 2 },
