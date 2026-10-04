@@ -1,19 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useEffect, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { Gesture, GestureDetector, GestureHandlerRootView, ScrollView as GHScrollView } from "react-native-gesture-handler";
-import Animated, { Easing, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
+import { useEffect, useRef } from "react";
+import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import Reanimated, { interpolate, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ClosetPiece } from "../lib/wardrobe";
 import { moneyInMarket, getMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
-
-const AnimatedScrollView = Animated.createAnimatedComponent(GHScrollView);
-const OPEN_SPRING = { damping: 24, stiffness: 260, mass: 0.78 };
-const CLOSE_SPRING = { damping: 34, stiffness: 440, mass: 0.6, overshootClamping: true };
-const SNAP = { damping: 26, stiffness: 320, mass: 0.7, overshootClamping: true };
 
 export type BannerStoryOrigin = { x: number; y: number; width: number; height: number };
 
@@ -40,245 +35,120 @@ export function TodayBannerStoryOverlay({
   const colors = useColors();
   const app = useUvel();
   const insets = useSafeAreaInsets();
-  const { width: screenW, height: screenH } = useWindowDimensions();
-  const heroH = Math.round(Math.min(Math.max(screenH * 0.62, 420), 620));
-  const chromeTop = insets.top + 54;
-  const pieces = story.pieces.slice(0, 4);
-  const market = getMarket(app.country);
-  const rootRef = useRef<View>(null);
-  const [coverTop, setCoverTop] = useState(0);
-
-  const imgX = useSharedValue(origin.x);
-  const imgY = useSharedValue(origin.y);
-  const imgW = useSharedValue(origin.width);
-  const imgH = useSharedValue(origin.height);
-  const imgR = useSharedValue(18);
-  const originX = useSharedValue(origin.x);
-  const originY = useSharedValue(origin.y);
-  const originW = useSharedValue(origin.width);
-  const originH = useSharedValue(origin.height);
-  const backdrop = useSharedValue(0);
-  const chrome = useSharedValue(0);
-  const sheet = useSharedValue(0);
-  const dragY = useSharedValue(0);
-  const closing = useSharedValue(0);
-  const dismissing = useSharedValue(0);
-  const settled = useSharedValue(0);
+  const screen = Dimensions.get("window");
+  const opacity = useRef(new Animated.Value(0)).current;
+  const heroProgress = useSharedValue(0);
   const scrollY = useSharedValue(0);
-  const touchStartX = useSharedValue(0);
+  const dismissY = useSharedValue(0);
   const touchStartY = useSharedValue(0);
+  const dragging = useSharedValue(0);
+  const closing = useRef(false);
+  const market = getMarket(app.country);
+  const pieces = story.pieces.slice(0, 8);
+  const heroHeight = Math.min(470, Math.max(360, screen.width * 0.98));
 
   useEffect(() => {
-    originX.value = origin.x;
-    originY.value = origin.y;
-    originW.value = origin.width;
-    originH.value = origin.height;
-    imgX.value = origin.x;
-    imgY.value = origin.y;
-    imgW.value = origin.width;
-    imgH.value = origin.height;
-    imgR.value = 18;
-    imgX.value = withSpring(0, OPEN_SPRING);
-    imgY.value = withSpring(chromeTop, OPEN_SPRING);
-    imgW.value = withSpring(screenW, OPEN_SPRING);
-    imgH.value = withSpring(heroH, OPEN_SPRING);
-    imgR.value = withSpring(0, OPEN_SPRING, (finished) => {
-      if (finished) settled.value = 1;
-    });
-    backdrop.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
-    chrome.value = withTiming(1, { duration: 180 });
-    sheet.value = withTiming(1, { duration: 220 });
-  }, [backdrop, chrome, chromeTop, heroH, imgH, imgR, imgW, imgX, imgY, origin.height, origin.width, origin.x, origin.y, originH, originW, originX, originY, screenW, settled, sheet]);
+    Animated.timing(opacity, { toValue: 1, duration: 260, useNativeDriver: true }).start();
+    heroProgress.value = withSpring(1, { damping: 24, stiffness: 240, mass: 0.8 });
+  }, [heroProgress, opacity]);
 
-  const finishClose = () => onClose();
-
-  const closeToBanner = () => {
-    if (closing.value) return;
-    closing.value = 1;
-    dismissing.value = 1;
-    settled.value = 0;
-    imgX.value = 0;
-    imgY.value = chromeTop - scrollY.value;
-    imgW.value = screenW;
-    imgH.value = heroH;
-    imgR.value = 0;
-    chrome.value = withTiming(0, { duration: 70 });
-    sheet.value = withTiming(0, { duration: 80 });
-    backdrop.value = withTiming(0, { duration: 240, easing: Easing.out(Easing.cubic) });
-    imgX.value = withSpring(originX.value, CLOSE_SPRING);
-    imgY.value = withSpring(originY.value, CLOSE_SPRING);
-    imgW.value = withSpring(originW.value, CLOSE_SPRING);
-    imgH.value = withSpring(originH.value, CLOSE_SPRING);
-    imgR.value = withSpring(18, CLOSE_SPRING, (finished) => {
-      if (finished) runOnJS(finishClose)();
+  const close = () => {
+    if (closing.current) return;
+    closing.current = true;
+    heroProgress.value = withSpring(0, { damping: 30, stiffness: 360, mass: 0.7 });
+    Animated.timing(opacity, { toValue: 0, duration: 210, useNativeDriver: true }).start(({ finished }) => {
+      if (finished) onClose();
     });
   };
 
-  const scrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollY.value = event.contentOffset.y;
-    },
-  });
+  const heroMotionStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: interpolate(heroProgress.value, [0, 1], [origin.x - (screen.width - origin.width) / 2, 0]) },
+      { translateY: interpolate(heroProgress.value, [0, 1], [origin.y - insets.top, 0]) },
+      { scale: interpolate(heroProgress.value, [0, 1], [origin.width / screen.width, 1]) },
+    ],
+  }));
 
+  const swipeStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: dismissY.value }, { scale: 1 - Math.min(Math.max(dismissY.value / screen.height, 0), 0.18) }],
+    opacity: 1 - Math.min(Math.max(dismissY.value / 420, 0), 0.72),
+  }));
   const pan = Gesture.Pan()
     .manualActivation(true)
     .onTouchesDown((event) => {
-      touchStartX.value = event.allTouches[0]?.absoluteX ?? 0;
       touchStartY.value = event.allTouches[0]?.absoluteY ?? 0;
     })
     .onTouchesMove((event, state) => {
-      if (closing.value) {
-        state.fail();
-        return;
-      }
-      const x = event.allTouches[0]?.absoluteX ?? touchStartX.value;
       const y = event.allTouches[0]?.absoluteY ?? touchStartY.value;
-      const dx = x - touchStartX.value;
       const dy = y - touchStartY.value;
-      if (scrollY.value > 4 || dy < -8) {
+      if (scrollY.value > 4 || dy < 8 || dy < 0) {
         state.fail();
         return;
       }
-      if (dy > 8 && dy > Math.abs(dx) * 1.2) {
-        state.activate();
-        return;
-      }
-      if (Math.abs(dx) > 8 && Math.abs(dx) > Math.max(dy, 0) * 1.2) state.fail();
+      state.activate();
     })
     .onStart(() => {
-      if (closing.value || scrollY.value > 4) {
-        dismissing.value = 0;
-        return;
-      }
-      settled.value = 0;
-      dismissing.value = 1;
-      imgX.value = 0;
-      imgY.value = chromeTop;
-      imgW.value = screenW;
-      imgH.value = heroH;
-      imgR.value = 0;
+      dragging.value = 1;
     })
     .onUpdate((event) => {
-      if (closing.value || !dismissing.value) return;
-      const p = Math.min(Math.max(event.translationY, 0) / 280, 1);
-      const s = 1 - p * 0.28;
-      imgW.value = screenW * s;
-      imgH.value = heroH * s;
-      imgX.value = (screenW - imgW.value) / 2;
-      imgY.value = chromeTop + event.translationY * 0.92;
-      imgR.value = 20 * p;
-      backdrop.value = 1 - p * 0.95;
-      chrome.value = Math.max(0, 1 - p * 2.8);
-      sheet.value = Math.max(0, 1 - p * 3.2);
-      dragY.value = event.translationY;
+      if (dragging.value) dismissY.value = Math.max(0, event.translationY);
     })
     .onEnd((event) => {
-      if (closing.value || !dismissing.value) return;
-      if (dragY.value > 48 || event.velocityY > 600) {
-        closing.value = 1;
-        chrome.value = withTiming(0, { duration: 70 });
-        sheet.value = withTiming(0, { duration: 80 });
-        backdrop.value = withTiming(0, { duration: 240, easing: Easing.out(Easing.cubic) });
-        imgX.value = withSpring(originX.value, CLOSE_SPRING);
-        imgY.value = withSpring(originY.value, CLOSE_SPRING);
-        imgW.value = withSpring(originW.value, CLOSE_SPRING);
-        imgH.value = withSpring(originH.value, CLOSE_SPRING);
-        imgR.value = withSpring(18, CLOSE_SPRING, (finished) => {
-          if (finished) runOnJS(finishClose)();
+      if (!dragging.value) return;
+      dragging.value = 0;
+      if (dismissY.value > 60 || event.velocityY > 300) {
+        dismissY.value = withTiming(0, { duration: 180 }, (finished) => {
+          if (finished) runOnJS(close)();
         });
-        return;
+      } else {
+        dismissY.value = withSpring(0, { damping: 24, stiffness: 280, mass: 0.72 });
       }
-      dismissing.value = 0;
-      dragY.value = 0;
-      imgX.value = withSpring(0, SNAP);
-      imgY.value = withSpring(chromeTop, SNAP);
-      imgW.value = withSpring(screenW, SNAP);
-      imgH.value = withSpring(heroH, SNAP);
-      imgR.value = withSpring(0, SNAP, (finished) => {
-        if (finished) settled.value = 1;
-      });
-      backdrop.value = withSpring(1, SNAP);
-      chrome.value = withTiming(1, { duration: 140 });
-      sheet.value = withTiming(1, { duration: 160 });
     });
-
-  const flyingHeroStyle = useAnimatedStyle(() => ({
-    top: imgY.value,
-    left: imgX.value,
-    width: imgW.value,
-    height: imgH.value,
-    borderRadius: imgR.value,
-    opacity: 1 - settled.value,
-  }));
-  const inFlowStyle = useAnimatedStyle(() => ({ opacity: settled.value }));
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value * 0.55 }));
-  const chromeStyle = useAnimatedStyle(() => ({ opacity: chrome.value }));
-  const pageStyle = useAnimatedStyle(() => ({ opacity: sheet.value }));
+  const scrollHandler = useAnimatedScrollHandler({ onScroll: (event) => { scrollY.value = event.contentOffset.y; } });
 
   return (
-    <GestureHandlerRootView style={[styles.root, coverTop ? { top: -coverTop, height: screenH } : null]}>
-      <View
-        ref={rootRef}
-        style={styles.fill}
-        collapsable={false}
-        onLayout={() => {
-          rootRef.current?.measureInWindow((_x, y) => {
-            if (y > 1) setCoverTop(y);
-          });
-        }}
+    <GestureHandlerRootView style={styles.root}>
+      <GestureDetector gesture={pan}>
+      <Reanimated.View style={[styles.root, swipeStyle]}>
+      <Animated.View style={[styles.root, { opacity, backgroundColor: colors.ink }]}>
+      <Reanimated.ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 34 }]}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={scrollHandler}
       >
-        <Animated.View style={[styles.backdrop, backdropStyle, { backgroundColor: colors.ink }]} pointerEvents="none" />
-        <AnimatedScrollView
-          style={[styles.page, pageStyle]}
-          contentContainerStyle={[styles.content, { paddingTop: chromeTop, paddingBottom: insets.bottom + 34 }]}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-          overScrollMode="never"
-          automaticallyAdjustContentInsets={false}
-          automaticallyAdjustsScrollIndicatorInsets={false}
-          contentInsetAdjustmentBehavior="never"
-          contentInset={{ top: 0, left: 0, right: 0, bottom: 0 }}
-          scrollEventThrottle={16}
-          onScroll={scrollHandler}
-        >
-          <GestureDetector gesture={pan}>
-            <Animated.View style={[styles.heroSlot, { height: heroH }, inFlowStyle]}>
-              <StoryHero story={story} pieces={pieces} />
-            </Animated.View>
-          </GestureDetector>
-          <View style={styles.intro}>
-            <Text style={[styles.kicker, { color: story.color }]}>A CURATED STORY</Text>
-            <Text style={[styles.heading, { color: colors.bone }]}>Four edits, one easy point of view.</Text>
-            <Text style={[styles.body, { color: colors.muted }]}>A considered mix of pieces for the season ahead. Start with the four featured edits, then keep scrolling to see everything in this story.</Text>
+        <Reanimated.View style={[styles.heroMotion, heroMotionStyle, { width: screen.width, marginLeft: -20, height: heroHeight }]}>
+          <View style={[styles.heroColor, { backgroundColor: story.color }]} />
+          <View style={[styles.heroCopy, { paddingTop: insets.top + 70 }]}>
+            <Text style={styles.title}>{story.title}</Text>
+            <Text style={styles.subtitle}>{story.subtitle}</Text>
+            <View style={styles.heroFeatureGrid} pointerEvents="none">
+              {pieces.slice(0, 4).map((piece, index) => <View key={`${piece.id}-hero-${index}`} style={styles.heroFeature}><Image source={{ uri: piece.photo }} style={styles.heroFeatureImage} contentFit="cover" accessible={false} /></View>)}
+            </View>
           </View>
-          <View style={styles.editGrid}>
-            {pieces.map((piece, index) => <StoryPiece key={`${piece.id}-${index}`} piece={piece} index={index} color={story.color} colors={colors} market={market} onOpenPiece={onOpenPiece} />)}
-          </View>
-        </AnimatedScrollView>
-        <Animated.View style={[styles.flyingHero, flyingHeroStyle]} pointerEvents="none">
-          <StoryHero story={story} pieces={pieces} />
-        </Animated.View>
-        <Animated.View style={[styles.topBar, chromeStyle, { paddingTop: insets.top + 8 }]}>
-          <Pressable onPress={closeToBanner} style={styles.closeButton} hitSlop={12} accessibilityRole="button" accessibilityLabel="Swipe down to close banner story">
-            <Ionicons name="chevron-down" size={24} color="#FFFFFF" />
-          </Pressable>
-        </Animated.View>
-      </View>
-    </GestureHandlerRootView>
-  );
-}
-
-function StoryHero({ story, pieces }: { story: BannerStory; pieces: ClosetPiece[] }) {
-  return (
-    <View style={[styles.hero, { backgroundColor: story.color }]}>
-      <View style={styles.heroCopy}>
-        <Text style={styles.title}>{story.title}</Text>
-        <Text style={styles.subtitle}>{story.subtitle}</Text>
-        <View style={styles.heroFeatureGrid} pointerEvents="none">
-          {pieces.map((piece, index) => <View key={`${piece.id}-hero-${index}`} style={styles.heroFeature}><Image source={{ uri: piece.photo }} style={styles.heroFeatureImage} contentFit="cover" accessible={false} /></View>)}
+        </Reanimated.View>
+        <View style={styles.intro}>
+          <Text style={[styles.kicker, { color: story.color }]}>A CURATED STORY</Text>
+          <Text style={[styles.heading, { color: colors.bone }]}>Four edits, one easy point of view.</Text>
+          <Text style={[styles.body, { color: colors.muted }]}>A considered mix of pieces for the season ahead. Start with the four featured edits, then keep scrolling to see everything in this story.</Text>
         </View>
+
+        <View style={styles.editGrid}>
+          {pieces.slice(0, 4).map((piece, index) => <StoryPiece key={`${piece.id}-${index}`} piece={piece} index={index} color={story.color} colors={colors} market={market} onOpenPiece={onOpenPiece} />)}
+        </View>
+
+      </Reanimated.ScrollView>
+
+      <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+        <Pressable onPress={close} style={styles.closeButton} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close banner story">
+          <Ionicons name="chevron-down" size={24} color="#FFFFFF" />
+        </Pressable>
       </View>
-    </View>
+      </Animated.View>
+      </Reanimated.View>
+      </GestureDetector>
+    </GestureHandlerRootView>
   );
 }
 
@@ -292,25 +162,38 @@ function StoryPiece({ piece, index, color, colors, market, onOpenPiece }: { piec
   </Pressable>;
 }
 
+function StoryListPiece({ piece, color, colors, market, onOpenPiece }: { piece: ClosetPiece; color: string; colors: ReturnType<typeof useColors>; market: ReturnType<typeof getMarket>; onOpenPiece: (piece: ClosetPiece, origin: BannerStoryOrigin) => void }) {
+  const ref = useRef<View>(null);
+  return <Pressable ref={ref} onPress={(event) => { event.stopPropagation(); ref.current?.measureInWindow((x, y, width, height) => onOpenPiece(piece, { x, y, width, height })); }} style={[styles.listPiece, { borderBottomColor: `${colors.bone}20` }]} accessibilityRole="button" accessibilityLabel={`Open ${piece.name}`}>
+    <Image source={{ uri: piece.photo }} style={styles.listImage} contentFit="cover" accessible={false} />
+    <View style={styles.listCopy}><Text style={[styles.listName, { color: colors.bone }]} numberOfLines={2}>{piece.name}</Text><Text style={[styles.listMeta, { color: colors.muted }]}>{piece.brand || "Uvel seller"}</Text></View>
+    <Text style={[styles.listPrice, { color }]}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
+  </Pressable>;
+}
+
 const styles = StyleSheet.create({
   root: { ...StyleSheet.absoluteFill, zIndex: 100, overflow: "hidden" },
-  fill: { flex: 1 },
-  backdrop: { ...StyleSheet.absoluteFill },
-  page: { flex: 1 },
-  content: { paddingHorizontal: 20 },
-  heroSlot: { width: "100%", overflow: "hidden" },
-  flyingHero: { position: "absolute", overflow: "hidden", zIndex: 5 },
-  hero: { flex: 1, overflow: "hidden" },
-  heroCopy: { flex: 1, paddingTop: 70, paddingHorizontal: 24 },
-  title: { color: "#FFFFFF", fontSize: 46, lineHeight: 48, fontWeight: "900", letterSpacing: -1.5, maxWidth: 330 },
+  heroMotion: { position: "relative", width: "100%", overflow: "hidden", zIndex: 2 },
+  heroColor: { ...StyleSheet.absoluteFill },
+  heroImage: { ...StyleSheet.absoluteFill, opacity: 0.34 },
+  heroTint: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.26)" },
+  heroCopy: { flex: 1, paddingHorizontal: 24 },
+  eyebrow: { color: "#FFFFFF", fontSize: 11, fontWeight: "900", letterSpacing: 2.2 },
+  title: { color: "#FFFFFF", fontSize: 46, lineHeight: 48, fontWeight: "900", letterSpacing: -1.5, marginTop: 15, maxWidth: 330 },
   subtitle: { color: "#FFFFFF", fontSize: 18, lineHeight: 24, marginTop: 13, maxWidth: 320 },
   heroFeatureGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 22, maxWidth: 320 },
   heroFeature: { width: "23%", aspectRatio: 0.88, borderRadius: 10, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.2)" },
   heroFeatureImage: { width: "100%", height: "100%" },
+  heroFooter: { color: "#FFFFFF", fontSize: 13, fontWeight: "800", marginTop: 12 },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: 20 },
   intro: { paddingTop: 18, paddingBottom: 28 },
   kicker: { fontSize: 10, letterSpacing: 1.8, fontWeight: "900" },
   heading: { fontSize: 28, lineHeight: 32, fontWeight: "900", marginTop: 10 },
   body: { fontSize: 15, lineHeight: 22, marginTop: 9 },
+  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 },
+  sectionTitle: { fontSize: 21, lineHeight: 26, fontWeight: "900" },
+  sectionMeta: { fontSize: 9, fontWeight: "900", letterSpacing: 1.1 },
   editGrid: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   editCard: { width: "48.2%", borderRadius: 18, padding: 10, overflow: "hidden" },
   editCardOffset: { marginTop: 18 },
@@ -319,6 +202,16 @@ const styles = StyleSheet.create({
   editImage: { width: "100%", aspectRatio: 0.86, borderRadius: 12, backgroundColor: "#F4F0E6" },
   pieceName: { fontSize: 14, lineHeight: 18, fontWeight: "800", marginTop: 9 },
   pieceMeta: { fontSize: 12, marginTop: 4 },
-  topBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 8, flexDirection: "row", alignItems: "center", paddingHorizontal: 16 },
+  rule: { height: 1, marginVertical: 30 },
+  moreList: { marginTop: 8 },
+  listPiece: { flexDirection: "row", alignItems: "center", paddingVertical: 12, borderBottomWidth: 1, gap: 12 },
+  listImage: { width: 66, height: 78, borderRadius: 11, backgroundColor: "#F4F0E6" },
+  listCopy: { flex: 1 },
+  listName: { fontSize: 15, lineHeight: 19, fontWeight: "800" },
+  listMeta: { fontSize: 12, marginTop: 4 },
+  listPrice: { fontSize: 13, fontWeight: "900" },
+  topBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 4, flexDirection: "row", alignItems: "center", paddingHorizontal: 16 },
   closeButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: "transparent", alignItems: "center", justifyContent: "center" },
+  topLabel: { color: "#FFFFFF", fontSize: 11, fontWeight: "900", letterSpacing: 1.6 },
+  topSpacer: { width: 42, height: 42 },
 });
