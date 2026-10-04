@@ -11,6 +11,7 @@ import * as Haptics from "../../lib/haptics";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard, ListingCardSkeleton } from "../../components/ListingCard";
 import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayListingOverlay";
+import { TodayBannerStoryOverlay, type BannerStory, type BannerStoryOrigin } from "../../components/TodayBannerStoryOverlay";
 import { TodayCartFab } from "../../components/TodayCartFab";
 import { ImmersiveShoppingButton } from "../../components/ImmersiveShoppingButton";
 import { TodayMessagesButton } from "../../components/TodayMessagesButton";
@@ -201,6 +202,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const [todayShuffleSeed] = useState(() => Math.floor(Math.random() * 0x7fffffff));
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
+  const [openBannerStory, setOpenBannerStory] = useState<{ story: BannerStory; origin: BannerStoryOrigin } | null>(null);
   const featuredRef = useRef<View>(null);
   const [findHint, setFindHint] = useState(false);
   const [showSwipeHint, setShowSwipeHint] = useState(false);
@@ -263,6 +265,9 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
       }
     }).catch(() => undefined);
   }, [app.profileDone, onListingOpenChange, todayHome]);
+  const openTodayBanner = useCallback((story: BannerStory, origin: BannerStoryOrigin) => {
+    setOpenBannerStory({ story, origin });
+  }, []);
   useEffect(() => {
     if (!todayHome || !drawerOpen || !openPiece) return;
     setOpenPiece(null);
@@ -849,6 +854,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           query={q}
           onQueryChange={setQ}
           onOpenPiece={openTodayListing}
+          onOpenBanner={openTodayBanner}
           onOpenSearch={() => router.push("/search")}
           onOpenMessages={() => router.push("/inbox")}
           onOpenTools={() => onOpenTools?.()}
@@ -897,6 +903,17 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           onDoubleTapHintDismiss={dismissDoubleTapHint}
           firstListing={firstListingForHint}
           onInteraction={personalization.record}
+        />
+      ) : null}
+      {todayHome && openBannerStory ? (
+        <TodayBannerStoryOverlay
+          story={openBannerStory.story}
+          origin={openBannerStory.origin}
+          onClose={() => setOpenBannerStory(null)}
+          onOpenPiece={(piece, origin) => {
+            setOpenBannerStory(null);
+            void openTodayListing(piece, origin);
+          }}
         />
       ) : null}
       {todayHome ? <TodayCartFab listingOpen={Boolean(openPiece)} /> : null}

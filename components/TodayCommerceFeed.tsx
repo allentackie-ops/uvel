@@ -11,6 +11,7 @@ import type { Colors } from "../lib/theme";
 import { useColors } from "../lib/theme";
 import { getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
+import type { BannerStory, BannerStoryOrigin } from "./TodayBannerStoryOverlay";
 
 const COLOR_CHIPS = [
   { label: "Today", color: "#2A320E", text: "#FFFFFF" },
@@ -39,6 +40,7 @@ export type TodayCommerceFeedProps = {
   query: string;
   onQueryChange: (value: string) => void;
   onOpenPiece: (piece: ClosetPiece, origin: { x: number; y: number; width: number; height: number }) => void;
+  onOpenBanner: (story: BannerStory, origin: BannerStoryOrigin) => void;
   onOpenSearch: () => void;
   onOpenMessages: () => void;
   onOpenTools: () => void;
@@ -54,6 +56,7 @@ export function TodayCommerceFeed({
   query,
   onQueryChange,
   onOpenPiece,
+  onOpenBanner,
   onOpenSearch,
   onOpenMessages,
   onOpenTools,
@@ -157,7 +160,7 @@ export function TodayCommerceFeed({
         ))}
       </ScrollView>
 
-      <PosterCarousel featured={featured} onOpenPiece={onOpenPiece} onOpenSearch={onOpenSearch} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterInterval={posterInterval} />
+      <PosterCarousel featured={featured} onOpenPiece={onOpenPiece} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterInterval={posterInterval} />
 
       <SectionTitle title="For you" onPress={onOpenSearch} />
       <ProductRail pieces={recommended.slice(0, 4)} market={market} onOpen={onOpenPiece} deals />
@@ -222,6 +225,7 @@ export function TodayCommerceFeed({
 function PosterCarousel({
   featured,
   onOpenPiece,
+  onOpenBanner,
   onOpenSearch,
   styles,
   scrollX,
@@ -230,6 +234,7 @@ function PosterCarousel({
 }: {
   featured: ClosetPiece[];
   onOpenPiece: TodayCommerceFeedProps["onOpenPiece"];
+  onOpenBanner: TodayCommerceFeedProps["onOpenBanner"];
   onOpenSearch: () => void;
   styles: ReturnType<typeof make>;
   scrollX: Animated.Value;
@@ -240,12 +245,12 @@ function PosterCarousel({
   const posterHeight = Math.round(Math.min(470, Math.max(390, posterWidth * 1.24)));
   const primaryRef = useRef<View>(null);
   const newRef = useRef<View>(null);
-  const openBanner = (ref: RefObject<View | null>, piece?: ClosetPiece) => {
-    if (!piece) {
+  const openBanner = (ref: RefObject<View | null>, story: BannerStory) => {
+    if (!featured.length) {
       onOpenSearch();
       return;
     }
-    ref.current?.measureInWindow((x, y, width, height) => onOpenPiece(piece, { x, y, width, height }));
+    ref.current?.measureInWindow((x, y, width, height) => onOpenBanner(story, { x, y, width, height }));
   };
   return (
     <View style={styles.posterStage}>
@@ -259,7 +264,7 @@ function PosterCarousel({
         scrollEventThrottle={16}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: true })}
       >
-        <Pressable ref={primaryRef} onPress={() => openBanner(primaryRef, featured[0])} style={[styles.posterCard, styles.primaryPoster, { width: posterWidth, height: posterHeight }]} accessibilityRole="button" accessibilityLabel="Open the Fall Edit">
+        <Pressable ref={primaryRef} onPress={() => openBanner(primaryRef, { title: "The Fall Edit", subtitle: "Fresh layers, easy pieces, and the details that make a look feel finished.", color: "#F05237", eyebrow: "THE FALL EDIT", footer: "FALL EDIT", pieces: featured })} style={[styles.posterCard, styles.primaryPoster, { width: posterWidth, height: posterHeight }]} accessibilityRole="button" accessibilityLabel="Open the Fall Edit story">
           <View style={styles.posterTopline}><Text style={styles.shopAll}>Shop all ›</Text></View>
           <Text style={styles.promoTitle}>The Fall Edit</Text>
           <Text style={styles.promoSub}>Fresh layers, easy pieces, and the details that make a look feel finished.</Text>
@@ -268,7 +273,7 @@ function PosterCarousel({
           </View>
           <View style={styles.posterBottom}><Text style={styles.posterFoot}>Layers for the everyday</Text></View>
         </Pressable>
-        <Pressable ref={newRef} onPress={() => openBanner(newRef, featured[1] || featured[0])} style={[styles.posterCard, { width: posterWidth, height: posterHeight, backgroundColor: "#2762C5" }]} accessibilityRole="button" accessibilityLabel="Open new arrivals">
+        <Pressable ref={newRef} onPress={() => openBanner(newRef, { title: "New in", subtitle: "Your next favorite fit is here. Discover pieces with a point of view.", color: "#2762C5", eyebrow: "NEW ARRIVALS", footer: "NEW IN", pieces: featured })} style={[styles.posterCard, { width: posterWidth, height: posterHeight, backgroundColor: "#2762C5" }]} accessibilityRole="button" accessibilityLabel="Open new arrivals story">
           {featured[0] ? <Image source={{ uri: featured[0].photo }} style={styles.posterFullImage} contentFit="cover" accessible={false} /> : null}
           <View pointerEvents="none" style={styles.blueColorWash} />
           <View pointerEvents="none" style={styles.blueBlobOne} />
@@ -278,24 +283,24 @@ function PosterCarousel({
           <View style={styles.posterButton}><Text style={styles.whiteButtonText}>Shop now ›</Text></View>
           <View style={styles.posterBottom}><Text style={styles.newFoot}>New season{`\n`}New you</Text></View>
         </Pressable>
-        <PosterPhotoCard title="Early Prime Big Deals" subtitle="Premium pieces, better prices" color="#A5B98A" image={featured[2]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} piece={featured[2] || featured[0]} onOpenPiece={onOpenPiece} onOpenSearch={onOpenSearch} />
-        <PosterPhotoCard title="Focus on your health" subtitle="Movement-ready layers" color="#20A79A" image={featured[3]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} piece={featured[3] || featured[0]} onOpenPiece={onOpenPiece} onOpenSearch={onOpenSearch} />
-        <PosterPhotoCard title="Weekend escape" subtitle="Color for wherever you go" color="#F4A73B" image={featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} piece={featured[0]} onOpenPiece={onOpenPiece} onOpenSearch={onOpenSearch} />
-        <PosterPhotoCard title="The color edit" subtitle="A little more joy, every day" color="#8D74D6" image={featured[1]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} piece={featured[1] || featured[0]} onOpenPiece={onOpenPiece} onOpenSearch={onOpenSearch} />
-        <PosterPhotoCard title="Soft power" subtitle="Easy pieces with presence" color="#E96B91" image={featured[2]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} piece={featured[2] || featured[0]} onOpenPiece={onOpenPiece} onOpenSearch={onOpenSearch} />
-        <PosterPhotoCard title="Grounded layers" subtitle="The calm edit" color="#5F8D56" image={featured[3]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} piece={featured[3] || featured[0]} onOpenPiece={onOpenPiece} onOpenSearch={onOpenSearch} />
+        <PosterPhotoCard title="Early Prime Big Deals" subtitle="Premium pieces, better prices" color="#A5B98A" image={featured[2]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} pieces={featured} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} />
+        <PosterPhotoCard title="Focus on your health" subtitle="Movement-ready layers" color="#20A79A" image={featured[3]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} pieces={featured} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} />
+        <PosterPhotoCard title="Weekend escape" subtitle="Color for wherever you go" color="#F4A73B" image={featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} pieces={featured} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} />
+        <PosterPhotoCard title="The color edit" subtitle="A little more joy, every day" color="#8D74D6" image={featured[1]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} pieces={featured} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} />
+        <PosterPhotoCard title="Soft power" subtitle="Easy pieces with presence" color="#E96B91" image={featured[2]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} pieces={featured} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} />
+        <PosterPhotoCard title="Grounded layers" subtitle="The calm edit" color="#5F8D56" image={featured[3]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} pieces={featured} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} />
       </Animated.ScrollView>
     </View>
   );
 }
-function PosterPhotoCard({ title, subtitle, color, image, styles, width, height, piece, onOpenPiece, onOpenSearch }: { title: string; subtitle: string; color: string; image?: string; styles: ReturnType<typeof make>; width: number; height: number; piece?: ClosetPiece; onOpenPiece: TodayCommerceFeedProps["onOpenPiece"]; onOpenSearch: () => void }) {
+function PosterPhotoCard({ title, subtitle, color, image, styles, width, height, pieces, onOpenBanner, onOpenSearch }: { title: string; subtitle: string; color: string; image?: string; styles: ReturnType<typeof make>; width: number; height: number; pieces: ClosetPiece[]; onOpenBanner: TodayCommerceFeedProps["onOpenBanner"]; onOpenSearch: () => void }) {
   const ref = useRef<View>(null);
   const openBanner = () => {
-    if (!piece) {
+    if (!pieces.length) {
       onOpenSearch();
       return;
     }
-    ref.current?.measureInWindow((x, y, measuredWidth, measuredHeight) => onOpenPiece(piece, { x, y, width: measuredWidth, height: measuredHeight }));
+    ref.current?.measureInWindow((x, y, measuredWidth, measuredHeight) => onOpenBanner({ title, subtitle, color, eyebrow: title.toUpperCase(), footer: title.toUpperCase(), pieces }, { x, y, width: measuredWidth, height: measuredHeight }));
   };
   return <Pressable ref={ref} onPress={openBanner} style={[styles.posterCard, { width, height, backgroundColor: color }]} accessibilityRole="button" accessibilityLabel={`Open ${title}`}>
     {image ? <Image source={{ uri: image }} style={styles.posterFullImage} contentFit="cover" accessible={false} /> : null}
@@ -331,7 +336,7 @@ function ProductCard({ piece, market, onOpen, deals, compact }: { piece: ClosetP
 
 function MiniImage({ piece, onOpen }: { piece: ClosetPiece; onOpen: TodayCommerceFeedProps["onOpenPiece"] }) {
   const ref = useRef<View>(null);
-  return <View ref={ref} collapsable={false} style={{ width: "48%", aspectRatio: 0.92, borderRadius: 13, overflow: "hidden", backgroundColor: "#F6F2ED" }}><AccessiblePressable onPress={() => ref.current?.measureInWindow((x, y, width, height) => onOpen(piece, { x, y, width, height }))} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={`Open ${piece.name}`}><Image source={{ uri: piece.photo }} style={{ flex: 1 }} contentFit="cover" accessible={false} /></AccessiblePressable></View>;
+  return <View ref={ref} collapsable={false} style={{ width: "48%", aspectRatio: 0.92, borderRadius: 13, overflow: "hidden", backgroundColor: "#F6F2ED" }}><AccessiblePressable onPress={(event) => { event.stopPropagation(); ref.current?.measureInWindow((x, y, width, height) => onOpen(piece, { x, y, width, height })); }} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={`Open ${piece.name}`}><Image source={{ uri: piece.photo }} style={{ flex: 1 }} contentFit="cover" accessible={false} /></AccessiblePressable></View>;
 }
 
 function make(colors: Colors) {
