@@ -304,28 +304,57 @@ type EditorialVariant = "float" | "slide" | "explode" | "collage" | "luxury";
 
 function EditorialPoster({ story, pieces, styles }: { story: { title: string; subtitle: string; color: string; variant: EditorialVariant; image?: string }; pieces: ClosetPiece[]; styles: ReturnType<typeof make> }) {
   const motion = useRef(new Animated.Value(0)).current;
+  const secondaryMotionValue = useRef(new Animated.Value(0)).current;
+  const tertiaryMotionValue = useRef(new Animated.Value(0)).current;
+  const fourthMotionValue = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    const duration = story.variant === "luxury" ? 4200 : story.variant === "slide" ? 2600 : 3200;
-    const animation = Animated.loop(Animated.sequence([
-      Animated.timing(motion, { toValue: 1, duration, useNativeDriver: true }),
-      Animated.timing(motion, { toValue: 0, duration, useNativeDriver: true }),
+    const durations = story.variant === "luxury" ? [5200, 6200, 7000, 5800] : story.variant === "slide" ? [2800, 3600, 4400, 3200] : story.variant === "explode" ? [3000, 3900, 4700, 3400] : story.variant === "collage" ? [3400, 4300, 5100, 3700] : [3600, 4600, 5400, 4000];
+    const createLoop = (value: Animated.Value, duration: number, delay: number) => Animated.loop(Animated.sequence([
+      Animated.delay(delay),
+      Animated.timing(value, { toValue: 1, duration, useNativeDriver: true }),
+      Animated.timing(value, { toValue: 0, duration, useNativeDriver: true }),
     ]));
-    animation.start();
-    return () => animation.stop();
-  }, [motion, story.variant]);
+    const animations = [
+      createLoop(motion, durations[0], 0),
+      createLoop(secondaryMotionValue, durations[1], 260),
+      createLoop(tertiaryMotionValue, durations[2], 520),
+      createLoop(fourthMotionValue, durations[3], 780),
+    ];
+    animations.forEach((animation) => animation.start());
+    return () => animations.forEach((animation) => animation.stop());
+  }, [fourthMotionValue, motion, secondaryMotionValue, story.variant, tertiaryMotionValue]);
   const heroMotion = story.variant === "float"
-    ? { transform: [{ translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [0, -10] }) }, { rotate: motion.interpolate({ inputRange: [0, 1], outputRange: ["-4deg", "3deg"] }) }] }
+    ? { transform: [{ translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [0, -12] }) }, { rotate: motion.interpolate({ inputRange: [0, 1], outputRange: ["-4deg", "3deg"] }) }, { scale: motion.interpolate({ inputRange: [0, 1], outputRange: [1, 1.025] }) }] }
     : story.variant === "slide"
-      ? { transform: [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [16, -8] }) }, { rotate: "-8deg" }] }
+      ? { transform: [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [26, -18] }) }, { rotate: motion.interpolate({ inputRange: [0, 1], outputRange: ["-9deg", "-3deg"] }) }] }
       : story.variant === "explode"
-        ? { transform: [{ translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [12, -12] }) }, { scale: motion.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1.04] }) }] }
+        ? { transform: [{ translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [30, -12] }) }, { scale: motion.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.04] }) }] }
         : story.variant === "collage"
-          ? { transform: [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [-8, 10] }) }, { rotate: "7deg" }] }
-          : { transform: [{ scale: motion.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1.02] }) }, { translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [3, -3] }) }] };
+          ? { transform: [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [-18, 12] }) }, { rotate: motion.interpolate({ inputRange: [0, 1], outputRange: ["8deg", "-1deg"] }) }] }
+          : { transform: [{ scale: motion.interpolate({ inputRange: [0, 1], outputRange: [0.99, 1.015] }) }, { translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [3, -3] }) }] };
   const secondaryRotation = story.variant === "slide" ? ["-16deg", "-10deg"] : story.variant === "explode" ? ["8deg", "15deg"] : story.variant === "collage" ? ["-20deg", "-14deg"] : story.variant === "luxury" ? ["-8deg", "-4deg"] : ["-12deg", "-7deg"];
   const tertiaryRotation = story.variant === "slide" ? ["10deg", "16deg"] : story.variant === "explode" ? ["-18deg", "-10deg"] : story.variant === "collage" ? ["12deg", "18deg"] : story.variant === "luxury" ? ["18deg", "24deg"] : ["14deg", "20deg"];
-  const secondaryMotion = { transform: [{ translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [8, -6] }) }, { rotate: motion.interpolate({ inputRange: [0, 1], outputRange: secondaryRotation }) }] };
-  const tertiaryMotion = { transform: [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [4, -9] }) }, { rotate: motion.interpolate({ inputRange: [0, 1], outputRange: tertiaryRotation }) }] };
+  const secondaryMotion = story.variant === "slide"
+    ? { transform: [{ translateX: secondaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: [-44, 8] }) }, { rotate: secondaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: secondaryRotation }) }] }
+    : story.variant === "explode"
+      ? { transform: [{ translateY: secondaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: [34, -5] }) }, { rotate: secondaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: secondaryRotation }) }] }
+      : story.variant === "collage"
+        ? { transform: [{ translateX: secondaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: [-18, 14] }) }, { rotate: secondaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: secondaryRotation }) }] }
+        : { transform: [{ translateY: secondaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: [8, -10] }) }, { rotate: secondaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: secondaryRotation }) }] };
+  const tertiaryMotion = story.variant === "slide"
+    ? { transform: [{ translateX: tertiaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: [28, -18] }) }, { rotate: tertiaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: tertiaryRotation }) }] }
+    : story.variant === "explode"
+      ? { transform: [{ translateY: tertiaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: [-30, 8] }) }, { rotate: tertiaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: tertiaryRotation }) }] }
+      : story.variant === "collage"
+        ? { transform: [{ translateY: tertiaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: [10, -12] }) }, { rotate: tertiaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: tertiaryRotation }) }] }
+        : { transform: [{ translateX: tertiaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: [8, -12] }) }, { rotate: tertiaryMotionValue.interpolate({ inputRange: [0, 1], outputRange: tertiaryRotation }) }] };
+  const fourthMotion = story.variant === "slide"
+    ? { transform: [{ translateX: fourthMotionValue.interpolate({ inputRange: [0, 1], outputRange: [42, -8] }) }, { scale: fourthMotionValue.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }] }
+    : story.variant === "explode"
+      ? { transform: [{ translateY: fourthMotionValue.interpolate({ inputRange: [0, 1], outputRange: [-28, 6] }) }, { rotate: "-18deg" }] }
+      : story.variant === "collage"
+        ? { transform: [{ translateX: fourthMotionValue.interpolate({ inputRange: [0, 1], outputRange: [12, -10] }) }, { rotate: "-8deg" }] }
+        : { transform: [{ translateY: fourthMotionValue.interpolate({ inputRange: [0, 1], outputRange: [5, -8] }) }, { rotate: story.variant === "luxury" ? "7deg" : "-7deg" }] };
   const composition = story.variant === "slide"
     ? { hero: { left: 112, top: 142, width: 206, height: 284, zIndex: 1 }, secondary: { left: -22, top: 278, width: 154, height: 198, zIndex: 4 }, tertiary: { right: -16, top: 326, width: 142, height: 184, zIndex: 3 }, fourth: { left: 50, top: 238, width: 122, height: 158, transform: [{ rotate: "-6deg" }], zIndex: 2 } }
     : story.variant === "explode"
@@ -344,7 +373,7 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
     </Animated.View>
     {pieces[1] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.secondary, secondaryMotion]}><Image source={{ uri: todayProductImage(pieces[1]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
     {pieces[2] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.tertiary, tertiaryMotion]}><Image source={{ uri: todayProductImage(pieces[2]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
-    {pieces[3] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.fourth, { opacity: motion.interpolate({ inputRange: [0, 1], outputRange: [0.76, 1] }) }]}><Image source={{ uri: todayProductImage(pieces[3]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
+    {pieces[3] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.fourth, fourthMotion, { opacity: motion.interpolate({ inputRange: [0, 1], outputRange: [0.76, 1] }) }]}><Image source={{ uri: todayProductImage(pieces[3]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
     <View pointerEvents="none" style={styles.editorialOrbit}><View style={styles.editorialOrbitDot} /></View>
   </View>;
 }
