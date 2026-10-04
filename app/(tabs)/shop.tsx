@@ -14,6 +14,7 @@ import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayL
 import { TodayCartFab } from "../../components/TodayCartFab";
 import { ImmersiveShoppingButton } from "../../components/ImmersiveShoppingButton";
 import { TodayMessagesButton } from "../../components/TodayMessagesButton";
+import { TodayCommerceFeed } from "../../components/TodayCommerceFeed";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
 import { recordCampaignAttribution } from "../../lib/attribution";
@@ -843,39 +844,14 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   return (
     <View style={[styles.page, editorialHome && styles.editorialPage]}>
       {editorialHome ? (
-        <FlatList
-          ref={todayListRef}
-          data={todayFeedItems}
-          numColumns={2}
-          columnWrapperStyle={styles.gridRow}
-          keyExtractor={(item) => item.key}
-          renderItem={({ item }) => {
-            const piece = item.piece;
-            return (
-              <View style={[styles.cell, openPiece?.id === piece.id && { opacity: 0 }]}>
-                {refreshSkeletonActive ? <ListingCardSkeleton framed /> : <ListingCard piece={piece} framed firstFind={firstFind.matches(piece)} onFirstFind={() => setFindHint(true)} onOpen={openTodayListing} onInteraction={personalization.record} />}
-              </View>
-            );
-          }}
-          ListHeaderComponent={listHeaderContent}
-          ListHeaderComponentStyle={{ marginBottom: 14 }}
-          ListEmptyComponent={emptyListingsContent}
-          style={[styles.page, styles.editorialPage]}
-          contentContainerStyle={[styles.content, styles.editorialPage, { paddingTop: insets.top }]}
-          alwaysBounceVertical
-          bounces
-          keyboardShouldPersistTaps="handled"
-          scrollEventThrottle={16}
-          onScroll={onScroll}
-          onTouchStart={showSwipeHint ? dismissSwipeHint : undefined}
-          onScrollBeginDrag={showSwipeHint ? dismissSwipeHint : undefined}
-          onEndReached={loadMoreTodayFeed}
-          onEndReachedThreshold={0.5}
-          initialNumToRender={12}
-          maxToRenderPerBatch={12}
-          updateCellsBatchingPeriod={40}
-          windowSize={9}
-          extraData={[openPiece?.id, refreshing, refreshSkeletonActive]}
+        <TodayCommerceFeed
+          pieces={ranked}
+          query={q}
+          onQueryChange={setQ}
+          onOpenPiece={openTodayListing}
+          onOpenSearch={() => router.push("/search")}
+          onOpenCreators={() => router.push("/find")}
+          onOpenStyle={() => router.push("/style-dna")}
         />
       ) : (
         <ScrollView
