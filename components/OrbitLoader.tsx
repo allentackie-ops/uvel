@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, StyleSheet, Text, View, useColorScheme } from "react-native";
+import { Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { useColors } from "../lib/theme";
 
 const DEFAULT_SIZE = 58;
 const SPIN_MS = 2400;
@@ -101,7 +102,7 @@ export function OrbitLoader({
 }) {
   const spin = useRef(new Animated.Value(0)).current;
   const core = useRef(new Animated.Value(0)).current;
-  const isDark = useColorScheme() === "dark";
+  const isDark = useColors().ink === "#000000";
   const dot = Math.max(5, Math.round(size * 0.155));
   const radius = size * 0.37;
   const center = size / 2;
