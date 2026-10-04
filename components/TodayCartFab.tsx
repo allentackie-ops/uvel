@@ -22,7 +22,7 @@ const FAB = 58;
 const TRASH = 68;
 const HIT = 56;
 const PAD = 12;
-const POS_KEY = "uvel-today-cart-fab-pos";
+const POS_KEY = "uvel-today-cart-fab-pos-v2";
 
 export function TodayCartFab({
   listingOpen,
@@ -50,7 +50,7 @@ export function TodayCartFab({
   const minY = insets.top + 8;
   const maxY = Math.max(minY, height - tabBar - PAD - FAB);
   const defaultX = width - 16 - FAB;
-  const defaultY = height - (tabBar + (listingOpen ? 68 : 14)) - FAB;
+  const defaultY = height - (tabBar + 14) - FAB;
   const posX = useSharedValue(defaultX);
   const posY = useSharedValue(defaultY);
   const startX = useSharedValue(defaultX);
