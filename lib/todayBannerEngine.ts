@@ -59,7 +59,7 @@ export const TODAY_BANNER_TEMPLATES: TodayBannerTemplate[] = [
   {
     id: "new-in",
     title: "New in",
-    subtitle: "Just listed by the Uvel community — clothes, accessories, and objects with a point of view.",
+    subtitle: "Listed clothes, accessories, and objects with a point of view.",
     color: "#2762C5",
     variant: "slide",
     maxProducts: 4,
