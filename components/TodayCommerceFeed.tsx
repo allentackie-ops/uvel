@@ -73,7 +73,7 @@ export function TodayCommerceFeed({
   const pullTriggered = useRef(false);
   const wasRefreshing = useRef(false);
   const posterScrollX = useRef(new Animated.Value(0)).current;
-  const posterWidth = Math.min(300, Dimensions.get("window").width - 92);
+  const posterWidth = Math.min(280, Dimensions.get("window").width - 108);
   const posterInterval = posterWidth;
   const feedPieces = pieces.length
     ? Array.from({ length: Math.max(32, pieces.length * 3) }, (_, index) => pieces[index % pieces.length])
@@ -237,7 +237,7 @@ function PosterCarousel({
   posterInterval: number;
 }) {
   const interval = posterInterval;
-  const posterHeight = Math.round(posterWidth * 1.28);
+  const posterHeight = Math.round(posterWidth * 1.42);
   return (
     <View style={styles.posterStage}>
       <Animated.ScrollView
