@@ -210,6 +210,8 @@ function PosterCarousel({
           <Text style={styles.posterFoot}>Layers for the everyday</Text>
         </View>
         <Pressable onPress={onOpenSearch} style={[styles.posterCard, { width: posterWidth, height: posterHeight, backgroundColor: "#2762C5" }]} accessibilityRole="button" accessibilityLabel="Shop new arrivals">
+          {featured[0] ? <Image source={{ uri: featured[0].photo }} style={styles.posterFullImage} contentFit="cover" accessible={false} /> : null}
+          <View pointerEvents="none" style={styles.blueColorWash} />
           <View pointerEvents="none" style={styles.blueBlobOne} />
           <View pointerEvents="none" style={styles.blueBlobTwo} />
           <Text style={styles.newTitle}>New in</Text>
@@ -259,7 +261,7 @@ function make(colors: Colors) {
     topBar: { height: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     headerActions: { flexDirection: "row", alignItems: "center", gap: 2 },
     wordmarkButton: { minHeight: 48, justifyContent: "center" },
-    wordmark: { color: colors.pulse, fontFamily: "Georgia", fontSize: 31, lineHeight: 38, fontStyle: "normal", fontWeight: "600", letterSpacing: 0.35 },
+    wordmark: { color: colors.pulse, fontFamily: "Georgia", fontSize: 35, lineHeight: 40, fontStyle: "italic", fontWeight: "700", letterSpacing: -0.8 },
     topIcon: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
     menuIcon: { width: 22, gap: 4 },
     menuLine: { width: 22, height: 2, borderRadius: 2, backgroundColor: colors.bone },
@@ -270,12 +272,14 @@ function make(colors: Colors) {
     chips: { gap: 9, paddingVertical: 14 },
     chip: { height: 44, paddingHorizontal: 19, borderRadius: 22, alignItems: "center", justifyContent: "center" },
     chipText: { fontSize: 15, fontWeight: "800" },
-    posterStage: { marginHorizontal: -2, borderRadius: 22, overflow: "hidden", backgroundColor: "#17191F", paddingVertical: 7 },
+    posterStage: { marginHorizontal: -2, borderRadius: 22, overflow: "hidden", backgroundColor: colors.ink, paddingVertical: 7 },
     posterAmbient: { position: "absolute", width: 260, height: 260, borderRadius: 130, top: 86, left: 60 },
-    posterCard: { borderRadius: 19, overflow: "hidden", padding: 16, justifyContent: "flex-start" },
+    posterCard: { borderRadius: 19, overflow: "hidden", padding: 16, justifyContent: "flex-start", shadowColor: "#000000", shadowOpacity: 0.16, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 5 },
     posterFoot: { position: "absolute", left: 18, bottom: 17, color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
-    blueBlobOne: { position: "absolute", width: 300, height: 300, borderRadius: 150, backgroundColor: "#5B8CF3", opacity: 0.3, right: -110, top: 92 },
-    blueBlobTwo: { position: "absolute", width: 210, height: 210, borderRadius: 105, backgroundColor: "#9AB7FF", opacity: 0.18, left: -80, bottom: -50 },
+    posterFullImage: { ...StyleSheet.absoluteFill, opacity: 0.52 },
+    blueColorWash: { ...StyleSheet.absoluteFill, backgroundColor: "#2762C5", opacity: 0.58 },
+    blueBlobOne: { position: "absolute", width: 300, height: 300, borderRadius: 150, backgroundColor: "#7EA4FF", opacity: 0.22, right: -110, top: 92 },
+    blueBlobTwo: { position: "absolute", width: 210, height: 210, borderRadius: 105, backgroundColor: "#C4D5FF", opacity: 0.16, left: -80, bottom: -50 },
     fallCard: { flex: 1.42, borderRadius: 18, padding: 13, minHeight: 308 },
     newCard: { flex: 0.82, borderRadius: 18, minHeight: 308, padding: 16, overflow: "hidden" },
     promoHeader: { flexDirection: "row", justifyContent: "space-between", gap: 4, marginBottom: 12 },
