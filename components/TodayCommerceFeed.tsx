@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRef } from "react";
-import { Animated, Dimensions, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "./AccessiblePressable";
 import type { ClosetPiece } from "../lib/wardrobe";
@@ -63,6 +63,7 @@ export function TodayCommerceFeed({
   const insets = useSafeAreaInsets();
   const market = getMarket(app.country);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const pullRefreshTriggered = useRef(false);
   const posterScrollX = useRef(new Animated.Value(0)).current;
   const posterWidth = Math.min(300, Dimensions.get("window").width - 92);
   const posterInterval = posterWidth + 12;
@@ -83,6 +84,17 @@ export function TodayCommerceFeed({
       { scale: scrollY.interpolate({ inputRange: [0, 80], outputRange: [1, 0.9], extrapolate: "clamp" }) },
     ],
   };
+  const handleScroll = Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+    useNativeDriver: true,
+    listener: (event: { nativeEvent: { contentOffset: { y: number } } }) => {
+      const y = event.nativeEvent.contentOffset.y;
+      if (y > -10) pullRefreshTriggered.current = false;
+      if (y <= -64 && !refreshing && !pullRefreshTriggered.current) {
+        pullRefreshTriggered.current = true;
+        onRefresh();
+      }
+    },
+  });
 
   return (
     <View style={styles.page}>
@@ -98,7 +110,7 @@ export function TodayCommerceFeed({
         <AccessiblePressable onPress={onOpenTools} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open Today tools">
           <View style={styles.menuIcon}><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View>
         </AccessiblePressable>
-        <Animated.View style={logoMotion}><AccessiblePressable onPress={onOpenSearch} style={styles.wordmarkButton} accessibilityRole="button" accessibilityLabel="Open Uvel marketplace"><Text style={styles.wordmark}>Uvel</Text></AccessiblePressable></Animated.View>
+        <Animated.View pointerEvents="box-none" style={[styles.logoCenter, logoMotion]}><AccessiblePressable onPress={onOpenSearch} style={styles.wordmarkButton} accessibilityRole="button" accessibilityLabel="Open Uvel marketplace"><Text style={styles.wordmark}>Uvel</Text></AccessiblePressable></Animated.View>
         <View style={styles.headerActions}><AccessiblePressable onPress={onOpenSearch} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Search Uvel"><Ionicons name="search-outline" size={24} color={colors.bone} /></AccessiblePressable><AccessiblePressable onPress={onOpenMessages} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open messages"><Ionicons name="chatbubble-ellipses-outline" size={23} color={colors.bone} /></AccessiblePressable></View>
       </View>
       <Animated.ScrollView
@@ -108,8 +120,8 @@ export function TodayCommerceFeed({
         showsVerticalScrollIndicator={false}
         alwaysBounceVertical
         scrollEventThrottle={16}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} progressViewOffset={8} tintColor={colors.pulse} colors={[colors.pulse]} />}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+        bounces
+        onScroll={handleScroll}
       >
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         {COLOR_CHIPS.map((chip, index) => (
@@ -285,7 +297,8 @@ function make(colors: Colors) {
     page: { flex: 1, backgroundColor: colors.ink },
     topColorField: { position: "absolute", top: 0, left: 0, right: 0, height: 520, overflow: "hidden", zIndex: 0 },
     topColorLayer: { position: "absolute", top: 0, left: 0, right: 0, height: 520 },
-    fixedHeader: { minHeight: 62, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "transparent", zIndex: 5 },
+    fixedHeader: { minHeight: 62, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "transparent", zIndex: 5, position: "relative" },
+    logoCenter: { position: "absolute", left: 0, right: 0, alignItems: "center", justifyContent: "center" },
     feedScroll: { flex: 1 },
     content: { paddingTop: 10, paddingHorizontal: 16, paddingBottom: 130 },
     topBar: { height: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
