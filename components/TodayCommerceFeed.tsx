@@ -127,7 +127,7 @@ export function TodayCommerceFeed({
       <View pointerEvents="none" style={styles.topColorField}>
         {BANNER_COLORS.map((color, index) => {
           const inputRange = index === 0 ? [0, posterInterval] : [(index - 1) * posterInterval, index * posterInterval, (index + 1) * posterInterval];
-        const outputRange = index === 0 ? [0.34, 0] : [0, 0.34, 0];
+          const outputRange = index === 0 ? [0.64, 0] : [0, 0.64, 0];
           const horizontalOpacity = posterScrollX.interpolate({ inputRange, outputRange, extrapolate: "clamp" });
           return <Animated.View key={color} style={[styles.topColorLayer, { backgroundColor: color, opacity: Animated.multiply(horizontalOpacity, topColorFade) }]} />;
         })}
@@ -238,18 +238,8 @@ function PosterCarousel({
 }) {
   const interval = posterInterval;
   const posterHeight = Math.round(posterWidth * 1.28);
-  const fallOpacity = scrollX.interpolate({ inputRange: [0, interval], outputRange: [0.22, 0.04], extrapolate: "clamp" });
-  const blueOpacity = scrollX.interpolate({ inputRange: [0, interval, interval * 2], outputRange: [0.04, 0.22, 0.04], extrapolate: "clamp" });
   return (
     <View style={styles.posterStage}>
-      {BANNER_COLORS.map((color, index) => {
-        const inputRange = index === 0 ? [0, interval] : [(index - 1) * interval, index * interval, (index + 1) * interval];
-        const outputRange = index === 0 ? [0.22, 0] : [0, 0.22, 0];
-        return <Animated.View key={`stage-${color}`} pointerEvents="none" style={[styles.posterStageLayer, { backgroundColor: color, opacity: scrollX.interpolate({ inputRange, outputRange, extrapolate: "clamp" }) }]} />;
-      })}
-      <Animated.View pointerEvents="none" style={[styles.radiantOrb, { backgroundColor: "#F05237", left: -112, top: -106, opacity: fallOpacity }]} />
-      <Animated.View pointerEvents="none" style={[styles.radiantOrb, { backgroundColor: "#2762C5", right: -118, top: 38, opacity: blueOpacity }]} />
-      <View pointerEvents="none" style={[styles.radiantOrb, { backgroundColor: "#E96B91", left: 80, bottom: -210, opacity: 0.16 }]} />
       <Animated.ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -352,9 +342,7 @@ function make(colors: Colors) {
     chips: { gap: 9, paddingVertical: 14 },
     chip: { height: 44, paddingHorizontal: 19, borderRadius: 22, alignItems: "center", justifyContent: "center" },
     chipText: { fontSize: 15, fontWeight: "800" },
-    posterStage: { marginHorizontal: -2, borderRadius: 22, overflow: "hidden", backgroundColor: "#24262C", paddingVertical: 7 },
-    posterStageLayer: { ...StyleSheet.absoluteFillObject },
-    radiantOrb: { position: "absolute", width: 320, height: 320, borderRadius: 160, opacity: 0.24 },
+    posterStage: { marginHorizontal: -2, overflow: "visible", backgroundColor: "transparent", paddingVertical: 0 },
     posterAmbient: { position: "absolute", width: 260, height: 260, borderRadius: 130, top: 86, left: 60 },
     posterCard: { borderRadius: 19, overflow: "hidden", padding: 16, justifyContent: "flex-start" },
     posterFoot: { position: "absolute", left: 18, bottom: 17, color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
