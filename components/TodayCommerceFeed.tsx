@@ -73,8 +73,8 @@ export function TodayCommerceFeed({
   const pullTriggered = useRef(false);
   const wasRefreshing = useRef(false);
   const posterScrollX = useRef(new Animated.Value(0)).current;
-  const posterWidth = Math.min(270, Dimensions.get("window").width - 118);
-  const posterInterval = posterWidth;
+  const posterWidth = Math.min(352, Dimensions.get("window").width - 48);
+  const posterInterval = posterWidth + 12;
   const feedPieces = pieces.length
     ? Array.from({ length: Math.max(32, pieces.length * 3) }, (_, index) => pieces[index % pieces.length])
     : [];
@@ -157,6 +157,7 @@ export function TodayCommerceFeed({
         ))}
       </ScrollView>
 
+      <FeaturedRule styles={styles} />
       <PosterCarousel featured={featured} onOpenPiece={onOpenPiece} onOpenSearch={onOpenSearch} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterInterval={posterInterval} />
 
       <SectionTitle title="For you" onPress={onOpenSearch} />
@@ -219,6 +220,19 @@ export function TodayCommerceFeed({
   );
 }
 
+function FeaturedRule({ styles }: { styles: ReturnType<typeof make> }) {
+  return (
+    <View style={styles.featuredRule} accessibilityRole="header">
+      <View style={styles.ruleLine} />
+      <View style={styles.ruleLabelWrap}>
+        <Text style={styles.ruleEyebrow}>CURATED FOR YOU</Text>
+        <Text style={styles.ruleTitle}>Today’s highlights</Text>
+      </View>
+      <View style={styles.ruleLine} />
+    </View>
+  );
+}
+
 function PosterCarousel({
   featured,
   onOpenPiece,
@@ -237,7 +251,7 @@ function PosterCarousel({
   posterInterval: number;
 }) {
   const interval = posterInterval;
-  const posterHeight = Math.round(posterWidth * 1.55);
+  const posterHeight = Math.round(Math.min(470, Math.max(390, posterWidth * 1.24)));
   return (
     <View style={styles.posterStage}>
       <Animated.ScrollView
@@ -250,25 +264,25 @@ function PosterCarousel({
         scrollEventThrottle={16}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: true })}
       >
-        <View style={[styles.posterCard, { width: posterWidth, height: posterHeight, backgroundColor: "#F05237" }]}>
-          <View style={styles.promoHeader}>
-            <View><Text style={styles.promoTitle}>The Fall Edit</Text><Text style={styles.promoSub}>Fresh layers, easy pieces</Text></View>
-            <Text style={styles.shopAll}>Shop all ›</Text>
-          </View>
+        <Pressable onPress={onOpenSearch} style={[styles.posterCard, styles.primaryPoster, { width: posterWidth, height: posterHeight }]} accessibilityRole="button" accessibilityLabel="Shop the Fall Edit">
+          <View style={styles.posterTopline}><Text style={styles.posterKicker}>UVEL EDIT · 01</Text><Text style={styles.shopAll}>Shop all ›</Text></View>
+          <Text style={styles.promoTitle}>The Fall Edit</Text>
+          <Text style={styles.promoSub}>Fresh layers, easy pieces, and the details that make a look feel finished.</Text>
           <View style={styles.featureGrid}>
-            {featured.map((piece, index) => <MiniImage key={`${piece.id}-${index}`} piece={piece} onOpen={onOpenPiece} />)}
+            {featured.slice(0, 4).map((piece, index) => <MiniImage key={`${piece.id}-${index}`} piece={piece} onOpen={onOpenPiece} />)}
           </View>
-          <Text style={styles.posterFoot}>Layers for the everyday</Text>
-        </View>
+          <View style={styles.posterBottom}><Text style={styles.posterFoot}>Layers for the everyday</Text><Text style={styles.posterCount}>01 / 08</Text></View>
+        </Pressable>
         <Pressable onPress={onOpenSearch} style={[styles.posterCard, { width: posterWidth, height: posterHeight, backgroundColor: "#2762C5" }]} accessibilityRole="button" accessibilityLabel="Shop new arrivals">
           {featured[0] ? <Image source={{ uri: featured[0].photo }} style={styles.posterFullImage} contentFit="cover" accessible={false} /> : null}
           <View pointerEvents="none" style={styles.blueColorWash} />
           <View pointerEvents="none" style={styles.blueBlobOne} />
           <View pointerEvents="none" style={styles.blueBlobTwo} />
+          <Text style={styles.posterKicker}>JUST LANDED · 02</Text>
           <Text style={styles.newTitle}>New in</Text>
-          <Text style={styles.newCopy}>Your next favorite fit is here.</Text>
+          <Text style={styles.newCopy}>Your next favorite fit is here. Discover pieces with a point of view.</Text>
           <View style={styles.posterButton}><Text style={styles.whiteButtonText}>Shop now ›</Text></View>
-          <Text style={styles.newFoot}>New season{`\n`}New you</Text>
+          <View style={styles.posterBottom}><Text style={styles.newFoot}>New season{`\n`}New you</Text><Text style={styles.posterCount}>02 / 08</Text></View>
         </Pressable>
         <PosterPhotoCard title="Early Prime Big Deals" subtitle="Premium pieces, better prices" color="#A5B98A" image={featured[2]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} onPress={onOpenSearch} />
         <PosterPhotoCard title="Focus on your health" subtitle="Movement-ready layers" color="#20A79A" image={featured[3]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} onPress={onOpenSearch} />
@@ -284,6 +298,7 @@ function PosterPhotoCard({ title, subtitle, color, image, styles, width, height,
   return <Pressable onPress={onPress} style={[styles.posterCard, { width, height, backgroundColor: color }]} accessibilityRole="button" accessibilityLabel={title}>
     {image ? <Image source={{ uri: image }} style={styles.posterFullImage} contentFit="cover" accessible={false} /> : null}
     <View pointerEvents="none" style={[styles.posterTint, { backgroundColor: color }]} />
+    <Text style={styles.posterKicker}>UVEL EDIT · SHOP NOW</Text>
     <Text style={styles.posterPhotoTitle}>{title}</Text>
     <Text style={styles.posterPhotoSubtitle}>{subtitle}</Text>
     <View style={styles.posterButton}><Text style={styles.whiteButtonText}>Shop now ›</Text></View>
@@ -292,7 +307,7 @@ function PosterPhotoCard({ title, subtitle, color, image, styles, width, height,
 
 function SectionTitle({ title, onPress }: { title: string; onPress: () => void }) {
   const colors = useColors();
-  return <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 22, marginBottom: 10 }}><Text style={{ color: colors.bone, fontSize: 21, fontWeight: "800", letterSpacing: -0.3 }}>{title}</Text><Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`See all ${title}`}><Text style={{ color: colors.pulse, fontSize: 14, fontWeight: "800" }}>See all ›</Text></Pressable></View>;
+  return <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 28, marginBottom: 11, paddingBottom: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}35` }}><View><Text style={{ color: colors.subtle, fontSize: 10, fontWeight: "900", letterSpacing: 1.2, marginBottom: 3 }}>THE EDIT</Text><Text style={{ color: colors.bone, fontSize: 21, fontWeight: "800", letterSpacing: -0.3 }}>{title}</Text></View><Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`See all ${title}`}><Text style={{ color: colors.pulse, fontSize: 13, fontWeight: "800", paddingBottom: 2 }}>See all ›</Text></Pressable></View>;
 }
 
 function ProductRail({ pieces, market, onOpen, deals, compact }: { pieces: ClosetPiece[]; market: ReturnType<typeof getMarket>; onOpen: TodayCommerceFeedProps["onOpenPiece"]; deals?: boolean; compact?: boolean }) {
@@ -324,7 +339,7 @@ function make(colors: Colors) {
     topColorField: { position: "absolute", top: 0, left: 0, right: 0, height: 520, overflow: "hidden", zIndex: 0 },
     topColorLayer: { position: "absolute", top: 0, left: 0, right: 0, height: 520 },
     fixedHeader: { minHeight: 62, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "transparent", zIndex: 5, position: "relative" },
-    logoCenter: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", zIndex: 10 },
+    logoCenter: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", zIndex: 10 },
     feedScroll: { flex: 1 },
     pullOrbitLayer: { position: "absolute", left: 0, right: 0, height: 72, alignItems: "center", justifyContent: "center", zIndex: 4 },
     content: { paddingTop: 10, paddingHorizontal: 16, paddingBottom: 130 },
@@ -342,26 +357,36 @@ function make(colors: Colors) {
     chips: { gap: 9, paddingVertical: 14 },
     chip: { height: 44, paddingHorizontal: 19, borderRadius: 22, alignItems: "center", justifyContent: "center" },
     chipText: { fontSize: 15, fontWeight: "800" },
+    featuredRule: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 2, marginBottom: 13, paddingHorizontal: 2 },
+    ruleLine: { flex: 1, height: 1, backgroundColor: `${colors.bone}30` },
+    ruleLabelWrap: { alignItems: "center" },
+    ruleEyebrow: { color: colors.pulse, fontSize: 9, lineHeight: 12, fontWeight: "900", letterSpacing: 1.5 },
+    ruleTitle: { color: colors.bone, fontSize: 14, lineHeight: 18, fontWeight: "800", letterSpacing: -0.1 },
     posterStage: { marginHorizontal: -2, overflow: "visible", backgroundColor: "transparent", paddingVertical: 0 },
     posterAmbient: { position: "absolute", width: 260, height: 260, borderRadius: 130, top: 86, left: 60 },
-    posterCard: { borderRadius: 19, overflow: "hidden", padding: 18, justifyContent: "flex-start" },
-    posterFoot: { position: "absolute", left: 20, bottom: 19, color: "#FFFFFF", fontSize: 17, fontWeight: "800" },
+    posterCard: { borderRadius: 22, overflow: "hidden", padding: 20, justifyContent: "flex-start", marginRight: 12 },
+    primaryPoster: { backgroundColor: "#F05237", paddingTop: 18 },
+    posterTopline: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 7 },
+    posterKicker: { color: "#FFFFFF", fontSize: 10, lineHeight: 14, fontWeight: "900", letterSpacing: 1.4, zIndex: 2 },
+    posterBottom: { position: "absolute", left: 20, right: 20, bottom: 18, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
+    posterCount: { color: "#FFFFFF", fontSize: 11, fontWeight: "900", letterSpacing: 1, opacity: 0.88 },
+    posterFoot: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
     posterTint: { ...StyleSheet.absoluteFill, opacity: 0.56 },
-    posterPhotoTitle: { color: "#FFFFFF", fontSize: 30, lineHeight: 34, fontWeight: "900", maxWidth: 235, zIndex: 2 },
-    posterPhotoSubtitle: { color: "#FFFFFF", fontSize: 17, lineHeight: 22, marginTop: 10, maxWidth: 235, zIndex: 2 },
-    posterFullImage: { ...StyleSheet.absoluteFill, opacity: 0.52 },
+    posterPhotoTitle: { color: "#FFFFFF", fontSize: 34, lineHeight: 37, fontWeight: "900", maxWidth: 290, zIndex: 2, marginTop: 10 },
+    posterPhotoSubtitle: { color: "#FFFFFF", fontSize: 17, lineHeight: 23, marginTop: 11, maxWidth: 290, zIndex: 2 },
+    posterFullImage: { ...StyleSheet.absoluteFill, opacity: 0.48 },
     blueColorWash: { ...StyleSheet.absoluteFill, backgroundColor: "#2762C5", opacity: 0.58 },
     blueBlobOne: { position: "absolute", width: 300, height: 300, borderRadius: 150, backgroundColor: "#7EA4FF", opacity: 0.22, right: -110, top: 92 },
     blueBlobTwo: { position: "absolute", width: 210, height: 210, borderRadius: 105, backgroundColor: "#C4D5FF", opacity: 0.16, left: -80, bottom: -50 },
     fallCard: { flex: 1.42, borderRadius: 18, padding: 13, minHeight: 308 },
     newCard: { flex: 0.82, borderRadius: 18, minHeight: 308, padding: 16, overflow: "hidden" },
     promoHeader: { flexDirection: "row", justifyContent: "space-between", gap: 4, marginBottom: 12 },
-    promoTitle: { color: "#FFFFFF", fontSize: 25, fontWeight: "900" },
-    promoSub: { color: "#FFFFFF", fontSize: 14, marginTop: 3 },
+    promoTitle: { color: "#FFFFFF", fontSize: 34, lineHeight: 37, fontWeight: "900", letterSpacing: -0.8, maxWidth: 280 },
+    promoSub: { color: "#FFFFFF", fontSize: 16, lineHeight: 21, marginTop: 8, maxWidth: 292 },
     shopAll: { color: "#FFFFFF", fontSize: 13, fontWeight: "800", marginTop: 5 },
-    featureGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-    newTitle: { color: "#FFFFFF", fontSize: 28, fontWeight: "900" },
-    newCopy: { color: "#FFFFFF", fontSize: 18, lineHeight: 24, marginTop: 10, maxWidth: 170 },
+    featureGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 20 },
+    newTitle: { color: "#FFFFFF", fontSize: 44, lineHeight: 47, fontWeight: "900", letterSpacing: -1, marginTop: 10 },
+    newCopy: { color: "#FFFFFF", fontSize: 18, lineHeight: 24, marginTop: 10, maxWidth: 292 },
     whiteButton: { alignSelf: "flex-start", backgroundColor: "#FFFFFF", borderRadius: 22, paddingHorizontal: 14, minHeight: 40, justifyContent: "center", marginTop: 12 },
     whiteButtonText: { color: "#181714", fontSize: 13, fontWeight: "900" },
     newFoot: { position: "absolute", left: 16, bottom: 13, color: "#FFFFFF", fontSize: 12, lineHeight: 15, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.55)", textShadowRadius: 4 },
