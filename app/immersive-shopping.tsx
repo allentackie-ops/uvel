@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { createAudioPlayer } from "expo-audio";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import PagerView from "react-native-pager-view";
@@ -42,6 +43,10 @@ const CATALOG_BRAND_IDS: Record<string, string> = {
   "Archive 1982": "archive-1982",
   "Atelier No. 4": "atelier-no4",
 };
+const IMMERSIVE_AUDIO_TRACKS = [
+  { title: "Mystical song", artist: "Dorfi", source: require("../assets/music/immersive/mystical-song-dorfi.mp3") },
+  { title: "Dark Ambient Cave Experience", artist: "techtheist", source: require("../assets/music/immersive/dark-ambient-cave-experience-techtheist.mp3") },
+] as const;
 
 type ShopFloorPiece = ReturnType<typeof shopFloor>[number];
 
@@ -632,7 +637,7 @@ function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: Re
   );
 }
 
-function ImmersiveAudioRow({ piece, styles, playing, onPress }: { piece: ShopFloorPiece; styles: ReturnType<typeof make>; playing: boolean; onPress: () => void }) {
+function ImmersiveAudioRow({ piece, styles, playing, onPress, track }: { piece: ShopFloorPiece; styles: ReturnType<typeof make>; playing: boolean; onPress: () => void; track: (typeof IMMERSIVE_AUDIO_TRACKS)[number] }) {
   const waveform = [12, 21, 30, 17, 26, 34, 20, 28, 15, 24, 31, 18, 27, 14, 22];
   return (
     <AccessiblePressable
@@ -646,8 +651,8 @@ function ImmersiveAudioRow({ piece, styles, playing, onPress }: { piece: ShopFlo
         {waveform.map((height, index) => <View key={index} style={[styles.immersiveAudioWave, { height }, playing && styles.immersiveAudioWavePlaying]} />)}
       </View>
       <View style={styles.immersiveAudioTrack}>
-        <Text style={styles.immersiveAudioTitle} numberOfLines={1}>Oxblood after dark</Text>
-        <Text style={styles.immersiveAudioSubtitle} numberOfLines={1}>uvel original</Text>
+        <Text style={styles.immersiveAudioTitle} numberOfLines={1}>{track.title}</Text>
+        <Text style={styles.immersiveAudioSubtitle} numberOfLines={1}>CC0 ambient · {track.artist}</Text>
       </View>
       <View style={styles.immersiveAudioDisc}>
         <Image source={{ uri: piece.photo }} style={styles.immersiveAudioDiscImage} contentFit="cover" accessible={false} />
@@ -663,6 +668,8 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [offerOpen, setOfferOpen] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const audioTrack = IMMERSIVE_AUDIO_TRACKS[piece.id.split("").reduce((sum: number, char: string) => sum + char.charCodeAt(0), 0) % IMMERSIVE_AUDIO_TRACKS.length];
+  const audioPlayerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
   const cart = useCart();
   const lastImageTap = useRef(0);
   const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -740,8 +747,34 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   }
   function toggleAudio() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
-    setAudioPlaying((playing) => !playing);
+    try {
+      if (audioPlaying) {
+        audioPlayerRef.current?.pause();
+        setAudioPlaying(false);
+        return;
+      }
+      if (!audioPlayerRef.current) {
+        const player = createAudioPlayer(audioTrack.source);
+        player.loop = true;
+        player.volume = 0.16;
+        audioPlayerRef.current = player;
+      }
+      audioPlayerRef.current.play();
+      setAudioPlaying(true);
+    } catch {
+      setAudioPlaying(false);
+    }
   }
+  useEffect(() => {
+    if (!active && audioPlaying) {
+      audioPlayerRef.current?.pause();
+      setAudioPlaying(false);
+    }
+  }, [active, audioPlaying]);
+  useEffect(() => () => {
+    audioPlayerRef.current?.pause();
+    audioPlayerRef.current?.release();
+  }, []);
 
   return (
     <View
@@ -788,7 +821,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
                 <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{salePrice}</Text></View>
               ) : <Text style={styles.price}>{localPrice}</Text>}
             </View>
-            <ImmersiveAudioRow piece={piece} styles={styles} playing={audioPlaying} onPress={toggleAudio} />
+            <ImmersiveAudioRow piece={piece} styles={styles} playing={audioPlaying} onPress={toggleAudio} track={audioTrack} />
           </View>
         ) : (
           <View>
@@ -812,7 +845,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           {credit > 0 ? (
             <View style={styles.priceRow}><Text style={styles.was}>{localPrice}</Text><Text style={styles.price}>{salePrice}</Text></View>
           ) : <Text style={styles.price}>{localPrice}</Text>}
-          <ImmersiveAudioRow piece={piece} styles={styles} playing={audioPlaying} onPress={toggleAudio} />
+          <ImmersiveAudioRow piece={piece} styles={styles} playing={audioPlaying} onPress={toggleAudio} track={audioTrack} />
           </View>
         )}
       </Animated.View>
