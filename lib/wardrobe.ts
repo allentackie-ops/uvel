@@ -14,6 +14,8 @@ export type ClosetStatus = "owned" | "draft" | "review_pending" | "listed" | "so
 export type ClosetPiece = {
   id: string;
   photo: string;
+  /** Optional transparent PNG of the product subject for Today editorial compositions. */
+  cutoutPhoto?: string;
   photos: string[];
   /** Optional 8–15s clip of the piece in motion. Local or remote URI. */
   clipUri?: string;
@@ -187,6 +189,7 @@ function normalize(p: ClosetPiece): ClosetPiece {
     ...p,
     photos,
     photo: photos[0] ?? p.photo ?? "",
+    cutoutPhoto: p.cutoutPhoto || undefined,
     clipUri: p.clipUri || undefined,
     material: p.material ?? "",
     originalPriceCents: p.originalPriceCents ?? 0,

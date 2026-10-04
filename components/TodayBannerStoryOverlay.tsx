@@ -6,6 +6,7 @@ import { Gesture, GestureDetector, GestureHandlerRootView, ScrollView as GHScrol
 import Animated, { Easing, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ClosetPiece } from "../lib/wardrobe";
+import { todayProductImage } from "../lib/todayProductImage";
 import { moneyInMarket, getMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
@@ -275,7 +276,7 @@ function StoryHero({ story, pieces, topPadding }: { story: BannerStory; pieces: 
         <Text style={styles.title}>{story.title}</Text>
         <Text style={styles.subtitle}>{story.subtitle}</Text>
         <View style={styles.heroFeatureGrid} pointerEvents="none">
-          {pieces.map((piece, index) => <View key={`${piece.id}-hero-${index}`} style={styles.heroFeature}><Image source={{ uri: piece.photo }} style={styles.heroFeatureImage} contentFit="cover" accessible={false} /></View>)}
+          {pieces.map((piece, index) => <View key={`${piece.id}-hero-${index}`} style={styles.heroFeature}><Image source={{ uri: todayProductImage(piece) }} style={styles.heroFeatureImage} contentFit="contain" accessible={false} /></View>)}
         </View>
       </View>
     </View>
@@ -286,7 +287,7 @@ function StoryPiece({ piece, index, color, colors, market, onOpenPiece }: { piec
   const ref = useRef<View>(null);
   return <Pressable ref={ref} onPress={(event) => { event.stopPropagation(); ref.current?.measureInWindow((x, y, width, height) => onOpenPiece(piece, { x, y, width, height })); }} style={[styles.editCard, index % 2 === 1 && styles.editCardOffset, { backgroundColor: `${color}20` }]} accessibilityRole="button" accessibilityLabel={`Open ${piece.name}`}>
     <View style={[styles.number, { backgroundColor: color }]}><Text style={styles.numberText}>0{index + 1}</Text></View>
-    <Image source={{ uri: piece.photo }} style={styles.editImage} contentFit="cover" accessible={false} />
+    <Image source={{ uri: todayProductImage(piece) }} style={styles.editImage} contentFit="contain" accessible={false} />
     <Text style={[styles.pieceName, { color: colors.bone }]} numberOfLines={2}>{piece.name}</Text>
     <Text style={[styles.pieceMeta, { color: colors.muted }]}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
   </Pressable>;
@@ -305,7 +306,7 @@ const styles = StyleSheet.create({
   title: { color: "#FFFFFF", fontSize: 46, lineHeight: 48, fontWeight: "900", letterSpacing: -1.5, maxWidth: 330 },
   subtitle: { color: "#FFFFFF", fontSize: 18, lineHeight: 24, marginTop: 13, maxWidth: 320 },
   heroFeatureGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 22, maxWidth: 320 },
-  heroFeature: { width: "23%", aspectRatio: 0.88, borderRadius: 10, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.2)" },
+  heroFeature: { width: "23%", aspectRatio: 0.88, justifyContent: "center", alignItems: "center" },
   heroFeatureImage: { width: "100%", height: "100%" },
   intro: { paddingTop: 18, paddingBottom: 28 },
   kicker: { fontSize: 10, letterSpacing: 1.8, fontWeight: "900" },
@@ -316,7 +317,7 @@ const styles = StyleSheet.create({
   editCardOffset: { marginTop: 18 },
   number: { position: "absolute", zIndex: 2, top: 10, left: 10, width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center" },
   numberText: { color: "#181714", fontSize: 11, fontWeight: "900" },
-  editImage: { width: "100%", aspectRatio: 0.86, borderRadius: 12, backgroundColor: "#F4F0E6" },
+  editImage: { width: "100%", aspectRatio: 0.86 },
   pieceName: { fontSize: 14, lineHeight: 18, fontWeight: "800", marginTop: 9 },
   pieceMeta: { fontSize: 12, marginTop: 4 },
   topBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 8, flexDirection: "row", alignItems: "center", paddingHorizontal: 16 },

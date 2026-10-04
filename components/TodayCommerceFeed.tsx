@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "./AccessiblePressable";
 import { OrbitLoader } from "./OrbitLoader";
 import type { ClosetPiece } from "../lib/wardrobe";
+import { todayProductImage } from "../lib/todayProductImage";
 import type { Colors } from "../lib/theme";
 import { useColors } from "../lib/theme";
 import { getMarket, moneyInMarket } from "../lib/markets";
@@ -161,11 +162,11 @@ export function TodayCommerceFeed({
           <Text style={styles.editorSubtitle}>Modern looks for real life.</Text>
           <Pressable onPress={onOpenSearch} style={styles.editorButton} accessibilityRole="button" accessibilityLabel="Shop the editor story"><Text style={styles.editorButtonText}>Shop the story ›</Text></Pressable>
         </View>
-        {editors[0] ? <Image source={{ uri: editors[0].photo }} style={styles.editorImage} contentFit="cover" accessible={false} /> : null}
+        {editors[0] ? <Image source={{ uri: todayProductImage(editors[0]) }} style={styles.editorImage} contentFit="contain" accessible={false} /> : null}
       </View>
       <View style={styles.editorTiles}>
         {EDITORIAL.map((item, index) => <Pressable key={item.title} onPress={onOpenSearch} style={[styles.editorTile, { backgroundColor: item.accent }]} accessibilityRole="button" accessibilityLabel={item.title}>
-          {editors[index + 1] ? <Image source={{ uri: editors[index + 1].photo }} style={styles.editorTileImage} contentFit="cover" accessible={false} /> : null}
+          {editors[index + 1] ? <Image source={{ uri: todayProductImage(editors[index + 1]) }} style={styles.editorTileImage} contentFit="contain" accessible={false} /> : null}
           <Text style={styles.editorTileTitle}>{item.title}</Text><Text style={styles.editorTileSubtitle}>{item.subtitle}</Text><Text style={styles.tileArrow}>›</Text>
         </Pressable>)}
       </View>
@@ -332,11 +333,11 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
     <Text style={styles.editorialSubtitle}>{story.subtitle}</Text>
     <View pointerEvents="none" style={[styles.editorialStamp, { borderColor: `${story.color}99` }]}><Text style={styles.editorialStampText}>{story.variant === "collage" ? "LOOK 04" : story.variant === "explode" ? "DROP 03" : "UVEL"}</Text></View>
     <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.hero, heroMotion]}>
-      <Image source={{ uri: pieces[0]?.photo || story.image }} style={styles.editorialCutoutImage} contentFit="cover" accessible={false} />
+      <Image source={{ uri: todayProductImage(pieces[0], story.image) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} />
     </Animated.View>
-    {pieces[1] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.secondary, secondaryMotion]}><Image source={{ uri: pieces[1].photo }} style={styles.editorialCutoutImage} contentFit="cover" accessible={false} /></Animated.View> : null}
-    {pieces[2] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.tertiary, tertiaryMotion]}><Image source={{ uri: pieces[2].photo }} style={styles.editorialCutoutImage} contentFit="cover" accessible={false} /></Animated.View> : null}
-    {pieces[3] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.fourth, { opacity: motion.interpolate({ inputRange: [0, 1], outputRange: [0.76, 1] }) }]}><Image source={{ uri: pieces[3].photo }} style={styles.editorialCutoutImage} contentFit="cover" accessible={false} /></Animated.View> : null}
+    {pieces[1] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.secondary, secondaryMotion]}><Image source={{ uri: todayProductImage(pieces[1]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
+    {pieces[2] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.tertiary, tertiaryMotion]}><Image source={{ uri: todayProductImage(pieces[2]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
+    {pieces[3] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.fourth, { opacity: motion.interpolate({ inputRange: [0, 1], outputRange: [0.76, 1] }) }]}><Image source={{ uri: todayProductImage(pieces[3]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
     <View pointerEvents="none" style={styles.editorialOrbit}><View style={styles.editorialOrbitDot} /></View>
     <Text style={styles.editorialFooter}>{story.variant === "float" ? "FLOAT / MOVE / LAYER" : story.variant === "slide" ? "NEW SEASON / 01" : story.variant === "explode" ? "THE GOOD STUFF" : story.variant === "collage" ? "COMPOSE YOUR OWN" : "LESS, BUT BETTER"}</Text>
   </View>;
@@ -432,7 +433,7 @@ function make(colors: Colors) {
     editorialSubtitle: { color: "rgba(255,255,255,0.88)", fontSize: 15, lineHeight: 20, maxWidth: 226, marginTop: 9, zIndex: 6 },
     editorialStamp: { position: "absolute", right: 18, top: 18, width: 55, height: 55, borderRadius: 28, borderWidth: 1, alignItems: "center", justifyContent: "center", transform: [{ rotate: "12deg" }], zIndex: 6 },
     editorialStampText: { color: "rgba(255,255,255,0.82)", fontSize: 9, fontWeight: "900", letterSpacing: 1 },
-    editorialCutout: { position: "absolute", overflow: "hidden", borderRadius: 90, backgroundColor: "rgba(255,255,255,0.12)", borderWidth: 2, borderColor: "rgba(255,255,255,0.24)", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 8 }, elevation: 5, zIndex: 2 },
+    editorialCutout: { position: "absolute", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 8 }, elevation: 5, zIndex: 2 },
     editorialCutoutImage: { width: "100%", height: "100%" },
     editorialOrbit: { position: "absolute", left: -24, bottom: 28, width: 110, height: 38, borderWidth: 1, borderColor: "rgba(255,255,255,0.42)", borderRadius: 55, transform: [{ rotate: "-18deg" }], zIndex: 1 },
     editorialOrbitDot: { position: "absolute", right: 8, top: -4, width: 8, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.86)" },
