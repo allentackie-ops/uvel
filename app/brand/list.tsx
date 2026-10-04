@@ -34,6 +34,7 @@ import { firebaseReady } from "../../lib/firebase";
 import { takePendingListingSelection } from "../../lib/listingOptions";
 import { loadBrandListingDrafts, removeBrandListingDraft, saveBrandListingDraft } from "../../lib/brandListingDraft";
 import { useColors, useResolvedAppearance } from "../../lib/theme";
+import { setImmersivePreview } from "../../lib/immersivePreview";
 
 const COVER_W = 112;
 const COVER_H = 140;
@@ -319,6 +320,21 @@ export default function BrandList() {
 
   function openMeasurements() {
     router.push({ pathname: "/listing-details", params: { selected: JSON.stringify(measurements) } });
+  }
+
+  function openImmersivePreview() {
+    const uris = photos.map((photo) => photo.uri);
+    if (!uris.length) return;
+    setImmersivePreview({
+      id: `brand-preview-${Date.now()}`, photo: uris[0], photos: uris, clipUri: clipUri || undefined,
+      name: name.trim() || "Your listing", brand: activeBrand.name, brandId: activeBrand.id,
+      category: category || "Tops", color: color.trim() || "Not added", size: picked[0] || "Not added", sizes: picked,
+      condition: condition || "New", material: material.trim() || "Not added", notes: notes.trim(), measurements,
+      listPriceCents: Math.max(1, Number(price) || 1) * 100, originalPriceCents: 0, stockQuantity: 1,
+      status: "listed", createdAt: Date.now(), ownerId: activeBrand.ownerId, ownerName: activeBrand.name, ownerPhoto: activeBrand.logoUri,
+      country: origin, currency: market.currency, shipsTo: restrictShipsTo(origin, shipsTo, activeBrand.operatingCountries || brandShipsTo),
+    });
+    router.push({ pathname: "/immersive-shopping", params: { preview: "1" } });
   }
 
   async function publish() {
@@ -673,6 +689,11 @@ export default function BrandList() {
             </Pressable>
             </View> : null}
           </View>
+          {photos.length ? (
+            <Pressable onPress={openImmersivePreview} style={styles.preview} accessibilityRole="button" accessibilityLabel="Preview in Immersive Shopping">
+              <Text style={styles.previewTxt}>Preview in Immersive Shopping →</Text>
+            </Pressable>
+          ) : null}
         </ScrollView>
         <View style={[styles.foot, { paddingBottom: insets.bottom + 12, backgroundColor: brandTheme.bg }]}>
           <Pressable
@@ -818,6 +839,8 @@ function makeStyles(theme: ReturnType<typeof themeFor>) {
   row: { flexDirection: "row", gap: 10 },
   selectionField: { marginTop: 8, minHeight: 48, borderRadius: 14, borderWidth: 1, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   selectionValue: { flex: 1, fontSize: 15, fontWeight: "600" },
+  preview: { marginTop: 18, marginBottom: 8, paddingHorizontal: 2 },
+  previewTxt: { color: theme.ink, fontSize: 14, fontWeight: "700" },
   selectionArrow: { fontSize: 26, lineHeight: 26, marginLeft: 6, fontWeight: "300" },
   variantStockBlock: { marginTop: 2 },
   variantStockRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 },

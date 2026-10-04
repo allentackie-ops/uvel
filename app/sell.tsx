@@ -38,6 +38,7 @@ import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
 import { useColors, type Colors } from "../lib/theme";
 import { addPiece, getPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
+import { setImmersivePreview } from "../lib/immersivePreview";
 
 const MAX = 10;
 const SELL_WELCOME_SEEN_KEY = "uvel.sell-welcome-seen";
@@ -506,6 +507,22 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
 
   function openMeasurements() {
     router.push({ pathname: "/listing-details", params: { selected: JSON.stringify(measurements) } });
+  }
+
+  function openImmersivePreview() {
+    const uris = photos.map((photo) => photo.uri);
+    if (!uris.length) return;
+    setImmersivePreview({
+      id: existing?.id || `preview-${Date.now()}`,
+      photo: uris[0], photos: uris, clipUri: clipUri || undefined,
+      name: name.trim() || "Your listing", brand: brand.trim() || "Unlabeled",
+      category: category || "Tops", color: color.trim() || "Not added", size: size.trim() || "Not added",
+      condition: condition || "Not added", material: material.trim() || "Not added", notes: notes.trim(), measurements,
+      listPriceCents: Math.max(1, Number(price) || 1) * 100, originalPriceCents: Math.max(0, Number(was) || 0) * 100,
+      status: "listed", createdAt: Date.now(), ownerId: uid, ownerName: displayName, ownerPhoto: avatarUri || existing?.ownerPhoto,
+      country: origin, currency: listingCurrency, shipsTo, shippingMethod, shippingCarriers: shippingCarrierIds, shippingBuyerPays, shopLook,
+    });
+    router.push({ pathname: "/immersive-shopping", params: { preview: "1" } });
   }
 
   function openPrice() {
@@ -1194,6 +1211,11 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 style={styles.preview}
               >
                 <Text style={styles.previewTxt}>Preview as a buyer →</Text>
+              </AccessiblePressable>
+            ) : null}
+            {photos.length ? (
+              <AccessiblePressable onPress={openImmersivePreview} style={styles.preview} accessibilityRole="button" accessibilityLabel="Preview in Immersive Shopping">
+                <Text style={styles.previewTxt}>Preview in Immersive Shopping →</Text>
               </AccessiblePressable>
             ) : null}
             </View> : null}

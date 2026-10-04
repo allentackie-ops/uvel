@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import PagerView from "react-native-pager-view";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -32,6 +32,7 @@ import { fallbackShopFloor, refreshMarketplaceListings, shopFloor, useWardrobe }
 import { feedItemAt } from "../lib/feedOrder";
 import { usePersonalization, type RecommendationChoice } from "../lib/personalization";
 import { unreadFor, useInbox } from "../lib/chat";
+import { takeImmersivePreview } from "../lib/immersivePreview";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const MIN_REFRESH_MS = 1200;
@@ -71,6 +72,8 @@ function randomPromptGap(min: number, max: number) {
 
 
 export default function ImmersiveShopping() {
+  const { preview } = useLocalSearchParams<{ preview?: string }>();
+  const previewPiece = useMemo(() => preview === "1" ? takeImmersivePreview() : null, [preview]);
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
@@ -142,6 +145,7 @@ export default function ImmersiveShopping() {
   }, [findHint]);
 
   const pieces = useMemo(() => {
+    if (previewPiece) return [previewPiece];
     if (refreshing && refreshFeedSnapshot.current) return refreshFeedSnapshot.current;
     const floor = shopFloor(app.country);
     if (floor.length) return floor;
@@ -149,7 +153,7 @@ export default function ImmersiveShopping() {
     // a stale marketplace snapshot has not hydrated yet.
     const localListed = wardrobePieces.filter((piece) => piece.status === "listed" && !piece.sellerPaused);
     return localListed.length ? localListed : bundledPieces;
-  }, [app.country, bundledPieces, refreshState, refreshing, wardrobePieces]);
+  }, [app.country, bundledPieces, previewPiece, refreshState, refreshing, wardrobePieces]);
 
   const rankedPieces = useMemo(() => rankPersonalized(pieces, app.country), [app.country, pieces, rankPersonalized]);
   const fallbackFeedSession = useMemo<FeedSession>(() => ({
@@ -157,7 +161,7 @@ export default function ImmersiveShopping() {
     repeat: rankedPieces,
     seed: sessionSeed,
   }), [rankedPieces, sessionSeed]);
-  const activeFeedSession = feedSession.queue.length ? feedSession : fallbackFeedSession;
+  const activeFeedSession = previewPiece ? fallbackFeedSession : feedSession.queue.length ? feedSession : fallbackFeedSession;
 
   const feedWindow = useMemo(() => {
     const itemAt = (index: number) => sessionItemAt(activeFeedSession, index);
