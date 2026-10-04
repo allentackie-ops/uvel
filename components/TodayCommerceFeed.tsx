@@ -323,7 +323,7 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
   }, [latestStickerMotion, story.variant]);
   useEffect(() => {
     if (story.variant !== "slide" || pieces.length <= 0) return;
-    const rotationTimer = setInterval(() => setNewInSetIndex((index) => index + 1), 10000);
+    const rotationTimer = setInterval(() => setNewInSetIndex((index) => index + 1), 6000);
     return () => clearInterval(rotationTimer);
   }, [pieces.length, story.variant]);
   useEffect(() => {
@@ -336,17 +336,17 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
     const currentKey = displayedPieces.map((piece) => `${piece.id}:${piece.cutoutPhoto || piece.photo}`).join("|");
     if (nextKey === currentKey) return;
     const generation = ++cascadeGeneration.current;
-    const exits = newInOpacities.map((value, index) => Animated.timing(value, { toValue: 0, duration: 320, delay: index * 110, useNativeDriver: true }));
-    const exitSequence = Animated.stagger(110, exits);
+    const exits = newInOpacities.map((value) => Animated.timing(value, { toValue: 0, duration: 220, useNativeDriver: true }));
+    const exitSequence = Animated.stagger(80, exits);
     exitSequence.start(({ finished }) => {
       if (!finished || generation !== cascadeGeneration.current) return;
       setDisplayedPieces(nextPieces);
       newInScales.forEach((value) => value.setValue(0.97));
       requestAnimationFrame(() => {
         if (generation !== cascadeGeneration.current) return;
-        Animated.stagger(110, newInOpacities.map((value, index) => Animated.parallel([
-          Animated.timing(value, { toValue: 1, duration: 340, useNativeDriver: true }),
-          Animated.timing(newInScales[index], { toValue: 1, duration: 340, useNativeDriver: true }),
+        Animated.stagger(80, newInOpacities.map((value, index) => Animated.parallel([
+          Animated.timing(value, { toValue: 1, duration: 240, useNativeDriver: true }),
+          Animated.timing(newInScales[index], { toValue: 1, duration: 240, useNativeDriver: true }),
         ]))).start();
       });
     });
