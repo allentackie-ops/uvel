@@ -399,6 +399,7 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
     <View pointerEvents="none" style={styles.editorialGrain} />
     <Text style={styles.editorialTitle}>{story.title}</Text>
     <Text style={styles.editorialSubtitle}>{story.subtitle}</Text>
+    {story.variant === "slide" ? <View pointerEvents="none" style={styles.editorialLatestBadge}><Text style={styles.editorialLatestBadgeText}>THE LATEST</Text></View> : null}
     <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.hero, story.variant === "slide" ? newInProductMotion(0) : heroMotion]}>
       <Image source={{ uri: todayProductImage(activePieces[0], story.image) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} />
     </Animated.View>
@@ -496,6 +497,8 @@ function make(colors: Colors) {
     editorialGrain: { position: "absolute", top: 0, right: 0, width: 180, height: 180, borderRadius: 90, backgroundColor: "rgba(255,255,255,0.1)", transform: [{ translateX: 78 }, { translateY: -70 }] },
     editorialTitle: { color: "#FFFFFF", fontSize: 34, lineHeight: 36, fontWeight: "900", letterSpacing: -0.9, maxWidth: 230, marginTop: 12, zIndex: 6 },
     editorialSubtitle: { color: "rgba(255,255,255,0.88)", fontSize: 15, lineHeight: 20, maxWidth: 226, marginTop: 9, zIndex: 6 },
+    editorialLatestBadge: { position: "absolute", right: 16, top: 16, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: "rgba(255,255,255,0.72)", backgroundColor: "rgba(0,0,0,0.08)", zIndex: 6 },
+    editorialLatestBadgeText: { color: "rgba(255,255,255,0.94)", fontSize: 9, fontWeight: "900", letterSpacing: 1.4 },
     editorialCutout: { position: "absolute", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 8 }, elevation: 5, zIndex: 2 },
     editorialCutoutImage: { width: "100%", height: "100%" },
     editorialOrbit: { position: "absolute", left: -24, bottom: 28, width: 110, height: 38, borderWidth: 1, borderColor: "rgba(255,255,255,0.42)", borderRadius: 55, transform: [{ rotate: "-18deg" }], zIndex: 1 },
