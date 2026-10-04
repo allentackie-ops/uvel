@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { useAudioPlayer } from "expo-audio";
 import { router, useLocalSearchParams } from "expo-router";
 import PagerView from "react-native-pager-view";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -36,7 +35,6 @@ import { takeImmersivePreview } from "../lib/immersivePreview";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const MIN_REFRESH_MS = 1200;
-const IMMERSIVE_AUDIO_SOURCE = require("../assets/music/today/after-hours.m4a");
 const IMMERSIVE_WELCOME_KEY = "uvel-immersive-welcome-seen-v1";
 let immersiveResumeIndex = 0;
 const CATALOG_BRAND_IDS: Record<string, string> = {
@@ -665,7 +663,6 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [offerOpen, setOfferOpen] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
-  const audioPlayer = useAudioPlayer(null);
   const cart = useCart();
   const lastImageTap = useRef(0);
   const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -741,21 +738,9 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     setOfferOpen(true);
   }
-  useEffect(() => {
-    audioPlayer.loop = true;
-    audioPlayer.volume = 0.16;
-    if (!active || !audioPlaying) audioPlayer.pause();
-    return () => audioPlayer.pause();
-  }, [active, audioPlaying, audioPlayer]);
   function toggleAudio() {
-    if (audioPlaying) {
-      audioPlayer.pause();
-      setAudioPlaying(false);
-      return;
-    }
-    audioPlayer.replace(IMMERSIVE_AUDIO_SOURCE);
-    audioPlayer.play();
-    setAudioPlaying(true);
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    setAudioPlaying((playing) => !playing);
   }
 
   return (
