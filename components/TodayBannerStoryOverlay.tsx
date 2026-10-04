@@ -230,7 +230,7 @@ export function TodayBannerStoryOverlay({
         <Animated.View style={[styles.backdrop, backdropStyle, { backgroundColor: colors.ink }]} pointerEvents="none" />
         <AnimatedScrollView
           style={[styles.page, pageStyle, { backgroundColor: colors.ink }]}
-          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 34 }]}
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}
           showsVerticalScrollIndicator={false}
           bounces={false}
           overScrollMode="never"
