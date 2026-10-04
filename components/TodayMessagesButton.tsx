@@ -15,7 +15,7 @@ export function TodayMessagesButton({
   const colors = useColors();
   const { width: screenWidth } = useWindowDimensions();
   const styles = useMemo(() => make(colors.bone, colors.success, screenWidth), [colors.bone, colors.success, screenWidth]);
-  const iconColor = colors.bone;
+  const iconColor = "#F4F0E6";
   const [hintVisible, setHintVisible] = useState(false);
   const hintOpacity = useRef(new Animated.Value(0)).current;
   const hintOffset = useRef(new Animated.Value(-5)).current;
