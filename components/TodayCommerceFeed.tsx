@@ -13,15 +13,6 @@ import { getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import type { BannerStory, BannerStoryOrigin } from "./TodayBannerStoryOverlay";
 
-const COLOR_CHIPS = [
-  { label: "Today", color: "#2A320E", text: "#FFFFFF" },
-  { label: "Looks", color: "#F58D91", text: "#181714" },
-  { label: "Creators", color: "#CDB9F4", text: "#181714" },
-  { label: "Brands", color: "#C7EA67", text: "#181714" },
-  { label: "Deals", color: "#2768D8", text: "#FFFFFF" },
-  { label: "New", color: "#F28A4B", text: "#181714" },
-];
-
 const EDITORIAL = [
   { title: "City layers", subtitle: "Effortless polish", accent: "#D8C4AE" },
   { title: "Off-duty looks", subtitle: "Easy & elevated", accent: "#D7DDE4" },
@@ -155,33 +146,6 @@ export function TodayCommerceFeed({
         bounces
         onScroll={handleScroll}
       >
-      <View style={styles.categoryCarouselViewport}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          bounces
-          alwaysBounceHorizontal
-          decelerationRate="fast"
-          directionalLockEnabled
-          nestedScrollEnabled
-          style={styles.categoryCarousel}
-          contentContainerStyle={styles.categoryCarouselContent}
-        >
-          {COLOR_CHIPS.map((chip, index) => (
-            <Pressable
-              key={chip.label}
-              onPress={() => index === 1 ? onOpenStyle() : undefined}
-              style={[styles.chip, index === 0 && styles.chipActive, { backgroundColor: chip.color, borderColor: `${chip.text}42` }]}
-              accessibilityRole="button"
-              accessibilityLabel={chip.label}
-              accessibilityState={{ selected: index === 0 }}
-            >
-              <Text style={[styles.chipText, { color: chip.text }]}>{chip.label}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
-
       <PosterCarousel featured={featured} onOpenPiece={onOpenPiece} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterInterval={posterInterval} />
 
       <SectionTitle title="For you" onPress={onOpenSearch} />
@@ -429,12 +393,6 @@ function make(colors: Colors) {
     input: { flex: 1, height: 50, color: colors.bone, fontSize: 17 },
     searchAction: { width: 34, height: 44, alignItems: "center", justifyContent: "center" },
     searchDivider: { height: 27, width: 1, backgroundColor: `${colors.bone}22` },
-    categoryCarouselViewport: { width: "100%", overflow: "hidden", marginTop: 2, marginBottom: 2 },
-    categoryCarousel: { flexGrow: 0 },
-    categoryCarouselContent: { gap: 9, paddingLeft: 2, paddingRight: 52, paddingVertical: 14, alignItems: "center" },
-    chip: { height: 56, paddingHorizontal: 16, borderRadius: 28, borderWidth: 1.5, alignItems: "center", justifyContent: "center", flexShrink: 0 },
-    chipActive: { height: 60, paddingHorizontal: 18, borderRadius: 30, borderWidth: 2, shadowColor: "#FFFFFF", shadowOpacity: 0.14, shadowRadius: 9, shadowOffset: { width: 0, height: 3 }, elevation: 4 },
-    chipText: { fontSize: 16, fontWeight: "900", letterSpacing: -0.1 },
     featuredRule: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 2, marginBottom: 13, paddingHorizontal: 2 },
     ruleLine: { flex: 1, height: 1, backgroundColor: `${colors.bone}30` },
     ruleLabelWrap: { alignItems: "center" },
