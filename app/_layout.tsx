@@ -223,7 +223,7 @@ function AppStack() {
         <OrderSync />
         <LikesSync />
         <ShakeToReport />
-        <StatusBar style={appearance === "dark" || pathname === "/immersive-shopping" ? "light" : "dark"} />
+        <StatusBar style={appearance === "dark" || pathname === "/" || pathname === "/immersive-shopping" ? "light" : "dark"} />
         <Stack
           screenOptions={{
             headerTintColor: colors.bone,
