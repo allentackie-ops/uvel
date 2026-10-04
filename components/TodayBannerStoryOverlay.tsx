@@ -1,10 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import * as Haptics from "expo-haptics";
 import { useEffect, useRef } from "react";
-import { Animated, Dimensions, Pressable, Share as NativeShare, StyleSheet, Text, View } from "react-native";
+import { Animated, Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
-import Reanimated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
+import Reanimated, { interpolate, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ClosetPiece } from "../lib/wardrobe";
 import { moneyInMarket, getMarket } from "../lib/markets";
@@ -38,7 +37,7 @@ export function TodayBannerStoryOverlay({
   const insets = useSafeAreaInsets();
   const screen = Dimensions.get("window");
   const opacity = useRef(new Animated.Value(0)).current;
-  const heroProgress = useRef(new Animated.Value(0)).current;
+  const heroProgress = useSharedValue(0);
   const scrollY = useSharedValue(0);
   const dismissY = useSharedValue(0);
   const touchStartY = useSharedValue(0);
@@ -49,26 +48,26 @@ export function TodayBannerStoryOverlay({
   const heroHeight = Math.min(470, Math.max(360, screen.width * 0.98));
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
-      Animated.spring(heroProgress, { toValue: 1, damping: 22, stiffness: 250, mass: 0.8, useNativeDriver: true }),
-    ]).start();
+    Animated.timing(opacity, { toValue: 1, duration: 260, useNativeDriver: true }).start();
+    heroProgress.value = withSpring(1, { damping: 24, stiffness: 240, mass: 0.8 });
   }, [heroProgress, opacity]);
 
   const close = () => {
     if (closing.current) return;
     closing.current = true;
-    Animated.parallel([
-      Animated.timing(opacity, { toValue: 0, duration: 160, useNativeDriver: true }),
-      Animated.spring(heroProgress, { toValue: 0, damping: 28, stiffness: 320, mass: 0.7, useNativeDriver: true }),
-    ]).start(({ finished }) => {
+    heroProgress.value = withSpring(0, { damping: 30, stiffness: 360, mass: 0.7 });
+    Animated.timing(opacity, { toValue: 0, duration: 210, useNativeDriver: true }).start(({ finished }) => {
       if (finished) onClose();
     });
   };
 
-  const heroScale = heroProgress.interpolate({ inputRange: [0, 1], outputRange: [origin.width / screen.width, 1] });
-  const heroTranslateX = heroProgress.interpolate({ inputRange: [0, 1], outputRange: [origin.x - (screen.width - origin.width) / 2, 0] });
-  const heroTranslateY = heroProgress.interpolate({ inputRange: [0, 1], outputRange: [origin.y - insets.top, 0] });
+  const heroMotionStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: interpolate(heroProgress.value, [0, 1], [origin.x - (screen.width - origin.width) / 2, 0]) },
+      { translateY: interpolate(heroProgress.value, [0, 1], [origin.y - insets.top, 0]) },
+      { scale: interpolate(heroProgress.value, [0, 1], [origin.width / screen.width, 1]) },
+    ],
+  }));
 
   const swipeStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: dismissY.value }, { scale: 1 - Math.min(Math.max(dismissY.value / screen.height, 0), 0.18) }],
@@ -97,7 +96,7 @@ export function TodayBannerStoryOverlay({
     .onEnd((event) => {
       if (!dragging.value) return;
       dragging.value = 0;
-      if (dismissY.value > 100 || event.velocityY > 700) {
+      if (dismissY.value > 60 || event.velocityY > 300) {
         dismissY.value = withTiming(0, { duration: 180 }, (finished) => {
           if (finished) runOnJS(close)();
         });
@@ -109,6 +108,7 @@ export function TodayBannerStoryOverlay({
 
   return (
     <GestureHandlerRootView style={styles.root}>
+      <GestureDetector gesture={pan}>
       <Reanimated.View style={[styles.root, swipeStyle]}>
       <Animated.View style={[styles.root, { opacity, backgroundColor: colors.ink }]}>
       <Reanimated.ScrollView
@@ -118,8 +118,7 @@ export function TodayBannerStoryOverlay({
         scrollEventThrottle={16}
         onScroll={scrollHandler}
       >
-        <GestureDetector gesture={pan}>
-        <Animated.View style={[styles.heroMotion, { width: screen.width, marginLeft: -20, height: heroHeight, transform: [{ translateX: heroTranslateX }, { translateY: heroTranslateY }, { scale: heroScale }] }]}>
+        <Reanimated.View style={[styles.heroMotion, heroMotionStyle, { width: screen.width, marginLeft: -20, height: heroHeight }]}>
           <View style={[styles.heroColor, { backgroundColor: story.color }]} />
           <View style={[styles.heroCopy, { paddingTop: insets.top + 70 }]}>
             <Text style={styles.title}>{story.title}</Text>
@@ -128,8 +127,7 @@ export function TodayBannerStoryOverlay({
               {pieces.slice(0, 4).map((piece, index) => <View key={`${piece.id}-hero-${index}`} style={styles.heroFeature}><Image source={{ uri: piece.photo }} style={styles.heroFeatureImage} contentFit="cover" accessible={false} /></View>)}
             </View>
           </View>
-        </Animated.View>
-        </GestureDetector>
+        </Reanimated.View>
         <View style={styles.intro}>
           <Text style={[styles.kicker, { color: story.color }]}>A CURATED STORY</Text>
           <Text style={[styles.heading, { color: colors.bone }]}>Four edits, one easy point of view.</Text>
@@ -140,14 +138,6 @@ export function TodayBannerStoryOverlay({
           {pieces.slice(0, 4).map((piece, index) => <StoryPiece key={`${piece.id}-${index}`} piece={piece} index={index} color={story.color} colors={colors} market={market} onOpenPiece={onOpenPiece} />)}
         </View>
 
-        <View style={[styles.shareCard, { borderColor: `${story.color}80`, backgroundColor: `${story.color}18` }]}>
-          <Text style={[styles.shareTitle, { color: colors.bone }]}>Keep the edit close</Text>
-          <Text style={[styles.shareBody, { color: colors.muted }]}>Send this story to someone whose wardrobe you want to refresh.</Text>
-          <Pressable onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); void NativeShare.share({ title: story.title, message: `${story.title} — ${story.subtitle}` }); }} style={[styles.shareButton, { backgroundColor: story.color }]} accessibilityRole="button" accessibilityLabel={`Share ${story.title}`}>
-            <Ionicons name="share-outline" size={18} color="#181714" />
-            <Text style={styles.shareButtonText}>Share story</Text>
-          </Pressable>
-        </View>
       </Reanimated.ScrollView>
 
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
@@ -157,6 +147,7 @@ export function TodayBannerStoryOverlay({
       </View>
       </Animated.View>
       </Reanimated.View>
+      </GestureDetector>
     </GestureHandlerRootView>
   );
 }
@@ -219,11 +210,6 @@ const styles = StyleSheet.create({
   listName: { fontSize: 15, lineHeight: 19, fontWeight: "800" },
   listMeta: { fontSize: 12, marginTop: 4 },
   listPrice: { fontSize: 13, fontWeight: "900" },
-  shareCard: { borderWidth: 1, borderRadius: 20, padding: 18, marginTop: 32 },
-  shareTitle: { fontSize: 19, fontWeight: "900" },
-  shareBody: { fontSize: 14, lineHeight: 20, marginTop: 5 },
-  shareButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 22, minHeight: 44, paddingHorizontal: 16, marginTop: 16 },
-  shareButtonText: { color: "#181714", fontSize: 13, fontWeight: "900" },
   topBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 4, flexDirection: "row", alignItems: "center", paddingHorizontal: 16 },
   closeButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: "transparent", alignItems: "center", justifyContent: "center" },
   topLabel: { color: "#FFFFFF", fontSize: 11, fontWeight: "900", letterSpacing: 1.6 },
