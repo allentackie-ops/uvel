@@ -322,17 +322,19 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
         : story.variant === "collage"
           ? { transform: [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [-8, 10] }) }, { rotate: "7deg" }] }
           : { transform: [{ scale: motion.interpolate({ inputRange: [0, 1], outputRange: [0.98, 1.02] }) }, { translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [3, -3] }) }] };
-  const secondaryMotion = { transform: [{ translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [8, -6] }) }, { rotate: motion.interpolate({ inputRange: [0, 1], outputRange: ["8deg", "13deg"] }) }] };
-  const tertiaryMotion = { transform: [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [4, -9] }) }, { rotate: motion.interpolate({ inputRange: [0, 1], outputRange: ["-12deg", "-5deg"] }) }] };
+  const secondaryRotation = story.variant === "slide" ? ["-16deg", "-10deg"] : story.variant === "explode" ? ["8deg", "15deg"] : story.variant === "collage" ? ["-20deg", "-14deg"] : story.variant === "luxury" ? ["-8deg", "-4deg"] : ["-12deg", "-7deg"];
+  const tertiaryRotation = story.variant === "slide" ? ["10deg", "16deg"] : story.variant === "explode" ? ["-18deg", "-10deg"] : story.variant === "collage" ? ["12deg", "18deg"] : story.variant === "luxury" ? ["18deg", "24deg"] : ["14deg", "20deg"];
+  const secondaryMotion = { transform: [{ translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [8, -6] }) }, { rotate: motion.interpolate({ inputRange: [0, 1], outputRange: secondaryRotation }) }] };
+  const tertiaryMotion = { transform: [{ translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [4, -9] }) }, { rotate: motion.interpolate({ inputRange: [0, 1], outputRange: tertiaryRotation }) }] };
   const composition = story.variant === "slide"
-    ? { hero: { right: -8, top: 132, width: 178, height: 256 }, secondary: { left: 20, top: 244, width: 126, height: 164 }, tertiary: { right: 38, top: 286, width: 96, height: 126 }, fourth: { left: 154, top: 224, width: 90, height: 118 } }
+    ? { hero: { left: 112, top: 142, width: 206, height: 284, zIndex: 1 }, secondary: { left: -22, top: 278, width: 154, height: 198, zIndex: 4 }, tertiary: { right: -16, top: 326, width: 142, height: 184, zIndex: 3 }, fourth: { left: 50, top: 238, width: 122, height: 158, transform: [{ rotate: "-6deg" }], zIndex: 2 } }
     : story.variant === "explode"
-      ? { hero: { left: 148, top: 142, width: 142, height: 190 }, secondary: { left: 12, top: 226, width: 134, height: 174 }, tertiary: { right: 16, top: 260, width: 106, height: 138 }, fourth: { left: 76, top: 296, width: 94, height: 122 } }
+      ? { hero: { left: 88, top: 126, width: 214, height: 286, zIndex: 3 }, secondary: { left: -18, top: 286, width: 160, height: 204, zIndex: 1 }, tertiary: { right: -20, top: 250, width: 152, height: 198, zIndex: 4 }, fourth: { left: 140, top: 338, width: 114, height: 148, transform: [{ rotate: "-18deg" }], zIndex: 5 } }
       : story.variant === "collage"
-        ? { hero: { left: 82, top: 144, width: 176, height: 218 }, secondary: { left: 10, top: 246, width: 142, height: 176 }, tertiary: { right: -8, top: 208, width: 112, height: 148 }, fourth: { left: 184, top: 302, width: 96, height: 124 } }
+        ? { hero: { left: 54, top: 132, width: 208, height: 258, zIndex: 2 }, secondary: { left: -28, top: 258, width: 166, height: 210, zIndex: 4 }, tertiary: { right: -26, top: 240, width: 152, height: 198, zIndex: 1 }, fourth: { left: 130, top: 326, width: 126, height: 164, transform: [{ rotate: "-8deg" }], zIndex: 5 } }
         : story.variant === "luxury"
-          ? { hero: { right: 18, top: 132, width: 224, height: 274 }, secondary: { left: 18, top: 272, width: 112, height: 144 }, tertiary: { right: 28, top: 350, width: 92, height: 118 }, fourth: { left: 22, top: 188, width: 84, height: 108 } }
-          : { hero: { right: 20, top: 142, width: 186, height: 232 }, secondary: { left: 10, top: 240, width: 128, height: 164 }, tertiary: { right: 2, top: 294, width: 106, height: 136 }, fourth: { left: 156, top: 270, width: 92, height: 118 } };
+          ? { hero: { right: -18, top: 112, width: 252, height: 308, zIndex: 2 }, secondary: { left: 0, top: 298, width: 152, height: 194, zIndex: 4 }, tertiary: { right: 2, top: 338, width: 136, height: 174, zIndex: 5 }, fourth: { left: 116, top: 220, width: 118, height: 152, transform: [{ rotate: "7deg" }], zIndex: 3 } }
+          : { hero: { right: -10, top: 126, width: 214, height: 286, zIndex: 2 }, secondary: { left: -18, top: 284, width: 158, height: 202, zIndex: 1 }, tertiary: { right: -22, top: 306, width: 148, height: 188, zIndex: 4 }, fourth: { left: 92, top: 300, width: 116, height: 150, transform: [{ rotate: "-7deg" }], zIndex: 3 } };
   return <View style={[styles.editorialPoster, { backgroundColor: story.color }]}>
     <View pointerEvents="none" style={styles.editorialGrain} />
     <Text style={styles.editorialKicker}>{story.variant === "luxury" ? "THE QUIET EDIT" : "UVEl / EDIT"}</Text>
