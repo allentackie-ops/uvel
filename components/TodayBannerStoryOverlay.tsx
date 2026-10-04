@@ -2,8 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { useEffect, useRef } from "react";
-import { Animated, Dimensions, Pressable, ScrollView, Share as NativeShare, StyleSheet, Text, View } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { Animated, Dimensions, Pressable, Share as NativeShare, StyleSheet, Text, View } from "react-native";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Reanimated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ClosetPiece } from "../lib/wardrobe";
@@ -108,9 +108,10 @@ export function TodayBannerStoryOverlay({
   const scrollHandler = useAnimatedScrollHandler({ onScroll: (event) => { scrollY.value = event.contentOffset.y; } });
 
   return (
-    <GestureDetector gesture={pan}>
+    <GestureHandlerRootView style={styles.root}>
       <Reanimated.View style={[styles.root, swipeStyle]}>
       <Animated.View style={[styles.root, { opacity, backgroundColor: colors.ink }]}>
+      <GestureDetector gesture={pan}>
       <Animated.View style={[styles.heroMotion, { height: heroHeight, transform: [{ translateX: heroTranslateX }, { translateY: heroTranslateY }, { scale: heroScale }] }]}>
         <View style={[styles.heroColor, { backgroundColor: story.color }]} />
         <View style={[styles.heroCopy, { paddingTop: insets.top + 70 }]}>
@@ -123,8 +124,9 @@ export function TodayBannerStoryOverlay({
           <Text style={styles.heroFooter}>{story.footer || "UVEL EDIT"}</Text>
         </View>
       </Animated.View>
+      </GestureDetector>
 
-      <ScrollView
+      <Reanimated.ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.content, { paddingTop: heroHeight + 18, paddingBottom: insets.bottom + 34 }]}
         showsVerticalScrollIndicator={false}
@@ -158,7 +160,7 @@ export function TodayBannerStoryOverlay({
             <Text style={styles.shareButtonText}>Share story</Text>
           </Pressable>
         </View>
-      </ScrollView>
+      </Reanimated.ScrollView>
 
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={close} style={styles.closeButton} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close banner story">
@@ -169,7 +171,7 @@ export function TodayBannerStoryOverlay({
       </View>
       </Animated.View>
       </Reanimated.View>
-    </GestureDetector>
+    </GestureHandlerRootView>
   );
 }
 
