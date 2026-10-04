@@ -67,9 +67,8 @@ export function TodayCommerceFeed({
   const insets = useSafeAreaInsets();
   const market = getMarket(app.country);
   const scrollY = useRef(new Animated.Value(0)).current;
-  const feedRef = useRef<ScrollView>(null);
-  const pullRefreshTriggered = useRef(false);
-  const pullHapticTriggered = useRef(false);
+  const pullOffset = useRef(new Animated.Value(0)).current;
+  const pullTriggered = useRef(false);
   const wasRefreshing = useRef(false);
   const posterScrollX = useRef(new Animated.Value(0)).current;
   const posterWidth = Math.min(300, Dimensions.get("window").width - 92);
@@ -91,37 +90,35 @@ export function TodayCommerceFeed({
       { scale: scrollY.interpolate({ inputRange: [0, 80], outputRange: [1, 0.9], extrapolate: "clamp" }) },
     ],
   };
+  const handleRefresh = () => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
+    onRefresh();
+  };
   const handleScroll = Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
     useNativeDriver: true,
     listener: (event: { nativeEvent: { contentOffset: { y: number } } }) => {
       const y = event.nativeEvent.contentOffset.y;
-      if (refreshing) {
-        if (y > -56) feedRef.current?.scrollTo({ y: -56, animated: false });
-        return;
-      }
-      if (y > -10) {
-        pullRefreshTriggered.current = false;
-        pullHapticTriggered.current = false;
-      }
-      if (y <= -42 && !pullHapticTriggered.current) {
-        pullHapticTriggered.current = true;
-        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
-      }
-      if (y <= -64 && !refreshing && !pullRefreshTriggered.current) {
-        pullRefreshTriggered.current = true;
-        onRefresh();
+      if (pullTriggered.current) return;
+      if (y < 0) pullOffset.setValue(Math.min(72, -y));
+      else pullOffset.setValue(0);
+      if (y <= -60 && !refreshing) {
+        pullTriggered.current = true;
+        pullOffset.setValue(72);
+        handleRefresh();
       }
     },
   });
   useEffect(() => {
     if (refreshing) {
       wasRefreshing.current = true;
-      requestAnimationFrame(() => feedRef.current?.scrollTo({ y: -56, animated: false }));
+      Animated.spring(pullOffset, { toValue: 72, damping: 22, stiffness: 180, mass: 0.8, useNativeDriver: true }).start();
     } else if (wasRefreshing.current) {
       wasRefreshing.current = false;
-      feedRef.current?.scrollTo({ y: 0, animated: true });
+      Animated.timing(pullOffset, { toValue: 0, duration: 280, useNativeDriver: true }).start(() => {
+        pullTriggered.current = false;
+      });
     }
-  }, [refreshing]);
+  }, [pullOffset, refreshing]);
 
   return (
     <View style={styles.page}>
@@ -141,8 +138,7 @@ export function TodayCommerceFeed({
         <View style={styles.headerActions}><AccessiblePressable onPress={onOpenSearch} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Search Uvel"><Ionicons name="search-outline" size={24} color={colors.bone} /></AccessiblePressable><AccessiblePressable onPress={onOpenMessages} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open messages"><Ionicons name="chatbubble-ellipses-outline" size={23} color={colors.bone} /></AccessiblePressable></View>
       </View>
       <Animated.ScrollView
-        ref={feedRef}
-        style={styles.feedScroll}
+        style={[styles.feedScroll, { transform: [{ translateY: pullOffset }] }]}
         contentContainerStyle={[styles.content, { paddingTop: 10 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -151,9 +147,6 @@ export function TodayCommerceFeed({
         bounces
         onScroll={handleScroll}
       >
-      <Animated.View style={[styles.pullRefreshSpace, { height: scrollY.interpolate({ inputRange: [-56, 0], outputRange: [56, 0], extrapolate: "clamp" }) }]} pointerEvents="none">
-        {refreshing ? <OrbitLoader size={46} /> : null}
-      </Animated.View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         {COLOR_CHIPS.map((chip, index) => (
           <Pressable key={chip.label} onPress={() => index === 1 ? onOpenStyle() : undefined} style={[styles.chip, { backgroundColor: chip.color }]} accessibilityRole="button" accessibilityLabel={chip.label}>
@@ -219,6 +212,7 @@ export function TodayCommerceFeed({
       <SectionTitle title="Recently viewed" onPress={onOpenSearch} />
       <ProductRail pieces={personalized.slice(4, 8).length ? personalized.slice(4, 8) : personalized.slice(0, 4)} market={market} onOpen={onOpenPiece} compact />
       </Animated.ScrollView>
+      {refreshing ? <View pointerEvents="none" style={[styles.pullOrbitLayer, { top: insets.top + 62 }]}><OrbitLoader size={58} /></View> : null}
     </View>
   );
 }
@@ -331,7 +325,7 @@ function make(colors: Colors) {
     fixedHeader: { minHeight: 62, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "transparent", zIndex: 5, position: "relative" },
     logoCenter: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", zIndex: 10 },
     feedScroll: { flex: 1 },
-    pullRefreshSpace: { alignItems: "center", justifyContent: "center", overflow: "hidden" },
+    pullOrbitLayer: { position: "absolute", left: 0, right: 0, height: 72, alignItems: "center", justifyContent: "center", zIndex: 4 },
     content: { paddingTop: 10, paddingHorizontal: 16, paddingBottom: 130 },
     topBar: { height: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     headerActions: { flexDirection: "row", alignItems: "center", gap: 2 },
