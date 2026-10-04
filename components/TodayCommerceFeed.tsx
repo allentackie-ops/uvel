@@ -337,7 +337,6 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
           : { hero: { right: -10, top: 126, width: 214, height: 286, zIndex: 2 }, secondary: { left: -18, top: 284, width: 158, height: 202, zIndex: 1 }, tertiary: { right: -22, top: 306, width: 148, height: 188, zIndex: 4 }, fourth: { left: 92, top: 300, width: 116, height: 150, transform: [{ rotate: "-7deg" }], zIndex: 3 } };
   return <View style={[styles.editorialPoster, { backgroundColor: story.color }]}>
     <View pointerEvents="none" style={styles.editorialGrain} />
-    <Text style={styles.editorialKicker}>{story.variant === "luxury" ? "THE QUIET EDIT" : "UVEl / EDIT"}</Text>
     <Text style={styles.editorialTitle}>{story.title}</Text>
     <Text style={styles.editorialSubtitle}>{story.subtitle}</Text>
     <View pointerEvents="none" style={[styles.editorialStamp, { borderColor: `${story.color}99` }]}><Text style={styles.editorialStampText}>{story.variant === "collage" ? "LOOK 04" : story.variant === "explode" ? "DROP 03" : "UVEL"}</Text></View>
@@ -348,7 +347,6 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
     {pieces[2] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.tertiary, tertiaryMotion]}><Image source={{ uri: todayProductImage(pieces[2]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
     {pieces[3] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.fourth, { opacity: motion.interpolate({ inputRange: [0, 1], outputRange: [0.76, 1] }) }]}><Image source={{ uri: todayProductImage(pieces[3]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
     <View pointerEvents="none" style={styles.editorialOrbit}><View style={styles.editorialOrbitDot} /></View>
-    <Text style={styles.editorialFooter}>{story.variant === "float" ? "FLOAT / MOVE / LAYER" : story.variant === "slide" ? "NEW SEASON / 01" : story.variant === "explode" ? "THE GOOD STUFF" : story.variant === "collage" ? "COMPOSE YOUR OWN" : "LESS, BUT BETTER"}</Text>
   </View>;
 }
 
@@ -437,7 +435,6 @@ function make(colors: Colors) {
     posterButton: { alignSelf: "flex-start", backgroundColor: "#FFFFFF", borderRadius: 24, paddingHorizontal: 17, minHeight: 46, justifyContent: "center", marginTop: 14 },
     editorialPoster: { flex: 1, borderRadius: 22, overflow: "hidden", padding: 20, position: "relative" },
     editorialGrain: { position: "absolute", top: 0, right: 0, width: 180, height: 180, borderRadius: 90, backgroundColor: "rgba(255,255,255,0.1)", transform: [{ translateX: 78 }, { translateY: -70 }] },
-    editorialKicker: { color: "rgba(255,255,255,0.72)", fontSize: 10, fontWeight: "900", letterSpacing: 1.8, zIndex: 6 },
     editorialTitle: { color: "#FFFFFF", fontSize: 34, lineHeight: 36, fontWeight: "900", letterSpacing: -0.9, maxWidth: 230, marginTop: 12, zIndex: 6 },
     editorialSubtitle: { color: "rgba(255,255,255,0.88)", fontSize: 15, lineHeight: 20, maxWidth: 226, marginTop: 9, zIndex: 6 },
     editorialStamp: { position: "absolute", right: 18, top: 18, width: 55, height: 55, borderRadius: 28, borderWidth: 1, alignItems: "center", justifyContent: "center", transform: [{ rotate: "12deg" }], zIndex: 6 },
@@ -446,7 +443,6 @@ function make(colors: Colors) {
     editorialCutoutImage: { width: "100%", height: "100%" },
     editorialOrbit: { position: "absolute", left: -24, bottom: 28, width: 110, height: 38, borderWidth: 1, borderColor: "rgba(255,255,255,0.42)", borderRadius: 55, transform: [{ rotate: "-18deg" }], zIndex: 1 },
     editorialOrbitDot: { position: "absolute", right: 8, top: -4, width: 8, height: 8, borderRadius: 4, backgroundColor: "rgba(255,255,255,0.86)" },
-    editorialFooter: { position: "absolute", left: 20, bottom: 18, color: "rgba(255,255,255,0.74)", fontSize: 10, fontWeight: "900", letterSpacing: 1.4, zIndex: 6 },
     sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 22, marginBottom: 10 },
     editorHero: { minHeight: 168, borderRadius: 18, backgroundColor: "#E7DDD1", overflow: "hidden", flexDirection: "row" },
     editorCopy: { flex: 1.03, padding: 17, justifyContent: "center", zIndex: 2 },
