@@ -290,7 +290,7 @@ function PosterCarousel({
         {stories.map((story, index) => {
           const ref = index === 0 ? primaryRef : undefined;
           return <Pressable key={story.id} ref={ref} onPress={() => openBanner(ref || primaryRef, { title: story.title, subtitle: story.subtitle, color: story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: story.pieces, detailPieces: story.detailPieces })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
-            <EditorialPoster story={story} pieces={story.pieces} styles={styles} />
+            <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} />
           </Pressable>;
         })}
       </Animated.ScrollView>
@@ -310,6 +310,7 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
   const newInScales = useRef([new Animated.Value(1), new Animated.Value(1), new Animated.Value(1), new Animated.Value(1)]).current;
   const cascadeGeneration = useRef(0);
   const [displayedPieces, setDisplayedPieces] = useState(() => pieces.slice(0, 4));
+  const [newInSetIndex, setNewInSetIndex] = useState(0);
   const activePieces = story.variant === "slide" ? displayedPieces : pieces;
   useEffect(() => {
     if (story.variant !== "slide") return;
@@ -321,8 +322,16 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
     return () => stickerLoop.stop();
   }, [latestStickerMotion, story.variant]);
   useEffect(() => {
+    if (story.variant !== "slide" || pieces.length <= 0) return;
+    const rotationTimer = setInterval(() => setNewInSetIndex((index) => index + 1), 10000);
+    return () => clearInterval(rotationTimer);
+  }, [pieces.length, story.variant]);
+  useEffect(() => {
     if (story.variant !== "slide") return;
-    const nextPieces = pieces.slice(0, 4);
+    const pool = pieces.slice(0, 40);
+    if (!pool.length) return;
+    const start = pool.length > 4 ? (newInSetIndex * 4) % pool.length : newInSetIndex % pool.length;
+    const nextPieces = Array.from({ length: Math.min(4, pool.length) }, (_, index) => pool[(start + index) % pool.length]);
     const nextKey = nextPieces.map((piece) => `${piece.id}:${piece.cutoutPhoto || piece.photo}`).join("|");
     const currentKey = displayedPieces.map((piece) => `${piece.id}:${piece.cutoutPhoto || piece.photo}`).join("|");
     if (nextKey === currentKey) return;
@@ -345,7 +354,7 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
       cascadeGeneration.current += 1;
       exitSequence.stop();
     };
-  }, [displayedPieces, newInOpacities, newInScales, pieces, story.variant]);
+  }, [displayedPieces, newInOpacities, newInScales, newInSetIndex, pieces, story.variant]);
   useEffect(() => {
     const durations = story.variant === "luxury" ? [5200, 6200, 7000, 5800] : story.variant === "slide" ? [2800, 3600, 4400, 3200] : story.variant === "explode" ? [3000, 3900, 4700, 3400] : story.variant === "collage" ? [3400, 4300, 5100, 3700] : [3600, 4600, 5400, 4000];
     const createLoop = (value: Animated.Value, duration: number, delay: number) => Animated.loop(Animated.sequence([
