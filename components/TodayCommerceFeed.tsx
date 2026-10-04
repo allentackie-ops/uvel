@@ -292,7 +292,7 @@ function PosterCarousel({
         {stories.map((story, index) => {
           const ref = index === 0 ? primaryRef : undefined;
           return <Pressable key={story.id} ref={ref} onPress={() => openBanner(ref || primaryRef, { title: story.title, subtitle: story.subtitle, color: story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: story.pieces, detailPieces: story.detailPieces })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
-            <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} staticAsset={story.id === "trending-now" ? TRENDING_NOW_OPTION_TWO : story.id === "new-in" ? NEW_IN_OPTION_THREE : undefined} animatedStatic={story.id === "new-in"} />
+            <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} staticAsset={story.id === "trending-now" ? TRENDING_NOW_OPTION_TWO : story.id === "new-in" ? NEW_IN_OPTION_THREE : undefined} />
           </Pressable>;
         })}
       </Animated.ScrollView>
@@ -302,12 +302,11 @@ function PosterCarousel({
 
 type EditorialVariant = "float" | "slide" | "explode" | "collage" | "luxury";
 
-function EditorialPoster({ story, pieces, styles, staticAsset, animatedStatic }: { story: { title: string; subtitle: string; color: string; variant: EditorialVariant; image?: string }; pieces: ClosetPiece[]; styles: ReturnType<typeof make>; staticAsset?: number; animatedStatic?: boolean }) {
+function EditorialPoster({ story, pieces, styles, staticAsset }: { story: { title: string; subtitle: string; color: string; variant: EditorialVariant; image?: string }; pieces: ClosetPiece[]; styles: ReturnType<typeof make>; staticAsset?: number }) {
   const motion = useRef(new Animated.Value(0)).current;
   const secondaryMotionValue = useRef(new Animated.Value(0)).current;
   const tertiaryMotionValue = useRef(new Animated.Value(0)).current;
   const fourthMotionValue = useRef(new Animated.Value(0)).current;
-  const staticMotion = useRef(new Animated.Value(0)).current;
   const latestStickerMotion = useRef(new Animated.Value(0)).current;
   const newInOpacities = useRef([new Animated.Value(1), new Animated.Value(1), new Animated.Value(1), new Animated.Value(1)]).current;
   const newInScales = useRef([new Animated.Value(1), new Animated.Value(1), new Animated.Value(1), new Animated.Value(1)]).current;
@@ -316,15 +315,6 @@ function EditorialPoster({ story, pieces, styles, staticAsset, animatedStatic }:
   const [displayedPieces, setDisplayedPieces] = useState(() => pieces.slice(0, 4));
   const [newInSetIndex, setNewInSetIndex] = useState(0);
   const activePieces = story.variant === "slide" ? displayedPieces : pieces;
-  useEffect(() => {
-    if (!animatedStatic) return;
-    const artworkLoop = Animated.loop(Animated.sequence([
-      Animated.timing(staticMotion, { toValue: 1, duration: 1800, useNativeDriver: true }),
-      Animated.timing(staticMotion, { toValue: 0, duration: 1800, useNativeDriver: true }),
-    ]));
-    artworkLoop.start();
-    return () => artworkLoop.stop();
-  }, [animatedStatic, staticMotion]);
   useEffect(() => {
     if (story.variant !== "slide") return;
     const stickerLoop = Animated.loop(Animated.sequence([
@@ -431,13 +421,7 @@ function EditorialPoster({ story, pieces, styles, staticAsset, animatedStatic }:
           ? { hero: { right: -18, top: 112, width: 252, height: 308, zIndex: 2 }, secondary: { left: 0, top: 298, width: 152, height: 194, zIndex: 4 }, tertiary: { right: 2, top: 338, width: 136, height: 174, zIndex: 5 }, fourth: { left: 116, top: 220, width: 118, height: 152, transform: [{ rotate: "7deg" }], zIndex: 3 } }
           : { hero: { right: -10, top: 126, width: 214, height: 286, zIndex: 2 }, secondary: { left: -18, top: 284, width: 158, height: 202, zIndex: 1 }, tertiary: { right: -22, top: 306, width: 148, height: 188, zIndex: 4 }, fourth: { left: 92, top: 300, width: 116, height: 150, transform: [{ rotate: "-7deg" }], zIndex: 3 } };
   if (staticAsset) {
-    const artworkMotion = animatedStatic ? { transform: [
-      { translateX: staticMotion.interpolate({ inputRange: [0, 1], outputRange: [-2, 2] }) },
-      { translateY: staticMotion.interpolate({ inputRange: [0, 1], outputRange: [2, -2] }) },
-      { rotate: staticMotion.interpolate({ inputRange: [0, 1], outputRange: ["-0.35deg", "0.35deg"] }) },
-      { scale: staticMotion.interpolate({ inputRange: [0, 1], outputRange: [1.005, 1.012] }) },
-    ] } : undefined;
-    return <View style={[styles.editorialPoster, { backgroundColor: story.color, padding: 0 }]}><Animated.View style={[styles.editorialReferenceMotion, artworkMotion]}><Image source={staticAsset} style={styles.editorialReferenceImage} contentFit="cover" accessible={false} /></Animated.View></View>;
+    return <View style={[styles.editorialPoster, { backgroundColor: story.color, padding: 0 }]}><Image source={staticAsset} style={styles.editorialReferenceImage} contentFit="cover" accessible={false} /></View>;
   }
   return <View style={[styles.editorialPoster, { backgroundColor: story.color }]}>
     <Text style={styles.editorialTitle}>{story.title}</Text>
@@ -537,7 +521,6 @@ function make(colors: Colors) {
     posterButton: { alignSelf: "flex-start", backgroundColor: "#FFFFFF", borderRadius: 24, paddingHorizontal: 17, minHeight: 46, justifyContent: "center", marginTop: 14 },
     editorialPoster: { flex: 1, borderRadius: 22, overflow: "hidden", padding: 20, position: "relative" },
     editorialReferenceImage: { width: "100%", height: "100%" },
-    editorialReferenceMotion: { width: "100%", height: "100%" },
     editorialTitle: { color: "#FFFFFF", fontSize: 34, lineHeight: 36, fontWeight: "900", letterSpacing: -0.9, maxWidth: 230, marginTop: 12, zIndex: 6 },
     editorialSubtitle: { color: "rgba(255,255,255,0.88)", fontSize: 15, lineHeight: 20, maxWidth: 226, marginTop: 9, zIndex: 6 },
     editorialLatestSticker: { position: "absolute", right: 8, top: 8, width: 120, height: 100, zIndex: 7, alignItems: "center", justifyContent: "center" },
