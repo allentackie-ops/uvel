@@ -852,6 +852,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           onOpenSearch={() => router.push("/search")}
           onOpenMessages={() => router.push("/inbox")}
           onOpenTools={() => onOpenTools?.()}
+          onOpenCountries={() => router.push("/store")}
           onOpenCreators={() => router.push("/find")}
           onOpenStyle={() => router.push("/style-dna")}
           refreshing={refreshing}
@@ -880,7 +881,6 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           {emptyListingsContent}
         </ScrollView>
       )}
-      {todayHome && orbitOn ? <View pointerEvents="none" style={[styles.refreshOrbit, styles.refreshOrbitOverlay, { top: insets.top + 68 }]}><OrbitLoader /></View> : null}
       {todayHome && openPiece && openOrigin ? (
         <TodayListingOverlay
           piece={openPiece}
@@ -951,7 +951,6 @@ function make(colors: Colors) {
     content: { paddingHorizontal: 16, paddingBottom: 108 },
     editorialPage: { backgroundColor: colors.ink },
     refreshOrbit: { height: 58, alignItems: "center", justifyContent: "flex-start" },
-    refreshOrbitOverlay: { position: "absolute", top: 12, left: 0, right: 0, zIndex: 30, height: 58 },
     title: { color: colors.bone, fontFamily: "Georgia", fontSize: 34, lineHeight: 38, flex: 1 },
     titleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
     todayHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 84, marginBottom: 2 },

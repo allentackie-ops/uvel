@@ -5,6 +5,7 @@ import { useEffect, useRef } from "react";
 import { Animated, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "./AccessiblePressable";
+import { OrbitLoader } from "./OrbitLoader";
 import type { ClosetPiece } from "../lib/wardrobe";
 import type { Colors } from "../lib/theme";
 import { useColors } from "../lib/theme";
@@ -39,6 +40,7 @@ export type TodayCommerceFeedProps = {
   onOpenSearch: () => void;
   onOpenMessages: () => void;
   onOpenTools: () => void;
+  onOpenCountries: () => void;
   onOpenCreators: () => void;
   onOpenStyle: () => void;
   refreshing: boolean;
@@ -53,6 +55,7 @@ export function TodayCommerceFeed({
   onOpenSearch,
   onOpenMessages,
   onOpenTools,
+  onOpenCountries,
   onOpenCreators,
   onOpenStyle,
   refreshing,
@@ -134,7 +137,7 @@ export function TodayCommerceFeed({
         <AccessiblePressable onPress={onOpenTools} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open Today tools">
           <View style={styles.menuIcon}><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View>
         </AccessiblePressable>
-        <Animated.View pointerEvents="box-none" style={[styles.logoCenter, logoMotion]}><AccessiblePressable onPress={onOpenSearch} style={styles.wordmarkButton} accessibilityRole="button" accessibilityLabel="Open Uvel marketplace"><Text style={styles.wordmark}>Uvel</Text></AccessiblePressable></Animated.View>
+        <Animated.View pointerEvents="box-none" style={[styles.logoCenter, logoMotion]}><AccessiblePressable onPress={onOpenCountries} style={styles.wordmarkButton} accessibilityRole="button" accessibilityLabel="Choose your Uvel country store"><Text style={styles.wordmark}>Uvel</Text></AccessiblePressable></Animated.View>
         <View style={styles.headerActions}><AccessiblePressable onPress={onOpenSearch} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Search Uvel"><Ionicons name="search-outline" size={24} color={colors.bone} /></AccessiblePressable><AccessiblePressable onPress={onOpenMessages} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open messages"><Ionicons name="chatbubble-ellipses-outline" size={23} color={colors.bone} /></AccessiblePressable></View>
       </View>
       <Animated.ScrollView
@@ -148,6 +151,9 @@ export function TodayCommerceFeed({
         bounces
         onScroll={handleScroll}
       >
+      <Animated.View style={[styles.pullRefreshSpace, { height: scrollY.interpolate({ inputRange: [-56, 0], outputRange: [56, 0], extrapolate: "clamp" }) }]} pointerEvents="none">
+        {refreshing ? <OrbitLoader size={46} /> : null}
+      </Animated.View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         {COLOR_CHIPS.map((chip, index) => (
           <Pressable key={chip.label} onPress={() => index === 1 ? onOpenStyle() : undefined} style={[styles.chip, { backgroundColor: chip.color }]} accessibilityRole="button" accessibilityLabel={chip.label}>
@@ -325,6 +331,7 @@ function make(colors: Colors) {
     fixedHeader: { minHeight: 62, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "transparent", zIndex: 5, position: "relative" },
     logoCenter: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", zIndex: 10 },
     feedScroll: { flex: 1 },
+    pullRefreshSpace: { alignItems: "center", justifyContent: "center", overflow: "hidden" },
     content: { paddingTop: 10, paddingHorizontal: 16, paddingBottom: 130 },
     topBar: { height: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     headerActions: { flexDirection: "row", alignItems: "center", gap: 2 },
