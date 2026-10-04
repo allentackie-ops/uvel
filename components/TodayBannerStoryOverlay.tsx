@@ -3,6 +3,8 @@ import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { useEffect, useRef } from "react";
 import { Animated, Dimensions, Pressable, ScrollView, Share as NativeShare, StyleSheet, Text, View } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Reanimated, { runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ClosetPiece } from "../lib/wardrobe";
 import { moneyInMarket, getMarket } from "../lib/markets";
@@ -37,7 +39,10 @@ export function TodayBannerStoryOverlay({
   const screen = Dimensions.get("window");
   const opacity = useRef(new Animated.Value(0)).current;
   const heroProgress = useRef(new Animated.Value(0)).current;
-  const pageY = useRef(new Animated.Value(0)).current;
+  const scrollY = useSharedValue(0);
+  const dismissY = useSharedValue(0);
+  const touchStartY = useSharedValue(0);
+  const dragging = useSharedValue(0);
   const closing = useRef(false);
   const market = getMarket(app.country);
   const pieces = story.pieces.slice(0, 8);
@@ -65,16 +70,57 @@ export function TodayBannerStoryOverlay({
   const heroTranslateX = heroProgress.interpolate({ inputRange: [0, 1], outputRange: [origin.x - (screen.width - origin.width) / 2, 0] });
   const heroTranslateY = heroProgress.interpolate({ inputRange: [0, 1], outputRange: [origin.y - insets.top, 0] });
 
+  const swipeStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: dismissY.value }, { scale: 1 - Math.min(Math.max(dismissY.value / screen.height, 0), 0.18) }],
+    opacity: 1 - Math.min(Math.max(dismissY.value / 420, 0), 0.72),
+  }));
+  const pan = Gesture.Pan()
+    .manualActivation(true)
+    .onTouchesDown((event) => {
+      touchStartY.value = event.allTouches[0]?.absoluteY ?? 0;
+    })
+    .onTouchesMove((event, state) => {
+      const y = event.allTouches[0]?.absoluteY ?? touchStartY.value;
+      const dy = y - touchStartY.value;
+      if (scrollY.value > 4 || dy < 8 || dy < 0) {
+        state.fail();
+        return;
+      }
+      state.activate();
+    })
+    .onStart(() => {
+      dragging.value = 1;
+    })
+    .onUpdate((event) => {
+      if (dragging.value) dismissY.value = Math.max(0, event.translationY);
+    })
+    .onEnd((event) => {
+      if (!dragging.value) return;
+      dragging.value = 0;
+      if (dismissY.value > 100 || event.velocityY > 700) {
+        dismissY.value = withTiming(screen.height, { duration: 220 }, (finished) => {
+          if (finished) runOnJS(onClose)();
+        });
+      } else {
+        dismissY.value = withSpring(0, { damping: 24, stiffness: 280, mass: 0.72 });
+      }
+    });
+  const scrollHandler = useAnimatedScrollHandler({ onScroll: (event) => { scrollY.value = event.contentOffset.y; } });
+
   return (
-    <Animated.View style={[styles.root, { opacity, backgroundColor: colors.ink }]}>
+    <GestureDetector gesture={pan}>
+      <Reanimated.View style={[styles.root, swipeStyle]}>
+      <Animated.View style={[styles.root, { opacity, backgroundColor: colors.ink }]}>
       <Animated.View style={[styles.heroMotion, { height: heroHeight, transform: [{ translateX: heroTranslateX }, { translateY: heroTranslateY }, { scale: heroScale }] }]}>
         <View style={[styles.heroColor, { backgroundColor: story.color }]} />
-        {pieces[0]?.photo ? <Image source={{ uri: pieces[0].photo }} style={styles.heroImage} contentFit="cover" accessible={false} /> : null}
-        <View style={styles.heroTint} />
-        <View style={[styles.heroCopy, { paddingTop: insets.top + 70 }]} pointerEvents="none">
+        <View style={[styles.heroCopy, { paddingTop: insets.top + 70 }]}>
           <Text style={styles.eyebrow}>{story.eyebrow || "THE EDIT"}</Text>
           <Text style={styles.title}>{story.title}</Text>
           <Text style={styles.subtitle}>{story.subtitle}</Text>
+          <View style={styles.heroFeatureGrid} pointerEvents="none">
+            {pieces.slice(0, 4).map((piece, index) => <View key={`${piece.id}-hero-${index}`} style={styles.heroFeature}><Image source={{ uri: piece.photo }} style={styles.heroFeatureImage} contentFit="cover" accessible={false} /></View>)}
+          </View>
+          <Text style={styles.heroFooter}>{story.footer || "UVEL EDIT"}</Text>
         </View>
       </Animated.View>
 
@@ -83,7 +129,7 @@ export function TodayBannerStoryOverlay({
         contentContainerStyle={[styles.content, { paddingTop: heroHeight + 18, paddingBottom: insets.bottom + 34 }]}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: pageY } } }], { useNativeDriver: false })}
+        onScroll={scrollHandler}
       >
         <View style={styles.intro}>
           <Text style={[styles.kicker, { color: story.color }]}>A CURATED STORY</Text>
@@ -121,7 +167,9 @@ export function TodayBannerStoryOverlay({
         <Text style={styles.topLabel}>{story.footer || "UVEL EDIT"}</Text>
         <View style={styles.topSpacer} />
       </View>
-    </Animated.View>
+      </Animated.View>
+      </Reanimated.View>
+    </GestureDetector>
   );
 }
 
@@ -154,6 +202,10 @@ const styles = StyleSheet.create({
   eyebrow: { color: "#FFFFFF", fontSize: 11, fontWeight: "900", letterSpacing: 2.2 },
   title: { color: "#FFFFFF", fontSize: 46, lineHeight: 48, fontWeight: "900", letterSpacing: -1.5, marginTop: 15, maxWidth: 330 },
   subtitle: { color: "#FFFFFF", fontSize: 18, lineHeight: 24, marginTop: 13, maxWidth: 320 },
+  heroFeatureGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 22, maxWidth: 320 },
+  heroFeature: { width: "23%", aspectRatio: 0.88, borderRadius: 10, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.2)" },
+  heroFeatureImage: { width: "100%", height: "100%" },
+  heroFooter: { color: "#FFFFFF", fontSize: 13, fontWeight: "800", marginTop: 12 },
   scroll: { flex: 1 },
   content: { paddingHorizontal: 20 },
   intro: { paddingBottom: 28 },
