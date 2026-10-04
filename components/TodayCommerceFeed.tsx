@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { useEffect, useRef, type RefObject } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { Animated, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "./AccessiblePressable";
@@ -303,6 +303,37 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
   const secondaryMotionValue = useRef(new Animated.Value(0)).current;
   const tertiaryMotionValue = useRef(new Animated.Value(0)).current;
   const fourthMotionValue = useRef(new Animated.Value(0)).current;
+  const newInOpacities = useRef([new Animated.Value(1), new Animated.Value(1), new Animated.Value(1), new Animated.Value(1)]).current;
+  const newInScales = useRef([new Animated.Value(1), new Animated.Value(1), new Animated.Value(1), new Animated.Value(1)]).current;
+  const cascadeGeneration = useRef(0);
+  const [displayedPieces, setDisplayedPieces] = useState(() => pieces.slice(0, 4));
+  const activePieces = story.variant === "slide" ? displayedPieces : pieces;
+  useEffect(() => {
+    if (story.variant !== "slide") return;
+    const nextPieces = pieces.slice(0, 4);
+    const nextKey = nextPieces.map((piece) => `${piece.id}:${piece.cutoutPhoto || piece.photo}`).join("|");
+    const currentKey = displayedPieces.map((piece) => `${piece.id}:${piece.cutoutPhoto || piece.photo}`).join("|");
+    if (nextKey === currentKey) return;
+    const generation = ++cascadeGeneration.current;
+    const exits = newInOpacities.map((value, index) => Animated.timing(value, { toValue: 0, duration: 320, delay: index * 110, useNativeDriver: true }));
+    const exitSequence = Animated.stagger(110, exits);
+    exitSequence.start(({ finished }) => {
+      if (!finished || generation !== cascadeGeneration.current) return;
+      setDisplayedPieces(nextPieces);
+      newInScales.forEach((value) => value.setValue(0.97));
+      requestAnimationFrame(() => {
+        if (generation !== cascadeGeneration.current) return;
+        Animated.stagger(110, newInOpacities.map((value, index) => Animated.parallel([
+          Animated.timing(value, { toValue: 1, duration: 340, useNativeDriver: true }),
+          Animated.timing(newInScales[index], { toValue: 1, duration: 340, useNativeDriver: true }),
+        ]))).start();
+      });
+    });
+    return () => {
+      cascadeGeneration.current += 1;
+      exitSequence.stop();
+    };
+  }, [displayedPieces, newInOpacities, newInScales, pieces, story.variant]);
   useEffect(() => {
     const durations = story.variant === "luxury" ? [5200, 6200, 7000, 5800] : story.variant === "slide" ? [2800, 3600, 4400, 3200] : story.variant === "explode" ? [3000, 3900, 4700, 3400] : story.variant === "collage" ? [3400, 4300, 5100, 3700] : [3600, 4600, 5400, 4000];
     const createLoop = (value: Animated.Value, duration: number, delay: number) => Animated.loop(Animated.sequence([
@@ -351,6 +382,10 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
       : story.variant === "collage"
         ? { transform: [{ translateX: fourthMotionValue.interpolate({ inputRange: [0, 1], outputRange: [12, -10] }) }, { rotate: "-8deg" }] }
         : { transform: [{ translateY: fourthMotionValue.interpolate({ inputRange: [0, 1], outputRange: [5, -8] }) }, { rotate: story.variant === "luxury" ? "7deg" : "-7deg" }] };
+  const newInProductMotion = (index: number) => ({
+    opacity: newInOpacities[index],
+    transform: [{ scale: newInScales[index] }],
+  });
   const composition = story.variant === "slide"
     ? { hero: { left: 112, top: 142, width: 206, height: 284, zIndex: 1 }, secondary: { left: -22, top: 278, width: 154, height: 198, zIndex: 4 }, tertiary: { right: -16, top: 326, width: 142, height: 184, zIndex: 3 }, fourth: { left: 50, top: 238, width: 122, height: 158, transform: [{ rotate: "-6deg" }], zIndex: 2 } }
     : story.variant === "explode"
@@ -364,12 +399,12 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
     <View pointerEvents="none" style={styles.editorialGrain} />
     <Text style={styles.editorialTitle}>{story.title}</Text>
     <Text style={styles.editorialSubtitle}>{story.subtitle}</Text>
-    <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.hero, heroMotion]}>
-      <Image source={{ uri: todayProductImage(pieces[0], story.image) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} />
+    <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.hero, story.variant === "slide" ? newInProductMotion(0) : heroMotion]}>
+      <Image source={{ uri: todayProductImage(activePieces[0], story.image) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} />
     </Animated.View>
-    {pieces[1] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.secondary, secondaryMotion]}><Image source={{ uri: todayProductImage(pieces[1]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
-    {pieces[2] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.tertiary, tertiaryMotion]}><Image source={{ uri: todayProductImage(pieces[2]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
-    {pieces[3] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.fourth, fourthMotion, { opacity: motion.interpolate({ inputRange: [0, 1], outputRange: [0.76, 1] }) }]}><Image source={{ uri: todayProductImage(pieces[3]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
+    {activePieces[1] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.secondary, story.variant === "slide" ? newInProductMotion(1) : secondaryMotion]}><Image source={{ uri: todayProductImage(activePieces[1]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
+    {activePieces[2] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.tertiary, story.variant === "slide" ? newInProductMotion(2) : tertiaryMotion]}><Image source={{ uri: todayProductImage(activePieces[2]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
+    {activePieces[3] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.fourth, story.variant === "slide" ? newInProductMotion(3) : fourthMotion, story.variant !== "slide" && { opacity: motion.interpolate({ inputRange: [0, 1], outputRange: [0.76, 1] }) }]}><Image source={{ uri: todayProductImage(activePieces[3]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
     <View pointerEvents="none" style={styles.editorialOrbit}><View style={styles.editorialOrbitDot} /></View>
   </View>;
 }
