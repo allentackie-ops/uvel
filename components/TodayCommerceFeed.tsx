@@ -303,11 +303,21 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
   const secondaryMotionValue = useRef(new Animated.Value(0)).current;
   const tertiaryMotionValue = useRef(new Animated.Value(0)).current;
   const fourthMotionValue = useRef(new Animated.Value(0)).current;
+  const latestStickerMotion = useRef(new Animated.Value(0)).current;
   const newInOpacities = useRef([new Animated.Value(1), new Animated.Value(1), new Animated.Value(1), new Animated.Value(1)]).current;
   const newInScales = useRef([new Animated.Value(1), new Animated.Value(1), new Animated.Value(1), new Animated.Value(1)]).current;
   const cascadeGeneration = useRef(0);
   const [displayedPieces, setDisplayedPieces] = useState(() => pieces.slice(0, 4));
   const activePieces = story.variant === "slide" ? displayedPieces : pieces;
+  useEffect(() => {
+    if (story.variant !== "slide") return;
+    const stickerLoop = Animated.loop(Animated.sequence([
+      Animated.timing(latestStickerMotion, { toValue: 1, duration: 1350, useNativeDriver: true }),
+      Animated.timing(latestStickerMotion, { toValue: 0, duration: 1350, useNativeDriver: true }),
+    ]));
+    stickerLoop.start();
+    return () => stickerLoop.stop();
+  }, [latestStickerMotion, story.variant]);
   useEffect(() => {
     if (story.variant !== "slide") return;
     const nextPieces = pieces.slice(0, 4);
@@ -399,14 +409,25 @@ function EditorialPoster({ story, pieces, styles }: { story: { title: string; su
     <View pointerEvents="none" style={styles.editorialGrain} />
     <Text style={styles.editorialTitle}>{story.title}</Text>
     <Text style={styles.editorialSubtitle}>{story.subtitle}</Text>
-    {story.variant === "slide" ? <View pointerEvents="none" style={styles.editorialLatestBadge}><Text style={styles.editorialLatestBadgeText}>THE LATEST</Text></View> : null}
+    {story.variant === "slide" ? <Animated.View pointerEvents="none" style={[styles.editorialLatestSticker, { transform: [{ translateX: latestStickerMotion.interpolate({ inputRange: [0, 1], outputRange: [-5, 5] }) }, { rotate: latestStickerMotion.interpolate({ inputRange: [0, 1], outputRange: ["-3deg", "3deg"] }) }] }]}>
+      <View style={styles.editorialLatestStickerPink} />
+      <View style={styles.editorialLatestStickerCyan} />
+      <View style={styles.editorialLatestStickerBacking}>
+        <View style={styles.editorialLatestStickerBlue}>
+          <Text style={styles.editorialLatestStickerText}>THE</Text>
+          <Text style={styles.editorialLatestStickerText}>LATEST</Text>
+        </View>
+      </View>
+      <View style={[styles.editorialLatestDoodle, styles.editorialLatestDoodleLeft]} />
+      <View style={[styles.editorialLatestDoodle, styles.editorialLatestDoodleRight]} />
+    </Animated.View> : null}
     <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.hero, story.variant === "slide" ? newInProductMotion(0) : heroMotion]}>
       <Image source={{ uri: todayProductImage(activePieces[0], story.image) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} />
     </Animated.View>
     {activePieces[1] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.secondary, story.variant === "slide" ? newInProductMotion(1) : secondaryMotion]}><Image source={{ uri: todayProductImage(activePieces[1]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
     {activePieces[2] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.tertiary, story.variant === "slide" ? newInProductMotion(2) : tertiaryMotion]}><Image source={{ uri: todayProductImage(activePieces[2]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
     {activePieces[3] ? <Animated.View pointerEvents="none" style={[styles.editorialCutout, composition.fourth, story.variant === "slide" ? newInProductMotion(3) : fourthMotion, story.variant !== "slide" && { opacity: motion.interpolate({ inputRange: [0, 1], outputRange: [0.76, 1] }) }]}><Image source={{ uri: todayProductImage(activePieces[3]) }} style={styles.editorialCutoutImage} contentFit="contain" accessible={false} /></Animated.View> : null}
-    <View pointerEvents="none" style={styles.editorialOrbit}><View style={styles.editorialOrbitDot} /></View>
+    {story.variant !== "slide" ? <View pointerEvents="none" style={styles.editorialOrbit}><View style={styles.editorialOrbitDot} /></View> : null}
   </View>;
 }
 
@@ -497,8 +518,15 @@ function make(colors: Colors) {
     editorialGrain: { position: "absolute", top: 0, right: 0, width: 180, height: 180, borderRadius: 90, backgroundColor: "rgba(255,255,255,0.1)", transform: [{ translateX: 78 }, { translateY: -70 }] },
     editorialTitle: { color: "#FFFFFF", fontSize: 34, lineHeight: 36, fontWeight: "900", letterSpacing: -0.9, maxWidth: 230, marginTop: 12, zIndex: 6 },
     editorialSubtitle: { color: "rgba(255,255,255,0.88)", fontSize: 15, lineHeight: 20, maxWidth: 226, marginTop: 9, zIndex: 6 },
-    editorialLatestBadge: { position: "absolute", right: 16, top: 16, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: "rgba(255,255,255,0.72)", backgroundColor: "rgba(0,0,0,0.08)", zIndex: 6 },
-    editorialLatestBadgeText: { color: "rgba(255,255,255,0.94)", fontSize: 9, fontWeight: "900", letterSpacing: 1.4 },
+    editorialLatestSticker: { position: "absolute", right: 13, top: 13, width: 94, height: 76, zIndex: 7, alignItems: "center", justifyContent: "center" },
+    editorialLatestStickerBacking: { width: 78, height: 62, borderRadius: 30, backgroundColor: "#F6E84B", borderWidth: 4, borderColor: "#FFF7E6", alignItems: "center", justifyContent: "center", transform: [{ rotate: "-4deg" }], shadowColor: "#131F80", shadowOpacity: 0.3, shadowRadius: 4, shadowOffset: { width: 3, height: 4 }, elevation: 5 },
+    editorialLatestStickerBlue: { minWidth: 58, paddingHorizontal: 5, paddingVertical: 3, borderRadius: 13, backgroundColor: "#2146C7", transform: [{ rotate: "2deg" }], alignItems: "center" },
+    editorialLatestStickerText: { color: "#FFFFFF", fontSize: 10, lineHeight: 12, fontWeight: "900", letterSpacing: 0.4 },
+    editorialLatestStickerPink: { position: "absolute", top: 5, left: 21, width: 18, height: 10, borderRadius: 8, backgroundColor: "#F25B9D", transform: [{ rotate: "-25deg" }] },
+    editorialLatestStickerCyan: { position: "absolute", bottom: 5, right: 15, width: 19, height: 10, borderRadius: 8, backgroundColor: "#45D7C5", transform: [{ rotate: "25deg" }] },
+    editorialLatestDoodle: { position: "absolute", width: 14, height: 3, borderRadius: 2, backgroundColor: "#FFF7E6" },
+    editorialLatestDoodleLeft: { left: 0, top: 31, transform: [{ rotate: "-25deg" }] },
+    editorialLatestDoodleRight: { right: 0, bottom: 28, transform: [{ rotate: "25deg" }] },
     editorialCutout: { position: "absolute", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 8 }, elevation: 5, zIndex: 2 },
     editorialCutoutImage: { width: "100%", height: "100%" },
     editorialOrbit: { position: "absolute", left: -24, bottom: 28, width: 110, height: 38, borderWidth: 1, borderColor: "rgba(255,255,255,0.42)", borderRadius: 55, transform: [{ rotate: "-18deg" }], zIndex: 1 },
