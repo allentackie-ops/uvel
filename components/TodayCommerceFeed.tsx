@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Animated, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "./AccessiblePressable";
@@ -63,7 +64,10 @@ export function TodayCommerceFeed({
   const insets = useSafeAreaInsets();
   const market = getMarket(app.country);
   const scrollY = useRef(new Animated.Value(0)).current;
+  const feedRef = useRef<ScrollView>(null);
   const pullRefreshTriggered = useRef(false);
+  const pullHapticTriggered = useRef(false);
+  const wasRefreshing = useRef(false);
   const posterScrollX = useRef(new Animated.Value(0)).current;
   const posterWidth = Math.min(300, Dimensions.get("window").width - 92);
   const posterInterval = posterWidth + 12;
@@ -88,13 +92,33 @@ export function TodayCommerceFeed({
     useNativeDriver: true,
     listener: (event: { nativeEvent: { contentOffset: { y: number } } }) => {
       const y = event.nativeEvent.contentOffset.y;
-      if (y > -10) pullRefreshTriggered.current = false;
+      if (refreshing) {
+        if (y > -56) feedRef.current?.scrollTo({ y: -56, animated: false });
+        return;
+      }
+      if (y > -10) {
+        pullRefreshTriggered.current = false;
+        pullHapticTriggered.current = false;
+      }
+      if (y <= -42 && !pullHapticTriggered.current) {
+        pullHapticTriggered.current = true;
+        void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
+      }
       if (y <= -64 && !refreshing && !pullRefreshTriggered.current) {
         pullRefreshTriggered.current = true;
         onRefresh();
       }
     },
   });
+  useEffect(() => {
+    if (refreshing) {
+      wasRefreshing.current = true;
+      requestAnimationFrame(() => feedRef.current?.scrollTo({ y: -56, animated: false }));
+    } else if (wasRefreshing.current) {
+      wasRefreshing.current = false;
+      feedRef.current?.scrollTo({ y: 0, animated: true });
+    }
+  }, [refreshing]);
 
   return (
     <View style={styles.page}>
@@ -114,6 +138,7 @@ export function TodayCommerceFeed({
         <View style={styles.headerActions}><AccessiblePressable onPress={onOpenSearch} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Search Uvel"><Ionicons name="search-outline" size={24} color={colors.bone} /></AccessiblePressable><AccessiblePressable onPress={onOpenMessages} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open messages"><Ionicons name="chatbubble-ellipses-outline" size={23} color={colors.bone} /></AccessiblePressable></View>
       </View>
       <Animated.ScrollView
+        ref={feedRef}
         style={styles.feedScroll}
         contentContainerStyle={[styles.content, { paddingTop: 10 }]}
         keyboardShouldPersistTaps="handled"
@@ -298,7 +323,7 @@ function make(colors: Colors) {
     topColorField: { position: "absolute", top: 0, left: 0, right: 0, height: 520, overflow: "hidden", zIndex: 0 },
     topColorLayer: { position: "absolute", top: 0, left: 0, right: 0, height: 520 },
     fixedHeader: { minHeight: 62, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "transparent", zIndex: 5, position: "relative" },
-    logoCenter: { position: "absolute", left: 0, right: 0, alignItems: "center", justifyContent: "center" },
+    logoCenter: { ...StyleSheet.absoluteFillObject, alignItems: "center", justifyContent: "center", zIndex: 10 },
     feedScroll: { flex: 1 },
     content: { paddingTop: 10, paddingHorizontal: 16, paddingBottom: 130 },
     topBar: { height: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
