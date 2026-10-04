@@ -756,7 +756,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         <View pointerEvents="none" style={styles.itemShade} />
       </AccessiblePressable>
       {active && guideStep !== null ? <AccessiblePressable onPress={onGuideDismiss} style={styles.guideDismissLayer} accessibilityRole="button" accessibilityLabel="Dismiss shopping tip" /> : null}
-      <Animated.View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: feedbackPrompted ? 88 : 10 }, contentOpacityStyle]}>
+      <Animated.View pointerEvents="box-none" style={[styles.itemCopy, { paddingTop: insets.top + 24, paddingBottom: feedbackPrompted ? 88 : 2 }, contentOpacityStyle]}>
         <View style={styles.copySpacer} />
         {canMakeOffer ? (
           <View style={styles.offerFooter}>
@@ -1058,15 +1058,15 @@ function make(colors: Colors) {
     immersiveOfferText: { color: overlayColor, fontSize: 12, fontWeight: "800" },
     stackBackButton: { width: 42, height: 42, borderRadius: 21, borderWidth: 1, borderColor: "rgba(244,240,230,0.30)", backgroundColor: "rgba(0,0,0,0.46)", alignItems: "center", justifyContent: "center" },
     listingCaption: { maxWidth: "88%" },
-    immersiveAudioRow: { width: "100%", minHeight: 68, marginTop: 18, paddingLeft: 0, paddingRight: 0, flexDirection: "row", alignItems: "center", gap: 12 },
+    immersiveAudioRow: { width: "100%", minHeight: 60, marginTop: 16, paddingLeft: 0, paddingRight: 0, flexDirection: "row", alignItems: "center", gap: 10 },
     immersiveAudioRowPressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
-    immersiveAudioWaveform: { width: 116, height: 38, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    immersiveAudioWaveform: { width: 104, height: 34, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     immersiveAudioWave: { width: 4, borderRadius: 3, backgroundColor: `${colors.success}B8` },
     immersiveAudioWavePlaying: { backgroundColor: colors.success },
     immersiveAudioTrack: { flex: 1, minWidth: 0, alignItems: "flex-end" },
-    immersiveAudioTitle: { color: overlayColor, fontSize: 13, lineHeight: 17, fontWeight: "800" },
-    immersiveAudioSubtitle: { color: `${overlayColor}99`, fontSize: 11, lineHeight: 15, marginTop: 1 },
-    immersiveAudioDisc: { width: 54, height: 54, borderRadius: 27, borderWidth: 1.5, borderColor: overlayColor, overflow: "hidden", alignItems: "center", justifyContent: "center" },
+    immersiveAudioTitle: { color: overlayColor, fontSize: 12, lineHeight: 16, fontWeight: "800" },
+    immersiveAudioSubtitle: { color: `${overlayColor}99`, fontSize: 10, lineHeight: 14, marginTop: 1 },
+    immersiveAudioDisc: { width: 48, height: 48, borderRadius: 24, borderWidth: 1.5, borderColor: overlayColor, overflow: "hidden", alignItems: "center", justifyContent: "center" },
     immersiveAudioDiscImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, opacity: 0.78 },
     immersiveAudioDiscCenter: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#111", borderWidth: 2, borderColor: "rgba(244,240,230,0.8)" },
     detailsHint: { alignSelf: "flex-start", maxWidth: 238, paddingHorizontal: 13, paddingVertical: 9, marginBottom: 9, borderRadius: 13, backgroundColor: "#F4F0E6", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8, position: "relative" },
