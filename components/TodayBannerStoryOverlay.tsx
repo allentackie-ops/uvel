@@ -41,8 +41,8 @@ export function TodayBannerStoryOverlay({
   const app = useUvel();
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
-  const heroH = Math.round(Math.min(Math.max(screenH * 0.62, 420), 620));
-  const chromeTop = insets.top + 54;
+  const heroH = Math.min(470, Math.max(360, screenW * 0.98));
+  const chromeTop = insets.top + 8;
   const pieces = story.pieces.slice(0, 4);
   const market = getMarket(app.country);
   const rootRef = useRef<View>(null);
@@ -79,7 +79,7 @@ export function TodayBannerStoryOverlay({
     imgH.value = origin.height;
     imgR.value = 18;
     imgX.value = withSpring(0, OPEN_SPRING);
-    imgY.value = withSpring(chromeTop, OPEN_SPRING);
+    imgY.value = withSpring(0, OPEN_SPRING);
     imgW.value = withSpring(screenW, OPEN_SPRING);
     imgH.value = withSpring(heroH, OPEN_SPRING);
     imgR.value = withSpring(0, OPEN_SPRING, (finished) => {
@@ -98,7 +98,7 @@ export function TodayBannerStoryOverlay({
     dismissing.value = 1;
     settled.value = 0;
     imgX.value = 0;
-    imgY.value = chromeTop - scrollY.value;
+    imgY.value = -scrollY.value;
     imgW.value = screenW;
     imgH.value = heroH;
     imgR.value = 0;
@@ -153,7 +153,7 @@ export function TodayBannerStoryOverlay({
       settled.value = 0;
       dismissing.value = 1;
       imgX.value = 0;
-      imgY.value = chromeTop;
+      imgY.value = 0;
       imgW.value = screenW;
       imgH.value = heroH;
       imgR.value = 0;
@@ -165,7 +165,7 @@ export function TodayBannerStoryOverlay({
       imgW.value = screenW * s;
       imgH.value = heroH * s;
       imgX.value = (screenW - imgW.value) / 2;
-      imgY.value = chromeTop + event.translationY * 0.92;
+      imgY.value = event.translationY * 0.92;
       imgR.value = 20 * p;
       backdrop.value = 1 - p * 0.95;
       chrome.value = Math.max(0, 1 - p * 2.8);
@@ -191,7 +191,7 @@ export function TodayBannerStoryOverlay({
       dismissing.value = 0;
       dragY.value = 0;
       imgX.value = withSpring(0, SNAP);
-      imgY.value = withSpring(chromeTop, SNAP);
+      imgY.value = withSpring(0, SNAP);
       imgW.value = withSpring(screenW, SNAP);
       imgH.value = withSpring(heroH, SNAP);
       imgR.value = withSpring(0, SNAP, (finished) => {
@@ -230,7 +230,7 @@ export function TodayBannerStoryOverlay({
         <Animated.View style={[styles.backdrop, backdropStyle, { backgroundColor: colors.ink }]} pointerEvents="none" />
         <AnimatedScrollView
           style={[styles.page, pageStyle, { backgroundColor: colors.ink }]}
-          contentContainerStyle={[styles.content, { paddingTop: chromeTop, paddingBottom: insets.bottom + 34 }]}
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 34 }]}
           showsVerticalScrollIndicator={false}
           bounces={false}
           overScrollMode="never"
@@ -243,7 +243,7 @@ export function TodayBannerStoryOverlay({
         >
           <GestureDetector gesture={pan}>
             <Animated.View style={[styles.heroSlot, { height: heroH }, inFlowStyle]}>
-              <StoryHero story={story} pieces={pieces} />
+              <StoryHero story={story} pieces={pieces} topPadding={insets.top + 70} />
             </Animated.View>
           </GestureDetector>
           <View style={styles.intro}>
@@ -256,7 +256,7 @@ export function TodayBannerStoryOverlay({
           </View>
         </AnimatedScrollView>
         <Animated.View style={[styles.flyingHero, flyingHeroStyle]} pointerEvents="none">
-          <StoryHero story={story} pieces={pieces} />
+          <StoryHero story={story} pieces={pieces} topPadding={insets.top + 70} />
         </Animated.View>
         <Animated.View style={[styles.topBar, chromeStyle, { paddingTop: insets.top + 8 }]}>
           <Pressable onPress={closeToBanner} style={styles.closeButton} hitSlop={12} accessibilityRole="button" accessibilityLabel="Swipe down to close banner story">
@@ -268,10 +268,10 @@ export function TodayBannerStoryOverlay({
   );
 }
 
-function StoryHero({ story, pieces }: { story: BannerStory; pieces: ClosetPiece[] }) {
+function StoryHero({ story, pieces, topPadding }: { story: BannerStory; pieces: ClosetPiece[]; topPadding: number }) {
   return (
     <View style={[styles.hero, { backgroundColor: story.color }]}>
-      <View style={styles.heroCopy}>
+      <View style={[styles.heroCopy, { paddingTop: topPadding }]}>
         <Text style={styles.title}>{story.title}</Text>
         <Text style={styles.subtitle}>{story.subtitle}</Text>
         <View style={styles.heroFeatureGrid} pointerEvents="none">
