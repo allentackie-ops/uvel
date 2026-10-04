@@ -98,8 +98,8 @@ export function TodayBannerStoryOverlay({
       if (!dragging.value) return;
       dragging.value = 0;
       if (dismissY.value > 100 || event.velocityY > 700) {
-        dismissY.value = withTiming(screen.height, { duration: 220 }, (finished) => {
-          if (finished) runOnJS(onClose)();
+        dismissY.value = withTiming(0, { duration: 180 }, (finished) => {
+          if (finished) runOnJS(close)();
         });
       } else {
         dismissY.value = withSpring(0, { damping: 24, stiffness: 280, mass: 0.72 });
@@ -122,13 +122,11 @@ export function TodayBannerStoryOverlay({
         <Animated.View style={[styles.heroMotion, { width: screen.width, marginLeft: -20, height: heroHeight, transform: [{ translateX: heroTranslateX }, { translateY: heroTranslateY }, { scale: heroScale }] }]}>
           <View style={[styles.heroColor, { backgroundColor: story.color }]} />
           <View style={[styles.heroCopy, { paddingTop: insets.top + 70 }]}>
-            <Text style={styles.eyebrow}>{story.eyebrow || "THE EDIT"}</Text>
             <Text style={styles.title}>{story.title}</Text>
             <Text style={styles.subtitle}>{story.subtitle}</Text>
             <View style={styles.heroFeatureGrid} pointerEvents="none">
               {pieces.slice(0, 4).map((piece, index) => <View key={`${piece.id}-hero-${index}`} style={styles.heroFeature}><Image source={{ uri: piece.photo }} style={styles.heroFeatureImage} contentFit="cover" accessible={false} /></View>)}
             </View>
-            <Text style={styles.heroFooter}>{story.footer || "UVEL EDIT"}</Text>
           </View>
         </Animated.View>
         </GestureDetector>
@@ -138,19 +136,10 @@ export function TodayBannerStoryOverlay({
           <Text style={[styles.body, { color: colors.muted }]}>A considered mix of pieces for the season ahead. Start with the four featured edits, then keep scrolling to see everything in this story.</Text>
         </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: colors.bone }]}>The four edits</Text>
-          <Text style={[styles.sectionMeta, { color: colors.muted }]}>SCROLL TO EXPLORE</Text>
-        </View>
         <View style={styles.editGrid}>
           {pieces.slice(0, 4).map((piece, index) => <StoryPiece key={`${piece.id}-${index}`} piece={piece} index={index} color={story.color} colors={colors} market={market} onOpenPiece={onOpenPiece} />)}
         </View>
 
-        <View style={[styles.rule, { backgroundColor: `${colors.bone}22` }]} />
-        <Text style={[styles.sectionTitle, { color: colors.bone }]}>More from this story</Text>
-        <View style={styles.moreList}>
-          {pieces.slice(4).map((piece, index) => <StoryListPiece key={`${piece.id}-more-${index}`} piece={piece} color={story.color} colors={colors} market={market} onOpenPiece={onOpenPiece} />)}
-        </View>
         <View style={[styles.shareCard, { borderColor: `${story.color}80`, backgroundColor: `${story.color}18` }]}>
           <Text style={[styles.shareTitle, { color: colors.bone }]}>Keep the edit close</Text>
           <Text style={[styles.shareBody, { color: colors.muted }]}>Send this story to someone whose wardrobe you want to refresh.</Text>
@@ -163,10 +152,8 @@ export function TodayBannerStoryOverlay({
 
       <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={close} style={styles.closeButton} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close banner story">
-          <Ionicons name="close" size={23} color="#FFFFFF" />
+          <Ionicons name="chevron-down" size={24} color="#FFFFFF" />
         </Pressable>
-        <Text style={styles.topLabel}>{story.footer || "UVEL EDIT"}</Text>
-        <View style={styles.topSpacer} />
       </View>
       </Animated.View>
       </Reanimated.View>
@@ -237,8 +224,8 @@ const styles = StyleSheet.create({
   shareBody: { fontSize: 14, lineHeight: 20, marginTop: 5 },
   shareButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 22, minHeight: 44, paddingHorizontal: 16, marginTop: 16 },
   shareButtonText: { color: "#181714", fontSize: 13, fontWeight: "900" },
-  topBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 4, flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16 },
-  closeButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(0,0,0,0.35)", alignItems: "center", justifyContent: "center" },
+  topBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 4, flexDirection: "row", alignItems: "center", paddingHorizontal: 16 },
+  closeButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: "transparent", alignItems: "center", justifyContent: "center" },
   topLabel: { color: "#FFFFFF", fontSize: 11, fontWeight: "900", letterSpacing: 1.6 },
   topSpacer: { width: 42, height: 42 },
 });
