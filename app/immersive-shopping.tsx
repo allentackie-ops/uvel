@@ -665,7 +665,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [offerOpen, setOfferOpen] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
-  const audioPlayer = useAudioPlayer(IMMERSIVE_AUDIO_SOURCE);
+  const audioPlayer = useAudioPlayer(null);
   const cart = useCart();
   const lastImageTap = useRef(0);
   const imageTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -753,6 +753,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
       setAudioPlaying(false);
       return;
     }
+    audioPlayer.replace(IMMERSIVE_AUDIO_SOURCE);
     audioPlayer.play();
     setAudioPlaying(true);
   }
