@@ -132,11 +132,11 @@ export function TodayCommerceFeed({
           return <Animated.View key={color} style={[styles.topColorLayer, { backgroundColor: color, opacity: Animated.multiply(horizontalOpacity, topColorFade) }]} />;
         })}
       </View>
-      <View style={[styles.fixedHeader, { paddingTop: insets.top + 4 }]}>
+      <View style={[styles.fixedHeader, { height: insets.top + 62, paddingTop: insets.top }]}>
         <AccessiblePressable onPress={onOpenTools} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open Today tools">
           <View style={styles.menuIcon}><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View>
         </AccessiblePressable>
-        <Animated.View pointerEvents="box-none" style={[styles.logoCenter, logoMotion]}><AccessiblePressable onPress={onOpenCountries} style={styles.wordmarkButton} accessibilityRole="button" accessibilityLabel="Choose your Uvel country store"><Text style={styles.wordmark}>Uvel</Text></AccessiblePressable></Animated.View>
+        <Animated.View pointerEvents="box-none" style={[styles.logoCenter, logoMotion, { top: insets.top, bottom: 0 }]}><AccessiblePressable onPress={onOpenCountries} style={styles.wordmarkButton} accessibilityRole="button" accessibilityLabel="Choose your Uvel country store"><Text style={styles.wordmark}>Uvel</Text></AccessiblePressable></Animated.View>
         <View style={styles.headerActions}><AccessiblePressable onPress={onOpenSearch} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Search Uvel"><Ionicons name="search-outline" size={24} color={colors.bone} /></AccessiblePressable><AccessiblePressable onPress={onOpenMessages} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open messages"><Ionicons name="chatbubble-ellipses-outline" size={23} color={colors.bone} /></AccessiblePressable></View>
       </View>
       <Animated.ScrollView
@@ -157,7 +157,6 @@ export function TodayCommerceFeed({
         ))}
       </ScrollView>
 
-      <FeaturedRule styles={styles} />
       <PosterCarousel featured={featured} onOpenPiece={onOpenPiece} onOpenSearch={onOpenSearch} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterInterval={posterInterval} />
 
       <SectionTitle title="For you" onPress={onOpenSearch} />
@@ -216,19 +215,6 @@ export function TodayCommerceFeed({
       <ProductRail pieces={personalized.slice(4, 8).length ? personalized.slice(4, 8) : personalized.slice(0, 4)} market={market} onOpen={onOpenPiece} compact />
       </Animated.ScrollView>
       {refreshing ? <View pointerEvents="none" style={[styles.pullOrbitLayer, { top: insets.top + 62 }]}><OrbitLoader size={58} /></View> : null}
-    </View>
-  );
-}
-
-function FeaturedRule({ styles }: { styles: ReturnType<typeof make> }) {
-  return (
-    <View style={styles.featuredRule} accessibilityRole="header">
-      <View style={styles.ruleLine} />
-      <View style={styles.ruleLabelWrap}>
-        <Text style={styles.ruleEyebrow}>CURATED FOR YOU</Text>
-        <Text style={styles.ruleTitle}>Today’s highlights</Text>
-      </View>
-      <View style={styles.ruleLine} />
     </View>
   );
 }
@@ -307,7 +293,7 @@ function PosterPhotoCard({ title, subtitle, color, image, styles, width, height,
 
 function SectionTitle({ title, onPress }: { title: string; onPress: () => void }) {
   const colors = useColors();
-  return <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 28, marginBottom: 11, paddingBottom: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}35` }}><View><Text style={{ color: colors.subtle, fontSize: 10, fontWeight: "900", letterSpacing: 1.2, marginBottom: 3 }}>THE EDIT</Text><Text style={{ color: colors.bone, fontSize: 21, fontWeight: "800", letterSpacing: -0.3 }}>{title}</Text></View><Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`See all ${title}`}><Text style={{ color: colors.pulse, fontSize: 13, fontWeight: "800", paddingBottom: 2 }}>See all ›</Text></Pressable></View>;
+  return <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 28, marginBottom: 11, paddingBottom: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}35` }}><Text style={{ color: colors.bone, fontSize: 21, fontWeight: "800", letterSpacing: -0.3 }}>{title}</Text><Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`See all ${title}`}><Text style={{ color: colors.pulse, fontSize: 13, fontWeight: "800", paddingBottom: 2 }}>See all ›</Text></Pressable></View>;
 }
 
 function ProductRail({ pieces, market, onOpen, deals, compact }: { pieces: ClosetPiece[]; market: ReturnType<typeof getMarket>; onOpen: TodayCommerceFeedProps["onOpenPiece"]; deals?: boolean; compact?: boolean }) {
