@@ -1066,7 +1066,7 @@ function make(colors: Colors) {
     immersiveAudioTrack: { flex: 1, minWidth: 0, alignItems: "flex-end" },
     immersiveAudioTitle: { color: overlayColor, fontSize: 12, lineHeight: 16, fontWeight: "800" },
     immersiveAudioSubtitle: { color: `${overlayColor}99`, fontSize: 10, lineHeight: 14, marginTop: 1 },
-    immersiveAudioDisc: { width: 48, height: 48, borderRadius: 24, borderWidth: 1.5, borderColor: overlayColor, overflow: "hidden", alignItems: "center", justifyContent: "center" },
+    immersiveAudioDisc: { width: 48, height: 48, marginRight: -6, borderRadius: 24, borderWidth: 1.5, borderColor: overlayColor, overflow: "hidden", alignItems: "center", justifyContent: "center" },
     immersiveAudioDiscImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, opacity: 0.78 },
     immersiveAudioDiscCenter: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#111", borderWidth: 2, borderColor: "rgba(244,240,230,0.8)" },
     detailsHint: { alignSelf: "flex-start", maxWidth: 238, paddingHorizontal: 13, paddingVertical: 9, marginBottom: 9, borderRadius: 13, backgroundColor: "#F4F0E6", shadowColor: "#000", shadowOpacity: 0.28, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 8, position: "relative" },
