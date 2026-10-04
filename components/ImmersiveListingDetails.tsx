@@ -183,7 +183,7 @@ export function ImmersiveListingDetails({
                 </View>
               </View>
 
-              <View style={styles.compactSection}>
+              <View style={[styles.compactSection, styles.firstCompactSection]}>
                 <AccessiblePressable onPress={() => setMeasurementsOpen((open) => !open)} style={styles.compactRow} accessibilityRole="button" accessibilityState={{ expanded: measurementsOpen }}>
                   <View style={styles.compactTitleWrap}><Ionicons name="resize-outline" size={17} color={colors.success} /><Text style={styles.compactTitle}>Measurements & fit</Text></View>
                   <Ionicons name={measurementsOpen ? "chevron-up" : "chevron-down"} size={17} color={colors.bone} />
@@ -263,6 +263,7 @@ function make(colors: ReturnType<typeof useColors>) {
     availabilityRow: { flexDirection: "row", alignItems: "center", gap: 9, minHeight: 34, paddingTop: 11 },
     availabilityText: { color: light ? colors.bone : "rgba(244,240,230,0.88)", fontSize: 12, fontWeight: "600", flex: 1 },
     compactSection: { marginTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}18` },
+    firstCompactSection: { marginTop: 22 },
     compactRow: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingVertical: 4 },
     compactTitleWrap: { flexDirection: "row", alignItems: "center", gap: 9 },
     compactTitle: { color: colors.bone, fontSize: 13, fontWeight: "800" },
