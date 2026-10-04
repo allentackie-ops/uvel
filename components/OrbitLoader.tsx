@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, StyleSheet, Text, View, useColorScheme } from "react-native";
 
 const DEFAULT_SIZE = 58;
 const SPIN_MS = 2400;
@@ -26,12 +26,14 @@ function PulseDot({
   left,
   top,
   size,
+  outlineColor,
 }: {
   color: string;
   delay: number;
   left: number;
   top: number;
   size: number;
+  outlineColor: string;
 }) {
   const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -59,6 +61,7 @@ function PulseDot({
           height: size,
           borderRadius: size / 2,
           backgroundColor: color,
+          borderColor: outlineColor,
           opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }),
           transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.15] }) }],
         },
@@ -98,6 +101,7 @@ export function OrbitLoader({
 }) {
   const spin = useRef(new Animated.Value(0)).current;
   const core = useRef(new Animated.Value(0)).current;
+  const isDark = useColorScheme() === "dark";
   const dot = Math.max(5, Math.round(size * 0.155));
   const radius = size * 0.37;
   const center = size / 2;
@@ -123,10 +127,10 @@ export function OrbitLoader({
     <View style={[styles.wrap, !label && !caption ? styles.wrapTight : null]} accessibilityRole="progressbar">
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <Animated.View style={[styles.orbit, { width: size, height: size, transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] }) }] }]}>
-        <Animated.View style={[styles.core, { top: center - coreSize / 2, left: center - coreSize / 2, width: coreSize, height: coreSize, borderRadius: coreSize / 2, opacity: core.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }]} />
+        <Animated.View style={[styles.core, { top: center - coreSize / 2, left: center - coreSize / 2, width: coreSize, height: coreSize, borderRadius: coreSize / 2, backgroundColor: isDark ? "#F2EFEA" : "#605D57", opacity: core.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }]} />
         {DOTS.map((item) => {
           const point = xy(item.angle, size, dot, radius);
-          return <PulseDot key={item.key} color={item.color} delay={item.delay} left={point.left} top={point.top} size={dot} />;
+          return <PulseDot key={item.key} color={item.color} delay={item.delay} left={point.left} top={point.top} size={dot} outlineColor={isDark ? "rgba(244,240,230,0.62)" : "rgba(22,20,15,0.42)"} />;
         })}
       </Animated.View>
       {caption ? <Text style={styles.caption}>{caption}</Text> : null}
@@ -139,7 +143,7 @@ const styles = StyleSheet.create({
   wrapTight: { gap: 0 },
   orbit: {},
   core: { position: "absolute", backgroundColor: "#F2EFEA" },
-  dot: { position: "absolute" },
+  dot: { position: "absolute", borderWidth: 1 },
   label: { fontSize: 13, letterSpacing: 1.8, textTransform: "uppercase", color: "#8C8880" },
   caption: { fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", color: "#8C8880", opacity: 0.5 },
 });
