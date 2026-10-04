@@ -887,6 +887,16 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           {emptyListingsContent}
         </ScrollView>
       )}
+      {todayHome && openBannerStory ? (
+        <TodayBannerStoryOverlay
+          story={openBannerStory.story}
+          origin={openBannerStory.origin}
+          onClose={() => setOpenBannerStory(null)}
+          onOpenPiece={(piece, origin) => {
+            void openTodayListing(piece, origin);
+          }}
+        />
+      ) : null}
       {todayHome && openPiece && openOrigin ? (
         <TodayListingOverlay
           piece={openPiece}
@@ -903,17 +913,6 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           onDoubleTapHintDismiss={dismissDoubleTapHint}
           firstListing={firstListingForHint}
           onInteraction={personalization.record}
-        />
-      ) : null}
-      {todayHome && openBannerStory ? (
-        <TodayBannerStoryOverlay
-          story={openBannerStory.story}
-          origin={openBannerStory.origin}
-          onClose={() => setOpenBannerStory(null)}
-          onOpenPiece={(piece, origin) => {
-            setOpenBannerStory(null);
-            void openTodayListing(piece, origin);
-          }}
         />
       ) : null}
       {todayHome ? <TodayCartFab listingOpen={Boolean(openPiece)} /> : null}
