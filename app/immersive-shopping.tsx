@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import PagerView from "react-native-pager-view";
-import { StatusBar } from "expo-status-bar";
+import { setStatusBarStyle, StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Animated as RNAnimated, Dimensions, Share as NativeShare, StyleSheet, Text, View } from "react-native";
@@ -79,6 +79,10 @@ export default function ImmersiveShopping() {
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
   const insets = useSafeAreaInsets();
   const app = useUvel();
+  useEffect(() => {
+    setStatusBarStyle("light");
+    return () => setStatusBarStyle(colors.ink === "#000000" ? "light" : "dark");
+  }, [colors.ink]);
   const chats = useInbox(app.uid || "me");
   const unreadMessages = chats.reduce((count, thread) => count + unreadFor(thread, app.uid || "me"), 0);
   const personalization = usePersonalization(app.uid || "guest");
