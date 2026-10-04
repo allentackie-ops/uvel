@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { createAudioPlayer } from "expo-audio";
+import { createAudioPlayer, setAudioModeAsync, setIsAudioActiveAsync } from "expo-audio";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import PagerView from "react-native-pager-view";
@@ -745,7 +745,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     setOfferOpen(true);
   }
-  function toggleAudio() {
+  async function toggleAudio() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     try {
       if (audioPlaying) {
@@ -753,6 +753,8 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
         setAudioPlaying(false);
         return;
       }
+      await setAudioModeAsync({ playsInSilentMode: true, interruptionMode: "mixWithOthers" });
+      await setIsAudioActiveAsync(true);
       if (!audioPlayerRef.current) {
         const player = createAudioPlayer(audioTrack.source);
         player.loop = true;
