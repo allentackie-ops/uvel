@@ -489,6 +489,7 @@ async function submitPersonalListingForReviewHandler(req) {
     stockQuantity: 1,
     reservedQuantity: 0,
     status: accepted ? 'listed' : 'rejected',
+    ...(accepted ? { cutoutStatus: 'queued', creativeEligible: false } : {}),
     moderationStatus: accepted ? 'approved' : 'rejected',
     moderationHeadline: accepted ? 'Clear to list.' : (rejectionReasons[0] || contentReview.headline),
     moderationReasons: rejectionReasons.slice(0, 3),

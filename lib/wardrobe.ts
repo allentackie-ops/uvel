@@ -62,6 +62,11 @@ export type ClosetPiece = {
   stockQuantity?: number;
   /** Firebase Storage object paths assigned by the trusted listing-review backend. */
   photoStoragePaths?: string[];
+  /** Transparent creative asset generated from the original listing photo. */
+  cutoutStatus?: "queued" | "processing" | "ready" | "failed";
+  cutoutPhotoPath?: string;
+  cutoutUpdatedAt?: number;
+  creativeEligible?: boolean;
   /** Units currently held by pending checkout reservations. */
   reservedQuantity?: number;
   /** Reserved units keyed by size for variant-aware brand inventory. */
@@ -192,6 +197,10 @@ function normalize(p: ClosetPiece): ClosetPiece {
     photos,
     photo: photos[0] ?? p.photo ?? "",
     cutoutPhoto: p.cutoutPhoto || undefined,
+    cutoutStatus: p.cutoutStatus || undefined,
+    cutoutPhotoPath: p.cutoutPhotoPath || undefined,
+    cutoutUpdatedAt: p.cutoutUpdatedAt || undefined,
+    creativeEligible: p.creativeEligible !== false,
     clipUri: p.clipUri || undefined,
     material: p.material ?? "",
     originalPriceCents: p.originalPriceCents ?? 0,

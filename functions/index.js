@@ -22,6 +22,7 @@ Object.assign(exports, require("./listingOffers"));
 const listingReview = require("./listingReview");
 exports.uploadPersonalListingAsset = listingReview.uploadPersonalListingAsset;
 exports.submitPersonalListingForReview = listingReview.submitPersonalListingForReview;
+Object.assign(exports, require("./creativeAssets"));
 Object.assign(exports, require("./profileAvatar"));
 Object.assign(exports, require("./mirrorJobs"));
 

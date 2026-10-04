@@ -13,6 +13,7 @@ import { useColors } from "../lib/theme";
 import { getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import type { BannerStory, BannerStoryOrigin } from "./TodayBannerStoryOverlay";
+import { curateTodayBanners, type CuratedTodayBanner } from "../lib/todayBannerEngine";
 
 const EDITORIAL = [
   { title: "City layers", subtitle: "Effortless polish", accent: "#D8C4AE" },
@@ -85,6 +86,7 @@ export function TodayCommerceFeed({
   const deals = feedPieces.slice(8, 12).length >= 3 ? feedPieces.slice(8, 12) : feedPieces.slice(0, 4);
   const followed = feedPieces.slice(12, 16).length >= 3 ? feedPieces.slice(12, 16) : feedPieces.slice(0, 4);
   const personalized = feedPieces.slice(16, 24).length >= 4 ? feedPieces.slice(16, 24) : feedPieces.slice(0, 8);
+  const bannerTemplates = curateTodayBanners(pieces);
   const topColorFade = scrollY.interpolate({ inputRange: [0, 180], outputRange: [1, 0], extrapolate: "clamp" });
   const logoMotion = {
     opacity: scrollY.interpolate({ inputRange: [0, 80], outputRange: [1, 0.86], extrapolate: "clamp" }),
@@ -153,7 +155,7 @@ export function TodayCommerceFeed({
         bounces
         onScroll={handleScroll}
       >
-      <PosterCarousel featured={featured} onOpenPiece={onOpenPiece} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterHeight={posterHeight} posterInterval={posterInterval} />
+      <PosterCarousel banners={bannerTemplates} onOpenPiece={onOpenPiece} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterHeight={posterHeight} posterInterval={posterInterval} />
 
       <SectionTitle title="For you" onPress={onOpenSearch} />
       <ProductRail pieces={recommended.slice(0, 4)} market={market} onOpen={onOpenPiece} deals />
@@ -216,7 +218,7 @@ export function TodayCommerceFeed({
 }
 
 function PosterCarousel({
-  featured,
+  banners,
   onOpenPiece,
   onOpenBanner,
   onOpenSearch,
@@ -226,7 +228,7 @@ function PosterCarousel({
   posterHeight,
   posterInterval,
 }: {
-  featured: ClosetPiece[];
+  banners: CuratedTodayBanner[];
   onOpenPiece: TodayCommerceFeedProps["onOpenPiece"];
   onOpenBanner: TodayCommerceFeedProps["onOpenBanner"];
   onOpenSearch: () => void;
@@ -241,13 +243,7 @@ function PosterCarousel({
   const carouselRef = useRef<ScrollView>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeIndexRef = useRef(0);
-  const stories: Array<{ title: string; subtitle: string; color: string; variant: EditorialVariant; image?: string }> = [
-    { title: "The Fall Edit", subtitle: "Fresh layers, easy pieces, and the details that make a look feel finished.", color: "#F05237", variant: "float", image: featured[0]?.cutoutPhoto },
-    { title: "New in", subtitle: "Your next favorite fit is here. Discover pieces with a point of view.", color: "#2762C5", variant: "slide", image: featured[1]?.cutoutPhoto },
-    { title: "Early Prime Big Deals", subtitle: "Premium pieces, better prices.", color: "#A5B98A", variant: "explode", image: featured[2]?.cutoutPhoto },
-    { title: "Focus on your health", subtitle: "Movement-ready layers for the days that keep moving.", color: "#20A79A", variant: "collage", image: featured[3]?.cutoutPhoto },
-    { title: "Minimal, with presence", subtitle: "One strong piece. A quieter kind of statement.", color: "#8D74D6", variant: "luxury", image: featured[0]?.cutoutPhoto },
-  ];
+  const stories = banners;
   const scheduleAutoAdvance = () => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
@@ -264,7 +260,7 @@ function PosterCarousel({
     };
   }, [interval, stories.length]);
   const openBanner = (ref: RefObject<View | null>, story: BannerStory) => {
-    if (!featured.length) {
+    if (!story.pieces.length) {
       onOpenSearch();
       return;
     }
@@ -291,8 +287,8 @@ function PosterCarousel({
       >
         {stories.map((story, index) => {
           const ref = index === 0 ? primaryRef : undefined;
-          return <Pressable key={story.title} ref={ref} onPress={() => openBanner(ref || primaryRef, { title: story.title, subtitle: story.subtitle, color: story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: featured })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
-            <EditorialPoster story={story} pieces={featured} styles={styles} />
+          return <Pressable key={story.id} ref={ref} onPress={() => openBanner(ref || primaryRef, { title: story.title, subtitle: story.subtitle, color: story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: story.pieces, detailPieces: story.detailPieces })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
+            <EditorialPoster story={story} pieces={story.pieces} styles={styles} />
           </Pressable>;
         })}
       </Animated.ScrollView>

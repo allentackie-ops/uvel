@@ -25,6 +25,7 @@ export type BannerStory = {
   eyebrow?: string;
   footer?: string;
   pieces: ClosetPiece[];
+  detailPieces?: ClosetPiece[];
 };
 
 export function TodayBannerStoryOverlay({
@@ -45,6 +46,7 @@ export function TodayBannerStoryOverlay({
   const heroH = Math.min(470, Math.max(360, screenW * 0.98));
   const chromeTop = insets.top + 8;
   const pieces = story.pieces.slice(0, 4);
+  const detailPieces = story.detailPieces?.length ? story.detailPieces : pieces;
   const market = getMarket(app.country);
   const rootRef = useRef<View>(null);
   const [coverTop, setCoverTop] = useState(0);
@@ -253,7 +255,7 @@ export function TodayBannerStoryOverlay({
             <Text style={[styles.body, { color: colors.muted }]}>A considered mix of pieces for the season ahead. Start with the four featured edits, then keep scrolling to see everything in this story.</Text>
           </View>
           <View style={styles.editGrid}>
-            {pieces.map((piece, index) => <StoryPiece key={`${piece.id}-${index}`} piece={piece} index={index} color={story.color} colors={colors} market={market} onOpenPiece={onOpenPiece} />)}
+            {detailPieces.map((piece, index) => <StoryPiece key={`${piece.id}-${index}`} piece={piece} index={index} color={story.color} colors={colors} market={market} onOpenPiece={onOpenPiece} />)}
           </View>
         </AnimatedScrollView>
         <Animated.View style={[styles.flyingHero, flyingHeroStyle]} pointerEvents="none">
