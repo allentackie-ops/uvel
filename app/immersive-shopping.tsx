@@ -1038,7 +1038,7 @@ function make(colors: Colors) {
     enjoyGuideText: { color: colors.success, fontSize: 17, fontWeight: "900", letterSpacing: 0.2 },
     brand: { color: `${overlayColor}E0`, fontSize: 11, fontWeight: "800", letterSpacing: 2.2, marginBottom: 5, textShadowColor: "#000", textShadowRadius: 6 },
     nameDetailsButton: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 4, maxWidth: "100%" },
-    name: { color: overlayColor, fontSize: 31, lineHeight: 36, fontWeight: "800", maxWidth: "88%", textShadowColor: "#000", textShadowRadius: 8 },
+    name: { color: overlayColor, fontSize: 26, lineHeight: 31, fontWeight: "800", maxWidth: "88%", textShadowColor: "#000", textShadowRadius: 8 },
     priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 7 },
     price: { color: colors.success, fontSize: 19, fontWeight: "900", textShadowColor: "#000", textShadowRadius: 6 },
     was: { color: `${overlayColor}D0`, fontSize: 16, fontWeight: "700", textDecorationLine: "line-through", textShadowColor: "#000", textShadowRadius: 6 },
