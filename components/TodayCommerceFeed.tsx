@@ -272,6 +272,9 @@ function PosterCarousel({
             {featured.slice(0, 4).map((piece, index) => <MiniImage key={`${piece.id}-${index}`} piece={piece} onOpen={onOpenPiece} />)}
           </View>
           <View style={styles.posterBottom}><Text style={styles.posterFoot}>Layers for the everyday</Text></View>
+          <View pointerEvents="none" style={styles.posterBoundaryFade}>
+            {[0.02, 0.05, 0.09, 0.14, 0.2, 0.28, 0.37, 0.48, 0.6, 0.73, 0.86, 1].map((opacity, index) => <View key={index} style={[styles.posterBoundaryFadeStrip, { opacity }]} />)}
+          </View>
         </Pressable>
         <Pressable ref={newRef} onPress={() => openBanner(newRef, { title: "New in", subtitle: "Your next favorite fit is here. Discover pieces with a point of view.", color: "#2762C5", eyebrow: "NEW ARRIVALS", footer: "NEW IN", pieces: featured })} style={[styles.posterCard, { width: posterWidth, height: posterHeight, backgroundColor: "#2762C5" }]} accessibilityRole="button" accessibilityLabel="Open new arrivals story">
           {featured[0] ? <Image source={{ uri: featured[0].photo }} style={styles.posterFullImage} contentFit="cover" accessible={false} /> : null}
@@ -329,7 +332,7 @@ function ProductCard({ piece, market, onOpen, deals, compact }: { piece: ClosetP
   const price = moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market);
   const saved = app.saved.includes(piece.id);
   return <View ref={ref} collapsable={false} style={[styles.productCard, compact && styles.productCardCompact]}><AccessiblePressable onPress={() => ref.current?.measureInWindow((x, y, width, height) => onOpen(piece, { x, y, width, height }))} style={styles.productPress} accessibilityRole="button" accessibilityLabel={`Open ${piece.name} by ${brand}, ${price}`}>
-    <View style={styles.productImageWrap}>{deals ? <View style={styles.discount}><Text style={styles.discountText}>{["20% off", "15% off", "30% off", "10% off"][piece.id.length % 4]}</Text></View> : null}<Image source={{ uri: piece.photo }} style={styles.productImage} contentFit="cover" accessible={false} /><AccessiblePressable onPress={() => void app.toggleSaved(piece.id)} hitSlop={8} style={styles.productHeart} accessibilityRole="button" accessibilityLabel={`${saved ? "Remove" : "Save"} ${piece.name}`} accessibilityState={{ selected: saved }}><Ionicons name={saved ? "heart" : "heart-outline"} size={24} color={saved ? colors.pulse : colors.bone} /></AccessiblePressable></View>
+    <View style={styles.productImageWrap}>{deals ? <View style={styles.discount}><Text style={styles.discountText}>{["20% off", "15% off", "30% off", "10% off"][piece.id.length % 4]}</Text></View> : null}<Image source={{ uri: piece.photo }} style={styles.productImage} contentFit="cover" accessible={false} /><AccessiblePressable onPress={() => void app.toggleSaved(piece.id)} hitSlop={8} style={[styles.productHeart, { backgroundColor: saved ? colors.pulse : colors.success }]} accessibilityRole="button" accessibilityLabel={`${saved ? "Remove" : "Save"} ${piece.name}`} accessibilityState={{ selected: saved }}><Ionicons name={saved ? "heart" : "heart-outline"} size={22} color={colors.ink} /></AccessiblePressable></View>
     <Text style={styles.productName} numberOfLines={2}>{piece.name}</Text><Text style={styles.productPrice}>{price}</Text><Text style={styles.productBrand} numberOfLines={1}>{brand}</Text>
   </AccessiblePressable></View>;
 }
@@ -374,6 +377,8 @@ function make(colors: Colors) {
     primaryPoster: { backgroundColor: "#F05237", paddingTop: 18 },
     posterTopline: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", marginBottom: 7 },
     posterBottom: { position: "absolute", left: 20, right: 20, bottom: 18, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
+    posterBoundaryFade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 54, flexDirection: "column" },
+    posterBoundaryFadeStrip: { flex: 1, backgroundColor: colors.ink },
     posterFoot: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
     posterTint: { ...StyleSheet.absoluteFill, opacity: 0.56 },
     posterPhotoTitle: { color: "#FFFFFF", fontSize: 34, lineHeight: 37, fontWeight: "900", maxWidth: 290, zIndex: 2, marginTop: 10 },
@@ -419,7 +424,7 @@ function make(colors: Colors) {
     productPress: { paddingBottom: 10 },
     productImageWrap: { height: 166, backgroundColor: `${colors.bone}12`, position: "relative" },
     productImage: { width: "100%", height: "100%" },
-    productHeart: { position: "absolute", right: 8, top: 8, textShadowColor: "rgba(0,0,0,0.5)", textShadowRadius: 4 },
+    productHeart: { position: "absolute", right: 8, top: 8, width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
     discount: { position: "absolute", top: 8, left: 8, zIndex: 2, backgroundColor: colors.success, paddingHorizontal: 7, minHeight: 25, borderRadius: 12, justifyContent: "center" },
     discountText: { color: colors.successInk, fontSize: 10, fontWeight: "900" },
     productName: { color: colors.bone, fontSize: 13, lineHeight: 17, fontWeight: "700", paddingHorizontal: 9, marginTop: 8, minHeight: 34 },

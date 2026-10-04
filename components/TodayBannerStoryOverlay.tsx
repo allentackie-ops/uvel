@@ -278,6 +278,9 @@ function StoryHero({ story, pieces, topPadding }: { story: BannerStory; pieces: 
           {pieces.map((piece, index) => <View key={`${piece.id}-hero-${index}`} style={styles.heroFeature}><Image source={{ uri: piece.photo }} style={styles.heroFeatureImage} contentFit="cover" accessible={false} /></View>)}
         </View>
       </View>
+      <View pointerEvents="none" style={styles.boundaryFade}>
+        {[0.02, 0.05, 0.09, 0.14, 0.2, 0.28, 0.37, 0.48, 0.6, 0.73, 0.86, 1].map((opacity, index) => <View key={index} style={[styles.boundaryFadeStrip, { opacity }]} />)}
+      </View>
     </View>
   );
 }
@@ -307,6 +310,8 @@ const styles = StyleSheet.create({
   heroFeatureGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 22, maxWidth: 320 },
   heroFeature: { width: "23%", aspectRatio: 0.88, borderRadius: 10, overflow: "hidden", backgroundColor: "rgba(255,255,255,0.2)" },
   heroFeatureImage: { width: "100%", height: "100%" },
+  boundaryFade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 54, flexDirection: "column" },
+  boundaryFadeStrip: { flex: 1, backgroundColor: "#000" },
   intro: { paddingTop: 18, paddingBottom: 28 },
   kicker: { fontSize: 10, letterSpacing: 1.8, fontWeight: "900" },
   heading: { fontSize: 28, lineHeight: 32, fontWeight: "900", marginTop: 10 },
