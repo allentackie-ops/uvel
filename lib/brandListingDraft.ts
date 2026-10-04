@@ -19,6 +19,7 @@ export type BrandListingDraft = {
   color: string;
   material: string;
   notes: string;
+  measurements?: Record<string, string>;
   price: string;
   stockQuantity: string;
   shipsTo: ShipsTo;

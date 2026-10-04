@@ -576,6 +576,7 @@ export function TodayListingOverlay({
             {shippingOpen ? (
               <View style={styles.expandContent}>
                 <Text style={styles.expandBody}>Ships to {shipsToLabel(piece.country || app.country, piece.shipsTo)}.</Text>
+                {piece.shippingMethod ? <Text style={styles.expandBody}>{piece.shippingMethod === "pickup" ? "Courier collects the parcel." : "Seller drops the parcel off."} {piece.shippingBuyerPays === false ? "Seller pays delivery." : "Buyer pays delivery."}</Text> : null}
                 <Text style={styles.expandBody}>Returns and delivery details are confirmed at checkout.</Text>
               </View>
             ) : null}

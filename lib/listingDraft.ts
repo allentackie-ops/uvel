@@ -18,6 +18,7 @@ export type ListingDraft = {
   condition: string;
   material: string;
   notes: string;
+  measurements?: Record<string, string>;
   price: string;
   was: string;
   shopLook: string;

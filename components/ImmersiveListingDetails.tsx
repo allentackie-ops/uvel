@@ -189,6 +189,7 @@ export function ImmersiveListingDetails({
                   <Ionicons name="navigate-outline" size={17} color={colors.success} />
                   <Text style={styles.availabilityText}>{availability}</Text>
                 </View>
+                {piece.shippingMethod ? <Text style={styles.sellerMeta}>{piece.shippingMethod === "pickup" ? "Courier collection" : "Seller drop-off"} · {piece.shippingBuyerPays === false ? "Seller pays delivery" : "Buyer pays delivery"}</Text> : null}
               </View>
 
               {measurements.length ? (

@@ -17,7 +17,6 @@ import {
 } from "react-native";
 import { OrbitLoader } from "../../components/OrbitLoader";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ShipsPicker } from "../../components/ShipsPicker";
 import { SortablePhotoStrip } from "../../components/SortablePhotoStrip";
 import { BRAND_CATEGORIES, type Category } from "../../lib/catalog";
 import { hasBrandContact } from "../../lib/brandContact";
@@ -71,6 +70,7 @@ export default function BrandList() {
   const [color, setColor] = useState("");
   const [material, setMaterial] = useState("");
   const [notes, setNotes] = useState("");
+  const [measurements, setMeasurements] = useState<Record<string, string>>({});
   const [price, setPrice] = useState("");
   const [stockQuantity, setStockQuantity] = useState("");
   const brandShipsTo = brand?.operatingCountries || encodeShipsTo(origin, "home");
@@ -94,15 +94,15 @@ export default function BrandList() {
       const draft = items.find((item) => item.id === requestedDraftId && item.brandId === id);
       if (!draft) { setDraftReady(true); return; }
       setPhotos(draft.photos.map((photo) => ({ ...photo, status: "ok" as const })));
-      setClipUri(draft.clipUri); setName(draft.name); setSku(draft.sku); setCategory(draft.category); setSystem(draft.system as SizeSystem); setPicked(draft.picked); setSizeStock(draft.sizeStock); setColor(draft.color); setMaterial(draft.material); setNotes(draft.notes); setPrice(draft.price); setStockQuantity(draft.stockQuantity); setShipsTo(draft.shipsTo); setCondition(draft.condition as (typeof BRAND_CONDITIONS)[number]); setDraftReady(true);
+      setClipUri(draft.clipUri); setName(draft.name); setSku(draft.sku); setCategory(draft.category); setSystem(draft.system as SizeSystem); setPicked(draft.picked); setSizeStock(draft.sizeStock); setColor(draft.color); setMaterial(draft.material); setNotes(draft.notes); setMeasurements(draft.measurements || {}); setPrice(draft.price); setStockQuantity(draft.stockQuantity); setShipsTo(draft.shipsTo); setCondition(draft.condition as (typeof BRAND_CONDITIONS)[number]); setDraftReady(true);
     });
   }, [id, requestedDraftId]);
 
   useEffect(() => {
     if (!draftReady || !id || !brand) return;
     if (!photos.length && !name.trim() && !sku.trim() && !notes.trim() && !price.trim() && !category) return;
-    void saveBrandListingDraft({ id: draftId, brandId: id, brandName: brand.name, photos: photos.map((photo) => ({ uri: photo.uri })), clipUri, name, sku, category, system, picked, sizeStock, color, material, notes, price, stockQuantity, shipsTo, condition });
-  }, [brand, category, clipUri, color, condition, draftId, draftReady, id, material, name, notes, picked, photos, price, shipsTo, sizeStock, sku, stockQuantity, system]);
+    void saveBrandListingDraft({ id: draftId, brandId: id, brandName: brand.name, photos: photos.map((photo) => ({ uri: photo.uri })), clipUri, name, sku, category, system, picked, sizeStock, color, material, notes, measurements, price, stockQuantity, shipsTo, condition });
+  }, [brand, category, clipUri, color, condition, draftId, draftReady, id, material, measurements, name, notes, picked, photos, price, shipsTo, sizeStock, sku, stockQuantity, system]);
 
   useEffect(() => {
     if (gate.phase !== "review") return;
@@ -125,6 +125,10 @@ export default function BrandList() {
     const selectedMaterial = takePendingListingSelection("material");
     if (selectedColor) setColor(selectedColor);
     if (selectedMaterial) setMaterial(selectedMaterial);
+    const selectedMeasurements = takePendingListingSelection("measurements");
+    if (selectedMeasurements) setMeasurements(selectedMeasurements);
+    const selectedShipsTo = takePendingListingSelection("shipsTo");
+    if (selectedShipsTo) setShipsTo(restrictShipsTo(origin, selectedShipsTo, activeBrand.operatingCountries || brandShipsTo));
   }, []));
 
   const hasVariantStock = picked.length > 0 && picked.every((size) => Number(sizeStock[size]) > 0);
@@ -313,6 +317,10 @@ export default function BrandList() {
     setSizeStock({});
   }
 
+  function openMeasurements() {
+    router.push({ pathname: "/listing-details", params: { selected: JSON.stringify(measurements) } });
+  }
+
   async function publish() {
     if (!canList || !category) return;
     const needsReview = activeBrand.verified !== true;
@@ -366,6 +374,7 @@ export default function BrandList() {
         condition,
         material: material.trim(),
         notes: notes.trim(),
+        measurements,
         listPriceCents: Math.max(1, Number(price) || 0) * 100,
         originalPriceCents: 0,
         stockQuantity: totalStock,
@@ -532,7 +541,15 @@ export default function BrandList() {
             <Text style={styles.sectionKicker}>DELIVERY</Text>
             <View style={styles.marketSection}>
               <Text style={styles.hint}>Your brand delivery settings limit which countries this product can serve. International buyers pay the higher delivery rate at checkout.</Text>
-              <ShipsPicker origin={origin} value={shipsTo} onChange={(next) => setShipsTo(restrictShipsTo(origin, next, activeBrand.operatingCountries || brandShipsTo))} accent={brandTheme.accent} accentInk={brandTheme.accentInk} />
+              <Pressable
+                onPress={() => router.push({ pathname: "/sell-countries", params: { origin, selected: shipsTo === "all" ? "all" : Array.isArray(shipsTo) ? shipsTo.join(",") : origin, allowed: Array.isArray(activeBrand.operatingCountries) ? activeBrand.operatingCountries.join(",") : "" } })}
+                style={[styles.selectionField, { borderColor: shipsTo ? brandTheme.accent : brandTheme.lineColor, backgroundColor: brandTheme.card }]}
+                accessibilityRole="button"
+                accessibilityLabel="Choose delivery countries"
+              >
+                <Text style={[styles.selectionValue, { color: brandTheme.ink }]}>{shipsTo === "all" ? "All operating countries" : "Choose delivery countries"}</Text>
+                <Text style={[styles.selectionArrow, { color: brandTheme.accent }]}>›</Text>
+              </Pressable>
             </View>
             </View> : null}
 
@@ -644,6 +661,16 @@ export default function BrandList() {
                 </Pressable>
               ))}
             </View>
+            <Text style={styles.label}>Measurements & fit</Text>
+            <Pressable
+              onPress={openMeasurements}
+              style={[styles.selectionField, { borderColor: Object.keys(measurements).length ? brandTheme.accent : brandTheme.lineColor, backgroundColor: brandTheme.card }]}
+              accessibilityRole="button"
+              accessibilityLabel="Choose measurements and fit"
+            >
+              <Text style={[styles.selectionValue, { color: Object.keys(measurements).length ? brandTheme.ink : ph }]}>{measurements.fit || measurements.length ? [measurements.fit, measurements.length].filter(Boolean).join(" · ") : "Choose measurements and fit"}</Text>
+              <Text style={[styles.selectionArrow, { color: brandTheme.accent }]}>›</Text>
+            </Pressable>
             </View> : null}
           </View>
         </ScrollView>

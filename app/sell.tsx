@@ -108,6 +108,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const [condition, setCondition] = useState(existing?.condition ?? "");
   const [material, setMaterial] = useState(existing?.material ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
+  const [measurements, setMeasurements] = useState<Record<string, string>>(existing?.measurements ?? {});
   const [price, setPrice] = useState(
     existing && existing.listPriceCents ? String(Math.round(existing.listPriceCents / 100)) : "",
   );
@@ -184,6 +185,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         setCondition(saved.condition || "");
         setMaterial(saved.material || "");
         setNotes(saved.notes || "");
+        setMeasurements(saved.measurements || {});
         setPrice(saved.price || "");
         setWas(saved.was || "");
         setShopLook(saved.shopLook || "uvel");
@@ -228,6 +230,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       if (pendingMaterial) setMaterial(pendingMaterial);
       const pendingShipsTo = takePendingListingSelection("shipsTo");
       if (pendingShipsTo) setShipsTo(pendingShipsTo);
+      const pendingMeasurements = takePendingListingSelection("measurements");
+      if (pendingMeasurements) setMeasurements(pendingMeasurements);
       return undefined;
     }, [priceKey]),
   );
@@ -245,6 +249,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       condition,
       material,
       notes,
+      measurements,
       price,
       was,
       shopLook,
@@ -256,7 +261,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       currency: listingCurrency,
       updatedAt: Date.now(),
     });
-  }, [existing?.id, draftReady, draftDisabled, photos, clipUri, name, brand, category, color, size, condition, material, notes, price, was, shopLook, shipsTo, shippingMethod, shippingCarrierIds, shippingBuyerPays, origin, listingCurrency]);
+  }, [existing?.id, draftReady, draftDisabled, photos, clipUri, name, brand, category, color, size, condition, material, notes, measurements, price, was, shopLook, shipsTo, shippingMethod, shippingCarrierIds, shippingBuyerPays, origin, listingCurrency]);
 
   useEffect(() => {
     if (existing || !draftReady || draftDisabled) return;
@@ -499,6 +504,10 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     router.push({ pathname: "/sell-option", params: { kind, selected, category: category || "" } });
   }
 
+  function openMeasurements() {
+    router.push({ pathname: "/listing-details", params: { selected: JSON.stringify(measurements) } });
+  }
+
   function openPrice() {
     if (!hasPhoto) {
       Alert.alert("Add a product photo first", "Uvel needs to review the product photo before it can show price recommendations.");
@@ -608,6 +617,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       condition,
       material: material.trim(),
       notes: notes.trim(),
+      measurements,
       listPriceCents: Math.max(1, Number(price) || 0) * 100,
       originalPriceCents: Math.max(0, Number(was) || 0) * 100,
       country: origin,
@@ -1098,6 +1108,19 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               <View style={{ flex: 1 }}>
                 <Text style={styles.choiceValue}>{shippingMethodLabel(shippingMethod)}</Text>
                 <Text style={styles.choiceSub}>{shippingCarrierIds.length} delivery provider{shippingCarrierIds.length === 1 ? "" : "s"} · {shippingBuyerPays ? "Buyer pays delivery" : "You pay delivery"}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
+            </AccessiblePressable>
+
+            <AccessiblePressable
+              onPress={openMeasurements}
+              style={({ pressed }) => [styles.choiceRow, styles.stackGap, pressed && { opacity: 0.92 }]}
+              accessibilityRole="button"
+              accessibilityLabel="Choose measurements and fit"
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.choiceValue}>{measurements.fit || measurements.length ? [measurements.fit, measurements.length].filter(Boolean).join(" · ") : "Measurements & fit"}</Text>
+                <Text style={styles.choiceSub}>{Object.keys(measurements).length ? "Details added" : "Help buyers understand the fit"}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
             </AccessiblePressable>

@@ -24,6 +24,7 @@ type PendingSelection = {
   size?: string;
   color?: string;
   material?: string;
+  measurements?: Record<string, string>;
 };
 
 let pending: PendingSelection = {};

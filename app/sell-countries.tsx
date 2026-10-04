@@ -13,8 +13,9 @@ export default function SellCountries() {
   const colors = useColors();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { origin: originParam, selected: selectedParam } = useLocalSearchParams<{ origin?: string; selected?: string }>();
+  const { origin: originParam, selected: selectedParam, allowed: allowedParam } = useLocalSearchParams<{ origin?: string; selected?: string; allowed?: string }>();
   const origin = getMarket(typeof originParam === "string" ? originParam : "US").code;
+  const allowedCodes = typeof allowedParam === "string" ? new Set(allowedParam.split(",").map((code) => code.trim().toUpperCase()).filter(Boolean)) : null;
   const selectedRaw = typeof selectedParam === "string" ? selectedParam : origin;
   const initialCodes = new Set(
     selectedRaw === "all"
@@ -74,7 +75,7 @@ export default function SellCountries() {
         <Text style={styles.heading}>Choose the countries</Text>
         <Text style={styles.lede}>Buyers can see this listing only in the countries you select. {getMarket(origin).name} stays included because it is the listing’s home Shop.</Text>
 
-        <AccessiblePressable
+        {!allowedCodes ? <AccessiblePressable
           onPress={() => setAllCountries(true)}
           style={({ pressed }) => [styles.option, allCountries && styles.optionSelected, pressed && { opacity: 0.92 }]}
           accessibilityRole="radio"
@@ -87,13 +88,13 @@ export default function SellCountries() {
             <Text style={[styles.optionBody, allCountries && styles.optionBodySelected]}>Show this listing in every Uvel Shop.</Text>
           </View>
           <View style={[styles.radio, allCountries && styles.radioSelected]}>{allCountries ? <View style={styles.radioDot} /> : null}</View>
-        </AccessiblePressable>
+        </AccessiblePressable> : null}
 
         <Text style={styles.summary}>Selected: {shipsToLabel(origin, summary)}</Text>
         {regions().map((region) => (
           <View key={region}>
             <Text style={styles.region}>{region}</Text>
-            {marketsIn(region).map((market) => {
+            {marketsIn(region).filter((market) => !allowedCodes || allowedCodes.has(market.code) || market.code === origin).map((market) => {
               const home = market.code === origin;
               const on = allCountries || selected.has(market.code);
               return (

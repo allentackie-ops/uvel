@@ -453,6 +453,14 @@ function AppStack() {
             }}
           />
           <Stack.Screen
+            name="listing-details"
+            options={{
+              headerShown: false,
+              animation: "slide_from_right",
+              contentStyle: { backgroundColor: colors.ink },
+            }}
+          />
+          <Stack.Screen
             name="closet/[id]"
             options={{
               headerShown: false,
