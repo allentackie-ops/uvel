@@ -229,7 +229,7 @@ export function TodayBannerStoryOverlay({
       >
         <Animated.View style={[styles.backdrop, backdropStyle, { backgroundColor: colors.ink }]} pointerEvents="none" />
         <AnimatedScrollView
-          style={[styles.page, pageStyle]}
+          style={[styles.page, pageStyle, { backgroundColor: colors.ink }]}
           contentContainerStyle={[styles.content, { paddingTop: chromeTop, paddingBottom: insets.bottom + 34 }]}
           showsVerticalScrollIndicator={false}
           bounces={false}
@@ -295,7 +295,7 @@ function StoryPiece({ piece, index, color, colors, market, onOpenPiece }: { piec
 const styles = StyleSheet.create({
   root: { ...StyleSheet.absoluteFill, zIndex: 100, overflow: "hidden" },
   fill: { flex: 1 },
-  backdrop: { ...StyleSheet.absoluteFill },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: "#000" },
   page: { flex: 1 },
   content: { paddingHorizontal: 20 },
   heroSlot: { width: "100%", overflow: "hidden" },
