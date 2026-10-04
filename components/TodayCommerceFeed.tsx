@@ -134,6 +134,9 @@ export function TodayCommerceFeed({
           const horizontalOpacity = posterScrollX.interpolate({ inputRange, outputRange, extrapolate: "clamp" });
           return <Animated.View key={color} style={[styles.topColorLayer, { backgroundColor: color, opacity: Animated.multiply(horizontalOpacity, topColorFade) }]} />;
         })}
+        <View style={styles.topColorFade}>
+          {[0.02, 0.05, 0.09, 0.14, 0.2, 0.28, 0.37, 0.48, 0.6, 0.73, 0.86, 1].map((opacity, index) => <View key={index} style={[styles.topColorFadeStrip, { opacity }]} />)}
+        </View>
       </View>
       <View style={[styles.fixedHeader, { height: insets.top + 62, paddingTop: insets.top }]}>
         <AccessiblePressable onPress={onOpenTools} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open Today tools">
@@ -291,9 +294,6 @@ function PosterCarousel({
             {featured.slice(0, 4).map((piece, index) => <MiniImage key={`${piece.id}-${index}`} piece={piece} onOpen={onOpenPiece} />)}
           </View>
           <View style={styles.posterBottom}><Text style={styles.posterFoot}>Layers for the everyday</Text></View>
-          <View pointerEvents="none" style={styles.posterBoundaryFade}>
-            {[0.02, 0.05, 0.09, 0.14, 0.2, 0.28, 0.37, 0.48, 0.6, 0.73, 0.86, 1].map((opacity, index) => <View key={index} style={[styles.posterBoundaryFadeStrip, { opacity }]} />)}
-          </View>
         </Pressable>
         <Pressable ref={newRef} onPress={() => openBanner(newRef, { title: "New in", subtitle: "Your next favorite fit is here. Discover pieces with a point of view.", color: "#2762C5", eyebrow: "NEW ARRIVALS", footer: "NEW IN", pieces: featured })} style={[styles.posterCard, { width: posterWidth, height: posterHeight, backgroundColor: "#2762C5" }]} accessibilityRole="button" accessibilityLabel="Open new arrivals story">
           {featured[0] ? <Image source={{ uri: featured[0].photo }} style={styles.posterFullImage} contentFit="cover" accessible={false} /> : null}
@@ -364,8 +364,10 @@ function MiniImage({ piece, onOpen }: { piece: ClosetPiece; onOpen: TodayCommerc
 function make(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    topColorField: { position: "absolute", top: 0, left: 0, right: 0, height: 520, overflow: "hidden", zIndex: 0 },
-    topColorLayer: { position: "absolute", top: 0, left: 0, right: 0, height: 520 },
+    topColorField: { position: "absolute", top: 0, left: 0, right: 0, height: 680, overflow: "hidden", zIndex: 0 },
+    topColorLayer: { position: "absolute", top: 0, left: 0, right: 0, height: 680 },
+    topColorFade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 140, flexDirection: "column" },
+    topColorFadeStrip: { flex: 1, backgroundColor: colors.ink },
     fixedHeader: { minHeight: 62, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "transparent", zIndex: 5, position: "relative" },
     logoCenter: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center", zIndex: 10 },
     feedScroll: { flex: 1 },
@@ -399,8 +401,6 @@ function make(colors: Colors) {
     primaryPoster: { backgroundColor: "#F05237", paddingTop: 18 },
     posterTopline: { flexDirection: "row", justifyContent: "flex-end", alignItems: "center", marginBottom: 7 },
     posterBottom: { position: "absolute", left: 20, right: 20, bottom: 18, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" },
-    posterBoundaryFade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 54, flexDirection: "column" },
-    posterBoundaryFadeStrip: { flex: 1, backgroundColor: colors.ink },
     posterFoot: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
     posterTint: { ...StyleSheet.absoluteFill, opacity: 0.56 },
     posterPhotoTitle: { color: "#FFFFFF", fontSize: 34, lineHeight: 37, fontWeight: "900", maxWidth: 290, zIndex: 2, marginTop: 10 },
