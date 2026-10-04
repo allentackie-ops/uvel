@@ -74,7 +74,7 @@ export function TodayCommerceFeed({
   const wasRefreshing = useRef(false);
   const posterScrollX = useRef(new Animated.Value(0)).current;
   const posterWidth = Math.min(300, Dimensions.get("window").width - 92);
-  const posterInterval = posterWidth + 12;
+  const posterInterval = posterWidth;
   const feedPieces = pieces.length
     ? Array.from({ length: Math.max(32, pieces.length * 3) }, (_, index) => pieces[index % pieces.length])
     : [];
@@ -127,7 +127,7 @@ export function TodayCommerceFeed({
       <View pointerEvents="none" style={styles.topColorField}>
         {BANNER_COLORS.map((color, index) => {
           const inputRange = index === 0 ? [0, posterInterval] : [(index - 1) * posterInterval, index * posterInterval, (index + 1) * posterInterval];
-          const outputRange = index === 0 ? [0.52, 0] : [0, 0.52, 0];
+        const outputRange = index === 0 ? [0.34, 0] : [0, 0.34, 0];
           const horizontalOpacity = posterScrollX.interpolate({ inputRange, outputRange, extrapolate: "clamp" });
           return <Animated.View key={color} style={[styles.topColorLayer, { backgroundColor: color, opacity: Animated.multiply(horizontalOpacity, topColorFade) }]} />;
         })}
@@ -244,18 +244,19 @@ function PosterCarousel({
     <View style={styles.posterStage}>
       {BANNER_COLORS.map((color, index) => {
         const inputRange = index === 0 ? [0, interval] : [(index - 1) * interval, index * interval, (index + 1) * interval];
-        const outputRange = index === 0 ? [0.9, 0] : [0, 0.9, 0];
+        const outputRange = index === 0 ? [0.22, 0] : [0, 0.22, 0];
         return <Animated.View key={`stage-${color}`} pointerEvents="none" style={[styles.posterStageLayer, { backgroundColor: color, opacity: scrollX.interpolate({ inputRange, outputRange, extrapolate: "clamp" }) }]} />;
       })}
-      <Animated.View pointerEvents="none" style={[styles.posterAmbient, { backgroundColor: "#F05237", opacity: fallOpacity }]} />
-      <Animated.View pointerEvents="none" style={[styles.posterAmbient, { backgroundColor: "#2762C5", opacity: blueOpacity }]} />
+      <Animated.View pointerEvents="none" style={[styles.radiantOrb, { backgroundColor: "#F05237", left: -112, top: -106, opacity: fallOpacity }]} />
+      <Animated.View pointerEvents="none" style={[styles.radiantOrb, { backgroundColor: "#2762C5", right: -118, top: 38, opacity: blueOpacity }]} />
+      <View pointerEvents="none" style={[styles.radiantOrb, { backgroundColor: "#E96B91", left: 80, bottom: -210, opacity: 0.16 }]} />
       <Animated.ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         snapToInterval={interval}
         decelerationRate="fast"
         disableIntervalMomentum
-        contentContainerStyle={{ paddingHorizontal: 2 }}
+        contentContainerStyle={{ paddingHorizontal: 0 }}
         scrollEventThrottle={16}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: true })}
       >
@@ -269,7 +270,6 @@ function PosterCarousel({
           </View>
           <Text style={styles.posterFoot}>Layers for the everyday</Text>
         </View>
-        <BannerGap from={BANNER_COLORS[0]} to={BANNER_COLORS[1]} height={posterHeight} styles={styles} />
         <Pressable onPress={onOpenSearch} style={[styles.posterCard, { width: posterWidth, height: posterHeight, backgroundColor: "#2762C5" }]} accessibilityRole="button" accessibilityLabel="Shop new arrivals">
           {featured[0] ? <Image source={{ uri: featured[0].photo }} style={styles.posterFullImage} contentFit="cover" accessible={false} /> : null}
           <View pointerEvents="none" style={styles.blueColorWash} />
@@ -280,33 +280,16 @@ function PosterCarousel({
           <View style={styles.posterButton}><Text style={styles.whiteButtonText}>Shop now ›</Text></View>
           <Text style={styles.newFoot}>New season{`\n`}New you</Text>
         </Pressable>
-        <BannerGap from={BANNER_COLORS[1]} to={BANNER_COLORS[2]} height={posterHeight} styles={styles} />
         <PosterPhotoCard title="Early Prime Big Deals" subtitle="Premium pieces, better prices" color="#A5B98A" image={featured[2]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} onPress={onOpenSearch} />
-        <BannerGap from={BANNER_COLORS[2]} to={BANNER_COLORS[3]} height={posterHeight} styles={styles} />
         <PosterPhotoCard title="Focus on your health" subtitle="Movement-ready layers" color="#20A79A" image={featured[3]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} onPress={onOpenSearch} />
-        <BannerGap from={BANNER_COLORS[3]} to={BANNER_COLORS[4]} height={posterHeight} styles={styles} />
         <PosterPhotoCard title="Weekend escape" subtitle="Color for wherever you go" color="#F4A73B" image={featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} onPress={onOpenSearch} />
-        <BannerGap from={BANNER_COLORS[4]} to={BANNER_COLORS[5]} height={posterHeight} styles={styles} />
         <PosterPhotoCard title="The color edit" subtitle="A little more joy, every day" color="#8D74D6" image={featured[1]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} onPress={onOpenSearch} />
-        <BannerGap from={BANNER_COLORS[5]} to={BANNER_COLORS[6]} height={posterHeight} styles={styles} />
         <PosterPhotoCard title="Soft power" subtitle="Easy pieces with presence" color="#E96B91" image={featured[2]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} onPress={onOpenSearch} />
-        <BannerGap from={BANNER_COLORS[6]} to={BANNER_COLORS[7]} height={posterHeight} styles={styles} />
         <PosterPhotoCard title="Grounded layers" subtitle="The calm edit" color="#5F8D56" image={featured[3]?.photo || featured[0]?.photo} styles={styles} width={posterWidth} height={posterHeight} onPress={onOpenSearch} />
       </Animated.ScrollView>
     </View>
   );
 }
-function BannerGap({ from, to, height, styles }: { from: string; to: string; height: number; styles: ReturnType<typeof make> }) {
-  return <View pointerEvents="none" style={[styles.bannerGap, { height }]}>{Array.from({ length: 12 }, (_, index) => <View key={`${from}-${to}-${index}`} style={{ flex: 1, backgroundColor: mixHex(from, to, index / 11) }} />)}</View>;
-}
-
-function mixHex(from: string, to: string, amount: number) {
-  const parse = (value: string) => [0, 2, 4].map((offset) => parseInt(value.slice(offset + 1, offset + 3), 16));
-  const a = parse(from);
-  const b = parse(to);
-  return `rgb(${Math.round(a[0] + (b[0] - a[0]) * amount)},${Math.round(a[1] + (b[1] - a[1]) * amount)},${Math.round(a[2] + (b[2] - a[2]) * amount)})`;
-}
-
 function PosterPhotoCard({ title, subtitle, color, image, styles, width, height, onPress }: { title: string; subtitle: string; color: string; image?: string; styles: ReturnType<typeof make>; width: number; height: number; onPress: () => void }) {
   return <Pressable onPress={onPress} style={[styles.posterCard, { width, height, backgroundColor: color }]} accessibilityRole="button" accessibilityLabel={title}>
     {image ? <Image source={{ uri: image }} style={styles.posterFullImage} contentFit="cover" accessible={false} /> : null}
@@ -369,11 +352,11 @@ function make(colors: Colors) {
     chips: { gap: 9, paddingVertical: 14 },
     chip: { height: 44, paddingHorizontal: 19, borderRadius: 22, alignItems: "center", justifyContent: "center" },
     chipText: { fontSize: 15, fontWeight: "800" },
-    posterStage: { marginHorizontal: -2, borderRadius: 22, overflow: "hidden", backgroundColor: BANNER_COLORS[0], paddingVertical: 7 },
+    posterStage: { marginHorizontal: -2, borderRadius: 22, overflow: "hidden", backgroundColor: "#24262C", paddingVertical: 7 },
     posterStageLayer: { ...StyleSheet.absoluteFillObject },
-    bannerGap: { width: 12, flexDirection: "row", overflow: "hidden" },
+    radiantOrb: { position: "absolute", width: 320, height: 320, borderRadius: 160, opacity: 0.24 },
     posterAmbient: { position: "absolute", width: 260, height: 260, borderRadius: 130, top: 86, left: 60 },
-    posterCard: { borderRadius: 19, overflow: "hidden", padding: 16, justifyContent: "flex-start", shadowColor: "#000000", shadowOpacity: 0.16, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 5 },
+    posterCard: { borderRadius: 19, overflow: "hidden", padding: 16, justifyContent: "flex-start" },
     posterFoot: { position: "absolute", left: 18, bottom: 17, color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
     posterTint: { ...StyleSheet.absoluteFill, opacity: 0.56 },
     posterPhotoTitle: { color: "#FFFFFF", fontSize: 26, lineHeight: 29, fontWeight: "900", maxWidth: 225, zIndex: 2 },
