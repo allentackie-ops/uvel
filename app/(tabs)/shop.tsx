@@ -850,6 +850,8 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           onQueryChange={setQ}
           onOpenPiece={openTodayListing}
           onOpenSearch={() => router.push("/search")}
+          onOpenMessages={() => router.push("/inbox")}
+          onOpenTools={() => onOpenTools?.()}
           onOpenCreators={() => router.push("/find")}
           onOpenStyle={() => router.push("/style-dna")}
         />

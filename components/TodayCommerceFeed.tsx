@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRef } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "./AccessiblePressable";
 import type { ClosetPiece } from "../lib/wardrobe";
@@ -36,6 +36,8 @@ export type TodayCommerceFeedProps = {
   onQueryChange: (value: string) => void;
   onOpenPiece: (piece: ClosetPiece, origin: { x: number; y: number; width: number; height: number }) => void;
   onOpenSearch: () => void;
+  onOpenMessages: () => void;
+  onOpenTools: () => void;
   onOpenCreators: () => void;
   onOpenStyle: () => void;
 };
@@ -46,6 +48,8 @@ export function TodayCommerceFeed({
   onQueryChange,
   onOpenPiece,
   onOpenSearch,
+  onOpenMessages,
+  onOpenTools,
   onOpenCreators,
   onOpenStyle,
 }: TodayCommerceFeedProps) {
@@ -54,53 +58,43 @@ export function TodayCommerceFeed({
   const app = useUvel();
   const insets = useSafeAreaInsets();
   const market = getMarket(app.country);
-  const featured = pieces.slice(0, 4);
-  const recommended = pieces.slice(0, 8);
-  const editors = pieces.slice(2, 6).length >= 3 ? pieces.slice(2, 6) : pieces.slice(0, 4);
-  const deals = pieces.slice(4, 8).length >= 3 ? pieces.slice(4, 8) : pieces.slice(0, 4);
-  const followed = pieces.slice(1, 5).length >= 3 ? pieces.slice(1, 5) : pieces.slice(0, 4);
-  const personalized = pieces.slice(0, 8);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const feedPieces = pieces.length
+    ? Array.from({ length: Math.max(32, pieces.length * 3) }, (_, index) => pieces[index % pieces.length])
+    : [];
+  const featured = feedPieces.slice(0, 4);
+  const recommended = feedPieces.slice(0, 8);
+  const editors = feedPieces.slice(2, 6).length >= 3 ? feedPieces.slice(2, 6) : feedPieces.slice(0, 4);
+  const deals = feedPieces.slice(8, 12).length >= 3 ? feedPieces.slice(8, 12) : feedPieces.slice(0, 4);
+  const followed = feedPieces.slice(12, 16).length >= 3 ? feedPieces.slice(12, 16) : feedPieces.slice(0, 4);
+  const personalized = feedPieces.slice(16, 24).length >= 4 ? feedPieces.slice(16, 24) : feedPieces.slice(0, 8);
+  const logoMotion = {
+    opacity: scrollY.interpolate({ inputRange: [0, 80], outputRange: [1, 0.86], extrapolate: "clamp" }),
+    transform: [
+      { translateY: scrollY.interpolate({ inputRange: [0, 80], outputRange: [0, -5], extrapolate: "clamp" }) },
+      { scale: scrollY.interpolate({ inputRange: [0, 80], outputRange: [1, 0.9], extrapolate: "clamp" }) },
+    ],
+  };
 
   return (
-    <ScrollView
+    <Animated.ScrollView
       style={styles.page}
       contentContainerStyle={[styles.content, { paddingTop: insets.top + 10 }]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       alwaysBounceVertical
+      scrollEventThrottle={16}
+      onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
     >
       <View style={styles.topBar}>
-        <AccessiblePressable onPress={onOpenSearch} style={styles.wordmarkButton} accessibilityRole="button" accessibilityLabel="Open Uvel marketplace">
-          <Text style={styles.wordmark}>uvel</Text>
+        <AccessiblePressable onPress={onOpenTools} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open Today tools">
+          <View style={styles.menuIcon}><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View>
         </AccessiblePressable>
-        <AccessiblePressable onPress={() => undefined} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open shopping bag">
-          <Ionicons name="bag-outline" size={25} color={colors.bone} />
-        </AccessiblePressable>
+        <Animated.View style={logoMotion}><AccessiblePressable onPress={onOpenSearch} style={styles.wordmarkButton} accessibilityRole="button" accessibilityLabel="Open Uvel marketplace"><Text style={styles.wordmark}>uvel</Text></AccessiblePressable></Animated.View>
+        <View style={styles.headerActions}><AccessiblePressable onPress={onOpenSearch} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Search Uvel"><Ionicons name="search-outline" size={24} color={colors.bone} /></AccessiblePressable><AccessiblePressable onPress={onOpenMessages} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open messages"><Ionicons name="chatbubble-ellipses-outline" size={23} color={colors.bone} /></AccessiblePressable></View>
       </View>
 
-      <View style={styles.search}>
-        <Ionicons name="search-outline" size={22} color={colors.subtle} />
-        <TextInput
-          value={query}
-          onChangeText={onQueryChange}
-          onSubmitEditing={onOpenSearch}
-          placeholder="Search Uvel"
-          placeholderTextColor={colors.subtle}
-          style={styles.input}
-          returnKeyType="search"
-          accessibilityLabel="Search Uvel"
-        />
-        <AccessiblePressable onPress={onOpenSearch} style={styles.searchAction} accessibilityRole="button" accessibilityLabel="Search with a photo">
-          <Ionicons name="camera-outline" size={22} color={colors.bone} />
-        </AccessiblePressable>
-        <AccessiblePressable onPress={onOpenSearch} style={styles.searchAction} accessibilityRole="button" accessibilityLabel="Search by voice">
-          <Ionicons name="mic-outline" size={22} color={colors.bone} />
-        </AccessiblePressable>
-        <View style={styles.searchDivider} />
-        <AccessiblePressable onPress={onOpenStyle} style={styles.searchAction} accessibilityRole="button" accessibilityLabel="Choose shopping location">
-          <Ionicons name="location-outline" size={22} color={colors.bone} />
-        </AccessiblePressable>
-      </View>
+      <View style={styles.searchHint}><Text style={styles.searchHintText}>Tap search to find a look, piece, or creator</Text><Pressable onPress={onOpenSearch} accessibilityRole="button" accessibilityLabel="Search Uvel"><Ionicons name="arrow-forward" size={15} color={colors.pulse} /></Pressable></View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
         {COLOR_CHIPS.map((chip, index) => (
@@ -120,7 +114,7 @@ export function TodayCommerceFeed({
             <Text style={styles.shopAll}>Shop all ›</Text>
           </View>
           <View style={styles.featureGrid}>
-            {featured.map((piece) => <MiniImage key={piece.id} piece={piece} onOpen={onOpenPiece} />)}
+            {featured.map((piece, index) => <MiniImage key={`${piece.id}-${index}`} piece={piece} onOpen={onOpenPiece} />)}
           </View>
         </View>
         <View style={[styles.newCard, { backgroundColor: "#2762C5" }]}>
@@ -128,6 +122,7 @@ export function TodayCommerceFeed({
           <Text style={styles.newCopy}>Your next favorite fit is here.</Text>
           <Pressable onPress={onOpenSearch} style={styles.whiteButton} accessibilityRole="button" accessibilityLabel="Shop new arrivals"><Text style={styles.whiteButtonText}>Shop now ›</Text></Pressable>
           {pieces[0] ? <Image source={{ uri: pieces[0].photo }} style={styles.newImage} contentFit="cover" accessible={false} /> : null}
+          <View style={styles.newImageShade} pointerEvents="none" />
           <Text style={styles.newFoot}>New season{`\n`}New you</Text>
         </View>
       </View>
@@ -186,7 +181,7 @@ export function TodayCommerceFeed({
 
       <SectionTitle title="Recently viewed" onPress={onOpenSearch} />
       <ProductRail pieces={personalized.slice(4, 8).length ? personalized.slice(4, 8) : personalized.slice(0, 4)} market={market} onOpen={onOpenPiece} compact />
-    </ScrollView>
+    </Animated.ScrollView>
   );
 }
 
@@ -221,13 +216,18 @@ function make(colors: Colors) {
     page: { flex: 1, backgroundColor: colors.ink },
     content: { paddingTop: 10, paddingHorizontal: 16, paddingBottom: 130 },
     topBar: { height: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    headerActions: { flexDirection: "row", alignItems: "center", gap: 2 },
     wordmarkButton: { minHeight: 48, justifyContent: "center" },
-    wordmark: { color: colors.pulse, fontFamily: "Georgia", fontSize: 38, lineHeight: 42, fontWeight: "800", letterSpacing: -1.2 },
+    wordmark: { color: colors.pulse, fontFamily: "Georgia", fontSize: 39, lineHeight: 42, fontStyle: "italic", fontWeight: "800", letterSpacing: -1.8 },
     topIcon: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
+    menuIcon: { width: 22, gap: 4 },
+    menuLine: { width: 22, height: 2, borderRadius: 2, backgroundColor: colors.bone },
     search: { height: 52, borderRadius: 27, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}20`, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 9 },
     input: { flex: 1, height: 50, color: colors.bone, fontSize: 17 },
     searchAction: { width: 34, height: 44, alignItems: "center", justifyContent: "center" },
     searchDivider: { height: 27, width: 1, backgroundColor: `${colors.bone}22` },
+    searchHint: { minHeight: 30, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+    searchHintText: { color: colors.muted, fontSize: 12, fontWeight: "600" },
     chips: { gap: 9, paddingVertical: 14 },
     chip: { height: 44, paddingHorizontal: 19, borderRadius: 22, alignItems: "center", justifyContent: "center" },
     chipText: { fontSize: 15, fontWeight: "800" },
@@ -243,8 +243,9 @@ function make(colors: Colors) {
     newCopy: { color: "#FFFFFF", fontSize: 16, lineHeight: 21, marginTop: 8, maxWidth: 130 },
     whiteButton: { alignSelf: "flex-start", backgroundColor: "#FFFFFF", borderRadius: 22, paddingHorizontal: 14, minHeight: 40, justifyContent: "center", marginTop: 12 },
     whiteButtonText: { color: "#181714", fontSize: 13, fontWeight: "900" },
-    newImage: { position: "absolute", right: -22, bottom: 0, width: 150, height: 190, opacity: 0.92 },
-    newFoot: { position: "absolute", left: 16, bottom: 13, color: "#FFFFFF", fontSize: 12, lineHeight: 15, fontWeight: "800" },
+    newImage: { position: "absolute", left: 0, right: 0, bottom: 0, width: "100%", height: 166, opacity: 0.96 },
+    newImageShade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 105, backgroundColor: "rgba(22,20,15,0.18)" },
+    newFoot: { position: "absolute", left: 16, bottom: 13, color: "#FFFFFF", fontSize: 12, lineHeight: 15, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.55)", textShadowRadius: 4 },
     sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 22, marginBottom: 10 },
     editorHero: { minHeight: 168, borderRadius: 18, backgroundColor: "#E7DDD1", overflow: "hidden", flexDirection: "row" },
     editorCopy: { flex: 1.03, padding: 17, justifyContent: "center", zIndex: 2 },
