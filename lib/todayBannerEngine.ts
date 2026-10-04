@@ -1,7 +1,7 @@
 import type { ClosetPiece } from "./wardrobe";
 
 export type BannerVariant = "float" | "slide" | "explode" | "collage" | "luxury";
-export type BannerTemplateId = "fall-edit" | "new-in" | "deals" | "accessories" | "quiet-luxury";
+export type BannerTemplateId = "trending-now" | "new-in" | "deals" | "accessories" | "quiet-luxury";
 
 export type TodayBannerTemplate = {
   id: BannerTemplateId;
@@ -30,6 +30,12 @@ function newest(a: ClosetPiece, b: ClosetPiece) {
   return (b.createdAt || 0) - (a.createdAt || 0);
 }
 
+function trending(a: ClosetPiece, b: ClosetPiece) {
+  const bScore = Number(b.views || 0) + Number(b.likedBy?.length || 0) * 8;
+  const aScore = Number(a.views || 0) + Number(a.likedBy?.length || 0) * 8;
+  return bScore - aScore || newest(a, b);
+}
+
 function recentNormal(pieces: ClosetPiece[]) {
   return pieces.filter(normal).sort(newest);
 }
@@ -48,13 +54,14 @@ function discounted(piece: ClosetPiece) {
 
 export const TODAY_BANNER_TEMPLATES: TodayBannerTemplate[] = [
   {
-    id: "fall-edit",
-    title: "The Fall Edit",
-    subtitle: "Fresh layers, easy pieces, and the details that make a look feel finished.",
+    id: "trending-now",
+    title: "Trending Now",
+    subtitle: "The pieces Uvel is watching right now.",
     color: "#F05237",
     variant: "float",
     maxProducts: 4,
-    select: (pieces) => withCutouts(category(pieces.filter(available), ["Outerwear", "Trousers", "Knitwear", "Shoes", "Tops"])).slice(0, 4),
+    select: (pieces) => withCutouts(pieces.filter(available).sort(trending)).slice(0, 4),
+    detailSelect: (pieces) => withCutouts(pieces.filter(available).sort(trending)).slice(0, 40),
   },
   {
     id: "new-in",
