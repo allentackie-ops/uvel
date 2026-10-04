@@ -1,4 +1,4 @@
-import { DarkTheme, Stack, ThemeProvider, router } from "expo-router";
+import { DarkTheme, Stack, ThemeProvider, router, usePathname } from "expo-router";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SplashScreen from "expo-splash-screen";
@@ -195,6 +195,7 @@ function PushSync() {
 
 function AppStack() {
   const appearance = useResolvedAppearance();
+  const pathname = usePathname();
   const colors = useColors();
   const C = useCopy();
   const navTheme = useMemo(
@@ -222,7 +223,7 @@ function AppStack() {
         <OrderSync />
         <LikesSync />
         <ShakeToReport />
-        <StatusBar style={appearance === "dark" ? "light" : "dark"} />
+        <StatusBar style={appearance === "dark" || pathname === "/immersive-shopping" ? "light" : "dark"} />
         <Stack
           screenOptions={{
             headerTintColor: colors.bone,
