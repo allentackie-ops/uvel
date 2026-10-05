@@ -175,7 +175,7 @@ export function TodayCommerceFeed({
       <SectionTitle title="Keep shopping for" onPress={onOpenSearch} />
       <ProductRail pieces={recommended.slice(4, 8).length ? recommended.slice(4, 8) : recommended.slice(0, 4)} market={market} onOpen={onOpenPiece} compact />
 
-      <SectionTitle title="Editor’s picks for you" onPress={onOpenSearch} />
+      <SectionTitle title="We think you’ll love these" onPress={onOpenSearch} />
       <View style={styles.editorHero}>
         <View style={styles.editorCopy}>
           <Text style={styles.editorTitle}>The art of everyday</Text>
