@@ -232,7 +232,11 @@ export async function loadAddress(): Promise<Address | null> {
 export async function loadAddresses(): Promise<Address[]> {
   try {
     const saved = await AsyncStorage.getItem(ADDRESSES);
-    if (saved) return JSON.parse(saved) as Address[];
+    if (saved) {
+      const addresses = JSON.parse(saved) as Address[];
+      const activeId = await AsyncStorage.getItem(ACTIVE_ADDR);
+      return activeId ? [...addresses.filter((address) => address.id === activeId), ...addresses.filter((address) => address.id !== activeId)] : addresses;
+    }
     const legacy = await AsyncStorage.getItem(ADDR);
     if (!legacy) return [];
     const address = { ...(JSON.parse(legacy) as Address), id: "primary" };
