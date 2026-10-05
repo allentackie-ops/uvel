@@ -8,6 +8,7 @@ export type Colors = {
   muted: string;
   subtle: string;
   pulse: string;
+  link?: string;
   pulseInk: string;
   success: string;
   successInk: string;
@@ -29,6 +30,7 @@ export const palettes: Record<"dark" | "light", Colors> = {
     muted: "#A7ACB8",
     subtle: "#737B88",
     pulse: "#C6D86A",
+    link: "#C6D86A",
     pulseInk: "#11130E",
     success: "#D6E27A",
     successInk: "#11130E",
@@ -47,8 +49,9 @@ export const palettes: Record<"dark" | "light", Colors> = {
     bone: "#111111",
     muted: "#565959",
     subtle: "#8A8A8A",
-    pulse: "#007185",
-    pulseInk: "#FFFFFF",
+    pulse: "#D6E27A",
+    link: "#007185",
+    pulseInk: "#181714",
     success: "#007EB9",
     successInk: "#FFFFFF",
     warning: "#B7791F",

@@ -475,7 +475,7 @@ function DealsMotionPoster({ source, color, styles, paused }: { source: number; 
 
 function SectionTitle({ title, onPress }: { title: string; onPress: () => void }) {
   const colors = useColors();
-  return <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 28, marginBottom: 11, paddingBottom: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}35` }}><Text style={{ color: colors.bone, fontSize: 21, fontWeight: "800", letterSpacing: -0.3 }}>{title}</Text><Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`See all ${title}`}><Text style={{ color: colors.pulse, fontSize: 13, fontWeight: "800", paddingBottom: 2 }}>See all ›</Text></Pressable></View>;
+  return <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", marginTop: 28, marginBottom: 11, paddingBottom: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}35` }}><Text style={{ color: colors.bone, fontSize: 21, fontWeight: "800", letterSpacing: -0.3 }}>{title}</Text><Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`See all ${title}`}><Text style={{ color: colors.link ?? colors.pulse, fontSize: 13, fontWeight: "800", paddingBottom: 2 }}>See all ›</Text></Pressable></View>;
 }
 
 function ProductRail({ pieces, market, onOpen, deals, compact }: { pieces: ClosetPiece[]; market: ReturnType<typeof getMarket>; onOpen: TodayCommerceFeedProps["onOpenPiece"]; deals?: boolean; compact?: boolean }) {
@@ -693,7 +693,7 @@ function make(colors: Colors) {
     lookCopy: { flex: 1, padding: 15, justifyContent: "center", zIndex: 2 },
     lookTitle: { color: colors.bone, fontSize: 20, lineHeight: 22, fontWeight: "900" },
     lookBody: { color: colors.muted, fontSize: 12, lineHeight: 16, marginTop: 7 },
-    lookButton: { color: colors.pulse, fontSize: 12, fontWeight: "900", marginTop: 12 },
+    lookButton: { color: colors.link ?? colors.pulse, fontSize: 12, fontWeight: "900", marginTop: 12 },
     lookImage: { width: 150, height: "100%" },
     styleDna: { minHeight: 145, borderRadius: 17, backgroundColor: "#DCCBFA", padding: 16, flexDirection: "row", alignItems: "center", overflow: "hidden" },
     styleDnaCopy: { flex: 1, zIndex: 2 },
