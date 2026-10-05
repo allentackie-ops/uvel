@@ -95,7 +95,7 @@ export const TODAY_BANNER_TEMPLATES: TodayBannerTemplate[] = [
     id: "quiet-luxury",
     title: "Minimal, with presence",
     subtitle: "One strong piece. A quieter kind of statement.",
-    color: "#8D74D6",
+    color: "#CFF7C8",
     variant: "luxury",
     maxProducts: 4,
     select: (pieces) => withCutouts(pieces.filter(available).sort((a, b) => (b.views || 0) - (a.views || 0))).slice(0, 4),
