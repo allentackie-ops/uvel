@@ -549,7 +549,7 @@ function make(colors: Colors) {
     posterButton: { alignSelf: "flex-start", backgroundColor: "#FFFFFF", borderRadius: 24, paddingHorizontal: 17, minHeight: 46, justifyContent: "center", marginTop: 14 },
     editorialPoster: { flex: 1, borderRadius: 22, overflow: "hidden", padding: 20, position: "relative" },
     editorialReferenceImage: { width: "100%", height: "100%" },
-    posterPlaybackButton: { position: "absolute", left: 10, top: "50%", marginTop: -22, width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(20,20,20,0.72)", borderWidth: 2, borderColor: "rgba(255,255,255,0.9)", zIndex: 20, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 6 },
+    posterPlaybackButton: { position: "absolute", left: 14, bottom: 14, width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(20,20,20,0.72)", borderWidth: 2, borderColor: "rgba(255,255,255,0.9)", zIndex: 20, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 6 },
     editorialTitle: { color: "#FFFFFF", fontSize: 34, lineHeight: 36, fontWeight: "900", letterSpacing: -0.9, maxWidth: 230, marginTop: 12, zIndex: 6 },
     editorialSubtitle: { color: "rgba(255,255,255,0.88)", fontSize: 15, lineHeight: 20, maxWidth: 226, marginTop: 9, zIndex: 6 },
     editorialLatestSticker: { position: "absolute", right: 8, top: 8, width: 120, height: 100, zIndex: 7, alignItems: "center", justifyContent: "center" },
