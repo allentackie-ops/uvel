@@ -185,7 +185,7 @@ export function TodayCommerceFeed({
         bounces
         onScroll={handleScroll}
       >
-      <PosterCarousel banners={bannerTemplates} onOpenPiece={onOpenPiece} onOpenBanner={onOpenBanner} onOpenSearch={onOpenSearch} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterHeight={posterHeight} posterInterval={posterInterval} />
+      <PosterCarousel banners={bannerTemplates} onOpenBanner={onOpenBanner} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterHeight={posterHeight} posterInterval={posterInterval} />
 
       <SectionTitle title="For you" onPress={onOpenSearch} />
       <ProductRail pieces={recommended.slice(0, 4)} market={market} onOpen={onOpenPiece} deals />
@@ -267,9 +267,7 @@ export function TodayCommerceFeed({
 
 function PosterCarousel({
   banners,
-  onOpenPiece,
   onOpenBanner,
-  onOpenSearch,
   styles,
   scrollX,
   posterWidth,
@@ -277,9 +275,7 @@ function PosterCarousel({
   posterInterval,
 }: {
   banners: CuratedTodayBanner[];
-  onOpenPiece: TodayCommerceFeedProps["onOpenPiece"];
   onOpenBanner: TodayCommerceFeedProps["onOpenBanner"];
-  onOpenSearch: () => void;
   styles: ReturnType<typeof make>;
   scrollX: Animated.Value;
   posterWidth: number;
@@ -309,10 +305,6 @@ function PosterCarousel({
     };
   }, [interval, stories.length]);
   const openBanner = (story: BannerStory) => {
-    if (!story.pieces.length) {
-      onOpenSearch();
-      return;
-    }
     onOpenBanner(story);
   };
   return (
@@ -337,7 +329,7 @@ function PosterCarousel({
         }}
       >
         {stories.map((story, index) => {
-          return <Pressable key={story.id} onPress={() => openBanner({ title: story.title, subtitle: story.subtitle, color: story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: story.pieces, detailPieces: story.detailPieces })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
+          return <Pressable key={story.id} onPress={() => openBanner({ title: story.title, subtitle: story.subtitle, color: story.color, gradientColor: BANNER_COLORS[index] ?? story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: story.pieces, detailPieces: story.detailPieces })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
             <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} staticAsset={story.id === "trending-now" ? TRENDING_NOW_FINAL : story.id === "new-in" ? NEW_IN_ANIMATED_BASE : story.id === "accessories" ? FINISHING_PIECES_POSTER : story.id === "quiet-luxury" ? MINIMAL_WITH_PRESENCE_BANNER : undefined} videoAsset={story.id === "deals" ? DEALS_MOTION_BANNER : undefined} videoActive={activeIndex === index} />
           </Pressable>;
         })}
