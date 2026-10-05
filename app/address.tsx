@@ -25,13 +25,20 @@ import { addAddress, loadAddress, saveAddress, type Address } from "../lib/order
 import { useUvel } from "../lib/store";
 
 const COLORS = {
-  header: "#F1BE86",
+  header: "#214F9C",
+  blue: "#2E63D4",
+  blueSoft: "#EAF1FF",
+  blueBorder: "#D6E3FF",
+  lime: "#D6E27A",
+  page: "#F3F6FB",
   white: "#FFFFFF",
-  text: "#111111",
-  muted: "#595959",
-  hint: "#777777",
-  border: "#8F8F8F",
-  separator: "#D8D8D8",
+  text: "#17263B",
+  muted: "#68778C",
+  hint: "#8D9AAF",
+  border: "#D8E1EE",
+  separator: "#E7EDF5",
+  success: "#247A59",
+  successSoft: "#EAF6F0",
 };
 
 const US_STATES = [
@@ -197,15 +204,18 @@ export default function Address() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.navRow}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navSide} accessibilityRole="button" accessibilityLabel="Cancel">
+          <Pressable onPress={() => router.back()} hitSlop={12} style={styles.cancelButton} accessibilityRole="button" accessibilityLabel="Cancel">
+            <Ionicons name="chevron-back" size={18} color={COLORS.white} />
             <Text style={styles.cancelText}>Cancel</Text>
           </Pressable>
-          <Text style={styles.navTitle}>Your Addresses</Text>
+          <View style={styles.brandBadge}><View style={styles.brandDot} /><Text style={styles.brandBadgeText}>UVEL DELIVERY</Text></View>
           <View style={styles.navSide} />
         </View>
+        <Text style={styles.navTitle}>Your Addresses</Text>
+        <Text style={styles.headerSubtitle}>A smoother way to get your next favourite.</Text>
       </View>
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -214,60 +224,88 @@ export default function Address() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.heading}>{adding ? "Add a new address" : "Edit address"}</Text>
-
-          <SelectField label="Country/Region" value={country.name} onPress={() => { Keyboard.dismiss(); setPickerMode("country"); }} />
-
-          <FormField label="Full name (First and Last name)" value={name} onChange={setName} placeholder="Full name" clearable autoCapitalize="words" textContentType="name" />
-          <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Phone number</Text>
-            <View style={styles.inputFrame}>
-              <TextInput
-                value={phone}
-                onChangeText={setPhone}
-                placeholder=""
-                placeholderTextColor={COLORS.hint}
-                keyboardType="phone-pad"
-                textContentType="telephoneNumber"
-                style={styles.input}
-                accessibilityLabel="Phone number"
-              />
-            </View>
-            <Text style={styles.helper}>May be used to assist delivery</Text>
+          <View style={styles.pageIntro}>
+            <Text style={styles.eyebrow}>{adding ? "NEW DELIVERY ADDRESS" : "SAVED DELIVERY ADDRESS"}</Text>
+            <Text style={styles.heading}>{adding ? "Add a new address" : "Edit address"}</Text>
+            <Text style={styles.introCopy}>Keep your delivery details ready for a quicker Uvel checkout.</Text>
           </View>
 
-          <Pressable onPress={() => void useMyLocation()} disabled={locating} style={[styles.locationButton, locating && styles.buttonBusy]} accessibilityRole="button" accessibilityLabel="Use my location">
-            {locating ? <ActivityIndicator color={COLORS.text} /> : <Text style={styles.locationButtonText}>Use my location</Text>}
-          </Pressable>
-          {locationMessage ? <Text style={styles.locationMessage}>{locationMessage}</Text> : null}
-
-          <FormField label="Street address" value={line1} onChange={setLine1} placeholder="Street address or P.O. Box" autoCapitalize="words" textContentType="streetAddressLine1" />
-          <FormField label="Unit or suite number" value={line2} onChange={setLine2} placeholder="Apt, Suite, Unit, Building (optional)" autoCapitalize="words" textContentType="streetAddressLine2" />
-          <FormField label="City" value={city} onChange={setCity} placeholder="" autoCapitalize="words" textContentType="addressCity" />
-
-          <View style={styles.splitRow}>
-            <View style={styles.splitField}>
-              {regionOptions ? (
-                <SelectField label="State" value={region || "Select"} onPress={() => { Keyboard.dismiss(); setPickerMode("region"); }} />
-              ) : (
-                <FormField label="State / region" value={region} onChange={setRegion} placeholder="State / region" autoCapitalize="words" />
-              )}
+          <View style={styles.formCard}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionIcon}><Ionicons name="person-outline" size={19} color={COLORS.blue} /></View>
+              <View><Text style={styles.sectionTitle}>Contact</Text><Text style={styles.sectionHint}>Who should the courier reach?</Text></View>
             </View>
-            <View style={styles.splitField}>
-              <FormField label={postalLabel} value={postal} onChange={setPostal} placeholder="" autoCapitalize="characters" textContentType="postalCode" />
+            <FormField label="Full name (First and Last name)" value={name} onChange={setName} placeholder="Full name" clearable autoCapitalize="words" textContentType="name" />
+            <View style={styles.fieldGroup}>
+              <Text style={styles.label}>Phone number</Text>
+              <View style={styles.inputFrame}>
+                <Ionicons name="call-outline" size={18} color={COLORS.muted} style={styles.inputIcon} />
+                <TextInput
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Add a contact number"
+                  placeholderTextColor={COLORS.hint}
+                  keyboardType="phone-pad"
+                  textContentType="telephoneNumber"
+                  style={styles.input}
+                  accessibilityLabel="Phone number"
+                />
+              </View>
+              <Text style={styles.helper}>Only used if your courier needs help with delivery.</Text>
             </View>
           </View>
 
-          <Pressable onPress={() => setMakeDefault((value) => !value)} style={styles.defaultRow} accessibilityRole="checkbox" accessibilityState={{ checked: makeDefault }}>
-            <View style={[styles.checkbox, makeDefault && styles.checkboxOn]}>
-              {makeDefault ? <Ionicons name="checkmark" size={18} color={COLORS.white} /> : null}
+          <View style={styles.formCard}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionIcon}><Ionicons name="navigate-outline" size={19} color={COLORS.blue} /></View>
+              <View><Text style={styles.sectionTitle}>Delivery destination</Text><Text style={styles.sectionHint}>Where should your order arrive?</Text></View>
             </View>
-            <Text style={styles.defaultText}>Make this my default address</Text>
+            <SelectField label="Country/Region" value={country.name} onPress={() => { Keyboard.dismiss(); setPickerMode("country"); }} />
+
+            <View style={styles.locationPanel}>
+              <View style={styles.locationPanelHead}>
+                <View style={styles.locationIcon}><Ionicons name="locate-outline" size={20} color={COLORS.blue} /></View>
+                <View style={styles.locationCopy}>
+                  <Text style={styles.locationTitle}>Fill from your location</Text>
+                  <Text style={styles.locationDescription}>We’ll suggest an address for you to review.</Text>
+                </View>
+              </View>
+              <Pressable onPress={() => void useMyLocation()} disabled={locating} style={[styles.locationButton, locating && styles.buttonBusy]} accessibilityRole="button" accessibilityLabel="Use my location">
+                {locating ? <ActivityIndicator color={COLORS.white} /> : <><Ionicons name="locate" size={18} color={COLORS.white} /><Text style={styles.locationButtonText}>Use my location</Text></>}
+              </Pressable>
+            </View>
+            {locationMessage ? <Text style={styles.locationMessage}>{locationMessage}</Text> : null}
+
+            <FormField label="Street address" value={line1} onChange={setLine1} placeholder="Street address or P.O. Box" autoCapitalize="words" textContentType="streetAddressLine1" />
+            <FormField label="Unit or suite number" value={line2} onChange={setLine2} placeholder="Apt, Suite, Unit, Building (optional)" autoCapitalize="words" textContentType="streetAddressLine2" />
+            <FormField label="City" value={city} onChange={setCity} placeholder="City" autoCapitalize="words" textContentType="addressCity" />
+
+            <View style={styles.splitRow}>
+              <View style={styles.splitField}>
+                {regionOptions ? (
+                  <SelectField label="State" value={region || "Select"} onPress={() => { Keyboard.dismiss(); setPickerMode("region"); }} />
+                ) : (
+                  <FormField label="State / region" value={region} onChange={setRegion} placeholder="State / region" autoCapitalize="words" />
+                )}
+              </View>
+              <View style={styles.splitField}>
+                <FormField label={postalLabel} value={postal} onChange={setPostal} placeholder={postalLabel} autoCapitalize="characters" textContentType="postalCode" />
+              </View>
+            </View>
+          </View>
+
+          <Pressable onPress={() => setMakeDefault((value) => !value)} style={styles.defaultCard} accessibilityRole="checkbox" accessibilityState={{ checked: makeDefault }}>
+            <View style={styles.defaultCopy}>
+              <Text style={styles.defaultTitle}>Make this my default address</Text>
+              <Text style={styles.defaultText}>Use it automatically at checkout.</Text>
+            </View>
+            <View style={[styles.toggleTrack, makeDefault && styles.toggleTrackOn]}>
+              <View style={[styles.toggleThumb, makeDefault && styles.toggleThumbOn]} />
+            </View>
           </Pressable>
 
-          <View style={styles.separator} />
           <Pressable onPress={() => void save()} disabled={!valid || saving} style={[styles.saveButton, (!valid || saving) && styles.saveDisabled]} accessibilityRole="button">
-            {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.saveButtonText}>{adding ? "Save address" : "Save changes"}</Text>}
+            {saving ? <ActivityIndicator color={COLORS.white} /> : <><Text style={styles.saveButtonText}>{adding ? "Save address" : "Save changes"}</Text><Ionicons name="arrow-forward" size={19} color={COLORS.white} /></>}
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -347,7 +385,7 @@ function SelectField({ label, value, onPress }: { label: string; value: string; 
       <Text style={styles.label}>{label}</Text>
       <Pressable onPress={onPress} style={styles.select} accessibilityRole="button" accessibilityLabel={`${label}: ${value}`}>
         <Text style={styles.selectText} numberOfLines={1}>{value}</Text>
-        <Ionicons name="chevron-down" size={22} color={COLORS.text} />
+          <Ionicons name="chevron-down" size={20} color={COLORS.blue} />
       </Pressable>
     </View>
   );
@@ -357,49 +395,72 @@ function PickerRow({ label, selected, onPress }: { label: string; selected: bool
   return (
     <Pressable onPress={onPress} style={styles.pickerRow} accessibilityRole="button" accessibilityState={{ selected }}>
       <Text style={[styles.pickerRowText, selected && styles.pickerRowSelected]}>{label}</Text>
-      {selected ? <Ionicons name="checkmark" size={21} color={COLORS.text} /> : null}
+      {selected ? <Ionicons name="checkmark-circle" size={21} color={COLORS.blue} /> : null}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  page: { flex: 1, backgroundColor: COLORS.white },
-  header: { backgroundColor: COLORS.header },
-  navRow: { height: 52, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  navSide: { width: 84, height: 44, justifyContent: "center" },
-  cancelText: { color: COLORS.text, fontSize: 16, fontWeight: "500" },
-  navTitle: { flex: 1, textAlign: "center", color: COLORS.text, fontSize: 18, fontWeight: "700" },
-  content: { paddingHorizontal: 22, paddingTop: 20 },
-  heading: { color: COLORS.text, fontSize: 18, fontWeight: "800", marginBottom: 22 },
-  fieldGroup: { marginBottom: 22 },
-  label: { color: COLORS.text, fontSize: 16, lineHeight: 21, fontWeight: "700", marginBottom: 8 },
-  inputFrame: { minHeight: 52, borderWidth: 1, borderColor: COLORS.border, borderRadius: 5, flexDirection: "row", alignItems: "center", backgroundColor: COLORS.white },
-  input: { flex: 1, minHeight: 50, paddingHorizontal: 14, color: COLORS.text, fontSize: 16 },
-  clearButton: { width: 48, height: 50, alignItems: "center", justifyContent: "center" },
-  helper: { color: COLORS.text, fontSize: 13, marginTop: 10 },
-  select: { minHeight: 52, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 15, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.white },
-  selectText: { flex: 1, color: COLORS.text, fontSize: 16, marginRight: 12 },
-  locationButton: { height: 52, borderWidth: 1, borderColor: COLORS.border, borderRadius: 28, backgroundColor: COLORS.white, alignItems: "center", justifyContent: "center", marginTop: 2, marginBottom: 24 },
-  locationButtonText: { color: COLORS.text, fontSize: 16, fontWeight: "500" },
-  buttonBusy: { opacity: 0.7 },
-  locationMessage: { color: COLORS.muted, fontSize: 13, lineHeight: 18, marginTop: -16, marginBottom: 22 },
-  splitRow: { flexDirection: "row", gap: 18 },
+  page: { flex: 1, backgroundColor: COLORS.page },
+  header: { backgroundColor: COLORS.header, paddingHorizontal: 20, paddingBottom: 22, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 },
+  navRow: { height: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  cancelButton: { width: 82, height: 40, flexDirection: "row", alignItems: "center", gap: 2 },
+  navSide: { width: 82, height: 40 },
+  cancelText: { color: COLORS.white, fontSize: 14, fontWeight: "600" },
+  brandBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.12)" },
+  brandDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: COLORS.lime },
+  brandBadgeText: { color: COLORS.white, fontSize: 10, fontWeight: "800", letterSpacing: 1.2 },
+  navTitle: { color: COLORS.white, fontSize: 27, fontWeight: "800", letterSpacing: -0.4, marginTop: 9 },
+  headerSubtitle: { color: "rgba(255,255,255,0.78)", fontSize: 13, marginTop: 4 },
+  content: { paddingHorizontal: 16, paddingTop: 20 },
+  pageIntro: { paddingHorizontal: 3, marginBottom: 16 },
+  eyebrow: { color: COLORS.blue, fontSize: 10, fontWeight: "800", letterSpacing: 1.1, marginBottom: 6 },
+  heading: { color: COLORS.text, fontSize: 23, fontWeight: "800", letterSpacing: -0.35 },
+  introCopy: { color: COLORS.muted, fontSize: 13, lineHeight: 18, marginTop: 5 },
+  formCard: { backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, borderRadius: 20, padding: 16, marginBottom: 14 },
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 11, marginBottom: 17 },
+  sectionIcon: { width: 38, height: 38, borderRadius: 14, backgroundColor: COLORS.blueSoft, alignItems: "center", justifyContent: "center" },
+  sectionTitle: { color: COLORS.text, fontSize: 15, fontWeight: "800" },
+  sectionHint: { color: COLORS.muted, fontSize: 12, marginTop: 2 },
+  fieldGroup: { marginBottom: 15 },
+  label: { color: COLORS.muted, fontSize: 12, lineHeight: 16, fontWeight: "800", letterSpacing: 0.25, marginBottom: 7 },
+  inputFrame: { minHeight: 52, borderWidth: 1, borderColor: COLORS.border, borderRadius: 13, flexDirection: "row", alignItems: "center", backgroundColor: COLORS.white },
+  input: { flex: 1, minHeight: 50, paddingHorizontal: 13, color: COLORS.text, fontSize: 15 },
+  inputIcon: { marginLeft: 13 },
+  clearButton: { width: 44, height: 50, alignItems: "center", justifyContent: "center" },
+  helper: { color: COLORS.muted, fontSize: 11, lineHeight: 15, marginTop: 7 },
+  select: { minHeight: 52, borderWidth: 1, borderColor: COLORS.border, borderRadius: 13, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.white },
+  selectText: { flex: 1, color: COLORS.text, fontSize: 15, marginRight: 12 },
+  locationPanel: { backgroundColor: COLORS.blueSoft, borderWidth: 1, borderColor: COLORS.blueBorder, borderRadius: 17, padding: 13, marginTop: 2, marginBottom: 18 },
+  locationPanelHead: { flexDirection: "row", alignItems: "center", gap: 10 },
+  locationIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: COLORS.white, alignItems: "center", justifyContent: "center" },
+  locationCopy: { flex: 1 },
+  locationTitle: { color: COLORS.text, fontSize: 14, fontWeight: "800" },
+  locationDescription: { color: COLORS.muted, fontSize: 11, lineHeight: 15, marginTop: 2 },
+  locationButton: { minHeight: 46, borderRadius: 12, backgroundColor: COLORS.blue, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 12 },
+  locationButtonText: { color: COLORS.white, fontSize: 14, fontWeight: "800" },
+  buttonBusy: { opacity: 0.72 },
+  locationMessage: { color: COLORS.success, backgroundColor: COLORS.successSoft, borderRadius: 11, paddingHorizontal: 12, paddingVertical: 10, fontSize: 12, lineHeight: 17, marginTop: -5, marginBottom: 16 },
+  splitRow: { flexDirection: "row", gap: 10 },
   splitField: { flex: 1, minWidth: 0 },
-  defaultRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 2, marginBottom: 22, paddingHorizontal: 4, minHeight: 36 },
-  checkbox: { width: 24, height: 24, borderWidth: 1.5, borderColor: COLORS.border, borderRadius: 5, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.white },
-  checkboxOn: { backgroundColor: COLORS.text, borderColor: COLORS.text },
-  defaultText: { color: COLORS.text, fontSize: 15 },
-  separator: { height: StyleSheet.hairlineWidth, backgroundColor: COLORS.separator, marginBottom: 20 },
-  saveButton: { minHeight: 52, borderRadius: 26, backgroundColor: "#111111", alignItems: "center", justifyContent: "center" },
+  defaultCard: { minHeight: 76, backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border, borderRadius: 18, paddingHorizontal: 15, paddingVertical: 13, flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 },
+  defaultCopy: { flex: 1 },
+  defaultTitle: { color: COLORS.text, fontSize: 14, fontWeight: "800" },
+  defaultText: { color: COLORS.muted, fontSize: 12, marginTop: 4 },
+  toggleTrack: { width: 48, height: 28, borderRadius: 16, backgroundColor: "#D7DFE9", padding: 3, justifyContent: "center" },
+  toggleTrackOn: { backgroundColor: COLORS.blue },
+  toggleThumb: { width: 22, height: 22, borderRadius: 11, backgroundColor: COLORS.white, shadowColor: "#10213A", shadowOpacity: 0.16, shadowRadius: 3, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
+  toggleThumbOn: { alignSelf: "flex-end" },
+  saveButton: { minHeight: 54, borderRadius: 15, backgroundColor: COLORS.blue, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
   saveDisabled: { opacity: 0.42 },
-  saveButtonText: { color: COLORS.white, fontSize: 16, fontWeight: "700" },
-  modalRoot: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.38)" },
-  pickerSheet: { backgroundColor: COLORS.white, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingTop: 10, paddingHorizontal: 20 },
-  handle: { width: 44, height: 5, borderRadius: 3, backgroundColor: "#BDBDBD", alignSelf: "center", marginBottom: 12 },
+  saveButtonText: { color: COLORS.white, fontSize: 15, fontWeight: "800" },
+  modalRoot: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(12,28,50,0.44)" },
+  pickerSheet: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 10, paddingHorizontal: 20 },
+  handle: { width: 40, height: 5, borderRadius: 3, backgroundColor: COLORS.border, alignSelf: "center", marginBottom: 12 },
   pickerHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 46, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.separator, marginBottom: 4 },
-  pickerTitle: { color: COLORS.text, fontSize: 17, fontWeight: "700" },
+  pickerTitle: { color: COLORS.text, fontSize: 17, fontWeight: "800" },
   pickerRow: { minHeight: 50, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.separator },
-  pickerRowText: { color: COLORS.text, fontSize: 16 },
-  pickerRowSelected: { fontWeight: "700" },
+  pickerRowText: { color: COLORS.text, fontSize: 15 },
+  pickerRowSelected: { color: COLORS.blue, fontWeight: "800" },
 });
