@@ -33,7 +33,7 @@ const STYLE_LOOKS = [
   { title: "City Layering", copy: "Versatile pieces for wherever the day goes." },
 ];
 
-const BANNER_COLORS = ["#F05237", "#2762C5", "#A5B98A", "#20A79A", "#F4A73B", "#8D74D6", "#E96B91", "#5F8D56"];
+const BANNER_COLORS = ["#F05237", "#2762C5", "#A5B98A", "#5B20D8", "#F4A73B", "#8D74D6", "#E96B91", "#5F8D56"];
 const FEED_FADE_STRIPS = Array.from({ length: 56 }, (_, index) => {
   const progress = index / 55;
   return Math.pow(progress, 1.65);
