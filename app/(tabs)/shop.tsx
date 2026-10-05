@@ -12,7 +12,6 @@ import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard, ListingCardSkeleton } from "../../components/ListingCard";
 import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayListingOverlay";
 import { TodayBannerStoryOverlay, type BannerStory, type BannerStoryOrigin } from "../../components/TodayBannerStoryOverlay";
-import { TodayCartFab } from "../../components/TodayCartFab";
 import { ImmersiveShoppingButton } from "../../components/ImmersiveShoppingButton";
 import { TodayMessagesButton } from "../../components/TodayMessagesButton";
 import { TodayCommerceFeed } from "../../components/TodayCommerceFeed";
@@ -915,7 +914,6 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           onInteraction={personalization.record}
         />
       ) : null}
-      {todayHome ? <TodayCartFab listingOpen={Boolean(openPiece)} /> : null}
       {todayHome && showSwipeHint ? <TodaySwipeHint onDismiss={dismissSwipeHint} /> : null}
       {findHint ? (
         <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 68 }]} accessibilityLiveRegion="polite">
