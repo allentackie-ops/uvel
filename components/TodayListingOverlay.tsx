@@ -34,10 +34,9 @@ import { FriendShareSheet, type FriendSharePayload } from "./FriendShareSheet";
 
 const AnimatedScrollView = Animated.createAnimatedComponent(GHScrollView);
 
-export type ListingOrigin = { x: number; y: number; width: number; height: number };
+export type ListingOrigin = { x: number; y: number; width: number; height: number; radius?: number; radii?: [number, number, number, number]; photo?: string };
 
-const OPEN_SPRING = { damping: 24, stiffness: 260, mass: 0.78 };
-const CLOSE_SPRING = { damping: 34, stiffness: 440, mass: 0.6, overshootClamping: true };
+const PHOTO_MORPH = { duration: 280, easing: Easing.out(Easing.cubic) };
 const SNAP = { damping: 26, stiffness: 320, mass: 0.7, overshootClamping: true };
 
 export function TodayListingOverlay({
@@ -91,20 +90,28 @@ export function TodayListingOverlay({
   const popupTop = Math.round((screenH - popupHeight) / 2);
   const modalHeaderHeight = 46;
   const footerHeight = 76;
-  const quickImageSize = Math.min(116, Math.max(72, Math.round(popupHeight * 0.28)));
-  const imageTargetX = popupLeft + 12;
-  const imageTargetY = popupTop + modalHeaderHeight + 12;
+  const quickImageSize = Math.min(156, Math.max(112, Math.round(popupWidth * 0.42)));
+  const imageTargetX = popupLeft + 13;
+  const imageTargetY = popupTop + modalHeaderHeight + 13;
   const imgX = useSharedValue(origin.x);
   const imgY = useSharedValue(origin.y);
   const imgW = useSharedValue(origin.width);
   const imgH = useSharedValue(origin.height);
-  const imgR = useSharedValue(14);
+  const imgTL = useSharedValue(origin.radii?.[0] ?? origin.radius ?? 18);
+  const imgTR = useSharedValue(origin.radii?.[1] ?? origin.radius ?? 18);
+  const imgBR = useSharedValue(origin.radii?.[2] ?? origin.radius ?? 18);
+  const imgBL = useSharedValue(origin.radii?.[3] ?? origin.radius ?? 18);
   const originX = useSharedValue(origin.x);
   const originY = useSharedValue(origin.y);
   const originW = useSharedValue(origin.width);
   const originH = useSharedValue(origin.height);
+  const originTL = useSharedValue(origin.radii?.[0] ?? origin.radius ?? 18);
+  const originTR = useSharedValue(origin.radii?.[1] ?? origin.radius ?? 18);
+  const originBR = useSharedValue(origin.radii?.[2] ?? origin.radius ?? 18);
+  const originBL = useSharedValue(origin.radii?.[3] ?? origin.radius ?? 18);
   const backdrop = useSharedValue(0);
   const sheet = useSharedValue(0);
+  const photoFitProgress = useSharedValue(0);
   const dragY = useSharedValue(0);
   const modalDragY = useSharedValue(0);
   const closing = useSharedValue(0);
@@ -167,28 +174,40 @@ export function TodayListingOverlay({
   const dwellRecorded = useRef(false);
   const rootRef = useRef<View>(null);
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const detailsOffset = useRef(0);
 
   useEffect(() => {
     originX.value = origin.x;
     originY.value = origin.y;
     originW.value = origin.width;
     originH.value = origin.height;
+    originTL.value = origin.radii?.[0] ?? origin.radius ?? 18;
+    originTR.value = origin.radii?.[1] ?? origin.radius ?? 18;
+    originBR.value = origin.radii?.[2] ?? origin.radius ?? 18;
+    originBL.value = origin.radii?.[3] ?? origin.radius ?? 18;
     imgX.value = origin.x;
     imgY.value = origin.y;
     imgW.value = origin.width;
     imgH.value = origin.height;
-    imgR.value = 18;
+    imgTL.value = origin.radii?.[0] ?? origin.radius ?? 18;
+    imgTR.value = origin.radii?.[1] ?? origin.radius ?? 18;
+    imgBR.value = origin.radii?.[2] ?? origin.radius ?? 18;
+    imgBL.value = origin.radii?.[3] ?? origin.radius ?? 18;
     modalDragY.value = 0;
-    imgX.value = withSpring(imageTargetX, OPEN_SPRING);
-    imgY.value = withSpring(imageTargetY, OPEN_SPRING);
-    imgW.value = withSpring(quickImageSize, OPEN_SPRING);
-    imgH.value = withSpring(quickImageSize, OPEN_SPRING);
-    imgR.value = withSpring(14, OPEN_SPRING, (finished) => {
+    imgX.value = withTiming(imageTargetX, PHOTO_MORPH);
+    imgY.value = withTiming(imageTargetY, PHOTO_MORPH, (finished) => {
       if (finished) settled.value = 1;
     });
+    imgW.value = withTiming(quickImageSize, PHOTO_MORPH);
+    imgH.value = withTiming(quickImageSize, PHOTO_MORPH);
+    imgTL.value = withTiming(14, PHOTO_MORPH);
+    imgTR.value = withTiming(14, PHOTO_MORPH);
+    imgBR.value = withTiming(14, PHOTO_MORPH);
+    imgBL.value = withTiming(14, PHOTO_MORPH);
+    photoFitProgress.value = withTiming(1, PHOTO_MORPH);
     backdrop.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
     sheet.value = withTiming(1, { duration: 220 });
-  }, [backdrop, imageTargetX, imageTargetY, imgH, imgR, imgW, imgX, imgY, modalDragY, origin.height, origin.width, origin.x, origin.y, originH, originW, originX, originY, quickImageSize, sheet]);
+  }, [backdrop, imageTargetX, imageTargetY, imgBL, imgBR, imgH, imgTL, imgTR, imgW, imgX, imgY, modalDragY, origin.height, origin.radius, origin.radii, origin.width, origin.x, origin.y, originBL, originBR, originH, originTL, originTR, originW, originX, originY, photoFitProgress, quickImageSize, sheet]);
 
   useEffect(() => {
     if (!showDoubleTapHint || !onDoubleTapHintDismiss) return;
@@ -219,18 +238,24 @@ export function TodayListingOverlay({
     imgY.value = imageTargetY + modalDragY.value - scrollY.value;
     imgW.value = quickImageSize;
     imgH.value = quickImageSize;
-    imgR.value = 14;
+    imgTL.value = 14;
+    imgTR.value = 14;
+    imgBR.value = 14;
+    imgBL.value = 14;
     recordDwell();
-    sheet.value = withTiming(0, { duration: 80 });
-    backdrop.value = withTiming(0, { duration: 240, easing: Easing.out(Easing.cubic) });
-    modalDragY.value = withTiming(modalDragY.value + 24, { duration: 180, easing: Easing.out(Easing.cubic) });
-    imgX.value = withSpring(originX.value, CLOSE_SPRING);
-    imgY.value = withSpring(originY.value, CLOSE_SPRING);
-    imgW.value = withSpring(originW.value, CLOSE_SPRING);
-    imgH.value = withSpring(originH.value, CLOSE_SPRING);
-    imgR.value = withSpring(18, CLOSE_SPRING, (finished) => {
+    sheet.value = withTiming(0, PHOTO_MORPH);
+    backdrop.value = withTiming(0, PHOTO_MORPH);
+    imgX.value = withTiming(originX.value, PHOTO_MORPH);
+    imgY.value = withTiming(originY.value, PHOTO_MORPH, (finished) => {
       if (finished) runOnJS(finishClose)();
     });
+    imgW.value = withTiming(originW.value, PHOTO_MORPH);
+    imgH.value = withTiming(originH.value, PHOTO_MORPH);
+    imgTL.value = withTiming(originTL.value, PHOTO_MORPH);
+    imgTR.value = withTiming(originTR.value, PHOTO_MORPH);
+    imgBR.value = withTiming(originBR.value, PHOTO_MORPH);
+    imgBL.value = withTiming(originBL.value, PHOTO_MORPH);
+    photoFitProgress.value = withTiming(0, PHOTO_MORPH);
   };
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -314,9 +339,14 @@ export function TodayListingOverlay({
     left: imgX.value,
     width: imgW.value,
     height: imgH.value,
-    borderRadius: imgR.value,
+    borderTopLeftRadius: imgTL.value,
+    borderTopRightRadius: imgTR.value,
+    borderBottomRightRadius: imgBR.value,
+    borderBottomLeftRadius: imgBL.value,
     opacity: 1 - settled.value,
   }));
+  const coverPhotoStyle = useAnimatedStyle(() => ({ opacity: 1 - photoFitProgress.value }));
+  const containPhotoStyle = useAnimatedStyle(() => ({ opacity: photoFitProgress.value }));
   const inFlowStyle = useAnimatedStyle(() => ({ opacity: settled.value }));
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value * 0.55 }));
   const pageStyle = useAnimatedStyle(() => ({ opacity: sheet.value }));
@@ -336,6 +366,7 @@ export function TodayListingOverlay({
   const gallery = piece.photos?.length ? piece.photos : [piece.photo];
   const measurementEntries = Object.entries(piece.measurements || {}).filter(([, value]) => Boolean(value));
   const currentPhoto = gallery[Math.min(activePhoto, gallery.length - 1)] || piece.photo;
+  const originPhoto = origin.photo || piece.photo;
   const heartPopX = useSharedValue(screenW / 2);
   const heartPopY = useSharedValue(imageTargetY + quickImageSize / 2);
   const heartPopScale = useSharedValue(0);
@@ -538,10 +569,16 @@ export function TodayListingOverlay({
               ))}
             </Animated.ScrollView>
           ) : null}
-          <View style={styles.scrollCue}>
+          <Pressable
+            style={({ pressed }) => [styles.scrollCue, pressed && styles.scrollCuePressed]}
+            onPress={() => scrollRef.current?.scrollTo({ y: Math.max(0, detailsOffset.current - 8), animated: true })}
+            accessibilityRole="button"
+            accessibilityLabel="More listing details"
+            accessibilityHint="Scrolls to measurements, shipping, and listing information."
+          >
             <Text style={styles.scrollCueText}>More listing details</Text>
             <Ionicons name="chevron-down" size={16} color={colors.muted} />
-          </View>
+          </Pressable>
           {!previewOnly ? (
             <Pressable
               onPress={() => {
@@ -599,7 +636,12 @@ export function TodayListingOverlay({
               {piece.material ? <Fact label="Material" value={piece.material} styles={styles} /> : null}
             </View>
           ) : null}
-          <View style={styles.detailSections}>
+          <View
+            style={styles.detailSections}
+            onLayout={(event) => {
+              detailsOffset.current = event.nativeEvent.layout.y;
+            }}
+          >
             <Pressable onPress={() => setMeasurementsOpen((open) => !open)} style={styles.expandRow} accessibilityRole="button" accessibilityState={{ expanded: measurementsOpen }}>
               <View style={styles.expandTitleWrap}>
                 <Ionicons name="resize-outline" size={18} color={colors.success} />
@@ -692,7 +734,12 @@ export function TodayListingOverlay({
         </Animated.View>
         </GestureDetector>
         <Animated.View pointerEvents="none" style={[styles.photo, photoStyle]}>
-          <Image cachePolicy="memory-disk" source={{ uri: currentPhoto }} style={styles.hero} contentFit="contain" />
+          <Animated.View style={[StyleSheet.absoluteFill, coverPhotoStyle]}>
+            <Image cachePolicy="memory-disk" source={{ uri: originPhoto }} style={styles.hero} contentFit="cover" />
+          </Animated.View>
+          <Animated.View style={[StyleSheet.absoluteFill, containPhotoStyle]}>
+            <Image cachePolicy="memory-disk" source={{ uri: currentPhoto }} style={styles.hero} contentFit="contain" />
+          </Animated.View>
         </Animated.View>
         <Animated.Text pointerEvents="none" style={[styles.heartPop, heartPopStyle]}>♥</Animated.Text>
         <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
@@ -758,12 +805,13 @@ function make(colors: Colors) {
     headerAction: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: `${colors.bone}28`, backgroundColor: `${colors.bone}08`, alignItems: "center", justifyContent: "center" },
     popupScroll: { position: "absolute", left: 0, right: 0 },
     popupContent: { paddingBottom: 8 },
-    summaryRow: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
+    summaryRow: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12, flexDirection: "row", alignItems: "flex-start", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
     summaryCopy: { flex: 1, minWidth: 0, justifyContent: "center" },
     summaryTitle: { color: colors.bone, fontSize: 16, lineHeight: 20, fontWeight: "800", letterSpacing: -0.2 },
     summaryPrice: { fontSize: 18, marginTop: 6 },
     summaryPriceRow: { marginTop: 6, gap: 6 },
     scrollCue: { minHeight: 38, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}18` },
+    scrollCuePressed: { opacity: 0.68 },
     scrollCueText: { color: colors.muted, fontSize: 12, fontWeight: "700" },
     inlineHint: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingTop: 8 },
     inlineHintText: { color: colors.muted, fontSize: 11, fontWeight: "600" },

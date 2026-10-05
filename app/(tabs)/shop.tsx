@@ -523,7 +523,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const openFeatured = useCallback(() => {
     if (!featured) return;
     featuredRef.current?.measureInWindow((x, y, width, height) => {
-      void openTodayListing(featured, { x, y, width, height });
+      void openTodayListing(featured, { x, y, width, height, radius: 0, photo: featured.photo });
     });
   }, [featured, openTodayListing]);
   const heroHeight = Math.max(430, Math.min(560, Dimensions.get("window").height * 0.53));

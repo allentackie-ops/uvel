@@ -10,7 +10,7 @@ import { getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 
-type BannerStoryOrigin = { x: number; y: number; width: number; height: number };
+type BannerStoryOrigin = { x: number; y: number; width: number; height: number; radii: [number, number, number, number]; photo: string };
 
 export function TodayBannerStoryPage({ story, onClose, onOpenPiece }: { story: BannerStory; onClose: () => void; onOpenPiece: (piece: ClosetPiece, origin: BannerStoryOrigin) => void }) {
   const colors = useColors();
@@ -81,9 +81,9 @@ function ProductSection({ title, pieces, color, market, colors, onOpenPiece }: {
 }
 
 function ProductCard({ piece, color, market, colors, onOpenPiece }: { piece: ClosetPiece; color: string; market: ReturnType<typeof getMarket>; colors: ReturnType<typeof useColors>; onOpenPiece: (piece: ClosetPiece, origin: BannerStoryOrigin) => void }) {
-  const ref = useRef<View>(null);
+  const imageRef = useRef<View>(null);
   const discounted = piece.originalPriceCents > piece.listPriceCents;
-  return <Pressable ref={ref} onPress={() => ref.current?.measureInWindow((x, y, width, height) => onOpenPiece(piece, { x, y, width, height }))} style={[styles.productCard, { backgroundColor: colors.surface }]} accessibilityRole="button" accessibilityLabel={`Open ${piece.name}`}><View style={[styles.productImageWrap, { backgroundColor: `${colors.bone}12` }]}><Image cachePolicy="memory-disk" source={{ uri: piece.photos?.[0] || piece.photo || "" }} style={styles.productImage} contentFit="cover" /><Pressable style={[styles.quickAdd, { backgroundColor: color }]} onPress={() => undefined} accessibilityRole="button" accessibilityLabel={`Quick add ${piece.name}`}><Ionicons name="add" size={20} color={colors.ink} /></Pressable></View><Text style={[styles.productBrand, { color: colors.muted }]} numberOfLines={1}>{(piece.brand || "Uvel seller").toUpperCase()}</Text><Text style={[styles.productName, { color: colors.bone }]} numberOfLines={2}>{piece.name}</Text>{discounted ? <Text style={[styles.deal, { color: colors.danger }]}>Limited edit deal</Text> : null}<Text style={[styles.productPrice, { color: colors.bone }]}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>{discounted ? <Text style={[styles.typical, { color: colors.muted }]}>Typical price {moneyInMarket(piece.originalPriceCents, piece.currency || market.currency, market)}</Text> : null}</Pressable>;
+  return <Pressable onPress={() => imageRef.current?.measureInWindow((x, y, width, height) => onOpenPiece(piece, { x, y, width, height, radii: [12, 12, 0, 0], photo: piece.photos?.[0] || piece.photo || "" }))} style={[styles.productCard, { backgroundColor: colors.surface }]} accessibilityRole="button" accessibilityLabel={`Open ${piece.name}`}><View ref={imageRef} collapsable={false} style={[styles.productImageWrap, { backgroundColor: `${colors.bone}12` }]}><Image cachePolicy="memory-disk" source={{ uri: piece.photos?.[0] || piece.photo || "" }} style={styles.productImage} contentFit="cover" /><Pressable style={[styles.quickAdd, { backgroundColor: color }]} onPress={() => undefined} accessibilityRole="button" accessibilityLabel={`Quick add ${piece.name}`}><Ionicons name="add" size={20} color={colors.ink} /></Pressable></View><Text style={[styles.productBrand, { color: colors.muted }]} numberOfLines={1}>{(piece.brand || "Uvel seller").toUpperCase()}</Text><Text style={[styles.productName, { color: colors.bone }]} numberOfLines={2}>{piece.name}</Text>{discounted ? <Text style={[styles.deal, { color: colors.danger }]}>Limited edit deal</Text> : null}<Text style={[styles.productPrice, { color: colors.bone }]}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>{discounted ? <Text style={[styles.typical, { color: colors.muted }]}>Typical price {moneyInMarket(piece.originalPriceCents, piece.currency || market.currency, market)}</Text> : null}</Pressable>;
 }
 
 const styles = StyleSheet.create({

@@ -61,7 +61,7 @@ export function ListingCard({
   framed?: boolean;
   firstFind?: boolean;
   onFirstFind?: () => void;
-  onOpen?: (piece: ClosetPiece, origin: { x: number; y: number; width: number; height: number }) => void;
+  onOpen?: (piece: ClosetPiece, origin: { x: number; y: number; width: number; height: number; radius: number; photo: string }) => void;
   onInteraction?: (action: PersonalizationAction, piece: ClosetPiece) => void;
 }) {
   const colors = useColors();
@@ -94,14 +94,14 @@ export function ListingCard({
         router.push({ pathname: "/closet/[id]", params: { id: live.id } });
         return;
       }
-      mediaRef.current?.measureInWindow((x, y, width, height) => onOpen(live, { x, y, width, height }));
+      mediaRef.current?.measureInWindow((x, y, width, height) => onOpen(live, { x, y, width, height, radius: framed ? 0 : 18, photo: live.photo }));
     }}
       style={({ pressed }) => [styles.wrap, hasCustomLook && { backgroundColor: shopLook.surface, borderColor: shopLook.page, borderWidth: 1 }, wide ? { width: wide, flex: undefined } : null, framed && styles.framed, pressed && app.accessibilityMode && styles.focused]}
       accessibilityRole="button"
       accessibilityLabel={`${brand} ${live.name}, ${credit > 0 ? `${moneyInMarket(saleCents, here.currency, here)} with First Find, was ${moneyInMarket(localPriceCents, itemCurrency, here)}` : moneyInMarket(live.listPriceCents, itemCurrency, here)}${typeof live.stockQuantity === "number" ? live.stockQuantity === 0 ? ", sold out" : live.stockQuantity <= 10 ? `, ${live.stockQuantity} remaining` : "" : ""}${!confirmed ? ", availability not confirmed" : ""}`}
       accessibilityHint="Double tap to view this listing."
     >
-      <View ref={mediaRef}>
+      <View ref={mediaRef} collapsable={false}>
           <Image cachePolicy="memory-disk"
             source={{ uri: live.photo }}
             style={[styles.img, hasCustomLook && { backgroundColor: shopLook.page }, wide ? { width: wide, borderRadius: framed ? 0 : 18 } : null, framed && styles.framedImg]}
