@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <title>Uvel notched pebble mark</title>
-  <desc>A single warm-ivory asymmetric pebble silhouette with one geometric notch on a dark olive field.</desc>
+  <title>Uvel turn mark</title>
+  <desc>A single open U-shaped lime gesture with a rising terminal on a dark olive field.</desc>
   <rect width="1024" height="1024" fill="#2A320E"/>
-  <path fill="#F4F0E6" d="M286 286C384 206 540 186 668 228C752 255 808 314 832 386L765 417C731 434 715 463 724 493C735 528 773 546 811 533L844 521C836 630 785 711 690 766C579 830 414 829 310 756C213 688 177 568 204 452C222 377 247 318 286 286Z"/>
-  <path fill="#2A320E" d="M832 386L765 417C731 434 715 463 724 493C735 528 773 546 811 533L844 521C850 474 846 425 832 386Z"/>
+  <path fill="#D6E27A" d="M270 300C214 386 190 492 207 595C230 736 339 842 475 870C607 897 740 839 806 728C857 642 867 538 833 445C804 364 747 302 673 269L632 354C682 377 720 416 740 470C763 531 757 599 724 656C681 729 596 774 509 756C419 738 348 667 332 575C318 493 340 410 386 342L270 300Z"/>
+  <path fill="#D6E27A" d="M581 231L690 253L641 350L532 328L581 231Z"/>
 </svg>
