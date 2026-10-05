@@ -477,6 +477,18 @@ function ProductRail({ pieces, market, onOpen, deals, compact }: { pieces: Close
 
 function DealsFeature({ pieces, market, onOpen }: { pieces: ClosetPiece[]; market: ReturnType<typeof getMarket>; onOpen: TodayCommerceFeedProps["onOpenPiece"] }) {
   const styles = make(useColors());
+  const beamMotion = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const beamLoop = Animated.loop(Animated.sequence([
+      Animated.timing(beamMotion, { toValue: 1, duration: 1100, useNativeDriver: true }),
+      Animated.timing(beamMotion, { toValue: 0, duration: 1100, useNativeDriver: true }),
+    ]));
+    beamLoop.start();
+    return () => beamLoop.stop();
+  }, [beamMotion]);
+  const beamOpacity = beamMotion.interpolate({ inputRange: [0, 1], outputRange: [0.36, 0.95] });
+  const beamScale = beamMotion.interpolate({ inputRange: [0, 1], outputRange: [0.88, 1.12] });
+  const stickerRotation = beamMotion.interpolate({ inputRange: [0, 1], outputRange: ["-5deg", "4deg"] });
   return <View style={styles.dealsFeature}>
     <View style={styles.dealsFeatureHeader}>
       <View style={styles.dealsFeatureCopy}>
@@ -484,8 +496,13 @@ function DealsFeature({ pieces, market, onOpen }: { pieces: ClosetPiece[]; marke
         <Text style={styles.dealsFeatureSubtitle}>Iconic pieces. Better prices. Right now.</Text>
       </View>
       <View style={styles.dealsFeatureNote}>
-        <Text style={styles.dealsFeatureNoteText}>GOOD{`\n`}STYLE{`\n`}LIVES{`\n`}HERE</Text>
-        <Text style={styles.dealsFeatureMarks}>╱╱</Text>
+        <Animated.View pointerEvents="none" style={[styles.dealsStickerHalo, { opacity: beamOpacity, transform: [{ scale: beamScale }] }]} />
+        <Animated.View pointerEvents="none" style={[styles.dealsStickerRays, { opacity: beamOpacity, transform: [{ scale: beamScale }] }]}>
+          {[{ top: 7, left: 10, rotate: "-34deg", color: "#FFE66D" }, { top: 2, right: 8, rotate: "22deg", color: "#57D9EE" }, { bottom: 10, left: 8, rotate: "-18deg", color: "#FFFFFF" }, { bottom: 4, right: 6, rotate: "35deg", color: "#FF8A70" }].map((ray) => <View key={`${ray.top}-${ray.left || ray.right}`} style={[styles.dealsStickerRay, { top: ray.top, left: ray.left, right: ray.right, bottom: ray.bottom, backgroundColor: ray.color, transform: [{ rotate: ray.rotate }] }]} />)}
+        </Animated.View>
+        <Animated.View style={[styles.dealsSticker, { transform: [{ rotate: stickerRotation }] }]}>
+          <Text style={styles.dealsStickerText}>STYLE{`\n`}FOR LESS</Text>
+        </Animated.View>
       </View>
     </View>
     <View style={styles.dealsGrid}>
@@ -631,9 +648,12 @@ function make(colors: Colors) {
     dealsFeatureCopy: { flex: 1, paddingRight: 8 },
     dealsFeatureTitle: { color: "#FFFFFF", fontSize: 31, lineHeight: 31, fontWeight: "900", letterSpacing: -0.8 },
     dealsFeatureSubtitle: { color: "rgba(255,255,255,0.8)", fontSize: 14, lineHeight: 19, marginTop: 10, maxWidth: 240 },
-    dealsFeatureNote: { width: 88, alignItems: "flex-end", paddingTop: 2 },
-    dealsFeatureNoteText: { color: "#D9F58A", fontSize: 14, lineHeight: 15, fontWeight: "900", fontStyle: "italic", textAlign: "right", transform: [{ rotate: "-7deg" }] },
-    dealsFeatureMarks: { color: "#D9F58A", fontSize: 26, lineHeight: 24, fontWeight: "800", marginTop: 7, transform: [{ rotate: "-18deg" }] },
+    dealsFeatureNote: { width: 108, height: 108, alignItems: "center", justifyContent: "center", marginTop: -2 },
+    dealsStickerHalo: { position: "absolute", width: 94, height: 94, borderRadius: 47, backgroundColor: "#4FD9E7", opacity: 0.38 },
+    dealsStickerRays: { position: "absolute", width: 108, height: 108 },
+    dealsStickerRay: { position: "absolute", width: 27, height: 4, borderRadius: 2 },
+    dealsSticker: { width: 86, height: 86, borderRadius: 24, backgroundColor: "#FF6D5D", borderWidth: 3, borderColor: "#FFE66D", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.22, shadowRadius: 7, shadowOffset: { width: 0, height: 4 }, elevation: 5 },
+    dealsStickerText: { color: "#171A16", fontSize: 14, lineHeight: 16, fontWeight: "900", textAlign: "center", letterSpacing: 0.4 },
     dealsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
     dealFeatureCard: { width: "48.5%", borderRadius: 15, overflow: "hidden", backgroundColor: "#27382C" },
     dealFeaturePress: { paddingBottom: 9 },
