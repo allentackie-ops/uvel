@@ -20,6 +20,7 @@ const NEW_IN_LATEST_STICKER = require("../assets/today/new-in-latest-sticker.png
 const TRENDING_NOW_OPTION_TWO = require("../assets/today/trending-now-option-2.png");
 const NEW_IN_ANIMATED_BASE = require("../assets/today/new-in-option3-collage.png");
 const DEALS_MOTION_BANNER = require("../assets/today/deals-fun-motion-banner-clean.mp4");
+const FINISHING_PIECES_LOOP = require("../assets/today/finishing-pieces-loop.mp4");
 
 const EDITORIAL = [
   { title: "City layers", subtitle: "Effortless polish", accent: "#D8C4AE" },
@@ -294,7 +295,7 @@ function PosterCarousel({
         {stories.map((story, index) => {
           const ref = index === 0 ? primaryRef : undefined;
           return <Pressable key={story.id} ref={ref} onPress={() => openBanner(ref || primaryRef, { title: story.title, subtitle: story.subtitle, color: story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: story.pieces, detailPieces: story.detailPieces })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
-            <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} staticAsset={story.id === "trending-now" ? TRENDING_NOW_OPTION_TWO : story.id === "new-in" ? NEW_IN_ANIMATED_BASE : undefined} videoAsset={story.id === "deals" ? DEALS_MOTION_BANNER : undefined} />
+            <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} staticAsset={story.id === "trending-now" ? TRENDING_NOW_OPTION_TWO : story.id === "new-in" ? NEW_IN_ANIMATED_BASE : undefined} videoAsset={story.id === "deals" ? DEALS_MOTION_BANNER : story.id === "accessories" ? FINISHING_PIECES_LOOP : undefined} />
           </Pressable>;
         })}
       </Animated.ScrollView>
@@ -422,7 +423,7 @@ function EditorialPoster({ story, pieces, styles, staticAsset, videoAsset }: { s
         : story.variant === "luxury"
           ? { hero: { right: -18, top: 112, width: 252, height: 308, zIndex: 2 }, secondary: { left: 0, top: 298, width: 152, height: 194, zIndex: 4 }, tertiary: { right: 2, top: 338, width: 136, height: 174, zIndex: 5 }, fourth: { left: 116, top: 220, width: 118, height: 152, transform: [{ rotate: "7deg" }], zIndex: 3 } }
           : { hero: { right: -10, top: 126, width: 214, height: 286, zIndex: 2 }, secondary: { left: -18, top: 284, width: 158, height: 202, zIndex: 1 }, tertiary: { right: -22, top: 306, width: 148, height: 188, zIndex: 4 }, fourth: { left: 92, top: 300, width: 116, height: 150, transform: [{ rotate: "-7deg" }], zIndex: 3 } };
-  if (videoAsset) return <DealsMotionPoster source={videoAsset} styles={styles} />;
+  if (videoAsset) return <DealsMotionPoster source={videoAsset} color={story.color} styles={styles} />;
   if (staticAsset) {
     return <View style={[styles.editorialPoster, { backgroundColor: story.color, padding: 0 }]}><Image source={staticAsset} style={styles.editorialReferenceImage} contentFit="cover" accessible={false} /></View>;
   }
@@ -439,7 +440,7 @@ function EditorialPoster({ story, pieces, styles, staticAsset, videoAsset }: { s
   </View>;
 }
 
-function DealsMotionPoster({ source, styles }: { source: number; styles: ReturnType<typeof make> }) {
+function DealsMotionPoster({ source, color, styles }: { source: number; color: string; styles: ReturnType<typeof make> }) {
   const player = useVideoPlayer(source, (instance) => {
     instance.loop = true;
     instance.muted = true;
@@ -454,7 +455,7 @@ function DealsMotionPoster({ source, styles }: { source: number; styles: ReturnT
     player.play();
     return () => player.pause();
   }, [player]);
-  return <View pointerEvents="none" style={[styles.editorialPoster, { backgroundColor: "#A5B98A", padding: 0 }]}><VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} surfaceType="textureView" /></View>;
+  return <View pointerEvents="none" style={[styles.editorialPoster, { backgroundColor: color, padding: 0 }]}><VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} surfaceType="textureView" /></View>;
 }
 
 function SectionTitle({ title, onPress }: { title: string; onPress: () => void }) {
