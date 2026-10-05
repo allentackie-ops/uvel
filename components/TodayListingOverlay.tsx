@@ -85,11 +85,10 @@ export function TodayListingOverlay({
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
-  const introHeight = 76;
-  const heroH = Math.round(Math.min(Math.max(screenH * 0.34, 220), 380));
-  const popupTop = Math.max(insets.top + 6, 56);
+  const heroH = Math.round(Math.min(Math.max(screenH * 0.62, 420), 620));
+  const popupTop = Math.max(insets.top, 56);
   const footerHeight = insets.bottom + 76;
-  const chromeTop = popupTop + introHeight;
+  const chromeTop = popupTop;
   const imgX = useSharedValue(origin.x);
   const imgY = useSharedValue(origin.y);
   const imgW = useSharedValue(origin.width);
@@ -464,7 +463,7 @@ export function TodayListingOverlay({
         <AnimatedScrollView
           ref={scrollRef}
           style={[styles.page, { top: popupTop, bottom: footerHeight + (showTryOnHint ? 74 : 0) }, pageStyle]}
-          contentContainerStyle={{ paddingBottom: 22 }}
+          contentContainerStyle={{ paddingTop: 0, paddingBottom: 22 }}
           showsVerticalScrollIndicator={false}
           bounces={false}
           overScrollMode="never"
@@ -475,17 +474,6 @@ export function TodayListingOverlay({
           scrollEventThrottle={16}
           onScroll={scrollHandler}
         >
-          <View style={styles.popupIntro}>
-            <Text style={styles.title} numberOfLines={2}>{piece.name}</Text>
-            {credit > 0 ? (
-              <View style={styles.priceRow}>
-                <Text style={styles.was}>{moneyInMarket(localPriceCents, market.currency, market)}</Text>
-                <Text style={[styles.price, { marginTop: 0 }]}>{moneyInMarket(saleCents, market.currency, market)}</Text>
-              </View>
-            ) : (
-              <Text style={styles.price}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
-            )}
-          </View>
           <GestureDetector gesture={pan}>
           <Animated.View style={[styles.heroSlot, { height: heroH }, inFlowStyle]}>
             <Pressable
@@ -528,6 +516,16 @@ export function TodayListingOverlay({
           </Animated.View>
           </GestureDetector>
           <View style={styles.detail}>
+          <Text style={styles.kicker}>{(brand || "UVEL").toUpperCase()}</Text>
+          <Text style={styles.title}>{piece.name}</Text>
+          {credit > 0 ? (
+            <View style={styles.priceRow}>
+              <Text style={styles.was}>{moneyInMarket(localPriceCents, market.currency, market)}</Text>
+              <Text style={[styles.price, { marginTop: 0 }]}>{moneyInMarket(saleCents, market.currency, market)}</Text>
+            </View>
+          ) : (
+            <Text style={styles.price}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
+          )}
           <Text style={styles.meta}>{[
             piece.size || piece.sizes?.length ? `Size: ${piece.size || piece.sizes?.join(", ")}` : null,
             piece.color ? `Color: ${piece.color}` : null,
@@ -771,8 +769,7 @@ function make(colors: Colors) {
     backdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "#000" },
     page: { position: "absolute", left: 0, right: 0, backgroundColor: colors.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: "hidden" },
     pageContent: { paddingBottom: 40 },
-    popupIntro: { height: 76, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 4, backgroundColor: colors.surface },
-    detail: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 28 },
+    detail: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 40 },
     heroSlot: { width: "100%", backgroundColor: colors.surface, position: "relative" },
     photo: { position: "absolute", overflow: "hidden", backgroundColor: colors.surface, zIndex: 4 },
     heroHit: { flex: 1 },
@@ -789,9 +786,9 @@ function make(colors: Colors) {
     photoCount: { position: "absolute", right: 18, bottom: 18, minWidth: 48, height: 28, paddingHorizontal: 9, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.58)", alignItems: "center", justifyContent: "center" },
     photoCountText: { color: colors.bone, fontSize: 11, fontWeight: "800", fontVariant: ["tabular-nums"] },
     kicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.8 },
-    title: { color: colors.bone, fontSize: 16, lineHeight: 20, fontWeight: "700", letterSpacing: -0.1 },
-    priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 2, flexWrap: "wrap" },
-    price: { color: colors.success, fontSize: 15, lineHeight: 18, fontWeight: "900", marginTop: 2 },
+    title: { color: colors.bone, fontSize: 28, lineHeight: 34, fontWeight: "800", letterSpacing: -0.35, marginTop: 7 },
+    priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 12, flexWrap: "wrap" },
+    price: { color: colors.success, fontSize: 19, fontWeight: "800", marginTop: 12 },
     was: { color: `${colors.bone}66`, fontSize: 16, fontWeight: "600", textDecorationLine: "line-through", fontVariant: ["tabular-nums"] },
     meta: { color: `${colors.bone}85`, fontSize: 13, marginTop: 7 },
     thumbRail: { gap: 8, paddingTop: 16, paddingBottom: 2 },
