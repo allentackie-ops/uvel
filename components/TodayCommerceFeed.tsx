@@ -329,7 +329,7 @@ function PosterCarousel({
         }}
       >
         {stories.map((story, index) => {
-          return <Pressable key={story.id} onPress={() => openBanner({ title: story.title, subtitle: story.subtitle, color: story.color, gradientColor: BANNER_COLORS[index] ?? story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: story.pieces, detailPieces: story.detailPieces })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
+          return <Pressable key={story.id} onPress={() => openBanner({ title: story.title, subtitle: story.subtitle, color: story.color, headerColor: BANNER_COLORS[index] ?? story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: story.pieces, detailPieces: story.detailPieces })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
             <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} staticAsset={story.id === "trending-now" ? TRENDING_NOW_FINAL : story.id === "new-in" ? NEW_IN_ANIMATED_BASE : story.id === "accessories" ? FINISHING_PIECES_POSTER : story.id === "quiet-luxury" ? MINIMAL_WITH_PRESENCE_BANNER : undefined} videoAsset={story.id === "deals" ? DEALS_MOTION_BANNER : undefined} videoActive={activeIndex === index} />
           </Pressable>;
         })}

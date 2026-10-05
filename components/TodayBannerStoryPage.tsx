@@ -11,7 +11,6 @@ import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 
 type BannerStoryOrigin = { x: number; y: number; width: number; height: number };
-const GRADIENT_FADE_STEPS = Array.from({ length: 16 }, (_, index) => Math.pow(index / 15, 1.4));
 
 export function TodayBannerStoryPage({ story, onClose, onOpenPiece }: { story: BannerStory; onClose: () => void; onOpenPiece: (piece: ClosetPiece, origin: BannerStoryOrigin) => void }) {
   const colors = useColors();
@@ -22,7 +21,8 @@ export function TodayBannerStoryPage({ story, onClose, onOpenPiece }: { story: B
   const fade = useRef(new Animated.Value(0)).current;
   const loaderFade = useRef(new Animated.Value(1)).current;
   const headerHeight = insets.top + 64;
-  const gradientFadeHeight = 20;
+  const headerColor = story.headerColor || story.color;
+  const headerForeground = getHeaderForeground(headerColor);
   const market = getMarket(app.country);
   const pieces = story.detailPieces?.length ? story.detailPieces : story.pieces;
   const sections = useMemo(() => {
@@ -46,15 +46,9 @@ export function TodayBannerStoryPage({ story, onClose, onOpenPiece }: { story: B
 
   return (
     <View style={[styles.root, { backgroundColor: colors.ink }]}>
-      <View pointerEvents="none" style={[styles.topColorField, { height: headerHeight }]}>
-        <View style={[styles.topColorLayer, { backgroundColor: story.gradientColor || story.color, opacity: 0.78 }]} />
-        <View style={[styles.topColorFade, { height: gradientFadeHeight }]}>
-          {GRADIENT_FADE_STEPS.map((opacity, index) => <View key={index} style={[styles.topColorFadeStrip, { opacity, backgroundColor: colors.ink }]} />)}
-        </View>
-      </View>
-      <View style={[styles.header, { paddingTop: insets.top + 8, height: headerHeight, backgroundColor: "transparent", borderBottomColor: `${colors.bone}20` }]}>
-        <Pressable onPress={onClose} hitSlop={12} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Go back to Today"><Ionicons name="arrow-back" size={24} color={colors.bone} /></Pressable>
-        <View style={[styles.headerSearch, { backgroundColor: `${colors.bone}12` }]}><Ionicons name="search-outline" size={20} color={colors.bone} /><Text style={[styles.headerSearchText, { color: colors.muted }]}>Search Uvel</Text></View>
+      <View style={[styles.header, { paddingTop: insets.top + 8, height: headerHeight, backgroundColor: headerColor, borderBottomColor: `${headerForeground}20` }]}>
+        <Pressable onPress={onClose} hitSlop={12} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Go back to Today"><Ionicons name="arrow-back" size={24} color={headerForeground} /></Pressable>
+        <View style={[styles.headerSearch, { backgroundColor: "#FFFFFF" }]}><Ionicons name="search-outline" size={20} color="#111111" /><Text style={[styles.headerSearchText, { color: "#111111" }]}>Search Uvel</Text></View>
       </View>
       <Animated.ScrollView style={{ opacity: fade, flex: 1 }} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 80 }]} showsVerticalScrollIndicator={false}>
         <View style={styles.introBlock}>
@@ -70,6 +64,18 @@ export function TodayBannerStoryPage({ story, onClose, onOpenPiece }: { story: B
   );
 }
 
+function getHeaderForeground(background: string) {
+  const hex = background.replace("#", "");
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return "#111111";
+  const weights = [0.2126, 0.7152, 0.0722];
+  const luminance = [0, 2, 4].reduce((sum, offset, index) => {
+    const value = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+    const linear = value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    return sum + linear * weights[index];
+  }, 0);
+  return luminance > 0.179 ? "#111111" : "#FFFFFF";
+}
+
 function ProductSection({ title, pieces, color, market, colors, onOpenPiece }: { title: string; pieces: ClosetPiece[]; color: string; market: ReturnType<typeof getMarket>; colors: ReturnType<typeof useColors>; onOpenPiece: (piece: ClosetPiece, origin: BannerStoryOrigin) => void }) {
   return <View style={styles.section}><View style={styles.sectionHeading}><Text style={[styles.sectionTitle, { color: colors.bone }]}>{title}</Text><Text style={[styles.seeAll, { color: colors.success }]}>See all ›</Text></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productRow}>{pieces.map((piece) => <ProductCard key={piece.id} piece={piece} color={color} market={market} colors={colors} onOpenPiece={onOpenPiece} />)}</ScrollView></View>;
 }
@@ -82,10 +88,6 @@ function ProductCard({ piece, color, market, colors, onOpenPiece }: { piece: Clo
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  topColorField: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden", zIndex: 0 },
-  topColorLayer: { ...StyleSheet.absoluteFill },
-  topColorFade: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "column" },
-  topColorFadeStrip: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 10, borderBottomWidth: StyleSheet.hairlineWidth, zIndex: 1 },
   headerButton: { width: 34, height: 42, alignItems: "center", justifyContent: "center" },
   headerSearch: { flex: 1, height: 40, borderRadius: 20, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 8 },

@@ -4,7 +4,7 @@ export type BannerStory = {
   title: string;
   subtitle: string;
   color: string;
-  gradientColor?: string;
+  headerColor?: string;
   eyebrow?: string;
   footer?: string;
   pieces: ClosetPiece[];
