@@ -1,36 +1,25 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, PanResponder, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader } from "./OrbitLoader";
 import type { ClosetPiece } from "../lib/wardrobe";
+import type { BannerStory } from "../lib/todayBannerStories";
 import { todayProductImage } from "../lib/todayProductImage";
 import { getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 
-export type BannerStoryOrigin = { x: number; y: number; width: number; height: number };
-export type BannerStory = {
-  title: string;
-  subtitle: string;
-  color: string;
-  eyebrow?: string;
-  footer?: string;
-  pieces: ClosetPiece[];
-  detailPieces?: ClosetPiece[];
-};
+type BannerStoryOrigin = { x: number; y: number; width: number; height: number };
 
-export function TodayBannerStoryOverlay({ story, onClose, onOpenPiece }: { story: BannerStory; origin: BannerStoryOrigin; onClose: () => void; onOpenPiece: (piece: ClosetPiece, origin: BannerStoryOrigin) => void }) {
+export function TodayBannerStoryPage({ story, onClose, onOpenPiece }: { story: BannerStory; onClose: () => void; onOpenPiece: (piece: ClosetPiece, origin: BannerStoryOrigin) => void }) {
   const colors = useColors();
   const app = useUvel();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
   const [loading, setLoading] = useState(true);
   const [selectedDepartment, setSelectedDepartment] = useState("Fashion");
-  const translateX = useRef(new Animated.Value(width)).current;
   const fade = useRef(new Animated.Value(0)).current;
-  const closing = useRef(false);
   const market = getMarket(app.country);
   const pieces = story.detailPieces?.length ? story.detailPieces : story.pieces;
   const departments = [
@@ -43,36 +32,18 @@ export function TodayBannerStoryOverlay({ story, onClose, onOpenPiece }: { story
     { title: story.title === "New in" ? "Shop fall styles" : story.title, items: pieces.slice(0, 8) },
     { title: "New from Uvel sellers", items: pieces.slice(8, 16).length ? pieces.slice(8, 16) : pieces.slice(0, 8) },
   ], [pieces, story.title]);
-  const closePage = () => {
-    if (closing.current) return;
-    closing.current = true;
-    Animated.timing(translateX, { toValue: width, duration: 230, useNativeDriver: true }).start(({ finished }) => {
-      if (finished) onClose();
-    });
-  };
-  const panResponder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_event, gesture) => gesture.dx > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.15,
-    onPanResponderMove: (_event, gesture) => { if (!closing.current) translateX.setValue(Math.max(0, gesture.dx)); },
-    onPanResponderRelease: (_event, gesture) => {
-      if (closing.current) return;
-      if (gesture.dx > width * 0.24 || gesture.vx > 0.8) { closePage(); return; }
-      Animated.spring(translateX, { toValue: 0, damping: 24, stiffness: 280, useNativeDriver: true }).start();
-    },
-  }), [translateX, width]);
-
   useEffect(() => {
-    Animated.spring(translateX, { toValue: 0, damping: 24, stiffness: 280, useNativeDriver: true }).start();
     const timer = setTimeout(() => {
       setLoading(false);
       Animated.timing(fade, { toValue: 1, duration: 260, useNativeDriver: true }).start();
     }, 950);
     return () => clearTimeout(timer);
-  }, [fade, translateX]);
+  }, [fade]);
 
   return (
-    <Animated.View {...panResponder.panHandlers} style={[styles.root, { backgroundColor: colors.ink, transform: [{ translateX }] }]}>
+    <View style={[styles.root, { backgroundColor: colors.ink }]}>
       <View style={[styles.header, { paddingTop: insets.top + 8, height: insets.top + 64, backgroundColor: colors.ink, borderBottomColor: `${colors.bone}20` }]}>
-        <Pressable onPress={closePage} hitSlop={12} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Go back to Today"><Ionicons name="arrow-back" size={24} color={colors.bone} /></Pressable>
+        <Pressable onPress={onClose} hitSlop={12} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Go back to Today"><Ionicons name="arrow-back" size={24} color={colors.bone} /></Pressable>
         <View style={[styles.headerSearch, { backgroundColor: `${colors.bone}12` }]}><Ionicons name="search-outline" size={20} color={colors.bone} /><Text style={[styles.headerSearchText, { color: colors.muted }]}>Search Uvel</Text></View>
         <Pressable hitSlop={12} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Open menu"><Ionicons name="ellipsis-horizontal" size={23} color={colors.bone} /></Pressable>
       </View>
@@ -85,7 +56,7 @@ export function TodayBannerStoryOverlay({ story, onClose, onOpenPiece }: { story
         </ScrollView>
         {sections.map((section) => <ProductSection key={section.title} title={section.title} pieces={section.items} color={story.color} market={market} colors={colors} onOpenPiece={onOpenPiece} />)}
       </Animated.ScrollView>}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -100,7 +71,7 @@ function ProductCard({ piece, color, market, colors, onOpenPiece }: { piece: Clo
 }
 
 const styles = StyleSheet.create({
-  root: { ...StyleSheet.absoluteFillObject, zIndex: 100 },
+  root: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   headerButton: { width: 34, height: 42, alignItems: "center", justifyContent: "center" },
   headerSearch: { flex: 1, height: 40, borderRadius: 20, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 8 },

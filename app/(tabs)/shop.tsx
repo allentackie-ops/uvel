@@ -11,7 +11,6 @@ import * as Haptics from "../../lib/haptics";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard, ListingCardSkeleton } from "../../components/ListingCard";
 import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayListingOverlay";
-import { TodayBannerStoryOverlay, type BannerStory, type BannerStoryOrigin } from "../../components/TodayBannerStoryOverlay";
 import { ImmersiveShoppingButton } from "../../components/ImmersiveShoppingButton";
 import { TodayMessagesButton } from "../../components/TodayMessagesButton";
 import { TodayCommerceFeed } from "../../components/TodayCommerceFeed";
@@ -36,6 +35,7 @@ import { usePersonalization } from "../../lib/personalization";
 import { useFirstFind } from "../../lib/firstFind";
 import { convertCents, getMarket, moneyExact, moneyInMarket } from "../../lib/markets";
 import { recordReviewListingView, requestNativeReviewIfEligible } from "../../lib/appReview";
+import { keepTodayBannerStory, type BannerStory } from "../../lib/todayBannerStories";
 
 const MIN_REFRESH_MS = 1200;
 // Show the workspace drawer tutorial once per installation.
@@ -201,7 +201,6 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const [todayShuffleSeed] = useState(() => Math.floor(Math.random() * 0x7fffffff));
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
-  const [openBannerStory, setOpenBannerStory] = useState<{ story: BannerStory; origin: BannerStoryOrigin } | null>(null);
   const featuredRef = useRef<View>(null);
   const [findHint, setFindHint] = useState(false);
   const [showSwipeHint, setShowSwipeHint] = useState(false);
@@ -264,8 +263,9 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
       }
     }).catch(() => undefined);
   }, [app.profileDone, onListingOpenChange, todayHome]);
-  const openTodayBanner = useCallback((story: BannerStory, origin: BannerStoryOrigin) => {
-    setOpenBannerStory({ story, origin });
+  const openTodayBanner = useCallback((story: BannerStory) => {
+    const id = keepTodayBannerStory(story);
+    router.push({ pathname: "/today-banner", params: { id } });
   }, []);
   useEffect(() => {
     if (!todayHome || !drawerOpen || !openPiece) return;
@@ -874,16 +874,6 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           {emptyListingsContent}
         </ScrollView>
       )}
-      {todayHome && openBannerStory ? (
-        <TodayBannerStoryOverlay
-          story={openBannerStory.story}
-          origin={openBannerStory.origin}
-          onClose={() => setOpenBannerStory(null)}
-          onOpenPiece={(piece, origin) => {
-            void openTodayListing(piece, origin);
-          }}
-        />
-      ) : null}
       {todayHome && openPiece && openOrigin ? (
         <TodayListingOverlay
           piece={openPiece}

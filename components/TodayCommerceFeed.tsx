@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "./AccessiblePressable";
@@ -15,7 +15,7 @@ import { useColors } from "../lib/theme";
 import { getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { loadAddresses, setActiveAddress, type Address } from "../lib/orders";
-import type { BannerStory, BannerStoryOrigin } from "./TodayBannerStoryOverlay";
+import type { BannerStory } from "../lib/todayBannerStories";
 import { curateTodayBanners, type CuratedTodayBanner } from "../lib/todayBannerEngine";
 
 const NEW_IN_LATEST_STICKER = require("../assets/today/new-in-latest-sticker.png");
@@ -53,7 +53,7 @@ export type TodayCommerceFeedProps = {
   query: string;
   onQueryChange: (value: string) => void;
   onOpenPiece: (piece: ClosetPiece, origin: { x: number; y: number; width: number; height: number }) => void;
-  onOpenBanner: (story: BannerStory, origin: BannerStoryOrigin) => void;
+  onOpenBanner: (story: BannerStory) => void;
   onOpenSearch: () => void;
   onOpenMessages: () => void;
   onOpenTools: () => void;
@@ -287,7 +287,6 @@ function PosterCarousel({
   posterInterval: number;
 }) {
   const interval = posterInterval;
-  const primaryRef = useRef<View>(null);
   const carouselRef = useRef<ScrollView>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeIndexRef = useRef(0);
@@ -309,12 +308,12 @@ function PosterCarousel({
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, [autoAdvancePaused, interval, stories.length]);
-  const openBanner = (ref: RefObject<View | null>, story: BannerStory) => {
+  const openBanner = (story: BannerStory) => {
     if (!story.pieces.length) {
       onOpenSearch();
       return;
     }
-    ref.current?.measureInWindow((x, y, width, height) => onOpenBanner(story, { x, y, width, height }));
+    onOpenBanner(story);
   };
   return (
     <View style={styles.posterStage}>
@@ -336,8 +335,7 @@ function PosterCarousel({
         }}
       >
         {stories.map((story, index) => {
-          const ref = index === 0 ? primaryRef : undefined;
-          return <Pressable key={story.id} ref={ref} onPress={() => openBanner(ref || primaryRef, { title: story.title, subtitle: story.subtitle, color: story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: story.pieces, detailPieces: story.detailPieces })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
+          return <Pressable key={story.id} onPress={() => openBanner({ title: story.title, subtitle: story.subtitle, color: story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: story.pieces, detailPieces: story.detailPieces })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
             <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} staticAsset={story.id === "trending-now" ? TRENDING_NOW_FINAL : story.id === "new-in" ? NEW_IN_ANIMATED_BASE : story.id === "accessories" ? FINISHING_PIECES_POSTER : story.id === "quiet-luxury" ? MINIMAL_WITH_PRESENCE_BANNER : undefined} videoAsset={story.id === "deals" ? DEALS_MOTION_BANNER : undefined} playbackPaused={autoAdvancePaused} />
             {story.id === "deals" ? <Pressable onPress={(event) => { event.stopPropagation(); setAutoAdvancePaused((paused) => !paused); }} style={styles.posterPlaybackButton} accessibilityRole="button" accessibilityLabel={autoAdvancePaused ? "Resume Early Prime Big Deals video" : "Pause Early Prime Big Deals video"}>
               <Ionicons name={autoAdvancePaused ? "play" : "pause"} size={17} color="#FFFFFF" />

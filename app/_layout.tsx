@@ -234,6 +234,7 @@ function AppStack() {
           }}
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false, title: "Closet", animation: "none" }} />
+          <Stack.Screen name="today-banner" options={{ headerShown: false, animation: "slide_from_right", gestureEnabled: true, fullScreenGestureEnabled: true, contentStyle: { backgroundColor: colors.ink } }} />
           <Stack.Screen name="immersive-shopping" options={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: colors.ink } }} />
           <Stack.Screen name="mirror-camera" options={{ headerShown: false, animation: "slide_from_bottom", contentStyle: { backgroundColor: "#0B0A08" } }} />
           <Stack.Screen name="mirror-browse" options={{ headerShown: false, animation: "slide_from_right", contentStyle: { backgroundColor: "#0B0A08" } }} />
