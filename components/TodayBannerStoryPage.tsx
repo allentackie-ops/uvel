@@ -39,9 +39,9 @@ export function TodayBannerStoryPage({ story, onClose, onOpenPiece }: { story: B
 
   return (
     <View style={[styles.root, { backgroundColor: colors.ink }]}>
-      <View pointerEvents="none" style={[styles.topColorField, { height: insets.top + 64 + 300 }]}>
+      <View pointerEvents="none" style={[styles.topColorField, { height: insets.top + 56 }]}>
         <View style={[styles.topColorLayer, { backgroundColor: story.gradientColor || story.color, opacity: 0.64 }]} />
-        <View style={styles.topColorFade}>
+        <View style={[styles.topColorFade, { height: 56 }]}>
           {GRADIENT_FADE_STEPS.map((opacity, index) => <View key={index} style={[styles.topColorFadeStrip, { opacity, backgroundColor: colors.ink }]} />)}
         </View>
       </View>
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   topColorField: { position: "absolute", top: 0, left: 0, right: 0, overflow: "hidden", zIndex: 0 },
   topColorLayer: { ...StyleSheet.absoluteFill },
-  topColorFade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 230, flexDirection: "column" },
+  topColorFade: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "column" },
   topColorFadeStrip: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 10, borderBottomWidth: StyleSheet.hairlineWidth, zIndex: 1 },
   headerButton: { width: 34, height: 42, alignItems: "center", justifyContent: "center" },
