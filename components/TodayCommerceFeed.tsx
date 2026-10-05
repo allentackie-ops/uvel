@@ -221,7 +221,7 @@ export function TodayCommerceFeed({
       <SectionTitle title="Because you saved relaxed tailoring" onPress={onOpenSearch} />
       <ProductRail pieces={personalized.slice(0, 4)} market={market} onOpen={onOpenPiece} />
       <Pressable onPress={onOpenStyle} style={styles.styleDna} accessibilityRole="button" accessibilityLabel="See your Style DNA">
-        <View style={styles.styleDnaCopy}><Text style={styles.styleDnaTitle}>Your Style DNA{`\n`}is getting clearer</Text><Text style={styles.styleDnaBody}>You gravitate toward classic shapes, neutral tones and modern layers.</Text><Text style={styles.lookButton}>See your style ›</Text></View>
+        <View style={styles.styleDnaCopy}><Text style={styles.styleDnaTitle}>Your Style DNA{`\n`}is getting clearer</Text><Text style={styles.styleDnaBody}>You gravitate toward classic shapes, neutral tones and modern layers.</Text><Text style={styles.styleDnaButton}>See your style ›</Text></View>
         <View style={styles.swatches}>{["#EEEAE2", "#AF9782", "#5B4637", "#586247"].map((color) => <View key={color} style={[styles.swatch, { backgroundColor: color }]} />)}</View>
       </Pressable>
 
@@ -699,6 +699,7 @@ function make(colors: Colors) {
     styleDnaCopy: { flex: 1, zIndex: 2 },
     styleDnaTitle: { color: "#181714", fontSize: 22, lineHeight: 24, fontWeight: "900" },
     styleDnaBody: { color: "#514D43", fontSize: 12, lineHeight: 16, marginTop: 7, maxWidth: 250 },
+    styleDnaButton: { color: "#516313", fontSize: 12, fontWeight: "900", marginTop: 12 },
     swatches: { width: 88, flexDirection: "row", flexWrap: "wrap", gap: 5, transform: [{ rotate: "7deg" }] },
     swatch: { width: 37, height: 37, borderRadius: 9, borderWidth: 2, borderColor: "#FFFFFF" },
   });
