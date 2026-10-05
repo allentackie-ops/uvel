@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Uvel Today — We think you'll love these</title>
+<style>
+  :root { --ink:#111417; --bone:#f5f0e8; --muted:#a9acae; --coral:#f05237; --lime:#d8f56a; --line:#303438; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:#07090b; color:var(--bone); font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  main { width:1440px; margin:0 auto; padding:72px 68px 92px; background:linear-gradient(180deg,#121519 0%,#0b0d0f 100%); }
+  .eyebrow { color:#ff7b68; font-size:18px; font-weight:800; letter-spacing:3px; text-transform:uppercase; }
+  h1 { margin:10px 0 14px; font-size:74px; line-height:.98; letter-spacing:-3.5px; max-width:920px; }
+  .dek { color:#c6c8c7; font-size:25px; line-height:1.35; max-width:880px; margin:0; }
+  .placement { margin-top:56px; padding:30px; border:1px solid #34383b; border-radius:26px; background:#171a1d; }
+  .placement-head { display:flex; justify-content:space-between; gap:24px; align-items:end; margin-bottom:24px; }
+  .placement-head h2 { margin:0; font-size:31px; letter-spacing:-1px; }
+  .placement-head p { margin:0; color:#a9acae; font-size:17px; max-width:570px; line-height:1.4; }
+  .flow { display:flex; align-items:center; gap:14px; }
+  .flow-step { flex:1; min-height:128px; border-radius:18px; padding:19px; background:#25292d; border:1px solid #3b4044; }
+  .flow-step.active { background:#efe7dc; color:#151718; border-color:#efe7dc; }
+  .flow-step.after { background:#2b5fcb; border-color:#2b5fcb; }
+  .flow-label { color:#9fa3a5; font-size:12px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase; }
+  .active .flow-label { color:#6e6962; }
+  .flow-title { margin-top:12px; font-size:22px; font-weight:900; line-height:1.05; }
+  .flow-note { margin-top:8px; color:#aeb2b4; font-size:14px; line-height:1.25; }
+  .active .flow-note { color:#5f5a53; }
+  .after .flow-label,.after .flow-note { color:#d9e3ff; }
+  .arrow { color:#777d80; font-size:30px; }
+  .section-title { display:flex; align-items:center; justify-content:space-between; margin:62px 0 20px; }
+  .section-title h2 { margin:0; font-size:40px; letter-spacing:-1.5px; }
+  .section-title span { color:#c9ced0; font-size:17px; }
+  .options { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; }
+  .option { background:#181b1e; border:1px solid #34383b; border-radius:22px; padding:18px; }
+  .option.recommended { border:2px solid var(--lime); padding:17px; }
+  .option-top { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:15px; }
+  .option-name { font-size:21px; font-weight:900; }
+  .pill { color:#131616; background:var(--lime); border-radius:100px; padding:6px 11px; font-size:11px; font-weight:900; letter-spacing:1px; text-transform:uppercase; white-space:nowrap; }
+  .option img { width:100%; aspect-ratio:9/16; display:block; object-fit:cover; object-position:top; border-radius:14px; background:#0e1012; }
+  .option p { margin:15px 2px 3px; color:#c5c9ca; font-size:15px; line-height:1.42; }
+  .fit { margin-top:58px; display:grid; grid-template-columns:1.2fr .8fr; gap:24px; }
+  .fit-card { border-radius:22px; padding:28px; background:#efe7dc; color:#151718; }
+  .fit-card.dark { background:#25292d; color:var(--bone); }
+  .fit-card h3 { margin:0 0 12px; font-size:26px; letter-spacing:-.7px; }
+  .fit-card p { margin:0; font-size:17px; line-height:1.45; color:#605b55; }
+  .dark p { color:#bbc0c2; }
+  ul { margin:18px 0 0; padding-left:21px; color:#5e5953; font-size:16px; line-height:1.6; }
+  .dark ul { color:#c3c7c8; }
+  footer { margin-top:45px; color:#777d80; font-size:14px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">Uvel Today · visual mockups · branch fix/social-share-sheet-stable</div>
+  <h1>We think you’ll love these</h1>
+  <p class="dek">A placement-first review of the section as it exists in the Today feed — not a new page, not a new navigation pattern.</p>
+
+  <section class="placement">
+    <div class="placement-head">
+      <h2>Exact feed position</h2>
+      <p>The section follows the current “Keep shopping for” rail and hands off into “Trending in your world.” That keeps the recommendation story personal, then returns the user to marketplace browsing.</p>
+    </div>
+    <div class="flow">
+      <div class="flow-step"><div class="flow-label">Existing rail</div><div class="flow-title">For you</div><div class="flow-note">Personalized product rail</div></div>
+      <div class="arrow">→</div>
+      <div class="flow-step"><div class="flow-label">Existing rail</div><div class="flow-title">Keep shopping for</div><div class="flow-note">Recently viewed / resume intent</div></div>
+      <div class="arrow">→</div>
+      <div class="flow-step active"><div class="flow-label">Target slot</div><div class="flow-title">We think you’ll love these</div><div class="flow-note">Hero story + three editorial tiles</div></div>
+      <div class="arrow">→</div>
+      <div class="flow-step after"><div class="flow-label">Existing rail</div><div class="flow-title">Trending in your world</div><div class="flow-note">Back to products and discovery</div></div>
+    </div>
+  </section>
+
+  <div class="section-title"><h2>Three visual directions for the same slot</h2><span>Exact title preserved · same dark feed surface</span></div>
+  <section class="options">
+    <article class="option">
+      <div class="option-top"><div class="option-name">A · Editorial collage</div></div>
+      <img src="../../assets/today/editors-picks-mockup-collage.png" alt="Editorial collage concept" />
+      <p><strong>Closest to the current component.</strong> One warm hero card, then three quick style tiles. Best when the section should feel like a natural continuation of the existing Today editorial system.</p>
+    </article>
+    <article class="option recommended">
+      <div class="option-top"><div class="option-name">B · Split edit</div><div class="pill">Recommended</div></div>
+      <img src="../../assets/today/editors-picks-mockup-split.png" alt="Split edit concept" />
+      <p><strong>Strongest fit for this exact position.</strong> A single decisive story card makes the section easy to scan after “Keep shopping for,” then the compact product row gives the user an immediate shopping path.</p>
+    </article>
+    <article class="option">
+      <div class="option-top"><div class="option-name">C · Story cards</div></div>
+      <img src="../../assets/today/editors-picks-mockup-story-cards.png" alt="Story cards concept" />
+      <p><strong>Most editorial and immersive.</strong> Three alternating story cards add richness, but they make the feed section much taller and may delay the “Trending in your world” rail.</p>
+    </article>
+  </section>
+
+  <section class="fit">
+    <div class="fit-card"><h3>Why the recommended split edit fits</h3><p>It respects the code that is already there while giving the section a clearer job: turn a recommendation into a style story, then let the user shop the pieces without leaving the Today rhythm.</p><ul><li>Preserves the exact section title and current placement</li><li>Uses one hero surface instead of competing with the top poster carousel</li><li>Connects editorial inspiration to product discovery in one glance</li></ul></div>
+    <div class="fit-card dark"><h3>What stays unchanged</h3><p>No changes yet to ranking, navigation, carousel behavior, or the social-share sheet.</p><ul><li>Today header and dark background</li><li>Section title tap target</li><li>Product rails before and after</li><li>Existing Uvel coral / cream / blue language</li></ul></div>
+  </section>
+  <footer>Prepared from the checked-out Uvel repository on <strong>fix/social-share-sheet-stable</strong>. Visual review only — no production UI files changed.</footer>
+</main>
+</body>
+</html>

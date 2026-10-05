@@ -23,6 +23,10 @@ const NEW_IN_ANIMATED_BASE = require("../assets/today/new-in-option3-collage.png
 const DEALS_MOTION_BANNER = require("../assets/today/deals-fun-motion-banner-clean.mp4");
 const FINISHING_PIECES_POSTER = require("../assets/today/finishing-pieces-poster-03-pop-magazine.png");
 const MINIMAL_WITH_PRESENCE_BANNER = require("../assets/today/minimal-with-presence-banner-mockup-v8.png");
+const WE_THINK_EDITORIAL_HERO = require("../assets/today/we-think-editorial-hero.png");
+const WE_THINK_CITY_LAYERS = require("../assets/today/we-think-city-layers.png");
+const WE_THINK_OFF_DUTY = require("../assets/today/we-think-off-duty.png");
+const WE_THINK_KNIT_NOW = require("../assets/today/we-think-knit-now.png");
 const TODAY_DEALS_RED = "#FF554D";
 
 const EDITORIAL = [
@@ -178,15 +182,16 @@ export function TodayCommerceFeed({
       <SectionTitle title="We think you’ll love these" onPress={onOpenSearch} />
       <View style={styles.editorHero}>
         <View style={styles.editorCopy}>
-          <Text style={styles.editorTitle}>The art of everyday</Text>
+          <Text style={styles.editorTitle}>Curated for your style</Text>
           <Text style={styles.editorSubtitle}>Modern looks for real life.</Text>
           <Pressable onPress={onOpenSearch} style={styles.editorButton} accessibilityRole="button" accessibilityLabel="Shop the editor story"><Text style={styles.editorButtonText}>Shop the story ›</Text></Pressable>
         </View>
-        {editors[0] ? <Image source={{ uri: todayProductImage(editors[0]) }} style={styles.editorImage} contentFit="contain" accessible={false} /> : null}
+        <Image source={WE_THINK_EDITORIAL_HERO} style={styles.editorImage} contentFit="cover" cachePolicy="memory-disk" transition={150} accessible={false} />
       </View>
       <View style={styles.editorTiles}>
-        {EDITORIAL.map((item, index) => <Pressable key={item.title} onPress={onOpenSearch} style={[styles.editorTile, { backgroundColor: item.accent }]} accessibilityRole="button" accessibilityLabel={item.title}>
-          {editors[index + 1] ? <Image source={{ uri: todayProductImage(editors[index + 1]) }} style={styles.editorTileImage} contentFit="contain" accessible={false} /> : null}
+        {[{ ...EDITORIAL[0], image: WE_THINK_CITY_LAYERS }, { ...EDITORIAL[1], image: WE_THINK_OFF_DUTY }, { ...EDITORIAL[2], image: WE_THINK_KNIT_NOW }].map((item) => <Pressable key={item.title} onPress={onOpenSearch} style={[styles.editorTile, { backgroundColor: item.accent }]} accessibilityRole="button" accessibilityLabel={item.title}>
+          <Image source={item.image} style={styles.editorTileImage} contentFit="cover" cachePolicy="memory-disk" transition={150} accessible={false} />
+          <View style={styles.editorTileShade} />
           <Text style={styles.editorTileTitle}>{item.title}</Text><Text style={styles.editorTileSubtitle}>{item.subtitle}</Text><Text style={styles.tileArrow}>›</Text>
         </Pressable>)}
       </View>
@@ -626,19 +631,20 @@ function make(colors: Colors) {
     editorialCutout: { position: "absolute", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 10, shadowOffset: { width: 0, height: 8 }, elevation: 5, zIndex: 2 },
     editorialCutoutImage: { width: "100%", height: "100%" },
     sectionHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 22, marginBottom: 10 },
-    editorHero: { minHeight: 168, borderRadius: 18, backgroundColor: "#E7DDD1", overflow: "hidden", flexDirection: "row" },
-    editorCopy: { flex: 1.03, padding: 17, justifyContent: "center", zIndex: 2 },
-    editorTitle: { color: "#181714", fontSize: 25, lineHeight: 27, fontWeight: "900", maxWidth: 170 },
-    editorSubtitle: { color: "#181714", fontSize: 15, marginTop: 8 },
-    editorButton: { backgroundColor: "#FFFFFF", paddingHorizontal: 14, minHeight: 38, borderRadius: 20, alignSelf: "flex-start", justifyContent: "center", marginTop: 13 },
+    editorHero: { minHeight: 184, borderRadius: 20, backgroundColor: "#E7DDD1", overflow: "hidden", flexDirection: "row", borderWidth: 1, borderColor: "rgba(255,255,255,0.42)" },
+    editorCopy: { flex: 1.02, padding: 17, paddingRight: 8, justifyContent: "center", zIndex: 2 },
+    editorTitle: { color: "#181714", fontSize: 24, lineHeight: 25, fontWeight: "900", maxWidth: 166, letterSpacing: -0.55 },
+    editorSubtitle: { color: "#181714", fontSize: 15, lineHeight: 19, marginTop: 8 },
+    editorButton: { backgroundColor: "#FFFFFF", paddingHorizontal: 14, minHeight: 40, borderRadius: 20, alignSelf: "flex-start", justifyContent: "center", marginTop: 14, shadowColor: "#181714", shadowOpacity: 0.1, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
     editorButtonText: { color: "#181714", fontSize: 12, fontWeight: "900" },
-    editorImage: { flex: 0.97, height: "100%" },
+    editorImage: { flex: 0.98, height: "100%" },
     editorTiles: { flexDirection: "row", gap: 9, marginTop: 9 },
-    editorTile: { flex: 1, minHeight: 145, borderRadius: 15, overflow: "hidden", padding: 9, justifyContent: "flex-end" },
-    editorTileImage: { ...StyleSheet.absoluteFill, opacity: 0.68 },
-    editorTileTitle: { color: "#181714", fontSize: 15, fontWeight: "900", zIndex: 2 },
-    editorTileSubtitle: { color: "#181714", fontSize: 11, marginTop: 3, zIndex: 2 },
-    tileArrow: { position: "absolute", right: 9, bottom: 8, color: "#181714", fontSize: 22, fontWeight: "900" },
+    editorTile: { flex: 1, minHeight: 154, borderRadius: 16, overflow: "hidden", padding: 10, justifyContent: "flex-end", shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+    editorTileImage: { ...StyleSheet.absoluteFillObject },
+    editorTileShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(255,255,255,0.18)" },
+    editorTileTitle: { color: "#181714", fontSize: 15, lineHeight: 17, fontWeight: "900", zIndex: 2, textShadowColor: "rgba(255,255,255,0.42)", textShadowRadius: 5 },
+    editorTileSubtitle: { color: "#181714", fontSize: 11, lineHeight: 14, marginTop: 3, zIndex: 2, maxWidth: 90, textShadowColor: "rgba(255,255,255,0.42)", textShadowRadius: 4 },
+    tileArrow: { position: "absolute", right: 9, bottom: 8, color: "#181714", fontSize: 22, fontWeight: "900", zIndex: 3 },
     coralStrip: { minHeight: 82, borderRadius: 16, backgroundColor: "#F05237", paddingHorizontal: 15, paddingVertical: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 17 },
     stripTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "900" },
     stripSub: { color: "#FFFFFF", fontSize: 12, marginTop: 3 },
