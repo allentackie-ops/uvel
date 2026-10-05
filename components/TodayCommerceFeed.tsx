@@ -18,7 +18,7 @@ import { curateTodayBanners, type CuratedTodayBanner } from "../lib/todayBannerE
 
 const NEW_IN_LATEST_STICKER = require("../assets/today/new-in-latest-sticker.png");
 const TRENDING_NOW_FINAL = require("../assets/today/trending-now-final.png");
-const STYLE_FOR_LESS_STICKER = require("../assets/today/style-for-less-sticker-clean.png");
+const STYLE_FOR_LESS_STICKER = require("../assets/today/style-for-less-sticker-no-stars-clean.png");
 const NEW_IN_ANIMATED_BASE = require("../assets/today/new-in-option3-collage.png");
 const DEALS_MOTION_BANNER = require("../assets/today/deals-fun-motion-banner-clean.mp4");
 const FINISHING_PIECES_POSTER = require("../assets/today/finishing-pieces-poster-03-pop-magazine.png");
