@@ -263,7 +263,7 @@ function PosterCarousel({
       activeIndexRef.current = next;
       carouselRef.current?.scrollTo({ x: next * interval, animated: true });
       scheduleAutoAdvance();
-    }, 10000);
+    }, 5000);
   };
   useEffect(() => {
     scheduleAutoAdvance();
