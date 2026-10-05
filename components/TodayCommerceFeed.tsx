@@ -196,8 +196,7 @@ export function TodayCommerceFeed({
         <Pressable onPress={onOpenSearch} style={styles.stripButton} accessibilityRole="button" accessibilityLabel="Shop the weekend edit"><Text style={styles.stripButtonText}>Shop the edit ›</Text></Pressable>
       </View>
 
-      <SectionTitle title="Deals worth opening" onPress={onOpenSearch} />
-      <ProductRail pieces={deals} market={market} onOpen={onOpenPiece} deals />
+      <DealsFeature pieces={deals} market={market} onOpen={onOpenPiece} />
       <View style={styles.creatorCard}>
         <View style={styles.creatorCopy}><Text style={styles.creatorTitle}>Styled by people{`\n`}you’ll love</Text><Text style={styles.creatorSub}>Real looks. Real people.</Text><Pressable onPress={onOpenCreators} style={styles.whiteButton} accessibilityRole="button" accessibilityLabel="See creators"><Text style={styles.whiteButtonText}>See creators ›</Text></Pressable></View>
         <View style={styles.creatorFaces}>{followed.slice(0, 3).map((piece) => <Image key={piece.id} source={{ uri: piece.photo }} style={styles.creatorFace} contentFit="cover" accessible={false} />)}</View>
@@ -476,6 +475,55 @@ function ProductRail({ pieces, market, onOpen, deals, compact }: { pieces: Close
   return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingBottom: 3 }}>{pieces.map((piece, index) => <ProductCard key={`${piece.id}-${index}`} piece={piece} market={market} onOpen={onOpen} deals={deals} compact={compact} />)}</ScrollView>;
 }
 
+function DealsFeature({ pieces, market, onOpen }: { pieces: ClosetPiece[]; market: ReturnType<typeof getMarket>; onOpen: TodayCommerceFeedProps["onOpenPiece"] }) {
+  const styles = make(useColors());
+  return <View style={styles.dealsFeature}>
+    <View style={styles.dealsFeatureHeader}>
+      <View style={styles.dealsFeatureCopy}>
+        <Text style={styles.dealsFeatureTitle}>DEALS WORTH{`\n`}OPENING</Text>
+        <Text style={styles.dealsFeatureSubtitle}>Iconic pieces. Better prices. Right now.</Text>
+      </View>
+      <View style={styles.dealsFeatureNote}>
+        <Text style={styles.dealsFeatureNoteText}>GOOD{`\n`}STYLE{`\n`}LIVES{`\n`}HERE</Text>
+        <Text style={styles.dealsFeatureMarks}>╱╱</Text>
+      </View>
+    </View>
+    <View style={styles.dealsGrid}>
+      {pieces.slice(0, 4).map((piece, index) => <DealFeatureCard key={`${piece.id}-${index}`} piece={piece} market={market} onOpen={onOpen} styles={styles} />)}
+    </View>
+  </View>;
+}
+
+function DealFeatureCard({ piece, market, onOpen, styles }: { piece: ClosetPiece; market: ReturnType<typeof getMarket>; onOpen: TodayCommerceFeedProps["onOpenPiece"]; styles: ReturnType<typeof make> }) {
+  const app = useUvel();
+  const ref = useRef<View>(null);
+  const saved = app.saved.includes(piece.id);
+  const discountRates = [0.2, 0.25, 0.3, 0.35];
+  const rate = discountRates[indexForDeal(piece.id)];
+  const price = moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market);
+  const originalPrice = moneyInMarket(Math.round(piece.listPriceCents / (1 - rate)), piece.currency || market.currency, market);
+  const brand = piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Uvel seller";
+  return <View ref={ref} collapsable={false} style={styles.dealFeatureCard}>
+    <AccessiblePressable onPress={() => ref.current?.measureInWindow((x, y, width, height) => onOpen(piece, { x, y, width, height }))} style={styles.dealFeaturePress} accessibilityRole="button" accessibilityLabel={`Open deal for ${piece.name} by ${brand}, ${price}`}>
+      <View style={styles.dealFeatureImageWrap}>
+        <View style={styles.dealFeatureBadge}><Text style={styles.dealFeatureBadgeText}>{Math.round(rate * 100)}% OFF</Text></View>
+        <Image source={{ uri: piece.photo }} style={styles.dealFeatureImage} contentFit="cover" accessible={false} />
+        <AccessiblePressable onPress={() => void app.toggleSaved(piece.id)} hitSlop={8} style={styles.dealFeatureHeart} accessibilityRole="button" accessibilityLabel={`${saved ? "Remove" : "Save"} ${piece.name}`} accessibilityState={{ selected: saved }}>
+          <Ionicons name={saved ? "heart" : "heart-outline"} size={24} color="#FFFFFF" />
+        </AccessiblePressable>
+      </View>
+      <View style={styles.dealFeatureMeta}>
+        <Text style={styles.dealFeatureName} numberOfLines={1}>{piece.name}</Text>
+        <View style={styles.dealFeaturePriceRow}><Text style={styles.dealFeaturePrice}>{price}</Text><Text style={styles.dealFeatureOriginal}>{originalPrice}</Text></View>
+      </View>
+    </AccessiblePressable>
+  </View>;
+}
+
+function indexForDeal(id: string) {
+  return id.length % 4;
+}
+
 function ProductCard({ piece, market, onOpen, deals, compact }: { piece: ClosetPiece; market: ReturnType<typeof getMarket>; onOpen: TodayCommerceFeedProps["onOpenPiece"]; deals?: boolean; compact?: boolean }) {
   const colors = useColors();
   const styles = make(colors);
@@ -578,6 +626,27 @@ function make(colors: Colors) {
     stripSub: { color: "#FFFFFF", fontSize: 12, marginTop: 3 },
     stripButton: { backgroundColor: "#FFFFFF", borderRadius: 20, paddingHorizontal: 12, minHeight: 38, justifyContent: "center" },
     stripButtonText: { color: "#181714", fontSize: 11, fontWeight: "900" },
+    dealsFeature: { marginTop: 28, borderRadius: 20, backgroundColor: "#334B38", padding: 16, overflow: "hidden" },
+    dealsFeatureHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", minHeight: 126 },
+    dealsFeatureCopy: { flex: 1, paddingRight: 8 },
+    dealsFeatureTitle: { color: "#FFFFFF", fontSize: 31, lineHeight: 31, fontWeight: "900", letterSpacing: -0.8 },
+    dealsFeatureSubtitle: { color: "rgba(255,255,255,0.8)", fontSize: 14, lineHeight: 19, marginTop: 10, maxWidth: 240 },
+    dealsFeatureNote: { width: 88, alignItems: "flex-end", paddingTop: 2 },
+    dealsFeatureNoteText: { color: "#D9F58A", fontSize: 14, lineHeight: 15, fontWeight: "900", fontStyle: "italic", textAlign: "right", transform: [{ rotate: "-7deg" }] },
+    dealsFeatureMarks: { color: "#D9F58A", fontSize: 26, lineHeight: 24, fontWeight: "800", marginTop: 7, transform: [{ rotate: "-18deg" }] },
+    dealsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+    dealFeatureCard: { width: "48.5%", borderRadius: 15, overflow: "hidden", backgroundColor: "#27382C" },
+    dealFeaturePress: { paddingBottom: 9 },
+    dealFeatureImageWrap: { height: 145, backgroundColor: "#4A594B", position: "relative" },
+    dealFeatureImage: { width: "100%", height: "100%" },
+    dealFeatureBadge: { position: "absolute", left: 9, top: 9, zIndex: 3, minHeight: 27, borderRadius: 15, paddingHorizontal: 11, alignItems: "center", justifyContent: "center", backgroundColor: "#F86B59" },
+    dealFeatureBadgeText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900", letterSpacing: 0.2 },
+    dealFeatureHeart: { position: "absolute", right: 9, top: 8, zIndex: 3, width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+    dealFeatureMeta: { paddingHorizontal: 10, paddingTop: 9 },
+    dealFeatureName: { color: "#FFFFFF", fontSize: 14, lineHeight: 18, fontWeight: "700" },
+    dealFeaturePriceRow: { flexDirection: "row", alignItems: "baseline", gap: 9, marginTop: 3 },
+    dealFeaturePrice: { color: "#FFFFFF", fontSize: 18, fontWeight: "900" },
+    dealFeatureOriginal: { color: "rgba(255,255,255,0.58)", fontSize: 13, textDecorationLine: "line-through" },
     productCard: { width: 158, backgroundColor: colors.surface, borderRadius: 14, overflow: "hidden", position: "relative" },
     productCardCompact: { width: 148 },
     productPress: { paddingBottom: 10 },
