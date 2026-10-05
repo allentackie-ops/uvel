@@ -18,11 +18,6 @@ import { curateTodayBanners, type CuratedTodayBanner } from "../lib/todayBannerE
 const NEW_IN_LATEST_STICKER = require("../assets/today/new-in-latest-sticker.png");
 const TRENDING_NOW_OPTION_TWO = require("../assets/today/trending-now-option-2.png");
 const NEW_IN_ANIMATED_BASE = require("../assets/today/new-in-animated/base.png");
-const NEW_IN_ANIMATED_LATEST = require("../assets/today/new-in-animated/latest-sticker.png");
-const NEW_IN_ANIMATED_JUST_LANDED = require("../assets/today/new-in-animated/just-landed.png");
-const NEW_IN_ANIMATED_TODAY = require("../assets/today/new-in-animated/today-callouts.png");
-const NEW_IN_ANIMATED_EDGE_LEFT = require("../assets/today/new-in-animated/edge-left.png");
-const NEW_IN_ANIMATED_EDGE_RIGHT = require("../assets/today/new-in-animated/edge-right.png");
 
 const EDITORIAL = [
   { title: "City layers", subtitle: "Effortless polish", accent: "#D8C4AE" },
@@ -297,7 +292,7 @@ function PosterCarousel({
         {stories.map((story, index) => {
           const ref = index === 0 ? primaryRef : undefined;
           return <Pressable key={story.id} ref={ref} onPress={() => openBanner(ref || primaryRef, { title: story.title, subtitle: story.subtitle, color: story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: story.pieces, detailPieces: story.detailPieces })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
-            <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} staticAsset={story.id === "trending-now" ? TRENDING_NOW_OPTION_TWO : story.id === "new-in" ? NEW_IN_ANIMATED_BASE : undefined} animatedAsset={story.id === "new-in"} />
+            <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} staticAsset={story.id === "trending-now" ? TRENDING_NOW_OPTION_TWO : story.id === "new-in" ? NEW_IN_ANIMATED_BASE : undefined} />
           </Pressable>;
         })}
       </Animated.ScrollView>
@@ -307,14 +302,12 @@ function PosterCarousel({
 
 type EditorialVariant = "float" | "slide" | "explode" | "collage" | "luxury";
 
-function EditorialPoster({ story, pieces, styles, staticAsset, animatedAsset }: { story: { title: string; subtitle: string; color: string; variant: EditorialVariant; image?: string }; pieces: ClosetPiece[]; styles: ReturnType<typeof make>; staticAsset?: number; animatedAsset?: boolean }) {
+function EditorialPoster({ story, pieces, styles, staticAsset }: { story: { title: string; subtitle: string; color: string; variant: EditorialVariant; image?: string }; pieces: ClosetPiece[]; styles: ReturnType<typeof make>; staticAsset?: number }) {
   const motion = useRef(new Animated.Value(0)).current;
   const secondaryMotionValue = useRef(new Animated.Value(0)).current;
   const tertiaryMotionValue = useRef(new Animated.Value(0)).current;
   const fourthMotionValue = useRef(new Animated.Value(0)).current;
   const latestStickerMotion = useRef(new Animated.Value(0)).current;
-  const calloutMotion = useRef(new Animated.Value(0)).current;
-  const edgeMotion = useRef(new Animated.Value(0)).current;
   const newInOpacities = useRef([new Animated.Value(1), new Animated.Value(1), new Animated.Value(1), new Animated.Value(1)]).current;
   const newInScales = useRef([new Animated.Value(1), new Animated.Value(1), new Animated.Value(1), new Animated.Value(1)]).current;
   const cascadeGeneration = useRef(0);
@@ -331,22 +324,6 @@ function EditorialPoster({ story, pieces, styles, staticAsset, animatedAsset }: 
     stickerLoop.start();
     return () => stickerLoop.stop();
   }, [latestStickerMotion, story.variant]);
-  useEffect(() => {
-    if (!animatedAsset) return;
-    const createLoop = (value: Animated.Value, duration: number, delay: number) => Animated.loop(Animated.sequence([
-      Animated.delay(delay),
-      Animated.timing(value, { toValue: 1, duration, useNativeDriver: true }),
-      Animated.timing(value, { toValue: 0, duration, useNativeDriver: true }),
-    ]));
-    const calloutLoop = createLoop(calloutMotion, 1700, 180);
-    const edgeLoop = createLoop(edgeMotion, 2100, 420);
-    calloutLoop.start();
-    edgeLoop.start();
-    return () => {
-      calloutLoop.stop();
-      edgeLoop.stop();
-    };
-  }, [animatedAsset, calloutMotion, edgeMotion]);
   useEffect(() => {
     if (story.variant !== "slide" || pieces.length <= 0) return;
     const rotationTimer = setInterval(() => setNewInSetIndex((index) => index + 1), 6000);
@@ -444,19 +421,7 @@ function EditorialPoster({ story, pieces, styles, staticAsset, animatedAsset }: 
           ? { hero: { right: -18, top: 112, width: 252, height: 308, zIndex: 2 }, secondary: { left: 0, top: 298, width: 152, height: 194, zIndex: 4 }, tertiary: { right: 2, top: 338, width: 136, height: 174, zIndex: 5 }, fourth: { left: 116, top: 220, width: 118, height: 152, transform: [{ rotate: "7deg" }], zIndex: 3 } }
           : { hero: { right: -10, top: 126, width: 214, height: 286, zIndex: 2 }, secondary: { left: -18, top: 284, width: 158, height: 202, zIndex: 1 }, tertiary: { right: -22, top: 306, width: 148, height: 188, zIndex: 4 }, fourth: { left: 92, top: 300, width: 116, height: 150, transform: [{ rotate: "-7deg" }], zIndex: 3 } };
   if (staticAsset) {
-    if (!animatedAsset) return <View style={[styles.editorialPoster, { backgroundColor: story.color, padding: 0 }]}><Image source={staticAsset} style={styles.editorialReferenceImage} contentFit="cover" accessible={false} /></View>;
-    const latestMotion = { transform: [{ translateY: latestStickerMotion.interpolate({ inputRange: [0, 1], outputRange: [-5, 5] }) }, { rotate: latestStickerMotion.interpolate({ inputRange: [0, 1], outputRange: ["-1.2deg", "1.2deg"] }) }] };
-    const calloutTransform = { transform: [{ translateY: calloutMotion.interpolate({ inputRange: [0, 1], outputRange: [3, -6] }) }, { rotate: calloutMotion.interpolate({ inputRange: [0, 1], outputRange: ["-1deg", "1deg"] }) }] };
-    const edgeTransform = { transform: [{ translateY: edgeMotion.interpolate({ inputRange: [0, 1], outputRange: [2, -4] }) }, { rotate: edgeMotion.interpolate({ inputRange: [0, 1], outputRange: ["-0.8deg", "0.8deg"] }) }] };
-    const overlay = (source: number, motionStyle: object) => <Animated.View pointerEvents="none" style={[styles.editorialOverlay, motionStyle]}><Image source={source} style={styles.editorialReferenceImage} contentFit="cover" accessible={false} /></Animated.View>;
-    return <View style={[styles.editorialPoster, { backgroundColor: story.color, padding: 0 }]}>
-      <Image source={staticAsset} style={styles.editorialReferenceImage} contentFit="cover" accessible={false} />
-      {overlay(NEW_IN_ANIMATED_LATEST, latestMotion)}
-      {overlay(NEW_IN_ANIMATED_JUST_LANDED, calloutTransform)}
-      {overlay(NEW_IN_ANIMATED_TODAY, calloutTransform)}
-      {overlay(NEW_IN_ANIMATED_EDGE_LEFT, edgeTransform)}
-      {overlay(NEW_IN_ANIMATED_EDGE_RIGHT, edgeTransform)}
-    </View>;
+    return <View style={[styles.editorialPoster, { backgroundColor: story.color, padding: 0 }]}><Image source={staticAsset} style={styles.editorialReferenceImage} contentFit="cover" accessible={false} /></View>;
   }
   return <View style={[styles.editorialPoster, { backgroundColor: story.color }]}>
     <Text style={styles.editorialTitle}>{story.title}</Text>
@@ -556,7 +521,6 @@ function make(colors: Colors) {
     posterButton: { alignSelf: "flex-start", backgroundColor: "#FFFFFF", borderRadius: 24, paddingHorizontal: 17, minHeight: 46, justifyContent: "center", marginTop: 14 },
     editorialPoster: { flex: 1, borderRadius: 22, overflow: "hidden", padding: 20, position: "relative" },
     editorialReferenceImage: { width: "100%", height: "100%" },
-    editorialOverlay: { ...StyleSheet.absoluteFill },
     editorialTitle: { color: "#FFFFFF", fontSize: 34, lineHeight: 36, fontWeight: "900", letterSpacing: -0.9, maxWidth: 230, marginTop: 12, zIndex: 6 },
     editorialSubtitle: { color: "rgba(255,255,255,0.88)", fontSize: 15, lineHeight: 20, maxWidth: 226, marginTop: 9, zIndex: 6 },
     editorialLatestSticker: { position: "absolute", right: 8, top: 8, width: 120, height: 100, zIndex: 7, alignItems: "center", justifyContent: "center" },
