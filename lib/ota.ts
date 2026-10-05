@@ -1,32 +1,15 @@
 import * as Updates from "expo-updates";
 import { useEffect } from "react";
-import { AppState } from "react-native";
 
 let inFlight = false;
-let downloaded = false;
 
-export async function pullOta(): Promise<"reload" | "ok"> {
-  return pull(false);
-}
-
-async function pull(apply: boolean): Promise<"reload" | "ok"> {
+export async function pullOta(): Promise<"ok"> {
   if (__DEV__ || !Updates.isEnabled) return "ok";
   if (inFlight) return "ok";
   inFlight = true;
   try {
-    if (apply && downloaded) {
-      await Updates.reloadAsync();
-      return "reload";
-    }
     const result = await Updates.checkForUpdateAsync();
-    if (result.isAvailable) {
-      await Updates.fetchUpdateAsync();
-      downloaded = true;
-      if (apply) {
-        await Updates.reloadAsync();
-        return "reload";
-      }
-    }
+    if (result.isAvailable) await Updates.fetchUpdateAsync();
   } catch {
     /* offline / first binary */
   } finally {
@@ -35,14 +18,10 @@ async function pull(apply: boolean): Promise<"reload" | "ok"> {
   return "ok";
 }
 
-/** Fetch in the background. Never block first paint. Apply when they come back. */
+/** Fetch in the background without reloading the live session; Expo applies it on the next cold launch. */
 export function useOtaReady() {
   useEffect(() => {
-    void pull(false);
-    const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") void pull(true);
-    });
-    return () => sub.remove();
+    void pullOta();
   }, []);
   return true;
 }
