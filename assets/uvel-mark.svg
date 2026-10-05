@@ -1,6 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <title>Uvel wearable U mark</title>
-  <desc>A rounded U-shaped garment form with a discovery spark above it.</desc>
-  <path fill="none" stroke="#F4F0E8" stroke-width="104" stroke-linecap="round" stroke-linejoin="round" d="M286 330v286c0 135 93 218 226 218s226-83 226-218V330"/>
-  <path fill="#C7E85E" d="m512 152 23 61 61 23-61 23-23 61-23-61-61-23 61-23z"/>
+  <title>Uvel notched pebble mark</title>
+  <desc>A single warm-ivory asymmetric pebble silhouette with one geometric notch on a dark olive field.</desc>
+  <rect width="1024" height="1024" fill="#2A320E"/>
+  <path fill="#F4F0E6" d="M286 286C384 206 540 186 668 228C752 255 808 314 832 386L765 417C731 434 715 463 724 493C735 528 773 546 811 533L844 521C836 630 785 711 690 766C579 830 414 829 310 756C213 688 177 568 204 452C222 377 247 318 286 286Z"/>
+  <path fill="#2A320E" d="M832 386L765 417C731 434 715 463 724 493C735 528 773 546 811 533L844 521C850 474 846 425 832 386Z"/>
 </svg>

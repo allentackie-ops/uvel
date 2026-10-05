@@ -1,1 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1179" height="2556" viewBox="0 0 1179 2556"><rect width="1179" height="2556" fill="#121A2B"/><g transform="translate(77.5 766) scale(1) translate(0 0)"><path fill="none" stroke="#F4F0E8" stroke-width="104" stroke-linecap="round" stroke-linejoin="round" d="M286 330v286c0 135 93 218 226 218s226-83 226-218V330"/><path fill="#C7E85E" d="m512 152 23 61 61 23-61 23-23 61-23-61-61-23 61-23z"/></g><text x="589.5" y="2350" text-anchor="middle" fill="#F4F0E8" font-family="Arial, sans-serif" font-size="30" letter-spacing="9">from Fitza</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1179" height="2556" viewBox="0 0 1179 2556">
+  <rect width="1179" height="2556" fill="#2A320E"/>
+  <g transform="translate(77.5 766)">
+    <path fill="#F4F0E6" d="M286 286C384 206 540 186 668 228C752 255 808 314 832 386L765 417C731 434 715 463 724 493C735 528 773 546 811 533L844 521C836 630 785 711 690 766C579 830 414 829 310 756C213 688 177 568 204 452C222 377 247 318 286 286Z"/>
+    <path fill="#2A320E" d="M832 386L765 417C731 434 715 463 724 493C735 528 773 546 811 533L844 521C850 474 846 425 832 386Z"/>
+  </g>
+  <text x="589.5" y="2350" text-anchor="middle" fill="#F4F0E6" font-family="Arial, sans-serif" font-size="30" letter-spacing="9">from Fitza</text>
+</svg>
