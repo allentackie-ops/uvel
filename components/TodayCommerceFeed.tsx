@@ -297,8 +297,8 @@ function PosterCarousel({
         {stories.map((story, index) => {
           const ref = index === 0 ? primaryRef : undefined;
           return <Pressable key={story.id} ref={ref} onPress={() => openBanner(ref || primaryRef, { title: story.title, subtitle: story.subtitle, color: story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: story.pieces, detailPieces: story.detailPieces })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
-            <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} staticAsset={story.id === "trending-now" ? TRENDING_NOW_OPTION_TWO : story.id === "new-in" ? NEW_IN_ANIMATED_BASE : story.id === "accessories" ? FINISHING_PIECES_POSTER : undefined} videoAsset={story.id === "deals" ? DEALS_MOTION_BANNER : undefined} />
-            {story.id === "accessories" ? <Pressable onPress={(event) => { event.stopPropagation(); setAutoAdvancePaused((paused) => !paused); }} style={styles.posterPlaybackButton} accessibilityRole="button" accessibilityLabel={autoAdvancePaused ? "Resume Today banner carousel" : "Pause Today banner carousel"}>
+            <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} staticAsset={story.id === "trending-now" ? TRENDING_NOW_OPTION_TWO : story.id === "new-in" ? NEW_IN_ANIMATED_BASE : story.id === "accessories" ? FINISHING_PIECES_POSTER : undefined} videoAsset={story.id === "deals" ? DEALS_MOTION_BANNER : undefined} playbackPaused={autoAdvancePaused} />
+            {story.id === "deals" ? <Pressable onPress={(event) => { event.stopPropagation(); setAutoAdvancePaused((paused) => !paused); }} style={styles.posterPlaybackButton} accessibilityRole="button" accessibilityLabel={autoAdvancePaused ? "Resume Early Prime Big Deals video" : "Pause Early Prime Big Deals video"}>
               <Ionicons name={autoAdvancePaused ? "play" : "pause"} size={17} color="#FFFFFF" />
             </Pressable> : null}
           </Pressable>;
@@ -310,7 +310,7 @@ function PosterCarousel({
 
 type EditorialVariant = "float" | "slide" | "explode" | "collage" | "luxury";
 
-function EditorialPoster({ story, pieces, styles, staticAsset, videoAsset }: { story: { title: string; subtitle: string; color: string; variant: EditorialVariant; image?: string }; pieces: ClosetPiece[]; styles: ReturnType<typeof make>; staticAsset?: number; videoAsset?: number }) {
+function EditorialPoster({ story, pieces, styles, staticAsset, videoAsset, playbackPaused }: { story: { title: string; subtitle: string; color: string; variant: EditorialVariant; image?: string }; pieces: ClosetPiece[]; styles: ReturnType<typeof make>; staticAsset?: number; videoAsset?: number; playbackPaused?: boolean }) {
   const motion = useRef(new Animated.Value(0)).current;
   const secondaryMotionValue = useRef(new Animated.Value(0)).current;
   const tertiaryMotionValue = useRef(new Animated.Value(0)).current;
@@ -428,7 +428,7 @@ function EditorialPoster({ story, pieces, styles, staticAsset, videoAsset }: { s
         : story.variant === "luxury"
           ? { hero: { right: -18, top: 112, width: 252, height: 308, zIndex: 2 }, secondary: { left: 0, top: 298, width: 152, height: 194, zIndex: 4 }, tertiary: { right: 2, top: 338, width: 136, height: 174, zIndex: 5 }, fourth: { left: 116, top: 220, width: 118, height: 152, transform: [{ rotate: "7deg" }], zIndex: 3 } }
           : { hero: { right: -10, top: 126, width: 214, height: 286, zIndex: 2 }, secondary: { left: -18, top: 284, width: 158, height: 202, zIndex: 1 }, tertiary: { right: -22, top: 306, width: 148, height: 188, zIndex: 4 }, fourth: { left: 92, top: 300, width: 116, height: 150, transform: [{ rotate: "-7deg" }], zIndex: 3 } };
-  if (videoAsset) return <DealsMotionPoster source={videoAsset} color={story.color} styles={styles} />;
+  if (videoAsset) return <DealsMotionPoster source={videoAsset} color={story.color} styles={styles} paused={Boolean(playbackPaused)} />;
   if (staticAsset) {
     return <View style={[styles.editorialPoster, { backgroundColor: story.color, padding: 0 }]}><Image source={staticAsset} style={styles.editorialReferenceImage} contentFit="cover" accessible={false} /></View>;
   }
@@ -445,7 +445,7 @@ function EditorialPoster({ story, pieces, styles, staticAsset, videoAsset }: { s
   </View>;
 }
 
-function DealsMotionPoster({ source, color, styles }: { source: number; color: string; styles: ReturnType<typeof make> }) {
+function DealsMotionPoster({ source, color, styles, paused }: { source: number; color: string; styles: ReturnType<typeof make>; paused: boolean }) {
   const player = useVideoPlayer(source, (instance) => {
     instance.loop = true;
     instance.muted = true;
@@ -457,9 +457,10 @@ function DealsMotionPoster({ source, color, styles }: { source: number; color: s
     player.loop = true;
     player.muted = true;
     player.volume = 0;
-    player.play();
+    if (paused) player.pause();
+    else player.play();
     return () => player.pause();
-  }, [player]);
+  }, [paused, player]);
   return <View pointerEvents="none" style={[styles.editorialPoster, { backgroundColor: color, padding: 0 }]}><VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} surfaceType="textureView" /></View>;
 }
 
