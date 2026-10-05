@@ -17,7 +17,7 @@ import type { BannerStory, BannerStoryOrigin } from "./TodayBannerStoryOverlay";
 import { curateTodayBanners, type CuratedTodayBanner } from "../lib/todayBannerEngine";
 
 const NEW_IN_LATEST_STICKER = require("../assets/today/new-in-latest-sticker.png");
-const TRENDING_NOW_OPTION_TWO = require("../assets/today/trending-now-option-2.png");
+const TRENDING_NOW_FINAL = require("../assets/today/trending-now-final.png");
 const NEW_IN_ANIMATED_BASE = require("../assets/today/new-in-option3-collage.png");
 const DEALS_MOTION_BANNER = require("../assets/today/deals-fun-motion-banner-clean.mp4");
 const FINISHING_PIECES_POSTER = require("../assets/today/finishing-pieces-poster-03-pop-magazine.png");
@@ -300,7 +300,7 @@ function PosterCarousel({
         {stories.map((story, index) => {
           const ref = index === 0 ? primaryRef : undefined;
           return <Pressable key={story.id} ref={ref} onPress={() => openBanner(ref || primaryRef, { title: story.title, subtitle: story.subtitle, color: story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: story.pieces, detailPieces: story.detailPieces })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
-            <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} staticAsset={story.id === "trending-now" ? TRENDING_NOW_OPTION_TWO : story.id === "new-in" ? NEW_IN_ANIMATED_BASE : story.id === "accessories" ? FINISHING_PIECES_POSTER : story.id === "quiet-luxury" ? MINIMAL_WITH_PRESENCE_BANNER : undefined} videoAsset={story.id === "deals" ? DEALS_MOTION_BANNER : undefined} playbackPaused={autoAdvancePaused} />
+            <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} staticAsset={story.id === "trending-now" ? TRENDING_NOW_FINAL : story.id === "new-in" ? NEW_IN_ANIMATED_BASE : story.id === "accessories" ? FINISHING_PIECES_POSTER : story.id === "quiet-luxury" ? MINIMAL_WITH_PRESENCE_BANNER : undefined} videoAsset={story.id === "deals" ? DEALS_MOTION_BANNER : undefined} playbackPaused={autoAdvancePaused} />
             {story.id === "deals" ? <Pressable onPress={(event) => { event.stopPropagation(); setAutoAdvancePaused((paused) => !paused); }} style={styles.posterPlaybackButton} accessibilityRole="button" accessibilityLabel={autoAdvancePaused ? "Resume Early Prime Big Deals video" : "Pause Early Prime Big Deals video"}>
               <Ionicons name={autoAdvancePaused ? "play" : "pause"} size={17} color="#FFFFFF" />
             </Pressable> : null}
