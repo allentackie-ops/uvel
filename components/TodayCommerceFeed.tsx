@@ -17,6 +17,9 @@ import { useUvel } from "../lib/store";
 import { loadAddresses, setActiveAddress, type Address } from "../lib/orders";
 import type { BannerStory } from "../lib/todayBannerStories";
 import { curateTodayBanners, type CuratedTodayBanner } from "../lib/todayBannerEngine";
+import type { ListingOrigin } from "./TodayListingOverlay";
+
+type ListingRect = Pick<ListingOrigin, "x" | "y" | "width" | "height">;
 
 const NEW_IN_LATEST_STICKER = require("../assets/today/new-in-latest-sticker.png");
 const TRENDING_NOW_FINAL = require("../assets/today/trending-now-final.png");
@@ -52,7 +55,7 @@ export type TodayCommerceFeedProps = {
   pieces: ClosetPiece[];
   query: string;
   onQueryChange: (value: string) => void;
-  onOpenPiece: (piece: ClosetPiece, origin: { x: number; y: number; width: number; height: number }) => void;
+  onOpenPiece: (piece: ClosetPiece, origin: ListingOrigin) => void;
   onOpenBanner: (story: BannerStory) => void;
   onOpenSearch: () => void;
   onOpenMessages: () => void;
@@ -544,16 +547,19 @@ function DealsFeature({ pieces, market, onOpen }: { pieces: ClosetPiece[]; marke
 
 function DealFeatureCard({ piece, market, onOpen, styles }: { piece: ClosetPiece; market: ReturnType<typeof getMarket>; onOpen: TodayCommerceFeedProps["onOpenPiece"]; styles: ReturnType<typeof make> }) {
   const app = useUvel();
-  const ref = useRef<View>(null);
+  const imageRef = useRef<View>(null);
+  const measureImage = (callback: (rect: ListingRect) => void) => {
+    imageRef.current?.measureInWindow((x, y, width, height) => callback({ x, y, width, height }));
+  };
   const saved = app.saved.includes(piece.id);
   const discountRates = [0.2, 0.25, 0.3, 0.35];
   const rate = discountRates[indexForDeal(piece.id)];
   const price = moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market);
   const originalPrice = moneyInMarket(Math.round(piece.listPriceCents / (1 - rate)), piece.currency || market.currency, market);
   const brand = piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Uvel seller";
-  return <View ref={ref} collapsable={false} style={styles.dealFeatureCard}>
-    <AccessiblePressable onPress={() => ref.current?.measureInWindow((x, y, width, height) => onOpen(piece, { x, y, width, height }))} style={styles.dealFeaturePress} accessibilityRole="button" accessibilityLabel={`Open deal for ${piece.name} by ${brand}, ${price}`}>
-      <View style={styles.dealFeatureImageWrap}>
+  return <View style={styles.dealFeatureCard}>
+    <AccessiblePressable onPress={() => measureImage((rect) => onOpen(piece, { ...rect, radii: [15, 15, 0, 0], photo: piece.photo, measure: measureImage }))} style={styles.dealFeaturePress} accessibilityRole="button" accessibilityLabel={`Open deal for ${piece.name} by ${brand}, ${price}`}>
+      <View ref={imageRef} collapsable={false} style={styles.dealFeatureImageWrap}>
         <View style={styles.dealFeatureBadge}><Text style={styles.dealFeatureBadgeText}>{Math.round(rate * 100)}% OFF</Text></View>
         <Image source={{ uri: piece.photo }} style={styles.dealFeatureImage} contentFit="cover" accessible={false} />
         <AccessiblePressable onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); void app.toggleSaved(piece.id); }} hitSlop={8} style={styles.dealFeatureHeart} accessibilityRole="button" accessibilityLabel={`${saved ? "Remove" : "Save"} ${piece.name}`} accessibilityState={{ selected: saved }}>
@@ -576,20 +582,26 @@ function ProductCard({ piece, market, onOpen, deals, compact }: { piece: ClosetP
   const colors = useColors();
   const styles = make(colors);
   const app = useUvel();
-  const ref = useRef<View>(null);
+  const imageRef = useRef<View>(null);
+  const measureImage = (callback: (rect: ListingRect) => void) => {
+    imageRef.current?.measureInWindow((x, y, width, height) => callback({ x, y, width, height }));
+  };
   const brand = piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Uvel seller";
   const price = moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market);
   const saved = app.saved.includes(piece.id);
   const dealAccent = TODAY_DEALS_RED;
-  return <View ref={ref} collapsable={false} style={[styles.productCard, compact && styles.productCardCompact]}><AccessiblePressable onPress={() => ref.current?.measureInWindow((x, y, width, height) => onOpen(piece, { x, y, width, height }))} style={styles.productPress} accessibilityRole="button" accessibilityLabel={`Open ${piece.name} by ${brand}, ${price}`}>
-    <View style={styles.productImageWrap}>{deals ? <View style={[styles.discount, { backgroundColor: TODAY_DEALS_RED }]}><Text style={[styles.discountText, { color: "#FFFFFF" }]}>{["20% off", "15% off", "30% off", "10% off"][piece.id.length % 4]}</Text></View> : null}<Image source={{ uri: piece.photo }} style={styles.productImage} contentFit="cover" accessible={false} /><AccessiblePressable onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); void app.toggleSaved(piece.id); }} hitSlop={8} style={[styles.productHeart, { backgroundColor: dealAccent }]} accessibilityRole="button" accessibilityLabel={`${saved ? "Remove" : "Save"} ${piece.name}`} accessibilityState={{ selected: saved }}><Ionicons name={saved ? "heart" : "heart-outline"} size={22} color="#FFFFFF" /></AccessiblePressable></View>
+  return <View style={[styles.productCard, compact && styles.productCardCompact]}><AccessiblePressable onPress={() => measureImage((rect) => onOpen(piece, { ...rect, radii: [14, 14, 0, 0], photo: piece.photo, measure: measureImage }))} style={styles.productPress} accessibilityRole="button" accessibilityLabel={`Open ${piece.name} by ${brand}, ${price}`}>
+    <View ref={imageRef} collapsable={false} style={styles.productImageWrap}>{deals ? <View style={[styles.discount, { backgroundColor: TODAY_DEALS_RED }]}><Text style={[styles.discountText, { color: "#FFFFFF" }]}>{["20% off", "15% off", "30% off", "10% off"][piece.id.length % 4]}</Text></View> : null}<Image source={{ uri: piece.photo }} style={styles.productImage} contentFit="cover" accessible={false} /><AccessiblePressable onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); void app.toggleSaved(piece.id); }} hitSlop={8} style={[styles.productHeart, { backgroundColor: dealAccent }]} accessibilityRole="button" accessibilityLabel={`${saved ? "Remove" : "Save"} ${piece.name}`} accessibilityState={{ selected: saved }}><Ionicons name={saved ? "heart" : "heart-outline"} size={22} color="#FFFFFF" /></AccessiblePressable></View>
     <Text style={styles.productName} numberOfLines={2}>{piece.name}</Text><Text style={styles.productPrice}>{price}</Text><Text style={styles.productBrand} numberOfLines={1}>{brand}</Text>
   </AccessiblePressable></View>;
 }
 
 function MiniImage({ piece, onOpen }: { piece: ClosetPiece; onOpen: TodayCommerceFeedProps["onOpenPiece"] }) {
   const ref = useRef<View>(null);
-  return <View ref={ref} collapsable={false} style={{ width: "48%", aspectRatio: 0.92, borderRadius: 13, overflow: "hidden", backgroundColor: "#F6F2ED" }}><AccessiblePressable onPress={(event) => { event.stopPropagation(); ref.current?.measureInWindow((x, y, width, height) => onOpen(piece, { x, y, width, height })); }} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={`Open ${piece.name}`}><Image source={{ uri: piece.photo }} style={{ flex: 1 }} contentFit="cover" accessible={false} /></AccessiblePressable></View>;
+  const measureImage = (callback: (rect: ListingRect) => void) => {
+    ref.current?.measureInWindow((x, y, width, height) => callback({ x, y, width, height }));
+  };
+  return <View ref={ref} collapsable={false} style={{ width: "48%", aspectRatio: 0.92, borderRadius: 13, overflow: "hidden", backgroundColor: "#F6F2ED" }}><AccessiblePressable onPress={(event) => { event.stopPropagation(); measureImage((rect) => onOpen(piece, { ...rect, radius: 13, photo: piece.photo, measure: measureImage })); }} style={{ flex: 1 }} accessibilityRole="button" accessibilityLabel={`Open ${piece.name}`}><Image source={{ uri: piece.photo }} style={{ flex: 1 }} contentFit="cover" accessible={false} /></AccessiblePressable></View>;
 }
 
 function make(colors: Colors) {
@@ -737,7 +749,7 @@ function make(colors: Colors) {
     styleDnaCopy: { flex: 1, zIndex: 2 },
     styleDnaTitle: { color: "#181714", fontSize: 22, lineHeight: 24, fontWeight: "900" },
     styleDnaBody: { color: "#514D43", fontSize: 12, lineHeight: 16, marginTop: 7, maxWidth: 250 },
-    styleDnaButton: { color: "#007185", fontSize: 12, fontWeight: "900", marginTop: 12 },
+    styleDnaButton: { color: colors.link ?? colors.pulse, fontSize: 12, fontWeight: "900", marginTop: 12 },
     swatches: { width: 88, flexDirection: "row", flexWrap: "wrap", gap: 5, transform: [{ rotate: "7deg" }] },
     swatch: { width: 37, height: 37, borderRadius: 9, borderWidth: 2, borderColor: "#FFFFFF" },
   });

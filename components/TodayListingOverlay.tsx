@@ -25,7 +25,7 @@ import { createListingOffer, suggestedOfferCents } from "../lib/offers";
 import { shipsToLabel } from "../lib/ships";
 import { shopLookOf } from "../lib/shopLook";
 import { useUvel } from "../lib/store";
-import { useColors, type Colors } from "../lib/theme";
+import { useColors, useResolvedAppearance, type Colors } from "../lib/theme";
 import { type ClosetPiece } from "../lib/wardrobe";
 import type { PersonalizationAction } from "../lib/personalization";
 import { ListingAlertControls } from "./ListingAlertControls";
@@ -34,9 +34,12 @@ import { FriendShareSheet, type FriendSharePayload } from "./FriendShareSheet";
 
 const AnimatedScrollView = Animated.createAnimatedComponent(GHScrollView);
 
-export type ListingOrigin = { x: number; y: number; width: number; height: number; radius?: number; radii?: [number, number, number, number]; photo?: string };
+type ListingRect = { x: number; y: number; width: number; height: number };
+export type ListingOrigin = ListingRect & { radius?: number; radii?: [number, number, number, number]; photo?: string; measure?: (callback: (rect: ListingRect) => void) => void };
 
-const PHOTO_MORPH = { duration: 280, easing: Easing.out(Easing.cubic) };
+const PHOTO_MORPH_DURATION = 280;
+const CLOSE_NAV_DELAY = PHOTO_MORPH_DURATION + 80;
+const PHOTO_MORPH = { duration: PHOTO_MORPH_DURATION, easing: Easing.out(Easing.cubic) };
 const SNAP = { damping: 26, stiffness: 320, mass: 0.7, overshootClamping: true };
 
 export function TodayListingOverlay({
@@ -59,6 +62,7 @@ export function TodayListingOverlay({
   firstListing?: boolean;
 }) {
   const baseColors = useColors();
+  const appearance = useResolvedAppearance();
   const app = useUvel();
   const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
   const sellerId = piece.ownerId || piece.listedByUid || "";
@@ -81,6 +85,7 @@ export function TodayListingOverlay({
         successInk: customLook.accentInk,
       }
     : baseColors;
+  const likeColor = appearance === "light" ? baseColors.danger : colors.success;
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
@@ -90,7 +95,7 @@ export function TodayListingOverlay({
   const popupTop = Math.round((screenH - popupHeight) / 2);
   const modalHeaderHeight = 46;
   const footerHeight = 76;
-  const quickImageSize = Math.min(156, Math.max(112, Math.round(popupWidth * 0.42)));
+  const quickImageSize = Math.max(88, Math.min(184, Math.round(Math.min(popupWidth * 0.51, popupHeight * 0.44))));
   const imageTargetX = popupLeft + 13;
   const imageTargetY = popupTop + modalHeaderHeight + 13;
   const imgX = useSharedValue(origin.x);
@@ -224,15 +229,13 @@ export function TodayListingOverlay({
 
   const finishClose = () => onClose();
 
-  const closeToPin = () => {
-    if (previewOnly) {
-      recordDwell();
-      onClose();
-      return;
+  const startCloseTransition = (measured?: ListingRect) => {
+    if (measured && measured.width > 0 && measured.height > 0) {
+      originX.value = measured.x;
+      originY.value = measured.y;
+      originW.value = measured.width;
+      originH.value = measured.height;
     }
-    if (closing.value) return;
-    closing.value = 1;
-    dismissing.value = 1;
     settled.value = 0;
     imgX.value = imageTargetX;
     imgY.value = imageTargetY + modalDragY.value - scrollY.value;
@@ -242,7 +245,6 @@ export function TodayListingOverlay({
     imgTR.value = 14;
     imgBR.value = 14;
     imgBL.value = 14;
-    recordDwell();
     sheet.value = withTiming(0, PHOTO_MORPH);
     backdrop.value = withTiming(0, PHOTO_MORPH);
     imgX.value = withTiming(originX.value, PHOTO_MORPH);
@@ -256,6 +258,34 @@ export function TodayListingOverlay({
     imgBR.value = withTiming(originBR.value, PHOTO_MORPH);
     imgBL.value = withTiming(originBL.value, PHOTO_MORPH);
     photoFitProgress.value = withTiming(0, PHOTO_MORPH);
+  };
+
+  const closeToPin = () => {
+    if (previewOnly) {
+      recordDwell();
+      onClose();
+      return;
+    }
+    if (closing.value) return;
+    closing.value = 1;
+    dismissing.value = 1;
+    recordDwell();
+    let started = false;
+    const start = (measured?: ListingRect) => {
+      if (started) return;
+      started = true;
+      startCloseTransition(measured);
+    };
+    if (origin.measure) {
+      try {
+        origin.measure(start);
+        setTimeout(() => start(), 60);
+      } catch {
+        start();
+      }
+    } else {
+      start();
+    }
   };
 
   const scrollHandler = useAnimatedScrollHandler({
@@ -427,7 +457,7 @@ export function TodayListingOverlay({
           ...(piece.brandId ? { brandId: piece.brandId } : {}),
         },
       });
-    }, 280);
+    }, CLOSE_NAV_DELAY);
   }
 
   function openSeller() {
@@ -436,7 +466,7 @@ export function TodayListingOverlay({
     setTimeout(() => {
       if (brandRecord) router.push({ pathname: "/brand/[id]", params: { id: brandRecord.id } });
       else router.push({ pathname: "/seller/[id]", params: { id: sellerId } });
-    }, 280);
+    }, CLOSE_NAV_DELAY);
   }
 
   function openCheckout() {
@@ -444,7 +474,7 @@ export function TodayListingOverlay({
     closeToPin();
     setTimeout(() => {
       router.push({ pathname: "/checkout/[id]", params: { id: piece.id } });
-    }, 280);
+    }, CLOSE_NAV_DELAY);
   }
 
   return (
@@ -492,7 +522,7 @@ export function TodayListingOverlay({
                 accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}
                 accessibilityState={{ selected: liked }}
               >
-                <Ionicons name={liked ? "heart" : "heart-outline"} size={18} color={liked ? colors.success : colors.bone} />
+                <Ionicons name={liked ? "heart" : "heart-outline"} size={18} color={liked ? likeColor : colors.bone} />
               </Pressable>
               <Pressable onPress={closeToPin} hitSlop={6} style={styles.headerAction} accessibilityRole="button" accessibilityLabel="Close listing">
                 <Ionicons name="close" size={20} color={colors.bone} />
@@ -549,7 +579,7 @@ export function TodayListingOverlay({
           </View>
           {showDoubleTapHint ? (
             <View style={styles.inlineHint}>
-              <Ionicons name="heart-outline" size={14} color={colors.success} />
+              <Ionicons name="heart-outline" size={14} color={likeColor} />
               <Text style={styles.inlineHintText}>Double-tap the photo to save</Text>
             </View>
           ) : null}
@@ -741,7 +771,7 @@ export function TodayListingOverlay({
             <Image cachePolicy="memory-disk" source={{ uri: currentPhoto }} style={styles.hero} contentFit="contain" />
           </Animated.View>
         </Animated.View>
-        <Animated.Text pointerEvents="none" style={[styles.heartPop, heartPopStyle]}>♥</Animated.Text>
+        <Animated.Text pointerEvents="none" style={[styles.heartPop, { color: likeColor }, heartPopStyle]}>♥</Animated.Text>
         <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
         {offerOpen ? (
           <View style={styles.offerBackdrop}>
@@ -752,7 +782,7 @@ export function TodayListingOverlay({
                   <View style={styles.offerSentIcon}><Ionicons name="checkmark" size={23} color={colors.successInk} /></View>
                   <Text style={styles.offerSheetTitle}>Offer sent</Text>
                   <Text style={styles.offerSheetBody}>The seller has 24 hours to respond. If they accept, you’ll get a checkout link in your inbox at the agreed price.</Text>
-                  <Pressable onPress={() => { setOfferOpen(false); closeToPin(); setTimeout(() => router.push({ pathname: "/ask/[id]", params: { id: piece.id, threadId: offerThreadId, pieceName: piece.name, piecePhoto: piece.photo, piecePriceCents: String(piece.listPriceCents) } }), 280); }} style={styles.offerSubmit} accessibilityRole="button">
+                  <Pressable onPress={() => { setOfferOpen(false); closeToPin(); setTimeout(() => router.push({ pathname: "/ask/[id]", params: { id: piece.id, threadId: offerThreadId, pieceName: piece.name, piecePhoto: piece.photo, piecePriceCents: String(piece.listPriceCents) } }), CLOSE_NAV_DELAY); }} style={styles.offerSubmit} accessibilityRole="button">
                     <Text style={styles.offerSubmitText}>Go to inbox</Text>
                     <Ionicons name="arrow-forward" size={17} color={colors.successInk} />
                   </Pressable>
@@ -819,7 +849,7 @@ function make(colors: Colors) {
     photo: { position: "absolute", overflow: "hidden", backgroundColor: colors.surface, zIndex: 4 },
     heroHit: { flex: 1 },
     hero: { width: "100%", height: "100%", backgroundColor: colors.surface },
-    heartPop: { position: "absolute", left: 0, top: 0, zIndex: 20, color: colors.success, fontSize: 68, lineHeight: 72, textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
+    heartPop: { position: "absolute", left: 0, top: 0, zIndex: 20, fontSize: 68, lineHeight: 72, textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
     photoCount: { position: "absolute", right: 18, bottom: 18, minWidth: 48, height: 28, paddingHorizontal: 9, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.58)", alignItems: "center", justifyContent: "center" },
     photoCountCompact: { right: 6, bottom: 6, minWidth: 36, height: 22, paddingHorizontal: 6, borderRadius: 11 },
     photoCountText: { color: colors.bone, fontSize: 11, fontWeight: "800", fontVariant: ["tabular-nums"] },

@@ -520,12 +520,15 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const featuredPrice = featured
     ? moneyInMarket(featuredCredit > 0 ? featuredSaleCents : featuredLocalPriceCents, market.currency, market)
     : "";
+  const measureFeatured = useCallback((callback: (rect: { x: number; y: number; width: number; height: number }) => void) => {
+    featuredRef.current?.measureInWindow((x, y, width, height) => callback({ x, y, width, height }));
+  }, []);
   const openFeatured = useCallback(() => {
     if (!featured) return;
-    featuredRef.current?.measureInWindow((x, y, width, height) => {
-      void openTodayListing(featured, { x, y, width, height, radius: 0, photo: featured.photo });
+    measureFeatured((rect) => {
+      void openTodayListing(featured, { ...rect, radius: 0, photo: featured.photo, measure: measureFeatured });
     });
-  }, [featured, openTodayListing]);
+  }, [featured, measureFeatured, openTodayListing]);
   const heroHeight = Math.max(430, Math.min(560, Dimensions.get("window").height * 0.53));
   const stretchedHeroHeight = scrollY.interpolate({ inputRange: [-180, 0], outputRange: [heroHeight + 180, heroHeight], extrapolateLeft: "extend", extrapolateRight: "clamp" });
   const heroOffset = scrollY.interpolate({ inputRange: [-180, 0], outputRange: [-180, 0], extrapolateLeft: "extend", extrapolateRight: "clamp" });

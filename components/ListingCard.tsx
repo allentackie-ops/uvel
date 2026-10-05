@@ -8,7 +8,7 @@ import { getBrand, themeFor } from "../lib/brands";
 import { useFirstFind } from "../lib/firstFind";
 import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
-import { useColors } from "../lib/theme";
+import { useColors, useResolvedAppearance } from "../lib/theme";
 import { shopLookOf } from "../lib/shopLook";
 import { getPiece, isRemoteListedPiece, likeCount, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { BrandVerifiedMark } from "./VerifiedMark";
@@ -61,12 +61,16 @@ export function ListingCard({
   framed?: boolean;
   firstFind?: boolean;
   onFirstFind?: () => void;
-  onOpen?: (piece: ClosetPiece, origin: { x: number; y: number; width: number; height: number; radius: number; photo: string }) => void;
+  onOpen?: (piece: ClosetPiece, origin: { x: number; y: number; width: number; height: number; radius: number; photo: string; measure?: (callback: (rect: { x: number; y: number; width: number; height: number }) => void) => void }) => void;
   onInteraction?: (action: PersonalizationAction, piece: ClosetPiece) => void;
 }) {
   const colors = useColors();
+  const likeColor = useResolvedAppearance() === "light" ? colors.danger : colors.success;
   const styles = make(colors);
   const mediaRef = useRef<View>(null);
+  const measureMedia = (callback: (rect: { x: number; y: number; width: number; height: number }) => void) => {
+    mediaRef.current?.measureInWindow((x, y, width, height) => callback({ x, y, width, height }));
+  };
   useWardrobe();
   const app = useUvel();
   const live = getPiece(piece.id) || piece;
@@ -94,7 +98,7 @@ export function ListingCard({
         router.push({ pathname: "/closet/[id]", params: { id: live.id } });
         return;
       }
-      mediaRef.current?.measureInWindow((x, y, width, height) => onOpen(live, { x, y, width, height, radius: framed ? 0 : 18, photo: live.photo }));
+      measureMedia((rect) => onOpen(live, { ...rect, radius: framed ? 0 : 18, photo: live.photo, measure: measureMedia }));
     }}
       style={({ pressed }) => [styles.wrap, hasCustomLook && { backgroundColor: shopLook.surface, borderColor: shopLook.page, borderWidth: 1 }, wide ? { width: wide, flex: undefined } : null, framed && styles.framed, pressed && app.accessibilityMode && styles.focused]}
       accessibilityRole="button"
@@ -153,7 +157,7 @@ export function ListingCard({
           accessibilityHint={isMine ? "Your own listing cannot be liked from your seller view." : liked ? "Double tap to remove this listing from your saved items." : "Double tap to save this listing."}
           accessibilityState={{ selected: liked, disabled: isMine }}
         >
-          <Text style={[styles.heartsIco, liked && styles.heartsOn]}>{liked ? "♥" : "♡"}</Text>
+          <Text style={[styles.heartsIco, liked && { color: likeColor }]}>{liked ? "♥" : "♡"}</Text>
           <Text style={styles.heartsN}>{hearts}</Text>
         </AccessiblePressable>
       </View>
@@ -203,7 +207,6 @@ function make(colors: ReturnType<typeof useColors>) {
     newBadgeTxt: { color: IMAGE_OVERLAY_TEXT, fontSize: 13, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
     hearts: { position: "absolute", minWidth: 44, minHeight: 44, right: 10, bottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, zIndex: 8 },
     heartsIco: { color: IMAGE_OVERLAY_TEXT, fontSize: 16, textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
-    heartsOn: { color: colors.success },
     heartsN: { color: IMAGE_OVERLAY_TEXT, fontSize: 14, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.45)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
     badge: { position: "absolute", left: 10, bottom: 10, backgroundColor: `${colors.surface}F0`, paddingHorizontal: 12, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
     badgeTxt: { color: colors.ink, fontWeight: "700", fontSize: 12 },

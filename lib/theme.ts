@@ -50,7 +50,7 @@ export const palettes: Record<"dark" | "light", Colors> = {
     muted: "#565959",
     subtle: "#8A8A8A",
     pulse: "#D6E27A",
-    link: "#007185",
+    link: "#CC0C39",
     pulseInk: "#181714",
     success: "#007EB9",
     successInk: "#FFFFFF",
