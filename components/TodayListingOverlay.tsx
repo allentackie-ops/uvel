@@ -37,7 +37,7 @@ const AnimatedScrollView = Animated.createAnimatedComponent(GHScrollView);
 type ListingRect = { x: number; y: number; width: number; height: number };
 export type ListingOrigin = ListingRect & { radius?: number; radii?: [number, number, number, number]; photo?: string; measure?: (callback: (rect: ListingRect) => void) => void };
 
-const PHOTO_MORPH_DURATION = 280;
+const PHOTO_MORPH_DURATION = 320;
 const CLOSE_NAV_DELAY = PHOTO_MORPH_DURATION + 80;
 const PHOTO_MORPH = { duration: PHOTO_MORPH_DURATION, easing: Easing.out(Easing.cubic) };
 const SNAP = { damping: 26, stiffness: 320, mass: 0.7, overshootClamping: true };
@@ -89,15 +89,17 @@ export function TodayListingOverlay({
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
-  const popupWidth = Math.max(0, Math.min(screenW - 32, 440));
-  const popupHeight = Math.max(0, Math.min(Math.floor(screenH * 0.5), screenH - insets.top - insets.bottom - 32));
-  const popupLeft = Math.round((screenW - popupWidth) / 2);
-  const popupTop = Math.round((screenH - popupHeight) / 2);
-  const modalHeaderHeight = 46;
-  const footerHeight = 76;
-  const quickImageSize = Math.max(88, Math.min(184, Math.round(Math.min(popupWidth * 0.51, popupHeight * 0.44))));
-  const imageTargetX = popupLeft + 13;
-  const imageTargetY = popupTop + modalHeaderHeight + 13;
+  const popupWidth = screenW;
+  const popupHeight = Math.max(0, Math.floor(screenH * 0.5));
+  const popupLeft = 0;
+  const popupTop = screenH - popupHeight;
+  const sheetHandleHeight = 18;
+  const modalHeaderHeight = 44;
+  const footerHeight = 68 + insets.bottom;
+  const photoViewportHeight = Math.max(0, popupHeight - sheetHandleHeight - modalHeaderHeight - footerHeight);
+  const quickImageSize = Math.max(88, Math.min(214, Math.round(Math.min(popupWidth * 0.52, photoViewportHeight - 24))));
+  const imageTargetX = popupLeft + 12;
+  const imageTargetY = popupTop + sheetHandleHeight + modalHeaderHeight + 12;
   const imgX = useSharedValue(origin.x);
   const imgY = useSharedValue(origin.y);
   const imgW = useSharedValue(origin.width);
@@ -116,6 +118,7 @@ export function TodayListingOverlay({
   const originBL = useSharedValue(origin.radii?.[3] ?? origin.radius ?? 18);
   const backdrop = useSharedValue(0);
   const sheet = useSharedValue(0);
+  const sheetEnterY = useSharedValue(popupHeight);
   const photoFitProgress = useSharedValue(0);
   const dragY = useSharedValue(0);
   const modalDragY = useSharedValue(0);
@@ -210,9 +213,11 @@ export function TodayListingOverlay({
     imgBR.value = withTiming(14, PHOTO_MORPH);
     imgBL.value = withTiming(14, PHOTO_MORPH);
     photoFitProgress.value = withTiming(1, PHOTO_MORPH);
+    sheetEnterY.value = popupHeight;
+    sheetEnterY.value = withTiming(0, PHOTO_MORPH);
     backdrop.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
     sheet.value = withTiming(1, { duration: 220 });
-  }, [backdrop, imageTargetX, imageTargetY, imgBL, imgBR, imgH, imgTL, imgTR, imgW, imgX, imgY, modalDragY, origin.height, origin.radius, origin.radii, origin.width, origin.x, origin.y, originBL, originBR, originH, originTL, originTR, originW, originX, originY, photoFitProgress, quickImageSize, sheet]);
+  }, [backdrop, imageTargetX, imageTargetY, imgBL, imgBR, imgH, imgTL, imgTR, imgW, imgX, imgY, modalDragY, origin.height, origin.radius, origin.radii, origin.width, origin.x, origin.y, originBL, originBR, originH, originTL, originTR, originW, originX, originY, photoFitProgress, popupHeight, quickImageSize, sheet, sheetEnterY]);
 
   useEffect(() => {
     if (!showDoubleTapHint || !onDoubleTapHintDismiss) return;
@@ -258,6 +263,7 @@ export function TodayListingOverlay({
     imgBR.value = withTiming(originBR.value, PHOTO_MORPH);
     imgBL.value = withTiming(originBL.value, PHOTO_MORPH);
     photoFitProgress.value = withTiming(0, PHOTO_MORPH);
+    sheetEnterY.value = withTiming(popupHeight - modalDragY.value, PHOTO_MORPH);
   };
 
   const closeToPin = () => {
@@ -378,9 +384,9 @@ export function TodayListingOverlay({
   const coverPhotoStyle = useAnimatedStyle(() => ({ opacity: 1 - photoFitProgress.value }));
   const containPhotoStyle = useAnimatedStyle(() => ({ opacity: photoFitProgress.value }));
   const inFlowStyle = useAnimatedStyle(() => ({ opacity: settled.value }));
-  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value * 0.55 }));
+  const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value * 0.12 }));
   const pageStyle = useAnimatedStyle(() => ({ opacity: sheet.value }));
-  const modalDragStyle = useAnimatedStyle(() => ({ transform: [{ translateY: modalDragY.value }] }));
+  const sheetMotionStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetEnterY.value + modalDragY.value }] }));
 
   const brand = brandRecord?.name || piece.brand;
   const sellerName = brandRecord?.name || piece.ownerName || piece.listedByName || "Uvel seller";
@@ -497,7 +503,8 @@ export function TodayListingOverlay({
           accessibilityLabel="Close listing details"
         />
         <GestureDetector gesture={pan}>
-        <Animated.View style={[styles.popup, { left: popupLeft, top: popupTop, width: popupWidth, height: popupHeight }, pageStyle, modalDragStyle]}>
+        <Animated.View style={[styles.popup, { left: popupLeft, top: popupTop, width: popupWidth, height: popupHeight }, pageStyle, sheetMotionStyle]}>
+          <View style={[styles.sheetHandleArea, { height: sheetHandleHeight }]}><View style={styles.sheetHandle} /></View>
           <View style={[styles.modalHeader, { height: modalHeaderHeight }]}>
             <Text style={styles.kicker} numberOfLines={1}>{(brand || "UVEL").toUpperCase()}</Text>
             <View style={styles.modalHeaderActions}>
@@ -531,7 +538,7 @@ export function TodayListingOverlay({
           </View>
         <AnimatedScrollView
           ref={scrollRef}
-          style={[styles.popupScroll, { top: modalHeaderHeight, bottom: footerHeight + (showTryOnHint ? 74 : 0) }]}
+          style={[styles.popupScroll, { top: sheetHandleHeight + modalHeaderHeight, bottom: footerHeight + (showTryOnHint ? 74 : 0) }]}
           contentContainerStyle={{ paddingBottom: 16 }}
           showsVerticalScrollIndicator={false}
           bounces={false}
@@ -731,7 +738,7 @@ export function TodayListingOverlay({
           ) : null}
           </View>
         </AnimatedScrollView>
-        <Animated.View pointerEvents="box-none" style={[styles.stickyFooter, { paddingBottom: 12 }]}>
+        <Animated.View pointerEvents="box-none" style={[styles.stickyFooter, { paddingBottom: insets.bottom + 10 }]}>
           {showTryOnHint ? (
             <View pointerEvents="none" style={styles.tryOnHint}>
               <View style={styles.tryOnHintCopy}>
@@ -829,7 +836,9 @@ function make(colors: Colors) {
     fill: { flex: 1 },
     backdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "#000" },
     backdropTap: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 1 },
-    popup: { position: "absolute", zIndex: 2, elevation: 18, backgroundColor: colors.surface, borderRadius: 22, borderWidth: 1, borderColor: `${colors.bone}18`, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 22, shadowOffset: { width: 0, height: 12 } },
+    popup: { position: "absolute", zIndex: 2, elevation: 18, backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderWidth: 0, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: -7 } },
+    sheetHandleArea: { alignItems: "center", justifyContent: "center" },
+    sheetHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: `${colors.bone}40` },
     modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, backgroundColor: colors.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
     modalHeaderActions: { flexDirection: "row", alignItems: "center", gap: 6 },
     headerAction: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: `${colors.bone}28`, backgroundColor: `${colors.bone}08`, alignItems: "center", justifyContent: "center" },

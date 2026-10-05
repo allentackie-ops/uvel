@@ -869,7 +869,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           {listHeaderContent}
           <View style={[styles.grid, !scanning && { marginTop: 14 }]}>
             {scanning ? null : feedRanked.map((piece) => (
-              <View key={piece.id} style={[styles.cell, openPiece?.id === piece.id && { opacity: 0 }]}>
+              <View key={piece.id} style={styles.cell}>
                 {refreshSkeletonActive ? <ListingCardSkeleton framed /> : <ListingCard piece={piece} framed firstFind={todayHome && firstFind.matches(piece)} onFirstFind={todayHome ? () => setFindHint(true) : undefined} onOpen={todayHome ? openTodayListing : undefined} onInteraction={todayHome ? personalization.record : undefined} />}
               </View>
             ))}
