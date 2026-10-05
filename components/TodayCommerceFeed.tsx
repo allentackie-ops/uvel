@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { Animated, Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "./AccessiblePressable";
 import { OrbitLoader } from "./OrbitLoader";
@@ -13,6 +14,7 @@ import type { Colors } from "../lib/theme";
 import { useColors } from "../lib/theme";
 import { getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
+import { loadAddresses, setActiveAddress, type Address } from "../lib/orders";
 import type { BannerStory, BannerStoryOrigin } from "./TodayBannerStoryOverlay";
 import { curateTodayBanners, type CuratedTodayBanner } from "../lib/todayBannerEngine";
 
@@ -86,6 +88,8 @@ export function TodayCommerceFeed({
   const pullOffset = useRef(new Animated.Value(0)).current;
   const pullTriggered = useRef(false);
   const wasRefreshing = useRef(false);
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [locationOpen, setLocationOpen] = useState(false);
   const posterScrollX = useRef(new Animated.Value(0)).current;
   const posterWidth = Math.min(352, Dimensions.get("window").width - 48);
   const posterInterval = posterWidth + 12;
@@ -112,6 +116,12 @@ export function TodayCommerceFeed({
   const handleRefresh = () => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined);
     onRefresh();
+  };
+  const activeAddress = addresses[0];
+  const firstName = (activeAddress?.name || app.displayName || "you").trim().split(/\s+/)[0];
+  const openLocation = () => {
+    void loadAddresses().then(setAddresses);
+    setLocationOpen(true);
   };
   const handleScroll = Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
     useNativeDriver: true,
@@ -155,6 +165,10 @@ export function TodayCommerceFeed({
       <View style={[styles.fixedHeader, { height: insets.top + 62, paddingTop: insets.top }]}>
         <AccessiblePressable onPress={onOpenTools} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open Today tools">
           <View style={styles.menuIcon}><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View>
+        </AccessiblePressable>
+        <AccessiblePressable onPress={openLocation} style={styles.locationButton} accessibilityRole="button" accessibilityLabel={activeAddress ? `Deliver to ${firstName}` : "Add a delivery address"} accessibilityHint="Open saved delivery addresses">
+          <Ionicons name="location-outline" size={16} color={colors.bone} />
+          <Text style={styles.locationText} numberOfLines={1}>{activeAddress ? `Deliver to ${firstName}` : "Add delivery address"}</Text>
         </AccessiblePressable>
         <View style={styles.headerActions}>
           <AccessiblePressable onPress={onOpenSearch} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Search Uvel"><Ionicons name="search-outline" size={24} color={colors.bone} /></AccessiblePressable>
@@ -228,6 +242,24 @@ export function TodayCommerceFeed({
       <SectionTitle title="Recently viewed" onPress={onOpenSearch} />
       <ProductRail pieces={personalized.slice(4, 8).length ? personalized.slice(4, 8) : personalized.slice(0, 4)} market={market} onOpen={onOpenPiece} compact />
       </Animated.ScrollView>
+      <Modal visible={locationOpen} transparent animationType="fade" onRequestClose={() => setLocationOpen(false)} statusBarTranslucent>
+        <Pressable style={styles.locationBackdrop} onPress={() => setLocationOpen(false)} accessibilityRole="button" accessibilityLabel="Close delivery address popup">
+          <Pressable style={styles.locationCard} onPress={(event) => event.stopPropagation()} accessibilityViewIsModal>
+            <View style={styles.locationTitleRow}>
+              <View><Text style={styles.locationEyebrow}>DELIVER TO</Text><Text style={styles.locationTitle}>{activeAddress ? firstName : "Add your address"}</Text></View>
+              <Pressable onPress={() => setLocationOpen(false)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close"><Ionicons name="close" size={20} color={colors.muted} /></Pressable>
+            </View>
+            {addresses.map((address, index) => {
+              const selected = address.id === activeAddress?.id;
+              return <Pressable key={address.id || index} onPress={() => { if (address.id) void setActiveAddress(address.id); setAddresses((current) => [address, ...current.filter((item) => item.id !== address.id)]); }} style={[styles.locationAddress, selected && styles.locationAddressSelected]} accessibilityRole="radio" accessibilityState={{ selected }}>
+                <Ionicons name={selected ? "radio-button-on" : "radio-button-off"} size={19} color={selected ? colors.success : colors.muted} />
+                <View style={{ flex: 1 }}><Text style={styles.locationAddressName}>{address.name}</Text><Text style={styles.locationAddressText} numberOfLines={2}>{[address.line1, address.city, address.region, address.postal].filter(Boolean).join(", ")}</Text></View>
+              </Pressable>;
+            })}
+            <Pressable onPress={() => { setLocationOpen(false); router.push({ pathname: "/address", params: { mode: "add" } }); }} style={styles.addLocationButton} accessibilityRole="button" accessibilityLabel="Add another delivery address"><Ionicons name="add" size={18} color={colors.successInk} /><Text style={styles.addLocationText}>Add another address</Text></Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
       {refreshing ? <View pointerEvents="none" style={[styles.pullOrbitLayer, { top: insets.top + 62 }]}><OrbitLoader size={58} /></View> : null}
     </View>
   );
@@ -583,6 +615,19 @@ function make(colors: Colors) {
     wordmarkButton: { minHeight: 48, justifyContent: "center" },
     wordmark: { color: colors.pulse, fontFamily: "Georgia", fontSize: 35, lineHeight: 40, fontStyle: "italic", fontWeight: "700", letterSpacing: -0.8 },
     topIcon: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
+    locationButton: { flex: 1, minHeight: 42, marginHorizontal: 4, paddingHorizontal: 8, flexDirection: "row", alignItems: "center", gap: 5 },
+    locationText: { color: colors.bone, flexShrink: 1, fontSize: 12, fontWeight: "700" },
+    locationBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
+    locationCard: { width: "100%", maxWidth: 360, borderRadius: 20, padding: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}18`, shadowColor: "#000", shadowOpacity: 0.22, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 8 },
+    locationTitleRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 },
+    locationEyebrow: { color: colors.muted, fontSize: 10, fontWeight: "800", letterSpacing: 1.4 },
+    locationTitle: { color: colors.bone, fontSize: 22, fontWeight: "800", marginTop: 3 },
+    locationAddress: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: `${colors.bone}16`, marginTop: 8 },
+    locationAddressSelected: { borderColor: `${colors.success}99`, backgroundColor: `${colors.success}14` },
+    locationAddressName: { color: colors.bone, fontSize: 14, fontWeight: "800" },
+    locationAddressText: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 3 },
+    addLocationButton: { minHeight: 44, marginTop: 12, borderRadius: 22, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 },
+    addLocationText: { color: colors.successInk, fontSize: 14, fontWeight: "800" },
     menuIcon: { width: 22, gap: 4 },
     menuLine: { width: 22, height: 2, borderRadius: 2, backgroundColor: colors.bone },
     search: { height: 52, borderRadius: 27, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}20`, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 9 },

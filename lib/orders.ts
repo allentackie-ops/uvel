@@ -7,6 +7,7 @@ import { sendPush } from "./push";
 import { readUserLite } from "./chat";
 
 export type Address = {
+  id?: string;
   name: string;
   phone: string;
   line1: string;
@@ -116,6 +117,8 @@ export type Order = {
 };
 
 const ADDR = "uvel-address-v1";
+const ADDRESSES = "uvel-addresses-v1";
+const ACTIVE_ADDR = "uvel-active-address-v1";
 const ORDERS = "uvel-orders-v1";
 
 let cache: Order[] = [];
@@ -221,16 +224,49 @@ export function allOrders() {
 }
 
 export async function loadAddress(): Promise<Address | null> {
+  const addresses = await loadAddresses();
+  const activeId = await AsyncStorage.getItem(ACTIVE_ADDR);
+  return addresses.find((address) => address.id === activeId) || addresses[0] || null;
+}
+
+export async function loadAddresses(): Promise<Address[]> {
   try {
-    const raw = await AsyncStorage.getItem(ADDR);
-    return raw ? (JSON.parse(raw) as Address) : null;
+    const saved = await AsyncStorage.getItem(ADDRESSES);
+    if (saved) return JSON.parse(saved) as Address[];
+    const legacy = await AsyncStorage.getItem(ADDR);
+    if (!legacy) return [];
+    const address = { ...(JSON.parse(legacy) as Address), id: "primary" };
+    await AsyncStorage.setItem(ADDRESSES, JSON.stringify([address]));
+    return [address];
   } catch {
-    return null;
+    return [];
   }
 }
 
 export async function saveAddress(a: Address) {
-  await AsyncStorage.setItem(ADDR, JSON.stringify(a));
+  const addresses = await loadAddresses();
+  const activeId = await AsyncStorage.getItem(ACTIVE_ADDR);
+  const current = addresses.find((address) => address.id === activeId) || addresses[0];
+  const next = { ...a, id: a.id || current?.id || `address-${Date.now()}` };
+  const updated = addresses.length ? addresses.map((address) => address.id === next.id ? next : address) : [next];
+  await AsyncStorage.setItem(ADDRESSES, JSON.stringify(updated));
+  await AsyncStorage.setItem(ADDR, JSON.stringify(next));
+  await AsyncStorage.setItem(ACTIVE_ADDR, next.id || "");
+}
+
+export async function addAddress(a: Address) {
+  const next = { ...a, id: a.id || `address-${Date.now()}` };
+  const addresses = await loadAddresses();
+  await AsyncStorage.setItem(ADDRESSES, JSON.stringify([...addresses, next]));
+  await AsyncStorage.setItem(ACTIVE_ADDR, next.id || "");
+  await AsyncStorage.setItem(ADDR, JSON.stringify(next));
+}
+
+export async function setActiveAddress(id: string) {
+  const address = (await loadAddresses()).find((item) => item.id === id);
+  if (!address) return;
+  await AsyncStorage.setItem(ACTIVE_ADDR, id);
+  await AsyncStorage.setItem(ADDR, JSON.stringify(address));
 }
 
 export function watchOrder(id: string, onStatus: (status: Order["status"] | null, fulfillmentStatus?: FulfillmentStatus | null) => void) {

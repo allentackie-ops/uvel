@@ -1,10 +1,10 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMarket } from "../lib/markets";
-import { loadAddress, saveAddress } from "../lib/orders";
+import { addAddress, loadAddress, saveAddress } from "../lib/orders";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 
@@ -13,6 +13,8 @@ export default function Address() {
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { country, displayName } = useUvel();
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const adding = mode === "add";
   const market = getMarket(country);
   const [name, setName] = useState(displayName);
   const [phone, setPhone] = useState("");
@@ -25,6 +27,7 @@ export default function Address() {
   const ok = name.trim() && line1.trim() && city.trim() && postal.trim();
 
   useEffect(() => {
+    if (adding) return;
     void loadAddress().then((a) => {
       if (!a) return;
       setName(a.name);
@@ -35,10 +38,10 @@ export default function Address() {
       setRegion(a.region);
       setPostal(a.postal);
     });
-  }, []);
+  }, [adding]);
 
   async function save() {
-    await saveAddress({
+    const next = {
       name: name.trim(),
       phone: phone.trim(),
       line1: line1.trim(),
@@ -47,7 +50,9 @@ export default function Address() {
       region: region.trim(),
       postal: postal.trim(),
       country: market.code,
-    });
+    };
+    if (adding) await addAddress(next);
+    else await saveAddress(next);
     router.back();
   }
 
