@@ -526,7 +526,7 @@ function DealFeatureCard({ piece, market, onOpen, styles }: { piece: ClosetPiece
         <View style={styles.dealFeatureBadge}><Text style={styles.dealFeatureBadgeText}>{Math.round(rate * 100)}% OFF</Text></View>
         <Image source={{ uri: piece.photo }} style={styles.dealFeatureImage} contentFit="cover" accessible={false} />
         <AccessiblePressable onPress={() => void app.toggleSaved(piece.id)} hitSlop={8} style={styles.dealFeatureHeart} accessibilityRole="button" accessibilityLabel={`${saved ? "Remove" : "Save"} ${piece.name}`} accessibilityState={{ selected: saved }}>
-          <Ionicons name={saved ? "heart" : "heart-outline"} size={24} color="#FFFFFF" />
+          <Ionicons name={saved ? "heart" : "heart-outline"} size={24} color={TODAY_DEALS_RED} />
         </AccessiblePressable>
       </View>
       <View style={styles.dealFeatureMeta}>
@@ -549,9 +549,9 @@ function ProductCard({ piece, market, onOpen, deals, compact }: { piece: ClosetP
   const brand = piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Uvel seller";
   const price = moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market);
   const saved = app.saved.includes(piece.id);
-  const dealAccent = deals ? TODAY_DEALS_RED : (saved ? colors.pulse : colors.success);
+  const dealAccent = TODAY_DEALS_RED;
   return <View ref={ref} collapsable={false} style={[styles.productCard, compact && styles.productCardCompact]}><AccessiblePressable onPress={() => ref.current?.measureInWindow((x, y, width, height) => onOpen(piece, { x, y, width, height }))} style={styles.productPress} accessibilityRole="button" accessibilityLabel={`Open ${piece.name} by ${brand}, ${price}`}>
-    <View style={styles.productImageWrap}>{deals ? <View style={[styles.discount, { backgroundColor: TODAY_DEALS_RED }]}><Text style={[styles.discountText, { color: "#FFFFFF" }]}>{["20% off", "15% off", "30% off", "10% off"][piece.id.length % 4]}</Text></View> : null}<Image source={{ uri: piece.photo }} style={styles.productImage} contentFit="cover" accessible={false} /><AccessiblePressable onPress={() => void app.toggleSaved(piece.id)} hitSlop={8} style={[styles.productHeart, { backgroundColor: dealAccent }]} accessibilityRole="button" accessibilityLabel={`${saved ? "Remove" : "Save"} ${piece.name}`} accessibilityState={{ selected: saved }}><Ionicons name={saved ? "heart" : "heart-outline"} size={22} color={deals ? "#FFFFFF" : colors.ink} /></AccessiblePressable></View>
+    <View style={styles.productImageWrap}>{deals ? <View style={[styles.discount, { backgroundColor: TODAY_DEALS_RED }]}><Text style={[styles.discountText, { color: "#FFFFFF" }]}>{["20% off", "15% off", "30% off", "10% off"][piece.id.length % 4]}</Text></View> : null}<Image source={{ uri: piece.photo }} style={styles.productImage} contentFit="cover" accessible={false} /><AccessiblePressable onPress={() => void app.toggleSaved(piece.id)} hitSlop={8} style={[styles.productHeart, { backgroundColor: dealAccent }]} accessibilityRole="button" accessibilityLabel={`${saved ? "Remove" : "Save"} ${piece.name}`} accessibilityState={{ selected: saved }}><Ionicons name={saved ? "heart" : "heart-outline"} size={22} color="#FFFFFF" /></AccessiblePressable></View>
     <Text style={styles.productName} numberOfLines={2}>{piece.name}</Text><Text style={styles.productPrice}>{price}</Text><Text style={styles.productBrand} numberOfLines={1}>{brand}</Text>
   </AccessiblePressable></View>;
 }
