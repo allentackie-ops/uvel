@@ -66,8 +66,8 @@ export function TodayListingOverlay({
   const customLook = piece.shopLook || brandRecord
     ? shopLookOf(piece.shopLook, brandRecord ? themeFor(brandRecord) : null)
     : null;
-  // Keep the expanded sheet on the same page as its listing card instead of
-  // falling back to the app's default black background.
+  // Keep the popup on the same page as its listing card instead of falling
+  // back to the app's default black background.
   const colors: Colors = customLook
     ? {
         ...baseColors,
@@ -85,23 +85,28 @@ export function TodayListingOverlay({
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
-  const heroH = Math.round(Math.min(Math.max(screenH * 0.62, 420), 620));
-  const popupTop = Math.max(insets.top, 56);
-  const footerHeight = insets.bottom + 76;
-  const chromeTop = popupTop;
+  const popupWidth = Math.max(0, Math.min(screenW - 32, 440));
+  const popupHeight = Math.max(0, Math.min(Math.floor(screenH * 0.5), screenH - insets.top - insets.bottom - 32));
+  const popupLeft = Math.round((screenW - popupWidth) / 2);
+  const popupTop = Math.round((screenH - popupHeight) / 2);
+  const modalHeaderHeight = 46;
+  const footerHeight = 76;
+  const quickImageSize = Math.min(116, Math.max(72, Math.round(popupHeight * 0.28)));
+  const imageTargetX = popupLeft + 12;
+  const imageTargetY = popupTop + modalHeaderHeight + 12;
   const imgX = useSharedValue(origin.x);
   const imgY = useSharedValue(origin.y);
   const imgW = useSharedValue(origin.width);
   const imgH = useSharedValue(origin.height);
-  const imgR = useSharedValue(18);
+  const imgR = useSharedValue(14);
   const originX = useSharedValue(origin.x);
   const originY = useSharedValue(origin.y);
   const originW = useSharedValue(origin.width);
   const originH = useSharedValue(origin.height);
   const backdrop = useSharedValue(0);
-  const chrome = useSharedValue(0);
   const sheet = useSharedValue(0);
   const dragY = useSharedValue(0);
+  const modalDragY = useSharedValue(0);
   const closing = useSharedValue(0);
   const dismissing = useSharedValue(0);
   const settled = useSharedValue(0);
@@ -173,17 +178,17 @@ export function TodayListingOverlay({
     imgW.value = origin.width;
     imgH.value = origin.height;
     imgR.value = 18;
-    imgX.value = withSpring(0, OPEN_SPRING);
-    imgY.value = withSpring(chromeTop, OPEN_SPRING);
-    imgW.value = withSpring(screenW, OPEN_SPRING);
-    imgH.value = withSpring(heroH, OPEN_SPRING);
-    imgR.value = withSpring(0, OPEN_SPRING, (finished) => {
+    modalDragY.value = 0;
+    imgX.value = withSpring(imageTargetX, OPEN_SPRING);
+    imgY.value = withSpring(imageTargetY, OPEN_SPRING);
+    imgW.value = withSpring(quickImageSize, OPEN_SPRING);
+    imgH.value = withSpring(quickImageSize, OPEN_SPRING);
+    imgR.value = withSpring(14, OPEN_SPRING, (finished) => {
       if (finished) settled.value = 1;
     });
     backdrop.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
-    chrome.value = withTiming(1, { duration: 180 });
     sheet.value = withTiming(1, { duration: 220 });
-  }, [backdrop, chrome, heroH, imgH, imgR, imgW, imgX, imgY, origin.height, origin.width, origin.x, origin.y, originH, originW, originX, originY, screenW, sheet]);
+  }, [backdrop, imageTargetX, imageTargetY, imgH, imgR, imgW, imgX, imgY, modalDragY, origin.height, origin.width, origin.x, origin.y, originH, originW, originX, originY, quickImageSize, sheet]);
 
   useEffect(() => {
     if (!showDoubleTapHint || !onDoubleTapHintDismiss) return;
@@ -210,15 +215,15 @@ export function TodayListingOverlay({
     closing.value = 1;
     dismissing.value = 1;
     settled.value = 0;
-    imgX.value = 0;
-    imgY.value = chromeTop - scrollY.value;
-    imgW.value = screenW;
-    imgH.value = heroH;
-    imgR.value = 0;
+    imgX.value = imageTargetX;
+    imgY.value = imageTargetY + modalDragY.value - scrollY.value;
+    imgW.value = quickImageSize;
+    imgH.value = quickImageSize;
+    imgR.value = 14;
     recordDwell();
-    chrome.value = withTiming(0, { duration: 70 });
     sheet.value = withTiming(0, { duration: 80 });
     backdrop.value = withTiming(0, { duration: 240, easing: Easing.out(Easing.cubic) });
+    modalDragY.value = withTiming(modalDragY.value + 24, { duration: 180, easing: Easing.out(Easing.cubic) });
     imgX.value = withSpring(originX.value, CLOSE_SPRING);
     imgY.value = withSpring(originY.value, CLOSE_SPRING);
     imgW.value = withSpring(originW.value, CLOSE_SPRING);
@@ -280,64 +285,28 @@ export function TodayListingOverlay({
         dismissing.value = 0;
         return;
       }
-      settled.value = 0;
       dismissing.value = 1;
-      imgX.value = 0;
-      imgY.value = chromeTop;
-      imgW.value = screenW;
-      imgH.value = heroH;
-      imgR.value = 0;
     })
     .onUpdate((event) => {
       if (closing.value || !dismissing.value) return;
-      const p = Math.min(Math.max(event.translationY, 0) / 280, 1);
-      const s = 1 - p * 0.28;
-      const w = screenW * s;
-      const h = heroH * s;
-      imgW.value = w;
-      imgH.value = h;
-      imgX.value = (screenW - w) / 2;
-      imgY.value = chromeTop + event.translationY * 0.92;
-      imgR.value = 20 * p;
+      const translationY = Math.max(event.translationY, 0);
+      const p = Math.min(translationY / 240, 1);
+      modalDragY.value = translationY;
       backdrop.value = 1 - p * 0.95;
-      chrome.value = Math.max(0, 1 - p * 2.8);
-      sheet.value = Math.max(0, 1 - p * 3.2);
-      dragY.value = event.translationY;
+      sheet.value = Math.max(0.4, 1 - p * 0.6);
+      dragY.value = translationY;
     })
     .onEnd((event) => {
       if (closing.value || !dismissing.value) return;
       if (dragY.value > 48 || event.velocityY > 600) {
-        if (previewOnly) {
-          runOnJS(recordDwell)();
-          runOnJS(finishClose)();
-          return;
-        }
-        closing.value = 1;
-        runOnJS(recordDwell)();
-        chrome.value = withTiming(0, { duration: 70 });
-        sheet.value = withTiming(0, { duration: 80 });
-        backdrop.value = withTiming(0, { duration: 240, easing: Easing.out(Easing.cubic) });
-        imgX.value = withSpring(originX.value, CLOSE_SPRING);
-        imgY.value = withSpring(originY.value, CLOSE_SPRING);
-        imgW.value = withSpring(originW.value, CLOSE_SPRING);
-        imgH.value = withSpring(originH.value, CLOSE_SPRING);
-        imgR.value = withSpring(18, CLOSE_SPRING, (finished) => {
-          if (finished) runOnJS(finishClose)();
-        });
+        runOnJS(closeToPin)();
         return;
       }
       dismissing.value = 0;
       dragY.value = 0;
-      imgX.value = withSpring(0, SNAP);
-      imgY.value = withSpring(chromeTop, SNAP);
-      imgW.value = withSpring(screenW, SNAP);
-      imgH.value = withSpring(heroH, SNAP);
-      imgR.value = withSpring(0, SNAP, (finished) => {
-        if (finished) settled.value = 1;
-      });
+      modalDragY.value = withSpring(0, SNAP);
       backdrop.value = withSpring(1, SNAP);
-      chrome.value = withTiming(1, { duration: 140 });
-      sheet.value = withTiming(1, { duration: 160 });
+      sheet.value = withTiming(1, { duration: 140 });
     });
 
   const photoStyle = useAnimatedStyle(() => ({
@@ -350,8 +319,8 @@ export function TodayListingOverlay({
   }));
   const inFlowStyle = useAnimatedStyle(() => ({ opacity: settled.value }));
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value * 0.55 }));
-  const chromeStyle = useAnimatedStyle(() => ({ opacity: chrome.value }));
   const pageStyle = useAnimatedStyle(() => ({ opacity: sheet.value }));
+  const modalDragStyle = useAnimatedStyle(() => ({ transform: [{ translateY: modalDragY.value }] }));
 
   const brand = brandRecord?.name || piece.brand;
   const sellerName = brandRecord?.name || piece.ownerName || piece.listedByName || "Uvel seller";
@@ -368,7 +337,7 @@ export function TodayListingOverlay({
   const measurementEntries = Object.entries(piece.measurements || {}).filter(([, value]) => Boolean(value));
   const currentPhoto = gallery[Math.min(activePhoto, gallery.length - 1)] || piece.photo;
   const heartPopX = useSharedValue(screenW / 2);
-  const heartPopY = useSharedValue(heroH / 2);
+  const heartPopY = useSharedValue(imageTargetY + quickImageSize / 2);
   const heartPopScale = useSharedValue(0);
   const heartPopOpacity = useSharedValue(0);
   const sharePayload: FriendSharePayload = { kind: "listing", id: piece.id, title: piece.name, deepLink: `uvel://piece/${piece.id}`, imageUri: piece.photo, previewText: `Have a look at ${piece.name} on Uvel.` };
@@ -392,8 +361,8 @@ export function TodayListingOverlay({
       onInteraction?.("save", piece);
       void app.toggleSaved(piece.id);
     }
-    heartPopX.value = withSequence(withTiming(x, { duration: 1 }), withTiming(screenW - 56, { duration: 560 }));
-    heartPopY.value = withSequence(withTiming(chromeTop + y, { duration: 1 }), withTiming(insets.top + 28, { duration: 560 }));
+    heartPopX.value = withSequence(withTiming(imageTargetX + x, { duration: 1 }), withTiming(screenW - 56, { duration: 560 }));
+    heartPopY.value = withSequence(withTiming(imageTargetY + modalDragY.value + y - scrollY.value, { duration: 1 }), withTiming(insets.top + 28, { duration: 560 }));
     heartPopScale.value = withSequence(withSpring(1.12, { damping: 10, stiffness: 260 }), withTiming(0.55, { duration: 520 }));
     heartPopOpacity.value = withSequence(withTiming(1, { duration: 1 }), withTiming(0, { duration: 520 }));
   }
@@ -460,10 +429,49 @@ export function TodayListingOverlay({
         }}
       >
         <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents="none" />
+        <Pressable
+          style={styles.backdropTap}
+          onPress={closeToPin}
+          accessibilityRole="button"
+          accessibilityLabel="Close listing details"
+        />
+        <GestureDetector gesture={pan}>
+        <Animated.View style={[styles.popup, { left: popupLeft, top: popupTop, width: popupWidth, height: popupHeight }, pageStyle, modalDragStyle]}>
+          <View style={[styles.modalHeader, { height: modalHeaderHeight }]}>
+            <Text style={styles.kicker} numberOfLines={1}>{(brand || "UVEL").toUpperCase()}</Text>
+            <View style={styles.modalHeaderActions}>
+              <Pressable
+                onPress={() => {
+                  onInteraction?.("share", piece);
+                  setShareOpen(true);
+                }}
+                style={styles.headerAction}
+                accessibilityRole="button"
+                accessibilityLabel={`Share ${piece.name}`}
+              >
+                <Ionicons name="share-outline" size={17} color={colors.bone} />
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  onInteraction?.("save", piece);
+                  void app.toggleSaved(piece.id);
+                }}
+                style={styles.headerAction}
+                accessibilityRole="button"
+                accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}
+                accessibilityState={{ selected: liked }}
+              >
+                <Ionicons name={liked ? "heart" : "heart-outline"} size={18} color={liked ? colors.success : colors.bone} />
+              </Pressable>
+              <Pressable onPress={closeToPin} hitSlop={6} style={styles.headerAction} accessibilityRole="button" accessibilityLabel="Close listing">
+                <Ionicons name="close" size={20} color={colors.bone} />
+              </Pressable>
+            </View>
+          </View>
         <AnimatedScrollView
           ref={scrollRef}
-          style={[styles.page, { top: popupTop, bottom: footerHeight + (showTryOnHint ? 74 : 0) }, pageStyle]}
-          contentContainerStyle={{ paddingTop: 0, paddingBottom: 22 }}
+          style={[styles.popupScroll, { top: modalHeaderHeight, bottom: footerHeight + (showTryOnHint ? 74 : 0) }]}
+          contentContainerStyle={{ paddingBottom: 16 }}
           showsVerticalScrollIndicator={false}
           bounces={false}
           overScrollMode="never"
@@ -474,8 +482,9 @@ export function TodayListingOverlay({
           scrollEventThrottle={16}
           onScroll={scrollHandler}
         >
-          <GestureDetector gesture={pan}>
-          <Animated.View style={[styles.heroSlot, { height: heroH }, inFlowStyle]}>
+          <View style={styles.popupContent}>
+          <View style={styles.summaryRow}>
+          <Animated.View style={[styles.heroSlot, { width: quickImageSize, height: quickImageSize }, inFlowStyle]}>
             <Pressable
               style={styles.heroHit}
               onPress={(event) => onHeroPress(event.nativeEvent.locationX, event.nativeEvent.locationY)}
@@ -484,53 +493,35 @@ export function TodayListingOverlay({
             >
               <Image cachePolicy="memory-disk" source={{ uri: currentPhoto }} style={styles.hero} contentFit="contain" />
               {gallery.length > 1 ? (
-                <View style={styles.photoCount} pointerEvents="none">
+                <View style={[styles.photoCount, styles.photoCountCompact]} pointerEvents="none">
                   <Text style={styles.photoCountText}>{Math.min(activePhoto + 1, gallery.length)} / {gallery.length}</Text>
                 </View>
               ) : null}
             </Pressable>
-            <View style={styles.heroActions} pointerEvents="box-none">
-              <Pressable
-                onPress={() => {
-                  onInteraction?.("share", piece);
-                  setShareOpen(true);
-                }}
-                style={styles.heroAction}
-                accessibilityRole="button"
-                accessibilityLabel={`Share ${piece.name}`}
-              >
-                <Ionicons name="share-outline" size={19} color={colors.ink} />
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  onInteraction?.("save", piece);
-                  void app.toggleSaved(piece.id);
-                }}
-                style={styles.heroAction}
-                accessibilityRole="button"
-                accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}
-              >
-                <Ionicons name={liked ? "heart" : "heart-outline"} size={20} color={liked ? colors.success : colors.ink} />
-              </Pressable>
-            </View>
           </Animated.View>
-          </GestureDetector>
-          <View style={styles.detail}>
-          <Text style={styles.kicker}>{(brand || "UVEL").toUpperCase()}</Text>
-          <Text style={styles.title}>{piece.name}</Text>
+          <View style={styles.summaryCopy}>
+          <Text style={styles.summaryTitle} numberOfLines={3}>{piece.name}</Text>
           {credit > 0 ? (
-            <View style={styles.priceRow}>
+            <View style={[styles.priceRow, styles.summaryPriceRow]}>
               <Text style={styles.was}>{moneyInMarket(localPriceCents, market.currency, market)}</Text>
               <Text style={[styles.price, { marginTop: 0 }]}>{moneyInMarket(saleCents, market.currency, market)}</Text>
             </View>
           ) : (
-            <Text style={styles.price}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
+            <Text style={[styles.price, styles.summaryPrice]}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
           )}
-          <Text style={styles.meta}>{[
+          <Text style={styles.meta} numberOfLines={2}>{[
             piece.size || piece.sizes?.length ? `Size: ${piece.size || piece.sizes?.join(", ")}` : null,
             piece.color ? `Color: ${piece.color}` : null,
             piece.condition,
           ].filter(Boolean).join(" · ")}</Text>
+          </View>
+          </View>
+          {showDoubleTapHint ? (
+            <View style={styles.inlineHint}>
+              <Ionicons name="heart-outline" size={14} color={colors.success} />
+              <Text style={styles.inlineHintText}>Double-tap the photo to save</Text>
+            </View>
+          ) : null}
           {gallery.length > 1 ? (
             <Animated.ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRail}>
               {gallery.map((photo, index) => (
@@ -547,6 +538,10 @@ export function TodayListingOverlay({
               ))}
             </Animated.ScrollView>
           ) : null}
+          <View style={styles.scrollCue}>
+            <Text style={styles.scrollCueText}>More listing details</Text>
+            <Ionicons name="chevron-down" size={16} color={colors.muted} />
+          </View>
           {!previewOnly ? (
             <Pressable
               onPress={() => {
@@ -664,7 +659,7 @@ export function TodayListingOverlay({
           ) : null}
           </View>
         </AnimatedScrollView>
-        <Animated.View pointerEvents="box-none" style={[styles.stickyFooter, { paddingBottom: insets.bottom + 12 }, pageStyle]}>
+        <Animated.View pointerEvents="box-none" style={[styles.stickyFooter, { paddingBottom: 12 }]}>
           {showTryOnHint ? (
             <View pointerEvents="none" style={styles.tryOnHint}>
               <View style={styles.tryOnHintCopy}>
@@ -694,21 +689,10 @@ export function TodayListingOverlay({
             </Pressable>
           </View>
         </Animated.View>
+        </Animated.View>
+        </GestureDetector>
         <Animated.View pointerEvents="none" style={[styles.photo, photoStyle]}>
           <Image cachePolicy="memory-disk" source={{ uri: currentPhoto }} style={styles.hero} contentFit="contain" />
-        </Animated.View>
-        {showDoubleTapHint ? (
-          <Animated.View pointerEvents="none" style={[styles.doubleTapHint, { top: chromeTop + heroH * 0.36 }, chromeStyle]}>
-            <Text style={styles.doubleTapHintTitle}>Double-tap the image</Text>
-            <Text style={styles.doubleTapHintBody}>to save or like this item</Text>
-            <Text style={styles.doubleTapHintHeart}>♥</Text>
-          </Animated.View>
-        ) : null}
-        <Animated.View pointerEvents="box-none" style={[styles.topBar, { height: popupTop, paddingTop: Math.max(0, (popupTop - 48) / 2) }, chromeStyle]}>
-          <View style={{ flex: 1 }} />
-          <Pressable onPress={closeToPin} hitSlop={12} style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close listing">
-            <Ionicons name="close" size={29} color="#FFFFFF" />
-          </Pressable>
         </Animated.View>
         <Animated.Text pointerEvents="none" style={[styles.heartPop, heartPopStyle]}>♥</Animated.Text>
         <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
@@ -767,38 +751,43 @@ function make(colors: Colors) {
     root: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, elevation: 100 },
     fill: { flex: 1 },
     backdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "#000" },
-    page: { position: "absolute", left: 0, right: 0, backgroundColor: colors.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: "hidden" },
-    pageContent: { paddingBottom: 40 },
-    detail: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 40 },
-    heroSlot: { width: "100%", backgroundColor: colors.surface, position: "relative" },
+    backdropTap: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 1 },
+    popup: { position: "absolute", zIndex: 2, elevation: 18, backgroundColor: colors.surface, borderRadius: 22, borderWidth: 1, borderColor: `${colors.bone}18`, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.2, shadowRadius: 22, shadowOffset: { width: 0, height: 12 } },
+    modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, backgroundColor: colors.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
+    modalHeaderActions: { flexDirection: "row", alignItems: "center", gap: 6 },
+    headerAction: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: `${colors.bone}28`, backgroundColor: `${colors.bone}08`, alignItems: "center", justifyContent: "center" },
+    popupScroll: { position: "absolute", left: 0, right: 0 },
+    popupContent: { paddingBottom: 8 },
+    summaryRow: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
+    summaryCopy: { flex: 1, minWidth: 0, justifyContent: "center" },
+    summaryTitle: { color: colors.bone, fontSize: 16, lineHeight: 20, fontWeight: "800", letterSpacing: -0.2 },
+    summaryPrice: { fontSize: 18, marginTop: 6 },
+    summaryPriceRow: { marginTop: 6, gap: 6 },
+    scrollCue: { minHeight: 38, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}18` },
+    scrollCueText: { color: colors.muted, fontSize: 12, fontWeight: "700" },
+    inlineHint: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingTop: 8 },
+    inlineHintText: { color: colors.muted, fontSize: 11, fontWeight: "600" },
+    heroSlot: { backgroundColor: colors.surface, position: "relative", borderRadius: 14, overflow: "hidden", flexShrink: 0 },
     photo: { position: "absolute", overflow: "hidden", backgroundColor: colors.surface, zIndex: 4 },
     heroHit: { flex: 1 },
     hero: { width: "100%", height: "100%", backgroundColor: colors.surface },
-    heroActions: { position: "absolute", right: 16, bottom: 12, flexDirection: "row", gap: 9, zIndex: 3 },
-    heroAction: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone },
     heartPop: { position: "absolute", left: 0, top: 0, zIndex: 20, color: colors.success, fontSize: 68, lineHeight: 72, textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
-    doubleTapHint: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 7 },
-    doubleTapHintTitle: { color: colors.bone, fontSize: 20, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.7)", textShadowRadius: 8 },
-    doubleTapHintBody: { color: colors.bone, fontSize: 15, marginTop: 4, textShadowColor: "rgba(0,0,0,0.7)", textShadowRadius: 8 },
-    doubleTapHintHeart: { color: colors.success, fontSize: 54, lineHeight: 62, marginTop: 8, textShadowColor: "rgba(0,0,0,0.45)", textShadowRadius: 5 },
-    topBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 8, paddingHorizontal: 18, flexDirection: "row", alignItems: "flex-start", justifyContent: "flex-end" },
-    closeButton: { width: 48, height: 48, borderRadius: 14, borderWidth: 2, borderColor: "#FFFFFF", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.14)" },
     photoCount: { position: "absolute", right: 18, bottom: 18, minWidth: 48, height: 28, paddingHorizontal: 9, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.58)", alignItems: "center", justifyContent: "center" },
+    photoCountCompact: { right: 6, bottom: 6, minWidth: 36, height: 22, paddingHorizontal: 6, borderRadius: 11 },
     photoCountText: { color: colors.bone, fontSize: 11, fontWeight: "800", fontVariant: ["tabular-nums"] },
     kicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.8 },
-    title: { color: colors.bone, fontSize: 28, lineHeight: 34, fontWeight: "800", letterSpacing: -0.35, marginTop: 7 },
     priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 12, flexWrap: "wrap" },
-    price: { color: colors.success, fontSize: 19, fontWeight: "800", marginTop: 12 },
+    price: { color: colors.success, fontSize: 19, fontWeight: "800", marginTop: 12, fontVariant: ["tabular-nums"] },
     was: { color: `${colors.bone}66`, fontSize: 16, fontWeight: "600", textDecorationLine: "line-through", fontVariant: ["tabular-nums"] },
-    meta: { color: `${colors.bone}85`, fontSize: 13, marginTop: 7 },
-    thumbRail: { gap: 8, paddingTop: 16, paddingBottom: 2 },
+    meta: { color: `${colors.bone}85`, fontSize: 11, lineHeight: 15, marginTop: 6 },
+    thumbRail: { gap: 8, paddingTop: 12, paddingBottom: 2, paddingHorizontal: 12 },
     thumbnail: { width: 58, height: 72, borderRadius: 10, overflow: "hidden", borderWidth: 1, borderColor: "transparent" },
     thumbnailActive: { borderColor: colors.success, borderWidth: 2 },
     thumbnailImage: { width: "100%", height: "100%", backgroundColor: colors.surface },
-    conditionBlock: { marginTop: 18, padding: 14, borderRadius: 14, backgroundColor: `${colors.surface}88` },
+    conditionBlock: { marginTop: 14, marginHorizontal: 12, padding: 14, borderRadius: 14, backgroundColor: `${colors.surface}88` },
     conditionLabel: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" },
     notes: { color: `${colors.bone}B0`, fontSize: 14, lineHeight: 21, marginTop: 18 },
-    sellerCard: { marginTop: 22, padding: 13, borderRadius: 18, borderWidth: 1, borderColor: `${colors.bone}1F`, backgroundColor: `${colors.surface}B8`, flexDirection: "row", alignItems: "center", gap: 10 },
+    sellerCard: { marginTop: 16, marginHorizontal: 12, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: `${colors.bone}1F`, backgroundColor: `${colors.surface}B8`, flexDirection: "row", alignItems: "center", gap: 9 },
     sellerTap: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10 },
     avatarImage: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface },
     avatarFallback: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
@@ -810,21 +799,21 @@ function make(colors: Colors) {
     sellerMeta: { color: `${colors.bone}80`, fontSize: 11, marginTop: 4 },
     messageButton: { minHeight: 36, paddingHorizontal: 11, borderRadius: 18, borderWidth: 1, borderColor: `${colors.bone}36`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 },
     messageText: { color: colors.bone, fontSize: 11, fontWeight: "800" },
-    rule: { height: 1, backgroundColor: `${colors.bone}20`, marginTop: 22 },
+    rule: { height: 1, backgroundColor: `${colors.bone}20`, marginTop: 16, marginHorizontal: 12 },
     section: { color: colors.bone, fontSize: 16, fontWeight: "800", marginTop: 18 },
-    facts: { flexDirection: "row", flexWrap: "wrap", gap: 18, marginTop: 13 },
+    facts: { flexDirection: "row", flexWrap: "wrap", gap: 18, marginTop: 12, marginHorizontal: 12 },
     fact: { minWidth: "28%" },
     factLabel: { color: `${colors.bone}60`, fontSize: 10, textTransform: "uppercase", letterSpacing: 1 },
     factValue: { color: colors.bone, fontSize: 13, marginTop: 4 },
-    detailSections: { marginTop: 22, borderTopWidth: 1, borderTopColor: `${colors.bone}20` },
+    detailSections: { marginTop: 14, marginHorizontal: 12, borderTopWidth: 1, borderTopColor: `${colors.bone}20` },
     expandRow: { minHeight: 54, borderBottomWidth: 1, borderBottomColor: `${colors.bone}20`, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     expandTitleWrap: { flexDirection: "row", alignItems: "center", gap: 9 },
     expandTitle: { color: colors.bone, fontSize: 14, fontWeight: "800" },
     expandContent: { paddingVertical: 14, gap: 10 },
     emptyDetail: { color: colors.muted, fontSize: 13, lineHeight: 20 },
     expandBody: { color: colors.muted, fontSize: 13, lineHeight: 20 },
-    actions: { marginTop: 26 },
-    tryAction: { alignSelf: "flex-start", minWidth: 150, minHeight: 46, borderRadius: 23, paddingHorizontal: 16, borderWidth: 1, borderColor: `${colors.bone}32`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 14 },
+    actions: { marginTop: 16, marginHorizontal: 12 },
+    tryAction: { alignSelf: "flex-start", minWidth: 150, minHeight: 44, borderRadius: 22, paddingHorizontal: 16, borderWidth: 1, borderColor: `${colors.bone}32`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 12, marginHorizontal: 12 },
     actionDisabled: { opacity: 0.42 },
     actionTextDisabled: { color: colors.muted },
     tryActionHighlighted: { borderColor: colors.success, borderWidth: 2, backgroundColor: `${colors.success}22`, shadowColor: colors.success, shadowOpacity: 0.5, shadowRadius: 10, elevation: 6 },
@@ -833,12 +822,12 @@ function make(colors: Colors) {
     tryOnHintCopy: { flex: 1 },
     tryOnHintText: { color: colors.bone, fontSize: 14, lineHeight: 19, fontWeight: "800" },
     tryOnHintSubtext: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 2 },
-    stickyFooter: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 7, paddingHorizontal: 16, paddingTop: 12, backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}20` },
-    footerRow: { flexDirection: "row", gap: 10 },
-    buyNowAction: { flex: 1, minHeight: 52, borderRadius: 26, paddingHorizontal: 10, backgroundColor: "#F59D15", alignItems: "center", justifyContent: "center" },
-    buyNowText: { color: "#171717", fontSize: 15, fontWeight: "700" },
-    primaryAction: { flex: 1, minHeight: 52, borderRadius: 26, paddingHorizontal: 10, backgroundColor: "#F6D327", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-    primaryText: { color: "#171717", fontSize: 15, fontWeight: "700" },
+    stickyFooter: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 7, paddingHorizontal: 12, paddingTop: 10, backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}20` },
+    footerRow: { flexDirection: "row", gap: 8 },
+    buyNowAction: { flex: 1, minHeight: 48, borderRadius: 24, paddingHorizontal: 8, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    buyNowText: { color: colors.successInk, fontSize: 14, fontWeight: "800" },
+    primaryAction: { flex: 1, minHeight: 48, borderRadius: 24, paddingHorizontal: 8, backgroundColor: colors.pulse, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+    primaryText: { color: colors.pulseInk, fontSize: 14, fontWeight: "800" },
     primaryTextDisabled: { color: colors.muted },
     offerCta: { minHeight: 58, borderRadius: 29, paddingHorizontal: 18, backgroundColor: colors.success, marginTop: 10, flexDirection: "row", alignItems: "center", gap: 10 },
     offerCtaCopy: { flex: 1 },
