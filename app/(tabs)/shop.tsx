@@ -666,7 +666,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
                 accessibilityLabel="Dismiss immersive shopping tip"
               />
             ) : null}
-            {renderTodayHeader(true)}
+            {null}
             <View pointerEvents="box-none" style={styles.editorialListingCopy}>
               {firstFind.matches(featured) ? (
                 <AccessiblePressable
@@ -691,7 +691,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
             </View>
           </View>
         </Animated.View>
-      ) : todayHome ? renderTodayHeader(false) : (
+      ) : todayHome ? null : (
         <View style={styles.titleRow}>
           <Text style={styles.title}>{scanningLook ? C.shopTheLook : C.shop}</Text>
         </View>
