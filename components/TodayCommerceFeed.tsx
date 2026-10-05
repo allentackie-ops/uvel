@@ -17,7 +17,7 @@ import { curateTodayBanners, type CuratedTodayBanner } from "../lib/todayBannerE
 
 const NEW_IN_LATEST_STICKER = require("../assets/today/new-in-latest-sticker.png");
 const TRENDING_NOW_OPTION_TWO = require("../assets/today/trending-now-option-2.png");
-const NEW_IN_ANIMATED_BASE = require("../assets/today/new-in-animated/base.png");
+const NEW_IN_ANIMATED_BASE = require("../assets/today/new-in-option3-collage.png");
 
 const EDITORIAL = [
   { title: "City layers", subtitle: "Effortless polish", accent: "#D8C4AE" },
