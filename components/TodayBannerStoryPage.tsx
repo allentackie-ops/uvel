@@ -11,7 +11,7 @@ import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 
 type BannerStoryOrigin = { x: number; y: number; width: number; height: number };
-const GRADIENT_FADE_STEPS = Array.from({ length: 56 }, (_, index) => Math.pow(index / 55, 1.65));
+const GRADIENT_FADE_STEPS = Array.from({ length: 16 }, (_, index) => Math.pow(index / 15, 1.4));
 
 export function TodayBannerStoryPage({ story, onClose, onOpenPiece }: { story: BannerStory; onClose: () => void; onOpenPiece: (piece: ClosetPiece, origin: BannerStoryOrigin) => void }) {
   const colors = useColors();
@@ -19,12 +19,10 @@ export function TodayBannerStoryPage({ story, onClose, onOpenPiece }: { story: B
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [showLoader, setShowLoader] = useState(true);
-  const [introContentBottom, setIntroContentBottom] = useState(150);
   const fade = useRef(new Animated.Value(0)).current;
   const loaderFade = useRef(new Animated.Value(1)).current;
   const headerHeight = insets.top + 64;
-  const gradientHeight = headerHeight + introContentBottom;
-  const gradientFadeHeight = Math.min(160, Math.max(90, introContentBottom * 0.68));
+  const gradientFadeHeight = 20;
   const market = getMarket(app.country);
   const pieces = story.detailPieces?.length ? story.detailPieces : story.pieces;
   const sections = useMemo(() => {
@@ -48,8 +46,8 @@ export function TodayBannerStoryPage({ story, onClose, onOpenPiece }: { story: B
 
   return (
     <View style={[styles.root, { backgroundColor: colors.ink }]}>
-      <View pointerEvents="none" style={[styles.topColorField, { height: gradientHeight }]}>
-        <View style={[styles.topColorLayer, { backgroundColor: story.gradientColor || story.color, opacity: 0.64 }]} />
+      <View pointerEvents="none" style={[styles.topColorField, { height: headerHeight }]}>
+        <View style={[styles.topColorLayer, { backgroundColor: story.gradientColor || story.color, opacity: 0.78 }]} />
         <View style={[styles.topColorFade, { height: gradientFadeHeight }]}>
           {GRADIENT_FADE_STEPS.map((opacity, index) => <View key={index} style={[styles.topColorFadeStrip, { opacity, backgroundColor: colors.ink }]} />)}
         </View>
@@ -59,14 +57,7 @@ export function TodayBannerStoryPage({ story, onClose, onOpenPiece }: { story: B
         <View style={[styles.headerSearch, { backgroundColor: `${colors.bone}12` }]}><Ionicons name="search-outline" size={20} color={colors.bone} /><Text style={[styles.headerSearchText, { color: colors.muted }]}>Search Uvel</Text></View>
       </View>
       <Animated.ScrollView style={{ opacity: fade, flex: 1 }} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 80 }]} showsVerticalScrollIndicator={false}>
-        <View
-          style={styles.introBlock}
-          onLayout={(event) => {
-            const { y, height } = event.nativeEvent.layout;
-            const measured = y + height + 12;
-            if (Math.abs(measured - introContentBottom) > 1) setIntroContentBottom(measured);
-          }}
-        >
+        <View style={styles.introBlock}>
           <Text style={[styles.pageTitle, { color: colors.bone }]}>Shop the latest in {story.title}</Text>
           <Text style={[styles.pageSubtitle, { color: colors.muted }]}>{story.subtitle}</Text>
         </View>
