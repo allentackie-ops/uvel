@@ -18,7 +18,13 @@ export function TodayBannerStoryPage({ story, onClose, onOpenPiece }: { story: B
   const app = useUvel();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
+  const [showLoader, setShowLoader] = useState(true);
+  const [introContentBottom, setIntroContentBottom] = useState(150);
   const fade = useRef(new Animated.Value(0)).current;
+  const loaderFade = useRef(new Animated.Value(1)).current;
+  const headerHeight = insets.top + 64;
+  const gradientHeight = headerHeight + introContentBottom;
+  const gradientFadeHeight = Math.min(160, Math.max(90, introContentBottom * 0.68));
   const market = getMarket(app.country);
   const pieces = story.detailPieces?.length ? story.detailPieces : story.pieces;
   const sections = useMemo(() => {
@@ -33,27 +39,42 @@ export function TodayBannerStoryPage({ story, onClose, onOpenPiece }: { story: B
     const timer = setTimeout(() => {
       setLoading(false);
       Animated.timing(fade, { toValue: 1, duration: 260, useNativeDriver: true }).start();
+      Animated.timing(loaderFade, { toValue: 0, duration: 220, useNativeDriver: true }).start(({ finished }) => {
+        if (finished) setShowLoader(false);
+      });
     }, 950);
     return () => clearTimeout(timer);
-  }, [fade]);
+  }, [fade, loaderFade]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.ink }]}>
-      <View pointerEvents="none" style={[styles.topColorField, { height: insets.top + 56 }]}>
+      <View pointerEvents="none" style={[styles.topColorField, { height: gradientHeight }]}>
         <View style={[styles.topColorLayer, { backgroundColor: story.gradientColor || story.color, opacity: 0.64 }]} />
-        <View style={[styles.topColorFade, { height: 56 }]}>
+        <View style={[styles.topColorFade, { height: gradientFadeHeight }]}>
           {GRADIENT_FADE_STEPS.map((opacity, index) => <View key={index} style={[styles.topColorFadeStrip, { opacity, backgroundColor: colors.ink }]} />)}
         </View>
       </View>
-      <View style={[styles.header, { paddingTop: insets.top + 8, height: insets.top + 64, backgroundColor: "transparent", borderBottomColor: `${colors.bone}20` }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 8, height: headerHeight, backgroundColor: "transparent", borderBottomColor: `${colors.bone}20` }]}>
         <Pressable onPress={onClose} hitSlop={12} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Go back to Today"><Ionicons name="arrow-back" size={24} color={colors.bone} /></Pressable>
         <View style={[styles.headerSearch, { backgroundColor: `${colors.bone}12` }]}><Ionicons name="search-outline" size={20} color={colors.bone} /><Text style={[styles.headerSearchText, { color: colors.muted }]}>Search Uvel</Text></View>
       </View>
-      {loading ? <View style={styles.loading}><OrbitLoader size={64} label="Loading edit" caption="Curating pieces" /></View> : <Animated.ScrollView style={{ opacity: fade }} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 80 }]} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.pageTitle, { color: colors.bone }]}>Shop the latest in {story.title}</Text>
-        <Text style={[styles.pageSubtitle, { color: colors.muted }]}>{story.subtitle}</Text>
+      <Animated.ScrollView style={{ opacity: fade, flex: 1 }} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 80 }]} showsVerticalScrollIndicator={false}>
+        <View
+          style={styles.introBlock}
+          onLayout={(event) => {
+            const { y, height } = event.nativeEvent.layout;
+            const measured = y + height + 12;
+            if (Math.abs(measured - introContentBottom) > 1) setIntroContentBottom(measured);
+          }}
+        >
+          <Text style={[styles.pageTitle, { color: colors.bone }]}>Shop the latest in {story.title}</Text>
+          <Text style={[styles.pageSubtitle, { color: colors.muted }]}>{story.subtitle}</Text>
+        </View>
         {sections.length ? sections.map((section) => <ProductSection key={section.title} title={section.title} pieces={section.items} color={story.color} market={market} colors={colors} onOpenPiece={onOpenPiece} />) : <View style={styles.emptyState}><Text style={[styles.emptyText, { color: colors.muted }]}>No available listings in this edit right now.</Text></View>}
-      </Animated.ScrollView>}
+      </Animated.ScrollView>
+      <Animated.View pointerEvents={loading ? "auto" : "none"} style={[styles.loading, { top: headerHeight, opacity: loaderFade }]}>
+        {showLoader ? <OrbitLoader size={64} label="Loading edit" caption="Curating pieces" /> : null}
+      </Animated.View>
     </View>
   );
 }
@@ -65,7 +86,7 @@ function ProductSection({ title, pieces, color, market, colors, onOpenPiece }: {
 function ProductCard({ piece, color, market, colors, onOpenPiece }: { piece: ClosetPiece; color: string; market: ReturnType<typeof getMarket>; colors: ReturnType<typeof useColors>; onOpenPiece: (piece: ClosetPiece, origin: BannerStoryOrigin) => void }) {
   const ref = useRef<View>(null);
   const discounted = piece.originalPriceCents > piece.listPriceCents;
-  return <Pressable ref={ref} onPress={() => ref.current?.measureInWindow((x, y, width, height) => onOpenPiece(piece, { x, y, width, height }))} style={[styles.productCard, { backgroundColor: colors.surface }]} accessibilityRole="button" accessibilityLabel={`Open ${piece.name}`}><View style={[styles.productImageWrap, { backgroundColor: `${colors.bone}12` }]}><Image cachePolicy="memory-disk" source={{ uri: piece.photo || piece.photos?.[0] || "" }} style={styles.productImage} contentFit="cover" /><Pressable style={[styles.quickAdd, { backgroundColor: color }]} onPress={() => undefined} accessibilityRole="button" accessibilityLabel={`Quick add ${piece.name}`}><Ionicons name="add" size={20} color={colors.ink} /></Pressable></View><Text style={[styles.productBrand, { color: colors.muted }]} numberOfLines={1}>{(piece.brand || "Uvel seller").toUpperCase()}</Text><Text style={[styles.productName, { color: colors.bone }]} numberOfLines={2}>{piece.name}</Text>{discounted ? <Text style={[styles.deal, { color: colors.danger }]}>Limited edit deal</Text> : null}<Text style={[styles.productPrice, { color: colors.bone }]}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>{discounted ? <Text style={[styles.typical, { color: colors.muted }]}>Typical price {moneyInMarket(piece.originalPriceCents, piece.currency || market.currency, market)}</Text> : null}</Pressable>;
+  return <Pressable ref={ref} onPress={() => ref.current?.measureInWindow((x, y, width, height) => onOpenPiece(piece, { x, y, width, height }))} style={[styles.productCard, { backgroundColor: colors.surface }]} accessibilityRole="button" accessibilityLabel={`Open ${piece.name}`}><View style={[styles.productImageWrap, { backgroundColor: `${colors.bone}12` }]}><Image cachePolicy="memory-disk" source={{ uri: piece.photos?.[0] || piece.photo || "" }} style={styles.productImage} contentFit="cover" /><Pressable style={[styles.quickAdd, { backgroundColor: color }]} onPress={() => undefined} accessibilityRole="button" accessibilityLabel={`Quick add ${piece.name}`}><Ionicons name="add" size={20} color={colors.ink} /></Pressable></View><Text style={[styles.productBrand, { color: colors.muted }]} numberOfLines={1}>{(piece.brand || "Uvel seller").toUpperCase()}</Text><Text style={[styles.productName, { color: colors.bone }]} numberOfLines={2}>{piece.name}</Text>{discounted ? <Text style={[styles.deal, { color: colors.danger }]}>Limited edit deal</Text> : null}<Text style={[styles.productPrice, { color: colors.bone }]}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>{discounted ? <Text style={[styles.typical, { color: colors.muted }]}>Typical price {moneyInMarket(piece.originalPriceCents, piece.currency || market.currency, market)}</Text> : null}</Pressable>;
 }
 
 const styles = StyleSheet.create({
@@ -78,8 +99,9 @@ const styles = StyleSheet.create({
   headerButton: { width: 34, height: 42, alignItems: "center", justifyContent: "center" },
   headerSearch: { flex: 1, height: 40, borderRadius: 20, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 8 },
   headerSearchText: { fontSize: 13 },
-  loading: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 100 },
+  loading: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 2, alignItems: "center", justifyContent: "center", paddingBottom: 100 },
   content: { paddingTop: 16 },
+  introBlock: { paddingBottom: 0 },
   pageTitle: { fontSize: 27, lineHeight: 32, fontWeight: "900", paddingHorizontal: 18 },
   pageSubtitle: { fontSize: 14, lineHeight: 20, paddingHorizontal: 18, marginTop: 8, marginBottom: 22 },
   section: { marginTop: 8, marginBottom: 22 },

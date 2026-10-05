@@ -85,8 +85,11 @@ export function TodayListingOverlay({
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
-  const heroH = Math.round(Math.min(Math.max(screenH * 0.62, 420), 620));
-  const chromeTop = insets.top + 54;
+  const introHeight = 76;
+  const heroH = Math.round(Math.min(Math.max(screenH * 0.34, 220), 380));
+  const popupTop = Math.max(insets.top + 6, 56);
+  const footerHeight = insets.bottom + 76;
+  const chromeTop = popupTop + introHeight;
   const imgX = useSharedValue(origin.x);
   const imgY = useSharedValue(origin.y);
   const imgW = useSharedValue(origin.width);
@@ -437,6 +440,14 @@ export function TodayListingOverlay({
     }, 280);
   }
 
+  function openCheckout() {
+    if (previewOnly) return;
+    closeToPin();
+    setTimeout(() => {
+      router.push({ pathname: "/checkout/[id]", params: { id: piece.id } });
+    }, 280);
+  }
+
   return (
     <GestureHandlerRootView style={[styles.root, coverTop ? { top: -coverTop, height: screenH } : null]}>
       <View
@@ -452,8 +463,8 @@ export function TodayListingOverlay({
         <Animated.View style={[styles.backdrop, backdropStyle]} pointerEvents="none" />
         <AnimatedScrollView
           ref={scrollRef}
-          style={[styles.page, pageStyle]}
-          contentContainerStyle={{ paddingTop: chromeTop, paddingBottom: insets.bottom + 120 }}
+          style={[styles.page, { top: popupTop, bottom: footerHeight + (showTryOnHint ? 74 : 0) }, pageStyle]}
+          contentContainerStyle={{ paddingBottom: 22 }}
           showsVerticalScrollIndicator={false}
           bounces={false}
           overScrollMode="never"
@@ -464,6 +475,17 @@ export function TodayListingOverlay({
           scrollEventThrottle={16}
           onScroll={scrollHandler}
         >
+          <View style={styles.popupIntro}>
+            <Text style={styles.title} numberOfLines={2}>{piece.name}</Text>
+            {credit > 0 ? (
+              <View style={styles.priceRow}>
+                <Text style={styles.was}>{moneyInMarket(localPriceCents, market.currency, market)}</Text>
+                <Text style={[styles.price, { marginTop: 0 }]}>{moneyInMarket(saleCents, market.currency, market)}</Text>
+              </View>
+            ) : (
+              <Text style={styles.price}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
+            )}
+          </View>
           <GestureDetector gesture={pan}>
           <Animated.View style={[styles.heroSlot, { height: heroH }, inFlowStyle]}>
             <Pressable
@@ -472,27 +494,45 @@ export function TodayListingOverlay({
               accessibilityRole="image"
               accessibilityLabel={`Double tap to save ${piece.name}`}
             >
-              <Image cachePolicy="memory-disk" source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
+              <Image cachePolicy="memory-disk" source={{ uri: currentPhoto }} style={styles.hero} contentFit="contain" />
               {gallery.length > 1 ? (
                 <View style={styles.photoCount} pointerEvents="none">
                   <Text style={styles.photoCountText}>{Math.min(activePhoto + 1, gallery.length)} / {gallery.length}</Text>
                 </View>
               ) : null}
             </Pressable>
+            <View style={styles.heroActions} pointerEvents="box-none">
+              <Pressable
+                onPress={() => {
+                  onInteraction?.("share", piece);
+                  setShareOpen(true);
+                }}
+                style={styles.heroAction}
+                accessibilityRole="button"
+                accessibilityLabel={`Share ${piece.name}`}
+              >
+                <Ionicons name="share-outline" size={19} color={colors.ink} />
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  onInteraction?.("save", piece);
+                  void app.toggleSaved(piece.id);
+                }}
+                style={styles.heroAction}
+                accessibilityRole="button"
+                accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}
+              >
+                <Ionicons name={liked ? "heart" : "heart-outline"} size={20} color={liked ? colors.success : colors.ink} />
+              </Pressable>
+            </View>
           </Animated.View>
           </GestureDetector>
           <View style={styles.detail}>
-          <Text style={styles.kicker}>{(brand || "UVEL").toUpperCase()}</Text>
-          <Text style={styles.title}>{piece.name}</Text>
-          {credit > 0 ? (
-            <View style={styles.priceRow}>
-              <Text style={styles.was}>{moneyInMarket(localPriceCents, market.currency, market)}</Text>
-              <Text style={[styles.price, { marginTop: 0 }]}>{moneyInMarket(saleCents, market.currency, market)}</Text>
-            </View>
-          ) : (
-            <Text style={styles.price}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
-          )}
-          <Text style={styles.meta}>{[piece.size || piece.sizes?.[0] || "One size", piece.color, piece.condition].filter(Boolean).join(" · ")}</Text>
+          <Text style={styles.meta}>{[
+            piece.size || piece.sizes?.length ? `Size: ${piece.size || piece.sizes?.join(", ")}` : null,
+            piece.color ? `Color: ${piece.color}` : null,
+            piece.condition,
+          ].filter(Boolean).join(" · ")}</Text>
           {gallery.length > 1 ? (
             <Animated.ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRail}>
               {gallery.map((photo, index) => (
@@ -508,6 +548,21 @@ export function TodayListingOverlay({
                 </Pressable>
               ))}
             </Animated.ScrollView>
+          ) : null}
+          {!previewOnly ? (
+            <Pressable
+              onPress={() => {
+                setShowTryOnHint(false);
+                onInteraction?.("try_on", piece);
+                router.push({ pathname: "/try-on", params: { piece: piece.id } });
+              }}
+              style={[styles.tryAction, showTryOnHint && styles.tryActionHighlighted]}
+              accessibilityRole="button"
+              accessibilityLabel="Try this listing on"
+            >
+              <Ionicons name="body-outline" size={18} color={colors.bone} />
+              <Text style={styles.tryText}>Try it on</Text>
+            </Pressable>
           ) : null}
           <View style={styles.sellerCard}>
             <Pressable
@@ -597,38 +652,8 @@ export function TodayListingOverlay({
               </>
             ) : null}
           </View>
-          <View style={styles.actions}>
-            {showTryOnHint ? (
-              <View pointerEvents="none" style={styles.tryOnHint}>
-                <View style={styles.tryOnHintCopy}>
-                  <Text style={styles.tryOnHintText}>See how this looks on you right now</Text>
-                  <Text style={styles.tryOnHintSubtext}>Tap Try it on below</Text>
-                </View>
-                <Ionicons name="arrow-down" size={24} color={colors.success} />
-              </View>
-            ) : null}
-            <View style={styles.actionRow}>
-              <Pressable onPress={previewOnly ? undefined : () => { setShowTryOnHint(false); onInteraction?.("try_on", piece); router.push({ pathname: "/try-on", params: { piece: piece.id } }); }} disabled={previewOnly} style={[styles.tryAction, previewOnly && styles.actionDisabled, showTryOnHint && styles.tryActionHighlighted]} accessibilityRole="button" accessibilityState={{ disabled: previewOnly }} accessibilityLabel="Try this listing on">
-                <Ionicons name="body-outline" size={18} color={previewOnly ? colors.muted : colors.bone} />
-                <Text style={[styles.tryText, previewOnly && styles.actionTextDisabled]}>Try it on</Text>
-              </Pressable>
-              <Pressable
-                onPress={previewOnly ? undefined : () => {
-                  if (inBag) return;
-                  addToCart(piece.id);
-                  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
-                }}
-                disabled={previewOnly}
-                style={[styles.primaryAction, previewOnly && styles.actionDisabled]}
-                accessibilityRole="button"
-                accessibilityState={{ disabled: previewOnly }}
-                accessibilityLabel={inBag ? `${piece.name} is in your cart` : `Add ${piece.name} to cart`}
-              >
-                <Text style={[styles.primaryText, previewOnly && styles.primaryTextDisabled]}>{inBag ? "In cart" : "Add to cart"}</Text>
-                <Ionicons name={inBag ? "checkmark" : "bag-handle-outline"} size={17} color={previewOnly ? colors.muted : colors.successInk} />
-              </Pressable>
-            </View>
-            {canMakeOffer ? (
+          {canMakeOffer ? (
+            <View style={styles.actions}>
               <Pressable onPress={openOfferSheet} style={styles.offerCta} accessibilityRole="button" accessibilityLabel={`Offer ${moneyInMarket(suggestedCents, offerCurrency, market)} for ${piece.name}`}>
                 <View style={styles.offerCtaCopy}>
                   <Text style={styles.offerCtaTitle}>Offer this</Text>
@@ -637,12 +662,42 @@ export function TodayListingOverlay({
                 <Text style={styles.offerCtaPrice}>{moneyInMarket(suggestedCents, offerCurrency, market)}</Text>
                 <Ionicons name="arrow-forward" size={17} color={colors.successInk} />
               </Pressable>
-            ) : null}
-          </View>
+            </View>
+          ) : null}
           </View>
         </AnimatedScrollView>
+        <Animated.View pointerEvents="box-none" style={[styles.stickyFooter, { paddingBottom: insets.bottom + 12 }, pageStyle]}>
+          {showTryOnHint ? (
+            <View pointerEvents="none" style={styles.tryOnHint}>
+              <View style={styles.tryOnHintCopy}>
+                <Text style={styles.tryOnHintText}>See how this looks on you right now</Text>
+                <Text style={styles.tryOnHintSubtext}>Try it on is in the listing details</Text>
+              </View>
+              <Ionicons name="arrow-up" size={22} color={colors.success} />
+            </View>
+          ) : null}
+          <View style={styles.footerRow}>
+            <Pressable onPress={openCheckout} disabled={previewOnly} style={[styles.buyNowAction, previewOnly && styles.actionDisabled]} accessibilityRole="button" accessibilityState={{ disabled: previewOnly }} accessibilityLabel={`Buy ${piece.name} now`}>
+              <Text style={styles.buyNowText}>Buy Now</Text>
+            </Pressable>
+            <Pressable
+              onPress={previewOnly ? undefined : () => {
+                if (inBag) return;
+                addToCart(piece.id);
+                void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
+              }}
+              disabled={previewOnly}
+              style={[styles.primaryAction, previewOnly && styles.actionDisabled]}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: previewOnly }}
+              accessibilityLabel={inBag ? `${piece.name} is in your cart` : `Add ${piece.name} to cart`}
+            >
+              <Text style={[styles.primaryText, previewOnly && styles.primaryTextDisabled]}>{inBag ? "In cart" : "Add to cart"}</Text>
+            </Pressable>
+          </View>
+        </Animated.View>
         <Animated.View pointerEvents="none" style={[styles.photo, photoStyle]}>
-          <Image cachePolicy="memory-disk" source={{ uri: currentPhoto }} style={styles.hero} contentFit="cover" />
+          <Image cachePolicy="memory-disk" source={{ uri: currentPhoto }} style={styles.hero} contentFit="contain" />
         </Animated.View>
         {showDoubleTapHint ? (
           <Animated.View pointerEvents="none" style={[styles.doubleTapHint, { top: chromeTop + heroH * 0.36 }, chromeStyle]}>
@@ -651,37 +706,11 @@ export function TodayListingOverlay({
             <Text style={styles.doubleTapHintHeart}>♥</Text>
           </Animated.View>
         ) : null}
-        <Animated.View pointerEvents="box-none" style={[styles.topBar, { paddingTop: insets.top + 6 }, chromeStyle]}>
-          <Pressable onPress={closeToPin} hitSlop={12} style={styles.back} accessibilityRole="button" accessibilityLabel={previewOnly ? "Go back" : "Close listing"}>
-            <Ionicons name={previewOnly ? "chevron-back" : "chevron-down"} size={20} color={colors.ink} />
+        <Animated.View pointerEvents="box-none" style={[styles.topBar, { height: popupTop, paddingTop: Math.max(0, (popupTop - 48) / 2) }, chromeStyle]}>
+          <View style={{ flex: 1 }} />
+          <Pressable onPress={closeToPin} hitSlop={12} style={styles.closeButton} accessibilityRole="button" accessibilityLabel="Close listing">
+            <Ionicons name="close" size={29} color="#FFFFFF" />
           </Pressable>
-          <View style={styles.topActions} pointerEvents="box-none">
-            <Pressable
-              onPress={() => {
-                onInteraction?.("share", piece);
-                setShareOpen(true);
-              }}
-              hitSlop={10}
-              style={styles.share}
-              accessibilityRole="button"
-              accessibilityLabel={`Share ${piece.name}`}
-            >
-              <Ionicons name="share-outline" size={20} color={colors.ink} />
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                onInteraction?.("save", piece);
-                void app.toggleSaved(piece.id);
-              }}
-              hitSlop={10}
-              style={styles.save}
-              accessibilityRole="button"
-              accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}
-            >
-              <Ionicons name={liked ? "heart" : "heart-outline"} size={21} color={liked ? colors.success : colors.ink} />
-              <Text style={styles.saveText}>{liked ? "Saved" : "Save"}</Text>
-            </Pressable>
-          </View>
         </Animated.View>
         <Animated.Text pointerEvents="none" style={[styles.heartPop, heartPopStyle]}>♥</Animated.Text>
         <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
@@ -740,30 +769,29 @@ function make(colors: Colors) {
     root: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, elevation: 100 },
     fill: { flex: 1 },
     backdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "#000" },
-    page: { flex: 1, backgroundColor: colors.ink },
+    page: { position: "absolute", left: 0, right: 0, backgroundColor: colors.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, overflow: "hidden" },
     pageContent: { paddingBottom: 40 },
-    detail: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 40 },
-    heroSlot: { width: "100%", backgroundColor: colors.surface },
+    popupIntro: { height: 76, paddingHorizontal: 20, paddingTop: 6, paddingBottom: 4, backgroundColor: colors.surface },
+    detail: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 28 },
+    heroSlot: { width: "100%", backgroundColor: colors.surface, position: "relative" },
     photo: { position: "absolute", overflow: "hidden", backgroundColor: colors.surface, zIndex: 4 },
     heroHit: { flex: 1 },
     hero: { width: "100%", height: "100%", backgroundColor: colors.surface },
+    heroActions: { position: "absolute", right: 16, bottom: 12, flexDirection: "row", gap: 9, zIndex: 3 },
+    heroAction: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone },
     heartPop: { position: "absolute", left: 0, top: 0, zIndex: 20, color: colors.success, fontSize: 68, lineHeight: 72, textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
     doubleTapHint: { position: "absolute", left: 0, right: 0, alignItems: "center", zIndex: 7 },
     doubleTapHintTitle: { color: colors.bone, fontSize: 20, fontWeight: "800", textShadowColor: "rgba(0,0,0,0.7)", textShadowRadius: 8 },
     doubleTapHintBody: { color: colors.bone, fontSize: 15, marginTop: 4, textShadowColor: "rgba(0,0,0,0.7)", textShadowRadius: 8 },
     doubleTapHintHeart: { color: colors.success, fontSize: 54, lineHeight: 62, marginTop: 8, textShadowColor: "rgba(0,0,0,0.45)", textShadowRadius: 5 },
-    topBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 8, paddingHorizontal: 18, paddingBottom: 10, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    back: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone },
-    topActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-    save: { minHeight: 42, paddingHorizontal: 14, borderRadius: 22, flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.bone },
-    share: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone },
-    saveText: { color: colors.ink, fontSize: 13, fontWeight: "800" },
+    topBar: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 8, paddingHorizontal: 18, flexDirection: "row", alignItems: "flex-start", justifyContent: "flex-end" },
+    closeButton: { width: 48, height: 48, borderRadius: 14, borderWidth: 2, borderColor: "#FFFFFF", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.14)" },
     photoCount: { position: "absolute", right: 18, bottom: 18, minWidth: 48, height: 28, paddingHorizontal: 9, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.58)", alignItems: "center", justifyContent: "center" },
     photoCountText: { color: colors.bone, fontSize: 11, fontWeight: "800", fontVariant: ["tabular-nums"] },
     kicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.8 },
-    title: { color: colors.bone, fontSize: 28, lineHeight: 34, fontWeight: "800", letterSpacing: -0.35, marginTop: 7 },
-    priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 12, flexWrap: "wrap" },
-    price: { color: colors.success, fontSize: 19, fontWeight: "800", marginTop: 12 },
+    title: { color: colors.bone, fontSize: 16, lineHeight: 20, fontWeight: "700", letterSpacing: -0.1 },
+    priceRow: { flexDirection: "row", alignItems: "baseline", gap: 10, marginTop: 2, flexWrap: "wrap" },
+    price: { color: colors.success, fontSize: 15, lineHeight: 18, fontWeight: "900", marginTop: 2 },
     was: { color: `${colors.bone}66`, fontSize: 16, fontWeight: "600", textDecorationLine: "line-through", fontVariant: ["tabular-nums"] },
     meta: { color: `${colors.bone}85`, fontSize: 13, marginTop: 7 },
     thumbRail: { gap: 8, paddingTop: 16, paddingBottom: 2 },
@@ -799,8 +827,7 @@ function make(colors: Colors) {
     emptyDetail: { color: colors.muted, fontSize: 13, lineHeight: 20 },
     expandBody: { color: colors.muted, fontSize: 13, lineHeight: 20 },
     actions: { marginTop: 26 },
-    actionRow: { flexDirection: "row", gap: 10 },
-    tryAction: { flex: 1, minHeight: 52, borderRadius: 26, paddingHorizontal: 12, borderWidth: 1, borderColor: `${colors.bone}32`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+    tryAction: { alignSelf: "flex-start", minWidth: 150, minHeight: 46, borderRadius: 23, paddingHorizontal: 16, borderWidth: 1, borderColor: `${colors.bone}32`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 14 },
     actionDisabled: { opacity: 0.42 },
     actionTextDisabled: { color: colors.muted },
     tryActionHighlighted: { borderColor: colors.success, borderWidth: 2, backgroundColor: `${colors.success}22`, shadowColor: colors.success, shadowOpacity: 0.5, shadowRadius: 10, elevation: 6 },
@@ -809,8 +836,12 @@ function make(colors: Colors) {
     tryOnHintCopy: { flex: 1 },
     tryOnHintText: { color: colors.bone, fontSize: 14, lineHeight: 19, fontWeight: "800" },
     tryOnHintSubtext: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 2 },
-    primaryAction: { flex: 1.3, minHeight: 52, borderRadius: 26, paddingHorizontal: 12, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-    primaryText: { color: colors.successInk, fontSize: 14, fontWeight: "800" },
+    stickyFooter: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 7, paddingHorizontal: 16, paddingTop: 12, backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}20` },
+    footerRow: { flexDirection: "row", gap: 10 },
+    buyNowAction: { flex: 1, minHeight: 52, borderRadius: 26, paddingHorizontal: 10, backgroundColor: "#F59D15", alignItems: "center", justifyContent: "center" },
+    buyNowText: { color: "#171717", fontSize: 15, fontWeight: "700" },
+    primaryAction: { flex: 1, minHeight: 52, borderRadius: 26, paddingHorizontal: 10, backgroundColor: "#F6D327", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+    primaryText: { color: "#171717", fontSize: 15, fontWeight: "700" },
     primaryTextDisabled: { color: colors.muted },
     offerCta: { minHeight: 58, borderRadius: 29, paddingHorizontal: 18, backgroundColor: colors.success, marginTop: 10, flexDirection: "row", alignItems: "center", gap: 10 },
     offerCtaCopy: { flex: 1 },
