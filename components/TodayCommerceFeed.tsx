@@ -145,6 +145,15 @@ export function TodayCommerceFeed({
           {FEED_FADE_STRIPS.map((opacity, index) => <View key={index} style={[styles.topColorFadeStrip, { opacity }]} />)}
         </View>
       </View>
+      <View style={[styles.fixedHeader, { height: insets.top + 62, paddingTop: insets.top }]}>
+        <AccessiblePressable onPress={onOpenTools} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open Today tools">
+          <View style={styles.menuIcon}><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View>
+        </AccessiblePressable>
+        <View style={styles.headerActions}>
+          <AccessiblePressable onPress={onOpenSearch} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Search Uvel"><Ionicons name="search-outline" size={24} color={colors.bone} /></AccessiblePressable>
+          <AccessiblePressable onPress={onOpenMessages} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open messages"><Ionicons name="chatbubble-ellipses-outline" size={23} color={colors.bone} /></AccessiblePressable>
+        </View>
+      </View>
       <Animated.ScrollView
         style={[styles.feedScroll, { transform: [{ translateY: pullOffset }] }]}
         contentContainerStyle={[styles.content, { paddingTop: 10 }]}
