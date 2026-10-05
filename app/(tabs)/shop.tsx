@@ -583,18 +583,6 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
         </AccessiblePressable>
         {overHero && todayHome ? <ImmersiveShoppingButton onPress={() => router.push("/immersive-shopping")} onHintVisibilityChange={handleImmersiveHintVisibility} /> : null}
       </View>
-      <View pointerEvents="box-none" style={overHero ? styles.editorialWordmarkCenter : undefined}>
-        <AccessiblePressable
-          onPress={() => router.push("/store")}
-          style={({ pressed }) => [overHero ? styles.editorialWordmarkButton : styles.wordmarkButton, pressed && { opacity: 0.78 }]}
-          accessibilityRole="button"
-          accessibilityLabel={C.marketplace}
-          accessibilityHint="Double tap to view marketplace settings."
-        >
-          <Text style={[styles.wordmark, overHero && styles.editorialWordmark]}>uvel</Text>
-          {overHero ? null : <><View style={styles.wordmarkUnderline} /><Text style={styles.wordmarkChevron}>⌄</Text></>}
-        </AccessiblePressable>
-      </View>
       <View style={styles.headerActions}>
         {overHero ? (
           <AccessiblePressable
