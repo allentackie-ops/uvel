@@ -247,23 +247,31 @@ export async function loadAddresses(): Promise<Address[]> {
   }
 }
 
-export async function saveAddress(a: Address) {
+export async function saveAddress(a: Address, makeDefault = true) {
   const addresses = await loadAddresses();
   const activeId = await AsyncStorage.getItem(ACTIVE_ADDR);
   const current = addresses.find((address) => address.id === activeId) || addresses[0];
   const next = { ...a, id: a.id || current?.id || `address-${Date.now()}` };
   const updated = addresses.length ? addresses.map((address) => address.id === next.id ? next : address) : [next];
   await AsyncStorage.setItem(ADDRESSES, JSON.stringify(updated));
-  await AsyncStorage.setItem(ADDR, JSON.stringify(next));
-  await AsyncStorage.setItem(ACTIVE_ADDR, next.id || "");
+  const active = makeDefault
+    ? next
+    : updated.find((address) => address.id === activeId && address.id !== next.id) || updated.find((address) => address.id !== next.id) || next;
+  await AsyncStorage.setItem(ADDR, JSON.stringify(active));
+  await AsyncStorage.setItem(ACTIVE_ADDR, active.id || "");
 }
 
-export async function addAddress(a: Address) {
+export async function addAddress(a: Address, makeDefault = true) {
   const next = { ...a, id: a.id || `address-${Date.now()}` };
   const addresses = await loadAddresses();
-  await AsyncStorage.setItem(ADDRESSES, JSON.stringify([...addresses, next]));
-  await AsyncStorage.setItem(ACTIVE_ADDR, next.id || "");
-  await AsyncStorage.setItem(ADDR, JSON.stringify(next));
+  const activeId = await AsyncStorage.getItem(ACTIVE_ADDR);
+  const updated = [...addresses, next];
+  await AsyncStorage.setItem(ADDRESSES, JSON.stringify(updated));
+  const active = makeDefault
+    ? next
+    : updated.find((address) => address.id === activeId) || updated[0] || next;
+  await AsyncStorage.setItem(ACTIVE_ADDR, active.id || "");
+  await AsyncStorage.setItem(ADDR, JSON.stringify(active));
 }
 
 export async function setActiveAddress(id: string) {

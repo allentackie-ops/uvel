@@ -30,6 +30,7 @@
         "NSCameraUsageDescription": "Uvel photographs looks and you, so it can find the piece and show it on your body before you buy.",
         "NSPhotoLibraryUsageDescription": "Uvel reads photos and screenshots you pick so it can find the clothes and try them on you.",
         "NSMicrophoneUsageDescription": "Video looks from TikTok, Reels, and Snapchat may include sound.",
+        "NSLocationWhenInUseUsageDescription": "Uvel uses your location only when you tap Use my location to fill your shipping address.",
         "UIUserInterfaceStyle": "Automatic",
         "UIBackgroundModes": [
           "remote-notification"
@@ -81,6 +82,8 @@
       },
       "permissions": [
         "CAMERA",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
         "READ_MEDIA_IMAGES",
         "POST_NOTIFICATIONS",
         "RECEIVE_BOOT_COMPLETED",
@@ -109,6 +112,12 @@
       ],
       "expo-web-browser",
       "expo-image",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Uvel uses your location only when you tap Use my location to fill your shipping address."
+        }
+      ],
       [
         "expo-splash-screen",
         {
