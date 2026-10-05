@@ -29,8 +29,6 @@ import { useFounderCheckSync } from "../lib/founderCheck";
 import { FounderDeskNotice } from "../components/FounderDeskNotice";
 import { FounderCheckNotice } from "../components/FounderCheckNotice";
 import { FriendShareLinkNotice } from "../components/FriendShareLinkNotice";
-import Onboard from "./onboard";
-import ProfileSetup from "./setup";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -737,14 +735,13 @@ function DraftResumeNotice() {
 }
 
 export default function Root() {
-  const { onboarded, hydrated, uid, profileDone, profileChecked } = useUvel();
+  const { hydrated, uid, profileDone, profileChecked } = useUvel();
   const appearance = useResolvedAppearance();
   const colors = useColors();
   useOtaReady();
   const [intro, setIntro] = useState(true);
   const dismiss = useCallback(() => setIntro(false), []);
   const gateReady = hydrated && profileChecked;
-  const needProfile = Boolean(uid) && profileChecked && !profileDone;
   const signedIn = Boolean(uid);
   useEffect(() => {
     if (!signedIn || !profileDone || intro) return;
@@ -764,15 +761,7 @@ export default function Root() {
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: intro ? colors.pulse : colors.ink }}>
         <StatusBar style={appearance === "dark" ? "light" : "dark"} />
         <ReviewSync enabled={Boolean(signedIn && gateReady && !intro && profileDone)} />
-        {gateReady ? (
-          !onboarded && !signedIn ? (
-            <Onboard />
-          ) : needProfile ? (
-            <ProfileSetup />
-          ) : (
-            <AppStack />
-          )
-        ) : null}
+        {gateReady ? <AppStack /> : null}
         {signedIn && gateReady && !intro ? <DraftResumeNotice /> : null}
         {signedIn && gateReady && !intro ? <FounderDeskNotice /> : null}
         {signedIn && gateReady && !intro ? <FounderCheckNotice /> : null}
