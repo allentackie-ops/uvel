@@ -227,18 +227,13 @@ export function TodayCommerceFeed({
       <SectionTitle title="New from brands you follow" onPress={onOpenSearch} />
       <ProductRail pieces={followed} market={market} onOpen={onOpenPiece} compact />
 
-      <SectionTitle title="Keep exploring your style" onPress={onOpenStyle} />
-      <View style={styles.lookGrid}>{STYLE_LOOKS.map((look, index) => <Pressable key={look.title} onPress={onOpenStyle} style={styles.lookCard} accessibilityRole="button" accessibilityLabel={look.title}>
-        <View style={styles.lookCopy}><Text style={styles.lookTitle}>{look.title}</Text><Text style={styles.lookBody}>{look.copy}</Text><Text style={styles.lookButton}>Shop the look ›</Text></View>
-        {personalized[index] ? <Image source={{ uri: personalized[index].photo }} style={styles.lookImage} contentFit="cover" accessible={false} /> : null}
-      </Pressable>)}</View>
-
-      <SectionTitle title="Because you saved relaxed tailoring" onPress={onOpenSearch} />
-      <ProductRail pieces={personalized.slice(0, 4)} market={market} onOpen={onOpenPiece} />
       <Pressable onPress={onOpenStyle} style={styles.styleDna} accessibilityRole="button" accessibilityLabel="See your Style DNA">
         <View style={styles.styleDnaCopy}><Text style={styles.styleDnaTitle}>Your Style DNA{`\n`}is getting clearer</Text><Text style={styles.styleDnaBody}>You gravitate toward classic shapes, neutral tones and modern layers.</Text><Text style={styles.styleDnaButton}>See your style ›</Text></View>
         <View style={styles.swatches}>{["#EEEAE2", "#AF9782", "#5B4637", "#586247"].map((color) => <View key={color} style={[styles.swatch, { backgroundColor: color }]} />)}</View>
       </Pressable>
+
+      <SectionTitle title="Because you saved relaxed tailoring" onPress={onOpenSearch} />
+      <ProductRail pieces={personalized.slice(0, 4)} market={market} onOpen={onOpenPiece} />
 
       <SectionTitle title="Recently viewed" onPress={onOpenSearch} />
       <ProductRail pieces={personalized.slice(4, 8).length ? personalized.slice(4, 8) : personalized.slice(0, 4)} market={market} onOpen={onOpenPiece} compact />
