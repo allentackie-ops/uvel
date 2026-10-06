@@ -741,11 +741,20 @@ export default function Root() {
   const { hydrated, uid, profileDone, profileChecked } = useUvel();
   const appearance = useResolvedAppearance();
   const colors = useColors();
+  const pathname = usePathname();
   useOtaReady();
   const [intro, setIntro] = useState(true);
   const dismiss = useCallback(() => setIntro(false), []);
   const gateReady = hydrated && profileChecked;
   const signedIn = Boolean(uid);
+  useEffect(() => {
+    if (!gateReady || intro) return;
+    if (!signedIn && pathname !== "/onboard") {
+      router.replace("/onboard");
+    } else if (signedIn && pathname === "/onboard") {
+      router.replace("/");
+    }
+  }, [gateReady, intro, pathname, signedIn]);
   useEffect(() => {
     if (!signedIn || !profileDone || intro) return;
     void AsyncStorage.getItem("uvel-pending-brand-invite").then((inviteId) => {
