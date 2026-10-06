@@ -93,6 +93,9 @@ export function TodayListingOverlay({
   const popupHeight = Math.max(0, Math.floor(screenH * 0.5));
   const popupLeft = 0;
   const popupTop = screenH - popupHeight;
+  const expandedTop = Math.max(insets.top + 8, 12);
+  const expandDistance = Math.max(0, popupTop - expandedTop);
+  const sheetHeight = screenH - expandedTop;
   const sheetHandleHeight = 18;
   const modalHeaderHeight = 44;
   const footerHeight = 68 + insets.bottom;
@@ -123,6 +126,7 @@ export function TodayListingOverlay({
   const photoFitProgress = useSharedValue(0);
   const dragY = useSharedValue(0);
   const modalDragY = useSharedValue(0);
+  const sheetStartY = useSharedValue(0);
   const closing = useSharedValue(0);
   const dismissing = useSharedValue(0);
   const settled = useSharedValue(0);
@@ -331,11 +335,11 @@ export function TodayListingOverlay({
         state.fail();
         return;
       }
-      if (dy < -8) {
+      if (modalDragY.value <= -expandDistance + 1 && dy < -8) {
         state.fail();
         return;
       }
-      if (dy > 8 && dy > Math.abs(dx) * 1.2) {
+      if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx) * 1.2) {
         state.activate();
         return;
       }
@@ -348,26 +352,34 @@ export function TodayListingOverlay({
         dismissing.value = 0;
         return;
       }
+      sheetStartY.value = modalDragY.value;
       dismissing.value = 1;
     })
     .onUpdate((event) => {
       if (closing.value || !dismissing.value) return;
-      const translationY = Math.max(event.translationY, 0);
-      const p = Math.min(translationY / 240, 1);
-      modalDragY.value = translationY;
+      const nextY = Math.max(-expandDistance, Math.min(0, sheetStartY.value + event.translationY));
+      modalDragY.value = nextY;
+      const downward = Math.max(0, nextY);
+      const p = Math.min(downward / 240, 1);
       backdrop.value = 1 - p * 0.95;
       sheet.value = Math.max(0.4, 1 - p * 0.6);
-      dragY.value = translationY;
+      dragY.value = downward;
     })
     .onEnd((event) => {
       if (closing.value || !dismissing.value) return;
-      if (dragY.value > 48 || event.velocityY > 600) {
+      const currentY = modalDragY.value;
+      if (sheetStartY.value === 0 && (event.translationY > 72 || event.velocityY > 700)) {
         runOnJS(closeToPin)();
         return;
       }
       dismissing.value = 0;
       dragY.value = 0;
-      modalDragY.value = withSpring(0, SNAP);
+      const shouldExpand = event.velocityY < -600 || currentY < -expandDistance * 0.5;
+      const shouldCollapse = event.velocityY > 600 || currentY > -expandDistance * 0.5;
+      const targetY = sheetStartY.value < -1
+        ? (shouldCollapse ? 0 : -expandDistance)
+        : (shouldExpand ? -expandDistance : 0);
+      modalDragY.value = withSpring(targetY, SNAP);
       backdrop.value = withSpring(1, SNAP);
       sheet.value = withTiming(1, { duration: 140 });
     });
@@ -389,6 +401,7 @@ export function TodayListingOverlay({
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value * 0.12 }));
   const pageStyle = useAnimatedStyle(() => ({ opacity: sheet.value }));
   const sheetMotionStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetEnterY.value + modalDragY.value }] }));
+  const stickyFooterStyle = useAnimatedStyle(() => ({ top: popupHeight - footerHeight - modalDragY.value }));
 
   const brand = brandRecord?.name || piece.brand;
   const sellerName = brandRecord?.name || piece.ownerName || piece.listedByName || "Uvel seller";
@@ -506,7 +519,7 @@ export function TodayListingOverlay({
           accessibilityLabel="Close listing details"
         />
         <GestureDetector gesture={pan}>
-        <Animated.View style={[styles.popup, { left: popupLeft, top: popupTop, width: popupWidth, height: popupHeight }, pageStyle, sheetMotionStyle]}>
+        <Animated.View style={[styles.popup, { left: popupLeft, top: popupTop, width: popupWidth, height: sheetHeight }, pageStyle, sheetMotionStyle]}>
           <View style={[styles.sheetHandleArea, { height: sheetHandleHeight }]}><View style={styles.sheetHandle} /></View>
           <View style={[styles.modalHeader, { height: modalHeaderHeight }]}>
             <Text style={styles.kicker} numberOfLines={1}>{(brand || "UVEL").toUpperCase()}</Text>
@@ -542,7 +555,7 @@ export function TodayListingOverlay({
         <AnimatedScrollView
           ref={scrollRef}
           style={[styles.popupScroll, { top: sheetHandleHeight + modalHeaderHeight, bottom: footerHeight + (showTryOnHint ? 74 : 0) }]}
-          contentContainerStyle={{ paddingBottom: 16 }}
+          contentContainerStyle={{ paddingBottom: footerHeight + 16 }}
           showsVerticalScrollIndicator={false}
           bounces={false}
           overScrollMode="never"
@@ -744,7 +757,7 @@ export function TodayListingOverlay({
           ) : null}
           </View>
         </AnimatedScrollView>
-        <Animated.View pointerEvents="box-none" style={[styles.stickyFooter, { paddingBottom: insets.bottom + 10 }]}>
+        <Animated.View pointerEvents="box-none" style={[styles.stickyFooter, stickyFooterStyle, { paddingBottom: insets.bottom + 10 }]}>
           {showTryOnHint ? (
             <View pointerEvents="none" style={styles.tryOnHint}>
               <View style={styles.tryOnHintCopy}>
@@ -979,7 +992,7 @@ function make(colors: Colors) {
     tryOnHintCopy: { flex: 1 },
     tryOnHintText: { color: colors.bone, fontSize: 14, lineHeight: 19, fontWeight: "800" },
     tryOnHintSubtext: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 2 },
-    stickyFooter: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 7, paddingHorizontal: 12, paddingTop: 10, backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}20` },
+    stickyFooter: { position: "absolute", left: 0, right: 0, zIndex: 7, paddingHorizontal: 12, paddingTop: 10, backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}20` },
     footerRow: { flexDirection: "row", gap: 8 },
     buyNowAction: { flex: 1, minHeight: 48, borderRadius: 24, paddingHorizontal: 8, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     buyNowText: { color: colors.successInk, fontSize: 14, fontWeight: "800" },
