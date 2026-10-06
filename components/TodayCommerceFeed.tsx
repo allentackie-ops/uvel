@@ -29,17 +29,8 @@ const DEALS_MOTION_BANNER = require("../assets/today/deals-fun-motion-banner-cle
 const FINISHING_PIECES_POSTER = require("../assets/today/finishing-pieces-poster-03-pop-magazine.png");
 const MINIMAL_WITH_PRESENCE_BANNER = require("../assets/today/minimal-with-presence-banner-mockup-v8.png");
 const WE_THINK_EDITORIAL_HERO = require("../assets/today/we-think-editorial-hero.png");
-const WE_THINK_CITY_LAYERS_AD = require("../assets/today/we-think-city-layers-ad.mp4");
-const WE_THINK_OFF_DUTY_AD = require("../assets/today/we-think-off-duty-ad.mp4");
-const WE_THINK_KNIT_NOW_AD = require("../assets/today/we-think-knit-now-ad.mp4");
 const WEEKEND_UNIFORM_LOOP = require("../assets/today/weekend-uniform-loop.mp4");
 const TODAY_DEALS_RED = MARKET_RED;
-
-const EDITORIAL = [
-  { title: "City layers", subtitle: "Effortless polish", accent: "#D8C4AE" },
-  { title: "Off-duty looks", subtitle: "Easy & elevated", accent: "#D7DDE4" },
-  { title: "Knit now", subtitle: "Layers you’ll live in", accent: "#E6D5C6" },
-];
 
 const STYLE_LOOKS = [
   { title: "Modern Minimalist", copy: "Clean staples for everyday elevated looks." },
@@ -217,17 +208,6 @@ export function TodayCommerceFeed({
           <Pressable onPress={onOpenSearch} style={styles.editorButton} accessibilityRole="button" accessibilityLabel="Shop the editor story"><Text style={styles.editorButtonText}>Shop the story ›</Text></Pressable>
         </View>
         <Image source={WE_THINK_EDITORIAL_HERO} style={styles.editorImage} contentFit="cover" cachePolicy="memory-disk" transition={150} accessible={false} />
-      </View>
-      <View style={styles.editorTiles}>
-        {[{ ...EDITORIAL[0], video: WE_THINK_CITY_LAYERS_AD }, { ...EDITORIAL[1], video: WE_THINK_OFF_DUTY_AD }, { ...EDITORIAL[2], video: WE_THINK_KNIT_NOW_AD }].map((item) => <Pressable key={item.title} onPress={onOpenSearch} style={[styles.editorTile, { backgroundColor: item.accent }]} accessibilityRole="button" accessibilityLabel={item.title}>
-          <LoopingVideo source={item.video} style={styles.editorTileImage} />
-          <View style={styles.editorTileShade} />
-          <View style={styles.editorTileTextPanel}>
-            <Text style={styles.editorTileTitle}>{item.title}</Text>
-            <Text style={styles.editorTileSubtitle}>{item.subtitle}</Text>
-          </View>
-          <Text style={styles.tileArrow}>›</Text>
-        </Pressable>)}
       </View>
 
       <SectionTitle title="Trending in your world" onPress={onOpenSearch} />
@@ -743,14 +723,6 @@ function make(colors: Colors) {
     editorButton: { backgroundColor: "#FFFFFF", paddingHorizontal: 14, minHeight: 40, borderRadius: 20, alignSelf: "flex-start", justifyContent: "center", marginTop: 14, shadowColor: "#181714", shadowOpacity: 0.1, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
     editorButtonText: { color: "#181714", fontSize: 12, fontWeight: "900" },
     editorImage: { flex: 0.98, height: "100%" },
-    editorTiles: { flexDirection: "row", gap: 9, marginTop: 9 },
-    editorTile: { flex: 1, minHeight: 154, borderRadius: 16, overflow: "hidden", padding: 10, justifyContent: "flex-end", shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
-    editorTileImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, width: "100%", height: "100%", zIndex: 0 },
-    editorTileShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(255,255,255,0.18)", zIndex: 1 },
-    editorTileTextPanel: { alignSelf: "flex-start", maxWidth: 122, backgroundColor: "#FFFFFF", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6, zIndex: 2, shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
-    editorTileTitle: { color: "#181714", fontSize: 14, lineHeight: 16, fontWeight: "900" },
-    editorTileSubtitle: { color: "#181714", fontSize: 10, lineHeight: 13, marginTop: 3 },
-    tileArrow: { position: "absolute", right: 9, bottom: 8, color: "#181714", fontSize: 22, fontWeight: "900", zIndex: 3 },
     coralStrip: { minHeight: 82, height: 96, borderRadius: 16, backgroundColor: "transparent", overflow: "hidden", position: "relative", marginTop: 17 },
     coralStripVideo: { position: "absolute", top: 0, left: 0, width: "100%", height: 96, zIndex: 0 },
     coralStripTint: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(240,82,55,0.46)", zIndex: 1 },
