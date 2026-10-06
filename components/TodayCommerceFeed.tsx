@@ -508,20 +508,24 @@ function LoopingVideo({ source, style }: { source: number; style: StyleProp<View
     instance.play();
   });
   useEffect(() => {
-    const resumePlayback = (nextState: string) => {
-      if (nextState !== "active") return;
+    const startPlayback = () => {
       player.loop = true;
       player.muted = true;
       player.volume = 0;
       player.play();
     };
+    const resumePlayback = (nextState: string) => {
+      if (nextState !== "active") return;
+      startPlayback();
+      setTimeout(startPlayback, 250);
+      setTimeout(startPlayback, 900);
+    };
     const subscription = AppState.addEventListener("change", resumePlayback);
-    player.loop = true;
-    player.muted = true;
-    player.volume = 0;
-    player.play();
+    startPlayback();
+    const retryTimers = [250, 900, 1600].map((delay) => setTimeout(startPlayback, delay));
     return () => {
       subscription.remove();
+      retryTimers.forEach(clearTimeout);
       player.pause();
     };
   }, [player]);
@@ -748,8 +752,8 @@ function make(colors: Colors) {
     editorTileSubtitle: { color: "#181714", fontSize: 10, lineHeight: 13, marginTop: 3 },
     tileArrow: { position: "absolute", right: 9, bottom: 8, color: "#181714", fontSize: 22, fontWeight: "900", zIndex: 3 },
     coralStrip: { minHeight: 82, height: 96, borderRadius: 16, backgroundColor: "transparent", overflow: "hidden", position: "relative", marginTop: 17 },
-    coralStripVideo: { zIndex: 0 },
-    coralStripTint: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(240,82,55,0.56)", zIndex: 1 },
+    coralStripVideo: { position: "absolute", top: 0, left: 0, width: "100%", height: 96, zIndex: 0 },
+    coralStripTint: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(240,82,55,0.46)", zIndex: 1 },
     coralStripContent: { flex: 1, paddingHorizontal: 15, paddingVertical: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 2 },
     stripTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "900" },
     stripSub: { color: "#FFFFFF", fontSize: 12, marginTop: 3 },
