@@ -1,20 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
-import { TodayListingOverlay, type ListingOrigin } from "../components/TodayListingOverlay";
 import { TodayBannerStoryPage } from "../components/TodayBannerStoryPage";
 import { useColors } from "../lib/theme";
 import { getTodayBannerStory, releaseTodayBannerStory } from "../lib/todayBannerStories";
-import type { ClosetPiece } from "../lib/wardrobe";
+import { recordReviewListingView } from "../lib/appReview";
 
 export default function TodayBannerRoute() {
   const colors = useColors();
   const { id: rawId } = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(rawId) ? rawId[0] ?? "" : rawId ?? "";
   const story = useMemo(() => getTodayBannerStory(id), [id]);
-  const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
-  const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
 
   useEffect(() => () => releaseTodayBannerStory(id), [id]);
 
@@ -39,21 +36,11 @@ export default function TodayBannerRoute() {
       <TodayBannerStoryPage
         story={story}
         onClose={goBack}
-        onOpenPiece={(piece, origin) => {
-          setOpenOrigin(origin);
-          setOpenPiece(piece);
+        onOpenPiece={(piece) => {
+          void recordReviewListingView();
+          router.push({ pathname: "/closet/[id]", params: { id: piece.id, v: "buy", source: "today-banner" } });
         }}
       />
-      {openPiece && openOrigin ? (
-        <TodayListingOverlay
-          piece={openPiece}
-          origin={openOrigin}
-          onClose={() => {
-            setOpenPiece(null);
-            setOpenOrigin(null);
-          }}
-        />
-      ) : null}
     </View>
   );
 }

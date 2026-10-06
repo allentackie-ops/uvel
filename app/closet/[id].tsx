@@ -7,11 +7,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MotionClip } from "../../components/MotionClip";
 import { TodayListingOverlay } from "../../components/TodayListingOverlay";
 import { recordAnalyticsEvent } from "../../lib/analytics";
+import { requestNativeReviewIfEligible } from "../../lib/appReview";
 import { getBrand, themeFor, useBrands } from "../../lib/brands";
 import { usd } from "../../lib/catalog";
 import { getMarket } from "../../lib/markets";
 import { shopLookOf } from "../../lib/shopLook";
 import { useUvel } from "../../lib/store";
+import { usePersonalization } from "../../lib/personalization";
 import { useColors, type Colors } from "../../lib/theme";
 import { getPiece, markSold, recordPieceView, unlistPiece, updatePiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 
@@ -137,10 +139,11 @@ function OwnerListing({ piece, insets, onBack }: { piece: ClosetPiece; insets: {
 
 export default function ClosetPiece() {
   const insets = useSafeAreaInsets();
-  const { id, v } = useLocalSearchParams<{ id: string; v?: string }>();
+  const { id, v, source } = useLocalSearchParams<{ id: string; v?: string; source?: string }>();
   useWardrobe();
   useBrands();
   const app = useUvel();
+  const personalization = usePersonalization(app.uid || "guest");
   const colors = useColors();
   const piece = getPiece(id);
   const preview = v === "buy";
@@ -178,7 +181,11 @@ export default function ClosetPiece() {
     <TodayListingOverlay
       piece={piece}
       origin={{ x: W / 2, y: insets.top, width: 1, height: 1 }}
-      onClose={() => router.back()}
+      onClose={() => {
+        if (source?.startsWith("today")) void requestNativeReviewIfEligible();
+        router.back();
+      }}
+      onInteraction={personalization.record}
       previewOnly={mine && preview}
     />
   );

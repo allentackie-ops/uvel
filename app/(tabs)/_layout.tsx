@@ -41,10 +41,10 @@ export default function TabsLayout() {
   const todayActiveColor = colors.link ?? colors.pulse;
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
+  const listingOpen = pathname.startsWith("/closet/");
   const pagerRef = useRef<PagerView>(null);
   const [pageIndex, setPageIndex] = useState(() => routeIndex(pathname) ?? 0);
   const [open, setOpen] = useState(false);
-  const [listingOpen, setListingOpen] = useState(false);
   const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
   const longPressRef = useRef(false);
   const tabProgress = useSharedValue(pageIndex);
@@ -64,7 +64,7 @@ export default function TabsLayout() {
 
   const tabs = useMemo<TabScreen[]>(
     () => [
-      { key: "today", screen: <Today onOpenTools={() => setOpen(true)} drawerOpen={open} onListingOpenChange={setListingOpen} /> },
+      { key: "today", screen: <Today onOpenTools={() => setOpen(true)} /> },
       { key: "create", screen: <Create /> },
       { key: "you", screen: <You onOpenSettings={openSettings} /> },
       { key: "settings", screen: <Settings onBack={closeSettings} /> },

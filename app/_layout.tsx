@@ -465,6 +465,8 @@ function AppStack() {
             options={{
               headerShown: false,
               animation: "slide_from_right",
+              gestureEnabled: true,
+              fullScreenGestureEnabled: true,
               contentStyle: { backgroundColor: colors.ink },
             }}
           />

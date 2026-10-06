@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "../../lib/haptics";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
 import { ListingCard, ListingCardSkeleton } from "../../components/ListingCard";
-import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayListingOverlay";
+import type { ListingOrigin } from "../../components/TodayListingOverlay";
 import { ImmersiveShoppingButton } from "../../components/ImmersiveShoppingButton";
 import { TodayMessagesButton } from "../../components/TodayMessagesButton";
 import { TodayCartFab } from "../../components/TodayCartFab";
@@ -35,15 +35,13 @@ import { unreadFor, useInbox } from "../../lib/chat";
 import { usePersonalization } from "../../lib/personalization";
 import { useFirstFind } from "../../lib/firstFind";
 import { convertCents, getMarket, moneyExact, moneyInMarket } from "../../lib/markets";
-import { recordReviewListingView, requestNativeReviewIfEligible } from "../../lib/appReview";
+import { recordReviewListingView } from "../../lib/appReview";
 import { keepTodayBannerStory, type BannerStory } from "../../lib/todayBannerStories";
 
 const MIN_REFRESH_MS = 1200;
 // Show the workspace drawer tutorial once per installation.
 const TODAY_SWIPE_HINT_KEY = "uvel-today-workspace-tutorial-v1";
 const TODAY_SWIPE_HINT_MS = 7000;
-const TODAY_LISTING_OPENS_KEY = "uvel-today-listing-opens-v1";
-const TODAY_DOUBLE_TAP_HINT_SHOWN_KEY = "uvel-today-double-tap-hint-shown-v1";
 const INITIAL_TODAY_FEED_PAGES = 1;
 
 type TodayFeedCard = { key: string; piece: ClosetPiece };
@@ -165,7 +163,7 @@ function TodaySwipeHint({ onDismiss }: { onDismiss: () => void }) {
   );
 }
 
-export default function Shop({ todayHome = false, onOpenTools, drawerOpen = false, onListingOpenChange }: { todayHome?: boolean; onOpenTools?: () => void; drawerOpen?: boolean; onListingOpenChange?: (open: boolean) => void }) {
+export default function Shop({ todayHome = false, onOpenTools }: { todayHome?: boolean; onOpenTools?: () => void }) {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
@@ -200,20 +198,13 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const frozenOrder = useRef<string[] | null>(null);
   const [todayFeedPageState, setTodayFeedPageState] = useState<{ key: string; pages: number }>({ key: "", pages: INITIAL_TODAY_FEED_PAGES });
   const [todayShuffleSeed] = useState(() => Math.floor(Math.random() * 0x7fffffff));
-  const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
-  const [openOrigin, setOpenOrigin] = useState<ListingOrigin | null>(null);
   const featuredRef = useRef<View>(null);
   const [findHint, setFindHint] = useState(false);
   const [showSwipeHint, setShowSwipeHint] = useState(false);
-  const [showDoubleTapHint, setShowDoubleTapHint] = useState(false);
   const [showImmersiveHint, setShowImmersiveHint] = useState(false);
   const immersiveHintDismissRef = useRef<(() => void) | null>(null);
   const [showMessagesHint, setShowMessagesHint] = useState(false);
   const messagesHintDismissRef = useRef<(() => void) | null>(null);
-  const [firstListingForHint, setFirstListingForHint] = useState(false);
-  const listingOpensRef = useRef<number | null>(null);
-  const doubleTapHintShownRef = useRef(false);
-  const listingOpenWorkRef = useRef(Promise.resolve());
   const wardrobePieces = useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
   const brandState = useBrands();
@@ -224,7 +215,6 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const pathname = usePathname();
   const todayRouteActive = pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/");
   const dismissSwipeHint = useCallback(() => setShowSwipeHint(false), []);
-  const dismissDoubleTapHint = useCallback(() => setShowDoubleTapHint(false), []);
   const handleImmersiveHintVisibility = useCallback((visible: boolean, dismiss?: () => void) => {
     setShowImmersiveHint(visible);
     immersiveHintDismissRef.current = visible ? (dismiss || null) : null;
@@ -237,45 +227,14 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
     () => dnaFrom(app),
     [app.archetype, app.palette, app.silhouette, app.styles, app.gender],
   );
-  const openTodayListing = useCallback(async (piece: ClosetPiece, origin: ListingOrigin) => {
-    setOpenOrigin(origin);
-    setOpenPiece(piece);
-    onListingOpenChange?.(true);
+  const openTodayListing = useCallback((piece: ClosetPiece, _origin: ListingOrigin) => {
     if (todayHome) void recordReviewListingView();
-    if (!app.profileDone) return;
-    listingOpenWorkRef.current = listingOpenWorkRef.current.then(async () => {
-      if (doubleTapHintShownRef.current) return;
-      const storedHintShown = await AsyncStorage.getItem(TODAY_DOUBLE_TAP_HINT_SHOWN_KEY);
-      if (storedHintShown === "1") {
-        doubleTapHintShownRef.current = true;
-        return;
-      }
-      const stored = listingOpensRef.current ?? Number(await AsyncStorage.getItem(TODAY_LISTING_OPENS_KEY) || 0);
-      listingOpensRef.current = stored;
-      if (stored >= 2) return;
-      const next = stored + 1;
-      listingOpensRef.current = next;
-      await AsyncStorage.setItem(TODAY_LISTING_OPENS_KEY, String(next));
-      setFirstListingForHint(next === 1);
-      if (next === 2) {
-        doubleTapHintShownRef.current = true;
-        await AsyncStorage.setItem(TODAY_DOUBLE_TAP_HINT_SHOWN_KEY, "1");
-        setShowDoubleTapHint(true);
-      }
-    }).catch(() => undefined);
-  }, [app.profileDone, onListingOpenChange, todayHome]);
+    router.push({ pathname: "/closet/[id]", params: { id: piece.id, v: "buy", source: "today" } });
+  }, [todayHome]);
   const openTodayBanner = useCallback((story: BannerStory) => {
     const id = keepTodayBannerStory(story);
     router.push({ pathname: "/today-banner", params: { id } });
   }, []);
-  useEffect(() => {
-    if (!todayHome || !drawerOpen || !openPiece) return;
-    setOpenPiece(null);
-    setOpenOrigin(null);
-    dismissDoubleTapHint();
-    setFirstListingForHint(false);
-    onListingOpenChange?.(false);
-  }, [dismissDoubleTapHint, drawerOpen, onListingOpenChange, openPiece, todayHome]);
   useEffect(() => {
     if (!findHint) return;
     const timer = setTimeout(() => setFindHint(false), 3200);
@@ -886,25 +845,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           {emptyListingsContent}
         </ScrollView>
       )}
-      {todayHome && openPiece && openOrigin ? (
-        <TodayListingOverlay
-          piece={openPiece}
-          origin={openOrigin}
-          onClose={() => {
-            setOpenPiece(null);
-            setOpenOrigin(null);
-            onListingOpenChange?.(false);
-            dismissDoubleTapHint();
-            setFirstListingForHint(false);
-            void requestNativeReviewIfEligible();
-          }}
-          showDoubleTapHint={showDoubleTapHint}
-          onDoubleTapHintDismiss={dismissDoubleTapHint}
-          firstListing={firstListingForHint}
-          onInteraction={personalization.record}
-        />
-      ) : null}
-      {todayHome ? <TodayCartFab listingOpen={Boolean(openPiece && openOrigin)} /> : null}
+      {todayHome && todayRouteActive ? <TodayCartFab /> : null}
       {todayHome && showSwipeHint ? <TodaySwipeHint onDismiss={dismissSwipeHint} /> : null}
       {findHint ? (
         <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 68 }]} accessibilityLiveRegion="polite">
