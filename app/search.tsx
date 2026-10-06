@@ -59,25 +59,33 @@ export default function Search() {
   const remotePieces = listedPieces();
   const live = remotePieces.length ? remotePieces : fallbackShopFloor();
   const [term, setTerm] = useState("");
+  const [submittedTerm, setSubmittedTerm] = useState("");
   const [activeTab, setActiveTab] = useState<SearchTab>("All");
   const tabIndex = useRef(new Animated.Value(0)).current;
   const inputRef = useRef<TextInput>(null);
   const tabWidth = Math.max(1, (width - 36) / TABS.length);
   const needle = term.trim().toLowerCase();
+  const submittedNeedle = submittedTerm.trim().toLowerCase();
+  const showResults = Boolean(submittedNeedle && needle === submittedNeedle);
 
   const rows = useMemo(() => {
-    const words = needle.split(/\s+/).filter(Boolean);
+    const words = submittedNeedle.split(/\s+/).filter(Boolean);
     return live.filter((piece) => {
       const searchable = [piece.name, piece.brand, piece.category, piece.color, piece.material, piece.notes, piece.size, ...(piece.sizes || [])].filter(Boolean).join(" ").toLowerCase();
       return matchesTab(piece, activeTab) && (!words.length || words.every((word) => searchable.includes(word)));
     });
-  }, [activeTab, live, needle]);
+  }, [activeTab, live, submittedNeedle]);
+
+  const suggestionCategories = activeTab === "All"
+    ? ["Women’s clothing", "Men’s clothing", "Brand pieces"]
+    : [`${activeTab} clothing`, `${activeTab} tops`, `${activeTab} new arrivals`];
+  const popularSuggestions = [`${term.trim()} outfits`, `${term.trim()} for ${activeTab === "All" ? "everyone" : activeTab.toLowerCase()}`, `${term.trim()} vintage`, `${term.trim()} sale`];
 
   useEffect(() => {
-    if (needle.length < 3) return;
-    const timer = setTimeout(() => personalization.record("search", undefined, needle), 700);
+    if (!submittedNeedle || !showResults) return;
+    const timer = setTimeout(() => personalization.record("search", undefined, submittedNeedle), 700);
     return () => clearTimeout(timer);
-  }, [needle, personalization.record]);
+  }, [personalization.record, showResults, submittedNeedle]);
 
   function chooseTab(tab: SearchTab) {
     const nextIndex = TABS.indexOf(tab);
@@ -87,10 +95,17 @@ export default function Search() {
 
   function chooseTrending(value: string) {
     setTerm(value);
-    inputRef.current?.focus();
+    setSubmittedTerm(value);
+    Keyboard.dismiss();
   }
 
-  const resultRows = needle ? Array.from({ length: Math.ceil(rows.length / 2) }, (_, index) => rows.slice(index * 2, index * 2 + 2)) : [];
+  function chooseSuggestion(value: string) {
+    setTerm(value);
+    setSubmittedTerm(value);
+    Keyboard.dismiss();
+  }
+
+  const resultRows = showResults ? Array.from({ length: Math.ceil(rows.length / 2) }, (_, index) => rows.slice(index * 2, index * 2 + 2)) : [];
 
   return (
     <View style={styles.page}>
@@ -131,20 +146,32 @@ export default function Search() {
                 selectionColor={colors.success}
                 style={styles.input}
               />
-              {term ? <Pressable onPress={() => setTerm("")} hitSlop={8} style={styles.clearButton} accessibilityRole="button" accessibilityLabel={copy.clearSearch}><Ionicons name="close-circle" size={19} color={colors.muted} /></Pressable> : null}
+              {term ? <Pressable onPress={() => { setTerm(""); setSubmittedTerm(""); }} hitSlop={8} style={styles.clearButton} accessibilityRole="button" accessibilityLabel={copy.clearSearch}><Ionicons name="close-circle" size={19} color={colors.muted} /></Pressable> : null}
               <Pressable onPress={() => router.push("/lens-search")} style={styles.cameraButton} accessibilityRole="button" accessibilityLabel="Search with a photo">
                 <Ionicons name="camera-outline" size={22} color={colors.successInk} />
               </Pressable>
             </View>
-            <Text style={styles.sectionTitle}>Trending searches</Text>
-            <View style={styles.trendingWrap}>
-              {TRENDING_SEARCHES.map((search) => <Pressable key={search} onPress={() => chooseTrending(search)} style={styles.trendingChip} accessibilityRole="button" accessibilityLabel={`Search for ${search}`}><Text style={styles.trendingText}>{search}</Text></Pressable>)}
-            </View>
-            {needle ? <View style={styles.resultsHeading}><Text style={styles.resultTitle}>{activeTab} results</Text><Text style={styles.resultCount}>{rows.length} {rows.length === 1 ? "piece" : "pieces"}</Text></View> : null}
+            {showResults ? (
+              <View style={styles.resultsHeading}><Text style={styles.resultTitle}>{activeTab} results</Text><Text style={styles.resultCount}>{rows.length} {rows.length === 1 ? "piece" : "pieces"}</Text></View>
+            ) : needle ? (
+              <View style={styles.suggestionsPanel}>
+                <Text style={styles.suggestionHeading}>Categories</Text>
+                <View style={styles.suggestionChips}>{suggestionCategories.map((suggestion) => <Pressable key={suggestion} onPress={() => chooseSuggestion(suggestion)} style={styles.suggestionChip} accessibilityRole="button"><Text style={styles.suggestionChipText}>{suggestion}</Text></Pressable>)}</View>
+                <Text style={styles.suggestionHeading}>Popular</Text>
+                <View style={styles.popularList}>{popularSuggestions.map((suggestion) => <Pressable key={suggestion} onPress={() => chooseSuggestion(suggestion)} style={styles.popularRow} accessibilityRole="button"><Ionicons name="search-outline" size={17} color={colors.muted} /><Text style={styles.popularText}>{suggestion}</Text><Text style={styles.popularCount}>{live.filter((piece) => [piece.name, piece.brand, piece.category, piece.notes].join(" ").toLowerCase().includes(term.trim().toLowerCase())).length}</Text></Pressable>)}</View>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.sectionTitle}>Trending searches</Text>
+                <View style={styles.trendingWrap}>
+                  {TRENDING_SEARCHES.map((search) => <Pressable key={search} onPress={() => chooseTrending(search)} style={styles.trendingChip} accessibilityRole="button" accessibilityLabel={`Search for ${search}`}><Text style={styles.trendingText}>{search}</Text></Pressable>)}
+                </View>
+              </>
+            )}
           </>
         }
         renderItem={({ item }) => <View style={styles.resultRow}>{item.map((piece) => <View key={piece.id} style={styles.resultCell}><ListingCard piece={piece} framed onInteraction={personalization.record} /></View>)}{item.length === 1 ? <View style={styles.resultCell} /> : null}</View>}
-        ListEmptyComponent={needle ? <View style={styles.empty}>{syncState === "loading" ? <ActivityIndicator color={colors.success} /> : <><Text style={styles.emptyTitle}>Nothing here yet.</Text><Text style={styles.emptyText}>{syncState === "unavailable" ? copy.searchUnavailable ?? "Search is unavailable right now." : `Try another search in ${activeTab}.`}</Text></>}</View> : null}
+        ListEmptyComponent={showResults ? <View style={styles.empty}>{syncState === "loading" ? <ActivityIndicator color={colors.success} /> : <><Text style={styles.emptyTitle}>Nothing here yet.</Text><Text style={styles.emptyText}>{syncState === "unavailable" ? copy.searchUnavailable ?? "Search is unavailable right now." : `Try another search in ${activeTab}.`}</Text></>}</View> : null}
       />
     </View>
   );
@@ -168,6 +195,15 @@ function makeStyles(colors: Colors) {
     trendingWrap: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
     trendingChip: { minHeight: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: `${colors.bone}35`, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
     trendingText: { color: colors.bone, fontSize: 13 },
+    suggestionsPanel: { marginTop: 24 },
+    suggestionHeading: { color: colors.bone, fontSize: 15, fontWeight: "800", marginBottom: 10 },
+    suggestionChips: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginBottom: 22 },
+    suggestionChip: { minHeight: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: `${colors.bone}30`, backgroundColor: colors.surface, justifyContent: "center" },
+    suggestionChipText: { color: colors.bone, fontSize: 13 },
+    popularList: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}20` },
+    popularRow: { minHeight: 43, flexDirection: "row", alignItems: "center", gap: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
+    popularText: { flex: 1, color: colors.bone, fontSize: 14 },
+    popularCount: { color: colors.muted, fontSize: 12 },
     resultsHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: 24, marginBottom: 12 },
     resultTitle: { color: colors.bone, fontSize: 18, fontWeight: "800" },
     resultCount: { color: colors.muted, fontSize: 13 },
