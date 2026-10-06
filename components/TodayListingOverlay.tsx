@@ -41,7 +41,7 @@ export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly
   const paymentMethod = methods.find((method) => method.id === paymentMethodId) || methods[0];
   const footerBottom = reserveTabBarSpace ? 64 + Math.max(insets.bottom, 8) : Math.max(insets.bottom, 8);
   const paymentButtonLabel = paymentMethod?.kind === "apple"
-    ? "Apple Pay"
+    ? "Pay"
     : paymentMethod?.kind === "card"
       ? "Pay with card"
       : paymentMethod
