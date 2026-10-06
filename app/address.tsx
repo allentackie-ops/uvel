@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -23,16 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMarket, MARKETS } from "../lib/markets";
 import { addAddress, loadAddress, saveAddress, type Address } from "../lib/orders";
 import { useUvel } from "../lib/store";
-
-const COLORS = {
-  header: "#FFFFFF",
-  white: "#FFFFFF",
-  text: "#111111",
-  muted: "#595959",
-  hint: "#777777",
-  border: "#8F8F8F",
-  separator: "#D8D8D8",
-};
+import { useColors, useResolvedAppearance, type Colors } from "../lib/theme";
 
 const US_STATES = [
   "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado", "Connecticut", "Delaware", "Florida", "Georgia",
@@ -50,6 +41,9 @@ const CA_PROVINCES = [
 type PickerMode = "country" | "region" | null;
 
 export default function Address() {
+  const colors = useColors();
+  const appearance = useResolvedAppearance();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();
   const { displayName } = useUvel();
@@ -197,13 +191,13 @@ export default function Address() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style="dark" />
+      <StatusBar style={appearance === "dark" ? "light" : "dark"} />
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.navRow}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navSide} accessibilityRole="button" accessibilityLabel="Cancel">
             <Text style={styles.cancelText}>Cancel</Text>
           </Pressable>
-          <Text style={styles.navTitle}>Your Addresses</Text>
+          <Text style={styles.navTitle}>Your Address</Text>
           <View style={styles.navSide} />
         </View>
       </View>
@@ -216,9 +210,9 @@ export default function Address() {
         >
           <Text style={styles.heading}>{adding ? "Add a new address" : "Edit address"}</Text>
 
-          <SelectField label="Country/Region" value={country.name} onPress={() => { Keyboard.dismiss(); setPickerMode("country"); }} />
+          <SelectField styles={styles} colors={colors} label="Country/Region" value={country.name} onPress={() => { Keyboard.dismiss(); setPickerMode("country"); }} />
 
-          <FormField label="Full name (First and Last name)" value={name} onChange={setName} placeholder="Full name" clearable autoCapitalize="words" textContentType="name" />
+          <FormField styles={styles} colors={colors} label="Full name (First and Last name)" value={name} onChange={setName} placeholder="Full name" clearable autoCapitalize="words" textContentType="name" />
           <View style={styles.fieldGroup}>
             <Text style={styles.label}>Phone number</Text>
             <View style={styles.inputFrame}>
@@ -226,7 +220,7 @@ export default function Address() {
                 value={phone}
                 onChangeText={setPhone}
                 placeholder=""
-                placeholderTextColor={COLORS.hint}
+                placeholderTextColor={colors.subtle}
                 keyboardType="phone-pad"
                 textContentType="telephoneNumber"
                 style={styles.input}
@@ -237,37 +231,37 @@ export default function Address() {
           </View>
 
           <Pressable onPress={() => void useMyLocation()} disabled={locating} style={[styles.locationButton, locating && styles.buttonBusy]} accessibilityRole="button" accessibilityLabel="Use my location">
-            {locating ? <ActivityIndicator color={COLORS.text} /> : <Text style={styles.locationButtonText}>Use my location</Text>}
+            {locating ? <ActivityIndicator color={colors.bone} /> : <Text style={styles.locationButtonText}>Use my location</Text>}
           </Pressable>
           {locationMessage ? <Text style={styles.locationMessage}>{locationMessage}</Text> : null}
 
-          <FormField label="Street address" value={line1} onChange={setLine1} placeholder="Street address or P.O. Box" autoCapitalize="words" textContentType="streetAddressLine1" />
-          <FormField label="Unit or suite number" value={line2} onChange={setLine2} placeholder="Apt, Suite, Unit, Building (optional)" autoCapitalize="words" textContentType="streetAddressLine2" />
-          <FormField label="City" value={city} onChange={setCity} placeholder="" autoCapitalize="words" textContentType="addressCity" />
+          <FormField styles={styles} colors={colors} label="Street address" value={line1} onChange={setLine1} placeholder="Street address or P.O. Box" autoCapitalize="words" textContentType="streetAddressLine1" />
+          <FormField styles={styles} colors={colors} label="Unit or suite number" value={line2} onChange={setLine2} placeholder="Apt, Suite, Unit, Building (optional)" autoCapitalize="words" textContentType="streetAddressLine2" />
+          <FormField styles={styles} colors={colors} label="City" value={city} onChange={setCity} placeholder="" autoCapitalize="words" textContentType="addressCity" />
 
           <View style={styles.splitRow}>
             <View style={styles.splitField}>
               {regionOptions ? (
-                <SelectField label="State" value={region || "Select"} onPress={() => { Keyboard.dismiss(); setPickerMode("region"); }} />
+                <SelectField styles={styles} colors={colors} label="State" value={region || "Select"} onPress={() => { Keyboard.dismiss(); setPickerMode("region"); }} />
               ) : (
-                <FormField label="State / region" value={region} onChange={setRegion} placeholder="State / region" autoCapitalize="words" />
+                <FormField styles={styles} colors={colors} label="State / region" value={region} onChange={setRegion} placeholder="State / region" autoCapitalize="words" />
               )}
             </View>
             <View style={styles.splitField}>
-              <FormField label={postalLabel} value={postal} onChange={setPostal} placeholder="" autoCapitalize="characters" textContentType="postalCode" />
+              <FormField styles={styles} colors={colors} label={postalLabel} value={postal} onChange={setPostal} placeholder="" autoCapitalize="characters" textContentType="postalCode" />
             </View>
           </View>
 
           <Pressable onPress={() => setMakeDefault((value) => !value)} style={styles.defaultRow} accessibilityRole="checkbox" accessibilityState={{ checked: makeDefault }}>
             <View style={[styles.checkbox, makeDefault && styles.checkboxOn]}>
-              {makeDefault ? <Ionicons name="checkmark" size={18} color={COLORS.white} /> : null}
+              {makeDefault ? <Ionicons name="checkmark" size={18} color={colors.ink} /> : null}
             </View>
             <Text style={styles.defaultText}>Make this my default address</Text>
           </Pressable>
 
           <View style={styles.separator} />
           <Pressable onPress={() => void save()} disabled={!valid || saving} style={[styles.saveButton, (!valid || saving) && styles.saveDisabled]} accessibilityRole="button">
-            {saving ? <ActivityIndicator color={COLORS.white} /> : <Text style={styles.saveButtonText}>{adding ? "Save address" : "Save changes"}</Text>}
+            {saving ? <ActivityIndicator color={colors.ink} /> : <Text style={styles.saveButtonText}>{adding ? "Save address" : "Save changes"}</Text>}
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -280,14 +274,14 @@ export default function Address() {
             <View style={styles.pickerHeader}>
               <Text style={styles.pickerTitle}>{pickerMode === "country" ? "Country/Region" : "State"}</Text>
               <Pressable onPress={() => setPickerMode(null)} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close selector">
-                <Ionicons name="close" size={26} color={COLORS.text} />
+                <Ionicons name="close" size={26} color={colors.bone} />
               </Pressable>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
               {pickerMode === "country" ? MARKETS.map((market) => (
-                <PickerRow key={market.code} label={market.name} selected={selectedCountry === market.code} onPress={() => chooseCountry(market.code)} />
+                <PickerRow styles={styles} colors={colors} key={market.code} label={market.name} selected={selectedCountry === market.code} onPress={() => chooseCountry(market.code)} />
               )) : (regionOptions || []).map((value) => (
-                <PickerRow key={value} label={value} selected={region === value} onPress={() => chooseRegion(value)} />
+                <PickerRow styles={styles} colors={colors} key={value} label={value} selected={region === value} onPress={() => chooseRegion(value)} />
               ))}
             </ScrollView>
           </View>
@@ -298,6 +292,8 @@ export default function Address() {
 }
 
 function FormField({
+  styles,
+  colors,
   label,
   value,
   onChange,
@@ -307,6 +303,8 @@ function FormField({
   keyboardType,
   textContentType,
 }: {
+  styles: ReturnType<typeof makeStyles>;
+  colors: Colors;
   label: string;
   value: string;
   onChange: (value: string) => void;
@@ -324,7 +322,7 @@ function FormField({
           value={value}
           onChangeText={onChange}
           placeholder={placeholder}
-          placeholderTextColor={COLORS.hint}
+          placeholderTextColor={colors.subtle}
           autoCapitalize={autoCapitalize}
           keyboardType={keyboardType}
           textContentType={textContentType}
@@ -333,7 +331,7 @@ function FormField({
         />
         {clearable && value ? (
           <Pressable onPress={() => onChange("")} hitSlop={12} style={styles.clearButton} accessibilityRole="button" accessibilityLabel={`Clear ${label}`}>
-            <Ionicons name="close" size={24} color={COLORS.text} />
+            <Ionicons name="close" size={24} color={colors.bone} />
           </Pressable>
         ) : null}
       </View>
@@ -341,65 +339,67 @@ function FormField({
   );
 }
 
-function SelectField({ label, value, onPress }: { label: string; value: string; onPress: () => void }) {
+function SelectField({ styles, colors, label, value, onPress }: { styles: ReturnType<typeof makeStyles>; colors: Colors; label: string; value: string; onPress: () => void }) {
   return (
     <View style={styles.fieldGroup}>
       <Text style={styles.label}>{label}</Text>
       <Pressable onPress={onPress} style={styles.select} accessibilityRole="button" accessibilityLabel={`${label}: ${value}`}>
         <Text style={styles.selectText} numberOfLines={1}>{value}</Text>
-        <Ionicons name="chevron-down" size={22} color={COLORS.text} />
+        <Ionicons name="chevron-down" size={22} color={colors.bone} />
       </Pressable>
     </View>
   );
 }
 
-function PickerRow({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+function PickerRow({ styles, colors, label, selected, onPress }: { styles: ReturnType<typeof makeStyles>; colors: Colors; label: string; selected: boolean; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} style={styles.pickerRow} accessibilityRole="button" accessibilityState={{ selected }}>
       <Text style={[styles.pickerRowText, selected && styles.pickerRowSelected]}>{label}</Text>
-      {selected ? <Ionicons name="checkmark" size={21} color={COLORS.text} /> : null}
+      {selected ? <Ionicons name="checkmark" size={21} color={colors.bone} /> : null}
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+function makeStyles(colors: Colors) {
+  return StyleSheet.create({
   flex: { flex: 1 },
-  page: { flex: 1, backgroundColor: COLORS.white },
-  header: { backgroundColor: COLORS.header },
+  page: { flex: 1, backgroundColor: colors.ink },
+  header: { backgroundColor: colors.ink },
   navRow: { height: 52, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   navSide: { width: 84, height: 44, justifyContent: "center" },
-  cancelText: { color: COLORS.text, fontSize: 16, fontWeight: "500" },
-  navTitle: { flex: 1, textAlign: "center", color: COLORS.text, fontSize: 18, fontWeight: "700" },
+  cancelText: { color: colors.bone, fontSize: 16, fontWeight: "500" },
+  navTitle: { flex: 1, textAlign: "center", color: colors.bone, fontSize: 18, fontWeight: "700" },
   content: { paddingHorizontal: 22, paddingTop: 20 },
-  heading: { color: COLORS.text, fontSize: 18, fontWeight: "800", marginBottom: 22 },
+  heading: { color: colors.bone, fontSize: 18, fontWeight: "800", marginBottom: 22 },
   fieldGroup: { marginBottom: 22 },
-  label: { color: COLORS.text, fontSize: 16, lineHeight: 21, fontWeight: "700", marginBottom: 8 },
-  inputFrame: { minHeight: 52, borderWidth: 1, borderColor: COLORS.border, borderRadius: 5, flexDirection: "row", alignItems: "center", backgroundColor: COLORS.white },
-  input: { flex: 1, minHeight: 50, paddingHorizontal: 14, color: COLORS.text, fontSize: 16 },
+  label: { color: colors.bone, fontSize: 16, lineHeight: 21, fontWeight: "700", marginBottom: 8 },
+  inputFrame: { minHeight: 52, borderWidth: 1, borderColor: colors.subtle, borderRadius: 5, flexDirection: "row", alignItems: "center", backgroundColor: colors.surface },
+  input: { flex: 1, minHeight: 50, paddingHorizontal: 14, color: colors.bone, fontSize: 16 },
   clearButton: { width: 48, height: 50, alignItems: "center", justifyContent: "center" },
-  helper: { color: COLORS.text, fontSize: 13, marginTop: 10 },
-  select: { minHeight: 52, borderWidth: 1, borderColor: COLORS.border, borderRadius: 14, paddingHorizontal: 15, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: COLORS.white },
-  selectText: { flex: 1, color: COLORS.text, fontSize: 16, marginRight: 12 },
-  locationButton: { height: 52, borderWidth: 1, borderColor: COLORS.border, borderRadius: 28, backgroundColor: COLORS.white, alignItems: "center", justifyContent: "center", marginTop: 2, marginBottom: 24 },
-  locationButtonText: { color: COLORS.text, fontSize: 16, fontWeight: "500" },
+  helper: { color: colors.bone, fontSize: 13, marginTop: 10 },
+  select: { minHeight: 52, borderWidth: 1, borderColor: colors.subtle, borderRadius: 14, paddingHorizontal: 15, flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: colors.surface },
+  selectText: { flex: 1, color: colors.bone, fontSize: 16, marginRight: 12 },
+  locationButton: { height: 52, borderWidth: 1, borderColor: colors.subtle, borderRadius: 28, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", marginTop: 2, marginBottom: 24 },
+  locationButtonText: { color: colors.bone, fontSize: 16, fontWeight: "500" },
   buttonBusy: { opacity: 0.7 },
-  locationMessage: { color: COLORS.muted, fontSize: 13, lineHeight: 18, marginTop: -16, marginBottom: 22 },
+  locationMessage: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: -16, marginBottom: 22 },
   splitRow: { flexDirection: "row", gap: 18 },
   splitField: { flex: 1, minWidth: 0 },
   defaultRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 2, marginBottom: 22, paddingHorizontal: 4, minHeight: 36 },
-  checkbox: { width: 24, height: 24, borderWidth: 1.5, borderColor: COLORS.border, borderRadius: 5, alignItems: "center", justifyContent: "center", backgroundColor: COLORS.white },
-  checkboxOn: { backgroundColor: COLORS.text, borderColor: COLORS.text },
-  defaultText: { color: COLORS.text, fontSize: 15 },
-  separator: { height: StyleSheet.hairlineWidth, backgroundColor: COLORS.separator, marginBottom: 20 },
-  saveButton: { minHeight: 52, borderRadius: 26, backgroundColor: "#111111", alignItems: "center", justifyContent: "center" },
+  checkbox: { width: 24, height: 24, borderWidth: 1.5, borderColor: colors.subtle, borderRadius: 5, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface },
+  checkboxOn: { backgroundColor: colors.success, borderColor: colors.success },
+  defaultText: { color: colors.bone, fontSize: 15 },
+  separator: { height: StyleSheet.hairlineWidth, backgroundColor: `${colors.bone}20`, marginBottom: 20 },
+  saveButton: { minHeight: 52, borderRadius: 26, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
   saveDisabled: { opacity: 0.42 },
-  saveButtonText: { color: COLORS.white, fontSize: 16, fontWeight: "700" },
-  modalRoot: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.38)" },
-  pickerSheet: { backgroundColor: COLORS.white, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingTop: 10, paddingHorizontal: 20 },
-  handle: { width: 44, height: 5, borderRadius: 3, backgroundColor: "#BDBDBD", alignSelf: "center", marginBottom: 12 },
-  pickerHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 46, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.separator, marginBottom: 4 },
-  pickerTitle: { color: COLORS.text, fontSize: 17, fontWeight: "700" },
-  pickerRow: { minHeight: 50, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: COLORS.separator },
-  pickerRowText: { color: COLORS.text, fontSize: 16 },
+  saveButtonText: { color: colors.successInk, fontSize: 16, fontWeight: "700" },
+  modalRoot: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.52)" },
+  pickerSheet: { backgroundColor: colors.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingTop: 10, paddingHorizontal: 20 },
+  handle: { width: 44, height: 5, borderRadius: 3, backgroundColor: colors.subtle, alignSelf: "center", marginBottom: 12 },
+  pickerHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 46, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20`, marginBottom: 4 },
+  pickerTitle: { color: colors.bone, fontSize: 17, fontWeight: "700" },
+  pickerRow: { minHeight: 50, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
+  pickerRowText: { color: colors.bone, fontSize: 16 },
   pickerRowSelected: { fontWeight: "700" },
-});
+  });
+}
