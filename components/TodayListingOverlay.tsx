@@ -103,7 +103,7 @@ export function TodayListingOverlay({
   const footerHeight = 68 + insets.bottom;
   const photoViewportHeight = Math.max(0, popupHeight - sheetHandleHeight - modalHeaderHeight - footerHeight);
   const quickImageWidth = Math.max(0, popupWidth - 24);
-  const quickImageHeight = Math.min(420, Math.max(260, Math.round(quickImageWidth * 1.12)));
+  const quickImageHeight = Math.min(520, Math.max(300, Math.round(quickImageWidth * 1.32)));
   const imageTargetX = popupLeft + 12;
   const imageTargetY = popupTop + sheetHandleHeight + modalHeaderHeight + 132;
   const imgX = useSharedValue(origin.x);
@@ -531,10 +531,8 @@ export function TodayListingOverlay({
                 </Pressable>
               </View>
               <View style={[styles.productTabs, { height: productTabsHeight }]}>
-                <Text style={styles.productTabTop}>⌃{`\n`}Top</Text>
                 <Text style={[styles.productTab, styles.productTabActive]}>Details</Text>
                 <Text style={styles.productTab}>Explore</Text>
-                <Text style={styles.productTab}>Reviews</Text>
               </View>
             </View>
           </GestureDetector>
@@ -894,7 +892,6 @@ function make(colors: Colors) {
     modalHeaderActions: { flexDirection: "row", alignItems: "center", gap: 6 },
     backButton: { width: 30, height: 34, alignItems: "center", justifyContent: "center" },
     productTabs: { flexDirection: "row", alignItems: "center", justifyContent: "space-around", backgroundColor: colors.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}22` },
-    productTabTop: { width: 42, color: colors.muted, fontSize: 10, lineHeight: 12, textAlign: "center" },
     productTab: { height: "100%", paddingHorizontal: 13, paddingTop: 13, color: colors.bone, fontSize: 15, fontWeight: "600" },
     productTabActive: { color: colors.success, fontWeight: "900", borderBottomWidth: 2, borderBottomColor: colors.success },
     headerAction: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: `${colors.bone}28`, backgroundColor: `${colors.bone}08`, alignItems: "center", justifyContent: "center" },
