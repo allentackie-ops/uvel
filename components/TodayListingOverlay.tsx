@@ -869,7 +869,7 @@ function make(colors: Colors) {
     meta: { color: `${colors.bone}85`, fontSize: 11, lineHeight: 15, marginTop: 6 },
     thumbRail: { gap: 8, paddingTop: 12, paddingBottom: 2, paddingHorizontal: 12 },
     thumbnail: { width: 58, height: 72, borderRadius: 10, overflow: "hidden", borderWidth: 1, borderColor: "transparent" },
-    thumbnailActive: { borderColor: colors.success, borderWidth: 2 },
+    thumbnailActive: { borderColor: colors.link ?? colors.pulse, borderWidth: 2 },
     thumbnailImage: { width: "100%", height: "100%", backgroundColor: colors.surface },
     conditionBlock: { marginTop: 14, marginHorizontal: 12, padding: 14, borderRadius: 14, backgroundColor: `${colors.surface}88` },
     conditionLabel: { color: colors.success, fontSize: 10, fontWeight: "800", letterSpacing: 1.2, textTransform: "uppercase" },
