@@ -9,7 +9,6 @@ import { useCopy } from "../lib/useCopy";
 const ROUTES = ["/", "/create", "/you"] as const;
 const ICONS = ["compass-outline", "pricetag-outline", "person-outline"] as const;
 const ACTIVE_ICONS = ["compass", "pricetag", "person"] as const;
-const TODAY_ACTIVE_RED = "#FF554D";
 
 export function BottomTaskbar() {
   const colors = useColors();
@@ -43,9 +42,9 @@ export function BottomTaskbar() {
               accessibilityState={{ selected: active }}
             >
               <View style={styles.iconSlot} accessibilityElementsHidden>
-                <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={26} color={active ? (index === 0 ? TODAY_ACTIVE_RED : colors.success) : inactiveIcon} />
+                <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={26} color={active ? colors.success : inactiveIcon} />
               </View>
-              <Text style={[styles.label, { color: active ? (index === 0 ? TODAY_ACTIVE_RED : colors.success) : inactiveIcon }]}>{labels[index]}</Text>
+              <Text style={[styles.label, { color: active ? colors.success : inactiveIcon }]}>{labels[index]}</Text>
             </Pressable>
           );
         })}
