@@ -13,6 +13,7 @@ import { ListingCard, ListingCardSkeleton } from "../../components/ListingCard";
 import { TodayListingOverlay, type ListingOrigin } from "../../components/TodayListingOverlay";
 import { ImmersiveShoppingButton } from "../../components/ImmersiveShoppingButton";
 import { TodayMessagesButton } from "../../components/TodayMessagesButton";
+import { TodayCartFab } from "../../components/TodayCartFab";
 import { TodayCommerceFeed } from "../../components/TodayCommerceFeed";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
@@ -895,6 +896,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           onInteraction={personalization.record}
         />
       ) : null}
+      {todayHome ? <TodayCartFab listingOpen={Boolean(openPiece && openOrigin)} /> : null}
       {todayHome && showSwipeHint ? <TodaySwipeHint onDismiss={dismissSwipeHint} /> : null}
       {findHint ? (
         <View pointerEvents="none" style={[styles.findToast, { top: insets.top + 68 }]} accessibilityLiveRegion="polite">

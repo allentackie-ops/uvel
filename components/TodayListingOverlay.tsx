@@ -86,7 +86,7 @@ export function TodayListingOverlay({
         successInk: customLook.accentInk,
       }
     : baseColors;
-  const likeColor = appearance === "light" ? baseColors.danger : colors.success;
+  const likeColor = baseColors.danger;
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { width: screenW, height: screenH } = useWindowDimensions();
@@ -745,17 +745,29 @@ export function TodayListingOverlay({
           <View style={styles.footerRow}>
             <Pressable
               onPress={previewOnly ? undefined : () => {
+                router.push({ pathname: "/checkout/[id]", params: { id: piece.id } });
+              }}
+              disabled={previewOnly}
+              style={[styles.buyNowAction, previewOnly && styles.actionDisabled]}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: previewOnly }}
+              accessibilityLabel={`Buy ${piece.name} now`}
+            >
+              <Text style={[styles.buyNowText, previewOnly && styles.primaryTextDisabled]}>Buy now</Text>
+            </Pressable>
+            <Pressable
+              onPress={previewOnly ? undefined : () => {
                 if (inBag) return;
                 addToCart(piece.id);
                 void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
               }}
               disabled={previewOnly}
-              style={[styles.recordingAddToCart, previewOnly && styles.actionDisabled]}
+              style={[styles.primaryAction, previewOnly && styles.actionDisabled]}
               accessibilityRole="button"
               accessibilityState={{ disabled: previewOnly }}
               accessibilityLabel={inBag ? `${piece.name} is in your cart` : `Add ${piece.name} to cart`}
             >
-              <Text style={[styles.recordingAddToCartText, previewOnly && styles.primaryTextDisabled]}>{inBag ? "In Cart" : "Add to Cart"}</Text>
+              <Text style={[styles.primaryText, previewOnly && styles.primaryTextDisabled]}>{inBag ? "In Cart" : "Add to cart"}</Text>
             </Pressable>
           </View>
         </Animated.View>
@@ -1018,8 +1030,6 @@ function make(colors: Colors) {
     primaryAction: { flex: 1, minHeight: 48, borderRadius: 24, paddingHorizontal: 8, backgroundColor: colors.pulse, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     primaryText: { color: colors.pulseInk, fontSize: 16, fontWeight: "800" },
     primaryTextDisabled: { color: colors.muted },
-    recordingAddToCart: { flex: 1, minHeight: 48, borderRadius: 25, backgroundColor: "#FFD21F", alignItems: "center", justifyContent: "center" },
-    recordingAddToCartText: { color: "#111111", fontSize: 16, fontWeight: "900" },
     offerCta: { minHeight: 58, borderRadius: 29, paddingHorizontal: 18, backgroundColor: colors.success, marginTop: 10, flexDirection: "row", alignItems: "center", gap: 10 },
     offerCtaCopy: { flex: 1 },
     offerCtaTitle: { color: colors.successInk, fontSize: 15, fontWeight: "900" },

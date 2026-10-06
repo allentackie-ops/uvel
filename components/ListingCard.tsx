@@ -8,7 +8,7 @@ import { getBrand, themeFor } from "../lib/brands";
 import { useFirstFind } from "../lib/firstFind";
 import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
-import { useColors, useResolvedAppearance } from "../lib/theme";
+import { useColors } from "../lib/theme";
 import { shopLookOf } from "../lib/shopLook";
 import { getPiece, isRemoteListedPiece, likeCount, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { BrandVerifiedMark } from "./VerifiedMark";
@@ -65,7 +65,7 @@ export function ListingCard({
   onInteraction?: (action: PersonalizationAction, piece: ClosetPiece) => void;
 }) {
   const colors = useColors();
-  const likeColor = useResolvedAppearance() === "light" ? colors.danger : colors.success;
+  const likeColor = colors.danger;
   const styles = make(colors);
   const mediaRef = useRef<View>(null);
   const measureMedia = (callback: (rect: { x: number; y: number; width: number; height: number }) => void) => {

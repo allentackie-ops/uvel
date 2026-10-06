@@ -102,7 +102,7 @@ export function TodayCartFab({
 
   useEffect(() => {
     if (dropping.current) return;
-    scale.value = withSpring(cart.count ? 1 : 0, { damping: 16, stiffness: 260, mass: 0.7 });
+    scale.value = withSpring(cart.count && !listingOpen ? 1 : 0, { damping: 16, stiffness: 260, mass: 0.7 });
     if (cart.count) {
       bump.value = withSequence(
         withSpring(1.12, { damping: 9, stiffness: 340 }),
@@ -112,7 +112,7 @@ export function TodayCartFab({
       armed.value = 0;
       hovering.value = 0;
     }
-  }, [armed, bump, cart.count, hovering, scale]);
+  }, [armed, bump, cart.count, hovering, listingOpen, scale]);
 
   function openCart() {
     if (!cart.count || dropping.current) return;
@@ -266,7 +266,7 @@ export function TodayCartFab({
       </Animated.View>
       <GestureDetector gesture={gesture}>
         <Animated.View
-          pointerEvents={cart.count ? "auto" : "none"}
+          pointerEvents={cart.count && !listingOpen ? "auto" : "none"}
           style={[styles.wrap, { backgroundColor: colors.bone }, fabStyle]}
           accessibilityRole="button"
           accessibilityLabel={cart.count ? `Cart, ${cart.count} ${cart.count === 1 ? "item" : "items"}` : "Cart"}
