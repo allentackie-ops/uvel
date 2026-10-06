@@ -529,12 +529,6 @@ export function TodayListingOverlay({
                 <Pressable onPress={closeToPin} hitSlop={8} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Back to listings">
                   <Ionicons name="arrow-back" size={22} color={colors.bone} />
                 </Pressable>
-                <View style={styles.searchBar}>
-                  <Ionicons name="search-outline" size={17} color={colors.muted} />
-                  <Text style={styles.searchBarText} numberOfLines={1}>Search or ask a question</Text>
-                  <Ionicons name="camera-outline" size={18} color={colors.bone} />
-                  <Ionicons name="mic-outline" size={18} color={colors.bone} />
-                </View>
               </View>
               <View style={[styles.productTabs, { height: productTabsHeight }]}>
                 <Text style={styles.productTabTop}>⌃{`\n`}Top</Text>
@@ -562,15 +556,9 @@ export function TodayListingOverlay({
           <View style={styles.productIntro}>
             <View style={styles.productSellerRow}>
               <Text style={styles.productBrand} numberOfLines={1}>{brand}</Text>
-              <Text style={styles.productRating}>4.8 ★★★★★</Text>
-              <Text style={styles.productReviews}>(128)</Text>
             </View>
             <Text style={styles.productTitle}>{piece.name}</Text>
             <Text style={styles.productMeta}>{[piece.category, piece.condition, piece.material].filter(Boolean).join(" · ")}</Text>
-            <View style={styles.productBadgeRow}>
-              <Text style={styles.bestSellerBadge}>UVEL PICK</Text>
-              <Text style={styles.productSubtle}>Curated for your wardrobe</Text>
-            </View>
           </View>
           <Animated.View style={[styles.heroSlot, styles.productHero, { width: quickImageWidth, height: quickImageHeight }, inFlowStyle]}>
             <Pressable
@@ -588,14 +576,12 @@ export function TodayListingOverlay({
             </Pressable>
           </Animated.View>
           <View style={styles.galleryMetaRow}>
-            <View style={styles.galleryDots}>{gallery.map((photo, index) => <View key={`${photo}-product-dot-${index}`} style={[styles.galleryDot, index === activePhoto && styles.galleryDotActive]} />)}</View>
             <View style={styles.galleryActions}>
               <Pressable onPress={() => { onInteraction?.("save", piece); void app.toggleSaved(piece.id); }} style={styles.galleryAction} accessibilityRole="button" accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}><Ionicons name={liked ? "heart" : "heart-outline"} size={21} color={liked ? likeColor : colors.bone} /></Pressable>
               <Pressable onPress={() => { onInteraction?.("share", piece); setShareOpen(true); }} style={styles.galleryAction} accessibilityRole="button" accessibilityLabel={`Share ${piece.name}`}><Ionicons name="share-outline" size={21} color={colors.bone} /></Pressable>
             </View>
           </View>
           <View style={styles.highlightRail}>
-            <Text style={styles.highlightChip}>✦ Hear the highlights 1:32</Text>
             <Text style={styles.featureChip}>{piece.condition || "Comfortable for all-day wear"}</Text>
           </View>
           <View style={styles.colorSection}>
@@ -895,8 +881,6 @@ function make(colors: Colors) {
     modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, backgroundColor: colors.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
     modalHeaderActions: { flexDirection: "row", alignItems: "center", gap: 6 },
     backButton: { width: 30, height: 34, alignItems: "center", justifyContent: "center" },
-    searchBar: { flex: 1, height: 34, marginLeft: 4, paddingHorizontal: 10, borderRadius: 17, backgroundColor: `${colors.bone}12`, borderWidth: 1, borderColor: `${colors.bone}28`, flexDirection: "row", alignItems: "center", gap: 8 },
-    searchBarText: { flex: 1, color: colors.muted, fontSize: 12 },
     productTabs: { flexDirection: "row", alignItems: "center", justifyContent: "space-around", backgroundColor: colors.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}22` },
     productTabTop: { width: 42, color: colors.muted, fontSize: 9, lineHeight: 10, textAlign: "center" },
     productTab: { height: "100%", paddingHorizontal: 13, paddingTop: 13, color: colors.bone, fontSize: 13, fontWeight: "600" },
@@ -907,22 +891,16 @@ function make(colors: Colors) {
     productIntro: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 10, backgroundColor: colors.surface },
     productSellerRow: { flexDirection: "row", alignItems: "center", gap: 5 },
     productBrand: { color: colors.bone, fontSize: 13, fontWeight: "800", flexShrink: 1 },
-    productRating: { color: colors.success, fontSize: 11, fontWeight: "800" },
-    productReviews: { color: colors.muted, fontSize: 10 },
     productTitle: { color: colors.bone, fontSize: 16, lineHeight: 21, fontWeight: "800", marginTop: 7 },
     productMeta: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 4 },
-    productBadgeRow: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 7 },
-    bestSellerBadge: { color: colors.successInk, fontSize: 10, fontWeight: "900", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 3, backgroundColor: colors.success },
-    productSubtle: { color: colors.muted, fontSize: 10 },
     productHero: { borderRadius: 0, backgroundColor: `${colors.bone}0A` },
     gallerySideRail: { position: "absolute", left: 12, top: 16, gap: 8 },
     gallerySideThumb: { width: 72, height: 92, borderRadius: 7, borderWidth: 1, borderColor: `${colors.bone}28`, backgroundColor: colors.surface },
     gallerySideThumbActive: { borderWidth: 2, borderColor: colors.success },
-    galleryMetaRow: { minHeight: 46, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
+    galleryMetaRow: { minHeight: 46, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
     galleryActions: { flexDirection: "row", alignItems: "center", gap: 10 },
     galleryAction: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
     highlightRail: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 9, paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
-    highlightChip: { color: colors.bone, fontSize: 11, fontWeight: "800", paddingHorizontal: 9, paddingVertical: 7, borderRadius: 14, backgroundColor: colors.ink },
     featureChip: { color: colors.ink, fontSize: 11, fontWeight: "700", paddingHorizontal: 10, paddingVertical: 7, borderRadius: 14, backgroundColor: colors.pulse, flexShrink: 1 },
     colorSection: { paddingTop: 12, paddingBottom: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
     sectionHeading: { color: colors.bone, fontSize: 13, fontWeight: "700", paddingHorizontal: 12 },
