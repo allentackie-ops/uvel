@@ -98,12 +98,13 @@ export function TodayListingOverlay({
   const sheetHeight = screenH - expandedTop;
   const sheetHandleHeight = 18;
   const modalHeaderHeight = 44;
+  const productTabsHeight = 42;
   const footerHeight = 68 + insets.bottom;
   const photoViewportHeight = Math.max(0, popupHeight - sheetHandleHeight - modalHeaderHeight - footerHeight);
-  const quickImageWidth = Math.max(88, Math.min(158, Math.round(popupWidth * 0.42)));
-  const quickImageHeight = Math.min(Math.max(132, Math.round(quickImageWidth * 1.34)), Math.max(132, photoViewportHeight - 12));
+  const quickImageWidth = Math.max(0, popupWidth - 24);
+  const quickImageHeight = Math.min(420, Math.max(260, Math.round(quickImageWidth * 1.12)));
   const imageTargetX = popupLeft + 12;
-  const imageTargetY = popupTop + sheetHandleHeight + modalHeaderHeight + 12;
+  const imageTargetY = popupTop + sheetHandleHeight + modalHeaderHeight + 132;
   const imgX = useSharedValue(origin.x);
   const imgY = useSharedValue(origin.y);
   const imgW = useSharedValue(origin.width);
@@ -416,6 +417,7 @@ export function TodayListingOverlay({
   const liked = app.saved.includes(piece.id);
   const gallery = piece.photos?.length ? piece.photos : [piece.photo];
   const measurementEntries = Object.entries(piece.measurements || {}).filter(([, value]) => Boolean(value));
+  const sizeOptions = piece.sizes?.length ? piece.sizes : [piece.size || "One size"];
   const currentPhoto = gallery[Math.min(activePhoto, gallery.length - 1)] || piece.photo;
   const originPhoto = origin.photo || piece.photo;
   const heartPopX = useSharedValue(screenW / 2);
@@ -522,39 +524,25 @@ export function TodayListingOverlay({
         <Animated.View style={[styles.popup, { left: popupLeft, top: popupTop, width: popupWidth, height: sheetHeight }, pageStyle, sheetMotionStyle]}>
           <View style={[styles.sheetHandleArea, { height: sheetHandleHeight }]}><View style={styles.sheetHandle} /></View>
           <View style={[styles.modalHeader, { height: modalHeaderHeight }]}>
-            <Text style={styles.kicker} numberOfLines={1}>{(brand || "UVEL").toUpperCase()}</Text>
-            <View style={styles.modalHeaderActions}>
-              <Pressable
-                onPress={() => {
-                  onInteraction?.("share", piece);
-                  setShareOpen(true);
-                }}
-                style={styles.headerAction}
-                accessibilityRole="button"
-                accessibilityLabel={`Share ${piece.name}`}
-              >
-                <Ionicons name="share-outline" size={17} color={colors.bone} />
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  onInteraction?.("save", piece);
-                  void app.toggleSaved(piece.id);
-                }}
-                style={styles.headerAction}
-                accessibilityRole="button"
-                accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}
-                accessibilityState={{ selected: liked }}
-              >
-                <Ionicons name={liked ? "heart" : "heart-outline"} size={18} color={liked ? likeColor : colors.bone} />
-              </Pressable>
-              <Pressable onPress={closeToPin} hitSlop={6} style={styles.headerAction} accessibilityRole="button" accessibilityLabel="Close listing">
-                <Ionicons name="close" size={20} color={colors.bone} />
-              </Pressable>
+            <Pressable onPress={closeToPin} hitSlop={8} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Back to listings">
+              <Ionicons name="arrow-back" size={22} color={colors.bone} />
+            </Pressable>
+            <View style={styles.searchBar}>
+              <Ionicons name="search-outline" size={17} color={colors.muted} />
+              <Text style={styles.searchBarText} numberOfLines={1}>Search or ask a question</Text>
+              <Ionicons name="camera-outline" size={18} color={colors.bone} />
+              <Ionicons name="mic-outline" size={18} color={colors.bone} />
             </View>
+          </View>
+          <View style={[styles.productTabs, { height: productTabsHeight }]}>
+            <Text style={styles.productTabTop}>⌃{`\n`}Top</Text>
+            <Text style={[styles.productTab, styles.productTabActive]}>Details</Text>
+            <Text style={styles.productTab}>Explore</Text>
+            <Text style={styles.productTab}>Reviews</Text>
           </View>
         <AnimatedScrollView
           ref={scrollRef}
-          style={[styles.popupScroll, { top: sheetHandleHeight + modalHeaderHeight, bottom: footerHeight + (showTryOnHint ? 74 : 0) }]}
+          style={[styles.popupScroll, { top: sheetHandleHeight + modalHeaderHeight + productTabsHeight, bottom: footerHeight + (showTryOnHint ? 74 : 0) }]}
           contentContainerStyle={{ paddingBottom: footerHeight + 16 }}
           showsVerticalScrollIndicator={false}
           bounces={false}
@@ -567,8 +555,20 @@ export function TodayListingOverlay({
           onScroll={scrollHandler}
         >
           <View style={styles.popupContent}>
-          <View style={styles.summaryRow}>
-          <Animated.View style={[styles.heroSlot, { width: quickImageWidth, height: quickImageHeight }, inFlowStyle]}>
+          <View style={styles.productIntro}>
+            <View style={styles.productSellerRow}>
+              <Text style={styles.productBrand} numberOfLines={1}>{brand}</Text>
+              <Text style={styles.productRating}>4.8 ★★★★★</Text>
+              <Text style={styles.productReviews}>(128)</Text>
+            </View>
+            <Text style={styles.productTitle}>{piece.name}</Text>
+            <Text style={styles.productMeta}>{[piece.category, piece.condition, piece.material].filter(Boolean).join(" · ")}</Text>
+            <View style={styles.productBadgeRow}>
+              <Text style={styles.bestSellerBadge}>UVEL PICK</Text>
+              <Text style={styles.productSubtle}>Curated for your wardrobe</Text>
+            </View>
+          </View>
+          <Animated.View style={[styles.heroSlot, styles.productHero, { width: quickImageWidth, height: quickImageHeight }, inFlowStyle]}>
             <Pressable
               style={styles.heroHit}
               onPress={(event) => onHeroPress(event.nativeEvent.locationX, event.nativeEvent.locationY)}
@@ -577,28 +577,42 @@ export function TodayListingOverlay({
             >
               <Image cachePolicy="memory-disk" source={{ uri: currentPhoto }} style={styles.hero} contentFit="contain" />
               {gallery.length > 1 ? (
-                <View style={[styles.photoCount, styles.photoCountCompact]} pointerEvents="none">
-                  <Text style={styles.photoCountText}>{Math.min(activePhoto + 1, gallery.length)} / {gallery.length}</Text>
+                <View style={styles.gallerySideRail} pointerEvents="none">
+                  {gallery.slice(0, 3).map((photo, index) => <Image key={`${photo}-side-${index}`} source={{ uri: photo }} style={[styles.gallerySideThumb, index === activePhoto && styles.gallerySideThumbActive]} contentFit="cover" />)}
                 </View>
               ) : null}
             </Pressable>
           </Animated.View>
-          <View style={styles.summaryCopy}>
-          <Text style={styles.summaryTitle} numberOfLines={3}>{piece.name}</Text>
-          {credit > 0 ? (
-            <View style={[styles.priceRow, styles.summaryPriceRow]}>
-              <Text style={styles.was}>{moneyInMarket(localPriceCents, market.currency, market)}</Text>
-              <Text style={[styles.price, { marginTop: 0 }]}>{moneyInMarket(saleCents, market.currency, market)}</Text>
+          <View style={styles.galleryMetaRow}>
+            <View style={styles.galleryDots}>{gallery.map((photo, index) => <View key={`${photo}-product-dot-${index}`} style={[styles.galleryDot, index === activePhoto && styles.galleryDotActive]} />)}</View>
+            <View style={styles.galleryActions}>
+              <Pressable onPress={() => { onInteraction?.("save", piece); void app.toggleSaved(piece.id); }} style={styles.galleryAction} accessibilityRole="button" accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}><Ionicons name={liked ? "heart" : "heart-outline"} size={21} color={liked ? likeColor : colors.bone} /></Pressable>
+              <Pressable onPress={() => { onInteraction?.("share", piece); setShareOpen(true); }} style={styles.galleryAction} accessibilityRole="button" accessibilityLabel={`Share ${piece.name}`}><Ionicons name="share-outline" size={21} color={colors.bone} /></Pressable>
             </View>
-          ) : (
-            <Text style={[styles.price, styles.summaryPrice]}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
-          )}
-          <Text style={styles.meta} numberOfLines={2}>{[
-            piece.size || piece.sizes?.length ? `Size: ${piece.size || piece.sizes?.join(", ")}` : null,
-            piece.color ? `Color: ${piece.color}` : null,
-            piece.condition,
-          ].filter(Boolean).join(" · ")}</Text>
           </View>
+          <View style={styles.highlightRail}>
+            <Text style={styles.highlightChip}>✦ Hear the highlights 1:32</Text>
+            <Text style={styles.featureChip}>{piece.condition || "Comfortable for all-day wear"}</Text>
+          </View>
+          <View style={styles.colorSection}>
+            <Text style={styles.sectionHeading}>Color: <Text style={styles.sectionHeadingStrong}>{piece.color || "Original"}</Text></Text>
+            <GHScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.variantRail}>
+              {gallery.map((photo, index) => <Pressable key={`${photo}-variant-${index}`} onPress={() => setActivePhoto(index)} style={[styles.variantCard, index === activePhoto && styles.variantCardActive]}><Image source={{ uri: photo }} style={styles.variantImage} contentFit="cover" /><Text style={styles.variantName} numberOfLines={1}>{index === 0 ? piece.color || "Original" : `Option ${index + 1}`}</Text><Text style={styles.variantPrice}>{moneyInMarket(piece.listPriceCents, itemCurrency, market)}</Text></Pressable>)}
+            </GHScrollView>
+          </View>
+          <View style={styles.sizeSection}>
+            <View style={styles.sizeHeader}><Text style={styles.sectionHeading}>Size: <Text style={styles.sectionHeadingStrong}>{piece.size || "Select one"}</Text></Text><Text style={styles.sizeGuide}>Size guide</Text></View>
+            <GHScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sizeRail}>
+              {sizeOptions.map((size) => <View key={size} style={[styles.sizeCard, size === piece.size && styles.sizeCardActive]}><Text style={styles.sizeCardName}>{size}</Text><Text style={styles.sizeCardMeta}>{size === piece.size ? "Selected" : "Available"}</Text></View>)}
+            </GHScrollView>
+          </View>
+          <View style={styles.pricePanel}>
+            {credit > 0 || piece.originalPriceCents > piece.listPriceCents ? <View style={styles.priceLine}><Text style={styles.discountText}>-{Math.max(1, Math.round((1 - piece.listPriceCents / Math.max(1, piece.originalPriceCents)) * 100))}%</Text><Text style={styles.bigPrice}>{moneyInMarket(saleCents, market.currency, market)}</Text><Text style={styles.priceHistory}>Price history</Text></View> : <Text style={styles.bigPrice}>{moneyInMarket(saleCents, market.currency, market)}</Text>}
+            {piece.originalPriceCents > piece.listPriceCents ? <Text style={styles.listPrice}>List Price: <Text style={styles.strike}>{moneyInMarket(piece.originalPriceCents, itemCurrency, market)}</Text></Text> : null}
+            <Text style={styles.paymentCopy}><Text style={styles.bold}>Unlock a $50 Gift Card:</Text> Apply and pay securely with Uvel.</Text>
+            <Text style={styles.shippingCopy}>FREE delivery with Uvel orders over $35</Text>
+            <Text style={styles.shippingCopy}>Ships from {sellerLocation} · <Text style={styles.linkText}>See delivery details</Text></Text>
+            <Text style={styles.stockCopy}>◉ In Stock</Text>
           </View>
           {showDoubleTapHint ? (
             <View style={styles.inlineHint}>
@@ -606,35 +620,6 @@ export function TodayListingOverlay({
               <Text style={styles.inlineHintText}>Double-tap the photo to save</Text>
             </View>
           ) : null}
-          {gallery.length > 1 ? (
-            <Animated.ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRail}>
-              {gallery.map((photo, index) => (
-                <Pressable
-                  key={`${photo}-${index}`}
-                  onPress={() => {
-                    setActivePhoto(index);
-                    setGalleryOpen(true);
-                  }}
-                  style={[styles.thumbnail, index === activePhoto && styles.thumbnailActive]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`View listing photo ${index + 1} of ${gallery.length}`}
-                  accessibilityState={{ selected: index === activePhoto }}
-                >
-                  <Image cachePolicy="memory-disk" source={{ uri: photo }} style={styles.thumbnailImage} contentFit="cover" />
-                </Pressable>
-              ))}
-            </Animated.ScrollView>
-          ) : null}
-          <Pressable
-            style={({ pressed }) => [styles.scrollCue, pressed && styles.scrollCuePressed]}
-            onPress={() => scrollRef.current?.scrollTo({ y: Math.max(0, detailsOffset.current - 8), animated: true })}
-            accessibilityRole="button"
-            accessibilityLabel="More listing details"
-            accessibilityHint="Scrolls to measurements, shipping, and listing information."
-          >
-            <Text style={styles.scrollCueText}>More listing details</Text>
-            <Ionicons name="chevron-down" size={16} color={colors.muted} />
-          </Pressable>
           {!previewOnly ? (
             <Pressable
               onPress={() => {
@@ -768,9 +753,6 @@ export function TodayListingOverlay({
             </View>
           ) : null}
           <View style={styles.footerRow}>
-            <Pressable onPress={openCheckout} disabled={previewOnly} style={[styles.buyNowAction, previewOnly && styles.actionDisabled]} accessibilityRole="button" accessibilityState={{ disabled: previewOnly }} accessibilityLabel={`Buy ${piece.name} now`}>
-              <Text style={styles.buyNowText}>Buy Now</Text>
-            </Pressable>
             <Pressable
               onPress={previewOnly ? undefined : () => {
                 if (inBag) return;
@@ -778,12 +760,12 @@ export function TodayListingOverlay({
                 void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
               }}
               disabled={previewOnly}
-              style={[styles.primaryAction, previewOnly && styles.actionDisabled]}
+              style={[styles.recordingAddToCart, previewOnly && styles.actionDisabled]}
               accessibilityRole="button"
               accessibilityState={{ disabled: previewOnly }}
               accessibilityLabel={inBag ? `${piece.name} is in your cart` : `Add ${piece.name} to cart`}
             >
-              <Text style={[styles.primaryText, previewOnly && styles.primaryTextDisabled]}>{inBag ? "In cart" : "Add to cart"}</Text>
+              <Text style={[styles.recordingAddToCartText, previewOnly && styles.primaryTextDisabled]}>{inBag ? "In Cart" : "Add to Cart"}</Text>
             </Pressable>
           </View>
         </Animated.View>
@@ -909,9 +891,65 @@ function make(colors: Colors) {
     sheetHandle: { width: 38, height: 4, borderRadius: 2, backgroundColor: `${colors.bone}40` },
     modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14, backgroundColor: colors.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
     modalHeaderActions: { flexDirection: "row", alignItems: "center", gap: 6 },
+    backButton: { width: 30, height: 34, alignItems: "center", justifyContent: "center" },
+    searchBar: { flex: 1, height: 34, marginLeft: 4, paddingHorizontal: 10, borderRadius: 17, backgroundColor: `${colors.bone}12`, borderWidth: 1, borderColor: `${colors.bone}28`, flexDirection: "row", alignItems: "center", gap: 8 },
+    searchBarText: { flex: 1, color: colors.muted, fontSize: 12 },
+    productTabs: { flexDirection: "row", alignItems: "center", justifyContent: "space-around", backgroundColor: colors.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}22` },
+    productTabTop: { width: 42, color: colors.muted, fontSize: 9, lineHeight: 10, textAlign: "center" },
+    productTab: { height: "100%", paddingHorizontal: 13, paddingTop: 13, color: colors.bone, fontSize: 13, fontWeight: "600" },
+    productTabActive: { color: colors.success, fontWeight: "900", borderBottomWidth: 2, borderBottomColor: colors.success },
     headerAction: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: `${colors.bone}28`, backgroundColor: `${colors.bone}08`, alignItems: "center", justifyContent: "center" },
     popupScroll: { position: "absolute", left: 0, right: 0 },
     popupContent: { paddingBottom: 8 },
+    productIntro: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 10, backgroundColor: colors.surface },
+    productSellerRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+    productBrand: { color: colors.bone, fontSize: 13, fontWeight: "800", flexShrink: 1 },
+    productRating: { color: colors.success, fontSize: 11, fontWeight: "800" },
+    productReviews: { color: colors.muted, fontSize: 10 },
+    productTitle: { color: colors.bone, fontSize: 16, lineHeight: 21, fontWeight: "800", marginTop: 7 },
+    productMeta: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 4 },
+    productBadgeRow: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 7 },
+    bestSellerBadge: { color: colors.successInk, fontSize: 10, fontWeight: "900", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 3, backgroundColor: colors.success },
+    productSubtle: { color: colors.muted, fontSize: 10 },
+    productHero: { borderRadius: 0, backgroundColor: `${colors.bone}0A` },
+    gallerySideRail: { position: "absolute", left: 12, top: 16, gap: 8 },
+    gallerySideThumb: { width: 72, height: 92, borderRadius: 7, borderWidth: 1, borderColor: `${colors.bone}28`, backgroundColor: colors.surface },
+    gallerySideThumbActive: { borderWidth: 2, borderColor: colors.success },
+    galleryMetaRow: { minHeight: 46, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
+    galleryActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+    galleryAction: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
+    highlightRail: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 9, paddingHorizontal: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
+    highlightChip: { color: colors.bone, fontSize: 11, fontWeight: "800", paddingHorizontal: 9, paddingVertical: 7, borderRadius: 14, backgroundColor: colors.ink },
+    featureChip: { color: colors.ink, fontSize: 11, fontWeight: "700", paddingHorizontal: 10, paddingVertical: 7, borderRadius: 14, backgroundColor: colors.pulse, flexShrink: 1 },
+    colorSection: { paddingTop: 12, paddingBottom: 4, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
+    sectionHeading: { color: colors.bone, fontSize: 13, fontWeight: "700", paddingHorizontal: 12 },
+    sectionHeadingStrong: { fontWeight: "900" },
+    variantRail: { gap: 8, paddingHorizontal: 12, paddingTop: 9, paddingBottom: 10 },
+    variantCard: { width: 82, minHeight: 126, borderRadius: 9, borderWidth: 1, borderColor: `${colors.bone}42`, overflow: "hidden", backgroundColor: `${colors.bone}08` },
+    variantCardActive: { borderWidth: 2, borderColor: colors.success },
+    variantImage: { width: "100%", height: 82, backgroundColor: colors.surface },
+    variantName: { color: colors.bone, fontSize: 10, fontWeight: "800", paddingHorizontal: 5, marginTop: 5 },
+    variantPrice: { color: colors.muted, fontSize: 9, paddingHorizontal: 5, marginTop: 2 },
+    sizeSection: { paddingTop: 13, paddingBottom: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
+    sizeHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    sizeGuide: { color: colors.link ?? colors.success, fontSize: 12, paddingHorizontal: 12 },
+    sizeRail: { gap: 8, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10 },
+    sizeCard: { minWidth: 78, minHeight: 48, paddingHorizontal: 9, borderRadius: 8, borderWidth: 1, borderColor: `${colors.bone}42`, alignItems: "center", justifyContent: "center" },
+    sizeCardActive: { borderWidth: 2, borderColor: colors.link ?? colors.success, backgroundColor: `${colors.link ?? colors.success}18` },
+    sizeCardName: { color: colors.bone, fontSize: 12, fontWeight: "800" },
+    sizeCardMeta: { color: colors.muted, fontSize: 9, marginTop: 2 },
+    pricePanel: { paddingHorizontal: 12, paddingTop: 14, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
+    priceLine: { flexDirection: "row", alignItems: "center", gap: 8 },
+    discountText: { color: colors.success, fontSize: 20, fontWeight: "500" },
+    bigPrice: { color: colors.bone, fontSize: 25, fontWeight: "900", fontVariant: ["tabular-nums"] },
+    priceHistory: { color: colors.ink, fontSize: 10, fontWeight: "800", paddingHorizontal: 8, paddingVertical: 5, borderRadius: 12, backgroundColor: colors.pulse },
+    listPrice: { color: colors.muted, fontSize: 11, marginTop: 4 },
+    strike: { textDecorationLine: "line-through" },
+    paymentCopy: { color: colors.bone, fontSize: 12, lineHeight: 18, marginTop: 14 },
+    bold: { fontWeight: "900" },
+    shippingCopy: { color: colors.bone, fontSize: 12, lineHeight: 18, marginTop: 7 },
+    linkText: { color: colors.link ?? colors.success, fontWeight: "700" },
+    stockCopy: { color: colors.link ?? colors.success, fontSize: 13, fontWeight: "800", marginTop: 8 },
     summaryRow: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12, flexDirection: "row", alignItems: "flex-start", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
     summaryCopy: { flex: 1, minWidth: 0, justifyContent: "center" },
     summaryTitle: { color: colors.bone, fontSize: 16, lineHeight: 20, fontWeight: "800", letterSpacing: -0.2 },
@@ -999,6 +1037,8 @@ function make(colors: Colors) {
     primaryAction: { flex: 1, minHeight: 48, borderRadius: 24, paddingHorizontal: 8, backgroundColor: colors.pulse, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     primaryText: { color: colors.pulseInk, fontSize: 14, fontWeight: "800" },
     primaryTextDisabled: { color: colors.muted },
+    recordingAddToCart: { flex: 1, minHeight: 48, borderRadius: 25, backgroundColor: "#FFD21F", alignItems: "center", justifyContent: "center" },
+    recordingAddToCartText: { color: "#111111", fontSize: 14, fontWeight: "900" },
     offerCta: { minHeight: 58, borderRadius: 29, paddingHorizontal: 18, backgroundColor: colors.success, marginTop: 10, flexDirection: "row", alignItems: "center", gap: 10 },
     offerCtaCopy: { flex: 1 },
     offerCtaTitle: { color: colors.successInk, fontSize: 15, fontWeight: "900" },
