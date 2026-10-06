@@ -13,7 +13,7 @@ export async function searchUsers(term: string) {
   if (!firebaseReady()) return [] as PublicUser[];
   const call = httpsCallable<{ term: string }, { users: PublicUser[] }>(firebaseFunctions(), "searchUsers");
   const users = (await call({ term: term.trim() })).data.users || [];
-  void mirrorSocialProfiles(users);
+  await mirrorSocialProfiles(users);
   return users;
 }
 
