@@ -1,196 +1,75 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Pressable, ScrollView, Share, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "../lib/haptics";
 import { getBrand, type Brand } from "../lib/brands";
 import { addToCart, useCart } from "../lib/cart";
 import { getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
-import { useColors, type Colors } from "../lib/theme";
 import type { ClosetPiece } from "../lib/wardrobe";
 import type { PersonalizationAction } from "../lib/personalization";
 import { BrandVerifiedMark } from "./VerifiedMark";
 import { FriendShareSheet, type FriendSharePayload } from "./FriendShareSheet";
 
 export type ListingOrigin = { x: number; y: number; width: number; height: number; radius?: number; radii?: [number, number, number, number]; photo?: string; measure?: (callback: (rect: { x: number; y: number; width: number; height: number }) => void) => void };
-
-type Props = {
-  piece: ClosetPiece;
-  origin: ListingOrigin;
-  onClose: () => void;
-  onInteraction?: (action: PersonalizationAction, piece: ClosetPiece, query?: string, dwellSeconds?: number) => void;
-  previewOnly?: boolean;
-  showDoubleTapHint?: boolean;
-  onDoubleTapHintDismiss?: () => void;
-  firstListing?: boolean;
-};
+type Props = { piece: ClosetPiece; origin: ListingOrigin; onClose: () => void; onInteraction?: (action: PersonalizationAction, piece: ClosetPiece, query?: string, dwellSeconds?: number) => void; previewOnly?: boolean; showDoubleTapHint?: boolean; onDoubleTapHintDismiss?: () => void; firstListing?: boolean };
+const BLACK = "#111111";
+const MUTED = "#6d6d6d";
+const LINE = "#dedede";
 
 export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly = false }: Props) {
-  const colors = useColors();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const app = useUvel();
   const cart = useCart();
   const brand = piece.brandId ? getBrand(piece.brandId) : undefined;
-  const sellerId = piece.ownerId || piece.listedByUid || "";
   const market = getMarket(app.country);
+  const sellerId = piece.ownerId || piece.listedByUid || "";
   const sellerName = brand?.name || piece.ownerName || piece.listedByName || "Uvel seller";
   const sellerLocation = piece.country ? getMarket(piece.country).name : market.name;
   const gallery = piece.photos?.length ? piece.photos : [piece.photo];
   const [activePhoto, setActivePhoto] = useState(0);
+  const [selectedSize, setSelectedSize] = useState(piece.size || piece.sizes?.[0] || "One size");
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const [measurementsOpen, setMeasurementsOpen] = useState(false);
-  const [shippingOpen, setShippingOpen] = useState(false);
   const inBag = cart.has(piece.id);
   const currentPhoto = gallery[Math.min(activePhoto, gallery.length - 1)] || piece.photo;
   const sharePayload: FriendSharePayload = { kind: "listing", id: piece.id, title: piece.name, deepLink: `uvel://piece/${piece.id}`, imageUri: piece.photo, previewText: `Have a look at ${piece.name} on Uvel.` };
-
-  function buyNow() {
-    if (previewOnly) return;
-    router.push({ pathname: "/checkout/[id]", params: { id: piece.id } });
-  }
-
-  function addItem() {
-    if (previewOnly || inBag) return;
-    addToCart(piece.id);
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined);
-  }
-
-  function openMessage() {
-    router.push({ pathname: "/ask/[id]", params: { id: piece.id, pieceName: piece.name, piecePhoto: piece.photo, piecePriceCents: String(piece.listPriceCents), ...(brand?.id ? { brandId: brand.id } : {}) } });
-  }
-
-  function openSeller() {
-    if (brand?.id) router.push({ pathname: "/brand/[id]", params: { id: brand.id } });
-    else if (sellerId) router.push({ pathname: "/seller/[id]", params: { id: sellerId } });
-  }
-
+  const sizes = piece.sizes?.length ? piece.sizes : [piece.size || "One size"];
+  const buyNow = () => { if (!previewOnly) router.push({ pathname: "/checkout/[id]", params: { id: piece.id } }); };
+  const addItem = () => { if (previewOnly || inBag) return; addToCart(piece.id); void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined); };
+  const openSeller = () => { if (brand?.id) router.push({ pathname: "/brand/[id]", params: { id: brand.id } }); else if (sellerId) router.push({ pathname: "/seller/[id]", params: { id: sellerId } }); };
   return (
     <View style={styles.root}>
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close listing details" />
       <View style={[styles.sheet, { paddingTop: insets.top }]}>
         <View style={styles.header}>
-          <Pressable onPress={onClose} hitSlop={10} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Back to listings"><Ionicons name="arrow-back" size={23} color={colors.bone} /></Pressable>
-          <Text style={styles.headerTitle}>Details</Text>
-          <View style={styles.headerActions}>
-            <Pressable onPress={() => { onInteraction?.("save", piece); }} hitSlop={8} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Save listing"><Ionicons name="heart-outline" size={22} color={colors.bone} /></Pressable>
-            <Pressable onPress={() => setShareOpen(true)} hitSlop={8} style={styles.headerButton} accessibilityRole="button" accessibilityLabel={`Share ${piece.name}`}><Ionicons name="share-outline" size={22} color={colors.bone} /></Pressable>
-          </View>
+          <Pressable onPress={onClose} hitSlop={10} style={styles.back} accessibilityRole="button" accessibilityLabel="Back to Today"><Ionicons name="chevron-back" size={24} color={BLACK} /></Pressable>
+          <View style={styles.search}><Ionicons name="search-outline" size={17} color="#aaa" /><TextInput editable={false} placeholder="Ask or search for anything" placeholderTextColor="#999" style={styles.searchInput} /><Ionicons name="camera-outline" size={19} color={BLACK} /></View>
+          <Pressable style={styles.bag} accessibilityRole="button" accessibilityLabel="Open bag"><Ionicons name="bag-outline" size={24} color={BLACK} /></Pressable>
         </View>
-
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <View style={styles.titleBlock}>
-            <Text style={styles.brandName}>{brand?.name || piece.brand || "Uvel listing"}</Text>
-            <Text style={styles.title}>{piece.name}</Text>
-            <Text style={styles.meta}>{[piece.category, piece.condition, piece.material].filter(Boolean).join(" · ")}</Text>
-          </View>
-
-          <View style={styles.heroFrame}>
-            <Image source={{ uri: currentPhoto }} style={styles.heroImage} contentFit="contain" />
-            {gallery.length > 1 ? <View style={styles.photoCount}><Text style={styles.photoCountText}>{activePhoto + 1}/{gallery.length}</Text></View> : null}
-          </View>
-          {gallery.length > 1 ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbnailRail}>{gallery.map((photo, index) => <Pressable key={`${photo}-${index}`} onPress={() => setActivePhoto(index)} style={[styles.thumbnail, activePhoto === index && styles.thumbnailActive]}><Image source={{ uri: photo }} style={styles.thumbnailImage} contentFit="cover" /></Pressable>)}</ScrollView> : null}
-
-          <View style={styles.tagRow}><Text style={styles.conditionTag}>{piece.condition || "Excellent"}</Text><Text style={styles.availability}>Available</Text></View>
-          <View style={styles.optionSection}><Text style={styles.sectionTitle}>Color <Text style={styles.sectionStrong}>{piece.color || "Original"}</Text></Text></View>
-          <View style={styles.optionSection}><Text style={styles.sectionTitle}>Size <Text style={styles.sectionStrong}>{piece.size || "Select one"}</Text></Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sizeRail}>{(piece.sizes?.length ? piece.sizes : [piece.size || "One size"]).map((size) => <View key={size} style={[styles.sizeCard, size === piece.size && styles.sizeCardActive]}><Text style={styles.sizeText}>{size}</Text>{size === piece.size ? <Text style={styles.sizeMeta}>Selected</Text> : null}</View>)}</ScrollView></View>
-
-          <View style={styles.priceBlock}><Text style={styles.price}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text><Text style={styles.payment}><Text style={styles.bold}>Unlock a $50 Gift Card:</Text> Apply and pay securely with Uvel.</Text><Text style={styles.shipping}>Ships from {sellerLocation} · <Text style={styles.link}>See delivery details</Text></Text></View>
-
-          {!previewOnly ? <Pressable onPress={() => router.push({ pathname: "/try-on", params: { piece: piece.id } })} style={styles.tryOn} accessibilityRole="button"><Ionicons name="body-outline" size={19} color={colors.bone} /><Text style={styles.tryOnText}>Try it on</Text></Pressable> : null}
-
-          <View style={styles.sellerCard}>
-            <Pressable onPress={openSeller} disabled={!brand?.id && !sellerId} style={styles.sellerTap} accessibilityRole={brand?.id || sellerId ? "button" : undefined}>
-              {brand?.logoUri || piece.ownerPhoto ? <Image source={{ uri: brand?.logoUri || piece.ownerPhoto }} style={styles.avatar} contentFit="cover" /> : <View style={styles.avatarFallback}><Text style={styles.avatarText}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}
-              <View style={styles.sellerCopy}><Text style={styles.sellerEyebrow}>{brand ? "Sold by" : "Listed by"}</Text><View style={styles.sellerNameRow}><Text style={styles.sellerName} numberOfLines={1}>{sellerName}</Text><BrandVerifiedMark brand={brand as Brand | undefined} size={14} /></View><Text style={styles.sellerMeta}>Ships from {sellerLocation}</Text></View>
-            </Pressable>
-            <Pressable onPress={openMessage} style={styles.messageButton} accessibilityRole="button"><Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.bone} /><Text style={styles.messageText}>Message</Text></Pressable>
-          </View>
-
-          {piece.notes ? <View style={styles.description}><Text style={styles.descriptionLabel}>Description</Text><Text style={styles.descriptionText}>{piece.notes}</Text></View> : null}
-          <View style={styles.accordionGroup}>
-            <Pressable onPress={() => setMeasurementsOpen((open) => !open)} style={styles.accordionRow} accessibilityRole="button"><Text style={styles.accordionTitle}>Measurements & fit</Text><Ionicons name={measurementsOpen ? "chevron-up" : "chevron-down"} size={19} color={colors.bone} /></Pressable>
-            {measurementsOpen ? <Text style={styles.accordionBody}>Ask the seller for exact measurements and fit guidance.</Text> : null}
-            <Pressable onPress={() => setShippingOpen((open) => !open)} style={styles.accordionRow} accessibilityRole="button"><Text style={styles.accordionTitle}>Shipping & returns</Text><Ionicons name={shippingOpen ? "chevron-up" : "chevron-down"} size={19} color={colors.bone} /></Pressable>
-            {shippingOpen ? <Text style={styles.accordionBody}>Delivery and return details are confirmed at checkout.</Text> : null}
+        <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
+          <View style={styles.hero}><Image source={{ uri: currentPhoto }} style={styles.heroImage} contentFit="cover" />{gallery.length > 1 ? <View style={styles.dots}>{gallery.map((photo, index) => <Pressable key={`${photo}-${index}`} onPress={() => setActivePhoto(index)} style={[styles.dot, index === activePhoto && styles.dotActive]} accessibilityLabel={`View photo ${index + 1}`} />)}</View> : null}<Pressable onPress={() => setShareOpen(true)} style={styles.share} accessibilityRole="button" accessibilityLabel={`Share ${piece.name}`}><Ionicons name="share-outline" size={22} color={BLACK} /></Pressable></View>
+          {gallery.length > 1 ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbs}>{gallery.map((photo, index) => <Pressable key={`${photo}-thumb`} onPress={() => setActivePhoto(index)} style={[styles.thumb, index === activePhoto && styles.thumbActive]} accessibilityRole="button" accessibilityLabel={`View photo ${index + 1}`}><Image source={{ uri: photo }} style={styles.thumbImage} contentFit="cover" /></Pressable>)}</ScrollView> : null}
+          <View style={styles.info}>
+            <View style={styles.titleRow}><Text style={styles.title}>{piece.name}</Text><View style={styles.rating}><Text style={styles.stars}>★★★★★</Text><Text style={styles.reviewCount}>({piece.likedBy?.length || 0})</Text></View></View>
+            <View style={styles.priceRow}><Text style={styles.price}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text><Text style={styles.condition}>{piece.condition || "Excellent"}</Text><Text style={styles.available}>Available</Text></View>
+            <Text style={styles.promo}><Text style={styles.promoStrong}>{brand?.name || piece.brand || "Uvel listing"}</Text>{"\n"}Ships from {sellerLocation} · Buyer protection included</Text>
+            <Text style={styles.label}>Size</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sizeRail}>{sizes.map((size) => <Pressable key={size} onPress={() => setSelectedSize(size)} style={[styles.size, selectedSize === size && styles.sizeSelected]} accessibilityRole="button" accessibilityState={{ selected: selectedSize === size }}><Text style={[styles.sizeText, selectedSize === size && styles.sizeTextSelected]}>{size}</Text></Pressable>)}</ScrollView>
+            <Pressable onPress={() => setDetailsOpen((open) => !open)} style={styles.details} accessibilityRole="button" accessibilityLabel="Product details"><View style={styles.detailsTitle}><Ionicons name="shirt-outline" size={18} color={BLACK} /><Text style={styles.detailsText}>Product Details</Text></View><Ionicons name={detailsOpen ? "chevron-up" : "chevron-forward"} size={19} color={BLACK} /></Pressable>
+            {detailsOpen ? <View style={styles.detailsBody}><Fact label="Color" value={piece.color || "Original"} /><Fact label="Material" value={piece.material || "Not specified"} /><Fact label="Ships from" value={sellerLocation} /><Fact label="Listed by" value={sellerName} /></View> : null}
+            <View style={styles.seller}><Pressable onPress={openSeller} disabled={!brand?.id && !sellerId} style={styles.sellerTap} accessibilityRole={brand?.id || sellerId ? "button" : undefined}>{brand?.logoUri || piece.ownerPhoto ? <Image source={{ uri: brand?.logoUri || piece.ownerPhoto }} style={styles.avatar} contentFit="cover" /> : <View style={styles.avatarFallback}><Text style={styles.avatarText}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}<View style={styles.sellerCopy}><Text style={styles.sellerLabel}>{brand ? "Sold by" : "Listed by"}</Text><View style={styles.sellerNameRow}><Text style={styles.sellerName} numberOfLines={1}>{sellerName}</Text><BrandVerifiedMark brand={brand as Brand | undefined} size={13} /></View><Text style={styles.sellerMeta}>Trusted seller · buyer protection</Text></View><Ionicons name="chevron-forward" size={18} color={MUTED} /></Pressable></View>
+            {piece.notes ? <Text style={styles.description}>{piece.notes}</Text> : null}
           </View>
         </ScrollView>
-
-        {!previewOnly ? <View style={[styles.purchaseFooter, { paddingBottom: Math.max(insets.bottom, 10) }]}><Pressable onPress={buyNow} style={styles.buyButton} accessibilityRole="button" accessibilityLabel={`Buy ${piece.name} now`}><Text style={styles.buyButtonText}>Buy now</Text></Pressable><Pressable onPress={addItem} style={styles.cartButton} accessibilityRole="button" accessibilityLabel={inBag ? `${piece.name} is in your cart` : `Add ${piece.name} to cart`}><Text style={styles.cartButtonText}>{inBag ? "In cart" : "Add to cart"}</Text></Pressable></View> : null}
+        {!previewOnly ? <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 8) }]}><Pressable onPress={buyNow} style={styles.buyButton} accessibilityRole="button" accessibilityLabel={`Buy ${piece.name} now`}><Text style={styles.buyText}>Buy now</Text></Pressable><Pressable onPress={addItem} style={styles.bagButton} accessibilityRole="button" accessibilityLabel={inBag ? `${piece.name} is in your bag` : `Add ${piece.name} to bag`}><Text style={styles.bagText}>{inBag ? "In bag" : "Add to bag"}</Text></Pressable><Pressable onPress={() => { app.toggleSaved(piece.id); onInteraction?.("save", piece); }} style={styles.heartButton} accessibilityRole="button" accessibilityLabel="Save listing"><Ionicons name={app.saved.includes(piece.id) ? "heart" : "heart-outline"} size={23} color={BLACK} /></Pressable></View> : null}
       </View>
       <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void Share.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
     </View>
   );
 }
-
-function makeStyles(colors: Colors) {
-  return StyleSheet.create({
-    root: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, elevation: 100 },
-    backdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.55)" },
-    sheet: { flex: 1, marginTop: 42, backgroundColor: colors.surface, borderTopLeftRadius: 26, borderTopRightRadius: 26, overflow: "hidden", zIndex: 2, elevation: 10 },
-    header: { height: 58, paddingHorizontal: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}24`, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    headerButton: { width: 38, height: 40, alignItems: "center", justifyContent: "center" },
-    headerTitle: { color: colors.bone, fontSize: 17, fontWeight: "900" },
-    headerActions: { flexDirection: "row", gap: 4 },
-    content: { flex: 1 },
-    contentContainer: { paddingBottom: 24 },
-    titleBlock: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12 },
-    brandName: { color: colors.success, fontSize: 13, fontWeight: "900", letterSpacing: 1.1, textTransform: "uppercase" },
-    title: { color: colors.bone, fontSize: 25, lineHeight: 30, fontWeight: "900", marginTop: 7 },
-    meta: { color: colors.muted, fontSize: 14, marginTop: 6 },
-    heroFrame: { height: 330, marginHorizontal: 12, borderRadius: 18, overflow: "hidden", backgroundColor: colors.ink, position: "relative" },
-    heroImage: { width: "100%", height: "100%" },
-    photoCount: { position: "absolute", right: 12, bottom: 12, paddingHorizontal: 10, height: 28, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.58)", alignItems: "center", justifyContent: "center" },
-    photoCountText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800" },
-    thumbnailRail: { gap: 8, paddingHorizontal: 12, paddingTop: 10 },
-    thumbnail: { width: 58, height: 58, borderRadius: 10, overflow: "hidden", borderWidth: 1, borderColor: `${colors.bone}25` },
-    thumbnailActive: { borderWidth: 2, borderColor: colors.success },
-    thumbnailImage: { width: "100%", height: "100%" },
-    tagRow: { paddingHorizontal: 16, paddingTop: 15, flexDirection: "row", alignItems: "center", gap: 10 },
-    conditionTag: { color: colors.successInk, backgroundColor: colors.success, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 17, fontSize: 13, fontWeight: "900" },
-    availability: { color: colors.muted, fontSize: 13, fontWeight: "700" },
-    optionSection: { paddingTop: 17, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
-    sectionTitle: { color: colors.bone, fontSize: 16, fontWeight: "800", paddingHorizontal: 16 },
-    sectionStrong: { fontWeight: "900" },
-    sizeRail: { gap: 8, paddingHorizontal: 16, paddingTop: 11, paddingBottom: 13 },
-    sizeCard: { minWidth: 76, minHeight: 48, borderRadius: 10, borderWidth: 1, borderColor: `${colors.bone}45`, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
-    sizeCardActive: { borderWidth: 2, borderColor: colors.success, backgroundColor: `${colors.success}20` },
-    sizeText: { color: colors.bone, fontSize: 14, fontWeight: "800" },
-    sizeMeta: { color: colors.muted, fontSize: 10, marginTop: 3 },
-    priceBlock: { padding: 16, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
-    price: { color: colors.bone, fontSize: 28, fontWeight: "900" },
-    payment: { color: colors.bone, fontSize: 14, lineHeight: 21, marginTop: 12 },
-    bold: { fontWeight: "900" },
-    shipping: { color: colors.bone, fontSize: 14, lineHeight: 21, marginTop: 7 },
-    link: { color: colors.success, fontWeight: "800" },
-    tryOn: { alignSelf: "flex-start", marginHorizontal: 16, marginTop: 16, minHeight: 44, paddingHorizontal: 18, borderRadius: 23, borderWidth: 1, borderColor: `${colors.bone}44`, flexDirection: "row", alignItems: "center", gap: 8 },
-    tryOnText: { color: colors.bone, fontSize: 15, fontWeight: "800" },
-    sellerCard: { margin: 16, padding: 12, borderRadius: 17, borderWidth: 1, borderColor: `${colors.bone}28`, flexDirection: "row", alignItems: "center", gap: 10 },
-    sellerTap: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10 },
-    avatar: { width: 44, height: 44, borderRadius: 22 },
-    avatarFallback: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
-    avatarText: { color: colors.successInk, fontSize: 18, fontWeight: "900" },
-    sellerCopy: { flex: 1, minWidth: 0 },
-    sellerEyebrow: { color: colors.muted, fontSize: 11, fontWeight: "800", textTransform: "uppercase", letterSpacing: 1 },
-    sellerNameRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 3 },
-    sellerName: { color: colors.bone, fontSize: 14, fontWeight: "900", flexShrink: 1 },
-    sellerMeta: { color: colors.muted, fontSize: 12, marginTop: 4 },
-    messageButton: { minHeight: 38, paddingHorizontal: 11, borderRadius: 20, borderWidth: 1, borderColor: `${colors.bone}45`, flexDirection: "row", alignItems: "center", gap: 5 },
-    messageText: { color: colors.bone, fontSize: 13, fontWeight: "800" },
-    description: { marginHorizontal: 16, marginBottom: 16, padding: 14, borderRadius: 15, backgroundColor: `${colors.bone}08` },
-    descriptionLabel: { color: colors.success, fontSize: 11, fontWeight: "900", letterSpacing: 1.4, textTransform: "uppercase" },
-    descriptionText: { color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 8 },
-    accordionGroup: { marginHorizontal: 16, borderTopWidth: 1, borderTopColor: `${colors.bone}22` },
-    accordionRow: { minHeight: 54, borderBottomWidth: 1, borderBottomColor: `${colors.bone}22`, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    accordionTitle: { color: colors.bone, fontSize: 15, fontWeight: "800" },
-    accordionBody: { color: colors.muted, fontSize: 14, lineHeight: 21, paddingVertical: 12 },
-    purchaseFooter: { flexDirection: "row", gap: 9, paddingHorizontal: 14, paddingTop: 11, backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: `${colors.bone}28`, zIndex: 20, elevation: 20 },
-    buyButton: { flex: 1, minHeight: 52, borderRadius: 27, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
-    buyButtonText: { color: colors.successInk, fontSize: 16, fontWeight: "900" },
-    cartButton: { flex: 1, minHeight: 52, borderRadius: 27, backgroundColor: colors.pulse, alignItems: "center", justifyContent: "center" },
-    cartButtonText: { color: colors.pulseInk, fontSize: 16, fontWeight: "900" },
-  });
-}
+function Fact({ label, value }: { label: string; value: string }) { return <View style={styles.fact}><Text style={styles.factLabel}>{label}</Text><Text style={styles.factValue}>{value}</Text></View>; }
+const styles = StyleSheet.create({ root: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, elevation: 100 }, backdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)" }, sheet: { flex: 1, marginTop: 0, backgroundColor: "#FFFFFF", overflow: "hidden", zIndex: 2, elevation: 10 }, header: { height: 70, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#eeeeee" }, back: { width: 22, alignItems: "flex-start" }, search: { height: 38, flex: 1, borderWidth: 1, borderColor: "#dedede", borderRadius: 22, backgroundColor: "#fafafa", paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 7 }, searchInput: { flex: 1, color: BLACK, fontSize: 12, paddingVertical: 0 }, bag: { width: 27, alignItems: "flex-end" }, content: { flex: 1 }, contentContainer: { paddingBottom: 110 }, hero: { height: 388, backgroundColor: "#f3f3f3", position: "relative", overflow: "hidden" }, heroImage: { width: "100%", height: "100%" }, dots: { position: "absolute", bottom: 9, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 5 }, dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#aaaaaa" }, dotActive: { backgroundColor: BLACK, width: 12 }, share: { position: "absolute", right: 13, bottom: 8, width: 32, height: 32, alignItems: "center", justifyContent: "center" }, thumbs: { gap: 7, paddingHorizontal: 12, paddingTop: 9 }, thumb: { width: 54, height: 54, borderRadius: 4, overflow: "hidden", borderWidth: 1, borderColor: "#dddddd" }, thumbActive: { borderWidth: 2, borderColor: BLACK }, thumbImage: { width: "100%", height: "100%" }, info: { paddingHorizontal: 16, paddingTop: 9 }, titleRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 }, title: { flex: 1, color: BLACK, fontSize: 13, lineHeight: 17 }, rating: { flexDirection: "row", alignItems: "center", gap: 3 }, stars: { color: "#eeb100", fontSize: 15, letterSpacing: 0.5 }, reviewCount: { color: BLACK, fontSize: 10, textDecorationLine: "underline" }, priceRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }, price: { color: "#a52231", fontSize: 17, fontWeight: "800" }, condition: { color: BLACK, backgroundColor: "#eeeeee", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 3, fontSize: 10, fontWeight: "700" }, available: { color: MUTED, fontSize: 11 }, promo: { color: MUTED, fontSize: 10, lineHeight: 14, marginTop: 6 }, promoStrong: { color: "#a52231", fontWeight: "800" }, label: { color: BLACK, fontSize: 11, fontWeight: "800", marginTop: 13 }, sizeRail: { gap: 7, paddingTop: 8, paddingBottom: 2 }, size: { minWidth: 42, height: 36, paddingHorizontal: 9, borderWidth: 1, borderColor: LINE, borderRadius: 4, alignItems: "center", justifyContent: "center" }, sizeSelected: { backgroundColor: BLACK, borderColor: BLACK }, sizeText: { color: BLACK, fontSize: 11 }, sizeTextSelected: { color: "#FFFFFF", fontWeight: "800" }, details: { height: 51, borderWidth: 1, borderColor: LINE, borderRadius: 8, marginTop: 16, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, detailsTitle: { flexDirection: "row", alignItems: "center", gap: 8 }, detailsText: { color: BLACK, fontSize: 13, fontWeight: "800" }, detailsBody: { flexDirection: "row", flexWrap: "wrap", borderWidth: 1, borderTopWidth: 0, borderColor: LINE, paddingHorizontal: 12, paddingBottom: 6 }, fact: { width: "50%", paddingVertical: 10 }, factLabel: { color: MUTED, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8 }, factValue: { color: BLACK, fontSize: 12, fontWeight: "700", marginTop: 3 }, seller: { marginTop: 16, paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#eeeeee" }, sellerTap: { flexDirection: "row", alignItems: "center", gap: 10 }, avatar: { width: 40, height: 40, borderRadius: 20 }, avatarFallback: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#ded3c5", alignItems: "center", justifyContent: "center" }, avatarText: { color: BLACK, fontSize: 17, fontWeight: "800" }, sellerCopy: { flex: 1 }, sellerLabel: { color: MUTED, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8 }, sellerNameRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 }, sellerName: { color: BLACK, fontSize: 13, fontWeight: "800", flexShrink: 1 }, sellerMeta: { color: MUTED, fontSize: 10, marginTop: 3 }, description: { color: MUTED, fontSize: 13, lineHeight: 19, paddingVertical: 14 }, footer: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: "#FFFFFF", borderTopWidth: 1, borderTopColor: LINE, paddingHorizontal: 16, paddingTop: 8, flexDirection: "row", alignItems: "center", gap: 8 }, buyButton: { width: 140, height: 48, borderWidth: 1, borderColor: BLACK, borderRadius: 25, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" }, buyText: { color: BLACK, fontSize: 14, fontWeight: "800" }, bagButton: { flex: 1, height: 48, borderRadius: 25, alignItems: "center", justifyContent: "center", backgroundColor: BLACK }, bagText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" }, heartButton: { width: 48, height: 48, borderWidth: 1, borderColor: "#dddddd", borderRadius: 25, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" } });
