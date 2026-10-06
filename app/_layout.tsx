@@ -8,6 +8,7 @@ import { Pressable, Text, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { LaunchSplash } from "../components/LaunchSplash";
+import { AuthScreen } from "../components/AuthScreen";
 import { ShakeToReport } from "../components/ShakeToReport";
 import { observeListing } from "../lib/alerts";
 import { useOtaReady } from "../lib/ota";
@@ -764,7 +765,8 @@ export default function Root() {
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: intro ? colors.pulse : colors.ink }}>
         <StatusBar style={appearance === "dark" ? "light" : "dark"} />
         <ReviewSync enabled={Boolean(signedIn && gateReady && !intro && profileDone)} />
-        {gateReady ? <AppStack /> : null}
+        {gateReady && signedIn ? <AppStack /> : null}
+        {gateReady && !signedIn && !intro ? <AuthScreen /> : null}
         {signedIn && gateReady && !intro ? <DraftResumeNotice /> : null}
         {signedIn && gateReady && !intro ? <FounderDeskNotice /> : null}
         {signedIn && gateReady && !intro ? <FounderCheckNotice /> : null}
