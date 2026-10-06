@@ -39,6 +39,7 @@ import { useCopy } from "../lib/useCopy";
 import { useColors, type Colors } from "../lib/theme";
 import { addPiece, getPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
 import { setImmersivePreview } from "../lib/immersivePreview";
+import { mirrorAcceptedFirebaseListing } from "../lib/supabaseListings";
 
 const MAX = 10;
 const SELL_WELCOME_SEEN_KEY = "uvel.sell-welcome-seen";
@@ -765,6 +766,22 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       setGate({ phase: "block", headline: result.headline, reasons: result.reasons });
       return;
     }
+    void mirrorAcceptedFirebaseListing({
+      firebaseListingId: listingId,
+      title: listed.name,
+      brand: listed.brand,
+      category: String(listed.category),
+      color: listed.color,
+      size: listed.size,
+      condition: listed.condition,
+      material: listed.material,
+      description: listed.notes,
+      priceCents: listed.listPriceCents,
+      currency: listed.currency || listingCurrency,
+      country: listed.country || origin,
+      backgroundKey: selectedBackground,
+      photoStoragePaths: result.photoStoragePaths,
+    }).catch(() => undefined);
     setDraftDisabled(true);
     void clearListingDraft();
     setGate({ phase: "pass" });

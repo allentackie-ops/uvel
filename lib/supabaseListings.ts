@@ -1,4 +1,5 @@
 import { requireSupabase } from "./supabase";
+import { firebaseAuth } from "./firebase";
 
 export type SupabaseListing = {
   id: string;
@@ -29,6 +30,36 @@ export type SupabaseRecentSearch = {
   query: string;
   created_at: string;
 };
+
+export type MirrorListingInput = {
+  firebaseListingId: string;
+  title: string;
+  brand?: string;
+  category?: string;
+  color?: string;
+  size?: string;
+  condition?: string;
+  material?: string;
+  description?: string;
+  priceCents?: number;
+  currency?: string;
+  country?: string;
+  backgroundKey?: string;
+  aiAnalysis?: Record<string, unknown>;
+  photoStoragePaths: string[];
+};
+
+export async function mirrorAcceptedFirebaseListing(input: MirrorListingInput) {
+  const user = firebaseAuth().currentUser;
+  if (!user) return { ok: false, skipped: true } as const;
+  const token = await user.getIdToken();
+  const { data, error } = await requireSupabase().functions.invoke("firebase-listings-gateway", {
+    body: { listing: input, photos: input.photoStoragePaths },
+    headers: { "x-firebase-id-token": token },
+  });
+  if (error) throw error;
+  return data as { ok: boolean; listingId?: string; firebaseListingId?: string };
+}
 
 export async function fetchSupabaseListedListings(limit = 50) {
   const { data, error } = await requireSupabase()

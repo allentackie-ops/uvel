@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const url = process.env.EXPO_PUBLIC_SUPABASE_URL || "";
-const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
+const url = process.env.EXPO_PUBLIC_SUPABASE_URL || "https://cidmigrozwakdreeqhox.supabase.co";
+const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_rhRaff9du4XcR4KN0bBt-w_4W5PrCqO";
 
 let client: SupabaseClient | null = null;
 
