@@ -214,7 +214,6 @@ export function TodayCommerceFeed({
       <ProductRail pieces={editors} market={market} onOpen={onOpenPiece} />
       <View style={styles.coralStrip}>
         <LoopingVideo source={WEEKEND_UNIFORM_LOOP} style={styles.coralStripVideo} contentFit="cover" />
-        <View pointerEvents="none" style={styles.coralStripTint} />
         <View style={styles.coralStripContent}>
           <View style={styles.stripCopy}><Text style={styles.stripTitle}>Build your weekend uniform</Text><Text style={styles.stripSub}>Versatile pieces. More good days.</Text></View>
         </View>
@@ -724,7 +723,6 @@ function make(colors: Colors) {
     editorImage: { flex: 0.98, height: "100%" },
     coralStrip: { minHeight: 82, height: 96, borderRadius: 16, backgroundColor: "#F05237", overflow: "hidden", position: "relative", marginTop: 17 },
     coralStripVideo: { position: "absolute", top: 0, right: 0, left: "56%", height: 96, zIndex: 0 },
-    coralStripTint: { position: "absolute", top: 0, right: 0, bottom: 0, left: "56%", backgroundColor: "rgba(240,82,55,0.18)", zIndex: 1 },
     coralStripContent: { flex: 1, paddingHorizontal: 15, paddingVertical: 13, flexDirection: "row", alignItems: "center", justifyContent: "flex-start", zIndex: 2 },
     stripCopy: { width: "53%", justifyContent: "center" },
     stripTitle: { color: "#FFFFFF", fontSize: 17, lineHeight: 20, fontWeight: "900", letterSpacing: -0.2 },
