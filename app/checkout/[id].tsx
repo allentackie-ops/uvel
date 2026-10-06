@@ -49,6 +49,7 @@ import { brandMakes } from "../../lib/brandMake";
 import { carriersForListing } from "../../lib/sellerShipping";
 import { GroupedCheckout } from "../../components/GroupedCheckout";
 import { watchListingOffer, type ListingOffer } from "../../lib/offers";
+import { mirrorCheckoutOrder } from "../../lib/supabaseCheckout";
 
 export default function Checkout() {
   const colors = useColors();
@@ -388,6 +389,7 @@ export default function Checkout() {
         address,
         madeByUvel: making,
       });
+      await mirrorCheckoutOrder(order);
       if (piece.brandId && typeof campaignId === "string" && campaignId)
         void recordCampaignAttribution({
           brandId: piece.brandId,
@@ -413,7 +415,7 @@ export default function Checkout() {
       if (market.code === "US") {
         if (!paymentsExtra.stripePk)
           throw new Error("Stripe checkout is not configured yet.");
-        const intent = await createStripePaymentIntent(order.id);
+        const intent = await createStripePaymentIntent(order.id, total, market.currency);
         const initialized = await initPaymentSheet({
           merchantDisplayName: "Uvel",
           paymentIntentClientSecret: intent.clientSecret,

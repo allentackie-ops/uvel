@@ -1,8 +1,13 @@
 import Constants from "expo-constants";
 import * as WebBrowser from "expo-web-browser";
 import { NativeModules } from "react-native";
-import { httpsCallable } from "firebase/functions";
-import { firebaseFunctions, firebaseReady } from "./firebase";
+import {
+  supabaseGroupedCheckout,
+  supabaseGroupedStripeIntent,
+  supabaseHostedCheckout,
+  supabaseStripePaymentIntent,
+  supabaseValidatePromotion,
+} from "./supabaseCheckout";
 
 type Extra = {
   payments?: {
@@ -75,38 +80,23 @@ export type GroupedStripePaymentIntent = {
 };
 
 export async function createCheckoutSession(input: CheckoutPay): Promise<CheckoutSession> {
-  if (!firebaseReady()) throw new Error("Payments aren’t connected yet.");
-  const call = httpsCallable<CheckoutPay, CheckoutSession>(firebaseFunctions(), "createCheckout");
-  const res = await call(input);
-  return res.data;
+  return supabaseHostedCheckout(input);
 }
 
-export async function createStripePaymentIntent(orderId: string): Promise<StripePaymentIntent> {
-  if (!firebaseReady()) throw new Error("Payments aren’t connected yet.");
-  const call = httpsCallable<{ orderId: string }, StripePaymentIntent>(firebaseFunctions(), "createStripePaymentIntent");
-  const res = await call({ orderId });
-  return res.data;
+export async function createStripePaymentIntent(orderId: string, amountCents?: number, currency?: string): Promise<StripePaymentIntent> {
+  return supabaseStripePaymentIntent(orderId, amountCents, currency);
 }
 
 export async function createGroupedCheckout(input: { checkoutBatchId: string; listingIds: string[]; address: unknown; shippingChoices: Array<{ listingId: string; carrierId: string; creditCents: number; promotionId?: string; promotionCode?: string }> }): Promise<GroupedCheckout> {
-  if (!firebaseReady()) throw new Error("Payments aren’t connected yet.");
-  const call = httpsCallable<typeof input, GroupedCheckout>(firebaseFunctions(), "createGroupedCheckout");
-  const res = await call(input);
-  return res.data;
+  return supabaseGroupedCheckout(input as Parameters<typeof supabaseGroupedCheckout>[0]);
 }
 
 export async function createGroupedStripePaymentIntent(checkoutBatchId: string): Promise<GroupedStripePaymentIntent> {
-  if (!firebaseReady()) throw new Error("Payments aren’t connected yet.");
-  const call = httpsCallable<{ checkoutBatchId: string }, GroupedStripePaymentIntent>(firebaseFunctions(), "createGroupedStripePaymentIntent");
-  const res = await call({ checkoutBatchId });
-  return res.data;
+  return supabaseGroupedStripeIntent(checkoutBatchId);
 }
 
 export async function validatePromotion(input: { brandId?: string; listingId: string; promotionId?: string; code?: string; currency: string; itemCents: number }): Promise<PromotionQuote> {
-  if (!firebaseReady()) throw new Error("Promotion validation is not connected yet.");
-  const call = httpsCallable<typeof input, PromotionQuote>(firebaseFunctions(), "validatePromotion");
-  const res = await call(input);
-  return res.data;
+  return supabaseValidatePromotion(input);
 }
 
 export async function openHostedPay(url: string) {
