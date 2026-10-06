@@ -738,6 +738,89 @@ exports.readFeedFeedback = onCall(async (req) => {
   return { signals };
 });
 
+const RECOMMENDATION_ACTION_WEIGHTS = {
+  view: 1,
+  dwell: 2,
+  save: 5,
+  share: 6,
+  try_on: 4,
+  interested: 7,
+  not_interested: -8,
+};
+const RECOMMENDATION_QUALIFIED_ACTIONS = new Set(["save", "share", "try_on", "interested"]);
+
+exports.recordRecommendationEvent = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before sending recommendation events.");
+  const listingId = String(req.data?.listingId || "").trim();
+  const action = String(req.data?.action || "").trim();
+  const seconds = Math.min(120, Math.max(0, Math.floor(Number(req.data?.seconds) || 0)));
+  const surface = String(req.data?.surface || "today_for_you").slice(0, 40);
+  if (!/^[a-zA-Z0-9._:-]{1,160}$/.test(listingId) || !Object.prototype.hasOwnProperty.call(RECOMMENDATION_ACTION_WEIGHTS, action)) {
+    throw new HttpsError("invalid-argument", "Invalid recommendation event.");
+  }
+
+  const db = admin.firestore();
+  const listingRef = db.collection("listings").doc(listingId);
+  const signalRef = db.collection("recommendationSignals").doc(fieldId(listingId));
+  const actorRef = signalRef.collection("actors").doc(fieldId(req.auth.uid));
+  const listingSnap = await listingRef.get();
+  if (!listingSnap.exists || listingSnap.data()?.status !== "listed") return { ok: true, ignored: true };
+
+  await db.runTransaction(async (tx) => {
+    const [signalSnap, actorSnap] = await Promise.all([tx.get(signalRef), tx.get(actorRef)]);
+    const previousActions = actorSnap.exists && actorSnap.data()?.actions && typeof actorSnap.data().actions === "object"
+      ? actorSnap.data().actions
+      : {};
+    if (previousActions[action]) {
+      tx.set(actorRef, { lastAt: admin.firestore.FieldValue.serverTimestamp(), surface }, { merge: true });
+      return;
+    }
+    const qualified = RECOMMENDATION_QUALIFIED_ACTIONS.has(action);
+    const previousQualified = Object.keys(previousActions).some((key) => RECOMMENDATION_QUALIFIED_ACTIONS.has(key));
+    const patch = {
+      listingId,
+      eventCount: increment(1),
+      peerQualityScore: increment(RECOMMENDATION_ACTION_WEIGHTS[action] + (action === "dwell" ? Math.min(6, seconds / 10) : 0)),
+      lastEventAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastQualifiedAt: qualified ? admin.firestore.FieldValue.serverTimestamp() : undefined,
+      qualifiedUserCount: qualified && !previousQualified ? increment(1) : increment(0),
+      saveUserCount: action === "save" ? increment(1) : increment(0),
+      shareUserCount: action === "share" ? increment(1) : increment(0),
+      likeUserCount: action === "interested" ? increment(1) : increment(0),
+      viewUserCount: action === "view" ? increment(1) : increment(0),
+    };
+    Object.keys(patch).forEach((key) => patch[key] === undefined && delete patch[key]);
+    tx.set(signalRef, patch, { merge: true });
+    tx.set(actorRef, {
+      actions: { ...previousActions, [action]: Date.now() },
+      lastAt: admin.firestore.FieldValue.serverTimestamp(),
+      surface,
+    }, { merge: true });
+  });
+  return { ok: true };
+});
+
+exports.readRecommendationSignals = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before reading recommendation signals.");
+  const ids = Array.isArray(req.data?.listingIds) ? req.data.listingIds : [];
+  const listingIds = [...new Set(ids.map((id) => String(id || "").trim()).filter((id) => /^[a-zA-Z0-9._:-]{1,160}$/.test(id)))].slice(0, 100);
+  if (!listingIds.length) return { signals: {} };
+  const db = admin.firestore();
+  const snaps = await Promise.all(listingIds.map((id) => db.collection("recommendationSignals").doc(fieldId(id)).get()));
+  const signals = {};
+  snaps.forEach((snap, index) => {
+    const data = snap.data() || {};
+    const qualifiedUserCount = Math.max(0, Math.floor(Number(data.qualifiedUserCount) || 0));
+    signals[listingIds[index]] = {
+      qualifiedUserCount,
+      peerQualityScore: Math.min(36, Math.max(0, Number(data.peerQualityScore) || 0)),
+      peerConsensus: qualifiedUserCount >= 4,
+      lastQualifiedAt: timestampMillis(data.lastQualifiedAt),
+    };
+  });
+  return { signals };
+});
+
 function attributionField(type) {
   return type === "impression" ? "impressions" : type === "engagement" ? "engagements" : type === "checkout_started" ? "checkoutStarted" : "purchases";
 }

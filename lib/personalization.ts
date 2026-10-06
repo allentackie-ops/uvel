@@ -7,6 +7,7 @@ import { genderBoost } from "./lookMatch";
 import type { ClosetPiece } from "./wardrobe";
 import { firebaseAuth, firebaseDb, firebaseReady } from "./firebase";
 import { filterNotInterestedListings, scoreShopFeedback, type ShopFeedbackSignal } from "./shopFeedbackMath";
+import { readRecommendationSignals, recordRecommendationEvent, type RecommendationSignal } from "./recommendationSignals";
 
 export type RecommendationChoice = "interested" | "not_interested";
 export type PersonalizationAction = "view" | "save" | "share" | "search" | "double_view" | "double_tap_like" | "try_on" | "dwell" | RecommendationChoice;
@@ -199,6 +200,7 @@ function feedbackFeatures(piece: ClosetPiece, now: number): RecommendationFeedba
 export function usePersonalization(uid: string) {
   const storageKey = useMemo(() => key(uid), [uid]);
   const [profile, setProfile] = useState<PersonalizationProfile>(EMPTY);
+  const [sharedSignals, setSharedSignals] = useState<Record<string, RecommendationSignal>>({});
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -334,15 +336,29 @@ export function usePersonalization(uid: string) {
       }
       return next;
     });
+    const sharedActions = ["view", "dwell", "save", "share", "try_on", "interested", "not_interested"] as const;
+    if (piece && uid && uid !== "guest" && (sharedActions as readonly string[]).includes(action)) {
+      void recordRecommendationEvent({ listingId: piece.id, action: action as (typeof sharedActions)[number], seconds: dwellSeconds, surface: "today_for_you" }).catch(() => undefined);
+    }
   }, [storageKey, uid]);
+
+  const refreshSharedSignals = useCallback(async (listingIds: string[]) => {
+    if (!uid || uid === "guest" || !listingIds.length) return;
+    try {
+      const next = await readRecommendationSignals(listingIds);
+      setSharedSignals((current) => ({ ...current, ...next }));
+    } catch {
+      // Local personalization remains the fallback when the backend is unavailable.
+    }
+  }, [uid]);
 
   const rank = useCallback((pieces: ClosetPiece[], country: string, dna?: Dna) => {
     const candidates = filterNotInterestedListings(pieces, profile.recommendationFeedback);
-    return candidates
-      .map((piece) => ({ piece, score: score(piece, country.toLowerCase(), profile, dna) }))
-      .sort((a, b) => b.score - a.score)
-      .map(({ piece }) => piece);
-  }, [profile]);
+    const scored = candidates
+      .map((piece) => ({ piece, score: score(piece, country.toLowerCase(), profile, dna, sharedSignals[piece.id]) }))
+      .sort((a, b) => b.score - a.score || b.piece.createdAt - a.piece.createdAt);
+    return diversifyRanked(scored, profile);
+  }, [profile, sharedSignals]);
 
   const hasRecommendationFeedback = useCallback((listingId: string) => Boolean(profile.recommendationFeedback[listingId]), [profile]);
   const hasPromptedRecently = useCallback((listingId: string) => {
@@ -362,7 +378,7 @@ export function usePersonalization(uid: string) {
     });
   }, [storageKey]);
 
-  return { profile, consent: "allowed" as const, ready, record, rank, hasRecommendationFeedback, hasPromptedRecently, markRecommendationPromptShown };
+  return { profile, consent: "allowed" as const, ready, record, rank, refreshSharedSignals, hasRecommendationFeedback, hasPromptedRecently, markRecommendationPromptShown };
 }
 
 function dnaBoost(piece: ClosetPiece, dna: Dna | undefined, events: number) {
@@ -373,7 +389,7 @@ function dnaBoost(piece: ClosetPiece, dna: Dna | undefined, events: number) {
   return Math.min(64, raw * weight);
 }
 
-function score(piece: ClosetPiece, country: string, profile: PersonalizationProfile, dna?: Dna) {
+function score(piece: ClosetPiece, country: string, profile: PersonalizationProfile, dna?: Dna, shared?: RecommendationSignal) {
   const signal = profile.listings[piece.id];
   const text = words(`${piece.name} ${piece.notes} ${piece.category} ${piece.color} ${piece.brand} ${piece.material}`);
   const termScore = text.reduce((sum, word) => sum + Math.min(profile.terms[word] || 0, 30), 0);
@@ -382,7 +398,44 @@ function score(piece: ClosetPiece, country: string, profile: PersonalizationProf
   const local = piece.country?.toLowerCase() === country ? 3 : 0;
   const age = Math.max(0, Date.now() - (piece.createdAt || 0));
   const fresh = age < 2 * DAY ? 18 : age < 14 * DAY ? 10 : age < 30 * DAY ? 4 : 0;
-  return termScore + affinity + repeatInterest + local + fresh + dnaBoost(piece, dna, profile.events) + genderBoost(piece, dna?.gender) + scoreShopFeedback(piece, profile.recommendationFeedback);
+  const peer = shared ? Math.min(12, Math.max(0, shared.peerQualityScore)) : 0;
+  return termScore + affinity + repeatInterest + local + fresh + peer + dnaBoost(piece, dna, profile.events) + genderBoost(piece, dna?.gender) + scoreShopFeedback(piece, profile.recommendationFeedback);
+}
+
+function diversifyRanked(rows: { piece: ClosetPiece; score: number }[], profile: PersonalizationProfile) {
+  const remaining = rows.slice();
+  const selected: ClosetPiece[] = [];
+  const categoryCounts = new Map<string, number>();
+  const brandCounts = new Map<string, number>();
+  const colorCounts = new Map<string, number>();
+  const cap = (value?: string) => (value || "unknown").trim().toLowerCase();
+
+  while (remaining.length) {
+    let bestIndex = 0;
+    let bestScore = Number.NEGATIVE_INFINITY;
+    remaining.forEach((row, index) => {
+      const category = cap(row.piece.category);
+      const brand = cap(row.piece.brandId || row.piece.brand);
+      const color = cap(row.piece.color);
+      const repeated = (categoryCounts.get(category) || 0) + (brandCounts.get(brand) || 0) + (colorCounts.get(color) || 0);
+      const seen = profile.listings[row.piece.id]?.views || 0;
+      const novelty = seen === 0 ? Math.min(5, selected.length * 0.45) : 0;
+      const adjusted = row.score - Math.min(8, repeated * 1.25) + novelty;
+      if (adjusted > bestScore) {
+        bestScore = adjusted;
+        bestIndex = index;
+      }
+    });
+    const [winner] = remaining.splice(bestIndex, 1);
+    selected.push(winner.piece);
+    const category = cap(winner.piece.category);
+    const brand = cap(winner.piece.brandId || winner.piece.brand);
+    const color = cap(winner.piece.color);
+    categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
+    brandCounts.set(brand, (brandCounts.get(brand) || 0) + 1);
+    colorCounts.set(color, (colorCounts.get(color) || 0) + 1);
+  }
+  return selected;
 }
 
 export async function clearPersonalization(uid: string) {

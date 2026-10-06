@@ -397,6 +397,14 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const scanningLook = Boolean(scan === "1" || look || frame || videoUrl);
 
   useEffect(() => {
+    if (!todayHome || !live.length) return;
+    void personalization.refreshSharedSignals(live.map((piece) => piece.id)).then(() => {
+      frozenOrder.current = null;
+      setFeedEpoch((value) => value + 1);
+    });
+  }, [live, personalization.refreshSharedSignals, todayHome]);
+
+  useEffect(() => {
     const query = q.trim();
     if (query.length < 3 || scanningLook) return;
     const timer = setTimeout(() => personalization.record("search", undefined, query), 700);
