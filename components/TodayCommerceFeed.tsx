@@ -216,8 +216,7 @@ export function TodayCommerceFeed({
         <LoopingVideo source={WEEKEND_UNIFORM_LOOP} style={styles.coralStripVideo} contentFit="cover" />
         <View pointerEvents="none" style={styles.coralStripTint} />
         <View style={styles.coralStripContent}>
-          <View><Text style={styles.stripTitle}>Build your weekend uniform</Text><Text style={styles.stripSub}>Versatile pieces. More good days.</Text></View>
-          <Pressable onPress={onOpenSearch} style={styles.stripButton} accessibilityRole="button" accessibilityLabel="Shop the weekend uniform"><Text style={styles.stripButtonText}>Shop ›</Text></Pressable>
+          <View style={styles.stripCopy}><Text style={styles.stripTitle}>Build your weekend uniform</Text><Text style={styles.stripSub}>Versatile pieces. More good days.</Text></View>
         </View>
       </View>
 
@@ -726,11 +725,10 @@ function make(colors: Colors) {
     coralStrip: { minHeight: 82, height: 96, borderRadius: 16, backgroundColor: "#F05237", overflow: "hidden", position: "relative", marginTop: 17 },
     coralStripVideo: { position: "absolute", top: 0, right: 0, left: "56%", height: 96, zIndex: 0 },
     coralStripTint: { position: "absolute", top: 0, right: 0, bottom: 0, left: "56%", backgroundColor: "rgba(240,82,55,0.18)", zIndex: 1 },
-    coralStripContent: { flex: 1, paddingHorizontal: 15, paddingVertical: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 2 },
-    stripTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "900", maxWidth: "54%" },
-    stripSub: { color: "#FFFFFF", fontSize: 12, marginTop: 3, maxWidth: "54%" },
-    stripButton: { backgroundColor: "#FFFFFF", borderRadius: 20, paddingHorizontal: 12, minHeight: 38, justifyContent: "center" },
-    stripButtonText: { color: "#181714", fontSize: 11, fontWeight: "900" },
+    coralStripContent: { flex: 1, paddingHorizontal: 15, paddingVertical: 13, flexDirection: "row", alignItems: "center", justifyContent: "flex-start", zIndex: 2 },
+    stripCopy: { width: "53%", justifyContent: "center" },
+    stripTitle: { color: "#FFFFFF", fontSize: 17, lineHeight: 20, fontWeight: "900", letterSpacing: -0.2 },
+    stripSub: { color: "rgba(255,255,255,0.92)", fontSize: 12, lineHeight: 16, marginTop: 6 },
     dealsFeature: { marginTop: 28, borderRadius: 20, backgroundColor: "#334B38", padding: 16, overflow: "hidden" },
     dealsFeatureHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", minHeight: 126 },
     dealsFeatureCopy: { flex: 1, paddingRight: 8 },
