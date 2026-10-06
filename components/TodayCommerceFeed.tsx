@@ -521,7 +521,9 @@ function LoopingVideo({ source, style }: { source: number; style: StyleProp<View
       player.pause();
     };
   }, [player]);
-  return <VideoView player={player} pointerEvents="none" style={style} contentFit="cover" nativeControls={false} surfaceType="textureView" />;
+  return <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, style]}>
+    <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} surfaceType="textureView" />
+  </View>;
 }
 function DealsMotionPoster({ source, color, styles, active }: { source: number; color: string; styles: ReturnType<typeof make>; active: boolean }) {
   const player = useVideoPlayer(source, (instance) => {
@@ -740,9 +742,9 @@ function make(colors: Colors) {
     editorTileTitle: { color: "#181714", fontSize: 15, lineHeight: 17, fontWeight: "900", zIndex: 2, textShadowColor: "rgba(255,255,255,0.42)", textShadowRadius: 5 },
     editorTileSubtitle: { color: "#181714", fontSize: 11, lineHeight: 14, marginTop: 3, zIndex: 2, maxWidth: 90, textShadowColor: "rgba(255,255,255,0.42)", textShadowRadius: 4 },
     tileArrow: { position: "absolute", right: 9, bottom: 8, color: "#181714", fontSize: 22, fontWeight: "900", zIndex: 3 },
-    coralStrip: { minHeight: 82, borderRadius: 16, backgroundColor: "transparent", overflow: "hidden", position: "relative", marginTop: 17 },
-    coralStripVideo: { ...StyleSheet.absoluteFillObject, zIndex: 0 },
-    coralStripTint: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(240,82,55,0.78)", zIndex: 1 },
+    coralStrip: { minHeight: 82, height: 96, borderRadius: 16, backgroundColor: "transparent", overflow: "hidden", position: "relative", marginTop: 17 },
+    coralStripVideo: { zIndex: 0 },
+    coralStripTint: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(240,82,55,0.56)", zIndex: 1 },
     coralStripContent: { flex: 1, paddingHorizontal: 15, paddingVertical: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 2 },
     stripTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "900" },
     stripSub: { color: "#FFFFFF", fontSize: 12, marginTop: 3 },
