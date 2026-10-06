@@ -42,6 +42,7 @@ import {
 import { recordCampaignAttribution } from "../../lib/attribution";
 import { removeFromCart } from "../../lib/cart";
 import { payWithWallet, useWallet } from "../../lib/wallet";
+import { loadLastPaymentMethod, rememberLastPaymentMethod } from "../../lib/paymentPreference";
 import { useFirstFind } from "../../lib/firstFind";
 import { getBrand } from "../../lib/brands";
 import { brandMakes } from "../../lib/brandMake";
@@ -102,6 +103,13 @@ export default function Checkout() {
   const [ship, setShip] = useState<"standard" | "express">("standard");
   const [carrierId, setCarrierId] = useState("");
   const [pay, setPay] = useState(methods[0]?.id ?? "apple");
+  useEffect(() => {
+    let live = true;
+    void loadLastPaymentMethod(market.code).then((last) => {
+      if (live && last && methods.some((method) => method.id === last)) setPay(last);
+    });
+    return () => { live = false; };
+  }, [market.code]);
   const [payOpen, setPayOpen] = useState(false);
   const [paying, setPaying] = useState(false);
   const [feeInfo, setFeeInfo] = useState(false);
@@ -408,6 +416,7 @@ export default function Checkout() {
         }).catch(() => undefined);
       if (walletCovers) {
         await payWithWallet(order.id);
+        void rememberLastPaymentMethod(market.code, method.id);
         removeFromCart(piece.id);
         router.replace({ pathname: "/order/[id]", params: { id: order.id } });
         return;
@@ -429,6 +438,7 @@ export default function Checkout() {
         if (initialized.error) throw new Error(initialized.error.message);
         const presented = await presentPaymentSheet();
         if (presented.error) throw new Error(presented.error.message);
+        void rememberLastPaymentMethod(market.code, method.id);
         removeFromCart(piece.id);
         router.replace({ pathname: "/order/[id]", params: { id: order.id } });
         return;
@@ -456,6 +466,7 @@ export default function Checkout() {
       if (!ok) return;
       // Hosted checkout returning only means the payment page completed.
       // A trusted payment webhook must confirm payment before marking inventory sold.
+      void rememberLastPaymentMethod(market.code, method.id);
       removeFromCart(piece.id);
       router.replace({ pathname: "/order/[id]", params: { id: order.id } });
     } catch (e) {
