@@ -4,7 +4,7 @@ import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AppState, Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "./AccessiblePressable";
 import { OrbitLoader } from "./OrbitLoader";
@@ -32,6 +32,7 @@ const WE_THINK_EDITORIAL_HERO = require("../assets/today/we-think-editorial-hero
 const WE_THINK_CITY_LAYERS_AD = require("../assets/today/we-think-city-layers-ad.mp4");
 const WE_THINK_OFF_DUTY_AD = require("../assets/today/we-think-off-duty-ad.mp4");
 const WE_THINK_KNIT_NOW_AD = require("../assets/today/we-think-knit-now-ad.mp4");
+const WEEKEND_UNIFORM_LOOP = require("../assets/today/weekend-uniform-loop.mp4");
 const TODAY_DEALS_RED = MARKET_RED;
 
 const EDITORIAL = [
@@ -219,7 +220,7 @@ export function TodayCommerceFeed({
       </View>
       <View style={styles.editorTiles}>
         {[{ ...EDITORIAL[0], video: WE_THINK_CITY_LAYERS_AD }, { ...EDITORIAL[1], video: WE_THINK_OFF_DUTY_AD }, { ...EDITORIAL[2], video: WE_THINK_KNIT_NOW_AD }].map((item) => <Pressable key={item.title} onPress={onOpenSearch} style={[styles.editorTile, { backgroundColor: item.accent }]} accessibilityRole="button" accessibilityLabel={item.title}>
-          <EditorialTileVideo source={item.video} styles={styles} />
+          <LoopingVideo source={item.video} style={styles.editorTileImage} />
           <View style={styles.editorTileShade} />
           <Text style={styles.editorTileTitle}>{item.title}</Text><Text style={styles.editorTileSubtitle}>{item.subtitle}</Text><Text style={styles.tileArrow}>›</Text>
         </Pressable>)}
@@ -228,8 +229,12 @@ export function TodayCommerceFeed({
       <SectionTitle title="Trending in your world" onPress={onOpenSearch} />
       <ProductRail pieces={editors} market={market} onOpen={onOpenPiece} />
       <View style={styles.coralStrip}>
-        <View><Text style={styles.stripTitle}>Build your weekend uniform</Text><Text style={styles.stripSub}>Versatile pieces. More good days.</Text></View>
-        <Pressable onPress={onOpenSearch} style={styles.stripButton} accessibilityRole="button" accessibilityLabel="Shop the weekend edit"><Text style={styles.stripButtonText}>Shop the edit ›</Text></Pressable>
+        <LoopingVideo source={WEEKEND_UNIFORM_LOOP} style={styles.coralStripVideo} />
+        <View pointerEvents="none" style={styles.coralStripTint} />
+        <View style={styles.coralStripContent}>
+          <View><Text style={styles.stripTitle}>Build your weekend uniform</Text><Text style={styles.stripSub}>Versatile pieces. More good days.</Text></View>
+          <Pressable onPress={onOpenSearch} style={styles.stripButton} accessibilityRole="button" accessibilityLabel="Shop the weekend edit"><Text style={styles.stripButtonText}>Shop the edit ›</Text></Pressable>
+        </View>
       </View>
 
       <DealsFeature pieces={deals} market={market} onOpen={onOpenPiece} />
@@ -490,7 +495,7 @@ function EditorialPoster({ story, pieces, styles, staticAsset, videoAsset, video
   </View>;
 }
 
-function EditorialTileVideo({ source, styles }: { source: number; styles: ReturnType<typeof make> }) {
+function LoopingVideo({ source, style }: { source: number; style: StyleProp<ViewStyle> }) {
   const player = useVideoPlayer(source, (instance) => {
     instance.loop = true;
     instance.muted = true;
@@ -499,13 +504,24 @@ function EditorialTileVideo({ source, styles }: { source: number; styles: Return
     instance.play();
   });
   useEffect(() => {
+    const resumePlayback = (nextState: string) => {
+      if (nextState !== "active") return;
+      player.loop = true;
+      player.muted = true;
+      player.volume = 0;
+      player.play();
+    };
+    const subscription = AppState.addEventListener("change", resumePlayback);
     player.loop = true;
     player.muted = true;
     player.volume = 0;
     player.play();
-    return () => player.pause();
+    return () => {
+      subscription.remove();
+      player.pause();
+    };
   }, [player]);
-  return <VideoView player={player} pointerEvents="none" style={styles.editorTileImage} contentFit="cover" nativeControls={false} surfaceType="textureView" />;
+  return <VideoView player={player} pointerEvents="none" style={style} contentFit="cover" nativeControls={false} surfaceType="textureView" />;
 }
 function DealsMotionPoster({ source, color, styles, active }: { source: number; color: string; styles: ReturnType<typeof make>; active: boolean }) {
   const player = useVideoPlayer(source, (instance) => {
@@ -724,7 +740,10 @@ function make(colors: Colors) {
     editorTileTitle: { color: "#181714", fontSize: 15, lineHeight: 17, fontWeight: "900", zIndex: 2, textShadowColor: "rgba(255,255,255,0.42)", textShadowRadius: 5 },
     editorTileSubtitle: { color: "#181714", fontSize: 11, lineHeight: 14, marginTop: 3, zIndex: 2, maxWidth: 90, textShadowColor: "rgba(255,255,255,0.42)", textShadowRadius: 4 },
     tileArrow: { position: "absolute", right: 9, bottom: 8, color: "#181714", fontSize: 22, fontWeight: "900", zIndex: 3 },
-    coralStrip: { minHeight: 82, borderRadius: 16, backgroundColor: "#F05237", paddingHorizontal: 15, paddingVertical: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 17 },
+    coralStrip: { minHeight: 82, borderRadius: 16, backgroundColor: "transparent", overflow: "hidden", position: "relative", marginTop: 17 },
+    coralStripVideo: { ...StyleSheet.absoluteFillObject, zIndex: 0 },
+    coralStripTint: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(240,82,55,0.78)", zIndex: 1 },
+    coralStripContent: { flex: 1, paddingHorizontal: 15, paddingVertical: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 2 },
     stripTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "900" },
     stripSub: { color: "#FFFFFF", fontSize: 12, marginTop: 3 },
     stripButton: { backgroundColor: "#FFFFFF", borderRadius: 20, paddingHorizontal: 12, minHeight: 38, justifyContent: "center" },
