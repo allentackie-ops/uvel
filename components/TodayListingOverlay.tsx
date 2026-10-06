@@ -403,7 +403,7 @@ export function TodayListingOverlay({
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.value * 0.12 }));
   const pageStyle = useAnimatedStyle(() => ({ opacity: sheet.value }));
   const sheetMotionStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetEnterY.value + modalDragY.value }] }));
-  const stickyFooterStyle = useAnimatedStyle(() => ({ top: popupHeight - footerHeight - modalDragY.value }));
+  const stickyFooterStyle = useAnimatedStyle(() => ({ top: sheetHeight - footerHeight - modalDragY.value }));
 
   const brand = brandRecord?.name || piece.brand;
   const sellerName = brandRecord?.name || piece.ownerName || piece.listedByName || "Uvel seller";
