@@ -155,7 +155,10 @@ export default function Search() {
               />
               {term ? <Pressable onPress={() => { setTerm(""); setSubmittedTerm(""); }} hitSlop={8} style={styles.clearButton} accessibilityRole="button" accessibilityLabel={copy.clearSearch}><Ionicons name="close-circle" size={19} color={colors.muted} /></Pressable> : null}
               <Pressable onPress={() => router.push("/lens-search")} style={styles.cameraButton} accessibilityRole="button" accessibilityLabel="Search with a photo">
-                <Ionicons name="camera-outline" size={22} color={colors.successInk} />
+                <View style={styles.cameraIconWrap}>
+                  <Ionicons name="camera-outline" size={23} color={colors.bone} />
+                  <Ionicons name="sparkles" size={11} color={colors.bone} style={styles.cameraSparkle} />
+                </View>
               </Pressable>
             </View>
             {showResults ? (
@@ -197,7 +200,9 @@ function makeStyles(colors: Colors) {
     backButton: { width: 36, height: 40, alignItems: "center", justifyContent: "center" },
     input: { flex: 1, minHeight: 44, color: colors.bone, fontSize: 15, paddingVertical: 0 },
     clearButton: { width: 26, height: 36, alignItems: "center", justifyContent: "center" },
-    cameraButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    cameraButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+    cameraIconWrap: { width: 28, height: 28, alignItems: "center", justifyContent: "center", position: "relative" },
+    cameraSparkle: { position: "absolute", top: -3, right: -4 },
     sectionTitle: { color: colors.bone, fontSize: 16, fontWeight: "800", marginTop: 24, marginBottom: 10 },
     trendingWrap: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
     trendingChip: { minHeight: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: `${colors.bone}35`, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
