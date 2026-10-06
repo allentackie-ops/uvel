@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Stack, router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Animated, FlatList, Keyboard, Pressable, StatusBar, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Alert, Animated, FlatList, Keyboard, Pressable, StatusBar, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "../components/ListingCard";
 import { usePersonalization } from "../lib/personalization";
@@ -9,6 +9,7 @@ import { useCopy } from "../lib/useCopy";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { fallbackShopFloor, listedPieces, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
+import { addRecentSearch, loadRecentSearches, saveRecentSearches } from "../lib/searchHistory";
 
 const TABS = ["All", "Women", "Men", "Brand"] as const;
 type SearchTab = (typeof TABS)[number];
@@ -60,6 +61,8 @@ export default function Search() {
   const live = remotePieces.length ? remotePieces : fallbackShopFloor();
   const [term, setTerm] = useState("");
   const [submittedTerm, setSubmittedTerm] = useState("");
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [activeTab, setActiveTab] = useState<SearchTab>("All");
   const tabIndex = useRef(new Animated.Value(0)).current;
   const inputRef = useRef<TextInput>(null);
@@ -67,6 +70,11 @@ export default function Search() {
   const needle = term.trim().toLowerCase();
   const submittedNeedle = submittedTerm.trim().toLowerCase();
   const showResults = Boolean(submittedNeedle && needle === submittedNeedle);
+  const showRecentSearches = searchFocused && !needle && !submittedNeedle;
+
+  useEffect(() => {
+    void loadRecentSearches().then(setRecentSearches);
+  }, []);
 
   const rows = useMemo(() => {
     const words = submittedNeedle.split(/\s+/).filter(Boolean);
@@ -96,20 +104,46 @@ export default function Search() {
   function submitSearch() {
     const nextTerm = term.trim();
     if (!nextTerm) return;
+    rememberSearch(nextTerm);
     setSubmittedTerm(nextTerm);
     Keyboard.dismiss();
   }
 
+  function rememberSearch(value: string) {
+    const next = addRecentSearch(recentSearches, value);
+    setRecentSearches(next);
+    void saveRecentSearches(next);
+  }
+
   function chooseTrending(value: string) {
+    rememberSearch(value);
     setTerm(value);
     setSubmittedTerm(value);
     Keyboard.dismiss();
   }
 
   function chooseSuggestion(value: string) {
+    rememberSearch(value);
     setTerm(value);
     setSubmittedTerm(value);
     Keyboard.dismiss();
+  }
+
+  function chooseRecent(value: string) {
+    setTerm(value);
+    setSubmittedTerm(value);
+    Keyboard.dismiss();
+  }
+
+  function removeRecent(value: string) {
+    const next = recentSearches.filter((item) => item.toLowerCase() !== value.toLowerCase());
+    setRecentSearches(next);
+    void saveRecentSearches(next);
+  }
+
+  function startVoiceSearch() {
+    inputRef.current?.focus();
+    Alert.alert("Voice search", "Voice search is ready to connect to speech recognition. Type your search for now.");
   }
 
   const resultRows = showResults ? Array.from({ length: Math.ceil(rows.length / 2) }, (_, index) => rows.slice(index * 2, index * 2 + 2)) : [];
@@ -144,6 +178,8 @@ export default function Search() {
                 value={term}
                 onChangeText={setTerm}
                 onSubmitEditing={submitSearch}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
                 placeholder={`Search ${activeTab === "All" ? "all clothing" : activeTab === "Brand" ? "brand pieces" : `${activeTab.toLowerCase()}'s clothing`}`}
                 placeholderTextColor={colors.subtle}
                 accessibilityLabel={copy.searchListings}
@@ -154,6 +190,9 @@ export default function Search() {
                 style={styles.input}
               />
               {term ? <Pressable onPress={() => { setTerm(""); setSubmittedTerm(""); }} hitSlop={8} style={styles.clearButton} accessibilityRole="button" accessibilityLabel={copy.clearSearch}><Ionicons name="close-circle" size={19} color={colors.muted} /></Pressable> : null}
+              <Pressable onPress={startVoiceSearch} style={styles.voiceButton} accessibilityRole="button" accessibilityLabel="Search by voice">
+                <Ionicons name="mic-outline" size={23} color={colors.bone} />
+              </Pressable>
               <Pressable onPress={() => router.push("/lens-search")} style={styles.cameraButton} accessibilityRole="button" accessibilityLabel="Search with a photo">
                 <View style={styles.cameraIconWrap}>
                   <Ionicons name="camera-outline" size={23} color={colors.bone} />
@@ -169,6 +208,19 @@ export default function Search() {
                 <View style={styles.suggestionChips}>{suggestionCategories.map((suggestion) => <Pressable key={suggestion} onPress={() => chooseSuggestion(suggestion)} style={styles.suggestionChip} accessibilityRole="button"><Text style={styles.suggestionChipText}>{suggestion}</Text></Pressable>)}</View>
                 <Text style={styles.suggestionHeading}>Popular</Text>
                 <View style={styles.popularList}>{popularSuggestions.map((suggestion) => <Pressable key={suggestion} onPress={() => chooseSuggestion(suggestion)} style={styles.popularRow} accessibilityRole="button"><Ionicons name="search-outline" size={17} color={colors.muted} /><Text style={styles.popularText}>{suggestion}</Text><Text style={styles.popularCount}>{live.filter((piece) => [piece.name, piece.brand, piece.category, piece.notes].join(" ").toLowerCase().includes(term.trim().toLowerCase())).length}</Text></Pressable>)}</View>
+              </View>
+            ) : showRecentSearches ? (
+              <View style={styles.recentPanel}>
+                <View style={styles.recentHeadingRow}><Text style={styles.sectionTitle}>Recent searches</Text><Pressable onPress={() => { setRecentSearches([]); void saveRecentSearches([]); }} accessibilityRole="button" accessibilityLabel="Clear recent searches"><Text style={styles.clearRecent}>Clear all</Text></Pressable></View>
+                {recentSearches.length ? recentSearches.map((search) => (
+                  <View key={search.toLowerCase()} style={styles.recentRow}>
+                    <Pressable onPress={() => chooseRecent(search)} style={styles.recentValue} accessibilityRole="button" accessibilityLabel={`Search again for ${search}`}>
+                      <Ionicons name="time-outline" size={19} color={colors.muted} />
+                      <Text style={styles.recentText} numberOfLines={1}>{search}</Text>
+                    </Pressable>
+                    <Pressable onPress={() => removeRecent(search)} hitSlop={8} style={styles.removeRecent} accessibilityRole="button" accessibilityLabel={`Remove ${search} from recent searches`}><Ionicons name="close-circle-outline" size={22} color={colors.muted} /></Pressable>
+                  </View>
+                )) : <Text style={styles.emptyRecent}>Your recent searches will appear here.</Text>}
               </View>
             ) : (
               <>
@@ -200,10 +252,19 @@ function makeStyles(colors: Colors) {
     backButton: { width: 36, height: 40, alignItems: "center", justifyContent: "center" },
     input: { flex: 1, minHeight: 44, color: colors.bone, fontSize: 15, paddingVertical: 0 },
     clearButton: { width: 26, height: 36, alignItems: "center", justifyContent: "center" },
+    voiceButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
     cameraButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
     cameraIconWrap: { width: 28, height: 28, alignItems: "center", justifyContent: "center", position: "relative" },
     cameraSparkle: { position: "absolute", top: -3, right: -4 },
     sectionTitle: { color: colors.bone, fontSize: 16, fontWeight: "800", marginTop: 24, marginBottom: 10 },
+    recentPanel: { marginTop: 8 },
+    recentHeadingRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    clearRecent: { color: colors.muted, fontSize: 12, fontWeight: "700", marginTop: 24, marginBottom: 10 },
+    recentRow: { minHeight: 52, flexDirection: "row", alignItems: "center", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
+    recentValue: { flex: 1, minHeight: 52, flexDirection: "row", alignItems: "center", gap: 11 },
+    recentText: { flex: 1, color: colors.bone, fontSize: 15, fontWeight: "600" },
+    removeRecent: { width: 36, height: 44, alignItems: "flex-end", justifyContent: "center" },
+    emptyRecent: { color: colors.muted, fontSize: 14, paddingVertical: 18 },
     trendingWrap: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
     trendingChip: { minHeight: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: `${colors.bone}35`, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
     trendingText: { color: colors.bone, fontSize: 13 },
