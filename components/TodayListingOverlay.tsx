@@ -728,7 +728,7 @@ export function TodayListingOverlay({
           ) : null}
           </View>
         </AnimatedScrollView>
-        <Animated.View pointerEvents="box-none" style={[styles.stickyFooter, stickyFooterStyle, { paddingBottom: insets.bottom + 10 }]}>
+        <Animated.View pointerEvents="auto" style={[styles.stickyFooter, stickyFooterStyle, { height: footerHeight, paddingBottom: insets.bottom + 10 }]}>
           {showTryOnHint ? (
             <View pointerEvents="none" style={styles.tryOnHint}>
               <View style={styles.tryOnHintCopy}>
@@ -1015,8 +1015,8 @@ function make(colors: Colors) {
     tryOnHintCopy: { flex: 1 },
     tryOnHintText: { color: colors.bone, fontSize: 14, lineHeight: 19, fontWeight: "800" },
     tryOnHintSubtext: { color: colors.muted, fontSize: 14, lineHeight: 19, marginTop: 2 },
-    stickyFooter: { position: "absolute", left: 0, right: 0, zIndex: 7, paddingHorizontal: 12, paddingTop: 10, backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}20` },
-    footerRow: { flexDirection: "row", gap: 8 },
+    stickyFooter: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 50, elevation: 50, paddingHorizontal: 12, paddingTop: 10, backgroundColor: colors.surface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}20` },
+    footerRow: { minHeight: 48, flexDirection: "row", gap: 8 },
     buyNowAction: { flex: 1, minHeight: 48, borderRadius: 24, paddingHorizontal: 8, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     buyNowText: { color: colors.successInk, fontSize: 16, fontWeight: "800" },
     primaryAction: { flex: 1, minHeight: 48, borderRadius: 24, paddingHorizontal: 8, backgroundColor: colors.pulse, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
