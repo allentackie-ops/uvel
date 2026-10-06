@@ -193,7 +193,7 @@ function ownerStyles(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
     content: { paddingBottom: 24 },
-    heroWrap: { height: Math.round(W * 1.05), backgroundColor: colors.surface, overflow: "hidden" },
+    heroWrap: { width: "100%", aspectRatio: 2 / 3, backgroundColor: colors.surface, overflow: "hidden" },
     heroScrim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.12)" },
     iconBtn: {
       position: "absolute",
