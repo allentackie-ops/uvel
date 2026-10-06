@@ -69,9 +69,10 @@ export function TodayListingOverlay({
   const customLook = piece.shopLook || brandRecord
     ? shopLookOf(piece.shopLook, brandRecord ? themeFor(brandRecord) : null)
     : null;
-  // Keep the popup on the same page as its listing card instead of falling
-  // back to the app's default black background.
-  const colors: Colors = customLook
+  // In dark mode, the listing page must use the same app-wide dark surfaces.
+  // Keep custom brand/listing styling only for light mode, where it is part of
+  // the editorial card treatment.
+  const colors: Colors = appearance === "light" && customLook
     ? {
         ...baseColors,
         ink: customLook.page,
