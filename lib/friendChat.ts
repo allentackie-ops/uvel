@@ -1,33 +1,28 @@
-import { collection, limit, onSnapshot, orderBy, query } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
-import { firebaseDb, firebaseFunctions, firebaseReady } from "./firebase";
+import { firebaseFunctions, firebaseReady } from "./firebase";
+import { pollSocial, socialCall } from "./supabaseSocial";
 import type { PublicUser } from "./friends";
 
 export type FriendMessage = { id: string; text: string; from: string; photoUrl?: string; createdAt?: unknown; status?: string };
 export type FriendChatPreview = { id: string; participantIds: string[]; lastText?: string; lastFrom?: string; lastAt?: unknown; unreadBy?: Record<string, number> };
 
 export async function listFriends() {
-  if (!firebaseReady()) return [] as PublicUser[];
-  const call = httpsCallable<undefined, { users: PublicUser[] }>(firebaseFunctions(), "listFriends");
-  return (await call(undefined)).data.users || [];
+  const result = await socialCall<{ users: PublicUser[] }>("list_friends");
+  return result.users || [];
 }
 
 export async function createFriendChat(otherUid: string) {
-  if (!firebaseReady()) throw new Error("Friend chat is unavailable offline.");
-  const call = httpsCallable<{ otherUid: string }, { conversationId: string }>(firebaseFunctions(), "createFriendChat");
-  return (await call({ otherUid })).data.conversationId;
+  const result = await socialCall<{ conversationId: string }>("create_chat", { otherUid });
+  return result.conversationId;
 }
 
 export async function sendFriendMessage(conversationId: string, text: string, photoUrl?: string) {
-  if (!firebaseReady()) throw new Error("Friend chat is unavailable offline.");
-  const call = httpsCallable<{ conversationId: string; text: string; photoUrl?: string }, { messageId: string }>(firebaseFunctions(), "sendFriendMessage");
-  return (await call({ conversationId, text, photoUrl })).data;
+  return socialCall<{ messageId: string }>("send_message", { conversationId, text, photoUrl: photoUrl || "" });
 }
 
 export async function listFriendChats() {
-  if (!firebaseReady()) return [] as FriendChatPreview[];
-  const call = httpsCallable<undefined, { chats: FriendChatPreview[] }>(firebaseFunctions(), "listFriendChats");
-  return (await call(undefined)).data.chats || [];
+  const result = await socialCall<{ chats: FriendChatPreview[] }>("list_chats");
+  return result.chats || [];
 }
 
 export async function uploadFriendAttachment(base64: string, contentType = "image/jpeg") {
@@ -37,17 +32,16 @@ export async function uploadFriendAttachment(base64: string, contentType = "imag
 }
 
 export async function blockFriend(blockedUid: string) {
-  const call = httpsCallable<{ blockedUid: string }, { blockedUid: string }>(firebaseFunctions(), "blockFriend");
-  return (await call({ blockedUid })).data;
+  return socialCall<{ blockedUid: string }>("block", { blockedUid });
 }
 
 export async function reportFriendConversation(conversationId: string, reason: string) {
-  const call = httpsCallable<{ conversationId: string; reason: string }, { reported: boolean }>(firebaseFunctions(), "reportFriendConversation");
-  return (await call({ conversationId, reason })).data;
+  return socialCall<{ reported: boolean }>("report", { conversationId, reason });
 }
 
 export function subscribeFriendMessages(conversationId: string, callback: (messages: FriendMessage[]) => void) {
-  if (!firebaseReady() || !conversationId) return () => undefined;
-  const q = query(collection(firebaseDb(), "friendChats", conversationId, "messages"), orderBy("createdAt", "asc"), limit(100));
-  return onSnapshot(q, (snap) => callback(snap.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Omit<FriendMessage, "id">) }))), () => callback([]));
+  return pollSocial(async () => {
+    const result = await socialCall<{ messages: FriendMessage[] }>("list_messages", { conversationId });
+    return result.messages || [];
+  }, callback, 2500);
 }
