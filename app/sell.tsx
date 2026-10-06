@@ -781,6 +781,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       country: listed.country || origin,
       backgroundKey: selectedBackground,
       photoStoragePaths: result.photoStoragePaths,
+      photoUrls: result.photos,
     }).catch(() => undefined);
     setDraftDisabled(true);
     void clearListingDraft();

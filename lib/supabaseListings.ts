@@ -47,6 +47,7 @@ export type MirrorListingInput = {
   backgroundKey?: string;
   aiAnalysis?: Record<string, unknown>;
   photoStoragePaths: string[];
+  photoUrls: string[];
 };
 
 export async function mirrorAcceptedFirebaseListing(input: MirrorListingInput) {
@@ -54,7 +55,10 @@ export async function mirrorAcceptedFirebaseListing(input: MirrorListingInput) {
   if (!user) return { ok: false, skipped: true } as const;
   const token = await user.getIdToken();
   const { data, error } = await requireSupabase().functions.invoke("firebase-listings-gateway", {
-    body: { listing: input, photos: input.photoStoragePaths },
+    body: {
+      listing: input,
+      photos: input.photoStoragePaths.map((path, index) => ({ path, url: input.photoUrls[index] || "" })),
+    },
     headers: { "x-firebase-id-token": token },
   });
   if (error) throw error;
