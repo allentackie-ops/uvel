@@ -222,7 +222,11 @@ export function TodayCommerceFeed({
         {[{ ...EDITORIAL[0], video: WE_THINK_CITY_LAYERS_AD }, { ...EDITORIAL[1], video: WE_THINK_OFF_DUTY_AD }, { ...EDITORIAL[2], video: WE_THINK_KNIT_NOW_AD }].map((item) => <Pressable key={item.title} onPress={onOpenSearch} style={[styles.editorTile, { backgroundColor: item.accent }]} accessibilityRole="button" accessibilityLabel={item.title}>
           <LoopingVideo source={item.video} style={styles.editorTileImage} />
           <View style={styles.editorTileShade} />
-          <Text style={styles.editorTileTitle}>{item.title}</Text><Text style={styles.editorTileSubtitle}>{item.subtitle}</Text><Text style={styles.tileArrow}>›</Text>
+          <View style={styles.editorTileTextPanel}>
+            <Text style={styles.editorTileTitle}>{item.title}</Text>
+            <Text style={styles.editorTileSubtitle}>{item.subtitle}</Text>
+          </View>
+          <Text style={styles.tileArrow}>›</Text>
         </Pressable>)}
       </View>
 
@@ -739,8 +743,9 @@ function make(colors: Colors) {
     editorTile: { flex: 1, minHeight: 154, borderRadius: 16, overflow: "hidden", padding: 10, justifyContent: "flex-end", shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
     editorTileImage: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, width: "100%", height: "100%", zIndex: 0 },
     editorTileShade: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(255,255,255,0.18)", zIndex: 1 },
-    editorTileTitle: { color: "#181714", fontSize: 15, lineHeight: 17, fontWeight: "900", zIndex: 2, textShadowColor: "rgba(255,255,255,0.42)", textShadowRadius: 5 },
-    editorTileSubtitle: { color: "#181714", fontSize: 11, lineHeight: 14, marginTop: 3, zIndex: 2, maxWidth: 90, textShadowColor: "rgba(255,255,255,0.42)", textShadowRadius: 4 },
+    editorTileTextPanel: { alignSelf: "flex-start", maxWidth: 122, backgroundColor: "#FFFFFF", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 6, zIndex: 2, shadowColor: "#000", shadowOpacity: 0.12, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+    editorTileTitle: { color: "#181714", fontSize: 14, lineHeight: 16, fontWeight: "900" },
+    editorTileSubtitle: { color: "#181714", fontSize: 10, lineHeight: 13, marginTop: 3 },
     tileArrow: { position: "absolute", right: 9, bottom: 8, color: "#181714", fontSize: 22, fontWeight: "900", zIndex: 3 },
     coralStrip: { minHeight: 82, height: 96, borderRadius: 16, backgroundColor: "transparent", overflow: "hidden", position: "relative", marginTop: 17 },
     coralStripVideo: { zIndex: 0 },
