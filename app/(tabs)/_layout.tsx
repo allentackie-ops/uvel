@@ -38,6 +38,7 @@ export default function TabsLayout() {
   const colors = useColors();
   const C = useCopy();
   const inactiveIcon = appearance === "dark" ? "#A9A398" : colors.muted;
+  const todayActiveColor = colors.link ?? colors.pulse;
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const pagerRef = useRef<PagerView>(null);
@@ -213,9 +214,9 @@ export default function TabsLayout() {
                       </View>
                     ) : null}
                     <View style={styles.iconSlot} accessibilityElementsHidden>
-                      <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={TAB_ICON_SIZE} color={active ? colors.success : inactiveIcon} />
+                      <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={TAB_ICON_SIZE} color={active ? (index === 0 ? todayActiveColor : colors.success) : inactiveIcon} />
                     </View>
-                    <Text style={[styles.label, { color: active ? colors.success : inactiveIcon }]}>{[C.today, C.create ?? "Create", C.you][index]}</Text>
+                    <Text style={[styles.label, { color: active ? (index === 0 ? todayActiveColor : colors.success) : inactiveIcon }]}>{[C.today, C.create ?? "Create", C.you][index]}</Text>
                   </Pressable>
                 );
               })}
