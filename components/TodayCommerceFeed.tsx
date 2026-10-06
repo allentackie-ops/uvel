@@ -29,9 +29,9 @@ const DEALS_MOTION_BANNER = require("../assets/today/deals-fun-motion-banner-cle
 const FINISHING_PIECES_POSTER = require("../assets/today/finishing-pieces-poster-03-pop-magazine.png");
 const MINIMAL_WITH_PRESENCE_BANNER = require("../assets/today/minimal-with-presence-banner-mockup-v8.png");
 const WE_THINK_EDITORIAL_HERO = require("../assets/today/we-think-editorial-hero.png");
-const WE_THINK_CITY_LAYERS = require("../assets/today/we-think-city-layers.png");
-const WE_THINK_OFF_DUTY = require("../assets/today/we-think-off-duty.png");
-const WE_THINK_KNIT_NOW = require("../assets/today/we-think-knit-now.png");
+const WE_THINK_CITY_LAYERS_AD = require("../assets/today/we-think-city-layers-ad.mp4");
+const WE_THINK_OFF_DUTY_AD = require("../assets/today/we-think-off-duty-ad.mp4");
+const WE_THINK_KNIT_NOW_AD = require("../assets/today/we-think-knit-now-ad.mp4");
 const TODAY_DEALS_RED = MARKET_RED;
 
 const EDITORIAL = [
@@ -218,8 +218,8 @@ export function TodayCommerceFeed({
         <Image source={WE_THINK_EDITORIAL_HERO} style={styles.editorImage} contentFit="cover" cachePolicy="memory-disk" transition={150} accessible={false} />
       </View>
       <View style={styles.editorTiles}>
-        {[{ ...EDITORIAL[0], image: WE_THINK_CITY_LAYERS }, { ...EDITORIAL[1], image: WE_THINK_OFF_DUTY }, { ...EDITORIAL[2], image: WE_THINK_KNIT_NOW }].map((item) => <Pressable key={item.title} onPress={onOpenSearch} style={[styles.editorTile, { backgroundColor: item.accent }]} accessibilityRole="button" accessibilityLabel={item.title}>
-          <Image source={item.image} style={styles.editorTileImage} contentFit="cover" cachePolicy="memory-disk" accessible={false} />
+        {[{ ...EDITORIAL[0], video: WE_THINK_CITY_LAYERS_AD }, { ...EDITORIAL[1], video: WE_THINK_OFF_DUTY_AD }, { ...EDITORIAL[2], video: WE_THINK_KNIT_NOW_AD }].map((item) => <Pressable key={item.title} onPress={onOpenSearch} style={[styles.editorTile, { backgroundColor: item.accent }]} accessibilityRole="button" accessibilityLabel={item.title}>
+          <EditorialTileVideo source={item.video} styles={styles} />
           <View style={styles.editorTileShade} />
           <Text style={styles.editorTileTitle}>{item.title}</Text><Text style={styles.editorTileSubtitle}>{item.subtitle}</Text><Text style={styles.tileArrow}>›</Text>
         </Pressable>)}
@@ -490,6 +490,23 @@ function EditorialPoster({ story, pieces, styles, staticAsset, videoAsset, video
   </View>;
 }
 
+function EditorialTileVideo({ source, styles }: { source: number; styles: ReturnType<typeof make> }) {
+  const player = useVideoPlayer(source, (instance) => {
+    instance.loop = true;
+    instance.muted = true;
+    instance.volume = 0;
+    instance.audioMixingMode = "mixWithOthers";
+    instance.play();
+  });
+  useEffect(() => {
+    player.loop = true;
+    player.muted = true;
+    player.volume = 0;
+    player.play();
+    return () => player.pause();
+  }, [player]);
+  return <VideoView player={player} pointerEvents="none" style={styles.editorTileImage} contentFit="cover" nativeControls={false} surfaceType="textureView" />;
+}
 function DealsMotionPoster({ source, color, styles, active }: { source: number; color: string; styles: ReturnType<typeof make>; active: boolean }) {
   const player = useVideoPlayer(source, (instance) => {
     instance.loop = true;
