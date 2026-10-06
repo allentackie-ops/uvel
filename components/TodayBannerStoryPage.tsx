@@ -78,7 +78,7 @@ function getHeaderForeground(background: string) {
 }
 
 function ProductSection({ title, pieces, color, market, colors, onOpenPiece }: { title: string; pieces: ClosetPiece[]; color: string; market: ReturnType<typeof getMarket>; colors: ReturnType<typeof useColors>; onOpenPiece: (piece: ClosetPiece, origin: BannerStoryOrigin) => void }) {
-  return <View style={styles.section}><View style={styles.sectionHeading}><Text style={[styles.sectionTitle, { color: colors.bone }]}>{title}</Text><Text style={[styles.seeAll, { color: colors.link ?? colors.pulse }]}>See all ›</Text></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productRow}>{pieces.map((piece) => <ProductCard key={piece.id} piece={piece} color={color} market={market} colors={colors} onOpenPiece={onOpenPiece} />)}</ScrollView></View>;
+  return <View style={styles.section}><View style={styles.sectionHeading}><Text style={[styles.sectionTitle, { color: colors.bone }]}>{title}</Text></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.productRow}>{pieces.map((piece) => <ProductCard key={piece.id} piece={piece} color={color} market={market} colors={colors} onOpenPiece={onOpenPiece} />)}</ScrollView></View>;
 }
 
 function ProductCard({ piece, color, market, colors, onOpenPiece }: { piece: ClosetPiece; color: string; market: ReturnType<typeof getMarket>; colors: ReturnType<typeof useColors>; onOpenPiece: (piece: ClosetPiece, origin: BannerStoryOrigin) => void }) {
@@ -102,9 +102,8 @@ const styles = StyleSheet.create({
   pageTitle: { fontSize: 27, lineHeight: 32, fontWeight: "900", paddingHorizontal: 18 },
   pageSubtitle: { fontSize: 14, lineHeight: 20, paddingHorizontal: 18, marginTop: 8, marginBottom: 22 },
   section: { marginTop: 8, marginBottom: 22 },
-  sectionHeading: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", paddingHorizontal: 18, marginBottom: 12 },
+  sectionHeading: { flexDirection: "row", alignItems: "baseline", paddingHorizontal: 18, marginBottom: 12 },
   sectionTitle: { fontSize: 21, fontWeight: "900" },
-  seeAll: { fontSize: 13, fontWeight: "800" },
   productRow: { paddingHorizontal: 18, gap: 12 },
   productCard: { width: 164, borderRadius: 12, overflow: "hidden", paddingBottom: 12 },
   productImageWrap: { width: 164, height: 178, position: "relative" },
