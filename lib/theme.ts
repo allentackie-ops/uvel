@@ -22,6 +22,8 @@ export type Colors = {
   neutralInk: string;
 };
 
+export const MARKET_RED = "#A52231";
+
 export const palettes: Record<"dark" | "light", Colors> = {
   dark: {
     ink: "#0B0D12",

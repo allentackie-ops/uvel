@@ -11,7 +11,7 @@ import { OrbitLoader } from "./OrbitLoader";
 import type { ClosetPiece } from "../lib/wardrobe";
 import { todayProductImage } from "../lib/todayProductImage";
 import type { Colors } from "../lib/theme";
-import { useColors } from "../lib/theme";
+import { MARKET_RED, useColors } from "../lib/theme";
 import { getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
 import { loadAddresses, setActiveAddress, type Address } from "../lib/orders";
@@ -32,7 +32,7 @@ const WE_THINK_EDITORIAL_HERO = require("../assets/today/we-think-editorial-hero
 const WE_THINK_CITY_LAYERS = require("../assets/today/we-think-city-layers.png");
 const WE_THINK_OFF_DUTY = require("../assets/today/we-think-off-duty.png");
 const WE_THINK_KNIT_NOW = require("../assets/today/we-think-knit-now.png");
-const TODAY_DEALS_RED = "#FF554D";
+const TODAY_DEALS_RED = MARKET_RED;
 
 const EDITORIAL = [
   { title: "City layers", subtitle: "Effortless polish", accent: "#D8C4AE" },
@@ -725,7 +725,7 @@ function make(colors: Colors) {
     dealFeaturePress: { paddingBottom: 9 },
     dealFeatureImageWrap: { height: 145, backgroundColor: "#4A594B", position: "relative" },
     dealFeatureImage: { width: "100%", height: "100%" },
-    dealFeatureBadge: { position: "absolute", left: 9, top: 9, zIndex: 3, minHeight: 27, borderRadius: 15, paddingHorizontal: 11, alignItems: "center", justifyContent: "center", backgroundColor: "#F86B59" },
+    dealFeatureBadge: { position: "absolute", left: 9, top: 9, zIndex: 3, minHeight: 27, borderRadius: 15, paddingHorizontal: 11, alignItems: "center", justifyContent: "center", backgroundColor: TODAY_DEALS_RED },
     dealFeatureBadgeText: { color: "#FFFFFF", fontSize: 10, fontWeight: "900", letterSpacing: 0.2 },
     dealFeatureHeart: { position: "absolute", right: 9, top: 8, zIndex: 3, width: 32, height: 32, alignItems: "center", justifyContent: "center" },
     dealFeatureMeta: { paddingHorizontal: 10, paddingTop: 9 },

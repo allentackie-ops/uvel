@@ -26,9 +26,11 @@ const POS_KEY = "uvel-today-cart-fab-pos-v2";
 
 export function TodayCartFab({
   listingOpen,
+  showWhileListing,
   onBeforeOpen,
 }: {
   listingOpen?: boolean;
+  showWhileListing?: boolean;
   onBeforeOpen?: () => void;
 }) {
   const colors = useColors();
@@ -44,13 +46,14 @@ export function TodayCartFab({
   const placed = useRef(false);
   const hadItems = useRef(false);
   const tabBar = 64 + Math.max(insets.bottom, 8);
+  const listingLift = listingOpen && showWhileListing ? 64 : 0;
   const trashBottom = tabBar + 18;
   const minX = PAD;
   const maxX = Math.max(PAD, width - PAD - FAB);
   const minY = insets.top + 8;
-  const maxY = Math.max(minY, height - tabBar - PAD - FAB);
+  const maxY = Math.max(minY, height - tabBar - PAD - FAB - listingLift);
   const defaultX = width - 16 - FAB;
-  const defaultY = height - (tabBar + 14) - FAB;
+  const defaultY = height - (tabBar + 14) - FAB - listingLift;
   const posX = useSharedValue(defaultX);
   const posY = useSharedValue(defaultY);
   const startX = useSharedValue(defaultX);
@@ -78,6 +81,12 @@ export function TodayCartFab({
     void AsyncStorage.getItem(POS_KEY)
       .then((raw) => {
         if (!live) return;
+        if (listingOpen && showWhileListing) {
+          posX.value = defaultX;
+          posY.value = Math.min(defaultY, maxY);
+          placed.current = false;
+          return;
+        }
         const saved = raw ? (JSON.parse(raw) as { x?: number; y?: number }) : null;
         if (typeof saved?.x === "number" && typeof saved?.y === "number") {
           posX.value = clamp(saved.x, minX, maxX);
@@ -92,7 +101,7 @@ export function TodayCartFab({
     return () => {
       live = false;
     };
-  }, [defaultX, defaultY, maxX, maxY, minX, minY, posX, posY]);
+  }, [defaultX, defaultY, listingOpen, maxX, maxY, minX, minY, posX, posY, showWhileListing]);
 
   useEffect(() => {
     if (placed.current || dropping.current) return;
@@ -102,7 +111,7 @@ export function TodayCartFab({
 
   useEffect(() => {
     if (dropping.current) return;
-    scale.value = withSpring(cart.count && !listingOpen ? 1 : 0, { damping: 16, stiffness: 260, mass: 0.7 });
+    scale.value = withSpring(cart.count && (!listingOpen || showWhileListing) ? 1 : 0, { damping: 16, stiffness: 260, mass: 0.7 });
     if (cart.count) {
       bump.value = withSequence(
         withSpring(1.12, { damping: 9, stiffness: 340 }),
@@ -112,7 +121,7 @@ export function TodayCartFab({
       armed.value = 0;
       hovering.value = 0;
     }
-  }, [armed, bump, cart.count, hovering, listingOpen, scale]);
+  }, [armed, bump, cart.count, hovering, listingOpen, scale, showWhileListing]);
 
   function openCart() {
     if (!cart.count || dropping.current) return;
@@ -266,7 +275,7 @@ export function TodayCartFab({
       </Animated.View>
       <GestureDetector gesture={gesture}>
         <Animated.View
-          pointerEvents={cart.count && !listingOpen ? "auto" : "none"}
+          pointerEvents={cart.count && (!listingOpen || showWhileListing) ? "auto" : "none"}
           style={[styles.wrap, { backgroundColor: colors.bone }, fabStyle]}
           accessibilityRole="button"
           accessibilityLabel={cart.count ? `Cart, ${cart.count} ${cart.count === 1 ? "item" : "items"}` : "Cart"}
