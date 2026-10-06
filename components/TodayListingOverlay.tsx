@@ -520,26 +520,29 @@ export function TodayListingOverlay({
           accessibilityRole="button"
           accessibilityLabel="Close listing details"
         />
-        <GestureDetector gesture={pan}>
         <Animated.View style={[styles.popup, { left: popupLeft, top: popupTop, width: popupWidth, height: sheetHeight }, pageStyle, sheetMotionStyle]}>
-          <View style={[styles.sheetHandleArea, { height: sheetHandleHeight }]}><View style={styles.sheetHandle} /></View>
-          <View style={[styles.modalHeader, { height: modalHeaderHeight }]}>
-            <Pressable onPress={closeToPin} hitSlop={8} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Back to listings">
-              <Ionicons name="arrow-back" size={22} color={colors.bone} />
-            </Pressable>
-            <View style={styles.searchBar}>
-              <Ionicons name="search-outline" size={17} color={colors.muted} />
-              <Text style={styles.searchBarText} numberOfLines={1}>Search or ask a question</Text>
-              <Ionicons name="camera-outline" size={18} color={colors.bone} />
-              <Ionicons name="mic-outline" size={18} color={colors.bone} />
+          <GestureDetector gesture={pan}>
+            <View>
+              <View style={[styles.sheetHandleArea, { height: sheetHandleHeight }]}><View style={styles.sheetHandle} /></View>
+              <View style={[styles.modalHeader, { height: modalHeaderHeight }]}>
+                <Pressable onPress={closeToPin} hitSlop={8} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Back to listings">
+                  <Ionicons name="arrow-back" size={22} color={colors.bone} />
+                </Pressable>
+                <View style={styles.searchBar}>
+                  <Ionicons name="search-outline" size={17} color={colors.muted} />
+                  <Text style={styles.searchBarText} numberOfLines={1}>Search or ask a question</Text>
+                  <Ionicons name="camera-outline" size={18} color={colors.bone} />
+                  <Ionicons name="mic-outline" size={18} color={colors.bone} />
+                </View>
+              </View>
+              <View style={[styles.productTabs, { height: productTabsHeight }]}>
+                <Text style={styles.productTabTop}>⌃{`\n`}Top</Text>
+                <Text style={[styles.productTab, styles.productTabActive]}>Details</Text>
+                <Text style={styles.productTab}>Explore</Text>
+                <Text style={styles.productTab}>Reviews</Text>
+              </View>
             </View>
-          </View>
-          <View style={[styles.productTabs, { height: productTabsHeight }]}>
-            <Text style={styles.productTabTop}>⌃{`\n`}Top</Text>
-            <Text style={[styles.productTab, styles.productTabActive]}>Details</Text>
-            <Text style={styles.productTab}>Explore</Text>
-            <Text style={styles.productTab}>Reviews</Text>
-          </View>
+          </GestureDetector>
         <AnimatedScrollView
           ref={scrollRef}
           style={[styles.popupScroll, { top: sheetHandleHeight + modalHeaderHeight + productTabsHeight, bottom: footerHeight + (showTryOnHint ? 74 : 0) }]}
@@ -770,7 +773,6 @@ export function TodayListingOverlay({
           </View>
         </Animated.View>
         </Animated.View>
-        </GestureDetector>
         <Animated.View pointerEvents="none" style={[styles.photo, photoStyle]}>
           <Animated.View style={[StyleSheet.absoluteFill, coverPhotoStyle]}>
             <Image cachePolicy="memory-disk" source={{ uri: originPhoto }} style={styles.hero} contentFit="cover" />
