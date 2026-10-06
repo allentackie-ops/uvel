@@ -71,17 +71,17 @@ async function localBase64(uri: string) {
   }
 }
 
-export async function submitPersonalListingForReview(input: PersonalListingReviewInput): Promise<PersonalListingReviewResult> {
+export async function uploadPersonalListingPhotos(listingId: string, photos: string[]): Promise<UploadResult[]> {
   if (!firebaseReady() || !firebaseAuth().currentUser) throw new Error("Sign in before submitting a listing for review.");
-  if (!input.photos.length || input.photos.length > 10) throw new Error("Add between 1 and 10 photos.");
+  if (!photos.length || photos.length > 10) throw new Error("Add between 1 and 10 photos.");
 
   const upload = httpsCallable<{ listingId: string; photoIndex: number; contentType: string; base64: string }, UploadResult>(
     firebaseFunctions(),
     "uploadPersonalListingAsset",
   );
-  const uploaded = await Promise.all(input.photos.map(async (uri, photoIndex) => {
+  return Promise.all(photos.map(async (uri, photoIndex) => {
     const result = await upload({
-      listingId: input.listingId,
+      listingId,
       photoIndex,
       contentType: contentTypeOf(uri),
       base64: await localBase64(uri),
@@ -89,9 +89,23 @@ export async function submitPersonalListingForReview(input: PersonalListingRevie
     if (!result.data?.url || !result.data?.path) throw new Error("A listing photo could not be uploaded.");
     return result.data;
   }));
+}
 
+export async function preparePersonalListingCutout(listingId: string, mediaPaths: string[]) {
+  if (!firebaseReady() || !firebaseAuth().currentUser) throw new Error("Sign in before preparing a listing.");
+  const prepare = httpsCallable<{ listingId: string; mediaPaths: string[] }, { cutoutPhoto: string; cutoutPhotoPath: string; cutoutStatus: "ready" }>(firebaseFunctions(), "preparePersonalListingCutout", { timeout: 180_000 });
+  const result = await prepare({ listingId, mediaPaths });
+  return result.data;
+}
+
+export async function submitPersonalListingForReview(input: PersonalListingReviewInput & { mediaPaths?: string[] }): Promise<PersonalListingReviewResult> {
+  if (!firebaseReady() || !firebaseAuth().currentUser) throw new Error("Sign in before submitting a listing for review.");
+  if (!input.photos.length || input.photos.length > 10) throw new Error("Add between 1 and 10 photos.");
+
+  const uploaded = input.mediaPaths?.length ? input.mediaPaths.map((path) => ({ path, url: "" })) : await uploadPersonalListingPhotos(input.listingId, input.photos);
   const listingFields = { ...input };
   delete (listingFields as Partial<PersonalListingReviewInput>).photos;
+  delete (listingFields as Partial<PersonalListingReviewInput & { mediaPaths?: string[] }>).mediaPaths;
   const submit = httpsCallable<SubmitPayload, PersonalListingReviewResult>(
     firebaseFunctions(),
     "submitPersonalListingForReview",

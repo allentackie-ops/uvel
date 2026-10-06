@@ -51,6 +51,7 @@ export type ClosetPiece = {
   shippingCarriers?: string[];
   shippingBuyerPays?: boolean;
   shopLook?: string;
+  studioBackgroundId?: string;
   likedBy?: Liker[];
   brandId?: string;
   listedByUid?: string;

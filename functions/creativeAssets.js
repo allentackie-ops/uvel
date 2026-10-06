@@ -2,6 +2,7 @@
 const admin = require('firebase-admin');
 const sharp = require('sharp');
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 
 if (!admin.apps.length) admin.initializeApp({ storageBucket: process.env.FIREBASE_STORAGE_BUCKET || 'uvel-32d32.firebasestorage.app' });
@@ -87,4 +88,29 @@ exports.processListingCreativeAsset = onDocumentWritten({
     await listingRef.set({ cutoutStatus: 'failed', creativeEligible: false, cutoutError: String(error?.message || error).slice(0, 240), updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
     throw error;
   }
+});
+
+exports.preparePersonalListingCutout = onCall({
+  secrets: [openaiImageSecret],
+  timeoutSeconds: 180,
+  memory: '1GiB',
+}, async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in before preparing a listing.');
+  const listingId = String(request.data?.listingId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80);
+  const mediaPaths = Array.isArray(request.data?.mediaPaths) ? request.data.mediaPaths.map(String).slice(0, 10) : [];
+  const firstPath = mediaPaths[0] || '';
+  const prefix = `personal-listings/${request.auth.uid}/${listingId}/`;
+  if (!listingId || !firstPath.startsWith(prefix) || firstPath.includes('..')) throw new HttpsError('invalid-argument', 'Listing photo ownership could not be verified.');
+  const bucket = admin.storage().bucket();
+  const inputFile = bucket.file(firstPath);
+  const [metadata] = await inputFile.getMetadata().catch(() => [null]);
+  if (!metadata || metadata.metadata?.ownerUid !== request.auth.uid || metadata.metadata?.listingId !== listingId) throw new HttpsError('permission-denied', 'Listing photo ownership could not be verified.');
+  const [bytes] = await inputFile.download();
+  if (!bytes.length || bytes.length > MAX_BYTES) throw new HttpsError('invalid-argument', 'Choose a smaller listing photo.');
+  const output = await makeCutout(bytes, openaiImageSecret.value());
+  const cutoutPath = `creative-previews/${request.auth.uid}/${listingId}/cutout.png`;
+  const cutoutFile = bucket.file(cutoutPath);
+  await cutoutFile.save(output, { resumable: false, metadata: { contentType: 'image/png', metadata: { listingId, assetType: 'transparent-product-cutout-preview' } } });
+  const [cutoutPhoto] = await cutoutFile.getSignedUrl({ action: 'read', expires: '2500-01-01' });
+  return { cutoutPhoto, cutoutPhotoPath: cutoutPath, cutoutStatus: 'ready' };
 });

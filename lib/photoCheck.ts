@@ -13,6 +13,7 @@ export type PhotoReview = {
   category: Category;
   color: string;
   conditionGuess: string;
+  sizeGuess: string;
   material: string;
   description: string;
   analysisStatus: "complete" | "unavailable";
@@ -73,7 +74,7 @@ async function reviewOnDeviceAi(uri: string, mode: "listing" | "founder") {
   const base64 = await new File(uri).base64();
   if (!base64) throw new Error("That photo is empty.");
   const model = getGenerativeModel(firebaseAi(), { model: "gemini-2.5-flash" });
-  const schema = mode === "founder" ? "{\"ok\":boolean,\"headline\":string,\"reasons\":string[]}" : "{\"ok\":boolean,\"score\":number,\"issues\":string[],\"tip\":string,\"title\":string,\"brand\":string,\"category\":string,\"color\":string,\"conditionGuess\":string,\"material\":string,\"description\":string}";
+  const schema = mode === "founder" ? "{\"ok\":boolean,\"headline\":string,\"reasons\":string[]}" : "{\"ok\":boolean,\"score\":number,\"issues\":string[],\"tip\":string,\"title\":string,\"brand\":string,\"category\":string,\"color\":string,\"conditionGuess\":string,\"sizeGuess\":string,\"material\":string,\"description\":string}";
   const prompt = mode === "founder"
     ? "You are the final Uvel Founder Studio gate, run only when the user presses Apply as a brand. Review this attached fashion photo, sketch, silhouette, or stylized design reference. Approve identifiable wearable fashion or a clear fashion design that could be manufactured. A dark background, typography, logo, monochrome styling, or abstract treatment is acceptable when it is clearly a fashion reference. Reject only unsafe content, ordinary screenshots/memes/receipts, unrelated graphics, or images too blurry/dark/cropped to judge. Return ONLY JSON matching " + schema + ". If approved, use headline This is the piece. and reasons []."
     : "Review this Uvel listing image. Approve wearable fashion and identifiable fashion sketches/design references. Reject unsafe content, ordinary screenshots/memes/receipts, unrelated graphics, or images too blurry/dark/cropped to judge. Return ONLY JSON matching " + schema + ".";
@@ -84,7 +85,7 @@ async function reviewOnDeviceAi(uri: string, mode: "listing" | "founder") {
 export async function reviewListingPhoto(uri: string): Promise<PhotoReview> {
   const parsed = await reviewOnDeviceAi(uri, "listing");
   const ok = parsed.ok === true;
-  return { ok, score: Math.max(1, Math.min(10, Number(parsed.score) || (ok ? 7 : 3))), issues: Array.isArray(parsed.issues) ? parsed.issues.map(String).filter(Boolean).slice(0, 2) : [], tip: String(parsed.tip ?? ""), title: String(parsed.title ?? ""), brand: String(parsed.brand ?? ""), category: asCat(parsed.category), color: String(parsed.color ?? ""), conditionGuess: String(parsed.conditionGuess ?? "Excellent"), material: String(parsed.material ?? ""), description: String(parsed.description ?? ""), analysisStatus: "complete" };
+  return { ok, score: Math.max(1, Math.min(10, Number(parsed.score) || (ok ? 7 : 3))), issues: Array.isArray(parsed.issues) ? parsed.issues.map(String).filter(Boolean).slice(0, 2) : [], tip: String(parsed.tip ?? ""), title: String(parsed.title ?? ""), brand: String(parsed.brand ?? ""), category: asCat(parsed.category), color: String(parsed.color ?? ""), conditionGuess: String(parsed.conditionGuess ?? "Excellent"), sizeGuess: String(parsed.sizeGuess ?? ""), material: String(parsed.material ?? ""), description: String(parsed.description ?? ""), analysisStatus: "complete" };
 }
 
 /** Lightweight preflight retained for verified-brand listings; personal listings use the trusted server review. */

@@ -447,21 +447,10 @@ async function submitPersonalListingForReviewHandler(req) {
     shopLook: shortText(req.data?.shopLook, 80),
     clipUri: shortText(req.data?.clipUri, 1000),
   };
-  const aiScores = [];
   const rejectionReasons = [];
   const duplicateListingId = await findActiveDuplicate(db, listingId, fingerprints);
   if (duplicateListingId) {
     rejectionReasons.push('This photo is an exact visual match to an image in an active listing. Please use original photos of your own item.');
-  }
-
-  if (!rejectionReasons.length && !anthropicKey) throw new HttpsError('failed-precondition', 'AI listing review is not configured yet. Nothing went live.');
-  if (!rejectionReasons.length) {
-    aiScores.push(...await cachedAiGeneratedScores(db, media, fingerprints, anthropicKey));
-    const flagged = aiScores.find((result) => rejectionAtThreshold(result.probability));
-    if (flagged) {
-      const probabilityPercent = Math.round(flagged.probability * 1000) / 10;
-      rejectionReasons.push(`Photo ${flagged.photoIndex + 1} may be AI-generated (Claude's visual estimate: ${probabilityPercent}%). Review noticed: ${flagged.evidence} Please use an original photo of the item.`);
-    }
   }
 
   let contentReview = { ok: true, headline: 'Clear to list.', reasons: [] };
@@ -494,7 +483,7 @@ async function submitPersonalListingForReviewHandler(req) {
     moderationHeadline: accepted ? 'Clear to list.' : (rejectionReasons[0] || contentReview.headline),
     moderationReasons: rejectionReasons.slice(0, 3),
     moderationCheckedAt: now,
-    aiGeneratedReview: { provider: AI_SCORE_PROVIDER, scoreType: 'uncalibrated visual estimate', thresholdPercent: 40, scores: aiScores, checkedAt: now },
+    aiGeneratedReview: { provider: 'not-run-camera-only', scoreType: 'camera-only capture flow', scores: [], checkedAt: now },
     duplicateImageFingerprints: fingerprints.map((fingerprint, i) => ({ ...fingerprint, sourceKey: `gs://${media[i].path}` })),
     duplicateFingerprintUpdatedAt: now,
     createdAt: existing?.createdAt || now,

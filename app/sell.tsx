@@ -29,7 +29,7 @@ import { takePendingListingPrice } from "../lib/listingPriceDraft";
 import { clearListingDraft, loadListingDraft, saveListingDraft } from "../lib/listingDraft";
 import { pickListingClip, pickListingPhotos, takeListingClip, takeListingPhoto } from "../lib/photo";
 import { reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
-import { submitPersonalListingForReview, type PersonalListingReviewResult } from "../lib/listingReview";
+import { preparePersonalListingCutout, submitPersonalListingForReview, uploadPersonalListingPhotos, type PersonalListingReviewResult } from "../lib/listingReview";
 import { encodeShipsTo, shipsToLabel, type ShipsTo } from "../lib/ships";
 import { carriersForCountry, loadSellerShippingSettings, shippingMethodLabel, type SellerShippingSettings } from "../lib/sellerShipping";
 import { SHOP_LOOKS, shopLookOf } from "../lib/shopLook";
@@ -47,6 +47,29 @@ const UVEL_ICON = require("../assets/icon.png");
 const COVER_W = 112;
 const COVER_H = 140;
 const ADD_W = 64;
+const MIN_NORMAL_PHOTOS = 3;
+const AI_CUTOUT_BACKGROUNDS = [
+  { id: "warm-studio", name: "Warm studio", color: "#E8DED0", accent: "#B89B7A" },
+  { id: "soft-sand", name: "Soft sand", color: "#D8C7AE", accent: "#8C7157" },
+  { id: "chalk-white", name: "Chalk white", color: "#F1EFE9", accent: "#C7C1B6" },
+  { id: "linen", name: "Natural linen", color: "#D9D2C4", accent: "#9B8E7D" },
+  { id: "pale-olive", name: "Pale olive", color: "#B8BEA1", accent: "#657052" },
+  { id: "sage", name: "Quiet sage", color: "#A9B5A3", accent: "#586B5A" },
+  { id: "moss", name: "Soft moss", color: "#7D886F", accent: "#3F4D3B" },
+  { id: "clay", name: "Sunbaked clay", color: "#C98F70", accent: "#8C4F39" },
+  { id: "terracotta", name: "Terracotta", color: "#B9684F", accent: "#743D30" },
+  { id: "blush", name: "Dusty blush", color: "#D9B4A8", accent: "#9A655C" },
+  { id: "rosewood", name: "Rosewood", color: "#875E59", accent: "#4D3332" },
+  { id: "powder-blue", name: "Powder blue", color: "#B4C8D1", accent: "#5C7A88" },
+  { id: "mist", name: "Morning mist", color: "#C5D0CD", accent: "#71827E" },
+  { id: "ink", name: "Soft ink", color: "#303536", accent: "#111718" },
+  { id: "charcoal", name: "Charcoal", color: "#4A4A46", accent: "#242522" },
+  { id: "espresso", name: "Espresso", color: "#5B4639", accent: "#30231E" },
+  { id: "midnight", name: "Midnight blue", color: "#394653", accent: "#202A34" },
+  { id: "paper", name: "Paper gray", color: "#D4D5D0", accent: "#8C908A" },
+  { id: "concrete", name: "Quiet concrete", color: "#B6B5AE", accent: "#6C6B65" },
+  { id: "mocha", name: "Light mocha", color: "#B89A86", accent: "#725A4B" },
+];
 // Personal seller listings must pass the server-side checks before publication.
 const SELL_VERIFICATION_ENABLED = true;
 const STAGES = [
@@ -116,7 +139,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const [was, setWas] = useState(
     existing?.originalPriceCents ? String(Math.round(existing.originalPriceCents / 100)) : "",
   );
-  const [fitsOpen, setFitsOpen] = useState(fits === "1");
+  const [fitsOpen, setFitsOpen] = useState(Boolean(existing && fits === "1"));
   const [shopLook, setShopLook] = useState(existing?.shopLook || "uvel");
   const [lookOpen, setLookOpen] = useState(false);
   const [fromPhoto, setFromPhoto] = useState<FromPhoto>({});
@@ -126,6 +149,11 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const [shippingSettings, setShippingSettings] = useState<SellerShippingSettings | null>(null);
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
+  const [selectedBackground, setSelectedBackground] = useState(AI_CUTOUT_BACKGROUNDS[0].id);
+  const [aiConfirmed, setAiConfirmed] = useState(false);
+  const [cutoutUri, setCutoutUri] = useState<string>();
+  const [cutoutStatus, setCutoutStatus] = useState<"idle" | "processing" | "ready" | "failed">("idle");
+  const cutoutBusy = useRef(false);
   const [newListingId, setNewListingId] = useState<string>();
   const [draftReady, setDraftReady] = useState(draftParam !== "1");
   const [draftDisabled, setDraftDisabled] = useState(false);
@@ -190,6 +218,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         setPrice(saved.price || "");
         setWas(saved.was || "");
         setShopLook(saved.shopLook || "uvel");
+        setSelectedBackground(saved.studioBackgroundId || AI_CUTOUT_BACKGROUNDS[0].id);
         setShipsTo(saved.shipsTo || encodeShipsTo(saved.origin || market.code, "home"));
         setShippingSettings((current) => current ? {
           ...current,
@@ -300,7 +329,10 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const warn = photos.find((p) => p.status === "warn");
   const checking = photos.some((p) => p.status === "checking");
   const hasPhoto = photos.length > 0;
-  const photoReadyForPricing = !SELL_VERIFICATION_ENABLED || photos.some((photo) => photo.review?.analysisStatus === "complete" && photo.review.ok);
+  const requiredPhotoCountReady = Boolean(existing || photos.length >= MIN_NORMAL_PHOTOS);
+  const allPhotosReviewed = photos.length >= MIN_NORMAL_PHOTOS && photos.every((photo) => photo.status === "ok" && photo.review?.analysisStatus === "complete");
+  const photoReadyForPricing = !SELL_VERIFICATION_ENABLED || Boolean(existing || (requiredPhotoCountReady && allPhotosReviewed));
+  const aiStudioReady = Boolean(!existing && allPhotosReviewed);
   const hasTitle = Boolean(name.trim());
   const hasNotes = Boolean(notes.trim());
   const hasPrice = Number(price) > 0;
@@ -311,7 +343,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const hasCond = Boolean(condition);
   const photoQualityReady = Boolean(hasPhoto && (existing || (cover?.status === "ok" && photoReadyForPricing)));
   const steps = [
-    { key: "photo", done: hasPhoto && !checking, label: checking ? "Checking photos…" : "Add a photo" },
+    { key: "photo", done: requiredPhotoCountReady && !checking, label: checking ? "Checking photos…" : `Take ${MIN_NORMAL_PHOTOS} photos` },
     { key: "title", done: hasTitle, label: "Add a title" },
     { key: "notes", done: hasNotes, label: "Add a description" },
     { key: "category", done: hasCat, label: "Pick a category" },
@@ -322,15 +354,16 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     { key: "price", done: hasPrice, label: "Add a price" },
   ] as const;
   const nextStep = steps.find((step) => !step.done);
-  const canList = !nextStep && gate.phase === "idle";
+  const canList = !nextStep && gate.phase === "idle" && (Boolean(existing) || aiConfirmed);
   const progress = steps.filter((step) => step.done).length;
   const ph = colors.muted;
-  const ctaLabel = nextStep?.label ?? "Complete";
-  const ctaReady = gate.phase === "idle" && !checking;
+  const ctaLabel = nextStep?.label ?? (aiConfirmed || existing ? "Complete" : "Review AI listing above");
+  const ctaReady = gate.phase === "idle" && !checking && (Boolean(nextStep) || canList);
 
   useEffect(() => {
-    if (!existing && photos.length === 1 && photos[0].status === "ok" && photos[0].review) {
-      const r = photos[0].review;
+    if (!existing && aiStudioReady) {
+      const r = photos.find((photo) => photo.review)?.review;
+      if (!r) return;
       const next: FromPhoto = {};
       if (!name && r.title) {
         setName(r.title);
@@ -352,9 +385,31 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         setMaterial(r.material);
         next.material = true;
       }
+      if (!condition && r.conditionGuess) {
+        setCondition(r.conditionGuess);
+      }
+      if (!size && r.sizeGuess) {
+        setSize(r.sizeGuess);
+      }
       if (Object.keys(next).length) setFromPhoto((prev) => ({ ...prev, ...next }));
     }
-  }, [photos]);
+  }, [aiStudioReady, existing?.id, photos]);
+
+  useEffect(() => {
+    if (existing || !aiStudioReady || cutoutUri || cutoutBusy.current) return;
+    cutoutBusy.current = true;
+    setCutoutStatus("processing");
+    const listingId = newListingId || `w-${Date.now().toString(36)}`;
+    if (!newListingId) setNewListingId(listingId);
+    void uploadPersonalListingPhotos(listingId, photos.map((photo) => photo.uri))
+      .then((uploaded) => preparePersonalListingCutout(listingId, uploaded.map((item) => item.path)))
+      .then((prepared) => {
+        setCutoutUri(prepared.cutoutPhoto);
+        setCutoutStatus("ready");
+      })
+      .catch(() => setCutoutStatus("failed"))
+      .finally(() => { cutoutBusy.current = false; });
+  }, [aiStudioReady, cutoutUri, existing?.id, newListingId, photos]);
 
   useEffect(() => {
     if (gate.phase !== "review") return;
@@ -406,6 +461,10 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   function choosePhoto() {
     if (photos.length >= MAX) return;
     Keyboard.dismiss();
+    if (!existing) {
+      void fromCamera();
+      return;
+    }
     const hasFits = wardrobeUris.length > 0;
     if (Platform.OS === "ios") {
       const options = hasFits ? ["Camera", "Library", "From your fits", "Cancel"] : ["Camera", "Library", "Cancel"];
@@ -619,6 +678,10 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
 
   async function publish() {
     if (!canList) return;
+    if (!existing && photos.length < MIN_NORMAL_PHOTOS) {
+      Alert.alert("Take three photos first", `Normal listings need at least ${MIN_NORMAL_PHOTOS} in-person camera photos before Uvel can create the listing.`);
+      return;
+    }
     const uris = photos.map((p) => p.uri);
     const listingId = existing?.id || newListingId || `w-${Date.now().toString(36)}`;
     if (!existing?.id && !newListingId) setNewListingId(listingId);
@@ -644,6 +707,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       shippingCarriers: shippingCarrierIds,
       shippingBuyerPays,
       shopLook,
+      studioBackgroundId: selectedBackground,
     };
     const face = avatarUri || existing?.ownerPhoto;
     const listed = {
@@ -865,6 +929,39 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             ) : null}
           </ScrollView>
 
+          {!existing ? (
+            <View style={styles.aiStudio}>
+              <View style={styles.aiStudioHeader}>
+                <View style={styles.aiStudioIcon}><Ionicons name="sparkles" size={18} color={colors.ink} /></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.aiStudioTitle}>{aiStudioReady ? "Your listing is ready to review" : "AI listing studio"}</Text>
+                  <Text style={styles.aiStudioBody}>{aiStudioReady ? "We identified the piece and drafted the details. Choose a clean background, then confirm." : `Take ${MIN_NORMAL_PHOTOS} clear photos in person. Uvel will identify the item and draft the listing.`}</Text>
+                </View>
+              </View>
+              {aiStudioReady && previewPhoto ? (
+                <>
+                  <View style={[styles.cutoutPreview, { backgroundColor: AI_CUTOUT_BACKGROUNDS.find((item) => item.id === selectedBackground)?.color || "#E8DED0" }]}>
+                    <Image source={{ uri: cutoutUri || previewPhoto.uri }} style={styles.cutoutImage} contentFit="contain" accessibilityLabel="AI product cutout preview" />
+                    <View style={styles.cutoutBadge}><Ionicons name={cutoutStatus === "ready" ? "sparkles" : "sync-outline"} size={13} color={colors.ink} /><Text style={styles.cutoutBadgeText}>{cutoutStatus === "ready" ? "Clean cutout ready" : cutoutStatus === "processing" ? "Generating cutout…" : "Cutout needs another try"}</Text></View>
+                  </View>
+                  <Text style={styles.backgroundLabel}>Choose a background · {AI_CUTOUT_BACKGROUNDS.length} natural options</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.backgroundRail}>
+                    {AI_CUTOUT_BACKGROUNDS.map((background) => (
+                      <AccessiblePressable key={background.id} onPress={() => { setSelectedBackground(background.id); setAiConfirmed(false); }} style={[styles.backgroundChoice, selectedBackground === background.id && styles.backgroundChoiceOn]} accessibilityRole="button" accessibilityLabel={`Use ${background.name} background`} accessibilityState={{ selected: selectedBackground === background.id }}>
+                        <View style={[styles.backgroundSwatch, { backgroundColor: background.color }, selectedBackground === background.id && { borderColor: colors.success }]}><View style={[styles.backgroundDot, { backgroundColor: background.accent }]} /></View>
+                        <Text style={styles.backgroundName} numberOfLines={1}>{background.name}</Text>
+                      </AccessiblePressable>
+                    ))}
+                  </ScrollView>
+                  <AccessiblePressable disabled={cutoutStatus !== "ready"} onPress={() => { setAiConfirmed((confirmed) => !confirmed); setOpenSection("describe"); }} style={[styles.aiConfirm, aiConfirmed && styles.aiConfirmOn, cutoutStatus !== "ready" && { opacity: 0.5 }]} accessibilityRole="checkbox" accessibilityState={{ checked: aiConfirmed, disabled: cutoutStatus !== "ready" }}>
+                    <Ionicons name={aiConfirmed ? "checkmark-circle" : "ellipse-outline"} size={22} color={aiConfirmed ? colors.success : colors.subtle} />
+                    <View style={{ flex: 1 }}><Text style={styles.aiConfirmTitle}>{aiConfirmed ? "Listing reviewed" : "I reviewed the AI listing"}</Text><Text style={styles.aiConfirmBody}>I’ll check the suggested details below before posting.</Text></View>
+                  </AccessiblePressable>
+                </>
+              ) : null}
+            </View>
+          ) : null}
+
           <Text style={styles.photosLabel}>In motion</Text>
           {clipUri ? (
             <View style={styles.clipRow}>
@@ -909,7 +1006,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             </AccessiblePressable>
           )}
 
-          {fitsOpen && wardrobeUris.length ? (
+          {existing && fitsOpen && wardrobeUris.length ? (
             <View style={styles.picker}>
               <View style={styles.fitHead}>
                 <Text style={styles.fitLbl}>From your fits</Text>
@@ -1350,6 +1447,26 @@ function make(colors: Colors) {
     photoCheck: { ...StyleSheet.absoluteFill, backgroundColor: `${colors.success}85`, alignItems: "center", justifyContent: "center" },
     photoX: { position: "absolute", top: 6, right: 6, width: 28, height: 28, borderRadius: 14, backgroundColor: `${colors.ink}CC`, alignItems: "center", justifyContent: "center" },
     photoXTxt: { color: colors.bone, fontSize: 16, lineHeight: 18, fontWeight: "700", marginTop: -1 },
+    aiStudio: { marginHorizontal: 20, marginTop: 16, padding: 14, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.success}55`, gap: 12 },
+    aiStudioHeader: { flexDirection: "row", alignItems: "center", gap: 11 },
+    aiStudioIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    aiStudioTitle: { color: colors.bone, fontSize: 16, fontWeight: "800" },
+    aiStudioBody: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 3 },
+    cutoutPreview: { height: 260, borderRadius: 16, overflow: "hidden", alignItems: "center", justifyContent: "center", position: "relative" },
+    cutoutImage: { width: "88%", height: "92%" },
+    cutoutBadge: { position: "absolute", left: 10, bottom: 10, height: 28, borderRadius: 14, paddingHorizontal: 10, backgroundColor: `${colors.bone}E8`, flexDirection: "row", alignItems: "center", gap: 5 },
+    cutoutBadgeText: { color: colors.ink, fontSize: 11, fontWeight: "800" },
+    backgroundLabel: { color: colors.bone, fontSize: 13, fontWeight: "800", marginTop: 2 },
+    backgroundRail: { gap: 8, paddingBottom: 2 },
+    backgroundChoice: { width: 78, gap: 5, opacity: 0.72 },
+    backgroundChoiceOn: { opacity: 1 },
+    backgroundSwatch: { height: 58, borderRadius: 12, borderWidth: 2, borderColor: "transparent", alignItems: "center", justifyContent: "center" },
+    backgroundDot: { width: 18, height: 18, borderRadius: 9, opacity: 0.72 },
+    backgroundName: { color: colors.muted, fontSize: 10, textAlign: "center" },
+    aiConfirm: { minHeight: 62, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: `${colors.ink}55`, flexDirection: "row", alignItems: "center", gap: 10 },
+    aiConfirmOn: { borderWidth: 1, borderColor: `${colors.success}88`, backgroundColor: `${colors.success}12` },
+    aiConfirmTitle: { color: colors.bone, fontSize: 13, fontWeight: "800" },
+    aiConfirmBody: { color: colors.muted, fontSize: 11, marginTop: 3 },
     unverifiedDot: {
       position: "absolute",
       right: 8,
