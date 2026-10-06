@@ -1,11 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "../../lib/haptics";
 import { router, usePathname } from "expo-router";
-import PagerView, { type PagerViewOnPageSelectedEvent } from "react-native-pager-view";
+import PagerView, { type PagerViewOnPageScrollEvent, type PagerViewOnPageSelectedEvent } from "react-native-pager-view";
 import { useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { interpolate, useAnimatedStyle } from "react-native-reanimated";
+import Animated, { interpolate, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { Drawer, DrawerGestureContext, useDrawerProgress } from "react-native-drawer-layout";
 import { TodayToolsDrawer } from "../../components/TodayToolsDrawer";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -47,6 +47,9 @@ export default function TabsLayout() {
   const [listingOpen, setListingOpen] = useState(false);
   const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
   const longPressRef = useRef(false);
+  const tabProgress = useSharedValue(pageIndex);
+  const tabWidth = (SCREEN_W - TAB_BAR_HORIZONTAL_PADDING * 2) / ROUTES.length;
+  const dashStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tabProgress.value * tabWidth }] }));
 
   function openSettings() {
     if (open) setOpen(false);
@@ -77,8 +80,9 @@ export default function TabsLayout() {
     if (pageIndex === SETTINGS_INDEX && next === 2 && pathname === "/you") return;
     if (next === pageIndex) return;
     setPageIndex(next);
+    tabProgress.value = next;
     pagerRef.current?.setPageWithoutAnimation(next);
-  }, [pathname, pageIndex]);
+  }, [pageIndex, pathname, tabProgress]);
 
   useEffect(() => {
     if (tooltipIndex === null) return;
@@ -93,6 +97,7 @@ export default function TabsLayout() {
     if (open) setOpen(false);
     if (tabIndex === pageIndex) return;
     setPageIndex(tabIndex);
+    tabProgress.value = withTiming(tabIndex, { duration: 240 });
     pagerRef.current?.setPage(tabIndex);
     const route = ROUTES[tabIndex];
     if (route) router.navigate(route);
@@ -118,9 +123,14 @@ export default function TabsLayout() {
     const next = event.nativeEvent.position;
     if (next === pageIndex) return;
     setPageIndex(next);
+    tabProgress.value = withTiming(next, { duration: 220 });
     void Haptics.selectionAsync().catch(() => undefined);
     const route = ROUTES[next];
     if (route && route !== pathname) router.navigate(route);
+  }
+
+  function onPageScroll(event: PagerViewOnPageScrollEvent) {
+    tabProgress.value = event.nativeEvent.position + event.nativeEvent.offset;
   }
 
   function closeDrawer() {
@@ -175,6 +185,7 @@ export default function TabsLayout() {
             pagerRef={pagerRef}
             pageIndex={pageIndex}
             onPageSelected={onPageSelected}
+            onPageScroll={onPageScroll}
             scrollEnabled={!open}
           >
             {tabs.map(({ key, screen }) => (
@@ -193,6 +204,7 @@ export default function TabsLayout() {
           ) : null}
           <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]} pointerEvents={open ? "none" : "auto"}>
             <View style={[styles.bar, { backgroundColor: colors.ink }]}>
+              <Animated.View pointerEvents="none" style={[styles.activeDash, { left: TAB_BAR_HORIZONTAL_PADDING + (tabWidth - 30) / 2 }, dashStyle, { backgroundColor: colors.success }]} />
               {ROUTES.map((_, index) => {
                 const active = pageIndex === index;
                 return (
@@ -216,7 +228,6 @@ export default function TabsLayout() {
                     <View style={styles.iconSlot} accessibilityElementsHidden>
                       <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={TAB_ICON_SIZE} color={active ? (index === 0 ? todayActiveColor : colors.success) : inactiveIcon} />
                     </View>
-                    <Text style={[styles.label, { color: active ? (index === 0 ? todayActiveColor : colors.success) : inactiveIcon }]}>{[C.today, C.create ?? "Create", C.you][index]}</Text>
                   </Pressable>
                 );
               })}
@@ -253,12 +264,14 @@ function DrawerAwarePager({
   pagerRef,
   pageIndex,
   onPageSelected,
+  onPageScroll,
   scrollEnabled,
 }: {
   children: ReactNode;
   pagerRef: RefObject<PagerView | null>;
   pageIndex: number;
   onPageSelected: (event: PagerViewOnPageSelectedEvent) => void;
+  onPageScroll: (event: PagerViewOnPageScrollEvent) => void;
   scrollEnabled: boolean;
 }) {
   const drawerGesture = useContext(DrawerGestureContext);
@@ -275,6 +288,7 @@ function DrawerAwarePager({
         style={styles.pager}
         initialPage={pageIndex}
         onPageSelected={onPageSelected}
+        onPageScroll={onPageScroll}
         overScrollMode="never"
         pageMargin={0}
         scrollEnabled={scrollEnabled}
@@ -312,11 +326,11 @@ const styles = StyleSheet.create({
   cardHit: { ...StyleSheet.absoluteFill, zIndex: 5 },
   tooltipDismiss: { ...StyleSheet.absoluteFill, zIndex: 2 },
   barWrap: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 0, paddingTop: 4, backgroundColor: "#000000", zIndex: 3 },
-  bar: { minHeight: 60, borderRadius: 0, borderWidth: 0, backgroundColor: "#000000", flexDirection: "row", alignItems: "center", paddingHorizontal: 10 },
+  bar: { minHeight: 60, borderRadius: 0, borderWidth: 0, backgroundColor: "#000000", flexDirection: "row", alignItems: "center", paddingHorizontal: 10, position: "relative" },
   tab: { flex: 1, minHeight: 52, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 3 },
   tabPressed: { opacity: 0.76 },
   iconSlot: { width: 28, height: 28, alignItems: "center", justifyContent: "center" },
-  label: { color: "#A9A398", fontSize: 11, fontWeight: "700" },
+  activeDash: { position: "absolute", bottom: 3, width: 30, height: 3, borderRadius: 2, zIndex: 4 },
   tooltip: {
     position: "absolute",
     bottom: 57,
