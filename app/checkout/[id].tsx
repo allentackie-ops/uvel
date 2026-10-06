@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useStripe } from "@stripe/stripe-react-native";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   ScrollView,
@@ -64,6 +64,7 @@ export default function Checkout() {
     promotionId,
     campaignChannel,
     offerId: offerIdParam,
+    applePay: applePayParam,
   } = useLocalSearchParams<{
     id: string;
     ids?: string | string[];
@@ -74,7 +75,9 @@ export default function Checkout() {
     promotionId?: string;
     campaignChannel?: string;
     offerId?: string;
+    applePay?: string;
   }>();
+  const autoPresentApplePay = applePayParam === "1";
   const acceptedOfferId = typeof offerIdParam === "string" ? offerIdParam : "";
   const checkoutIds = useMemo(() => {
     const supplied = Array.isArray(idsParam)
@@ -102,14 +105,14 @@ export default function Checkout() {
   const [address, setAddress] = useState<Address | null>(null);
   const [ship, setShip] = useState<"standard" | "express">("standard");
   const [carrierId, setCarrierId] = useState("");
-  const [pay, setPay] = useState(methods[0]?.id ?? "apple");
+  const [pay, setPay] = useState(autoPresentApplePay ? "apple" : methods[0]?.id ?? "apple");
   useEffect(() => {
     let live = true;
     void loadLastPaymentMethod(market.code).then((last) => {
-      if (live && last && methods.some((method) => method.id === last)) setPay(last);
+      if (live && !autoPresentApplePay && last && methods.some((method) => method.id === last)) setPay(last);
     });
     return () => { live = false; };
-  }, [market.code]);
+  }, [autoPresentApplePay, market.code]);
   const [payOpen, setPayOpen] = useState(false);
   const [paying, setPaying] = useState(false);
   const [feeInfo, setFeeInfo] = useState(false);
@@ -123,6 +126,7 @@ export default function Checkout() {
   const [promotionMessage, setPromotionMessage] = useState("");
   const [acceptedOffer, setAcceptedOffer] = useState<ListingOffer | null>(null);
   const [offerLoading, setOfferLoading] = useState(Boolean(acceptedOfferId));
+  const autoPresentStarted = useRef(false);
 
   useEffect(() => {
     if (!acceptedOfferId) {
@@ -250,8 +254,6 @@ export default function Checkout() {
       setCarrierId(carrierOptions[0].id);
   }, [carrierOptions.map((carrier) => carrier.id).join(",")]);
 
-  if (checkoutIds.length > 1) return <GroupedCheckout ids={checkoutIds} />;
-
   async function applyPromotion() {
     if (!piece || promotionBusy) return;
     const code = promotionCode.trim().toUpperCase();
@@ -290,36 +292,23 @@ export default function Checkout() {
     }
   }
 
-  if (!piece) {
-    return (
-      <View
-        style={[
-          styles.page,
-          { paddingTop: insets.top + 24, paddingHorizontal: 20 },
-        ]}
-      >
-        <Text style={{ color: colors.muted }}>That listing isn’t here.</Text>
-      </View>
-    );
-  }
-
-  const variantTracked = Boolean(piece.brandId && piece.sizeStock);
+  const variantTracked = Boolean(piece?.brandId && piece?.sizeStock);
   const selectedStock =
-    selectedVariant && piece.sizeStock
+    selectedVariant && piece?.sizeStock
       ? piece.sizeStock[selectedVariant]
-      : piece.stockQuantity;
+      : piece?.stockQuantity;
   const inventoryAvailable =
     !variantTracked || (typeof selectedStock === "number" && selectedStock > 0);
   const needsVariant =
     variantTracked &&
-    Boolean(piece.sizes?.length || piece.size) &&
+    Boolean(piece?.sizes?.length || piece?.size) &&
     !selectedVariant;
   const ready =
     Boolean(address) &&
     addressOk &&
     sellsHere &&
     !paying &&
-    piece.status === "listed" &&
+    piece?.status === "listed" &&
     inventoryAvailable &&
     !needsVariant &&
     (!acceptedOfferId || (!offerLoading && acceptedOfferReady));
@@ -481,6 +470,27 @@ export default function Checkout() {
     } finally {
       setPaying(false);
     }
+  }
+
+  useEffect(() => {
+    if (!autoPresentApplePay || autoPresentStarted.current || !ready || paying || method?.kind !== "apple") return;
+    autoPresentStarted.current = true;
+    void payNow();
+  }, [autoPresentApplePay, method?.kind, paying, ready]);
+
+  if (checkoutIds.length > 1) return <GroupedCheckout ids={checkoutIds} />;
+
+  if (!piece) {
+    return (
+      <View
+        style={[
+          styles.page,
+          { paddingTop: insets.top + 24, paddingHorizontal: 20 },
+        ]}
+      >
+        <Text style={{ color: colors.muted }}>That listing isn’t here.</Text>
+      </View>
+    );
   }
 
   return (

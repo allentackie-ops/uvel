@@ -59,7 +59,7 @@ export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly
   const currentPhoto = gallery[Math.min(activePhoto, gallery.length - 1)] || piece.photo;
   const sharePayload: FriendSharePayload = { kind: "listing", id: piece.id, title: piece.name, deepLink: `uvel://piece/${piece.id}`, imageUri: piece.photo, previewText: `Have a look at ${piece.name} on Uvel.` };
   const sizes = piece.sizes?.length ? piece.sizes : [piece.size || "One size"];
-  const buyNow = () => { if (!previewOnly) router.push({ pathname: "/checkout/[id]", params: { id: piece.id } }); };
+  const buyNow = () => { if (!previewOnly) router.push({ pathname: "/checkout/[id]", params: { id: piece.id, ...(paymentMethod?.kind === "apple" ? { applePay: "1" } : {}) } }); };
   const addItem = () => { if (previewOnly || inBag) return; addToCart(piece.id); void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined); };
   const toggleSaved = () => { app.toggleSaved(piece.id); onInteraction?.("save", piece); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); };
   const saveFromPhotoDoubleTap = () => { if (!app.saved.includes(piece.id)) { app.toggleSaved(piece.id); onInteraction?.("save", piece); } void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); };
