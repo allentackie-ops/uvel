@@ -131,6 +131,9 @@ export function TodayCommerceFeed({
   };
   const activeAddress = addresses[0];
   const firstName = (activeAddress?.name || app.displayName || "you").trim().split(/\s+/)[0];
+  const deliveryLabel = activeAddress
+    ? `Deliver to ${firstName}${activeAddress.city || activeAddress.postal ? ` - ${[activeAddress.city, activeAddress.postal].filter(Boolean).join(", ")}` : ""}`
+    : "Add delivery address";
   const openLocation = () => {
     void loadAddresses().then(setAddresses);
     setLocationOpen(true);
@@ -178,9 +181,9 @@ export function TodayCommerceFeed({
         <AccessiblePressable onPress={onOpenTools} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open Today tools">
           <View style={styles.menuIcon}><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View>
         </AccessiblePressable>
-        <AccessiblePressable onPress={openLocation} style={styles.locationButton} accessibilityRole="button" accessibilityLabel={activeAddress ? `Deliver to ${firstName}` : "Add a delivery address"} accessibilityHint="Open saved delivery addresses">
+        <AccessiblePressable onPress={openLocation} style={styles.locationButton} accessibilityRole="button" accessibilityLabel={deliveryLabel} accessibilityHint="Open saved delivery addresses">
           <Ionicons name="location-outline" size={16} color={colors.bone} />
-          <Text style={styles.locationText} numberOfLines={1}>{activeAddress ? `Deliver to ${firstName}` : "Add delivery address"}</Text>
+          <Text style={styles.locationText} numberOfLines={1}>{deliveryLabel}</Text>
         </AccessiblePressable>
         <View style={styles.headerActions}>
           <AccessiblePressable onPress={onOpenSearch} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Search Uvel"><Ionicons name="search-outline" size={24} color={colors.bone} /></AccessiblePressable>
