@@ -10,15 +10,17 @@ Non-US checkout paths continue to use the existing provider routing. The existin
 
 ## Required configuration before live use
 
-Set these Firebase Secret Manager secrets before deploying Functions:
+For the Supabase checkout gateway, set these Edge Function secrets in the Uvel Supabase project before accepting payments:
 
-- `STRIPE_SECRET`: Stripe live secret key for the Uvel platform.
-- `STRIPE_WEBHOOK_SECRET`: signing secret for the production Connect webhook endpoint.
+- `STRIPE_SECRET_KEY`: Stripe live secret key for the Uvel platform. The deployed `firebase-checkout-gateway` reads this server-side only.
+- `STRIPE_WEBHOOK_SECRET`: signing secret for the production webhook handler. Keep this server-side only; it is not read by the mobile app.
 - Existing Paystack secrets remain required for the non-US Paystack paths.
 
-Set this GitHub Actions repository secret before the native build or OTA publish:
+Set this GitHub Actions repository secret before the native build or any OTA publish workflow:
 
-- `STRIPE_PUBLISHABLE_KEY`: Stripe publishable key. The Expo build receives it as `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` and exposes it through `extra.payments.stripePk`. A publishable key is safe to ship in the client; the secret key is not.
+- `STRIPE_PUBLISHABLE_KEY`: Stripe publishable key. Workflows pass it as `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY`; `app.config.js` exposes it through `extra.payments.stripePk`, which initializes `StripeProvider` and PaymentSheet. A publishable key is safe to ship in the client; the secret and webhook keys are not.
+
+The mobile app calls the deployed `firebase-checkout-gateway` at `https://cidmigrozwakdreeqhox.supabase.co/functions/v1/firebase-checkout-gateway` through the Supabase client. It authenticates each request with the signed-in Firebase ID token in `x-firebase-id-token`; Stripe secret and webhook values never cross that client boundary.
 
 The Stripe platform must have Connect enabled, Uvel's branding configured, the US business profile completed, and a production webhook endpoint pointed at the deployed `stripeWebhook` Firebase function. Subscribe the endpoint to account, payment, transfer, payout, and refund events used by `functions/index.js` and `functions/stripeConnect.js`.
 
