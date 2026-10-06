@@ -543,7 +543,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const heroOffset = scrollY.interpolate({ inputRange: [-180, 0], outputRange: [-180, 0], extrapolateLeft: "extend", extrapolateRight: "clamp" });
   const searchBar = (
     <View style={styles.search}>
-      <Text style={styles.searchIcon} accessible={false}>⌕</Text>
+      <Ionicons name="search-outline" size={20} color={colors.muted} accessible={false} />
       <TextInput
         accessibilityLabel={scanningLook ? C.narrowThisLook : C.searchListings}
         placeholder={scanningLook ? C.narrowThisLook : C.searchListed}
@@ -566,6 +566,16 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
         </AccessiblePressable>
       ) : null}
       <AccessiblePressable
+        onPress={() => router.push("/search")}
+        hitSlop={8}
+        style={({ pressed }) => [styles.voiceBtn, pressed && { opacity: 0.65, transform: [{ scale: 0.94 }] }]}
+        accessibilityRole="button"
+        accessibilityLabel="Search by voice"
+        accessibilityHint="Open the full search experience to search by voice."
+      >
+        <Ionicons name="mic-outline" size={22} color={colors.bone} />
+      </AccessiblePressable>
+      <AccessiblePressable
         onPress={openVisualSearch}
         hitSlop={8}
         style={({ pressed }) => [styles.cameraBtn, pressed && { opacity: 0.65, transform: [{ scale: 0.94 }] }]}
@@ -573,7 +583,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
         accessibilityLabel="Search with a photo"
         accessibilityHint="Take a photo or choose one from your camera roll."
       >
-        <Ionicons name="camera-outline" size={21} color={colors.bone} />
+        <Ionicons name="camera-outline" size={23} color={colors.bone} />
       </AccessiblePressable>
     </View>
   );
@@ -1077,21 +1087,22 @@ function make(colors: Colors) {
     storeGo: { color: `${colors.bone}B8`, fontSize: 15, textDecorationLine: "underline" },
     search: {
       marginTop: 8,
-      height: 46,
+      minHeight: 50,
       borderRadius: 23,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: `${colors.bone}1F`,
       flexDirection: "row",
       alignItems: "center",
-      paddingHorizontal: 14,
-      gap: 8,
+      paddingLeft: 12,
+      paddingRight: 5,
+      gap: 6,
     },
-    searchIcon: { color: `${colors.bone}66`, fontSize: 16, marginTop: -1 },
-    input: { flex: 1, color: colors.bone, fontSize: 16, height: 46 },
+    input: { flex: 1, color: colors.bone, fontSize: 15, minHeight: 44, paddingVertical: 0 },
     clearBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
     clear: { color: `${colors.bone}D1`, fontSize: 22, paddingHorizontal: 4 },
-    cameraBtn: { width: 36, height: 44, alignItems: "center", justifyContent: "center" },
+    voiceBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+    cameraBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
     chips: { gap: 8, paddingVertical: 16 },
     chip: {
       minHeight: 44,
