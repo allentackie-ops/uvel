@@ -205,7 +205,7 @@ export function TodayCommerceFeed({
         <View style={styles.editorCopy}>
           <Text style={styles.editorTitle}>Curated for your style</Text>
           <Text style={styles.editorSubtitle}>Modern looks for real life.</Text>
-          <Pressable onPress={onOpenSearch} style={styles.editorButton} accessibilityRole="button" accessibilityLabel="Shop the editor story"><Text style={styles.editorButtonText}>Shop the story ›</Text></Pressable>
+          <Pressable onPress={onOpenSearch} style={styles.editorButton} accessibilityRole="button" accessibilityLabel="Take a look at the editor story"><Text style={styles.editorButtonText}>Take a look ›</Text></Pressable>
         </View>
         <Image source={WE_THINK_EDITORIAL_HERO} style={styles.editorImage} contentFit="cover" cachePolicy="memory-disk" transition={150} accessible={false} />
       </View>
