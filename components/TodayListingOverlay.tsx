@@ -19,9 +19,9 @@ import { TodayCartFab } from "./TodayCartFab";
 import { FriendShareSheet, type FriendSharePayload } from "./FriendShareSheet";
 
 export type ListingOrigin = { x: number; y: number; width: number; height: number; radius?: number; radii?: [number, number, number, number]; photo?: string; measure?: (callback: (rect: { x: number; y: number; width: number; height: number }) => void) => void };
-type Props = { piece: ClosetPiece; origin: ListingOrigin; onClose: () => void; onInteraction?: (action: PersonalizationAction, piece: ClosetPiece, query?: string, dwellSeconds?: number) => void; previewOnly?: boolean; showDoubleTapHint?: boolean; onDoubleTapHintDismiss?: () => void; firstListing?: boolean };
+type Props = { piece: ClosetPiece; origin: ListingOrigin; onClose: () => void; onInteraction?: (action: PersonalizationAction, piece: ClosetPiece, query?: string, dwellSeconds?: number) => void; previewOnly?: boolean; showDoubleTapHint?: boolean; onDoubleTapHintDismiss?: () => void; firstListing?: boolean; reserveTabBarSpace?: boolean };
 
-export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly = false }: Props) {
+export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly = false, reserveTabBarSpace = false }: Props) {
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const styles = makeStyles(colors);
@@ -39,6 +39,7 @@ export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly
     return () => { live = false; };
   }, [market.code]);
   const paymentMethod = methods.find((method) => method.id === paymentMethodId) || methods[0];
+  const footerBottom = reserveTabBarSpace ? 64 + Math.max(insets.bottom, 8) : Math.max(insets.bottom, 8);
   const paymentButtonLabel = paymentMethod?.kind === "apple"
     ? "Apple Pay"
     : paymentMethod?.kind === "card"
@@ -85,7 +86,7 @@ export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly
             <View style={styles.descriptionSection}><Text style={styles.descriptionTitle}>Description</Text><Text style={styles.description}>{piece.notes?.trim() || "The seller hasn’t added a description yet."}</Text></View>
           </View>
         </ScrollView>
-        {!previewOnly ? <View style={[styles.footer, { bottom: 64 + Math.max(insets.bottom, 8) }]}><Pressable onPress={buyNow} style={styles.buyButton} accessibilityRole="button" accessibilityLabel={`${paymentButtonLabel} for ${piece.name}`}><View style={styles.buyContent}><PaymentMark method={paymentMethod} colors={colors} /><Text style={styles.buyText}>{paymentButtonLabel}</Text></View></Pressable><Pressable onPress={addItem} style={styles.bagButton} accessibilityRole="button" accessibilityLabel={inBag ? `${piece.name} is in your bag` : `Add ${piece.name} to bag`}><Text style={styles.bagText}>{inBag ? "In bag" : "Add to cart"}</Text></Pressable><Pressable onPress={() => router.push({ pathname: "/try-on", params: { piece: piece.id } })} style={styles.tryOnButton} accessibilityRole="button" accessibilityLabel={`Try on ${piece.name}`} accessibilityHint="Opens the virtual try-on experience for this item."><Ionicons name="body-outline" size={20} color={colors.bone} /></Pressable></View> : null}
+        {!previewOnly ? <View style={[styles.footer, { bottom: footerBottom }]}><Pressable onPress={buyNow} style={styles.buyButton} accessibilityRole="button" accessibilityLabel={`${paymentButtonLabel} for ${piece.name}`}><View style={styles.buyContent}><PaymentMark method={paymentMethod} colors={colors} /><Text style={styles.buyText}>{paymentButtonLabel}</Text></View></Pressable><Pressable onPress={addItem} style={styles.bagButton} accessibilityRole="button" accessibilityLabel={inBag ? `${piece.name} is in your bag` : `Add ${piece.name} to bag`}><Text style={styles.bagText}>{inBag ? "In bag" : "Add to cart"}</Text></Pressable><Pressable onPress={() => router.push({ pathname: "/try-on", params: { piece: piece.id } })} style={styles.tryOnButton} accessibilityRole="button" accessibilityLabel={`Try on ${piece.name}`} accessibilityHint="Opens the virtual try-on experience for this item."><Ionicons name="body-outline" size={20} color={colors.bone} /></Pressable></View> : null}
       </View>
       <TodayCartFab listingOpen showWhileListing={!previewOnly} onBeforeOpen={onClose} />
       <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void Share.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />

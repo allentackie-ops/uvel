@@ -901,6 +901,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           showDoubleTapHint={showDoubleTapHint}
           onDoubleTapHintDismiss={dismissDoubleTapHint}
           firstListing={firstListingForHint}
+          reserveTabBarSpace
           onInteraction={personalization.record}
         />
       ) : null}
