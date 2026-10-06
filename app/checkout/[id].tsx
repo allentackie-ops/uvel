@@ -35,8 +35,6 @@ import { useUvel } from "../../lib/store";
 import { useColors, type Colors } from "../../lib/theme";
 import {
   getPiece,
-  isRemoteListedPiece,
-  useMarketplaceSyncState,
   useWardrobe,
 } from "../../lib/wardrobe";
 import { recordCampaignAttribution } from "../../lib/attribution";
@@ -92,7 +90,6 @@ export default function Checkout() {
     return normalized.length ? normalized : id ? [id] : [];
   }, [idsParam, id]);
   useWardrobe();
-  const marketplaceSync = useMarketplaceSyncState();
   const piece = getPiece(id);
   const brand = piece?.brandId ? getBrand(piece.brandId) : undefined;
   const making = Boolean(brand && brandMakes(brand));
@@ -183,8 +180,6 @@ export default function Checkout() {
           buyer: address.country,
         })
       : false;
-  const availabilityConfirmed =
-    marketplaceSync === "confirmed" && isRemoteListedPiece(piece?.id || "");
   const checkoutExpiry = acceptedOffer?.checkoutExpiresAt as { toMillis?: () => number } | number | undefined;
   const checkoutExpiryMs = typeof checkoutExpiry === "number" ? checkoutExpiry : typeof checkoutExpiry?.toMillis === "function" ? checkoutExpiry.toMillis() : 0;
   const acceptedOfferReady = !acceptedOfferId || Boolean(acceptedOffer && acceptedOffer.id === acceptedOfferId && acceptedOffer.status === "accepted" && acceptedOffer.buyerId === app.uid && acceptedOffer.listingId === piece?.id && acceptedOffer.sellerId === (piece?.ownerId || piece?.listedByUid) && acceptedOffer.currency === currency && checkoutExpiryMs > Date.now());
@@ -324,15 +319,6 @@ export default function Checkout() {
       Alert.alert(
         "Listing unavailable",
         "This listing is currently unavailable while the seller has paused their listings.",
-      );
-      return;
-    }
-    if (!availabilityConfirmed) {
-      Alert.alert(
-        "Availability unavailable",
-        marketplaceSync === "loading"
-          ? "Uvel is still checking this listing. Try again in a moment."
-          : "Uvel could not confirm this listing with the marketplace service. Checkout is paused.",
       );
       return;
     }
@@ -517,13 +503,6 @@ export default function Checkout() {
       >
         {acceptedOfferId && acceptedOfferReady ? <Text style={[styles.notice, { color: colors.success }]}>Seller accepted your offer. This item price is locked to the agreed amount.</Text> : null}
         {acceptedOfferId && !offerLoading && !acceptedOfferReady ? <Text style={[styles.notice, { color: colors.danger }]}>This accepted offer is unavailable or has expired. Ask the seller to send a new offer.</Text> : null}
-        {!availabilityConfirmed ? (
-          <Text style={[styles.notice, { color: colors.warning }]}>
-            {marketplaceSync === "loading"
-              ? "Checking availability…"
-              : "Checkout is paused until the marketplace reconnects."}
-          </Text>
-        ) : null}
         {!sellsHere ? (
           <Text style={[styles.notice, { color: colors.danger }]}>
             This piece isn’t on the {market.name} floor.
@@ -654,10 +633,10 @@ export default function Checkout() {
       >
         <AccessiblePressable
           onPress={() => void payNow()}
-          disabled={!ready || !availabilityConfirmed}
+          disabled={!ready}
           style={[
             styles.payBtn,
-            (!ready || !availabilityConfirmed) && styles.payDisabled,
+            !ready && styles.payDisabled,
           ]}
           accessibilityRole="button"
           accessibilityLabel={
@@ -666,7 +645,7 @@ export default function Checkout() {
               : `Pay ${moneyExact(total, market.currency)} with ${method.label}`
           }
           accessibilityState={{
-            disabled: !ready || !availabilityConfirmed,
+            disabled: !ready,
             busy: paying,
           }}
         >
