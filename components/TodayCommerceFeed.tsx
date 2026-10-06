@@ -213,11 +213,11 @@ export function TodayCommerceFeed({
       <SectionTitle title="Trending in your world" onPress={onOpenSearch} />
       <ProductRail pieces={editors} market={market} onOpen={onOpenPiece} />
       <View style={styles.coralStrip}>
-        <LoopingVideo source={WEEKEND_UNIFORM_LOOP} style={styles.coralStripVideo} />
+        <LoopingVideo source={WEEKEND_UNIFORM_LOOP} style={styles.coralStripVideo} contentFit="cover" />
         <View pointerEvents="none" style={styles.coralStripTint} />
         <View style={styles.coralStripContent}>
           <View><Text style={styles.stripTitle}>Build your weekend uniform</Text><Text style={styles.stripSub}>Versatile pieces. More good days.</Text></View>
-          <Pressable onPress={onOpenSearch} style={styles.stripButton} accessibilityRole="button" accessibilityLabel="Shop the weekend edit"><Text style={styles.stripButtonText}>Shop the edit ›</Text></Pressable>
+          <Pressable onPress={onOpenSearch} style={styles.stripButton} accessibilityRole="button" accessibilityLabel="Shop the weekend uniform"><Text style={styles.stripButtonText}>Shop ›</Text></Pressable>
         </View>
       </View>
 
@@ -479,7 +479,7 @@ function EditorialPoster({ story, pieces, styles, staticAsset, videoAsset, video
   </View>;
 }
 
-function LoopingVideo({ source, style }: { source: number; style: StyleProp<ViewStyle> }) {
+function LoopingVideo({ source, style, contentFit = "cover" }: { source: number; style: StyleProp<ViewStyle>; contentFit?: "cover" | "contain" }) {
   const player = useVideoPlayer(source, (instance) => {
     instance.loop = true;
     instance.muted = true;
@@ -510,7 +510,7 @@ function LoopingVideo({ source, style }: { source: number; style: StyleProp<View
     };
   }, [player]);
   return <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, style]}>
-    <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} surfaceType="textureView" />
+    <VideoView player={player} style={StyleSheet.absoluteFill} contentFit={contentFit} nativeControls={false} surfaceType="textureView" />
   </View>;
 }
 function DealsMotionPoster({ source, color, styles, active }: { source: number; color: string; styles: ReturnType<typeof make>; active: boolean }) {
@@ -723,12 +723,12 @@ function make(colors: Colors) {
     editorButton: { backgroundColor: "#FFFFFF", paddingHorizontal: 14, minHeight: 40, borderRadius: 20, alignSelf: "flex-start", justifyContent: "center", marginTop: 14, shadowColor: "#181714", shadowOpacity: 0.1, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
     editorButtonText: { color: "#181714", fontSize: 12, fontWeight: "900" },
     editorImage: { flex: 0.98, height: "100%" },
-    coralStrip: { minHeight: 82, height: 96, borderRadius: 16, backgroundColor: "transparent", overflow: "hidden", position: "relative", marginTop: 17 },
-    coralStripVideo: { position: "absolute", top: 0, left: 0, width: "100%", height: 96, zIndex: 0 },
-    coralStripTint: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(240,82,55,0.46)", zIndex: 1 },
+    coralStrip: { minHeight: 82, height: 96, borderRadius: 16, backgroundColor: "#F05237", overflow: "hidden", position: "relative", marginTop: 17 },
+    coralStripVideo: { position: "absolute", top: 0, right: 0, left: "56%", height: 96, zIndex: 0 },
+    coralStripTint: { position: "absolute", top: 0, right: 0, bottom: 0, left: "56%", backgroundColor: "rgba(240,82,55,0.18)", zIndex: 1 },
     coralStripContent: { flex: 1, paddingHorizontal: 15, paddingVertical: 13, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 2 },
-    stripTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "900" },
-    stripSub: { color: "#FFFFFF", fontSize: 12, marginTop: 3 },
+    stripTitle: { color: "#FFFFFF", fontSize: 16, fontWeight: "900", maxWidth: "54%" },
+    stripSub: { color: "#FFFFFF", fontSize: 12, marginTop: 3, maxWidth: "54%" },
     stripButton: { backgroundColor: "#FFFFFF", borderRadius: 20, paddingHorizontal: 12, minHeight: 38, justifyContent: "center" },
     stripButtonText: { color: "#181714", fontSize: 11, fontWeight: "900" },
     dealsFeature: { marginTop: 28, borderRadius: 20, backgroundColor: "#334B38", padding: 16, overflow: "hidden" },
