@@ -585,11 +585,11 @@ export function TodayListingOverlay({
           <View style={styles.colorSection}>
             <Text style={styles.sectionHeading}>Color: <Text style={styles.sectionHeadingStrong}>{piece.color || "Original"}</Text></Text>
             <GHScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.variantRail}>
-              {gallery.map((photo, index) => <Pressable key={`${photo}-variant-${index}`} onPress={() => setActivePhoto(index)} style={[styles.variantCard, index === activePhoto && styles.variantCardActive]}><Image source={{ uri: photo }} style={styles.variantImage} contentFit="cover" /><Text style={styles.variantName} numberOfLines={1}>{index === 0 ? piece.color || "Original" : `Option ${index + 1}`}</Text><Text style={styles.variantPrice}>{moneyInMarket(piece.listPriceCents, itemCurrency, market)}</Text></Pressable>)}
+              {gallery.map((photo, index) => <Pressable key={`${photo}-variant-${index}`} onPress={() => setActivePhoto(index)} style={[styles.variantCard, index === activePhoto && styles.variantCardActive]}><Image source={{ uri: photo }} style={styles.variantImage} contentFit="cover" /><Text style={styles.variantName} numberOfLines={1}>{index === 0 ? piece.color || "Original" : `Option ${index + 1}`}</Text></Pressable>)}
             </GHScrollView>
           </View>
           <View style={styles.sizeSection}>
-            <View style={styles.sizeHeader}><Text style={styles.sectionHeading}>Size: <Text style={styles.sectionHeadingStrong}>{piece.size || "Select one"}</Text></Text><Text style={styles.sizeGuide}>Size guide</Text></View>
+            <View style={styles.sizeHeader}><Text style={styles.sectionHeading}>Size: <Text style={styles.sectionHeadingStrong}>{piece.size || "Select one"}</Text></Text></View>
             <GHScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sizeRail}>
               {sizeOptions.map((size) => <View key={size} style={[styles.sizeCard, size === piece.size && styles.sizeCardActive]}><Text style={styles.sizeCardName}>{size}</Text><Text style={styles.sizeCardMeta}>{size === piece.size ? "Selected" : "Available"}</Text></View>)}
             </GHScrollView>
@@ -598,9 +598,7 @@ export function TodayListingOverlay({
             {credit > 0 || piece.originalPriceCents > piece.listPriceCents ? <View style={styles.priceLine}><Text style={styles.discountText}>-{Math.max(1, Math.round((1 - piece.listPriceCents / Math.max(1, piece.originalPriceCents)) * 100))}%</Text><Text style={styles.bigPrice}>{moneyInMarket(saleCents, market.currency, market)}</Text><Text style={styles.priceHistory}>Price history</Text></View> : <Text style={styles.bigPrice}>{moneyInMarket(saleCents, market.currency, market)}</Text>}
             {piece.originalPriceCents > piece.listPriceCents ? <Text style={styles.listPrice}>List Price: <Text style={styles.strike}>{moneyInMarket(piece.originalPriceCents, itemCurrency, market)}</Text></Text> : null}
             <Text style={styles.paymentCopy}><Text style={styles.bold}>Unlock a $50 Gift Card:</Text> Apply and pay securely with Uvel.</Text>
-            <Text style={styles.shippingCopy}>FREE delivery with Uvel orders over $35</Text>
             <Text style={styles.shippingCopy}>Ships from {sellerLocation} · <Text style={styles.linkText}>See delivery details</Text></Text>
-            <Text style={styles.stockCopy}>◉ In Stock</Text>
           </View>
           {showDoubleTapHint ? (
             <View style={styles.inlineHint}>
@@ -654,7 +652,7 @@ export function TodayListingOverlay({
           </View>
           {piece.notes ? (
             <View style={styles.conditionBlock}>
-              <Text style={styles.conditionLabel}>Condition notes</Text>
+              <Text style={styles.conditionLabel}>Description</Text>
               <Text style={styles.notes}>{piece.notes}</Text>
             </View>
           ) : null}
@@ -919,10 +917,8 @@ function make(colors: Colors) {
     variantCardActive: { borderWidth: 2, borderColor: colors.success },
     variantImage: { width: "100%", height: 82, backgroundColor: colors.surface },
     variantName: { color: colors.bone, fontSize: 12, fontWeight: "800", paddingHorizontal: 5, marginTop: 5 },
-    variantPrice: { color: colors.muted, fontSize: 11, paddingHorizontal: 5, marginTop: 3 },
     sizeSection: { paddingTop: 13, paddingBottom: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
     sizeHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    sizeGuide: { color: colors.link ?? colors.success, fontSize: 14, paddingHorizontal: 12 },
     sizeRail: { gap: 8, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10 },
     sizeCard: { minWidth: 78, minHeight: 48, paddingHorizontal: 9, borderRadius: 8, borderWidth: 1, borderColor: `${colors.bone}42`, alignItems: "center", justifyContent: "center" },
     sizeCardActive: { borderWidth: 2, borderColor: colors.link ?? colors.success, backgroundColor: `${colors.link ?? colors.success}18` },
@@ -939,7 +935,6 @@ function make(colors: Colors) {
     bold: { fontWeight: "900" },
     shippingCopy: { color: colors.bone, fontSize: 14, lineHeight: 21, marginTop: 8 },
     linkText: { color: colors.link ?? colors.success, fontWeight: "700" },
-    stockCopy: { color: colors.link ?? colors.success, fontSize: 15, fontWeight: "800", marginTop: 9 },
     summaryRow: { paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12, flexDirection: "row", alignItems: "flex-start", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
     summaryCopy: { flex: 1, minWidth: 0, justifyContent: "center" },
     summaryTitle: { color: colors.bone, fontSize: 16, lineHeight: 20, fontWeight: "800", letterSpacing: -0.2 },
