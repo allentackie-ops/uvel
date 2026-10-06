@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import * as Haptics from "../lib/haptics";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Pressable, Share as NativeShare, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { Alert, Modal, Pressable, Share as NativeShare, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector, GestureHandlerRootView, ScrollView as GHScrollView } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -97,7 +97,8 @@ export function TodayListingOverlay({
   const modalHeaderHeight = 44;
   const footerHeight = 68 + insets.bottom;
   const photoViewportHeight = Math.max(0, popupHeight - sheetHandleHeight - modalHeaderHeight - footerHeight);
-  const quickImageSize = Math.max(88, Math.min(214, Math.round(Math.min(popupWidth * 0.52, photoViewportHeight - 24))));
+  const quickImageWidth = Math.max(88, Math.min(158, Math.round(popupWidth * 0.42)));
+  const quickImageHeight = Math.min(Math.max(132, Math.round(quickImageWidth * 1.34)), Math.max(132, photoViewportHeight - 12));
   const imageTargetX = popupLeft + 12;
   const imageTargetY = popupTop + sheetHandleHeight + modalHeaderHeight + 12;
   const imgX = useSharedValue(origin.x);
@@ -131,6 +132,7 @@ export function TodayListingOverlay({
   const touchStartY = useSharedValue(0);
   const [coverTop, setCoverTop] = useState(0);
   const [activePhoto, setActivePhoto] = useState(0);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const [measurementsOpen, setMeasurementsOpen] = useState(false);
   const [shippingOpen, setShippingOpen] = useState(false);
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -206,8 +208,8 @@ export function TodayListingOverlay({
     imgY.value = withTiming(imageTargetY, PHOTO_MORPH, (finished) => {
       if (finished) settled.value = 1;
     });
-    imgW.value = withTiming(quickImageSize, PHOTO_MORPH);
-    imgH.value = withTiming(quickImageSize, PHOTO_MORPH);
+    imgW.value = withTiming(quickImageWidth, PHOTO_MORPH);
+    imgH.value = withTiming(quickImageHeight, PHOTO_MORPH);
     imgTL.value = withTiming(14, PHOTO_MORPH);
     imgTR.value = withTiming(14, PHOTO_MORPH);
     imgBR.value = withTiming(14, PHOTO_MORPH);
@@ -217,7 +219,7 @@ export function TodayListingOverlay({
     sheetEnterY.value = withTiming(0, PHOTO_MORPH);
     backdrop.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.cubic) });
     sheet.value = withTiming(1, { duration: 220 });
-  }, [backdrop, imageTargetX, imageTargetY, imgBL, imgBR, imgH, imgTL, imgTR, imgW, imgX, imgY, modalDragY, origin.height, origin.radius, origin.radii, origin.width, origin.x, origin.y, originBL, originBR, originH, originTL, originTR, originW, originX, originY, photoFitProgress, popupHeight, quickImageSize, sheet, sheetEnterY]);
+  }, [backdrop, imageTargetX, imageTargetY, imgBL, imgBR, imgH, imgTL, imgTR, imgW, imgX, imgY, modalDragY, origin.height, origin.radius, origin.radii, origin.width, origin.x, origin.y, originBL, originBR, originH, originTL, originTR, originW, originX, originY, photoFitProgress, popupHeight, quickImageHeight, quickImageWidth, sheet, sheetEnterY]);
 
   useEffect(() => {
     if (!showDoubleTapHint || !onDoubleTapHintDismiss) return;
@@ -244,8 +246,8 @@ export function TodayListingOverlay({
     settled.value = 0;
     imgX.value = imageTargetX;
     imgY.value = imageTargetY + modalDragY.value - scrollY.value;
-    imgW.value = quickImageSize;
-    imgH.value = quickImageSize;
+    imgW.value = quickImageWidth;
+    imgH.value = quickImageHeight;
     imgTL.value = 14;
     imgTR.value = 14;
     imgBR.value = 14;
@@ -404,7 +406,7 @@ export function TodayListingOverlay({
   const currentPhoto = gallery[Math.min(activePhoto, gallery.length - 1)] || piece.photo;
   const originPhoto = origin.photo || piece.photo;
   const heartPopX = useSharedValue(screenW / 2);
-  const heartPopY = useSharedValue(imageTargetY + quickImageSize / 2);
+  const heartPopY = useSharedValue(imageTargetY + quickImageHeight / 2);
   const heartPopScale = useSharedValue(0);
   const heartPopOpacity = useSharedValue(0);
   const sharePayload: FriendSharePayload = { kind: "listing", id: piece.id, title: piece.name, deepLink: `uvel://piece/${piece.id}`, imageUri: piece.photo, previewText: `Have a look at ${piece.name} on Uvel.` };
@@ -447,6 +449,7 @@ export function TodayListingOverlay({
     imageTapTimer.current = setTimeout(() => {
       lastImageTap.current = 0;
       imageTapTimer.current = null;
+      if (!closing.value && gallery.length > 0) setGalleryOpen(true);
     }, 450);
   }
 
@@ -552,12 +555,12 @@ export function TodayListingOverlay({
         >
           <View style={styles.popupContent}>
           <View style={styles.summaryRow}>
-          <Animated.View style={[styles.heroSlot, { width: quickImageSize, height: quickImageSize }, inFlowStyle]}>
+          <Animated.View style={[styles.heroSlot, { width: quickImageWidth, height: quickImageHeight }, inFlowStyle]}>
             <Pressable
               style={styles.heroHit}
               onPress={(event) => onHeroPress(event.nativeEvent.locationX, event.nativeEvent.locationY)}
               accessibilityRole="image"
-              accessibilityLabel={`Double tap to save ${piece.name}`}
+              accessibilityLabel={`Tap to view all photos of ${piece.name}; double tap to save`}
             >
               <Image cachePolicy="memory-disk" source={{ uri: currentPhoto }} style={styles.hero} contentFit="contain" />
               {gallery.length > 1 ? (
@@ -595,7 +598,10 @@ export function TodayListingOverlay({
               {gallery.map((photo, index) => (
                 <Pressable
                   key={`${photo}-${index}`}
-                  onPress={() => setActivePhoto(index)}
+                  onPress={() => {
+                    setActivePhoto(index);
+                    setGalleryOpen(true);
+                  }}
                   style={[styles.thumbnail, index === activePhoto && styles.thumbnailActive]}
                   accessibilityRole="button"
                   accessibilityLabel={`View listing photo ${index + 1} of ${gallery.length}`}
@@ -779,6 +785,55 @@ export function TodayListingOverlay({
           </Animated.View>
         </Animated.View>
         <Animated.Text pointerEvents="none" style={[styles.heartPop, { color: likeColor }, heartPopStyle]}>♥</Animated.Text>
+        <Modal
+          visible={galleryOpen}
+          animationType="fade"
+          presentationStyle="fullScreen"
+          statusBarTranslucent
+          onRequestClose={() => setGalleryOpen(false)}
+        >
+          <View style={styles.galleryRoot}>
+            <GHScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              contentOffset={{ x: activePhoto * screenW, y: 0 }}
+              onMomentumScrollEnd={(event) => {
+                const next = Math.round(event.nativeEvent.contentOffset.x / Math.max(1, screenW));
+                setActivePhoto(Math.max(0, Math.min(next, gallery.length - 1)));
+              }}
+              style={styles.galleryPager}
+            >
+              {gallery.map((photo, index) => (
+                <View key={`${photo}-full-${index}`} style={[styles.galleryPage, { width: screenW }]}>
+                  <Image cachePolicy="memory-disk" source={{ uri: photo }} style={styles.galleryImage} contentFit="contain" />
+                </View>
+              ))}
+            </GHScrollView>
+            <View style={[styles.galleryHeader, { paddingTop: insets.top + 12 }]}>
+              <Pressable onPress={() => setGalleryOpen(false)} style={styles.galleryHeaderButton} accessibilityRole="button" accessibilityLabel="Close photo gallery">
+                <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+              </Pressable>
+              <Text style={styles.galleryCounter}>{Math.min(activePhoto + 1, gallery.length)} / {gallery.length}</Text>
+              <View style={styles.galleryHeaderActions}>
+                <Pressable onPress={() => { setGalleryOpen(false); setShareOpen(true); }} style={styles.galleryHeaderButton} accessibilityRole="button" accessibilityLabel={`Share ${piece.name}`}>
+                  <Ionicons name="share-outline" size={21} color="#FFFFFF" />
+                </Pressable>
+                <Pressable onPress={() => { void app.toggleSaved(piece.id); }} style={styles.galleryHeaderButton} accessibilityRole="button" accessibilityLabel={liked ? "Remove listing from saved" : "Save listing"}>
+                  <Ionicons name={liked ? "heart" : "heart-outline"} size={21} color={liked ? likeColor : "#FFFFFF"} />
+                </Pressable>
+              </View>
+            </View>
+            <View style={[styles.galleryFooter, { paddingBottom: insets.bottom + 16 }]} pointerEvents="box-none">
+              <Text style={styles.galleryTitle} numberOfLines={2}>{piece.name}</Text>
+              <Text style={styles.galleryPrice}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
+              <Text style={styles.galleryHint}>Swipe to view all photos</Text>
+              <View style={styles.galleryDots}>
+                {gallery.map((photo, index) => <View key={`${photo}-dot-${index}`} style={[styles.galleryDot, index === activePhoto && styles.galleryDotActive]} />)}
+              </View>
+            </View>
+          </View>
+        </Modal>
         <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void NativeShare.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
         {offerOpen ? (
           <View style={styles.offerBackdrop}>
@@ -859,6 +914,21 @@ function make(colors: Colors) {
     heroHit: { flex: 1 },
     hero: { width: "100%", height: "100%", backgroundColor: colors.surface },
     heartPop: { position: "absolute", left: 0, top: 0, zIndex: 20, fontSize: 68, lineHeight: 72, textShadowColor: "rgba(0,0,0,0.22)", textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 5 },
+    galleryRoot: { flex: 1, backgroundColor: "#080808" },
+    galleryPager: { flex: 1 },
+    galleryPage: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 74 },
+    galleryImage: { width: "100%", height: "78%" },
+    galleryHeader: { position: "absolute", top: 0, left: 0, right: 0, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    galleryHeaderButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(0,0,0,0.42)", alignItems: "center", justifyContent: "center" },
+    galleryHeaderActions: { flexDirection: "row", gap: 8 },
+    galleryCounter: { color: "#FFFFFF", fontSize: 14, fontWeight: "800", fontVariant: ["tabular-nums"] },
+    galleryFooter: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 20, backgroundColor: "rgba(0,0,0,0.48)" },
+    galleryTitle: { color: "#FFFFFF", fontSize: 18, fontWeight: "800", marginTop: 14 },
+    galleryPrice: { color: "#FFFFFF", fontSize: 16, fontWeight: "800", marginTop: 4 },
+    galleryHint: { color: "rgba(255,255,255,0.68)", fontSize: 12, marginTop: 7 },
+    galleryDots: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingTop: 12 },
+    galleryDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.38)" },
+    galleryDotActive: { width: 20, backgroundColor: colors.link ?? colors.pulse },
     photoCount: { position: "absolute", right: 18, bottom: 18, minWidth: 48, height: 28, paddingHorizontal: 9, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.58)", alignItems: "center", justifyContent: "center" },
     photoCountCompact: { right: 6, bottom: 6, minWidth: 36, height: 22, paddingHorizontal: 6, borderRadius: 11 },
     photoCountText: { color: colors.bone, fontSize: 11, fontWeight: "800", fontVariant: ["tabular-nums"] },
