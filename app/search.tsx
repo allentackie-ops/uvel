@@ -93,6 +93,13 @@ export default function Search() {
     Animated.spring(tabIndex, { toValue: nextIndex, useNativeDriver: true, damping: 20, stiffness: 220 }).start();
   }
 
+  function submitSearch() {
+    const nextTerm = term.trim();
+    if (!nextTerm) return;
+    setSubmittedTerm(nextTerm);
+    Keyboard.dismiss();
+  }
+
   function chooseTrending(value: string) {
     setTerm(value);
     setSubmittedTerm(value);
@@ -136,7 +143,7 @@ export default function Search() {
                 ref={inputRef}
                 value={term}
                 onChangeText={setTerm}
-                onSubmitEditing={Keyboard.dismiss}
+                onSubmitEditing={submitSearch}
                 placeholder={`Search ${activeTab === "All" ? "all clothing" : activeTab === "Brand" ? "brand pieces" : `${activeTab.toLowerCase()}'s clothing`}`}
                 placeholderTextColor={colors.subtle}
                 accessibilityLabel={copy.searchListings}
