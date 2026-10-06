@@ -90,7 +90,7 @@ export default function Search() {
     inputRef.current?.focus();
   }
 
-  const resultRows = Array.from({ length: Math.ceil(rows.length / 2) }, (_, index) => rows.slice(index * 2, index * 2 + 2));
+  const resultRows = needle ? Array.from({ length: Math.ceil(rows.length / 2) }, (_, index) => rows.slice(index * 2, index * 2 + 2)) : [];
 
   return (
     <View style={styles.page}>
@@ -153,28 +153,28 @@ export default function Search() {
 function makeStyles(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    content: { paddingHorizontal: 18 },
-    tabs: { height: 52, flexDirection: "row", position: "relative", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
-    tab: { flex: 1, height: 52, alignItems: "center", justifyContent: "center" },
-    tabText: { color: colors.muted, fontSize: 15, fontWeight: "800" },
+    content: { paddingHorizontal: 14 },
+    tabs: { height: 46, flexDirection: "row", position: "relative", borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
+    tab: { flex: 1, height: 46, alignItems: "center", justifyContent: "center" },
+    tabText: { color: colors.muted, fontSize: 14, fontWeight: "800" },
     tabTextActive: { color: colors.bone },
-    tabIndicator: { position: "absolute", bottom: 0, left: 0, height: 3, borderRadius: 2, backgroundColor: colors.bone },
-    searchBox: { minHeight: 58, marginTop: 16, borderRadius: 29, borderWidth: 1, borderColor: `${colors.bone}35`, backgroundColor: colors.surface, paddingLeft: 5, paddingRight: 6, flexDirection: "row", alignItems: "center", gap: 8 },
-    backButton: { width: 42, height: 44, alignItems: "center", justifyContent: "center" },
-    input: { flex: 1, minHeight: 52, color: colors.bone, fontSize: 16, paddingVertical: 0 },
-    clearButton: { width: 28, height: 40, alignItems: "center", justifyContent: "center" },
-    cameraButton: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
-    sectionTitle: { color: colors.bone, fontSize: 18, fontWeight: "800", marginTop: 30, marginBottom: 14 },
-    trendingWrap: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
-    trendingChip: { minHeight: 38, paddingHorizontal: 15, borderRadius: 20, borderWidth: 1, borderColor: `${colors.bone}35`, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
-    trendingText: { color: colors.bone, fontSize: 14 },
-    resultsHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: 30, marginBottom: 16 },
-    resultTitle: { color: colors.bone, fontSize: 20, fontWeight: "800" },
+    tabIndicator: { position: "absolute", bottom: 0, left: 0, height: 2, borderRadius: 2, backgroundColor: colors.bone },
+    searchBox: { minHeight: 50, marginTop: 12, borderRadius: 25, borderWidth: 1, borderColor: `${colors.bone}35`, backgroundColor: colors.surface, paddingLeft: 4, paddingRight: 5, flexDirection: "row", alignItems: "center", gap: 6 },
+    backButton: { width: 36, height: 40, alignItems: "center", justifyContent: "center" },
+    input: { flex: 1, minHeight: 44, color: colors.bone, fontSize: 15, paddingVertical: 0 },
+    clearButton: { width: 26, height: 36, alignItems: "center", justifyContent: "center" },
+    cameraButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    sectionTitle: { color: colors.bone, fontSize: 16, fontWeight: "800", marginTop: 24, marginBottom: 10 },
+    trendingWrap: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
+    trendingChip: { minHeight: 32, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: `${colors.bone}35`, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
+    trendingText: { color: colors.bone, fontSize: 13 },
+    resultsHeading: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginTop: 24, marginBottom: 12 },
+    resultTitle: { color: colors.bone, fontSize: 18, fontWeight: "800" },
     resultCount: { color: colors.muted, fontSize: 13 },
     resultRow: { flexDirection: "row", gap: 12, marginBottom: 14 },
     resultCell: { flex: 1, minWidth: 0 },
     empty: { minHeight: 230, alignItems: "center", justifyContent: "center", paddingHorizontal: 20 },
-    emptyTitle: { color: colors.bone, fontSize: 19, fontWeight: "800" },
-    emptyText: { color: colors.muted, fontSize: 15, lineHeight: 22, textAlign: "center", marginTop: 8 },
+    emptyTitle: { color: colors.bone, fontSize: 17, fontWeight: "800" },
+    emptyText: { color: colors.muted, fontSize: 14, lineHeight: 20, textAlign: "center", marginTop: 8 },
   });
 }
