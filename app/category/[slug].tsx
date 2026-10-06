@@ -292,7 +292,7 @@ function make(colors: ReturnType<typeof useColors>) {
     seeAll: { color: colors.success, fontSize: 12, fontWeight: "800", paddingBottom: 3 },
     curatedRail: { gap: 10 },
     curatedCard: { width: 132, borderRadius: 17, backgroundColor: colors.surface, overflow: "hidden" },
-    curatedImage: { width: 132, height: 148, backgroundColor: colors.neutral },
+    curatedImage: { width: 132, aspectRatio: 2 / 3, backgroundColor: colors.neutral },
     curatedMeta: { padding: 10 },
     curatedBrand: { color: colors.subtle, fontSize: 9, letterSpacing: 1.1, fontWeight: "800" },
     curatedName: { color: colors.bone, fontSize: 12, fontWeight: "700", marginTop: 4 },
