@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useStripe } from "@stripe/stripe-react-native";
+import { PlatformPay, useStripe } from "@stripe/stripe-react-native";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -97,7 +97,11 @@ export default function Checkout() {
   const selectedVariantLabel =
     typeof variantLabelParam === "string" ? variantLabelParam : selectedVariant;
   const app = useUvel();
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const {
+    confirmPlatformPayPayment,
+    initPaymentSheet,
+    presentPaymentSheet,
+  } = useStripe();
   const market = getMarket(app.country);
   const methods = payMethods(market.code);
   const [address, setAddress] = useState<Address | null>(null);
@@ -399,10 +403,38 @@ export default function Checkout() {
         router.replace({ pathname: "/order/[id]", params: { id: order.id } });
         return;
       }
-      if (market.code === "US") {
+      if (method.kind === "apple" || market.code === "US") {
         if (!paymentsExtra.stripePk)
           throw new Error("Stripe checkout is not configured yet.");
         const intent = await createStripePaymentIntent(order.id, total, market.currency);
+        if (method.kind === "apple") {
+          const immediate = (label: string, amount: number): PlatformPay.CartSummaryItem => ({
+            label,
+            amount: (amount / 100).toFixed(2),
+            paymentType: PlatformPay.PaymentType.Immediate,
+          });
+          const cartItems: PlatformPay.CartSummaryItem[] = [
+            immediate(piece.name, itemLocal),
+            ...(fee > 0 ? [immediate("Buyer protection", fee)] : []),
+            ...(shipCost > 0 ? [immediate("Shipping", shipCost)] : []),
+            immediate("Uvel", total),
+          ];
+          const confirmed = await confirmPlatformPayPayment(intent.clientSecret, {
+            applePay: {
+              merchantCountryCode: market.code,
+              currencyCode: market.currency,
+              cartItems,
+            },
+          });
+          if (confirmed.error) {
+            if (confirmed.error.code === "Canceled") return;
+            throw new Error(confirmed.error.message);
+          }
+          void rememberLastPaymentMethod(market.code, method.id);
+          removeFromCart(piece.id);
+          router.replace({ pathname: "/order/[id]", params: { id: order.id } });
+          return;
+        }
         const initialized = await initPaymentSheet({
           merchantDisplayName: "Uvel",
           paymentIntentClientSecret: intent.clientSecret,
@@ -411,7 +443,6 @@ export default function Checkout() {
             email: app.email || undefined,
             name: address.name,
           },
-          applePay: { merchantCountryCode: "US" },
         });
         if (initialized.error) throw new Error(initialized.error.message);
         const presented = await presentPaymentSheet();
