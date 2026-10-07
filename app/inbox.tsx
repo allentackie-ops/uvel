@@ -2,12 +2,12 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, FlatList, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Animated, FlatList, Keyboard, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
 import { BrandVerifiedMark } from "../components/VerifiedMark";
 import { getBrand, useBrands } from "../lib/brands";
-import { unreadFor, useInbox, type ChatThread } from "../lib/chat";
+import { markSeen, unreadFor, useInbox, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
 import { useColors, useResolvedAppearance, type Colors } from "../lib/theme";
 import * as Haptics from "../lib/haptics";
@@ -22,6 +22,7 @@ type InboxMode = "Messages" | "Activity";
 type FriendPanelMode = "friends" | "messages" | "notifications" | "discover";
 type FriendTab = "friends" | "requests";
 type ActivityTab = "friends" | "requests";
+type NotificationTab = "messages" | "activity" | null;
 type FriendAction = "unfriend" | "block" | "unblock" | "delete";
 type SheetNotification =
   | { source: "friend"; id: string; at: number; item: FriendNotification }
@@ -60,6 +61,7 @@ export default function Inbox() {
   const refreshTriggered = useRef(false);
   const [friendSearchOpen, setFriendSearchOpen] = useState(false);
   const [friendPanelMode, setFriendPanelMode] = useState<FriendPanelMode>("friends");
+  const [notificationTab, setNotificationTab] = useState<NotificationTab>(null);
   const [friendTab, setFriendTab] = useState<FriendTab>("friends");
   const [friendTerm, setFriendTerm] = useState("");
   const [discoveryTerm, setDiscoveryTerm] = useState("");
@@ -142,15 +144,22 @@ export default function Inbox() {
     catch (e) { setFriendError(e instanceof Error ? e.message : "Couldn’t open friend chat."); }
   }
   const closeFriendPanel = useCallback(() => {
+    Keyboard.dismiss();
+    setFriendSheetExpanded(false);
     setFriendSearchOpen(false);
     setFriendResults([]);
   }, []);
   const friendSheetDragY = useMemo(() => new Animated.Value(0), []);
+  const [friendSheetExpanded, setFriendSheetExpanded] = useState(false);
   const friendSheetPan = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_event, gesture) => gesture.dy > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
-    onPanResponderMove: (_event, gesture) => friendSheetDragY.setValue(Math.max(0, gesture.dy)),
+    onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dy) > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+    onPanResponderMove: (_event, gesture) => friendSheetDragY.setValue(Math.max(-180, Math.min(800, gesture.dy))),
     onPanResponderRelease: (_event, gesture) => {
-      if (gesture.dy > 120 || gesture.vy > 0.9) {
+      if (gesture.dy < -80 || gesture.vy < -0.85) {
+        setFriendSheetExpanded(true);
+        Animated.spring(friendSheetDragY, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 220 }).start();
+      } else if (gesture.dy > 120 || gesture.vy > 0.9) {
+        setFriendSheetExpanded(false);
         Animated.timing(friendSheetDragY, { toValue: 800, duration: 180, useNativeDriver: true }).start(({ finished }) => {
           if (finished) { friendSheetDragY.setValue(0); closeFriendPanel(); }
         });
@@ -159,7 +168,7 @@ export default function Inbox() {
       }
     },
   }), [closeFriendPanel, friendSheetDragY]);
-  useEffect(() => { if (friendSearchOpen) friendSheetDragY.setValue(0); }, [friendSearchOpen, friendSheetDragY]);
+  useEffect(() => { if (friendSearchOpen) { friendSheetDragY.setValue(0); setFriendSheetExpanded(false); } }, [friendSearchOpen, friendSheetDragY]);
   const onRefresh = useCallback(async () => {
     const startedAt = Date.now();
     setRefreshing(true);
@@ -187,7 +196,11 @@ export default function Inbox() {
   }, [onRefresh, refreshing]);
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
   const pendingFriendRequests = useMemo(() => friendNotifications.filter((item) => item.kind === "friend_request" && !item.readAt), [friendNotifications]);
-  const unreadNotifications = friendNotifications.filter((item) => !item.readAt).length + activityNotifications.filter((item) => !item.read).length + alertEvents.filter((item) => !item.read).length;
+  const offerNotifications = useMemo(() => activityNotifications.filter((item) => item.kind.startsWith("offer_")), [activityNotifications]);
+  const activityOnlyNotifications = useMemo(() => activityNotifications.filter((item) => !item.kind.startsWith("offer_")), [activityNotifications]);
+  const unreadMessageCount = threads.reduce((total, thread) => total + unreadFor(thread, me), 0) + offerNotifications.filter((item) => !item.read).length;
+  const unreadActivityCount = friendNotifications.filter((item) => !item.readAt).length + activityOnlyNotifications.filter((item) => !item.read).length + alertEvents.filter((item) => !item.read).length;
+  const unreadNotifications = unreadMessageCount + unreadActivityCount;
 
   const visible = useMemo(() => {
     const query = conversationQuery.trim().toLowerCase();
@@ -255,6 +268,12 @@ export default function Inbox() {
     else router.push({ pathname: "/closet/[id]", params: { id: item.listingId } });
   }
 
+  function openMessageNotification(thread: ChatThread) {
+    void markSeen(thread.id, me);
+    closeFriendPanel();
+    router.push({ pathname: "/ask/[id]", params: { id: thread.pieceId, threadId: thread.id, pieceName: thread.pieceName, piecePhoto: thread.piecePhoto, piecePriceCents: String(thread.piecePriceCents), brandId: thread.brandId || "" } });
+  }
+
   const empty =
     filter === "Selling"
       ? "Asks on your listings land here."
@@ -273,7 +292,7 @@ export default function Inbox() {
         <View style={styles.navActions}>
         <Pressable onPress={() => { setFriendPanelMode("messages"); setFriendSearchOpen(true); setFriendError(""); }} hitSlop={12} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Search Inbox"><Text style={styles.searchTxt}>⌕</Text></Pressable>
         <Pressable
-          onPress={() => { if (friendPanelMode === "notifications" && friendSearchOpen) closeFriendPanel(); else { setFriendPanelMode("notifications"); setFriendSearchOpen(true); } }}
+          onPress={() => { if (friendPanelMode === "notifications" && friendSearchOpen) closeFriendPanel(); else { setFriendPanelMode("notifications"); setNotificationTab(null); setFriendSheetExpanded(false); setFriendSearchOpen(true); } }}
           hitSlop={12}
           style={styles.bell}
           accessibilityRole="button"
@@ -288,6 +307,14 @@ export default function Inbox() {
       <FriendSheet
         visible={friendSearchOpen}
         mode={friendPanelMode}
+        notificationTab={notificationTab}
+        setNotificationTab={setNotificationTab}
+        uid={me}
+        messageThreads={threads}
+        messageUnreadCount={unreadMessageCount}
+        activityUnreadCount={unreadActivityCount}
+        expanded={friendSheetExpanded}
+        onOpenMessageThread={openMessageNotification}
         friendTab={friendTab}
         setFriendTab={setFriendTab}
         onClose={closeFriendPanel}
@@ -354,7 +381,7 @@ export default function Inbox() {
           renderItem={({ item }) => <Row thread={item} uid={me} colors={colors} />}
           ListHeaderComponent={orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
           ListEmptyComponent={<Text style={styles.empty}>{empty}</Text>}
-          ListFooterComponent={friends.length <= 5 || visible.length === 0 ? <FindFriendsBanner onPress={() => { setFriendPanelMode("discover"); setFriendSearchOpen(true); setDiscoveryTerm(""); setFriendResults([]); setFriendError(""); setFriendNotice(""); }} colors={colors} styles={styles} /> : null}
+          ListFooterComponent={null}
           alwaysBounceVertical
           bounces
           scrollEventThrottle={16}
@@ -383,17 +410,20 @@ function FindFriendsBanner({ onPress, colors, styles }: { onPress: () => void; c
   </Pressable>;
 }
 
-function FriendSheet({ visible, mode, friendTab, setFriendTab, onClose, onModeChange, onOpenDiscover, friends, notifications, activityNotifications, alertEvents, onOpenActivityNotification, onOpenAlertNotification, onMarkFriendNotificationRead, conversationQuery, setConversationQuery, friendTerm, setFriendTerm, discoveryTerm, setDiscoveryTerm, friendResults, friendSentIds, friendBusy, requestBusy, friendError, friendNotice, onSearchUsers, onAddFriend, onRespond, onOpenChat, colors, styles, insets, panHandlers, dragY }: {
-  visible: boolean; mode: FriendPanelMode; friendTab: FriendTab; setFriendTab: (tab: FriendTab) => void; onClose: () => void; onModeChange: (mode: FriendPanelMode) => void; onOpenDiscover: () => void;
+function FriendSheet({ visible, mode, friendTab, setFriendTab, notificationTab, setNotificationTab, uid, messageThreads, messageUnreadCount, activityUnreadCount, expanded, onOpenMessageThread, onClose, onModeChange, onOpenDiscover, friends, notifications, activityNotifications, alertEvents, onOpenActivityNotification, onOpenAlertNotification, onMarkFriendNotificationRead, conversationQuery, setConversationQuery, friendTerm, setFriendTerm, discoveryTerm, setDiscoveryTerm, friendResults, friendSentIds, friendBusy, requestBusy, friendError, friendNotice, onSearchUsers, onAddFriend, onRespond, onOpenChat, colors, styles, insets, panHandlers, dragY }: {
+  visible: boolean; mode: FriendPanelMode; friendTab: FriendTab; setFriendTab: (tab: FriendTab) => void; notificationTab: NotificationTab; setNotificationTab: (tab: NotificationTab) => void; uid: string; messageThreads: ChatThread[]; messageUnreadCount: number; activityUnreadCount: number; expanded: boolean; onOpenMessageThread: (thread: ChatThread) => void; onClose: () => void; onModeChange: (mode: FriendPanelMode) => void; onOpenDiscover: () => void;
   friends: PublicUser[]; notifications: FriendNotification[]; activityNotifications: ActivityNotification[]; alertEvents: AlertEvent[]; onOpenActivityNotification: (item: ActivityNotification) => void; onOpenAlertNotification: (item: AlertEvent) => void; onMarkFriendNotificationRead: (item: FriendNotification) => void; conversationQuery: string; setConversationQuery: (value: string) => void; friendTerm: string; setFriendTerm: (value: string) => void; discoveryTerm: string; setDiscoveryTerm: (value: string) => void;
   friendResults: PublicUser[]; friendSentIds: Set<string>; friendBusy: boolean; requestBusy: string | null; friendError: string; friendNotice: string; onSearchUsers: () => Promise<void>; onAddFriend: (user: PublicUser) => Promise<void>; onRespond: (item: FriendNotification, action: "accepted" | "declined") => Promise<void>; onOpenChat: (user: PublicUser) => Promise<void>;
   colors: Colors; styles: ReturnType<typeof make>; insets: { bottom: number }; panHandlers: ReturnType<typeof PanResponder.create>["panHandlers"]; dragY: Animated.Value;
 }) {
   const pending = notifications.filter((item) => item.kind === "friend_request" && !item.readAt);
   const visibleFriends = friends.filter((user) => `${user.displayName} ${user.username}`.toLowerCase().includes(friendTerm.trim().toLowerCase()));
-  const allNotifications: SheetNotification[] = [
+  const messageThreadsSorted = [...messageThreads].sort((a, b) => b.lastAt - a.lastAt);
+  const messageActivityItems = activityNotifications.filter((item) => item.kind.startsWith("offer_"));
+  const messageActivityRows: SheetNotification[] = messageActivityItems.map((item) => ({ source: "activity", id: item.id, at: item.at, item }));
+  const activityRows: SheetNotification[] = [
     ...notifications.map((item) => ({ source: "friend" as const, id: item.id, at: timestampMs(item.createdAt), item })),
-    ...activityNotifications.map((item) => ({ source: "activity" as const, id: item.id, at: item.at, item })),
+    ...activityNotifications.filter((item) => !item.kind.startsWith("offer_")).map((item) => ({ source: "activity" as const, id: item.id, at: item.at, item })),
     ...alertEvents.map((item) => ({ source: "alert" as const, id: item.id, at: item.at, item })),
   ].sort((a, b) => b.at - a.at);
   const title = mode === "messages" ? "Search Inbox" : mode === "notifications" ? "Notifications" : mode === "discover" ? "Find people" : "Your friends";
@@ -402,31 +432,51 @@ function FriendSheet({ visible, mode, friendTab, setFriendTab, onClose, onModeCh
       <View style={styles.requestActions}><Pressable disabled={requestBusy === item.requestId} onPress={() => void onRespond(item, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable disabled={Boolean(requestBusy)} onPress={() => void onRespond(item, "accepted")}><Text style={styles.acceptTxt}>{requestBusy === item.requestId ? "Adding…" : "Accept"}</Text></Pressable></View>
     </View>
   </View>);
+  const renderNotificationRow = (entry: SheetNotification) => {
+    if (entry.source === "friend") {
+      const item = entry.item;
+      const rowTitle = item.kind === "friend_request" ? `${item.actor.displayName || `@${item.actor.username}`} sent you a friend request` : item.kind === "friend_added" ? `${item.actor.displayName || `@${item.actor.username}`} became your friend` : `${item.actor.displayName || `@${item.actor.username}`} accepted your friend request`;
+      return <View key={`friend:${entry.id}`} style={[styles.notificationRow, !item.readAt && styles.notificationUnread]}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Pressable disabled={item.kind === "friend_request"} onPress={() => onMarkFriendNotificationRead(item)}><Text style={styles.requestText}>{rowTitle}</Text><Text style={styles.usernameTxt}>{item.kind === "friend_request" && !item.readAt ? "Respond to request" : `Friend activity · ${when(entry.at)}`}</Text></Pressable>{item.kind === "friend_request" && !item.readAt ? <View style={styles.requestActions}><Pressable disabled={requestBusy === item.requestId} onPress={() => void onRespond(item, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable disabled={Boolean(requestBusy)} onPress={() => void onRespond(item, "accepted")}><Text style={styles.acceptTxt}>{requestBusy === item.requestId ? "Adding…" : "Accept"}</Text></Pressable></View> : null}</View></View>;
+    }
+    if (entry.source === "activity") {
+      const item = entry.item;
+      return <Pressable key={`activity:${entry.id}`} onPress={() => onOpenActivityNotification(item)} style={[styles.notificationRow, !item.read && styles.notificationUnread]}>{item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.notificationThumb} contentFit="cover" /> : <View style={styles.notificationIcon}><Text style={styles.notificationIconText}>✦</Text></View>}<View style={{ flex: 1 }}><Text style={styles.requestText}>{item.title}</Text><Text style={styles.usernameTxt} numberOfLines={2}>{item.body}</Text><Text style={styles.notificationTime}>{when(entry.at)}</Text></View></Pressable>;
+    }
+    const item = entry.item;
+    return <Pressable key={`alert:${entry.id}`} onPress={() => onOpenAlertNotification(item)} style={[styles.notificationRow, !item.read && styles.notificationUnread]}>{item.photo ? <Image source={{ uri: item.photo }} style={styles.notificationThumb} contentFit="cover" /> : <View style={styles.notificationIcon}><Text style={styles.notificationIconText}>↗</Text></View>}<View style={{ flex: 1 }}><Text style={styles.requestText}>{item.title}</Text><Text style={styles.usernameTxt} numberOfLines={2}>{item.body}</Text><Text style={styles.notificationTime}>{when(entry.at)}</Text></View></Pressable>;
+  };
   return <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
     <View style={styles.friendSheetBackdrop}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close friends panel" />
-      <Animated.View style={[styles.friendPanel, { paddingBottom: insets.bottom + 16, transform: [{ translateY: dragY }] }]}>
+      <KeyboardAvoidingView style={styles.friendSheetKeyboardDock} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <Animated.View style={[styles.friendPanel, { maxHeight: expanded ? "94%" : "86%", minHeight: expanded ? "70%" : undefined, paddingBottom: insets.bottom + 16, transform: [{ translateY: dragY }] }]}>
         <View style={styles.sheetDragArea} {...panHandlers}><View style={styles.sheetHandle} /></View>
         <View style={styles.friendPanelHead}>
           {mode === "discover" ? <Pressable onPress={() => onModeChange("friends")} hitSlop={10}><Text style={styles.sheetBack}>‹</Text></Pressable> : null}
           <Text style={styles.friendPanelTitle}>{title}</Text><Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close panel"><Text style={styles.closeTxt}>×</Text></Pressable>
         </View>
         {mode === "messages" ? <View style={styles.friendSearchRow}><TextInput autoFocus value={conversationQuery} onChangeText={setConversationQuery} onSubmitEditing={onClose} placeholder="People, listings, or messages" placeholderTextColor={colors.subtle} style={styles.friendInput} returnKeyType="search" /><Pressable onPress={onClose} style={styles.findBtn}><Text style={styles.findTxt}>Done</Text></Pressable></View> : null}
-        {mode === "notifications" ? <ScrollView style={styles.sheetList} keyboardShouldPersistTaps="handled">
-          {allNotifications.length ? allNotifications.map((entry) => {
-            if (entry.source === "friend") {
-              const item = entry.item;
-              const title = item.kind === "friend_request" ? `${item.actor.displayName || `@${item.actor.username}`} sent you a friend request` : item.kind === "friend_added" ? `${item.actor.displayName || `@${item.actor.username}`} became your friend` : `${item.actor.displayName || `@${item.actor.username}`} accepted your friend request`;
-              return <View key={`friend:${entry.id}`} style={[styles.notificationRow, !item.readAt && styles.notificationUnread]}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Pressable disabled={item.kind === "friend_request"} onPress={() => onMarkFriendNotificationRead(item)}><Text style={styles.requestText}>{title}</Text><Text style={styles.usernameTxt}>{item.kind === "friend_request" && !item.readAt ? "Respond to request" : `Friend activity · ${when(entry.at)}`}</Text></Pressable>{item.kind === "friend_request" && !item.readAt ? <View style={styles.requestActions}><Pressable disabled={requestBusy === item.requestId} onPress={() => void onRespond(item, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable disabled={Boolean(requestBusy)} onPress={() => void onRespond(item, "accepted")}><Text style={styles.acceptTxt}>{requestBusy === item.requestId ? "Adding…" : "Accept"}</Text></Pressable></View> : null}</View></View>;
-            }
-            if (entry.source === "activity") {
-              const item = entry.item;
-              return <Pressable key={`activity:${entry.id}`} onPress={() => onOpenActivityNotification(item)} style={[styles.notificationRow, !item.read && styles.notificationUnread]}>{item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.notificationThumb} contentFit="cover" /> : <View style={styles.notificationIcon}><Text style={styles.notificationIconText}>✦</Text></View>}<View style={{ flex: 1 }}><Text style={styles.requestText}>{item.title}</Text><Text style={styles.usernameTxt} numberOfLines={2}>{item.body}</Text><Text style={styles.notificationTime}>{when(entry.at)}</Text></View></Pressable>;
-            }
-            const item = entry.item;
-            return <Pressable key={`alert:${entry.id}`} onPress={() => onOpenAlertNotification(item)} style={[styles.notificationRow, !item.read && styles.notificationUnread]}>{item.photo ? <Image source={{ uri: item.photo }} style={styles.notificationThumb} contentFit="cover" /> : <View style={styles.notificationIcon}><Text style={styles.notificationIconText}>↗</Text></View>}<View style={{ flex: 1 }}><Text style={styles.requestText}>{item.title}</Text><Text style={styles.usernameTxt} numberOfLines={2}>{item.body}</Text><Text style={styles.notificationTime}>{when(entry.at)}</Text></View></Pressable>;
-          }) : <Text style={styles.noFriends}>You’re all caught up.</Text>}
-        </ScrollView> : null}
+        {mode === "notifications" ? <>
+          <View style={styles.notificationTabs} accessibilityRole="tablist">
+            {(["messages", "activity"] as const).map((tab) => {
+              const count = tab === "messages" ? messageUnreadCount : activityUnreadCount;
+              return <Pressable key={tab} onPress={() => setNotificationTab(tab)} style={[styles.notificationTab, notificationTab === tab && styles.notificationTabOn]} accessibilityRole="tab" accessibilityState={{ selected: notificationTab === tab }}><Text style={[styles.notificationTabText, notificationTab === tab && styles.notificationTabTextOn]}>{tab === "messages" ? "Messages" : "Activity"}</Text>{count > 0 ? <View style={styles.notificationCategoryCount}><Text style={styles.notificationCategoryCountText}>{count > 9 ? "9+" : count}</Text></View> : null}</Pressable>;
+            })}
+          </View>
+          {notificationTab === null ? <View style={styles.notificationPrompt}><Text style={styles.notificationPromptText}>Choose Messages or Activity to view your notifications.</Text></View> : notificationTab === "messages" ? <ScrollView style={[styles.sheetList, styles.notificationList]} keyboardShouldPersistTaps="handled">
+            {messageThreadsSorted.map((thread) => {
+              const unread = unreadFor(thread, uid);
+              const person = thread.brandName || (thread.buyerId === uid ? thread.sellerName : thread.buyerName) || "Uvel member";
+              return <Pressable key={`thread:${thread.id}`} onPress={() => onOpenMessageThread(thread)} style={[styles.notificationRow, unread > 0 && styles.notificationUnread]} accessibilityRole="button" accessibilityLabel={`Open message from ${person} about ${thread.pieceName}`}>
+                {thread.piecePhoto ? <Image source={{ uri: thread.piecePhoto }} style={styles.notificationThumb} contentFit="cover" /> : <View style={styles.notificationIcon}><Text style={styles.notificationIconText}>✉</Text></View>}
+                <View style={{ flex: 1 }}><Text style={styles.requestText} numberOfLines={1}>{person}</Text><Text style={styles.usernameTxt} numberOfLines={1}>{thread.pieceName} · {when(thread.lastAt)}</Text><Text style={styles.usernameTxt} numberOfLines={1}>{thread.lastText || "New conversation"}</Text></View>
+                {unread > 0 ? <View style={styles.notificationCategoryCount}><Text style={styles.notificationCategoryCountText}>{unread > 9 ? "9+" : unread}</Text></View> : null}
+              </Pressable>;
+            })}
+            {messageActivityRows.map(renderNotificationRow)}
+            {!messageThreadsSorted.length && !messageActivityRows.length ? <Text style={styles.noFriends}>No messages yet.</Text> : null}
+          </ScrollView> : <ScrollView style={[styles.sheetList, styles.notificationList]} keyboardShouldPersistTaps="handled">{activityRows.length ? activityRows.map(renderNotificationRow) : <Text style={styles.noFriends}>You’re all caught up.</Text>}</ScrollView>}
+        </> : null}
         {mode === "friends" ? <>
           <View style={styles.friendTabs}>
             <Pressable onPress={() => setFriendTab("friends")} style={[styles.friendTab, friendTab === "friends" && styles.friendTabOn]} accessibilityRole="tab" accessibilityState={{ selected: friendTab === "friends" }}><Text style={[styles.friendTabText, friendTab === "friends" && styles.friendTabTextOn]}>Friends</Text></Pressable>
@@ -442,11 +492,12 @@ function FriendSheet({ visible, mode, friendTab, setFriendTab, onClose, onModeCh
           </> : <ScrollView style={styles.sheetList} keyboardShouldPersistTaps="handled">{requestRows(pending)}{!pending.length ? <Text style={styles.noFriends}>No pending friend requests.</Text> : null}</ScrollView>}
         </> : null}
         {mode === "discover" ? <>
-          <View style={styles.friendSearchRow}><TextInput autoFocus value={discoveryTerm} onChangeText={(value) => { setDiscoveryTerm(value); }} onSubmitEditing={() => void onSearchUsers()} placeholder="Name or username" placeholderTextColor={colors.subtle} style={styles.friendInput} autoCapitalize="none" returnKeyType="search" /><Pressable onPress={() => void onSearchUsers()} style={styles.findBtn} accessibilityRole="button" accessibilityLabel="Search for friends"><Text style={styles.findTxt}>{friendBusy ? "…" : "Search"}</Text></Pressable></View>
+          <View style={styles.friendSearchRow}><TextInput autoFocus value={discoveryTerm} onChangeText={(value) => { setDiscoveryTerm(value); }} onSubmitEditing={() => { Keyboard.dismiss(); void onSearchUsers(); }} placeholder="Name or username" placeholderTextColor={colors.subtle} style={styles.friendInput} autoCapitalize="none" returnKeyType="search" /><Pressable onPress={() => { Keyboard.dismiss(); void onSearchUsers(); }} style={styles.findBtn} accessibilityRole="button" accessibilityLabel="Search for friends"><Text style={styles.findTxt}>{friendBusy ? "…" : "Search"}</Text></Pressable></View>
           {friendError ? <Text style={styles.friendError}>{friendError}</Text> : null}{friendNotice ? <Text style={styles.friendNotice}>{friendNotice}</Text> : null}
           <ScrollView style={styles.sheetList} keyboardShouldPersistTaps="handled">{friendResults.map((user) => { const sent = friendSentIds.has(user.uid); return <View key={user.uid} style={styles.sheetPersonRow}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Pressable disabled={sent || friendBusy} onPress={() => void onAddFriend(user)} style={[styles.addBtn, sent && styles.addBtnSent]}><Text style={[styles.addTxt, sent && styles.addTxtSent]}>{sent ? "Sent" : "Add"}</Text></Pressable></View>; })}{!friendResults.length && discoveryTerm.trim().length >= 2 && !friendBusy ? <Text style={styles.noFriends}>No users found.</Text> : null}</ScrollView>
         </> : null}
       </Animated.View>
+      </KeyboardAvoidingView>
     </View>
   </Modal>;
 }
@@ -463,7 +514,7 @@ function ActivityRequestsView({ requests, requestBusy, onRespond, onScroll, orbi
 function ActivityView({ friends, friendChats, uid, onOpenFriends, onOpenChat, onFriendActions, colors, styles, onScroll, orbitOn }: { friends: PublicUser[]; friendChats: FriendChatPreview[]; uid: string; onOpenFriends: () => void; onOpenChat: (chat: FriendChatPreview, user: PublicUser | undefined, otherUid: string) => void; onFriendActions: (chat: FriendChatPreview, user: PublicUser | undefined, otherUid: string) => void; colors: Colors; styles: ReturnType<typeof make>; onScroll: (event: { nativeEvent: { contentOffset: { y: number } } }) => void; orbitOn: boolean }) {
   return <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }} style={styles.activityScroll} alwaysBounceVertical bounces scrollEventThrottle={16} onScroll={onScroll}>
     {orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
-    <View style={styles.activityHeader}><Text style={styles.activityTitle}>Your circle</Text><Pressable onPress={onOpenFriends}><Text style={styles.activityLink}>Friends ›</Text></Pressable></View>
+    <View style={styles.activityHeader}><Text style={styles.activityTitle}>Your circle</Text></View>
     {friends.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendRail}>{friends.map((user) => <Pressable key={user.uid} onPress={onOpenFriends} style={styles.friendBubble}><Avatar user={user} /><Text style={styles.friendBubbleName} numberOfLines={1}>{user.displayName || user.username}</Text></Pressable>)}</ScrollView> : null}
     <Text style={styles.activitySection}>RECENT CONVERSATIONS</Text>
     {friendChats.length ? friendChats.map((chat) => {
@@ -575,6 +626,7 @@ function make(colors: Colors) {
     activityTabText: { color: colors.muted, fontSize: 15, fontWeight: "700" },
     activityTabTextOn: { color: colors.success },
     friendSheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.58)" },
+    friendSheetKeyboardDock: { flex: 1, justifyContent: "flex-end" },
     friendPanel: { width: "100%", maxHeight: "86%", paddingHorizontal: 20, paddingTop: 6, backgroundColor: colors.surface, borderTopLeftRadius: 26, borderTopRightRadius: 26, borderWidth: 1, borderBottomWidth: 0, borderColor: `${colors.bone}24` },
     sheetDragArea: { height: 28, alignItems: "center", justifyContent: "center" },
     sheetHandle: { width: 44, height: 5, borderRadius: 3, backgroundColor: `${colors.bone}55` },
@@ -599,6 +651,16 @@ function make(colors: Colors) {
     discoverButtonText: { color: colors.success, fontSize: 15, fontWeight: "800" },
     notificationRow: { flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 14, paddingHorizontal: 8, borderRadius: 14 },
     notificationUnread: { backgroundColor: `${colors.success}12` },
+    notificationTabs: { flexDirection: "row", gap: 8, padding: 4, borderRadius: 18, backgroundColor: `${colors.ink}CC`, marginBottom: 12 },
+    notificationList: { maxHeight: 640 },
+    notificationTab: { flex: 1, minHeight: 42, borderRadius: 14, flexDirection: "row", gap: 7, alignItems: "center", justifyContent: "center" },
+    notificationTabOn: { backgroundColor: colors.surface },
+    notificationTabText: { color: colors.muted, fontSize: 15, fontWeight: "700" },
+    notificationTabTextOn: { color: colors.bone },
+    notificationCategoryCount: { minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.success },
+    notificationCategoryCountText: { color: colors.successInk, fontSize: 11, fontWeight: "900" },
+    notificationPrompt: { minHeight: 150, alignItems: "center", justifyContent: "center", paddingHorizontal: 22 },
+    notificationPromptText: { color: colors.muted, fontSize: 15, lineHeight: 22, textAlign: "center" },
     notificationThumb: { width: 52, height: 52, borderRadius: 12, backgroundColor: colors.neutral },
     notificationIcon: { width: 52, height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: `${colors.success}18` },
     notificationIconText: { color: colors.success, fontSize: 24, fontWeight: "800" },
@@ -655,7 +717,7 @@ function make(colors: Colors) {
     findBannerBody: { color: colors.muted, fontSize: 14, lineHeight: 19, marginTop: 4 },
     findBannerArrow: { color: colors.success, fontSize: 30 },
     activityScroll: { flex: 1 },
-    activityHeader: { paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
+    activityHeader: { paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "flex-start", marginBottom: 14 },
     activityTitle: { color: colors.bone, fontSize: 30, fontWeight: "800", letterSpacing: -0.5 },
     activityLink: { color: colors.muted, fontSize: 16, fontWeight: "700" },
     friendRail: { gap: 16, paddingHorizontal: 16, paddingBottom: 20 },
