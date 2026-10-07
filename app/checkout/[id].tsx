@@ -22,7 +22,7 @@ import {
 } from "../../lib/fees";
 import { getMarket, moneyExact, convertCents } from "../../lib/markets";
 import { listingVisibleIn, restrictShipsTo } from "../../lib/ships";
-import { loadAddress, placeOrder, type Address } from "../../lib/orders";
+import { cacheOrder, loadAddress, makePendingOrder, type Address } from "../../lib/orders";
 import {
   createCheckoutSession,
   createStripePaymentIntent,
@@ -343,7 +343,7 @@ export default function Checkout() {
     setPaying(true);
     try {
       if (!app.uid) throw new Error("Sign in before checking out.");
-      const order = await placeOrder({
+      const order = makePendingOrder({
         pieceId: piece.id,
         pieceName: piece.name,
         piecePhoto: piece.photo,
@@ -376,6 +376,7 @@ export default function Checkout() {
         madeByUvel: making,
       });
       await mirrorCheckoutOrder(order);
+      await cacheOrder(order);
       if (piece.brandId && typeof campaignId === "string" && campaignId)
         void recordCampaignAttribution({
           brandId: piece.brandId,

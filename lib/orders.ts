@@ -301,11 +301,8 @@ export function watchOrder(id: string, onStatus: (status: Order["status"] | null
   }
 }
 
-export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status">, options: { id?: string; checkoutBatchId?: string } = {}): Promise<Order> {
-  if (!firebaseReady() || !firebaseAuth().currentUser) {
-    throw new Error("Orders are unavailable until Uvel reconnects to the marketplace service.");
-  }
-  const full: Order = {
+export function makePendingOrder(order: Omit<Order, "id" | "createdAt" | "status">, options: { id?: string; checkoutBatchId?: string } = {}): Order {
+  return {
     ...order,
     id: options.id || `o-${Date.now().toString(36)}`,
     checkoutBatchId: options.checkoutBatchId,
@@ -315,6 +312,25 @@ export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status
     status: "pending",
     fulfillmentStatus: order.madeByUvel ? "processing" : "unfulfilled",
   };
+}
+
+export async function cacheOrder(order: Order) {
+  try {
+    const raw = await AsyncStorage.getItem(ORDERS);
+    const list = raw ? (JSON.parse(raw) as Order[]) : [];
+    await AsyncStorage.setItem(ORDERS, JSON.stringify([order, ...list]));
+    cache = [order, ...list];
+    emit();
+  } catch {
+    /* The remote order remains authoritative if local caching is unavailable. */
+  }
+}
+
+export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status">, options: { id?: string; checkoutBatchId?: string } = {}): Promise<Order> {
+  if (!firebaseReady() || !firebaseAuth().currentUser) {
+    throw new Error("Orders are unavailable until Uvel reconnects to the marketplace service.");
+  }
+  const full = makePendingOrder(order, options);
   try {
     await setDoc(doc(firebaseDb(), "orders", full.id), {
       ...full,
@@ -323,15 +339,7 @@ export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status
   } catch {
     throw new Error("We couldn’t save this order securely, so no payment was started. Please try again when Uvel reconnects.");
   }
-  try {
-    const raw = await AsyncStorage.getItem(ORDERS);
-    const list = raw ? (JSON.parse(raw) as Order[]) : [];
-    await AsyncStorage.setItem(ORDERS, JSON.stringify([full, ...list]));
-    cache = [full, ...list];
-    emit();
-  } catch {
-    /* The remote order remains authoritative if local caching is unavailable. */
-  }
+  await cacheOrder(full);
   if (order.sellerId && order.sellerId !== order.buyerId) {
     const other = await readUserLite(order.sellerId);
     const token = typeof other?.expoPushToken === "string" ? other.expoPushToken : "";
