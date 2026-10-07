@@ -16,7 +16,7 @@ export async function addFriendFromShare(sharedByUid: string) {
 }
 
 export async function respondFriendRequest(requestId: string, action: "accepted" | "declined") {
-  return socialCall<{ requestId: string; status: string }>("respond_request", { requestId, action });
+  return socialCall<{ requestId: string; status: string }>("respond_request", { requestId, decision: action });
 }
 
 export function subscribeFriendNotifications(_uid: string, callback: (items: FriendNotification[]) => void) {
