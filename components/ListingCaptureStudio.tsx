@@ -40,6 +40,8 @@ export function ListingCaptureStudio({ photos, backgrounds, onCapture, onDeleteC
   const [draggingPhotoIndex, setDraggingPhotoIndex] = useState<number | null>(null);
   const [dragOverDelete, setDragOverDelete] = useState(false);
   const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
+  const [dragHasMoved, setDragHasMoved] = useState(false);
+  const dragOverDeleteRef = useRef(false);
   const [extraSlotsEnabled, setExtraSlotsEnabled] = useState(false);
 
   async function takePicture() {
@@ -119,7 +121,7 @@ export function ListingCaptureStudio({ photos, backgrounds, onCapture, onDeleteC
         <View style={[styles.guide, { top: insets.top + 152 }]} pointerEvents="none"><View style={styles.cornerTopLeft} /><View style={styles.cornerTopRight} /><View style={styles.cornerBottomLeft} /><View style={styles.cornerBottomRight} /></View>
         <View style={[styles.cameraBottom, { paddingBottom: insets.bottom + 18 }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRail}>
-            {photos.map((photo, index) => <DraggableCaptureThumb key={`${photo.uri}-${index}`} uri={photo.uri} index={index} styles={styles} isDragging={draggingPhotoIndex === index} onDragStart={() => { setDraggingPhotoIndex(index); setDragPosition({ x: windowWidth / 2, y: windowHeight - insets.bottom - 61 }); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }} onDragMove={(moveX, moveY) => { setDragPosition({ x: moveX, y: moveY }); const targetX = windowWidth / 2; const targetY = windowHeight - insets.bottom - 61; setDragOverDelete(Math.hypot(moveX - targetX, moveY - targetY) < 88); }} onDragEnd={(dragIndex) => { const targetX = windowWidth / 2; const targetY = windowHeight - insets.bottom - 61; const shouldDelete = Math.hypot(targetX - windowWidth / 2, targetY - (windowHeight - insets.bottom - 61)) < 88 && dragIndex === draggingPhotoIndex && dragOverDelete; if (shouldDelete) { onDeleteCapture(photo.uri); void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } setDraggingPhotoIndex(null); setDragOverDelete(false); setDragPosition({ x: 0, y: 0 }); }} />)}
+            {photos.map((photo, index) => <DraggableCaptureThumb key={`${photo.uri}-${index}`} uri={photo.uri} index={index} styles={styles} isDragging={draggingPhotoIndex === index && dragHasMoved} onDragStart={() => { dragOverDeleteRef.current = false; setDragOverDelete(false); setDragHasMoved(false); setDraggingPhotoIndex(index); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }} onDragMove={(moveX, moveY) => { setDragHasMoved(true); setDragPosition({ x: moveX, y: moveY }); const targetX = windowWidth / 2; const targetY = windowHeight - insets.bottom - 61; const overDelete = Math.hypot(moveX - targetX, moveY - targetY) < 88; dragOverDeleteRef.current = overDelete; setDragOverDelete(overDelete); }} onDragEnd={(dragIndex) => { const shouldDelete = dragIndex === draggingPhotoIndex && dragOverDeleteRef.current; if (shouldDelete) { onDeleteCapture(photo.uri); void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } dragOverDeleteRef.current = false; setDraggingPhotoIndex(null); setDragOverDelete(false); setDragHasMoved(false); setDragPosition({ x: 0, y: 0 }); }} />)}
             {Array.from({ length: Math.max(0, (extraSlotsEnabled ? MAX : REQUIRED) - photos.length) }).map((_, index) => <View key={`empty-${index}`} style={styles.emptyThumb}><Ionicons name="add" size={18} color="#FFFFFF99" /></View>)}
           </ScrollView>
           <View style={styles.captureActionRow}>
@@ -128,7 +130,7 @@ export function ListingCaptureStudio({ photos, backgrounds, onCapture, onDeleteC
             <Pressable onPress={() => photos.length >= REQUIRED && setMode("backgrounds")} disabled={photos.length < REQUIRED} style={[styles.nextButton, photos.length < REQUIRED && styles.nextDisabled]} accessibilityRole="button" accessibilityLabel="Continue to backgrounds"><Text style={styles.nextText}>Next</Text></Pressable>
           </View>
         </View>
-        {draggingPhotoIndex !== null && photos[draggingPhotoIndex] ? (
+        {draggingPhotoIndex !== null && dragHasMoved && photos[draggingPhotoIndex] ? (
           <Animated.View pointerEvents="none" style={[styles.dragPreview, { left: dragPosition.x - 24, top: dragPosition.y - 30 }]}>
             <Image source={{ uri: photos[draggingPhotoIndex].uri }} style={styles.captureThumb} contentFit="cover" />
           </Animated.View>

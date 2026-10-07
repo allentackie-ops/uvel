@@ -425,6 +425,14 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     }
   }
 
+  function removeStudioPhoto(uri: string) {
+    const removedIndex = photos.findIndex((photo) => photo.uri === uri);
+    setPhotos((prev) => prev.filter((photo) => photo.uri !== uri));
+    if (removedIndex >= 0) {
+      setSelectedPhotoIndex((index) => index > removedIndex ? index - 1 : Math.min(index, Math.max(0, photos.length - 2)));
+    }
+  }
+
   function openPhotoActions(index: number) {
     const photo = photos[index];
     if (!photo) return;
@@ -693,7 +701,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           photos={photos}
           backgrounds={AI_CUTOUT_BACKGROUNDS as CaptureBackground[]}
           onCapture={addUri}
-          onDeleteCapture={removePhoto}
+          onDeleteCapture={removeStudioPhoto}
           onContinue={finishCapture}
           onClose={leaveSell}
         />
