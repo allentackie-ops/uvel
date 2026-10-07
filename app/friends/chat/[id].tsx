@@ -157,15 +157,20 @@ function VoiceNoteBubble({ uri, note, mine, styles, onLongPress }: { uri: string
   </Pressable>;
 }
 
-function SwipeToReply({ children, onReply }: { children: ReactNode; onReply: () => void }) {
+function SwipeToReply({ children, direction, onReply }: { children: ReactNode; direction: "left" | "right"; onReply: () => void }) {
   const onReplyRef = useRef(onReply);
   onReplyRef.current = onReply;
   const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponder: () => false,
-    onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 18 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.25,
+    onMoveShouldSetPanResponder: (_event, gesture) => direction === "right"
+      ? gesture.dx > 18 && gesture.dx > Math.abs(gesture.dy) * 1.25
+      : gesture.dx < -18 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.25,
     onPanResponderTerminationRequest: () => false,
-    onPanResponderRelease: (_event, gesture) => { if (Math.abs(gesture.dx) >= 68) onReplyRef.current(); },
-  }), []);
+    onPanResponderRelease: (_event, gesture) => {
+      const reachedReplyThreshold = direction === "right" ? gesture.dx >= 68 : gesture.dx <= -68;
+      if (reachedReplyThreshold) onReplyRef.current();
+    },
+  }), [direction]);
   return <View {...panResponder.panHandlers}>{children}</View>;
 }
 
@@ -556,7 +561,7 @@ export default function FriendChat() {
     const bubbleContent = <>
       {item.replyTo ? <View style={styles.replyQuote}><View style={[styles.replyQuoteBar, mine && styles.replyQuoteBarMine]} /><View style={styles.replyQuoteCopy}><Text style={[styles.replyQuoteName, mine && styles.replyQuoteMine]} numberOfLines={1}>{item.replyTo.from === uid ? "You" : listName}</Text><Text style={[styles.replyQuoteText, mine && styles.replyQuoteMine]} numberOfLines={2}>{parseSharedListing(item.replyTo.text)?.name || displayMessageText(item.replyTo) || (item.replyTo.photoUrl ? "Photo" : "Message")}</Text></View></View> : null}
       {!sharedListing && !voiceNote && item.photoUrl ? <View style={styles.senderPanel}><Avatar uri={mine ? undefined : peer?.avatarUri} label={mine ? "You" : listName} styles={styles} /><View style={styles.senderPanelCopy}><Text numberOfLines={1} style={[styles.senderName, mine && styles.senderNameMine]}>{mine ? "You" : listName}</Text><Text numberOfLines={1} style={[styles.senderHandle, mine && styles.senderHandleMine]}>{mine ? "Shared a photo" : peer?.username ? `@${peer.username}` : ""}</Text></View></View> : null}
-      {sharedListing ? <Pressable style={styles.sharedListingCard} onPress={() => router.push(sharedListing.kind === "catalog" ? { pathname: "/product/[id]", params: { id: sharedListing.id } } : { pathname: "/closet/[id]", params: { id: sharedListing.id } })} accessibilityRole="button" accessibilityLabel={`Open shared listing ${sharedListing.name}`}>
+      {sharedListing ? <Pressable style={styles.sharedListingCard} onPress={() => router.push(sharedListing.kind === "catalog" ? { pathname: "/product/[id]", params: { id: sharedListing.id } } : { pathname: "/closet/[id]", params: { id: sharedListing.id } })} onLongPress={() => showMessageActions(item)} delayLongPress={430} accessibilityRole="button" accessibilityLabel={`Open shared listing ${sharedListing.name}`}>
         {sharedCatalogItem ? <Image cachePolicy="memory-disk" source={sharedCatalogItem.image} style={styles.sharedListingImage} contentFit="cover" /> : item.photoUrl ? <Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.sharedListingImage} contentFit="cover" /> : <View style={[styles.sharedListingImage, styles.sharedListingImageFallback]}><Ionicons name="shirt-outline" size={27} color={colors.muted} /></View>}
         <View style={styles.sharedListingCopy}><Text numberOfLines={1} style={[styles.sharedListingBrand, mine && styles.senderHandleMine]}>{sharedListing.brand}</Text><Text numberOfLines={2} style={[styles.sharedListingName, mine && styles.senderNameMine]}>{sharedListing.name}</Text><Text style={[styles.sharedListingPrice, mine && styles.senderNameMine]}>{usd(sharedListing.priceCents, sharedListing.currency || "USD")}</Text></View>
       </Pressable> : null}
@@ -564,11 +569,11 @@ export default function FriendChat() {
       {!sharedListing && !voiceNote && item.photoUrl ? <Pressable onPress={() => setPreviewUri(item.photoUrl)} accessibilityRole="imagebutton" accessibilityLabel="View attached photo"><Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.messagePhoto} contentFit="cover" /></Pressable> : null}
       {item.text && !sharedListing && !voiceNote ? <Text style={[styles.bubbleText, mine ? styles.bubbleTextMine : styles.bubbleTextPeer]}>{item.text}</Text> : null}
     </>;
-    return <SwipeToReply onReply={() => replyToMessage(item)}>
+    return <SwipeToReply direction={mine ? "left" : "right"} onReply={() => replyToMessage(item)}>
       {startsDay ? <View style={styles.dayRule}><Text style={styles.dayPill}>{dayLabel(item.createdAt).toUpperCase()}</Text></View> : null}
       <View style={[styles.messageLine, mine ? styles.messageLineMine : styles.messageLinePeer, grouped && styles.messageLineGrouped]}>
         {!mine ? <View style={styles.avatarSlot}>{showPeerAvatar ? <Avatar uri={peer?.avatarUri} label={listName} styles={styles} /> : null}</View> : null}
-        <Pressable style={[styles.bubbleFrame, grouped && (mine ? styles.bubbleMineGrouped : styles.bubblePeerGrouped)]} onLongPress={voiceNote ? undefined : () => showMessageActions(item)} delayLongPress={430} accessibilityRole="text" accessibilityLabel={`${mine ? "You" : listName}: ${displayMessageText(item) || "Photo"}`}>
+        <Pressable style={[styles.bubbleFrame, grouped && (mine ? styles.bubbleMineGrouped : styles.bubblePeerGrouped)]} onLongPress={voiceNote || sharedListing ? undefined : () => showMessageActions(item)} delayLongPress={430} accessibilityRole="text" accessibilityLabel={`${mine ? "You" : listName}: ${displayMessageText(item) || "Photo"}`}>
           {mine ? <ImageBackground source={require("../../../assets/chat/message-bubble-gradient.png")} resizeMode="stretch" imageStyle={styles.bubbleGradientImage} style={[styles.bubble, styles.bubbleMine, grouped && styles.bubbleMineGrouped, item.photoUrl && !voiceNote && styles.bubbleWithPhoto, item.status === "sending" && styles.bubblePending]}>{bubbleContent}</ImageBackground> : <View style={[styles.bubble, styles.bubblePeer, grouped && styles.bubblePeerGrouped, item.photoUrl && !voiceNote && styles.bubbleWithPhoto]}>{bubbleContent}</View>}
         </Pressable>
       </View>
