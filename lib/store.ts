@@ -170,7 +170,7 @@ async function applyAccount(
       wantsUpdates: Boolean(stashed?.wantsUpdates) || memory.wantsUpdates,
       accessibilityMode: typeof stashed?.accessibilityMode === "boolean" ? stashed.accessibilityMode : memory.accessibilityMode,
       locale: (typeof stashed?.locale === "string" && stashed.locale) || memory.locale,
-      avatarUri: (stashed?.avatarUri as string) || memory.avatarUri,
+      avatarUri: supabaseProfileAvatar(stashed?.avatarUri) || supabaseProfileAvatar(memory.avatarUri),
     };
     listeners.forEach((l) => l());
     void persist();
@@ -182,6 +182,9 @@ async function applyAccount(
     remote = await readUserProfile(user.uid);
   } catch {
     remote = null;
+  }
+  if (typeof remote?.avatarUri === "string" && remote.avatarUri) {
+    void import("./auth").then(({ writeUserProfile }) => writeUserProfile(user.uid, { avatarUri: "" })).catch(() => undefined);
   }
   const done = skipSetup({
     via: opts.restored ? null : user.via,
@@ -212,6 +215,16 @@ async function applyAccount(
     return;
   }
   if (!done) setupLive = true;
+  let profileAvatarUri = supabaseProfileAvatar(stashed?.avatarUri) || supabaseProfileAvatar(memory.avatarUri);
+  if (done) {
+    try {
+      const { syncSocialProfile } = await import("./supabaseSocial");
+      const socialProfile = await syncSocialProfile();
+      profileAvatarUri = supabaseProfileAvatar(socialProfile?.avatarUri) || profileAvatarUri;
+    } catch {
+      /* A cached Supabase avatar remains available if the network is offline. */
+    }
+  }
   memory = {
     ...memory,
     uid: user.uid,
@@ -237,7 +250,7 @@ async function applyAccount(
     wantsUpdates: typeof remote?.wantsUpdates === "boolean" ? remote.wantsUpdates : typeof stashed?.wantsUpdates === "boolean" ? stashed.wantsUpdates : memory.wantsUpdates,
     accessibilityMode: typeof remote?.accessibilityMode === "boolean" ? remote.accessibilityMode : typeof stashed?.accessibilityMode === "boolean" ? stashed.accessibilityMode : memory.accessibilityMode,
     locale: typeof remote?.locale === "string" && remote.locale ? remote.locale : (typeof stashed?.locale === "string" && stashed.locale) || memory.locale,
-    avatarUri: (typeof remote?.avatarUri === "string" && remote.avatarUri) || (stashed?.avatarUri as string) || memory.avatarUri,
+    avatarUri: profileAvatarUri,
   };
   listeners.forEach((l) => l());
   void persist();
@@ -266,6 +279,12 @@ async function applyAccount(
 
 function remoteProfileFlag(remote: Record<string, unknown> | null) {
   return remote?.profileDone === true;
+}
+
+function supabaseProfileAvatar(value: unknown): string | null {
+  return typeof value === "string" && /^https:\/\/[^/]+\/storage\/v1\/object\/public\/profile-avatars\//i.test(value)
+    ? value
+    : null;
 }
 
 async function stashProfile() {
@@ -488,7 +507,7 @@ export function useUvel() {
           styles: patch.styles,
           wantsUpdates: patch.wantsUpdates,
           username: patch.username,
-          avatarUri: avatarUri || "",
+          avatarUri: "",
           archetype: patch.archetype || "",
           palette: patch.palette || "",
           silhouette: patch.silhouette || "",

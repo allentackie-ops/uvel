@@ -10,7 +10,35 @@ function pub(uid: string, row: any) { return { uid, username: text(row?.username
 async function firebaseUser(token: string) { const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_API_KEY}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ idToken: token }) }); if (!r.ok) return null; const d = await r.json(); const u = d.users?.[0]; return u?.localId ? String(u.localId) : null; }
 async function blocked(a: string, b: string) { const { data, error } = await db.from("friend_blocks").select("id").or(`and(blocker_uid.eq.${a},blocked_uid.eq.${b}),and(blocker_uid.eq.${b},blocked_uid.eq.${a})`).limit(1); if (error) throw error; return Boolean(data?.length); }
 async function profile(uid: string) { const { data, error } = await db.from("social_profiles").select("firebase_uid,username,display_name,avatar_uri").eq("firebase_uid", uid).maybeSingle(); if (error) throw error; return data ? pub(uid, data) : { uid, username: "", displayName: "Uvel member" }; }
-async function syncProfile(uid: string, value: any) { const username = text(value?.username, 40).toLowerCase().replace(/^@+/, ""); const displayName = text(value?.displayName, 120); const avatarUri = text(value?.avatarUri, 2000) || null; const { error } = await db.from("social_profiles").upsert({ firebase_uid: uid, username, display_name: displayName, avatar_uri: avatarUri, updated_at: new Date().toISOString() }, { onConflict: "firebase_uid" }); if (error) throw error; return pub(uid, { username, display_name: displayName, avatar_uri: avatarUri }); }
+async function syncProfile(uid: string, value: any) {
+  const username = text(value?.username, 40).toLowerCase().replace(/^@+/, "");
+  const displayName = text(value?.displayName, 120);
+  const existing = await profile(uid);
+  const storagePrefix = `${(Deno.env.get("SUPABASE_URL") || "").replace(/\/+$/, "")}/storage/v1/object/public/profile-avatars/`;
+  const requestedAvatar = text(value?.avatarUri, 2000);
+  const currentAvatar = "avatarUri" in existing ? existing.avatarUri || "" : "";
+  const avatarUri = requestedAvatar.startsWith(storagePrefix) ? requestedAvatar : currentAvatar.startsWith(storagePrefix) ? currentAvatar : null;
+  const { error } = await db.from("social_profiles").upsert({ firebase_uid: uid, username, display_name: displayName, avatar_uri: avatarUri, updated_at: new Date().toISOString() }, { onConflict: "firebase_uid" });
+  if (error) throw error;
+  return pub(uid, { username, display_name: displayName, avatar_uri: avatarUri });
+}
+async function uploadProfileAvatar(uid: string, body: any) {
+  const contentType = text(body?.contentType, 80).toLowerCase();
+  const encoded = String(body?.base64 ?? "").trim().replace(/^data:image\/jpeg;base64,/i, "");
+  if (contentType !== "image/jpeg" || !encoded || encoded.length > 2_100_000 || encoded.length % 4 === 1 || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) return out({ error: "Choose a valid JPEG profile photo under 1.5 MB." }, 400);
+  const bytes = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0));
+  if (bytes.length < 4 || bytes.length > 1_500_000 || bytes[0] !== 0xff || bytes[1] !== 0xd8 || bytes[2] !== 0xff) return out({ error: "Choose a valid JPEG profile photo under 1.5 MB." }, 413);
+  const { data: current, error: currentError } = await db.from("social_profiles").select("username,display_name").eq("firebase_uid", uid).maybeSingle();
+  if (currentError) throw currentError;
+  const path = `${uid}/${crypto.randomUUID()}.jpg`;
+  const { error: uploadError } = await db.storage.from("profile-avatars").upload(path, bytes, { contentType, upsert: false, cacheControl: "31536000" });
+  if (uploadError) throw uploadError;
+  const { data: publicData } = db.storage.from("profile-avatars").getPublicUrl(path);
+  const avatarUri = publicData.publicUrl;
+  const { error: profileError } = await db.from("social_profiles").upsert({ firebase_uid: uid, username: current?.username || "", display_name: current?.display_name || "", avatar_uri: avatarUri, updated_at: new Date().toISOString() }, { onConflict: "firebase_uid" });
+  if (profileError) throw profileError;
+  return out({ avatarUri });
+}
 async function notify(recipientUid: string, kind: string, requestId: string, actor: any, id: string) { const { error } = await db.from("friend_notifications").upsert({ id, recipient_uid: recipientUid, kind, request_id: requestId, actor, read_at: null }, { onConflict: "id" }); if (error) throw error; }
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
@@ -23,6 +51,7 @@ Deno.serve(async (req) => {
     const legacyDecision = ["accepted", "declined"].includes(requestedAction) ? requestedAction : "";
     const route = legacyDecision ? "respond_request" : requestedAction;
     if (route === "sync_profile") return out({ profile: await syncProfile(uid, body.profile) });
+    if (route === "upload_profile_avatar") return await uploadProfileAvatar(uid, body);
     if (route === "search_users") { const term = text(body.term, 40).toLowerCase(); if (term.length < 2) return out({ users: [] }); const { data, error } = await db.from("social_profiles").select("firebase_uid,username,display_name,avatar_uri").neq("firebase_uid", uid).or(`username.ilike.%${term}%,display_name.ilike.%${term}%`).limit(20); if (error) throw error; return out({ users: (data || []).map((r: any) => pub(r.firebase_uid, r)) }); }
     if (route === "send_request") { const toUid = text(body.toUid, 160); if (!toUid || toUid === uid || await blocked(uid, toUid)) return out({ error: "You can’t add this user." }, 403); const from = await profile(uid); const to = await profile(toUid); if (!to.uid || (!to.username && to.displayName === "Uvel member")) return out({ error: "User not found." }, 404); const id = `${uid}_${toUid}`; const { data: existing, error: existingError } = await db.from("friend_requests").select("status").eq("id", id).maybeSingle(); if (existingError) throw existingError; if (existing?.status === "accepted") return out({ requestId: id, status: "accepted" }); const { error } = await db.from("friend_requests").upsert({ id, from_uid: uid, to_uid: toUid, from_user: from, to_user: to, status: "pending" }, { onConflict: "id" }); if (error) throw error; await notify(toUid, "friend_request", id, from, id); return out({ requestId: id, status: "pending" }); }
     if (route === "add_from_share") { const other = text(body.sharedByUid, 160); if (!other || other === uid || await blocked(uid, other)) return out({ error: "You can’t add this user." }, 403); const ids = pair(uid, other); const id = ids.join("_"); const me = await profile(uid); const friend = await profile(other); const { error } = await db.from("friendships").upsert({ id, user_a: ids[0], user_b: ids[1], source: "shared_link" }, { onConflict: "id" }); if (error) throw error; await notify(uid, "friend_added", id, friend, `friend_added_${id}_${uid}`); await notify(other, "friend_added", id, me, `friend_added_${id}_${other}`); return out({ status: "added", friendshipId: id }); }

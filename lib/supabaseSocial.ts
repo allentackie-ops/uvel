@@ -16,11 +16,25 @@ export async function syncSocialProfile() {
   const { user, token } = await currentToken();
   const saved = await readUserProfile(user.uid);
   const { data, error } = await requireSupabase().functions.invoke("firebase-social-gateway", {
-    body: { action: "sync_profile", profile: { username: saved?.username || "", displayName: saved?.name || user.displayName || "", avatarUri: saved?.avatarUri || "" } },
+    body: { action: "sync_profile", profile: { username: saved?.username || "", displayName: saved?.name || user.displayName || "" } },
     headers: { "x-firebase-id-token": token },
   });
   if (error) throw error;
   return data?.profile as PublicUser;
+}
+
+export async function uploadProfileAvatarToSupabase(base64: string): Promise<string> {
+  const { token } = await currentToken();
+  const { data, error } = await requireSupabase().functions.invoke("firebase-social-gateway", {
+    body: { action: "upload_profile_avatar", contentType: "image/jpeg", base64 },
+    headers: { "x-firebase-id-token": token },
+  });
+  if (error) throw error;
+  if (data?.error) throw new Error(String(data.error));
+  if (typeof data?.avatarUri !== "string" || !data.avatarUri.includes("/storage/v1/object/public/profile-avatars/")) {
+    throw new Error("Supabase did not return a profile-avatar URL.");
+  }
+  return data.avatarUri;
 }
 
 export async function socialCall<T = any>(action: string, payload: Record<string, unknown> = {}) {

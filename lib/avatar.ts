@@ -1,10 +1,5 @@
-import { httpsCallable } from "firebase/functions";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
-import { firebaseFunctions } from "./firebase";
-
-type UpdateAvatarResponse = {
-  avatarUri?: string;
-};
+import { uploadProfileAvatarToSupabase } from "./supabaseSocial";
 
 export async function uploadProfileAvatar(uri: string): Promise<string> {
   if (!uri) throw new Error("Choose a photo first.");
@@ -20,21 +15,15 @@ export async function uploadProfileAvatar(uri: string): Promise<string> {
   } catch {
     throw new Error("Could not prepare that photo. Try choosing another image.");
   }
+
   if (!base64) throw new Error("Could not prepare that photo. Try choosing another image.");
+  if (base64.length > 2_100_000) throw new Error("Choose a profile photo under 1.5 MB.");
 
   try {
-    const updateAvatar = httpsCallable<{ imageBase64: string }, UpdateAvatarResponse>(
-      firebaseFunctions(),
-      "updateProfileAvatar",
-    );
-    const result = await updateAvatar({ imageBase64: base64 });
-    const avatarUri = result.data?.avatarUri;
-    if (!avatarUri) throw new Error("The profile photo could not be saved.");
+    const avatarUri = await uploadProfileAvatarToSupabase(base64);
+    if (!avatarUri) throw new Error("Supabase did not return the saved profile photo.");
     return avatarUri;
-  } catch (error) {
-    if (error instanceof Error && error.message && !/internal/i.test(error.message)) {
-      throw error;
-    }
-    throw new Error("Could not sync your profile picture. Please try again.");
+  } catch {
+    throw new Error("Could not upload your profile picture to Supabase. Please check your connection and try again.");
   }
 }
