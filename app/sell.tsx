@@ -1048,16 +1048,13 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       </KeyboardAvoidingView>}
 
       {gate.phase !== "idle" ? (
-        <View style={[styles.gate, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 28 }]}>
-          {cover ? (
-            <Image cachePolicy="memory-disk" source={{ uri: cover.uri }} style={styles.gateImg} contentFit="cover" />
-          ) : null}
+        <View style={[styles.gate, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 28 }]}> 
           {gate.phase === "review" ? (
             <>
               <OrbitLoader size={24} />
               <Text style={styles.gateH}>Your listing is being edited</Text>
               <Text style={styles.gateP}>{gate.line || STAGES[stage]}</Text>
-              <Text style={styles.gateP}>It usually takes about 30 seconds. You can leave this screen—we’ll let you know when it’s ready.</Text>
+              <Text style={styles.gateP}>It usually takes about 30 seconds. You can leave this screen. We’ll let you know when it’s ready.</Text>
               <AccessiblePressable
                 onPress={leaveSell}
                 style={({ pressed }) => [styles.gateCta, pressed && { opacity: 0.92 }]}
@@ -1331,17 +1328,17 @@ function make(colors: Colors) {
     ctaTxtOff: { color: colors.muted },
     gate: {
       ...StyleSheet.absoluteFill,
-      backgroundColor: "#12140A",
+      backgroundColor: colors.ink,
       alignItems: "center",
       justifyContent: "center",
       paddingHorizontal: 32,
-      gap: 12,
+      gap: 18,
     },
-    gateImg: { width: 120, height: 160, borderRadius: 16, marginBottom: 16, opacity: 0.9 },
     gateH: {
       color: colors.bone,
       fontFamily: "Georgia",
       fontSize: 28,
+      fontWeight: "800",
       textAlign: "center",
       lineHeight: 34,
     },
