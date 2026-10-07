@@ -133,11 +133,16 @@ Deno.serve(async (req) => {
     if (route === "delete_message") {
       const chatId = text(body.conversationId, 200); const messageId = text(body.messageId, 40); const ids = chatId.split("_");
       if (ids.length !== 2 || !ids.includes(uid)) return out({ error: "You are not in this conversation." }, 403);
-      const { data: message, error: messageError } = await db.from("friend_messages").select("id,from_uid").eq("id", messageId).eq("chat_id", chatId).maybeSingle(); if (messageError) throw messageError;
+      const { data: chat, error: chatLookupError } = await db.from("friend_chats").select("user_a,user_b,unread_a,unread_b").eq("id", chatId).maybeSingle(); if (chatLookupError) throw chatLookupError;
+      if (!chat || ![chat.user_a, chat.user_b].includes(uid)) return out({ error: "Conversation not found." }, 404);
+      const { data: message, error: messageError } = await db.from("friend_messages").select("id,from_uid,status").eq("id", messageId).eq("chat_id", chatId).maybeSingle(); if (messageError) throw messageError;
       if (!message || message.from_uid !== uid) return out({ error: "You can only delete your own messages." }, 403);
       const { error: deleteError } = await db.from("friend_messages").delete().eq("id", messageId).eq("chat_id", chatId).eq("from_uid", uid); if (deleteError) throw deleteError;
       const { data: latest, error: latestError } = await db.from("friend_messages").select("text,from_uid,photo_url,created_at").eq("chat_id", chatId).order("created_at", { ascending: false }).limit(1).maybeSingle(); if (latestError) throw latestError;
-      const update = { last_text: latest ? latest.text || (latest.photo_url ? "Sent a photo" : "") : "", last_from: latest?.from_uid || null, last_at: latest?.created_at || null, updated_at: new Date().toISOString() }; const { error: chatError } = await db.from("friend_chats").update(update).eq("id", chatId); if (chatError) throw chatError;
+      const recipientUnreadColumn = uid === chat.user_a ? "unread_b" : "unread_a";
+      const update: Record<string, unknown> = { last_text: latest ? latest.text || (latest.photo_url ? "Sent a photo" : "") : "", last_from: latest?.from_uid || null, last_at: latest?.created_at || null, updated_at: new Date().toISOString() };
+      if (message.status !== "read") update[recipientUnreadColumn] = Math.max(0, Number(chat[recipientUnreadColumn] || 0) - 1);
+      const { error: chatError } = await db.from("friend_chats").update(update).eq("id", chatId); if (chatError) throw chatError;
       return out({ ok: true });
     }
     if (route === "block") { const other = text(body.blockedUid, 160); if (!other || other === uid) return out({ error: "That block is not valid." }, 400); const { error } = await db.from("friend_blocks").upsert({ id: `${uid}_${other}`, blocker_uid: uid, blocked_uid: other }, { onConflict: "id" }); if (error) throw error; return out({ blockedUid: other }); }

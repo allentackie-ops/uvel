@@ -217,6 +217,8 @@ async function applyAccount(
   if (!done) setupLive = true;
   let profileAvatarUri = supabaseProfileAvatar(stashed?.avatarUri) || supabaseProfileAvatar(memory.avatarUri);
   if (done) {
+    void import("./friendChat").then(({ refreshFriendInbox }) => refreshFriendInbox(user.uid)).catch(() => undefined);
+    void import("./friends").then(({ listFriendNotifications }) => listFriendNotifications(user.uid)).catch(() => undefined);
     try {
       const { syncSocialProfile } = await import("./supabaseSocial");
       const socialProfile = await syncSocialProfile();

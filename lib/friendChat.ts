@@ -2,6 +2,7 @@ import { pollSocial, socialCall } from "./supabaseSocial";
 import { marketplaceCall } from "./supabaseMarketplace";
 import { useEffect, useState } from "react";
 import type { PublicUser } from "./friends";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export type FriendMessage = { id: string; text: string; from: string; photoUrl?: string; createdAt?: unknown; status?: string; replyTo?: { id: string; text: string; from: string; photoUrl?: string } };
 export type FriendChatPreview = { id: string; participantIds: string[]; lastText?: string; lastFrom?: string; lastAt?: unknown; unreadBy?: Record<string, number> };
@@ -53,7 +54,62 @@ export async function listFriendChats() {
   return result.chats || [];
 }
 
+export type FriendInboxSnapshot = { friends: PublicUser[]; chats: FriendChatPreview[] };
+const FRIEND_INBOX_CACHE_PREFIX = "uvel-friend-inbox-v1:";
+const friendInboxCache = new Map<string, FriendInboxSnapshot>();
+const friendInboxRequests = new Map<string, Promise<FriendInboxSnapshot>>();
 const friendMessageCache = new Map<string, FriendMessage[]>();
+
+export function getCachedFriendInbox(uid: string) {
+  return friendInboxCache.get(uid) || null;
+}
+
+export async function restoreFriendInboxCache(uid: string) {
+  if (!uid || uid === "me") return null;
+  const cached = friendInboxCache.get(uid);
+  if (cached) return cached;
+  try {
+    const raw = await AsyncStorage.getItem(`${FRIEND_INBOX_CACHE_PREFIX}${uid}`);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as Partial<FriendInboxSnapshot>;
+    if (!Array.isArray(value.friends) || !Array.isArray(value.chats)) return null;
+    const snapshot = { friends: value.friends as PublicUser[], chats: value.chats as FriendChatPreview[] };
+    friendInboxCache.set(uid, snapshot);
+    return snapshot;
+  } catch {
+    return null;
+  }
+}
+
+export async function refreshFriendInbox(uid: string): Promise<FriendInboxSnapshot> {
+  if (!uid || uid === "me") return { friends: [], chats: [] };
+  const existing = friendInboxRequests.get(uid);
+  if (existing) return existing;
+  const request = (async () => {
+    const [friends, chats] = await Promise.all([listFriends(), listFriendChats()]);
+    const snapshot = { friends, chats };
+    const previous = friendInboxCache.get(uid);
+    friendInboxCache.set(uid, snapshot);
+    if (!previous || JSON.stringify(previous) !== JSON.stringify(snapshot)) {
+      void AsyncStorage.setItem(`${FRIEND_INBOX_CACHE_PREFIX}${uid}`, JSON.stringify(snapshot)).catch(() => undefined);
+    }
+    chats.slice(0, 5).forEach((chat) => {
+      if (!friendMessageCache.has(chat.id)) void preloadFriendMessages(chat.id).catch(() => undefined);
+    });
+    return snapshot;
+  })();
+  friendInboxRequests.set(uid, request);
+  try {
+    return await request;
+  } finally {
+    if (friendInboxRequests.get(uid) === request) friendInboxRequests.delete(uid);
+  }
+}
+
+export function subscribeFriendInbox(uid: string, callback: (snapshot: FriendInboxSnapshot) => void, intervalMs = 8000) {
+  if (!uid || uid === "me") return () => undefined;
+  return pollSocial(() => refreshFriendInbox(uid), callback, intervalMs);
+}
 
 export function getCachedFriendMessages(conversationId: string) {
   return friendMessageCache.get(conversationId);

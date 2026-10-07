@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Animated, FlatList, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
 import { BrandVerifiedMark } from "../components/VerifiedMark";
@@ -11,11 +11,14 @@ import { unreadFor, useInbox, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
 import { useColors, useResolvedAppearance, type Colors } from "../lib/theme";
 import * as Haptics from "../lib/haptics";
-import { respondFriendRequest, searchUsers, sendFriendRequest, subscribeFriendNotifications, type FriendNotification, type PublicUser } from "../lib/friends";
-import { createFriendChat, listFriendChats, listFriends, preloadFriendMessages, friendMessagePreview, type FriendChatPreview } from "../lib/friendChat";
+import { getCachedFriendNotifications, listFriendNotifications, respondFriendRequest, searchUsers, sendFriendRequest, subscribeFriendNotifications, type FriendNotification, type PublicUser } from "../lib/friends";
+import { createFriendChat, getCachedFriendInbox, refreshFriendInbox, restoreFriendInboxCache, subscribeFriendInbox, friendMessagePreview, type FriendChatPreview } from "../lib/friendChat";
 
 type Filter = "All" | "Unread" | "Selling" | "Buying";
 type InboxMode = "Messages" | "Activity";
+type FriendPanelMode = "friends" | "messages" | "notifications" | "discover";
+type FriendTab = "friends" | "requests";
+type ActivityTab = "friends" | "requests";
 const FILTERS: Filter[] = ["All", "Unread", "Selling", "Buying"];
 const MIN_REFRESH_MS = 1100;
 
@@ -37,34 +40,43 @@ export default function Inbox() {
   const me = uid || "me";
   const threads = useInbox(me);
   const [mode, setMode] = useState<InboxMode>("Messages");
+  const [activityTab, setActivityTab] = useState<ActivityTab>("friends");
   const [filter, setFilter] = useState<Filter>("All");
   const [conversationQuery, setConversationQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const refreshTriggered = useRef(false);
   const [friendSearchOpen, setFriendSearchOpen] = useState(false);
-  const [friendPanelMode, setFriendPanelMode] = useState<"friends" | "messages" | "notifications">("friends");
+  const [friendPanelMode, setFriendPanelMode] = useState<FriendPanelMode>("friends");
+  const [friendTab, setFriendTab] = useState<FriendTab>("friends");
   const [friendTerm, setFriendTerm] = useState("");
+  const [discoveryTerm, setDiscoveryTerm] = useState("");
   const [friendResults, setFriendResults] = useState<PublicUser[]>([]);
   const [friendSentIds, setFriendSentIds] = useState<Set<string>>(() => new Set());
-  const [friendNotifications, setFriendNotifications] = useState<FriendNotification[]>([]);
+  const [friendNotifications, setFriendNotifications] = useState<FriendNotification[]>(() => getCachedFriendNotifications(me));
   const [friendBusy, setFriendBusy] = useState(false);
   const [requestBusy, setRequestBusy] = useState<string | null>(null);
   const [friendError, setFriendError] = useState("");
   const [friendNotice, setFriendNotice] = useState("");
-  const [friends, setFriends] = useState<PublicUser[]>([]);
-  const [friendChats, setFriendChats] = useState<FriendChatPreview[]>([]);
+  const [friends, setFriends] = useState<PublicUser[]>(() => getCachedFriendInbox(me)?.friends || []);
+  const [friendChats, setFriendChats] = useState<FriendChatPreview[]>(() => getCachedFriendInbox(me)?.chats || []);
   useEffect(() => subscribeFriendNotifications(uid, setFriendNotifications), [uid]);
   useEffect(() => {
-    void listFriends().then(setFriends).catch(() => setFriends([]));
-    void listFriendChats().then((chats) => {
-      setFriendChats(chats);
-      // Warm the most recently active conversations while the inbox is visible.
-      chats.slice(0, 5).forEach((chat) => { void preloadFriendMessages(chat.id).catch(() => undefined); });
-    }).catch(() => setFriendChats([]));
-  }, [friendSearchOpen]);
+    let active = true;
+    void restoreFriendInboxCache(me).then((snapshot) => {
+      if (!active || !snapshot) return;
+      setFriends(snapshot.friends);
+      setFriendChats(snapshot.chats);
+    });
+    const stop = subscribeFriendInbox(me, (snapshot) => {
+      if (!active) return;
+      setFriends(snapshot.friends);
+      setFriendChats(snapshot.chats);
+    });
+    return () => { active = false; stop(); };
+  }, [me]);
 
   async function runFriendSearch() {
-    const term = friendTerm.trim();
+    const term = discoveryTerm.trim();
     if (term.length < 2) {
       setFriendResults([]);
       setFriendError("Enter at least 2 characters to search.");
@@ -99,9 +111,9 @@ export default function Inbox() {
       await respondFriendRequest(item.requestId, action);
       setFriendNotifications((items) => items.map((notification) => notification.id === item.id ? { ...notification, readAt: Date.now() } : notification));
       if (action === "accepted") {
-        const [nextFriends, nextChats] = await Promise.all([listFriends(), listFriendChats()]);
-        setFriends(nextFriends);
-        setFriendChats(nextChats);
+        const snapshot = await refreshFriendInbox(me);
+        setFriends(snapshot.friends);
+        setFriendChats(snapshot.chats);
       }
     } catch (e) {
       setFriendError(e instanceof Error ? e.message : `Couldn’t ${action === "accepted" ? "add" : "decline"} that request.`);
@@ -114,11 +126,41 @@ export default function Inbox() {
     try { const conversationId = await createFriendChat(user.uid); router.push({ pathname: "/friends/chat/[id]", params: { id: conversationId, name: user.displayName || user.username, username: user.username, avatarUri: user.avatarUri || "" } }); }
     catch (e) { setFriendError(e instanceof Error ? e.message : "Couldn’t open friend chat."); }
   }
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await new Promise<void>((resolve) => setTimeout(resolve, MIN_REFRESH_MS));
-    setRefreshing(false);
+  const closeFriendPanel = useCallback(() => {
+    setFriendSearchOpen(false);
+    setFriendResults([]);
   }, []);
+  const friendSheetDragY = useMemo(() => new Animated.Value(0), []);
+  const friendSheetPan = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_event, gesture) => gesture.dy > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+    onPanResponderMove: (_event, gesture) => friendSheetDragY.setValue(Math.max(0, gesture.dy)),
+    onPanResponderRelease: (_event, gesture) => {
+      if (gesture.dy > 120 || gesture.vy > 0.9) {
+        Animated.timing(friendSheetDragY, { toValue: 800, duration: 180, useNativeDriver: true }).start(({ finished }) => {
+          if (finished) { friendSheetDragY.setValue(0); closeFriendPanel(); }
+        });
+      } else {
+        Animated.spring(friendSheetDragY, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 220 }).start();
+      }
+    },
+  }), [closeFriendPanel, friendSheetDragY]);
+  useEffect(() => { if (friendSearchOpen) friendSheetDragY.setValue(0); }, [friendSearchOpen, friendSheetDragY]);
+  const onRefresh = useCallback(async () => {
+    const startedAt = Date.now();
+    setRefreshing(true);
+    try {
+      const [snapshot, notifications] = await Promise.all([refreshFriendInbox(me), listFriendNotifications(me)]);
+      setFriends(snapshot.friends);
+      setFriendChats(snapshot.chats);
+      setFriendNotifications(notifications);
+    } catch {
+      // Keep the last cached inbox visible when refresh is temporarily offline.
+    } finally {
+      const remaining = MIN_REFRESH_MS - (Date.now() - startedAt);
+      if (remaining > 0) await new Promise<void>((resolve) => setTimeout(resolve, remaining));
+      setRefreshing(false);
+    }
+  }, [me]);
   const onScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
     const y = event.nativeEvent.contentOffset.y;
     if (y > -10) refreshTriggered.current = false;
@@ -129,6 +171,7 @@ export default function Inbox() {
     }
   }, [onRefresh, refreshing]);
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
+  const pendingFriendRequests = useMemo(() => friendNotifications.filter((item) => item.kind === "friend_request" && !item.readAt), [friendNotifications]);
 
   const visible = useMemo(() => {
     const query = conversationQuery.trim().toLowerCase();
@@ -161,7 +204,7 @@ export default function Inbox() {
         <View style={styles.navActions}>
         <Pressable onPress={() => { setFriendPanelMode("messages"); setFriendSearchOpen(true); setFriendError(""); }} hitSlop={12} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Search Inbox"><Text style={styles.searchTxt}>⌕</Text></Pressable>
         <Pressable
-          onPress={() => { if (friendPanelMode === "notifications") setFriendSearchOpen((open) => !open); else { setFriendPanelMode("notifications"); setFriendSearchOpen(true); } }}
+          onPress={() => { if (friendPanelMode === "notifications" && friendSearchOpen) closeFriendPanel(); else { setFriendPanelMode("notifications"); setFriendSearchOpen(true); } }}
           hitSlop={12}
           style={styles.bell}
           accessibilityRole="button"
@@ -173,28 +216,45 @@ export default function Inbox() {
         </View>
       </View>
 
-      {friendSearchOpen ? <View style={styles.friendPanel}>
-        <View style={styles.friendPanelHead}><Text style={styles.friendPanelTitle}>{friendPanelMode === "messages" ? "Search Inbox" : friendPanelMode === "notifications" ? "Notifications" : "Find friends"}</Text><Pressable onPress={() => { setFriendSearchOpen(false); setFriendResults([]); }} accessibilityRole="button" accessibilityLabel="Close panel"><Text style={styles.closeTxt}>×</Text></Pressable></View>
-        {friendPanelMode === "notifications" ? <ScrollView style={styles.notificationList} nestedScrollEnabled>
-          {friendNotifications.length ? friendNotifications.map((item) => <View key={item.id} style={[styles.notificationRow, !item.readAt && styles.notificationUnread]}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.kind === "friend_request" ? `${item.actor.displayName || `@${item.actor.username}`} added you` : item.kind === "friend_added" ? `${item.actor.displayName || `@${item.actor.username}`} has been added as a friend` : `${item.actor.displayName || `@${item.actor.username}`} accepted your friend request`}</Text><Text style={styles.usernameTxt}>{item.kind === "friend_request" && !item.readAt ? "Respond to request" : "Friend activity"}</Text>{item.kind === "friend_request" && !item.readAt ? <View style={styles.requestActions}><Pressable disabled={requestBusy === item.requestId} onPress={() => void respondToFriendRequest(item, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable disabled={Boolean(requestBusy)} onPress={() => void respondToFriendRequest(item, "accepted")}><Text style={styles.acceptTxt}>{requestBusy === item.requestId ? "Adding…" : "Add back"}</Text></Pressable></View> : null}</View></View>) : <Text style={styles.noFriends}>You’re all caught up.</Text>}
-        </ScrollView> : friendPanelMode === "messages" ? <View style={styles.friendSearchRow}><TextInput autoFocus value={conversationQuery} onChangeText={setConversationQuery} onSubmitEditing={() => setFriendSearchOpen(false)} placeholder="People, listings, or messages" placeholderTextColor={colors.subtle} style={styles.friendInput} returnKeyType="search" /><Pressable onPress={() => setFriendSearchOpen(false)} style={styles.findBtn}><Text style={styles.findTxt}>Done</Text></Pressable></View> : <>
-        <View style={styles.friendSearchRow}><TextInput value={friendTerm} onChangeText={(value) => { setFriendTerm(value); setFriendError(""); }} onSubmitEditing={() => void runFriendSearch()} placeholder="Name or username" placeholderTextColor={colors.subtle} style={styles.friendInput} autoCapitalize="none" returnKeyType="search" /><Pressable onPress={() => void runFriendSearch()} style={styles.findBtn} accessibilityRole="button" accessibilityLabel="Search for friends"><Text style={styles.findTxt}>{friendBusy ? "…" : "Search"}</Text></Pressable></View>
-        {friendError ? <Text style={styles.friendError}>{friendError}</Text> : null}
-        {friendNotice ? <Text style={styles.friendNotice}>{friendNotice}</Text> : null}
-        {friendResults.map((user) => { const sent = friendSentIds.has(user.uid); return <View key={user.uid} style={styles.requestRow}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Pressable disabled={sent || friendBusy} onPress={() => void addFriend(user)} style={[styles.addBtn, sent && styles.addBtnSent]}><Text style={[styles.addTxt, sent && styles.addTxtSent]}>{sent ? "Sent" : "Add"}</Text></Pressable></View>; })}
-        {friendNotifications.filter((item) => item.kind === "friend_request" && !item.readAt).map((item) => <View key={item.id} style={styles.requestRow}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.actor.displayName || `@${item.actor.username}`} added you</Text><View style={styles.requestActions}><Pressable disabled={requestBusy === item.requestId} onPress={() => void respondToFriendRequest(item, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable disabled={Boolean(requestBusy)} onPress={() => void respondToFriendRequest(item, "accepted")}><Text style={styles.acceptTxt}>{requestBusy === item.requestId ? "Adding…" : "Add back"}</Text></Pressable></View></View></View>)}
-        {friendNotifications.filter((item) => item.kind === "friend_added" && !item.readAt).map((item) => <View key={item.id} style={styles.requestRow}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.actor.displayName || `@${item.actor.username}`} has been added as a friend.</Text><Text style={styles.usernameTxt}>You’re now connected on Uvel.</Text></View></View>)}
-        {friends.length ? <Text style={styles.sectionLabel}>YOUR FRIENDS</Text> : null}
-        {friends.map((user) => <Pressable key={user.uid} onPress={() => void openFriendChat(user)} style={styles.requestRow} accessibilityRole="button" accessibilityLabel={`Chat with ${user.displayName || user.username}`}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Text style={styles.chatArrow}>›</Text></Pressable>)}
-        {friendChats.length ? <Text style={styles.sectionLabel}>FRIEND CHATS</Text> : null}
-        {friendChats.map((chat) => { const other = chat.participantIds.find((id) => id !== me) || ""; const user = friends.find((item) => item.uid === other); const unread = Number(chat.unreadBy?.[me] || 0); return <Pressable key={chat.id} onPress={() => router.push({ pathname: "/friends/chat/[id]", params: { id: chat.id, name: user?.displayName || user?.username || "Friend", username: user?.username || "", avatarUri: user?.avatarUri || "" } })} style={styles.requestRow} accessibilityRole="button"><Avatar user={user || { uid: other, username: "friend", displayName: "Friend" }} /><View style={{ flex: 1 }}><Text style={[styles.requestText, unread ? { fontWeight: "900" } : null]}>{user?.displayName || user?.username || "Friend"}</Text><Text style={styles.usernameTxt} numberOfLines={1}>{friendMessagePreview(chat.lastText) || "Start chatting"}</Text></View>{unread ? <View style={styles.chatUnread}><Text style={styles.chatUnreadTxt}>{unread}</Text></View> : <Text style={styles.chatArrow}>›</Text>}</Pressable>; })}
-        {!friendResults.length && !friendNotifications.some((item) => ["friend_request", "friend_added"].includes(item.kind) && !item.readAt) && friendTerm.length >= 2 && !friendBusy ? <Text style={styles.noFriends}>No users found.</Text> : null}
-        </>}
-      </View> : null}
+      <FriendSheet
+        visible={friendSearchOpen}
+        mode={friendPanelMode}
+        friendTab={friendTab}
+        setFriendTab={setFriendTab}
+        onClose={closeFriendPanel}
+        onModeChange={setFriendPanelMode}
+        onOpenDiscover={() => { setFriendPanelMode("discover"); setDiscoveryTerm(""); setFriendResults([]); setFriendError(""); setFriendNotice(""); }}
+        friends={friends}
+        notifications={friendNotifications}
+        conversationQuery={conversationQuery}
+        setConversationQuery={setConversationQuery}
+        friendTerm={friendTerm}
+        setFriendTerm={setFriendTerm}
+        discoveryTerm={discoveryTerm}
+        setDiscoveryTerm={setDiscoveryTerm}
+        friendResults={friendResults}
+        friendSentIds={friendSentIds}
+        friendBusy={friendBusy}
+        requestBusy={requestBusy}
+        friendError={friendError}
+        friendNotice={friendNotice}
+        onSearchUsers={runFriendSearch}
+        onAddFriend={addFriend}
+        onRespond={respondToFriendRequest}
+        onOpenChat={openFriendChat}
+        colors={colors}
+        styles={styles}
+        insets={insets}
+        panHandlers={friendSheetPan.panHandlers}
+        dragY={friendSheetDragY}
+      />
 
       <View style={styles.modeToggle}>
         {(["Messages", "Activity"] as InboxMode[]).map((item) => <Pressable key={item} onPress={() => setMode(item)} style={[styles.modeButton, mode === item && styles.modeButtonOn]} accessibilityRole="tab" accessibilityState={{ selected: mode === item }}><Text style={[styles.modeText, mode === item && styles.modeTextOn]}>{item}</Text></Pressable>)}
       </View>
+      {mode === "Activity" ? <View style={styles.activityTabs} accessibilityRole="tablist">
+        {(["friends", "requests"] as ActivityTab[]).map((tab) => <Pressable key={tab} onPress={() => setActivityTab(tab)} style={[styles.activityTab, activityTab === tab && styles.activityTabOn]} accessibilityRole="tab" accessibilityState={{ selected: activityTab === tab }}><Text style={[styles.activityTabText, activityTab === tab && styles.activityTabTextOn]}>{tab === "friends" ? "Friends" : `Requests${pendingFriendRequests.length ? ` · ${pendingFriendRequests.length}` : ""}`}</Text></Pressable>)}
+      </View> : null}
 
       {mode === "Messages" ? <>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipScroll}>
@@ -207,7 +267,7 @@ export default function Inbox() {
           renderItem={({ item }) => <Row thread={item} uid={me} colors={colors} />}
           ListHeaderComponent={orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
           ListEmptyComponent={<Text style={styles.empty}>{empty}</Text>}
-          ListFooterComponent={friends.length <= 5 || visible.length === 0 ? <FindFriendsBanner onPress={() => { setFriendPanelMode("friends"); setFriendSearchOpen(true); setFriendError(""); }} colors={colors} styles={styles} /> : null}
+          ListFooterComponent={friends.length <= 5 || visible.length === 0 ? <FindFriendsBanner onPress={() => { setFriendPanelMode("discover"); setFriendSearchOpen(true); setDiscoveryTerm(""); setFriendResults([]); setFriendError(""); setFriendNotice(""); }} colors={colors} styles={styles} /> : null}
           alwaysBounceVertical
           bounces
           scrollEventThrottle={16}
@@ -215,7 +275,7 @@ export default function Inbox() {
           contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
           style={styles.list}
         />
-      </> : <ActivityView friends={friends} friendChats={friendChats} notifications={friendNotifications} uid={me} onOpenFriends={() => { setFriendPanelMode("friends"); setFriendSearchOpen(true); setFriendError(""); }} colors={colors} styles={styles} />}
+      </> : activityTab === "friends" ? <ActivityView friends={friends} friendChats={friendChats} uid={me} onOpenFriends={() => { setFriendPanelMode("friends"); setFriendTab("friends"); setFriendSearchOpen(true); setFriendError(""); }} colors={colors} styles={styles} onScroll={onScroll} orbitOn={orbitOn} /> : <ActivityRequestsView requests={pendingFriendRequests} requestBusy={requestBusy} onRespond={respondToFriendRequest} onScroll={onScroll} orbitOn={orbitOn} styles={styles} />}
     </View>
   );
 }
@@ -236,14 +296,73 @@ function FindFriendsBanner({ onPress, colors, styles }: { onPress: () => void; c
   </Pressable>;
 }
 
-function ActivityView({ friends, friendChats, notifications, uid, onOpenFriends, colors, styles }: { friends: PublicUser[]; friendChats: FriendChatPreview[]; notifications: FriendNotification[]; uid: string; onOpenFriends: () => void; colors: Colors; styles: ReturnType<typeof make> }) {
+function FriendSheet({ visible, mode, friendTab, setFriendTab, onClose, onModeChange, onOpenDiscover, friends, notifications, conversationQuery, setConversationQuery, friendTerm, setFriendTerm, discoveryTerm, setDiscoveryTerm, friendResults, friendSentIds, friendBusy, requestBusy, friendError, friendNotice, onSearchUsers, onAddFriend, onRespond, onOpenChat, colors, styles, insets, panHandlers, dragY }: {
+  visible: boolean; mode: FriendPanelMode; friendTab: FriendTab; setFriendTab: (tab: FriendTab) => void; onClose: () => void; onModeChange: (mode: FriendPanelMode) => void; onOpenDiscover: () => void;
+  friends: PublicUser[]; notifications: FriendNotification[]; conversationQuery: string; setConversationQuery: (value: string) => void; friendTerm: string; setFriendTerm: (value: string) => void; discoveryTerm: string; setDiscoveryTerm: (value: string) => void;
+  friendResults: PublicUser[]; friendSentIds: Set<string>; friendBusy: boolean; requestBusy: string | null; friendError: string; friendNotice: string; onSearchUsers: () => Promise<void>; onAddFriend: (user: PublicUser) => Promise<void>; onRespond: (item: FriendNotification, action: "accepted" | "declined") => Promise<void>; onOpenChat: (user: PublicUser) => Promise<void>;
+  colors: Colors; styles: ReturnType<typeof make>; insets: { bottom: number }; panHandlers: ReturnType<typeof PanResponder.create>["panHandlers"]; dragY: Animated.Value;
+}) {
   const pending = notifications.filter((item) => item.kind === "friend_request" && !item.readAt);
-  return <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }} style={styles.activityScroll}>
+  const visibleFriends = friends.filter((user) => `${user.displayName} ${user.username}`.toLowerCase().includes(friendTerm.trim().toLowerCase()));
+  const title = mode === "messages" ? "Search Inbox" : mode === "notifications" ? "Notifications" : mode === "discover" ? "Find people" : "Your friends";
+  const requestRows = (items: FriendNotification[]) => items.map((item) => <View key={item.id} style={styles.sheetPersonRow}>
+    <Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.actor.displayName || `@${item.actor.username}`}</Text><Text style={styles.usernameTxt}>@{item.actor.username}</Text>
+      <View style={styles.requestActions}><Pressable disabled={requestBusy === item.requestId} onPress={() => void onRespond(item, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable disabled={Boolean(requestBusy)} onPress={() => void onRespond(item, "accepted")}><Text style={styles.acceptTxt}>{requestBusy === item.requestId ? "Adding…" : "Accept"}</Text></Pressable></View>
+    </View>
+  </View>);
+  return <Modal visible={visible} transparent animationType="slide" statusBarTranslucent onRequestClose={onClose}>
+    <View style={styles.friendSheetBackdrop}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close friends panel" />
+      <Animated.View style={[styles.friendPanel, { paddingBottom: insets.bottom + 16, transform: [{ translateY: dragY }] }]}>
+        <View style={styles.sheetDragArea} {...panHandlers}><View style={styles.sheetHandle} /></View>
+        <View style={styles.friendPanelHead}>
+          {mode === "discover" ? <Pressable onPress={() => onModeChange("friends")} hitSlop={10}><Text style={styles.sheetBack}>‹</Text></Pressable> : null}
+          <Text style={styles.friendPanelTitle}>{title}</Text><Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close panel"><Text style={styles.closeTxt}>×</Text></Pressable>
+        </View>
+        {mode === "messages" ? <View style={styles.friendSearchRow}><TextInput autoFocus value={conversationQuery} onChangeText={setConversationQuery} onSubmitEditing={onClose} placeholder="People, listings, or messages" placeholderTextColor={colors.subtle} style={styles.friendInput} returnKeyType="search" /><Pressable onPress={onClose} style={styles.findBtn}><Text style={styles.findTxt}>Done</Text></Pressable></View> : null}
+        {mode === "notifications" ? <ScrollView style={styles.sheetList} keyboardShouldPersistTaps="handled">
+          {notifications.length ? notifications.map((item) => <View key={item.id} style={[styles.notificationRow, !item.readAt && styles.notificationUnread]}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.kind === "friend_request" ? `${item.actor.displayName || `@${item.actor.username}`} sent you a friend request` : item.kind === "friend_added" ? `${item.actor.displayName || `@${item.actor.username}`} became your friend` : `${item.actor.displayName || `@${item.actor.username}`} accepted your friend request`}</Text><Text style={styles.usernameTxt}>{item.kind === "friend_request" && !item.readAt ? "Respond to request" : "Friend activity"}</Text>{item.kind === "friend_request" && !item.readAt ? <View style={styles.requestActions}><Pressable disabled={requestBusy === item.requestId} onPress={() => void onRespond(item, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable disabled={Boolean(requestBusy)} onPress={() => void onRespond(item, "accepted")}><Text style={styles.acceptTxt}>{requestBusy === item.requestId ? "Adding…" : "Accept"}</Text></Pressable></View> : null}</View></View>) : <Text style={styles.noFriends}>You’re all caught up.</Text>}
+        </ScrollView> : null}
+        {mode === "friends" ? <>
+          <View style={styles.friendTabs}>
+            <Pressable onPress={() => setFriendTab("friends")} style={[styles.friendTab, friendTab === "friends" && styles.friendTabOn]} accessibilityRole="tab" accessibilityState={{ selected: friendTab === "friends" }}><Text style={[styles.friendTabText, friendTab === "friends" && styles.friendTabTextOn]}>Friends</Text></Pressable>
+            <Pressable onPress={() => setFriendTab("requests")} style={[styles.friendTab, friendTab === "requests" && styles.friendTabOn]} accessibilityRole="tab" accessibilityState={{ selected: friendTab === "requests" }}><Text style={[styles.friendTabText, friendTab === "requests" && styles.friendTabTextOn]}>Requests{pending.length ? ` · ${pending.length}` : ""}</Text></Pressable>
+          </View>
+          {friendTab === "friends" ? <>
+            <View style={styles.friendSearchRow}><TextInput value={friendTerm} onChangeText={setFriendTerm} placeholder="Search your friends" placeholderTextColor={colors.subtle} style={styles.friendInput} autoCapitalize="none" returnKeyType="search" /></View>
+            <ScrollView style={styles.sheetList} keyboardShouldPersistTaps="handled">
+              {visibleFriends.map((user) => <Pressable key={user.uid} onPress={() => { onClose(); void onOpenChat(user); }} style={styles.sheetPersonRow} accessibilityRole="button" accessibilityLabel={`Chat with ${user.displayName || user.username}`}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Text style={styles.chatArrow}>›</Text></Pressable>)}
+              {!visibleFriends.length ? <Text style={styles.noFriends}>{friendTerm.trim() ? "No friends match that search." : "You haven’t added any friends yet."}</Text> : null}
+            </ScrollView>
+            <Pressable onPress={onOpenDiscover} style={styles.discoverButton}><Text style={styles.discoverButtonText}>Find new friends</Text></Pressable>
+          </> : <ScrollView style={styles.sheetList} keyboardShouldPersistTaps="handled">{requestRows(pending)}{!pending.length ? <Text style={styles.noFriends}>No pending friend requests.</Text> : null}</ScrollView>}
+        </> : null}
+        {mode === "discover" ? <>
+          <View style={styles.friendSearchRow}><TextInput autoFocus value={discoveryTerm} onChangeText={(value) => { setDiscoveryTerm(value); }} onSubmitEditing={() => void onSearchUsers()} placeholder="Name or username" placeholderTextColor={colors.subtle} style={styles.friendInput} autoCapitalize="none" returnKeyType="search" /><Pressable onPress={() => void onSearchUsers()} style={styles.findBtn} accessibilityRole="button" accessibilityLabel="Search for friends"><Text style={styles.findTxt}>{friendBusy ? "…" : "Search"}</Text></Pressable></View>
+          {friendError ? <Text style={styles.friendError}>{friendError}</Text> : null}{friendNotice ? <Text style={styles.friendNotice}>{friendNotice}</Text> : null}
+          <ScrollView style={styles.sheetList} keyboardShouldPersistTaps="handled">{friendResults.map((user) => { const sent = friendSentIds.has(user.uid); return <View key={user.uid} style={styles.sheetPersonRow}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Pressable disabled={sent || friendBusy} onPress={() => void onAddFriend(user)} style={[styles.addBtn, sent && styles.addBtnSent]}><Text style={[styles.addTxt, sent && styles.addTxtSent]}>{sent ? "Sent" : "Add"}</Text></Pressable></View>; })}{!friendResults.length && discoveryTerm.trim().length >= 2 && !friendBusy ? <Text style={styles.noFriends}>No users found.</Text> : null}</ScrollView>
+        </> : null}
+      </Animated.View>
+    </View>
+  </Modal>;
+}
+
+function ActivityRequestsView({ requests, requestBusy, onRespond, onScroll, orbitOn, styles }: { requests: FriendNotification[]; requestBusy: string | null; onRespond: (item: FriendNotification, action: "accepted" | "declined") => Promise<void>; onScroll: (event: { nativeEvent: { contentOffset: { y: number } } }) => void; orbitOn: boolean; styles: ReturnType<typeof make> }) {
+  return <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.activityRequestContent} style={styles.activityScroll} alwaysBounceVertical bounces scrollEventThrottle={16} onScroll={onScroll}>
+    {orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
+    <View style={styles.activityRequestHeader}><Text style={styles.activityTitle}>Friend requests</Text><Text style={styles.activityRequestSubtitle}>People who want to connect with you</Text></View>
+    {requests.map((item) => <View key={item.id} style={styles.activityRequestRow}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.actor.displayName || `@${item.actor.username}`}</Text><Text style={styles.usernameTxt}>@{item.actor.username}</Text></View><View style={styles.requestActions}><Pressable disabled={requestBusy === item.requestId} onPress={() => void onRespond(item, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable disabled={Boolean(requestBusy)} onPress={() => void onRespond(item, "accepted")}><Text style={styles.acceptTxt}>{requestBusy === item.requestId ? "Adding…" : "Accept"}</Text></Pressable></View></View>)}
+    {!requests.length ? <Text style={styles.empty}>No pending friend requests.</Text> : null}
+  </ScrollView>;
+}
+
+function ActivityView({ friends, friendChats, uid, onOpenFriends, colors, styles, onScroll, orbitOn }: { friends: PublicUser[]; friendChats: FriendChatPreview[]; uid: string; onOpenFriends: () => void; colors: Colors; styles: ReturnType<typeof make>; onScroll: (event: { nativeEvent: { contentOffset: { y: number } } }) => void; orbitOn: boolean }) {
+  return <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }} style={styles.activityScroll} alwaysBounceVertical bounces scrollEventThrottle={16} onScroll={onScroll}>
+    {orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
     <View style={styles.activityHeader}><Text style={styles.activityTitle}>Your circle</Text><Pressable onPress={onOpenFriends}><Text style={styles.activityLink}>Friends ›</Text></Pressable></View>
     {friends.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendRail}>{friends.map((user) => <Pressable key={user.uid} onPress={onOpenFriends} style={styles.friendBubble}><Avatar user={user} /><Text style={styles.friendBubbleName} numberOfLines={1}>{user.displayName || user.username}</Text></Pressable>)}</ScrollView> : null}
-    {pending.length ? <View style={styles.requestCard}><View style={styles.requestCardCopy}><Text style={styles.requestCardTitle}>Friend requests</Text><Text style={styles.requestCardBody}>{pending.length} waiting for you</Text></View><Pressable onPress={onOpenFriends} style={styles.reviewBtn}><Text style={styles.reviewTxt}>Review</Text></Pressable></View> : null}
     <Text style={styles.activitySection}>RECENT CONVERSATIONS</Text>
-    {friendChats.length ? friendChats.map((chat) => { const other = chat.participantIds.find((id) => id !== uid) || ""; const user = friends.find((item) => item.uid === other); const unread = Number(chat.unreadBy?.[uid] || 0); return <Pressable key={chat.id} onPress={() => router.push({ pathname: "/friends/chat/[id]", params: { id: chat.id, name: user?.displayName || user?.username || "Friend", username: user?.username || "", avatarUri: user?.avatarUri || "" } })} style={styles.activityRow}><Avatar user={user || { uid: other, username: "friend", displayName: "Friend" }} /><View style={{ flex: 1 }}><Text style={[styles.requestText, unread ? { fontWeight: "900" } : null]}>{user?.displayName || user?.username || "Friend"}</Text><Text style={styles.usernameTxt} numberOfLines={1}>{chat.lastText || "Start chatting"}</Text></View>{unread ? <View style={styles.chatUnread}><Text style={styles.chatUnreadTxt}>{unread}</Text></View> : <Text style={styles.chatArrow}>›</Text>}</Pressable>; }) : <Text style={styles.empty}>Friend conversations will appear here.</Text>}
+    {friendChats.length ? friendChats.map((chat) => { const other = chat.participantIds.find((id) => id !== uid) || ""; const user = friends.find((item) => item.uid === other); const unread = Number(chat.unreadBy?.[uid] || 0); return <Pressable key={chat.id} onPress={() => router.push({ pathname: "/friends/chat/[id]", params: { id: chat.id, name: user?.displayName || user?.username || "Friend", username: user?.username || "", avatarUri: user?.avatarUri || "" } })} style={styles.activityRow}><Avatar user={user || { uid: other, username: "friend", displayName: "Friend" }} /><View style={{ flex: 1 }}><Text style={[styles.requestText, unread ? { fontWeight: "900" } : null]}>{user?.displayName || user?.username || "Friend"}</Text><Text style={styles.usernameTxt} numberOfLines={1}>{friendMessagePreview(chat.lastText) || "Start chatting"}</Text></View>{unread ? <View style={styles.chatUnread}><Text style={styles.chatUnreadTxt}>{unread}</Text></View> : <Text style={styles.chatArrow}>›</Text>}</Pressable>; }) : <Text style={styles.empty}>Friend conversations will appear here.</Text>}
     {friends.length <= 5 ? <FindFriendsBanner onPress={onOpenFriends} colors={colors} styles={styles} /> : null}
   </ScrollView>;
 }
@@ -295,7 +414,7 @@ function Row({
 }
 
 function Avatar({ user }: { user: PublicUser }) {
-  return user.avatarUri ? <Image cachePolicy="memory-disk" source={{ uri: user.avatarUri }} style={{ width: 44, height: 44, borderRadius: 22 }} contentFit="cover" /> : <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: "#2A320E", alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#D6E27A", fontWeight: "800" }}>{(user.displayName || user.username || "U").slice(0, 1).toUpperCase()}</Text></View>;
+  return user.avatarUri ? <Image cachePolicy="memory-disk" source={{ uri: user.avatarUri }} style={{ width: 52, height: 52, borderRadius: 26 }} contentFit="cover" /> : <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: "#2A320E", alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#D6E27A", fontWeight: "800", fontSize: 16 }}>{(user.displayName || user.username || "U").slice(0, 1).toUpperCase()}</Text></View>;
 }
 
 function make(colors: Colors) {
@@ -310,14 +429,12 @@ function make(colors: Colors) {
     },
     navBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
     navBack: { color: colors.bone, fontSize: 34, lineHeight: 36, marginTop: -4 },
-    navTitle: { color: colors.bone, fontSize: 17, fontWeight: "700" },
+    navTitle: { color: colors.bone, fontSize: 18, fontWeight: "700" },
     navActions: { flexDirection: "row", alignItems: "center", gap: 8 },
     iconBtn: {
       width: 44,
       height: 44,
       borderRadius: 22,
-      borderWidth: 1,
-      borderColor: `${colors.bone}2E`,
       alignItems: "center",
       justifyContent: "center",
     },
@@ -326,8 +443,6 @@ function make(colors: Colors) {
       width: 44,
       height: 44,
       borderRadius: 22,
-      borderWidth: 1,
-      borderColor: `${colors.bone}2E`,
       alignItems: "center",
       justifyContent: "center",
       marginRight: 8,
@@ -335,39 +450,56 @@ function make(colors: Colors) {
     bellTxt: { fontSize: 16 },
     badge: { position: "absolute", top: -3, right: -3, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: "#E24B4B", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.ink },
     badgeTxt: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" },
-    modeToggle: { marginHorizontal: 16, marginBottom: 14, padding: 3, borderRadius: 22, backgroundColor: `${colors.bone}10`, flexDirection: "row" },
-    modeButton: { flex: 1, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+    modeToggle: { marginHorizontal: 16, marginBottom: 12, padding: 3, borderRadius: 24, backgroundColor: `${colors.bone}10`, flexDirection: "row" },
+    modeButton: { flex: 1, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
     modeButtonOn: { backgroundColor: colors.surface },
-    modeText: { color: colors.muted, fontSize: 14, fontWeight: "700" },
+    modeText: { color: colors.muted, fontSize: 15, fontWeight: "700" },
     modeTextOn: { color: colors.bone },
-    friendPanel: { marginHorizontal: 12, marginBottom: 12, padding: 14, borderRadius: 18, backgroundColor: colors.surface, maxHeight: 420 },
-    friendPanelHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-    friendPanelTitle: { color: colors.bone, fontWeight: "800", fontSize: 17 },
+    activityTabs: { flexDirection: "row", gap: 10, marginHorizontal: 16, marginTop: -2, marginBottom: 12 },
+    activityTab: { minHeight: 40, paddingHorizontal: 18, borderRadius: 20, backgroundColor: `${colors.bone}0D`, alignItems: "center", justifyContent: "center" },
+    activityTabOn: { backgroundColor: `${colors.success}24` },
+    activityTabText: { color: colors.muted, fontSize: 15, fontWeight: "700" },
+    activityTabTextOn: { color: colors.success },
+    friendSheetBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.58)" },
+    friendPanel: { width: "100%", maxHeight: "86%", paddingHorizontal: 20, paddingTop: 6, backgroundColor: colors.surface, borderTopLeftRadius: 26, borderTopRightRadius: 26, borderWidth: 1, borderBottomWidth: 0, borderColor: `${colors.bone}24` },
+    sheetDragArea: { height: 28, alignItems: "center", justifyContent: "center" },
+    sheetHandle: { width: 44, height: 5, borderRadius: 3, backgroundColor: `${colors.bone}55` },
+    sheetBack: { color: colors.muted, fontSize: 30, lineHeight: 34, marginRight: 8 },
+    friendPanelHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14, minHeight: 36 },
+    friendPanelTitle: { color: colors.bone, fontWeight: "800", fontSize: 20, flex: 1 },
     closeTxt: { color: colors.muted, fontSize: 24 },
-    friendSearchRow: { flexDirection: "row", gap: 8 },
-    friendInput: { flex: 1, minHeight: 42, borderRadius: 12, paddingHorizontal: 12, color: colors.bone, backgroundColor: colors.ink },
-    findBtn: { paddingHorizontal: 14, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.success },
-    findTxt: { color: colors.successInk, fontWeight: "800" },
-    friendError: { color: "#E24B4B", fontSize: 12, marginTop: 8 },
-    friendNotice: { color: colors.success, fontSize: 12, lineHeight: 17, marginTop: 8 },
-    notificationList: { maxHeight: 360 },
-    notificationRow: { flexDirection: "row", gap: 10, alignItems: "center", paddingVertical: 10, paddingHorizontal: 8, borderRadius: 12 },
+    friendTabs: { flexDirection: "row", gap: 8, padding: 4, borderRadius: 18, backgroundColor: `${colors.ink}CC`, marginBottom: 14 },
+    friendTab: { flex: 1, minHeight: 42, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+    friendTabOn: { backgroundColor: colors.surface },
+    friendTabText: { color: colors.muted, fontSize: 15, fontWeight: "700" },
+    friendTabTextOn: { color: colors.bone },
+    friendSearchRow: { flexDirection: "row", gap: 8, marginBottom: 10 },
+    friendInput: { flex: 1, minHeight: 50, borderRadius: 15, paddingHorizontal: 14, color: colors.bone, backgroundColor: colors.ink, fontSize: 16 },
+    findBtn: { minHeight: 50, paddingHorizontal: 16, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: colors.success },
+    findTxt: { color: colors.successInk, fontWeight: "800", fontSize: 15 },
+    friendError: { color: "#E24B4B", fontSize: 14, marginTop: 8 },
+    friendNotice: { color: colors.success, fontSize: 14, lineHeight: 20, marginTop: 8 },
+    sheetList: { flexGrow: 0, flexShrink: 1, maxHeight: 440 },
+    sheetPersonRow: { flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}15` },
+    discoverButton: { minHeight: 50, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: `${colors.success}20`, marginTop: 10 },
+    discoverButtonText: { color: colors.success, fontSize: 15, fontWeight: "800" },
+    notificationRow: { flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 14, paddingHorizontal: 8, borderRadius: 14 },
     notificationUnread: { backgroundColor: `${colors.success}12` },
-    requestRow: { flexDirection: "row", gap: 10, alignItems: "center", paddingVertical: 10 },
-    requestText: { color: colors.bone, fontWeight: "700" },
-    usernameTxt: { color: colors.subtle, fontSize: 12, marginTop: 2 },
-    requestActions: { flexDirection: "row", gap: 16, marginTop: 6 },
-    declineTxt: { color: colors.muted, fontWeight: "700" },
-    acceptTxt: { color: colors.success, fontWeight: "800" },
-    addBtn: { borderRadius: 12, paddingHorizontal: 13, paddingVertical: 8, backgroundColor: colors.success },
-    addTxt: { color: colors.successInk, fontWeight: "800" },
+    requestRow: { flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 12 },
+    requestText: { color: colors.bone, fontWeight: "700", fontSize: 16 },
+    usernameTxt: { color: colors.subtle, fontSize: 14, marginTop: 3 },
+    requestActions: { flexDirection: "row", gap: 18, marginTop: 8 },
+    declineTxt: { color: colors.muted, fontWeight: "700", fontSize: 14 },
+    acceptTxt: { color: colors.success, fontWeight: "800", fontSize: 14 },
+    addBtn: { borderRadius: 14, paddingHorizontal: 15, paddingVertical: 10, backgroundColor: colors.success },
+    addTxt: { color: colors.successInk, fontWeight: "800", fontSize: 14 },
     addBtnSent: { backgroundColor: `${colors.success}33` },
     addTxtSent: { color: colors.success },
     noFriends: { color: colors.muted, paddingVertical: 12 },
-    sectionLabel: { color: colors.subtle, fontSize: 11, letterSpacing: 1.4, fontWeight: "800", marginTop: 12, marginBottom: 2 },
-    chatArrow: { color: colors.success, fontSize: 26 },
-    chatUnread: { minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
-    chatUnreadTxt: { color: colors.successInk, fontSize: 11, fontWeight: "900" },
+    sectionLabel: { color: colors.subtle, fontSize: 12, letterSpacing: 1.4, fontWeight: "800", marginTop: 14, marginBottom: 3 },
+    chatArrow: { color: colors.success, fontSize: 30 },
+    chatUnread: { minWidth: 26, height: 26, paddingHorizontal: 7, borderRadius: 13, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    chatUnreadTxt: { color: colors.successInk, fontSize: 12, fontWeight: "900" },
     chipWrap: { flexGrow: 0, flexShrink: 0 },
     chipScroll: { flexGrow: 0 },
     chips: { paddingHorizontal: 16, paddingBottom: 8, gap: 8, alignItems: "center" },
@@ -392,45 +524,49 @@ function make(colors: Colors) {
     priorityMessage: { color: colors.bone, fontSize: 13, marginTop: 3 },
     priorityMeta: { color: colors.muted, fontSize: 11, marginTop: 3 },
     priorityArrow: { color: colors.success, fontSize: 28, marginRight: 3 },
-    findBanner: { marginHorizontal: 16, marginTop: 16, padding: 16, minHeight: 90, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.success}55`, flexDirection: "row", alignItems: "center", gap: 12 },
-    findBannerIcon: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
-    findBannerIconText: { color: colors.successInk, fontSize: 25, lineHeight: 26 },
+    findBanner: { marginHorizontal: 16, marginTop: 18, padding: 18, minHeight: 98, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.success}55`, flexDirection: "row", alignItems: "center", gap: 14 },
+    findBannerIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    findBannerIconText: { color: colors.successInk, fontSize: 28, lineHeight: 30 },
     findBannerCopy: { flex: 1 },
-    findBannerTitle: { color: colors.bone, fontSize: 16, fontWeight: "800" },
-    findBannerBody: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 3 },
-    findBannerArrow: { color: colors.success, fontSize: 28 },
+    findBannerTitle: { color: colors.bone, fontSize: 18, fontWeight: "800" },
+    findBannerBody: { color: colors.muted, fontSize: 14, lineHeight: 19, marginTop: 4 },
+    findBannerArrow: { color: colors.success, fontSize: 30 },
     activityScroll: { flex: 1 },
     activityHeader: { paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
-    activityTitle: { color: colors.bone, fontSize: 27, fontWeight: "800", letterSpacing: -0.5 },
-    activityLink: { color: colors.muted, fontSize: 14, fontWeight: "700" },
-    friendRail: { gap: 14, paddingHorizontal: 16, paddingBottom: 18 },
-    friendBubble: { width: 62, alignItems: "center", gap: 5 },
-    friendBubbleName: { color: colors.muted, fontSize: 11, textAlign: "center" },
+    activityTitle: { color: colors.bone, fontSize: 30, fontWeight: "800", letterSpacing: -0.5 },
+    activityLink: { color: colors.muted, fontSize: 16, fontWeight: "700" },
+    friendRail: { gap: 16, paddingHorizontal: 16, paddingBottom: 20 },
+    friendBubble: { width: 72, alignItems: "center", gap: 7 },
+    friendBubbleName: { color: colors.muted, fontSize: 13, textAlign: "center" },
     requestCard: { marginHorizontal: 16, padding: 16, minHeight: 88, borderRadius: 18, backgroundColor: colors.surface, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     requestCardCopy: { flex: 1 },
     requestCardTitle: { color: colors.bone, fontSize: 17, fontWeight: "800" },
     requestCardBody: { color: colors.muted, fontSize: 13, marginTop: 4 },
     reviewBtn: { minHeight: 40, paddingHorizontal: 17, borderRadius: 20, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     reviewTxt: { color: colors.successInk, fontWeight: "800" },
-    activitySection: { color: colors.subtle, fontSize: 10, letterSpacing: 1.5, fontWeight: "800", marginHorizontal: 16, marginTop: 28, marginBottom: 4 },
-    activityRow: { flexDirection: "row", gap: 12, alignItems: "center", paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}15` },
+    activitySection: { color: colors.subtle, fontSize: 12, letterSpacing: 1.5, fontWeight: "800", marginHorizontal: 16, marginTop: 26, marginBottom: 6 },
+    activityRow: { flexDirection: "row", gap: 14, alignItems: "center", paddingHorizontal: 16, paddingVertical: 18, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}15` },
+    activityRequestContent: { paddingBottom: 28 },
+    activityRequestHeader: { paddingHorizontal: 16, marginBottom: 10 },
+    activityRequestSubtitle: { color: colors.muted, fontSize: 15, marginTop: 5 },
+    activityRequestRow: { flexDirection: "row", gap: 14, alignItems: "center", paddingHorizontal: 16, paddingVertical: 18, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}15` },
     empty: { color: colors.muted, padding: 24, lineHeight: 22, fontSize: 15 },
-    refreshOrbit: { height: 58, alignItems: "center", justifyContent: "flex-start" },
+    refreshOrbit: { height: 62, alignItems: "center", justifyContent: "flex-start" },
     list: { flex: 1 },
     row: {
       flexDirection: "row",
       gap: 12,
       paddingHorizontal: 16,
-      paddingVertical: 14,
+      paddingVertical: 16,
       alignItems: "center",
     },
-    thumb: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.surface },
+    thumb: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.surface },
     avatar: { alignItems: "center", justifyContent: "center" },
     avatarTxt: { color: colors.bone, fontWeight: "700", fontSize: 18 },
     line: { flexDirection: "row", alignItems: "center", gap: 8 },
-    name: { flex: 1, color: colors.bone, fontWeight: "700", fontSize: 16 },
-    time: { color: colors.subtle, fontSize: 12 },
-    prev: { color: colors.subtle, marginTop: 4, fontSize: 14 },
+    name: { flex: 1, color: colors.bone, fontWeight: "700", fontSize: 17 },
+    time: { color: colors.subtle, fontSize: 13 },
+    prev: { color: colors.subtle, marginTop: 4, fontSize: 15 },
     dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#E24B4B" },
   });
 }
