@@ -212,7 +212,6 @@ export default function FriendChat() {
         <View style={styles.profileCopy}><Text numberOfLines={1} style={styles.headerTitle}>{listName}</Text><Text numberOfLines={1} style={styles.headerSubtitle}>{peer?.username ? `@${peer.username}` : "Friend on Uvel"}</Text></View>
         <Ionicons name="chevron-forward" size={15} color={colors.subtle} />
       </View>
-      <Pressable onPress={() => { setSearchOpen((open) => !open); setSearchQuery(""); }} style={styles.headerIcon} accessibilityRole="button" accessibilityLabel="Search messages"><Ionicons name={searchOpen ? "close" : "search"} size={20} color={colors.bone} /></Pressable>
       <Pressable onPress={safetyActions} style={styles.headerIcon} accessibilityRole="button" accessibilityLabel="Conversation options"><Ionicons name="ellipsis-horizontal" size={23} color={colors.bone} /></Pressable>
     </View>
 
