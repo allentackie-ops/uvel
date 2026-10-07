@@ -8,10 +8,18 @@ export type FriendChatPreview = { id: string; participantIds: string[]; lastText
 
 export function friendMessagePreview(text?: string) {
   if (!text) return "";
-  const prefix = "uvel_shared_listing:";
-  if (!text.startsWith(prefix)) return text;
+  const voicePrefix = "uvel_voice_note:";
+  if (text.startsWith(voicePrefix)) {
+    try {
+      const note = JSON.parse(text.slice(voicePrefix.length)) as { durationMs?: unknown };
+      const totalSeconds = Math.max(0, Math.floor(Number(note.durationMs) / 1000));
+      return `Voice note · ${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
+    } catch { return "Voice note"; }
+  }
+  const sharedPrefix = "uvel_shared_listing:";
+  if (!text.startsWith(sharedPrefix)) return text;
   try {
-    const shared = JSON.parse(text.slice(prefix.length)) as { name?: unknown };
+    const shared = JSON.parse(text.slice(sharedPrefix.length)) as { name?: unknown };
     return typeof shared.name === "string" && shared.name ? `Shared listing: ${shared.name}` : "Shared a listing";
   } catch {
     return "Shared a listing";
@@ -30,6 +38,10 @@ export async function createFriendChat(otherUid: string) {
 
 export async function sendFriendMessage(conversationId: string, text: string, photoUrl?: string, replyTo?: string) {
   return socialCall<{ messageId: string }>("send_message", { conversationId, text, photoUrl: photoUrl || "", replyTo: replyTo || "" });
+}
+
+export async function sendFriendVoiceMessage(conversationId: string, base64: string, contentType: string, text: string) {
+  return socialCall<{ messageId: string; audioUrl: string }>("send_voice_message", { conversationId, base64, contentType, text });
 }
 
 export async function deleteFriendMessage(conversationId: string, messageId: string) {

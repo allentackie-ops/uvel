@@ -58,6 +58,38 @@ Deno.serve(async (req) => {
       const quotedById = new Map(quotedRows.map((row: any) => [row.id, row]));
       return out({ messages: (rows || []).map((row: any) => { const quote: any = row.reply_to ? quotedById.get(row.reply_to) : null; return { id: row.id, text: row.text, from: row.from_uid, photoUrl: row.photo_url, createdAt: row.created_at, status: row.status, replyTo: quote ? { id: quote.id, text: quote.text, from: quote.from_uid, photoUrl: quote.photo_url } : undefined }; }) });
     }
+    if (route === "send_voice_message") {
+      const chatId = text(body.conversationId, 200);
+      const message = text(body.text, 2000);
+      const encoded = text(body.base64, 6_000_000);
+      const contentType = text(body.contentType, 80).toLowerCase();
+      const ids = chatId.split("_");
+      if (ids.length !== 2 || !ids.includes(uid) || !message.startsWith("uvel_voice_note:") || !encoded) return out({ error: "That voice note is not valid." }, 400);
+      if (!["audio/mp4", "audio/webm"].includes(contentType)) return out({ error: "That voice format is not supported." }, 400);
+      if (encoded.length > Math.ceil(4 * 1024 * 1024 * 1.4)) return out({ error: "That voice note is too long." }, 413);
+      const bytes = Uint8Array.from(atob(encoded.includes(",") ? encoded.split(",").pop()! : encoded), (char) => char.charCodeAt(0));
+      if (!bytes.length || bytes.length > 4 * 1024 * 1024) return out({ error: "That voice note is too long." }, 413);
+      const recipient = ids.find((participant) => participant !== uid)!;
+      if (await blocked(uid, recipient)) return out({ error: "Messaging is unavailable for this user." }, 403);
+      const { data: chat, error: chatError } = await db.from("friend_chats").select("id,user_a,user_b,unread_a,unread_b").eq("id", chatId).maybeSingle();
+      if (chatError) throw chatError;
+      if (!chat || ![chat.user_a, chat.user_b].includes(uid)) return out({ error: "Conversation not found." }, 404);
+      const extension = contentType === "audio/mp4" ? "m4a" : "webm";
+      const path = `${uid}/${crypto.randomUUID()}.${extension}`;
+      const { error: uploadError } = await db.storage.from("message-media").upload(path, bytes, { contentType, upsert: false, cacheControl: "31536000" });
+      if (uploadError) throw uploadError;
+      const { data: signed, error: signedError } = await db.storage.from("message-media").createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (signedError || !signed?.signedUrl) throw signedError || new Error("Voice note could not be opened.");
+      const { data: sent, error: sendError } = await db.from("friend_messages").insert({ chat_id: chatId, from_uid: uid, text: message, photo_url: signed.signedUrl }).select("id").single();
+      if (sendError) throw sendError;
+      const now = new Date().toISOString();
+      const update = uid === chat.user_a
+        ? { last_text: message, last_from: uid, last_at: now, updated_at: now, unread_b: Number(chat.unread_b || 0) + 1 }
+        : { last_text: message, last_from: uid, last_at: now, updated_at: now, unread_a: Number(chat.unread_a || 0) + 1 };
+      const { error: updateError } = await db.from("friend_chats").update(update).eq("id", chatId);
+      if (updateError) throw updateError;
+      return out({ messageId: sent.id, audioUrl: signed.signedUrl });
+    }
     if (route === "send_message") {
       const chatId = text(body.conversationId, 200); const message = text(body.text, 2000); const photoUrl = text(body.photoUrl, 2000) || null; const replyTo = text(body.replyTo, 40) || null; const ids = chatId.split("_");
       if (ids.length !== 2 || !ids.includes(uid) || (!message && !photoUrl)) return out({ error: "Message text or photo is required." }, 400);

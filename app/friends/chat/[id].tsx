@@ -1,14 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as FileSystem from "expo-file-system";
+import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from "expo-audio";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, FlatList, ImageBackground, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { notificationAsync, NotificationFeedbackType } from "../../../lib/haptics";
-import { blockFriend, deleteFriendMessage, getCachedFriendMessages, listFriends, markFriendChatRead, reportFriendConversation, sendFriendMessage, subscribeFriendMessages, uploadFriendAttachment, friendMessagePreview, type FriendMessage } from "../../../lib/friendChat";
+import { impactAsync, ImpactFeedbackStyle, notificationAsync, NotificationFeedbackType } from "../../../lib/haptics";
+import { blockFriend, deleteFriendMessage, getCachedFriendMessages, listFriends, markFriendChatRead, reportFriendConversation, sendFriendMessage, subscribeFriendMessages, uploadFriendAttachment, friendMessagePreview, sendFriendVoiceMessage, type FriendMessage } from "../../../lib/friendChat";
 import type { PublicUser } from "../../../lib/friends";
 import { pickFromLibrary } from "../../../lib/photo";
 import { useColors, useResolvedAppearance } from "../../../lib/theme";
@@ -66,11 +67,70 @@ function sharedListingPayload(item: ShareOption) {
   return `${SHARED_LISTING_PREFIX}${JSON.stringify({ id, kind, name, brand, priceCents, currency })}`;
 }
 function displayMessageText(message?: FriendMessage | null) {
-  if (!message) return "";
-  const shared = parseSharedListing(message.text);
-  return friendMessagePreview(message.text);
+  return message ? friendMessagePreview(message.text) : "";
 }
 function shareOptionKey(item: ShareOption) { return `${item.kind}:${item.id}`; }
+
+const VOICE_NOTE_PREFIX = "uvel_voice_note:";
+const MAX_VOICE_NOTE_SECONDS = 180;
+const VOICE_RECORDING_OPTIONS = { ...RecordingPresets.HIGH_QUALITY, sampleRate: 22050, numberOfChannels: 1, bitRate: 64000, isMeteringEnabled: true };
+type VoiceNoteMeta = { durationMs: number; waveform: number[] };
+function parseVoiceNote(text: string): VoiceNoteMeta | null {
+  if (!text.startsWith(VOICE_NOTE_PREFIX)) return null;
+  try {
+    const value = JSON.parse(text.slice(VOICE_NOTE_PREFIX.length)) as VoiceNoteMeta;
+    if (!Number.isFinite(value.durationMs) || !Array.isArray(value.waveform)) return null;
+    return { durationMs: Math.max(0, value.durationMs), waveform: value.waveform.filter(Number.isFinite).slice(0, 48).map((bar) => Math.max(3, Math.min(22, Math.round(bar)))) };
+  } catch { return null; }
+}
+function makeVoicePayload(durationMs: number, waveform: number[]) {
+  return `${VOICE_NOTE_PREFIX}${JSON.stringify({ durationMs, waveform })}`;
+}
+function formatVoiceTime(seconds: number) {
+  const total = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+function makeVoiceWaveform(samples: number[]) {
+  const count = 42;
+  if (!samples.length) return Array.from({ length: count }, () => 5);
+  return Array.from({ length: count }, (_, index) => {
+    const position = index * (samples.length - 1) / (count - 1);
+    const low = Math.floor(position);
+    const fraction = position - low;
+    const level = samples[low] * (1 - fraction) + (samples[Math.min(samples.length - 1, low + 1)] || 0) * fraction;
+    return Math.max(4, Math.min(22, Math.round(4 + level * 18)));
+  });
+}
+async function recordingAsBase64(uri: string) {
+  if (Platform.OS !== "web") return FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+  const blob = await fetch(uri).then((response) => response.blob());
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => typeof reader.result === "string" ? resolve(reader.result.slice(reader.result.indexOf(",") + 1)) : reject(new Error("The voice note could not be read."));
+    reader.onerror = () => reject(reader.error || new Error("The voice note could not be read."));
+    reader.readAsDataURL(blob);
+  });
+}
+
+function VoiceNoteBubble({ uri, note, mine, styles }: { uri: string; note: VoiceNoteMeta; mine: boolean; styles: ReturnType<typeof make> }) {
+  const player = useAudioPlayer(uri, { updateInterval: 120 });
+  const status = useAudioPlayerStatus(player);
+  const duration = Math.max(note.durationMs / 1000, status.duration || 0);
+  const progress = duration ? Math.min(1, status.currentTime / duration) : 0;
+  const bars = note.waveform.length ? note.waveform : Array.from({ length: 42 }, () => 5);
+  function togglePlayback() {
+    if (status.playing) player.pause();
+    else {
+      if (status.didJustFinish || (duration > 0 && status.currentTime >= duration)) void player.seekTo(0);
+      player.play();
+    }
+  }
+  return <Pressable onPress={togglePlayback} style={[styles.voiceNote, mine && styles.voiceNoteMine]} accessibilityRole="button" accessibilityLabel={`${status.playing ? "Pause" : "Play"} voice note, ${formatVoiceTime(duration)}`}>
+    <View style={styles.voicePlayButton}><Ionicons name={status.playing ? "pause" : "play"} size={20} color="#FFFFFF" /></View>
+    <View style={styles.voiceWaveform}>{bars.map((height, index) => <View key={index} style={[styles.voiceWaveBar, { height, opacity: (index + 1) / bars.length <= progress ? 1 : 0.48 }]} />)}</View>
+    <Text style={styles.voiceDuration}>{formatVoiceTime(status.playing ? Math.max(0, duration - status.currentTime) : duration)}</Text>
+  </Pressable>;
+}
 
 function friendChatErrorMessage(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message : "";
@@ -85,6 +145,8 @@ export default function FriendChat() {
   const colors = useColors();
   const appearance = useResolvedAppearance();
   const styles = useMemo(() => make(colors), [colors]);
+  const voiceRecorder = useAudioRecorder(VOICE_RECORDING_OPTIONS);
+  const voiceRecorderState = useAudioRecorderState(voiceRecorder, 120);
   const insets = useSafeAreaInsets();
   const { id: routeId, name: routeName, username: routeUsername, avatarUri: routeAvatarUri } = useLocalSearchParams<{ id: string; name?: string; username?: string; avatarUri?: string }>();
   const chatId = Array.isArray(routeId) ? routeId[0] : routeId;
@@ -104,6 +166,8 @@ export default function FriendChat() {
   const [loadError, setLoadError] = useState("");
   const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [previewUri, setPreviewUri] = useState<string | undefined>();
+  const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+  const [voiceElapsedMs, setVoiceElapsedMs] = useState(0);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
@@ -113,6 +177,10 @@ export default function FriendChat() {
   const listRef = useRef<FlatList<FriendMessage>>(null);
   const lastReadMessage = useRef("");
   const sheetDragY = useRef(new Animated.Value(0)).current;
+  const voiceHoldActive = useRef(false);
+  const voiceRecordingActive = useRef(false);
+  const voiceStartedAt = useRef(0);
+  const voiceLevels = useRef<number[]>([]);
   const listName = peer?.displayName || peer?.username || name || "Friend";
   const visibleMessages = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -164,8 +232,107 @@ export default function FriendChat() {
   }, [chatId, peerUid, retryCount, uid]);
 
   useEffect(() => {
+    if (!voiceRecordingActive.current) return;
+    if (typeof voiceRecorderState.metering === "number" && Number.isFinite(voiceRecorderState.metering)) {
+      const normalized = Math.max(0, Math.min(1, (voiceRecorderState.metering + 60) / 60));
+      voiceLevels.current.push(normalized);
+      if (voiceLevels.current.length > 1800) voiceLevels.current.shift();
+    }
+    const elapsed = Math.max(voiceRecorderState.durationMillis || 0, Date.now() - voiceStartedAt.current);
+    setVoiceElapsedMs((previous) => Math.floor(elapsed / 120) === Math.floor(previous / 120) ? previous : elapsed);
+  }, [voiceRecorderState.durationMillis, voiceRecorderState.metering, voiceRecorderState.isRecording]);
+
+  useEffect(() => {
     if (!searchQuery && messages.length) requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: false }));
   }, [visibleMessages.length, searchQuery]);
+
+  function beginVoicePress() {
+    if (voiceHoldActive.current) return;
+    voiceHoldActive.current = true;
+    voiceLevels.current = [];
+    voiceStartedAt.current = 0;
+    setVoiceElapsedMs(0);
+    setIsRecordingVoice(true);
+    setAttachMenuOpen(false);
+    void startVoiceRecording();
+  }
+
+  async function startVoiceRecording() {
+    try {
+      const permission = await requestRecordingPermissionsAsync();
+      if (!voiceHoldActive.current) return;
+      if (!permission.granted) {
+        voiceHoldActive.current = false;
+        setIsRecordingVoice(false);
+        Alert.alert("Microphone access needed", "Allow Uvel to use your microphone to send voice notes.");
+        return;
+      }
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true, interruptionMode: "doNotMix" });
+      await voiceRecorder.prepareToRecordAsync();
+      if (!voiceHoldActive.current) {
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, interruptionMode: "mixWithOthers" });
+        setIsRecordingVoice(false);
+        return;
+      }
+      voiceRecorder.record({ forDuration: MAX_VOICE_NOTE_SECONDS });
+      voiceRecordingActive.current = true;
+      voiceStartedAt.current = Date.now();
+      void impactAsync(ImpactFeedbackStyle.Light);
+    } catch (error) {
+      voiceHoldActive.current = false;
+      voiceRecordingActive.current = false;
+      setIsRecordingVoice(false);
+      setLoadError(friendChatErrorMessage(error, "Couldn’t start recording. Check microphone access and try again."));
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, interruptionMode: "mixWithOthers" }).catch(() => undefined);
+    }
+  }
+
+  function releaseVoicePress() {
+    voiceHoldActive.current = false;
+    if (!voiceRecordingActive.current) {
+      setIsRecordingVoice(false);
+      return;
+    }
+    voiceRecordingActive.current = false;
+    setIsRecordingVoice(false);
+    void finishVoiceRecording();
+  }
+
+  async function finishVoiceRecording() {
+    let uri = "";
+    let localId = "";
+    try {
+      if (voiceRecorder.isRecording) await voiceRecorder.stop();
+      const recorderStatus = voiceRecorder.getStatus();
+      uri = voiceRecorder.uri || recorderStatus.url || "";
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, interruptionMode: "mixWithOthers" });
+      if (!uri) throw new Error("No recording was saved. Please try again.");
+      const durationMs = Math.min(MAX_VOICE_NOTE_SECONDS * 1000, Math.round(Math.max(recorderStatus.durationMillis || 0, Date.now() - voiceStartedAt.current)));
+      if (durationMs < 320) {
+        await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+        return;
+      }
+      const payload = makeVoicePayload(durationMs, makeVoiceWaveform(voiceLevels.current));
+      localId = `local-voice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const optimistic: FriendMessage = { id: localId, text: payload, from: uid, photoUrl: uri, createdAt: new Date(), status: "sending" };
+      setOptimisticMessages((current) => [...current, optimistic]);
+      setLoadError("");
+      requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+      const base64 = await recordingAsBase64(uri);
+      const contentType = Platform.OS === "web" ? "audio/webm" : "audio/mp4";
+      const result = await sendFriendVoiceMessage(String(chatId), base64, contentType, payload);
+      setOptimisticMessages((current) => current.map((message) => message.id === localId ? { ...message, id: result.messageId, photoUrl: result.audioUrl, status: "sent" } : message));
+      void notificationAsync(NotificationFeedbackType.Success);
+      await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+    } catch (error) {
+      if (localId) setOptimisticMessages((current) => current.filter((message) => message.id !== localId));
+      setLoadError(friendChatErrorMessage(error, "Couldn’t send your voice note. Please try again."));
+      if (uri) await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+    } finally {
+      voiceLevels.current = [];
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, interruptionMode: "mixWithOthers" }).catch(() => undefined);
+    }
+  }
 
   async function send() {
     const text = draft.trim();
@@ -278,23 +445,25 @@ export default function FriendChat() {
     const grouped = previous?.from === item.from && !startsDay;
     const showPeerAvatar = !mine && (next?.from !== item.from || dayKey(next?.createdAt) !== dayKey(item.createdAt));
     const sharedListing = parseSharedListing(item.text);
+    const voiceNote = parseVoiceNote(item.text);
     const sharedCatalogItem = sharedListing?.kind === "catalog" ? getGarment(sharedListing.id) : undefined;
     const bubbleContent = <>
       {item.replyTo ? <View style={styles.replyQuote}><View style={[styles.replyQuoteBar, mine && styles.replyQuoteBarMine]} /><View style={styles.replyQuoteCopy}><Text style={[styles.replyQuoteName, mine && styles.replyQuoteMine]} numberOfLines={1}>{item.replyTo.from === uid ? "You" : listName}</Text><Text style={[styles.replyQuoteText, mine && styles.replyQuoteMine]} numberOfLines={2}>{parseSharedListing(item.replyTo.text)?.name || item.replyTo.text || (item.replyTo.photoUrl ? "Photo" : "Message")}</Text></View></View> : null}
-      {!sharedListing && item.photoUrl ? <View style={styles.senderPanel}><Avatar uri={mine ? undefined : peer?.avatarUri} label={mine ? "You" : listName} styles={styles} /><View style={styles.senderPanelCopy}><Text numberOfLines={1} style={[styles.senderName, mine && styles.senderNameMine]}>{mine ? "You" : listName}</Text><Text numberOfLines={1} style={[styles.senderHandle, mine && styles.senderHandleMine]}>{mine ? "Shared a photo" : peer?.username ? `@${peer.username}` : ""}</Text></View></View> : null}
+      {!sharedListing && !voiceNote && item.photoUrl ? <View style={styles.senderPanel}><Avatar uri={mine ? undefined : peer?.avatarUri} label={mine ? "You" : listName} styles={styles} /><View style={styles.senderPanelCopy}><Text numberOfLines={1} style={[styles.senderName, mine && styles.senderNameMine]}>{mine ? "You" : listName}</Text><Text numberOfLines={1} style={[styles.senderHandle, mine && styles.senderHandleMine]}>{mine ? "Shared a photo" : peer?.username ? `@${peer.username}` : ""}</Text></View></View> : null}
       {sharedListing ? <Pressable style={styles.sharedListingCard} onPress={() => router.push(sharedListing.kind === "catalog" ? { pathname: "/product/[id]", params: { id: sharedListing.id } } : { pathname: "/closet/[id]", params: { id: sharedListing.id } })} accessibilityRole="button" accessibilityLabel={`Open shared listing ${sharedListing.name}`}>
         {sharedCatalogItem ? <Image cachePolicy="memory-disk" source={sharedCatalogItem.image} style={styles.sharedListingImage} contentFit="cover" /> : item.photoUrl ? <Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.sharedListingImage} contentFit="cover" /> : <View style={[styles.sharedListingImage, styles.sharedListingImageFallback]}><Ionicons name="shirt-outline" size={27} color={colors.muted} /></View>}
         <View style={styles.sharedListingCopy}><Text numberOfLines={1} style={[styles.sharedListingBrand, mine && styles.senderHandleMine]}>{sharedListing.brand}</Text><Text numberOfLines={2} style={[styles.sharedListingName, mine && styles.senderNameMine]}>{sharedListing.name}</Text><Text style={[styles.sharedListingPrice, mine && styles.senderNameMine]}>{usd(sharedListing.priceCents, sharedListing.currency || "USD")}</Text></View>
       </Pressable> : null}
-      {!sharedListing && item.photoUrl ? <Pressable onPress={() => setPreviewUri(item.photoUrl)} accessibilityRole="imagebutton" accessibilityLabel="View attached photo"><Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.messagePhoto} contentFit="cover" /></Pressable> : null}
-      {item.text && !sharedListing ? <Text style={[styles.bubbleText, mine ? styles.bubbleTextMine : styles.bubbleTextPeer]}>{item.text}</Text> : null}
+      {voiceNote && item.photoUrl ? <VoiceNoteBubble uri={item.photoUrl} note={voiceNote} mine={mine} styles={styles} /> : null}
+      {!sharedListing && !voiceNote && item.photoUrl ? <Pressable onPress={() => setPreviewUri(item.photoUrl)} accessibilityRole="imagebutton" accessibilityLabel="View attached photo"><Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.messagePhoto} contentFit="cover" /></Pressable> : null}
+      {item.text && !sharedListing && !voiceNote ? <Text style={[styles.bubbleText, mine ? styles.bubbleTextMine : styles.bubbleTextPeer]}>{item.text}</Text> : null}
     </>;
     return <View key={item.id}>
       {startsDay ? <View style={styles.dayRule}><Text style={styles.dayPill}>{dayLabel(item.createdAt).toUpperCase()}</Text></View> : null}
       <View style={[styles.messageLine, mine ? styles.messageLineMine : styles.messageLinePeer, grouped && styles.messageLineGrouped]}>
         {!mine ? <View style={styles.avatarSlot}>{showPeerAvatar ? <Avatar uri={peer?.avatarUri} label={listName} styles={styles} /> : null}</View> : null}
         <Pressable style={[styles.bubbleFrame, grouped && (mine ? styles.bubbleMineGrouped : styles.bubblePeerGrouped)]} onLongPress={() => { setCopiedMessageId(null); setActiveMessage(item); void notificationAsync(NotificationFeedbackType.Success); }} delayLongPress={430} accessibilityRole="text" accessibilityLabel={`${mine ? "You" : listName}: ${displayMessageText(item) || "Photo"}`}>
-          {mine ? <ImageBackground source={require("../../../assets/chat/message-bubble-gradient.png")} resizeMode="stretch" imageStyle={styles.bubbleGradientImage} style={[styles.bubble, styles.bubbleMine, grouped && styles.bubbleMineGrouped, item.photoUrl && styles.bubbleWithPhoto, item.status === "sending" && styles.bubblePending]}>{bubbleContent}</ImageBackground> : <View style={[styles.bubble, styles.bubblePeer, grouped && styles.bubblePeerGrouped, item.photoUrl && styles.bubbleWithPhoto]}>{bubbleContent}</View>}
+          {mine ? <ImageBackground source={require("../../../assets/chat/message-bubble-gradient.png")} resizeMode="stretch" imageStyle={styles.bubbleGradientImage} style={[styles.bubble, styles.bubbleMine, grouped && styles.bubbleMineGrouped, item.photoUrl && !voiceNote && styles.bubbleWithPhoto, item.status === "sending" && styles.bubblePending]}>{bubbleContent}</ImageBackground> : <View style={[styles.bubble, styles.bubblePeer, grouped && styles.bubblePeerGrouped, item.photoUrl && !voiceNote && styles.bubbleWithPhoto]}>{bubbleContent}</View>}
         </Pressable>
       </View>
     </View>;
@@ -331,6 +500,7 @@ export default function FriendChat() {
         ListFooterComponent={<View style={{ height: 10 }} />}
         showsVerticalScrollIndicator={false}
       />
+      {isRecordingVoice ? <View style={styles.voiceLiveBanner}><View style={styles.voiceLiveDot} /><Text style={styles.voiceLiveText}>Recording {formatVoiceTime(voiceElapsedMs / 1000)} · release to send</Text></View> : null}
       {replyingTo ? <View style={styles.replyComposer}><View style={styles.replyComposerAccent} /><View style={styles.replyComposerCopy}><Text style={styles.replyComposerTitle}>Replying to {replyingTo.from === uid ? "your message" : listName}</Text><Text numberOfLines={1} style={styles.replyComposerText}>{replyingTo.text || (replyingTo.photoUrl ? "Photo" : "Message")}</Text></View><Pressable onPress={() => setReplyingTo(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cancel reply"><Ionicons name="close" size={19} color={colors.muted} /></Pressable></View> : null}
       {photoUri ? <View style={styles.attachmentPreview}><Image cachePolicy="memory-disk" source={{ uri: photoUri }} style={styles.previewImage} contentFit="cover" /><View style={styles.previewCopy}><Text style={styles.previewTitle}>Photo attached</Text><Text style={styles.previewSubtitle}>Add a note or send it as is</Text></View><Pressable onPress={() => setPhotoUri(undefined)} style={styles.removePhoto} accessibilityRole="button" accessibilityLabel="Remove attached photo"><Ionicons name="close" size={18} color={colors.bone} /></Pressable></View> : null}
       <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, 10) }]}>
@@ -343,9 +513,12 @@ export default function FriendChat() {
           </View> : null}
         </View>
         <View style={styles.composerField}>
-          <TextInput value={draft} onChangeText={setDraft} placeholder="Message your friend" placeholderTextColor={colors.subtle} style={styles.input} maxLength={2000} multiline blurOnSubmit={false} textAlignVertical="center" accessibilityLabel="Write a message" />
+          <TextInput value={draft} onChangeText={setDraft} editable={!isRecordingVoice} placeholder={isRecordingVoice ? "Recording voice note…" : "Message your friend"} placeholderTextColor={colors.subtle} style={styles.input} maxLength={2000} multiline blurOnSubmit={false} textAlignVertical="center" accessibilityLabel="Write a message" />
           <Text style={styles.charCount}>{draft.length >= 1800 ? `${draft.length}/2000` : ""}</Text>
         </View>
+        <Pressable onPressIn={beginVoicePress} onPressOut={releaseVoicePress} style={[styles.voiceRecordButton, isRecordingVoice && styles.voiceRecordButtonActive]} accessibilityRole="button" accessibilityLabel={isRecordingVoice ? "Recording voice note, release to send" : "Hold to record a voice note"} accessibilityHint="Press and hold to record. Release to send the voice note.">
+          <Ionicons name="mic" size={21} color={isRecordingVoice ? "#FFFFFF" : "#E5465E"} />
+        </Pressable>
         <Pressable onPress={() => void send()} disabled={!draft.trim() && !photoUri} style={[styles.sendButton, (!draft.trim() && !photoUri) && styles.sendButtonDisabled]} accessibilityRole="button" accessibilityLabel="Send message">
           <Text style={styles.sendTxt}>Send</Text>
         </Pressable>
@@ -356,7 +529,7 @@ export default function FriendChat() {
       <View style={styles.actionModal}><Pressable style={styles.actionScrim} onPress={() => setActiveMessage(null)} accessibilityRole="button" accessibilityLabel="Dismiss message actions" /><View style={[styles.actionSheet, { paddingBottom: Math.max(insets.bottom, 18) }]}><View style={styles.actionHandle} /><Text style={styles.actionTimestamp}>{timestampLabel(activeMessage?.createdAt)}</Text><Text numberOfLines={2} style={styles.actionExcerpt}>{displayMessageText(activeMessage) || (activeMessage?.photoUrl ? "Photo message" : "Message")}</Text>
         <Pressable style={styles.actionRow} onPress={() => { if (activeMessage) setReplyingTo(activeMessage); setActiveMessage(null); }}><Ionicons name="arrow-undo-outline" size={21} color={colors.bone} /><Text style={styles.actionLabel}>Reply</Text></Pressable>
         {activeMessage?.text ? <Pressable style={styles.actionRow} onPress={() => { const message = activeMessage; void Clipboard.setStringAsync(displayMessageText(message)).then(() => { setCopiedMessageId(message.id); void notificationAsync(NotificationFeedbackType.Success); }); }} accessibilityRole="button" accessibilityLabel={copiedMessageId === activeMessage.id ? "Copied to clipboard" : "Copy message"}><Ionicons name={copiedMessageId === activeMessage.id ? "checkmark-circle-outline" : "copy-outline"} size={22} color={copiedMessageId === activeMessage.id ? colors.success : colors.bone} /><Text style={[styles.actionLabel, copiedMessageId === activeMessage.id && styles.actionCopiedLabel]}>{copiedMessageId === activeMessage.id ? "Copied to clipboard" : "Copy"}</Text></Pressable> : null}
-        {activeMessage?.photoUrl ? <Pressable style={styles.actionRow} onPress={() => { setPreviewUri(activeMessage.photoUrl); setActiveMessage(null); }}><Ionicons name="image-outline" size={21} color={colors.bone} /><Text style={styles.actionLabel}>View photo</Text></Pressable> : null}
+        {activeMessage?.photoUrl && !parseVoiceNote(activeMessage.text) ? <Pressable style={styles.actionRow} onPress={() => { setPreviewUri(activeMessage.photoUrl); setActiveMessage(null); }}><Ionicons name="image-outline" size={21} color={colors.bone} /><Text style={styles.actionLabel}>View photo</Text></Pressable> : null}
         {activeMessage?.from === uid ? <Pressable style={styles.actionRow} onPress={confirmDeleteMessage}><Ionicons name="trash-outline" size={21} color={colors.danger} /><Text style={styles.actionDeleteLabel}>Delete message</Text></Pressable> : null}
       </View></View>
     </Modal>
@@ -442,6 +615,15 @@ function make(colors: ReturnType<typeof useColors>) {
     sharedListingBrand: { color: colors.muted, fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.6 },
     sharedListingName: { color: colors.bone, fontSize: 14, fontWeight: "800", marginTop: 3 },
     sharedListingPrice: { color: colors.bone, fontSize: 13, fontWeight: "700", marginTop: 4 },
+    voiceNote: { minWidth: 248, maxWidth: 292, minHeight: 65, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 13, paddingVertical: 10, borderRadius: 18, backgroundColor: "#D92D4B" },
+    voiceNoteMine: { backgroundColor: "#C92543" },
+    voicePlayButton: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,0.22)" },
+    voiceWaveform: { flex: 1, minWidth: 0, height: 25, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 1.4 },
+    voiceWaveBar: { width: 2, borderRadius: 2, backgroundColor: "#FFFFFF" },
+    voiceDuration: { color: "#FFFFFF", fontSize: 11, fontVariant: ["tabular-nums"], fontWeight: "700", minWidth: 29, textAlign: "right" },
+    voiceLiveBanner: { flexDirection: "row", alignItems: "center", gap: 9, marginHorizontal: 16, marginBottom: 5, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 14, backgroundColor: "rgba(229,70,94,0.13)" },
+    voiceLiveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#E5465E" },
+    voiceLiveText: { color: "#E5465E", fontSize: 12, fontWeight: "700" },
     senderPanel: { minHeight: 45, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 8, paddingVertical: 4, marginBottom: 5, borderRadius: 0, backgroundColor: "transparent" },
     senderPanelCopy: { flex: 1, minWidth: 0 },
     senderName: { color: colors.bone, fontSize: 15, fontWeight: "800" },
@@ -489,6 +671,8 @@ function make(colors: ReturnType<typeof useColors>) {
     composerField: { flex: 1, minHeight: 46, maxHeight: 118, flexDirection: "row", alignItems: "center", borderRadius: 17, paddingLeft: 14, paddingRight: 11, backgroundColor: colors.surface },
     input: { flex: 1, maxHeight: 102, color: colors.bone, fontSize: 16, lineHeight: 22, paddingVertical: 10 },
     charCount: { color: colors.subtle, fontSize: 9, marginLeft: 5 },
+    voiceRecordButton: { width: 42, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", marginBottom: 1, backgroundColor: "rgba(229,70,94,0.10)", borderWidth: 1, borderColor: "rgba(229,70,94,0.28)" },
+    voiceRecordButtonActive: { backgroundColor: "#E5465E", borderColor: "#E5465E", transform: [{ scale: 1.06 }] },
     sendButton: { minWidth: 51, height: 44, alignItems: "center", justifyContent: "center", marginBottom: 1 },
     sendTxt: { color: colors.success, fontSize: 14, fontWeight: "800" },
     sendButtonDisabled: { opacity: 0.35 },
