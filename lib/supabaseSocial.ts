@@ -52,8 +52,29 @@ export async function mirrorSocialProfiles(users: PublicUser[]) {
 
 export function pollSocial<T>(load: () => Promise<T>, callback: (value: T) => void, intervalMs: number, onError?: (error: unknown) => void) {
   let active = true;
-  const refresh = () => { void load().then((value) => { if (active) callback(value); }).catch((error) => { if (active) onError?.(error); }); };
-  refresh();
-  const timer = setInterval(refresh, intervalMs);
-  return () => { active = false; clearInterval(timer); };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let nextDelay = intervalMs;
+
+  // Schedule the next poll only after this one settles. A slow request should
+  // never cause a second request to pile up behind it.
+  const refresh = async () => {
+    try {
+      const value = await load();
+      if (!active) return;
+      callback(value);
+      nextDelay = intervalMs;
+    } catch (error) {
+      if (!active) return;
+      onError?.(error);
+      nextDelay = Math.min(30_000, Math.max(intervalMs * 2, nextDelay * 2));
+    } finally {
+      if (active) timer = setTimeout(() => void refresh(), nextDelay);
+    }
+  };
+
+  void refresh();
+  return () => {
+    active = false;
+    if (timer) clearTimeout(timer);
+  };
 }
