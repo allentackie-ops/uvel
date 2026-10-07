@@ -941,9 +941,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             <View style={[styles.choiceRow, styles.stackGap]} accessibilityRole="text" accessibilityLabel={`${getMarket(origin).name} store only`}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.choiceValue}>{getMarket(origin).name} store only</Text>
-                <Text style={styles.choiceSub}>Normal listings stay in the store you are using</Text>
+                <Text style={styles.choiceSub}>Listings stay in the store you’re using</Text>
               </View>
-              <Ionicons name="lock-closed-outline" size={18} color={colors.subtle} />
             </View>
 
             <AccessiblePressable
