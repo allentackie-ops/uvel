@@ -732,10 +732,11 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           </View>
         </View>
       ) : null}
-      {!existing && draftParam !== "1" && showSellWelcome === false && studioStep !== "form" ? (
+      {!existing && showSellWelcome === false && studioStep !== "form" ? (
         <ListingCaptureStudio
           photos={photos}
           backgrounds={AI_CUTOUT_BACKGROUNDS as CaptureBackground[]}
+          isDraft={draftParam === "1"}
           initialMode={studioMode}
           initialSelectedPhoto={studioSelectedPhoto}
           initialBackgroundByPhoto={studioBackgroundByPhoto}
@@ -745,6 +746,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           onCapture={addUri}
           onDeleteCapture={removeStudioPhoto}
           onContinue={finishCapture}
+          onDeleteDraft={confirmDeleteDraft}
           onClose={leaveSell}
         />
       ) : <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
