@@ -5,14 +5,16 @@ import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, FlatList, ImageBackground, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Animated, FlatList, ImageBackground, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { notificationAsync, NotificationFeedbackType } from "../../../lib/haptics";
-import { blockFriend, deleteFriendMessage, getCachedFriendMessages, listFriends, markFriendChatRead, reportFriendConversation, sendFriendMessage, subscribeFriendMessages, uploadFriendAttachment, type FriendMessage } from "../../../lib/friendChat";
+import { blockFriend, deleteFriendMessage, getCachedFriendMessages, listFriends, markFriendChatRead, reportFriendConversation, sendFriendMessage, subscribeFriendMessages, uploadFriendAttachment, friendMessagePreview, type FriendMessage } from "../../../lib/friendChat";
 import type { PublicUser } from "../../../lib/friends";
 import { pickFromLibrary } from "../../../lib/photo";
 import { useColors, useResolvedAppearance } from "../../../lib/theme";
 import { useUvel } from "../../../lib/store";
+import { getGarment, usd } from "../../../lib/catalog";
+import { useWardrobe } from "../../../lib/wardrobe";
 
 function asDate(value: unknown): Date | null {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
@@ -48,6 +50,28 @@ function initials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase() || "F";
 }
 
+const SHARED_LISTING_PREFIX = "uvel_shared_listing:";
+type SharedListingKind = "closet" | "catalog";
+type SharedListingRef = { id: string; kind: SharedListingKind; name: string; brand: string; priceCents: number; currency?: string };
+type ShareOption = SharedListingRef & { photoUri?: string };
+function parseSharedListing(text: string): SharedListingRef | null {
+  if (!text.startsWith(SHARED_LISTING_PREFIX)) return null;
+  try {
+    const value = JSON.parse(text.slice(SHARED_LISTING_PREFIX.length)) as SharedListingRef;
+    return value?.id && (value.kind === "closet" || value.kind === "catalog") && typeof value.name === "string" && typeof value.brand === "string" && Number.isFinite(value.priceCents) ? value : null;
+  } catch { return null; }
+}
+function sharedListingPayload(item: ShareOption) {
+  const { id, kind, name, brand, priceCents, currency } = item;
+  return `${SHARED_LISTING_PREFIX}${JSON.stringify({ id, kind, name, brand, priceCents, currency })}`;
+}
+function displayMessageText(message?: FriendMessage | null) {
+  if (!message) return "";
+  const shared = parseSharedListing(message.text);
+  return friendMessagePreview(message.text);
+}
+function shareOptionKey(item: ShareOption) { return `${item.kind}:${item.id}`; }
+
 function friendChatErrorMessage(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message : "";
   if (/failed to send a request to the edge function/i.test(message)) {
@@ -65,7 +89,9 @@ export default function FriendChat() {
   const { id: routeId, name: routeName, username: routeUsername, avatarUri: routeAvatarUri } = useLocalSearchParams<{ id: string; name?: string; username?: string; avatarUri?: string }>();
   const chatId = Array.isArray(routeId) ? routeId[0] : routeId;
   const name = Array.isArray(routeName) ? routeName[0] : routeName;
-  const { uid } = useUvel();
+  const app = useUvel();
+  const { uid } = app;
+  const wardrobePieces = useWardrobe();
   const peerUid = String(chatId || "").split("_").find((participant) => participant && participant !== uid) || "";
   const [peer, setPeer] = useState<PublicUser | undefined>(() => routeName || routeUsername || routeAvatarUri ? { uid: peerUid, displayName: routeName || "", username: routeUsername || "", avatarUri: routeAvatarUri || undefined } : undefined);
   const [messages, setMessages] = useState<FriendMessage[]>(() => getCachedFriendMessages(String(chatId || "")) || []);
@@ -80,15 +106,35 @@ export default function FriendChat() {
   const [previewUri, setPreviewUri] = useState<string | undefined>();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [shareSheetMode, setShareSheetMode] = useState<"saved" | "mine" | null>(null);
+  const [selectedShareKeys, setSelectedShareKeys] = useState<string[]>([]);
   const [retryCount, setRetryCount] = useState(0);
   const listRef = useRef<FlatList<FriendMessage>>(null);
   const lastReadMessage = useRef("");
+  const sheetDragY = useRef(new Animated.Value(0)).current;
   const listName = peer?.displayName || peer?.username || name || "Friend";
   const visibleMessages = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     const combined = [...messages, ...optimisticMessages].sort((a, b) => (asDate(a.createdAt)?.getTime() || 0) - (asDate(b.createdAt)?.getTime() || 0));
-    return query ? combined.filter((message) => message.text.toLowerCase().includes(query)) : combined;
+    return query ? combined.filter((message) => displayMessageText(message).toLowerCase().includes(query)) : combined;
   }, [messages, optimisticMessages, searchQuery]);
+  const savedShareOptions = useMemo<ShareOption[]>(() => app.saved.flatMap<ShareOption>((id): ShareOption[] => {
+    const piece = wardrobePieces.find((item) => item.id === id);
+    if (piece) return [{ id: piece.id, kind: "closet", name: piece.name, brand: piece.brand, priceCents: piece.listPriceCents, currency: piece.currency, photoUri: piece.photo || piece.photos?.[0] }];
+    const garment = getGarment(id);
+    return garment ? [{ id: garment.id, kind: "catalog", name: garment.name, brand: garment.brand, priceCents: garment.priceCents }] : [];
+  }), [app.saved, wardrobePieces]);
+  const myShareOptions = useMemo<ShareOption[]>(() => wardrobePieces.filter((piece) => piece.status === "listed" && (piece.ownerId === uid || piece.listedByUid === uid)).map((piece) => ({ id: piece.id, kind: "closet", name: piece.name, brand: piece.brand, priceCents: piece.listPriceCents, currency: piece.currency, photoUri: piece.photo || piece.photos?.[0] })), [wardrobePieces, uid]);
+  const sheetOptions = shareSheetMode === "saved" ? savedShareOptions : myShareOptions;
+  const sheetPanResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_event, gesture) => gesture.dy > 8,
+    onPanResponderMove: (_event, gesture) => sheetDragY.setValue(Math.max(0, gesture.dy)),
+    onPanResponderRelease: (_event, gesture) => {
+      if (gesture.dy > 120) { setShareSheetMode(null); sheetDragY.setValue(0); }
+      else Animated.spring(sheetDragY, { toValue: 0, useNativeDriver: true, speed: 22, bounciness: 3 }).start();
+    },
+  }), [sheetDragY]);
 
   useEffect(() => {
     let active = true;
@@ -162,6 +208,40 @@ export default function FriendChat() {
     }
   }
 
+  function openShareSheet(mode: "saved" | "mine") {
+    setAttachMenuOpen(false);
+    setSelectedShareKeys([]);
+    sheetDragY.setValue(0);
+    setShareSheetMode(mode);
+  }
+
+  function toggleShareSelection(item: ShareOption) {
+    const key = shareOptionKey(item);
+    setSelectedShareKeys((current) => current.includes(key) ? current.filter((entry) => entry !== key) : [...current, key]);
+  }
+
+  function sendSelectedListings() {
+    const selected = sheetOptions.filter((item) => selectedShareKeys.includes(shareOptionKey(item)));
+    if (!selected.length || !chatId) return;
+    const now = Date.now();
+    const outgoing = selected.map((item, index) => ({
+      item,
+      message: { id: `local-listing-${now}-${index}-${Math.random().toString(36).slice(2, 7)}`, text: sharedListingPayload(item), from: uid, photoUrl: item.photoUri, createdAt: new Date(now + index), status: "sending" } as FriendMessage,
+    }));
+    setOptimisticMessages((current) => [...current, ...outgoing.map((entry) => entry.message)]);
+    setShareSheetMode(null);
+    setSelectedShareKeys([]);
+    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+    outgoing.forEach(({ item, message }) => {
+      void sendFriendMessage(String(chatId), message.text, item.photoUri).then((result) => {
+        setOptimisticMessages((current) => current.map((entry) => entry.id === message.id ? { ...entry, id: result.messageId, status: "sent" } : entry));
+      }).catch((error) => {
+        setOptimisticMessages((current) => current.filter((entry) => entry.id !== message.id));
+        setLoadError(friendChatErrorMessage(error, "Couldn’t share that listing just now. Please try again."));
+      });
+    });
+  }
+
   async function attachPhoto() {
     try {
       const uri = await pickFromLibrary();
@@ -197,17 +277,23 @@ export default function FriendChat() {
     const startsDay = index === 0 || dayKey(previous?.createdAt) !== dayKey(item.createdAt);
     const grouped = previous?.from === item.from && !startsDay;
     const showPeerAvatar = !mine && (next?.from !== item.from || dayKey(next?.createdAt) !== dayKey(item.createdAt));
+    const sharedListing = parseSharedListing(item.text);
+    const sharedCatalogItem = sharedListing?.kind === "catalog" ? getGarment(sharedListing.id) : undefined;
     const bubbleContent = <>
-      {item.replyTo ? <View style={styles.replyQuote}><View style={[styles.replyQuoteBar, mine && styles.replyQuoteBarMine]} /><View style={styles.replyQuoteCopy}><Text style={[styles.replyQuoteName, mine && styles.replyQuoteMine]} numberOfLines={1}>{item.replyTo.from === uid ? "You" : listName}</Text><Text style={[styles.replyQuoteText, mine && styles.replyQuoteMine]} numberOfLines={2}>{item.replyTo.text || (item.replyTo.photoUrl ? "Photo" : "Message")}</Text></View></View> : null}
-      {item.photoUrl ? <View style={styles.senderPanel}><Avatar uri={mine ? undefined : peer?.avatarUri} label={mine ? "You" : listName} styles={styles} /><View style={styles.senderPanelCopy}><Text numberOfLines={1} style={[styles.senderName, mine && styles.senderNameMine]}>{mine ? "You" : listName}</Text><Text numberOfLines={1} style={[styles.senderHandle, mine && styles.senderHandleMine]}>{mine ? "Shared a photo" : peer?.username ? `@${peer.username}` : ""}</Text></View></View> : null}
-      {item.photoUrl ? <Pressable onPress={() => setPreviewUri(item.photoUrl)} accessibilityRole="imagebutton" accessibilityLabel="View attached photo"><Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.messagePhoto} contentFit="cover" /></Pressable> : null}
-      {item.text ? <Text style={[styles.bubbleText, mine ? styles.bubbleTextMine : styles.bubbleTextPeer]}>{item.text}</Text> : null}
+      {item.replyTo ? <View style={styles.replyQuote}><View style={[styles.replyQuoteBar, mine && styles.replyQuoteBarMine]} /><View style={styles.replyQuoteCopy}><Text style={[styles.replyQuoteName, mine && styles.replyQuoteMine]} numberOfLines={1}>{item.replyTo.from === uid ? "You" : listName}</Text><Text style={[styles.replyQuoteText, mine && styles.replyQuoteMine]} numberOfLines={2}>{parseSharedListing(item.replyTo.text)?.name || item.replyTo.text || (item.replyTo.photoUrl ? "Photo" : "Message")}</Text></View></View> : null}
+      {!sharedListing && item.photoUrl ? <View style={styles.senderPanel}><Avatar uri={mine ? undefined : peer?.avatarUri} label={mine ? "You" : listName} styles={styles} /><View style={styles.senderPanelCopy}><Text numberOfLines={1} style={[styles.senderName, mine && styles.senderNameMine]}>{mine ? "You" : listName}</Text><Text numberOfLines={1} style={[styles.senderHandle, mine && styles.senderHandleMine]}>{mine ? "Shared a photo" : peer?.username ? `@${peer.username}` : ""}</Text></View></View> : null}
+      {sharedListing ? <Pressable style={styles.sharedListingCard} onPress={() => router.push(sharedListing.kind === "catalog" ? { pathname: "/product/[id]", params: { id: sharedListing.id } } : { pathname: "/closet/[id]", params: { id: sharedListing.id } })} accessibilityRole="button" accessibilityLabel={`Open shared listing ${sharedListing.name}`}>
+        {sharedCatalogItem ? <Image cachePolicy="memory-disk" source={sharedCatalogItem.image} style={styles.sharedListingImage} contentFit="cover" /> : item.photoUrl ? <Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.sharedListingImage} contentFit="cover" /> : <View style={[styles.sharedListingImage, styles.sharedListingImageFallback]}><Ionicons name="shirt-outline" size={27} color={colors.muted} /></View>}
+        <View style={styles.sharedListingCopy}><Text numberOfLines={1} style={[styles.sharedListingBrand, mine && styles.senderHandleMine]}>{sharedListing.brand}</Text><Text numberOfLines={2} style={[styles.sharedListingName, mine && styles.senderNameMine]}>{sharedListing.name}</Text><Text style={[styles.sharedListingPrice, mine && styles.senderNameMine]}>{usd(sharedListing.priceCents, sharedListing.currency || "USD")}</Text></View>
+      </Pressable> : null}
+      {!sharedListing && item.photoUrl ? <Pressable onPress={() => setPreviewUri(item.photoUrl)} accessibilityRole="imagebutton" accessibilityLabel="View attached photo"><Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.messagePhoto} contentFit="cover" /></Pressable> : null}
+      {item.text && !sharedListing ? <Text style={[styles.bubbleText, mine ? styles.bubbleTextMine : styles.bubbleTextPeer]}>{item.text}</Text> : null}
     </>;
     return <View key={item.id}>
       {startsDay ? <View style={styles.dayRule}><Text style={styles.dayPill}>{dayLabel(item.createdAt).toUpperCase()}</Text></View> : null}
       <View style={[styles.messageLine, mine ? styles.messageLineMine : styles.messageLinePeer, grouped && styles.messageLineGrouped]}>
         {!mine ? <View style={styles.avatarSlot}>{showPeerAvatar ? <Avatar uri={peer?.avatarUri} label={listName} styles={styles} /> : null}</View> : null}
-        <Pressable style={[styles.bubbleFrame, grouped && (mine ? styles.bubbleMineGrouped : styles.bubblePeerGrouped)]} onLongPress={() => { setCopiedMessageId(null); setActiveMessage(item); void notificationAsync(NotificationFeedbackType.Success); }} delayLongPress={430} accessibilityRole="text" accessibilityLabel={`${mine ? "You" : listName}: ${item.text || "Photo"}`}>
+        <Pressable style={[styles.bubbleFrame, grouped && (mine ? styles.bubbleMineGrouped : styles.bubblePeerGrouped)]} onLongPress={() => { setCopiedMessageId(null); setActiveMessage(item); void notificationAsync(NotificationFeedbackType.Success); }} delayLongPress={430} accessibilityRole="text" accessibilityLabel={`${mine ? "You" : listName}: ${displayMessageText(item) || "Photo"}`}>
           {mine ? <ImageBackground source={require("../../../assets/chat/message-bubble-gradient.png")} resizeMode="stretch" imageStyle={styles.bubbleGradientImage} style={[styles.bubble, styles.bubbleMine, grouped && styles.bubbleMineGrouped, item.photoUrl && styles.bubbleWithPhoto, item.status === "sending" && styles.bubblePending]}>{bubbleContent}</ImageBackground> : <View style={[styles.bubble, styles.bubblePeer, grouped && styles.bubblePeerGrouped, item.photoUrl && styles.bubbleWithPhoto]}>{bubbleContent}</View>}
         </Pressable>
       </View>
@@ -248,7 +334,14 @@ export default function FriendChat() {
       {replyingTo ? <View style={styles.replyComposer}><View style={styles.replyComposerAccent} /><View style={styles.replyComposerCopy}><Text style={styles.replyComposerTitle}>Replying to {replyingTo.from === uid ? "your message" : listName}</Text><Text numberOfLines={1} style={styles.replyComposerText}>{replyingTo.text || (replyingTo.photoUrl ? "Photo" : "Message")}</Text></View><Pressable onPress={() => setReplyingTo(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cancel reply"><Ionicons name="close" size={19} color={colors.muted} /></Pressable></View> : null}
       {photoUri ? <View style={styles.attachmentPreview}><Image cachePolicy="memory-disk" source={{ uri: photoUri }} style={styles.previewImage} contentFit="cover" /><View style={styles.previewCopy}><Text style={styles.previewTitle}>Photo attached</Text><Text style={styles.previewSubtitle}>Add a note or send it as is</Text></View><Pressable onPress={() => setPhotoUri(undefined)} style={styles.removePhoto} accessibilityRole="button" accessibilityLabel="Remove attached photo"><Ionicons name="close" size={18} color={colors.bone} /></Pressable></View> : null}
       <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-        <Pressable onPress={() => void attachPhoto()} disabled={sending} style={styles.attachButton} accessibilityRole="button" accessibilityLabel="Attach a photo"><Ionicons name="add" size={26} color={colors.bone} /></Pressable>
+        <View style={styles.attachWrap}>
+          <Pressable onPress={() => setAttachMenuOpen((open) => !open)} style={styles.attachButton} accessibilityRole="button" accessibilityLabel="Add to message" accessibilityState={{ expanded: attachMenuOpen }}><Ionicons name={attachMenuOpen ? "close" : "add"} size={26} color={colors.bone} /></Pressable>
+          {attachMenuOpen ? <View style={styles.attachMenu}>
+            <Pressable style={styles.attachMenuRow} onPress={() => { setAttachMenuOpen(false); void attachPhoto(); }}><Ionicons name="images-outline" size={20} color={colors.bone} /><Text style={styles.attachMenuText}>Camera roll</Text></Pressable>
+            <Pressable style={styles.attachMenuRow} onPress={() => openShareSheet("saved")}><Ionicons name="bookmark-outline" size={20} color={colors.bone} /><Text style={styles.attachMenuText}>Saved</Text></Pressable>
+            <Pressable style={styles.attachMenuRow} onPress={() => openShareSheet("mine")}><Ionicons name="pricetag-outline" size={20} color={colors.bone} /><Text style={styles.attachMenuText}>My listings</Text></Pressable>
+          </View> : null}
+        </View>
         <View style={styles.composerField}>
           <TextInput value={draft} onChangeText={setDraft} placeholder="Message your friend" placeholderTextColor={colors.subtle} style={styles.input} maxLength={2000} multiline blurOnSubmit={false} textAlignVertical="center" accessibilityLabel="Write a message" />
           <Text style={styles.charCount}>{draft.length >= 1800 ? `${draft.length}/2000` : ""}</Text>
@@ -260,12 +353,38 @@ export default function FriendChat() {
     </KeyboardAvoidingView>
 
     <Modal visible={Boolean(activeMessage)} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setActiveMessage(null)}>
-      <View style={styles.actionModal}><Pressable style={styles.actionScrim} onPress={() => setActiveMessage(null)} accessibilityRole="button" accessibilityLabel="Dismiss message actions" /><View style={[styles.actionSheet, { paddingBottom: Math.max(insets.bottom, 18) }]}><View style={styles.actionHandle} /><Text style={styles.actionTimestamp}>{timestampLabel(activeMessage?.createdAt)}</Text><Text numberOfLines={2} style={styles.actionExcerpt}>{activeMessage?.text || (activeMessage?.photoUrl ? "Photo message" : "Message")}</Text>
+      <View style={styles.actionModal}><Pressable style={styles.actionScrim} onPress={() => setActiveMessage(null)} accessibilityRole="button" accessibilityLabel="Dismiss message actions" /><View style={[styles.actionSheet, { paddingBottom: Math.max(insets.bottom, 18) }]}><View style={styles.actionHandle} /><Text style={styles.actionTimestamp}>{timestampLabel(activeMessage?.createdAt)}</Text><Text numberOfLines={2} style={styles.actionExcerpt}>{displayMessageText(activeMessage) || (activeMessage?.photoUrl ? "Photo message" : "Message")}</Text>
         <Pressable style={styles.actionRow} onPress={() => { if (activeMessage) setReplyingTo(activeMessage); setActiveMessage(null); }}><Ionicons name="arrow-undo-outline" size={21} color={colors.bone} /><Text style={styles.actionLabel}>Reply</Text></Pressable>
-        {activeMessage?.text ? <Pressable style={styles.actionRow} onPress={() => { const message = activeMessage; void Clipboard.setStringAsync(message.text).then(() => { setCopiedMessageId(message.id); void notificationAsync(NotificationFeedbackType.Success); }); }} accessibilityRole="button" accessibilityLabel={copiedMessageId === activeMessage.id ? "Copied to clipboard" : "Copy message"}><Ionicons name={copiedMessageId === activeMessage.id ? "checkmark-circle-outline" : "copy-outline"} size={22} color={copiedMessageId === activeMessage.id ? colors.success : colors.bone} /><Text style={[styles.actionLabel, copiedMessageId === activeMessage.id && styles.actionCopiedLabel]}>{copiedMessageId === activeMessage.id ? "Copied to clipboard" : "Copy"}</Text></Pressable> : null}
+        {activeMessage?.text ? <Pressable style={styles.actionRow} onPress={() => { const message = activeMessage; void Clipboard.setStringAsync(displayMessageText(message)).then(() => { setCopiedMessageId(message.id); void notificationAsync(NotificationFeedbackType.Success); }); }} accessibilityRole="button" accessibilityLabel={copiedMessageId === activeMessage.id ? "Copied to clipboard" : "Copy message"}><Ionicons name={copiedMessageId === activeMessage.id ? "checkmark-circle-outline" : "copy-outline"} size={22} color={copiedMessageId === activeMessage.id ? colors.success : colors.bone} /><Text style={[styles.actionLabel, copiedMessageId === activeMessage.id && styles.actionCopiedLabel]}>{copiedMessageId === activeMessage.id ? "Copied to clipboard" : "Copy"}</Text></Pressable> : null}
         {activeMessage?.photoUrl ? <Pressable style={styles.actionRow} onPress={() => { setPreviewUri(activeMessage.photoUrl); setActiveMessage(null); }}><Ionicons name="image-outline" size={21} color={colors.bone} /><Text style={styles.actionLabel}>View photo</Text></Pressable> : null}
         {activeMessage?.from === uid ? <Pressable style={styles.actionRow} onPress={confirmDeleteMessage}><Ionicons name="trash-outline" size={21} color={colors.danger} /><Text style={styles.actionDeleteLabel}>Delete message</Text></Pressable> : null}
       </View></View>
+    </Modal>
+
+
+    <Modal visible={shareSheetMode !== null} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setShareSheetMode(null)}>
+      <View style={styles.shareSheetModal}>
+        <Pressable style={styles.shareSheetScrim} onPress={() => setShareSheetMode(null)} accessibilityRole="button" accessibilityLabel="Close listings" />
+        <Animated.View style={[styles.shareSheet, { paddingBottom: Math.max(insets.bottom, 16), transform: [{ translateY: sheetDragY }] }]}>
+          <View {...sheetPanResponder.panHandlers} style={styles.shareSheetHandleArea}><View style={styles.actionHandle} /></View>
+          <View style={styles.shareSheetHeading}><View><Text style={styles.shareSheetTitle}>{shareSheetMode === "saved" ? "Saved listings" : "My listings"}</Text><Text style={styles.shareSheetSubtitle}>Select one or more to share</Text></View><Pressable onPress={() => setShareSheetMode(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close"><Ionicons name="close" size={21} color={colors.muted} /></Pressable></View>
+          {sheetOptions.length ? <ScrollView style={styles.shareListingScroll} contentContainerStyle={styles.shareListingContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            {sheetOptions.map((item) => {
+              const key = shareOptionKey(item);
+              const selected = selectedShareKeys.includes(key);
+              const garment = item.kind === "catalog" ? getGarment(item.id) : undefined;
+              return <Pressable key={key} onPress={() => toggleShareSelection(item)} style={[styles.shareListingRow, selected && styles.shareListingRowSelected]} accessibilityRole="checkbox" accessibilityState={{ checked: selected }}>
+                {garment ? <Image cachePolicy="memory-disk" source={garment.image} style={styles.shareListingThumb} contentFit="cover" /> : item.photoUri ? <Image cachePolicy="memory-disk" source={{ uri: item.photoUri }} style={styles.shareListingThumb} contentFit="cover" /> : <View style={[styles.shareListingThumb, styles.sharedListingImageFallback]}><Ionicons name="shirt-outline" size={22} color={colors.muted} /></View>}
+                <View style={styles.shareListingInfo}><Text numberOfLines={1} style={styles.shareListingBrand}>{item.brand}</Text><Text numberOfLines={1} style={styles.shareListingName}>{item.name}</Text><Text style={styles.shareListingPrice}>{usd(item.priceCents, item.currency || "USD")}</Text></View>
+                <View style={[styles.shareCheck, selected && styles.shareCheckSelected]}>{selected ? <Ionicons name="checkmark" size={15} color={colors.ink} /> : null}</View>
+              </Pressable>;
+            })}
+          </ScrollView> : <View style={styles.shareEmpty}><Ionicons name={shareSheetMode === "saved" ? "bookmark-outline" : "pricetag-outline"} size={28} color={colors.muted} /><Text style={styles.shareEmptyText}>{shareSheetMode === "saved" ? "You don’t have any listings saved." : "You have not posted a listing."}</Text></View>}
+          <Pressable onPress={sendSelectedListings} disabled={!selectedShareKeys.length} style={[styles.shareSendButton, !selectedShareKeys.length && styles.shareSendDisabled]} accessibilityRole="button" accessibilityLabel={`Send ${selectedShareKeys.length} selected listing${selectedShareKeys.length === 1 ? "" : "s"}`}>
+            <Text style={styles.shareSendText}>{selectedShareKeys.length ? `Send ${selectedShareKeys.length > 1 ? `(${selectedShareKeys.length})` : ""}` : "Select listings to send"}</Text>
+          </Pressable>
+        </Animated.View>
+      </View>
     </Modal>
 
     <Modal visible={Boolean(previewUri)} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setPreviewUri(undefined)}>
@@ -316,6 +435,13 @@ function make(colors: ReturnType<typeof useColors>) {
     bubbleMineGrouped: { borderBottomRightRadius: 7 },
     bubblePeerGrouped: { borderBottomLeftRadius: 7 },
     bubbleWithPhoto: { paddingHorizontal: 5, paddingTop: 5, paddingBottom: 6 },
+    sharedListingCard: { width: 250, maxWidth: "100%", borderRadius: 14, overflow: "hidden", backgroundColor: colors.surface },
+    sharedListingImage: { width: "100%", height: 178, backgroundColor: colors.neutral },
+    sharedListingImageFallback: { alignItems: "center", justifyContent: "center" },
+    sharedListingCopy: { paddingHorizontal: 11, paddingVertical: 9 },
+    sharedListingBrand: { color: colors.muted, fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.6 },
+    sharedListingName: { color: colors.bone, fontSize: 14, fontWeight: "800", marginTop: 3 },
+    sharedListingPrice: { color: colors.bone, fontSize: 13, fontWeight: "700", marginTop: 4 },
     senderPanel: { minHeight: 45, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 8, paddingVertical: 4, marginBottom: 5, borderRadius: 0, backgroundColor: "transparent" },
     senderPanelCopy: { flex: 1, minWidth: 0 },
     senderName: { color: colors.bone, fontSize: 15, fontWeight: "800" },
@@ -354,8 +480,12 @@ function make(colors: ReturnType<typeof useColors>) {
     replyComposerCopy: { flex: 1, minWidth: 0 },
     replyComposerTitle: { color: colors.bone, fontSize: 12, fontWeight: "800" },
     replyComposerText: { color: colors.muted, fontSize: 12, marginTop: 2 },
-    composerWrap: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 13, paddingTop: 7, backgroundColor: colors.ink },
+    composerWrap: { position: "relative", flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 13, paddingTop: 7, backgroundColor: colors.ink },
+    attachWrap: { width: 36, height: 44, zIndex: 30 },
     attachButton: { width: 36, height: 44, alignItems: "center", justifyContent: "center", marginBottom: 1 },
+    attachMenu: { position: "absolute", left: -3, bottom: 51, width: 178, paddingVertical: 6, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}18`, shadowColor: "#000", shadowOpacity: 0.25, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 12, zIndex: 50 },
+    attachMenuRow: { minHeight: 46, flexDirection: "row", alignItems: "center", gap: 11, paddingHorizontal: 14 },
+    attachMenuText: { color: colors.bone, fontSize: 14, fontWeight: "600" },
     composerField: { flex: 1, minHeight: 46, maxHeight: 118, flexDirection: "row", alignItems: "center", borderRadius: 17, paddingLeft: 14, paddingRight: 11, backgroundColor: colors.surface },
     input: { flex: 1, maxHeight: 102, color: colors.bone, fontSize: 16, lineHeight: 22, paddingVertical: 10 },
     charCount: { color: colors.subtle, fontSize: 9, marginLeft: 5 },
@@ -375,5 +505,28 @@ function make(colors: ReturnType<typeof useColors>) {
     viewer: { flex: 1, backgroundColor: "rgba(0,0,0,0.96)", alignItems: "center", justifyContent: "center" },
     viewerClose: { position: "absolute", zIndex: 2, right: 18, width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(35,35,35,0.75)", alignItems: "center", justifyContent: "center" },
     viewerImage: { width: "100%", height: "82%" },
+    shareSheetModal: { flex: 1, justifyContent: "flex-end" },
+    shareSheetScrim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.48)" },
+    shareSheet: { maxHeight: "82%", paddingHorizontal: 18, paddingTop: 8, borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: colors.surface },
+    shareSheetHandleArea: { height: 24, alignItems: "center", justifyContent: "center" },
+    shareSheetHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 5, paddingBottom: 13 },
+    shareSheetTitle: { color: colors.bone, fontSize: 20, fontWeight: "800" },
+    shareSheetSubtitle: { color: colors.muted, fontSize: 12, marginTop: 3 },
+    shareListingScroll: { flexGrow: 0, maxHeight: 440 },
+    shareListingContent: { paddingBottom: 10, gap: 8 },
+    shareListingRow: { minHeight: 78, flexDirection: "row", alignItems: "center", gap: 11, padding: 8, borderRadius: 15, borderWidth: 1, borderColor: `${colors.bone}12`, backgroundColor: colors.ink },
+    shareListingRowSelected: { borderColor: colors.success, backgroundColor: `${colors.success}14` },
+    shareListingThumb: { width: 58, height: 62, borderRadius: 10, backgroundColor: colors.neutral },
+    shareListingInfo: { flex: 1, minWidth: 0 },
+    shareListingBrand: { color: colors.muted, fontSize: 10, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
+    shareListingName: { color: colors.bone, fontSize: 13, fontWeight: "700", marginTop: 3 },
+    shareListingPrice: { color: colors.bone, fontSize: 12, marginTop: 3 },
+    shareCheck: { width: 23, height: 23, borderRadius: 12, borderWidth: 1.5, borderColor: colors.subtle, alignItems: "center", justifyContent: "center" },
+    shareCheckSelected: { borderColor: colors.success, backgroundColor: colors.success },
+    shareEmpty: { minHeight: 205, alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 24 },
+    shareEmptyText: { color: colors.muted, textAlign: "center", fontSize: 14 },
+    shareSendButton: { minHeight: 50, borderRadius: 25, marginTop: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.success },
+    shareSendDisabled: { opacity: 0.45 },
+    shareSendText: { color: colors.ink, fontSize: 15, fontWeight: "800" },
   });
 }

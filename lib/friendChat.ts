@@ -6,6 +6,18 @@ import type { PublicUser } from "./friends";
 export type FriendMessage = { id: string; text: string; from: string; photoUrl?: string; createdAt?: unknown; status?: string; replyTo?: { id: string; text: string; from: string; photoUrl?: string } };
 export type FriendChatPreview = { id: string; participantIds: string[]; lastText?: string; lastFrom?: string; lastAt?: unknown; unreadBy?: Record<string, number> };
 
+export function friendMessagePreview(text?: string) {
+  if (!text) return "";
+  const prefix = "uvel_shared_listing:";
+  if (!text.startsWith(prefix)) return text;
+  try {
+    const shared = JSON.parse(text.slice(prefix.length)) as { name?: unknown };
+    return typeof shared.name === "string" && shared.name ? `Shared listing: ${shared.name}` : "Shared a listing";
+  } catch {
+    return "Shared a listing";
+  }
+}
+
 export async function listFriends() {
   const result = await socialCall<{ users: PublicUser[] }>("list_friends");
   return result.users || [];
