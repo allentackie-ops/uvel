@@ -780,7 +780,11 @@ export default function Root() {
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: intro ? colors.pulse : colors.ink }}>
         <StatusBar style={appearance === "dark" ? "light" : "dark"} />
         <ReviewSync enabled={Boolean(signedIn && gateReady && !intro && profileDone)} />
-        {gateReady && !intro ? <AppStack /> : null}
+        {gateReady && !intro ? (
+          <View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}>
+            <AppStack />
+          </View>
+        ) : null}
         {gateReady && !signedIn && !intro ? <AuthScreen /> : null}
         {gateReady && signedIn && !profileDone && !intro ? <AccountDetailsScreen /> : null}
         {signedIn && profileDone && gateReady && !intro ? <DraftResumeNotice /> : null}
