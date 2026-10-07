@@ -101,7 +101,7 @@ export default function Inbox() {
     setFriendError("");
     setFriendNotice("");
     setFriendResults([]);
-    try { setFriendResults(await searchUsers(term)); } catch (e) { setFriendError(e instanceof Error ? e.message : "Couldn’t search friends."); }
+    try { setFriendResults(await searchUsers(term)); } catch (e) { console.warn("Friend search failed", e); setFriendError("Couldn’t load friend results. Please try again shortly."); }
     finally { setFriendBusy(false); }
   }
 

@@ -115,7 +115,7 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
     const term = query.trim();
     if (!term) { setResults([]); return; }
     setSearching(true);
-    try { setResults(await searchUsers(term)); } catch (e) { Alert.alert("Couldn’t find friends", e instanceof Error ? e.message : "Try again."); }
+    try { setResults(await searchUsers(term)); } catch (e) { console.warn("Friend search failed", e); Alert.alert("Search unavailable", "Couldn’t load friends right now. Please try again shortly."); }
     finally { setSearching(false); }
   }
 

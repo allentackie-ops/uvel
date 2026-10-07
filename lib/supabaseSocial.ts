@@ -49,7 +49,6 @@ export async function socialCall<T = any>(action: string, payload: Record<string
 }
 
 export async function searchSupabaseUsers(term: string) {
-  await syncSocialProfile();
   const result = await socialCall<{ users: PublicUser[] }>("search_users", { term });
   return result.users || [];
 }

@@ -53,7 +53,21 @@ Deno.serve(async (req) => {
     const route = legacyDecision ? "respond_request" : requestedAction;
     if (route === "sync_profile") return out({ profile: await syncProfile(uid, body.profile) });
     if (route === "upload_profile_avatar") return await uploadProfileAvatar(uid, body);
-    if (route === "search_users") { const term = text(body.term, 40).toLowerCase(); if (term.length < 2) return out({ users: [] }); const { data, error } = await db.from("social_profiles").select("firebase_uid,username,display_name,avatar_uri").neq("firebase_uid", uid).or(`username.ilike.%${term}%,display_name.ilike.%${term}%`).limit(20); if (error) throw error; return out({ users: (data || []).map((r: any) => pub(r.firebase_uid, r)) }); }
+    if (route === "search_users") {
+      const term = text(body.term, 40).trim().replace(/^@+/, "");
+      if (term.length < 2) return out({ users: [] });
+      const pattern = `%${term.replace(/[\\%_]/g, "\\$&")}%`;
+      const base = () => db.from("social_profiles").select("firebase_uid,username,display_name,avatar_uri").neq("firebase_uid", uid);
+      const [byUsername, byName] = await Promise.all([
+        base().ilike("username", pattern).limit(20),
+        base().ilike("display_name", pattern).limit(20),
+      ]);
+      if (byUsername.error) throw byUsername.error;
+      if (byName.error) throw byName.error;
+      const unique = new Map<string, any>();
+      for (const row of [...(byUsername.data || []), ...(byName.data || [])]) unique.set(row.firebase_uid, row);
+      return out({ users: Array.from(unique.values()).slice(0, 20).map((r: any) => pub(r.firebase_uid, r)) });
+    }
     if (route === "send_request") { const toUid = text(body.toUid, 160); if (!toUid || toUid === uid || await blocked(uid, toUid)) return out({ error: "You can’t add this user." }, 403); const from = await profile(uid); const to = await profile(toUid); if (!to.uid || (!to.username && to.displayName === "Uvel member")) return out({ error: "User not found." }, 404); const id = `${uid}_${toUid}`; const { data: existing, error: existingError } = await db.from("friend_requests").select("status").eq("id", id).maybeSingle(); if (existingError) throw existingError; if (existing?.status === "accepted") return out({ requestId: id, status: "accepted" }); const { error } = await db.from("friend_requests").upsert({ id, from_uid: uid, to_uid: toUid, from_user: from, to_user: to, status: "pending" }, { onConflict: "id" }); if (error) throw error; await notify(toUid, "friend_request", id, from, id); return out({ requestId: id, status: "pending" }); }
     if (route === "add_from_share") { const other = text(body.sharedByUid, 160); if (!other || other === uid || await blocked(uid, other)) return out({ error: "You can’t add this user." }, 403); const ids = pair(uid, other); const id = ids.join("_"); const me = await profile(uid); const friend = await profile(other); const { error } = await db.from("friendships").upsert({ id, user_a: ids[0], user_b: ids[1], source: "shared_link" }, { onConflict: "id" }); if (error) throw error; await notify(uid, "friend_added", id, friend, `friend_added_${id}_${uid}`); await notify(other, "friend_added", id, me, `friend_added_${id}_${other}`); return out({ status: "added", friendshipId: id }); }
     if (route === "respond_request") {
