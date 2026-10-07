@@ -4,7 +4,6 @@ import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActionSheetIOS,
   AppState,
   Alert,
   Keyboard,
@@ -21,19 +20,16 @@ import { SortablePhotoStrip } from "../components/SortablePhotoStrip";
 import { ListingCaptureStudio, type CaptureBackground } from "../components/ListingCaptureStudio";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
-import { MotionClip } from "../components/MotionClip";
 import type { Category } from "../lib/catalog";
 import { usd } from "../lib/catalog";
 import { uvelFeeCents } from "../lib/fees";
 import { getMarket, getMarketByCurrency, moneyExact } from "../lib/markets";
 import { takePendingListingPrice } from "../lib/listingPriceDraft";
 import { clearListingDraft, loadListingDraft, saveListingDraft } from "../lib/listingDraft";
-import { pickListingClip, pickListingPhotos, takeListingClip, takeListingPhoto } from "../lib/photo";
 import { reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
 import { preparePersonalListingCutout, submitPersonalListingForReview, uploadPersonalListingPhotos, type PersonalListingReviewResult } from "../lib/listingReview";
-import { encodeShipsTo, shipsToLabel, type ShipsTo } from "../lib/ships";
+import { encodeShipsTo, type ShipsTo } from "../lib/ships";
 import { carriersForCountry, loadSellerShippingSettings, shippingMethodLabel, type SellerShippingSettings } from "../lib/sellerShipping";
-import { SHOP_LOOKS, shopLookOf } from "../lib/shopLook";
 import { takePendingListingSelection } from "../lib/listingOptions";
 import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
@@ -143,9 +139,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const [fitsOpen, setFitsOpen] = useState(Boolean(existing && fits === "1"));
   const [shopLook, setShopLook] = useState(existing?.shopLook || "uvel");
   const [fromPhoto, setFromPhoto] = useState<FromPhoto>({});
-  const [shipsTo, setShipsTo] = useState<ShipsTo>(
-    existing?.shipsTo ?? encodeShipsTo(origin, "home"),
-  );
+  const [shipsTo, setShipsTo] = useState<ShipsTo>(encodeShipsTo(origin, "home"));
   const [shippingSettings, setShippingSettings] = useState<SellerShippingSettings | null>(null);
   const [gate, setGate] = useState<Gate>({ phase: "idle" });
   const [stage, setStage] = useState(0);
@@ -219,7 +213,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         setWas(saved.was || "");
         setShopLook(saved.shopLook || "uvel");
         setSelectedBackground(saved.studioBackgroundId || AI_CUTOUT_BACKGROUNDS[0].id);
-        setShipsTo(saved.shipsTo || encodeShipsTo(saved.origin || market.code, "home"));
+        setShipsTo(encodeShipsTo(saved.origin || market.code, "home"));
         setShippingSettings((current) => current ? {
           ...current,
           method: saved.shippingMethod || current.method,
@@ -258,8 +252,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       if (pendingColor) setColor(pendingColor);
       const pendingMaterial = takePendingListingSelection("material");
       if (pendingMaterial) setMaterial(pendingMaterial);
-      const pendingShipsTo = takePendingListingSelection("shipsTo");
-      if (pendingShipsTo) setShipsTo(pendingShipsTo);
       const pendingMeasurements = takePendingListingSelection("measurements");
       if (pendingMeasurements) setMeasurements(pendingMeasurements);
       return undefined;
@@ -342,24 +334,10 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const hasMaterial = Boolean(material.trim());
   const hasCond = Boolean(condition);
   const photoQualityReady = Boolean(hasPhoto && (existing || (cover?.status === "ok" && photoReadyForPricing)));
-  const steps = [
-    { key: "photo", done: requiredPhotoCountReady && !checking, label: checking ? "Checking photos…" : `Take ${MIN_NORMAL_PHOTOS} photos` },
-    { key: "title", done: hasTitle, label: "Add a title" },
-    { key: "notes", done: hasNotes, label: "Add a description" },
-    { key: "category", done: hasCat, label: "Pick a category" },
-    { key: "size", done: hasSize, label: "Add a size" },
-    { key: "color", done: hasColor, label: "Add a colour" },
-    { key: "material", done: hasMaterial, label: "Add a material" },
-    { key: "condition", done: hasCond, label: "Pick a condition" },
-    { key: "price", done: hasPrice, label: "Add a price" },
-  ] as const;
-  const nextStep = steps.find((step) => !step.done);
-  const canList = !nextStep && gate.phase === "idle";
-  const progress = steps.filter((step) => step.done).length;
+  const canList = !checking && gate.phase === "idle" && hasPhoto && photos.length >= MIN_NORMAL_PHOTOS && hasTitle && hasNotes && hasCat && hasSize && hasColor && hasMaterial && hasCond && hasPrice;
   const ph = colors.muted;
-  const ctaLabel = nextStep?.label ?? "Complete";
-  const ctaReady = gate.phase === "idle" && !checking && (Boolean(nextStep) || canList);
-
+  const ctaLabel = "Post listing";
+  const ctaReady = canList;
   useEffect(() => {
     if (!existing && aiStudioReady) {
       const r = photos.find((photo) => photo.review)?.review;
@@ -438,58 +416,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     }
   }
 
-  async function fromCamera() {
-    Keyboard.dismiss();
-    try {
-      const uri = await takeListingPhoto();
-      if (uri) await addUri(uri);
-    } catch (err) {
-      Alert.alert("Camera", err instanceof Error ? err.message : "Couldn’t open camera.");
-    }
-  }
-
-  async function fromLibrary() {
-    Keyboard.dismiss();
-    try {
-      const uris = await pickListingPhotos(MAX - photos.length);
-      for (const uri of uris) await addUri(uri);
-    } catch (err) {
-      Alert.alert(C.photos, err instanceof Error ? err.message : "Couldn’t open photos.");
-    }
-  }
-
-  function choosePhoto() {
-    if (photos.length >= MAX) return;
-    Keyboard.dismiss();
-    if (!existing) {
-      void fromCamera();
-      return;
-    }
-    const hasFits = wardrobeUris.length > 0;
-    if (Platform.OS === "ios") {
-      const options = hasFits ? ["Camera", "Library", "From your fits", "Cancel"] : ["Camera", "Library", "Cancel"];
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options,
-          cancelButtonIndex: options.length - 1,
-          userInterfaceStyle: "dark",
-        },
-        (i) => {
-          if (i === 0) void fromCamera();
-          else if (i === 1) void fromLibrary();
-          else if (hasFits && i === 2) setFitsOpen(true);
-        },
-      );
-      return;
-    }
-    Alert.alert("Add a photo", undefined, [
-      { text: "Camera", onPress: () => void fromCamera() },
-      { text: "Library", onPress: () => void fromLibrary() },
-      ...(hasFits ? [{ text: "From your fits", onPress: () => setFitsOpen(true) }] : []),
-      { text: "Cancel", style: "cancel" as const },
-    ]);
-  }
-
   function removePhoto(uri: string) {
     const removedIndex = photos.findIndex((photo) => photo.uri === uri);
     setPhotos((prev) => prev.filter((p) => p.uri !== uri));
@@ -521,49 +447,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       return next;
     });
     setSelectedPhotoIndex((index) => index === from ? to : index > from && index <= to ? index - 1 : index < from && index >= to ? index + 1 : index);
-  }
-
-  async function fromClipCamera() {
-    Keyboard.dismiss();
-    try {
-      const uri = await takeListingClip();
-      if (uri) setClipUri(uri);
-    } catch (err) {
-      Alert.alert("Camera", err instanceof Error ? err.message : "Couldn’t record a clip.");
-    }
-  }
-
-  async function fromClipLibrary() {
-    Keyboard.dismiss();
-    try {
-      const uri = await pickListingClip();
-      if (uri) setClipUri(uri);
-    } catch (err) {
-      Alert.alert("Clip", err instanceof Error ? err.message : "Couldn’t add that clip.");
-    }
-  }
-
-  function chooseClip() {
-    Keyboard.dismiss();
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ["Record a clip", "Choose from library", "Cancel"],
-          cancelButtonIndex: 2,
-          userInterfaceStyle: "dark",
-        },
-        (i) => {
-          if (i === 0) void fromClipCamera();
-          else if (i === 1) void fromClipLibrary();
-        },
-      );
-      return;
-    }
-    Alert.alert("Add a clip", "Up to 15 seconds. You can trim it before it saves.", [
-      { text: "Record a clip", onPress: () => void fromClipCamera() },
-      { text: "Choose from library", onPress: () => void fromClipLibrary() },
-      { text: "Cancel", style: "cancel" },
-    ]);
   }
 
   function openCategory() {
@@ -614,65 +497,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         price,
       },
     });
-  }
-
-  function focusField(input: { current: TextInput | null }) {
-    requestAnimationFrame(() => input.current?.focus());
-  }
-
-  function goNext() {
-    if (checking || gate.phase !== "idle") return;
-    if (!nextStep) {
-      void publish();
-      return;
-    }
-    if (nextStep.key === "photo") {
-      choosePhoto();
-      return;
-    }
-    if (nextStep.key === "title") {
-      setOpenSection("describe");
-      focusField(titleRef);
-      return;
-    }
-    if (nextStep.key === "notes") {
-      setOpenSection("describe");
-      focusField(notesRef);
-      return;
-    }
-    if (nextStep.key === "category") {
-      setOpenSection("describe");
-      Keyboard.dismiss();
-      openCategory();
-      return;
-    }
-    if (nextStep.key === "size") {
-      setOpenSection("describe");
-      Keyboard.dismiss();
-      openOption("size");
-      return;
-    }
-    if (nextStep.key === "color") {
-      setOpenSection("describe");
-      Keyboard.dismiss();
-      openOption("color");
-      return;
-    }
-    if (nextStep.key === "material") {
-      setOpenSection("describe");
-      Keyboard.dismiss();
-      openOption("material");
-      return;
-    }
-    if (nextStep.key === "condition") {
-      setOpenSection("describe");
-      Keyboard.dismiss();
-      openCondition();
-      return;
-    }
-    setOpenSection("selling");
-    Keyboard.dismiss();
-    openPrice();
   }
 
   async function publish() {
@@ -1114,19 +938,13 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               accessibilityLabel="Original price, optional"
             />
 
-            <AccessiblePressable
-              onPress={() => router.push({ pathname: "/sell-countries", params: { origin, selected: shipsTo === "all" ? "all" : Array.isArray(shipsTo) ? shipsTo.join(",") : origin } })}
-              style={({ pressed }) => [styles.choiceRow, styles.stackGap, pressed && { opacity: 0.92 }]}
-              accessibilityRole="button"
-              accessibilityLabel={`Choose countries. Currently ${shipsToLabel(origin, shipsTo)}.`}
-              accessibilityHint="Double tap to choose the countries where this listing can be seen."
-            >
+            <View style={[styles.choiceRow, styles.stackGap]} accessibilityRole="text" accessibilityLabel={`${getMarket(origin).name} store only`}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.choiceValue}>{shipsToLabel(origin, shipsTo)}</Text>
-                <Text style={styles.choiceSub}>Where it sells</Text>
+                <Text style={styles.choiceValue}>{getMarket(origin).name} store only</Text>
+                <Text style={styles.choiceSub}>Normal listings stay in the store you are using</Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
-            </AccessiblePressable>
+              <Ionicons name="lock-closed-outline" size={18} color={colors.subtle} />
+            </View>
 
             <AccessiblePressable
               onPress={() => router.push("/seller-shipping")}
@@ -1174,7 +992,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
 
         <View style={[styles.foot, { paddingBottom: keyboardVisible ? 8 : insets.bottom + (embedded ? 68 : 12) }]}>
           <AccessiblePressable
-            onPress={goNext}
+            onPress={() => void publish()}
             disabled={!ctaReady}
             style={({ pressed }) => [styles.cta, !ctaReady && styles.ctaOff, pressed && { opacity: 0.92 }]}
             accessibilityRole="button"
