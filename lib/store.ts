@@ -219,6 +219,9 @@ async function applyAccount(
   if (done) {
     void import("./friendChat").then(({ refreshFriendInbox }) => refreshFriendInbox(user.uid)).catch(() => undefined);
     void import("./friends").then(({ listFriendNotifications }) => listFriendNotifications(user.uid)).catch(() => undefined);
+    void import("./chat").then(({ preloadMarketplaceInbox }) => preloadMarketplaceInbox(user.uid)).catch(() => undefined);
+    void import("./alerts").then(({ hydrateAlerts }) => hydrateAlerts(user.uid)).catch(() => undefined);
+    void import("./activityNotifications").then(({ preloadActivityNotifications }) => preloadActivityNotifications(user.uid)).catch(() => undefined);
     try {
       const { syncSocialProfile } = await import("./supabaseSocial");
       const socialProfile = await syncSocialProfile();

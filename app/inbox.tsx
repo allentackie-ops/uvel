@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Animated, FlatList, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Animated, FlatList, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
 import { BrandVerifiedMark } from "../components/VerifiedMark";
@@ -11,16 +11,29 @@ import { unreadFor, useInbox, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
 import { useColors, useResolvedAppearance, type Colors } from "../lib/theme";
 import * as Haptics from "../lib/haptics";
-import { getCachedFriendNotifications, listFriendNotifications, respondFriendRequest, searchUsers, sendFriendRequest, subscribeFriendNotifications, type FriendNotification, type PublicUser } from "../lib/friends";
-import { createFriendChat, getCachedFriendInbox, refreshFriendInbox, restoreFriendInboxCache, subscribeFriendInbox, friendMessagePreview, type FriendChatPreview } from "../lib/friendChat";
+import { useAlertCenter, markAlertRead, type AlertEvent } from "../lib/alerts";
+import { useActivityNotifications, markActivityNotificationRead, type ActivityNotification } from "../lib/activityNotifications";
+import { listFriendNotifications, markFriendNotificationRead, respondFriendRequest, searchUsers, sendFriendRequest, unfriendFriend, useFriendNotifications, type FriendNotification, type PublicUser } from "../lib/friends";
+import { blockFriend, createFriendChat, deleteFriendChat, getCachedFriendInbox, refreshFriendInbox, restoreFriendInboxCache, subscribeFriendInbox, unblockFriend, friendMessagePreview, type FriendChatPreview } from "../lib/friendChat";
+import { BlockedAvatar } from "../components/BlockedAvatar";
 
 type Filter = "All" | "Unread" | "Selling" | "Buying";
 type InboxMode = "Messages" | "Activity";
 type FriendPanelMode = "friends" | "messages" | "notifications" | "discover";
 type FriendTab = "friends" | "requests";
 type ActivityTab = "friends" | "requests";
+type FriendAction = "unfriend" | "block" | "unblock" | "delete";
+type SheetNotification =
+  | { source: "friend"; id: string; at: number; item: FriendNotification }
+  | { source: "activity"; id: string; at: number; item: ActivityNotification }
+  | { source: "alert"; id: string; at: number; item: AlertEvent };
 const FILTERS: Filter[] = ["All", "Unread", "Selling", "Buying"];
 const MIN_REFRESH_MS = 1100;
+
+function timestampMs(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return Date.parse(String(value || "")) || 0;
+}
 
 function when(ms: number) {
   const min = Math.max(1, Math.round((Date.now() - ms) / 60000));
@@ -52,14 +65,16 @@ export default function Inbox() {
   const [discoveryTerm, setDiscoveryTerm] = useState("");
   const [friendResults, setFriendResults] = useState<PublicUser[]>([]);
   const [friendSentIds, setFriendSentIds] = useState<Set<string>>(() => new Set());
-  const [friendNotifications, setFriendNotifications] = useState<FriendNotification[]>(() => getCachedFriendNotifications(me));
+  const friendNotifications = useFriendNotifications(uid || "me");
+  const { events: alertEvents } = useAlertCenter(uid || "");
+  const activityNotifications = useActivityNotifications(uid || "guest");
   const [friendBusy, setFriendBusy] = useState(false);
   const [requestBusy, setRequestBusy] = useState<string | null>(null);
   const [friendError, setFriendError] = useState("");
   const [friendNotice, setFriendNotice] = useState("");
+  const [friendActionTarget, setFriendActionTarget] = useState<{ chat: FriendChatPreview; user?: PublicUser; otherUid: string } | null>(null);
   const [friends, setFriends] = useState<PublicUser[]>(() => getCachedFriendInbox(me)?.friends || []);
   const [friendChats, setFriendChats] = useState<FriendChatPreview[]>(() => getCachedFriendInbox(me)?.chats || []);
-  useEffect(() => subscribeFriendNotifications(uid, setFriendNotifications), [uid]);
   useEffect(() => {
     let active = true;
     void restoreFriendInboxCache(me).then((snapshot) => {
@@ -109,7 +124,7 @@ export default function Inbox() {
     setFriendError("");
     try {
       await respondFriendRequest(item.requestId, action);
-      setFriendNotifications((items) => items.map((notification) => notification.id === item.id ? { ...notification, readAt: Date.now() } : notification));
+      void markFriendNotificationRead(me, item.id).catch(() => undefined);
       if (action === "accepted") {
         const snapshot = await refreshFriendInbox(me);
         setFriends(snapshot.friends);
@@ -152,7 +167,7 @@ export default function Inbox() {
       const [snapshot, notifications] = await Promise.all([refreshFriendInbox(me), listFriendNotifications(me)]);
       setFriends(snapshot.friends);
       setFriendChats(snapshot.chats);
-      setFriendNotifications(notifications);
+      void notifications;
     } catch {
       // Keep the last cached inbox visible when refresh is temporarily offline.
     } finally {
@@ -172,6 +187,7 @@ export default function Inbox() {
   }, [onRefresh, refreshing]);
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
   const pendingFriendRequests = useMemo(() => friendNotifications.filter((item) => item.kind === "friend_request" && !item.readAt), [friendNotifications]);
+  const unreadNotifications = friendNotifications.filter((item) => !item.readAt).length + activityNotifications.filter((item) => !item.read).length + alertEvents.filter((item) => !item.read).length;
 
   const visible = useMemo(() => {
     const query = conversationQuery.trim().toLowerCase();
@@ -185,6 +201,59 @@ export default function Inbox() {
       return [t.lastText, t.pieceName, t.brandName, t.sellerName, t.buyerName].filter(Boolean).join(" ").toLowerCase().includes(query);
     });
   }, [conversationQuery, threads, filter, me]);
+
+  function openActivityFriendChat(chat: FriendChatPreview, user: PublicUser | undefined, _otherUid: string) {
+    const blocked = Boolean(chat.blockedByMe);
+    router.push({ pathname: "/friends/chat/[id]", params: { id: chat.id, name: blocked ? "Blocked" : user?.displayName || user?.username || "Friend", username: blocked ? "" : user?.username || "", avatarUri: blocked ? "" : user?.avatarUri || "", blockedInitial: blocked ? chat.blockedInitial || "U" : "" } });
+  }
+
+  async function performFriendAction(action: FriendAction, target: { chat: FriendChatPreview; user?: PublicUser; otherUid: string }) {
+    try {
+      if (action === "unfriend") await unfriendFriend(target.otherUid);
+      else if (action === "block") await blockFriend(target.otherUid);
+      else if (action === "unblock") await unblockFriend(target.otherUid);
+      else await deleteFriendChat(target.chat.id);
+      const snapshot = await refreshFriendInbox(me);
+      setFriends(snapshot.friends);
+      setFriendChats(snapshot.chats);
+    } catch {
+      Alert.alert("Couldn’t update this conversation", "Please try again when you have a connection.");
+    }
+  }
+
+  function chooseFriendAction(action: FriendAction) {
+    const target = friendActionTarget;
+    if (!target) return;
+    setFriendActionTarget(null);
+    if (action === "unblock") { void performFriendAction(action, target); return; }
+    const name = target.chat.blockedByMe ? "this contact" : target.user?.displayName || target.user?.username || "this friend";
+    const content = action === "unfriend"
+      ? { title: "Remove friend?", body: `${name} will disappear from both friends and recent friend activity.`, confirm: "Remove" }
+      : action === "block"
+        ? { title: "Block friend?", body: `Block ${name}? Their chat will no longer show their profile details or last message.`, confirm: "Block" }
+        : { title: "Delete chat?", body: "This clears the conversation from your chat list and removes its older messages from your view. The other person’s copy stays available to them.", confirm: "Delete chat" };
+    Alert.alert(content.title, content.body, [
+      { text: "Cancel", style: "cancel" },
+      { text: content.confirm, style: "destructive", onPress: () => { void performFriendAction(action, target); } },
+    ]);
+  }
+
+  function openActivityNotification(item: ActivityNotification) {
+    void markActivityNotificationRead(me, item.id);
+    closeFriendPanel();
+    if (item.kind === "offer_accepted" && item.lookId && item.offerId) { router.push({ pathname: "/checkout/[id]", params: { id: item.lookId, offerId: item.offerId } }); return; }
+    if (["offer_received", "offer_declined", "offer_expired"].includes(item.kind) && item.lookId && item.threadId) { router.push({ pathname: "/ask/[id]", params: { id: item.lookId, threadId: item.threadId } }); return; }
+    if ((item.kind === "mirror_ready" || item.kind === "mirror_failed") && item.mirrorJobId) { router.push({ pathname: "/mirror", params: { jobId: item.mirrorJobId } }); return; }
+    if (item.target === "saved") router.push("/saved-looks");
+    else if (item.lookId) router.push({ pathname: "/closet/[id]", params: { id: item.lookId } });
+  }
+
+  function openAlertNotification(item: AlertEvent) {
+    void markAlertRead(me, item.id);
+    closeFriendPanel();
+    if (item.source === "immersive") router.push({ pathname: "/immersive-shopping", params: { listingId: item.listingId } });
+    else router.push({ pathname: "/closet/[id]", params: { id: item.listingId } });
+  }
 
   const empty =
     filter === "Selling"
@@ -208,10 +277,10 @@ export default function Inbox() {
           hitSlop={12}
           style={styles.bell}
           accessibilityRole="button"
-          accessibilityLabel={`Notifications${friendNotifications.filter((item) => !item.readAt).length ? `, ${friendNotifications.filter((item) => !item.readAt).length} unread` : ""}`}
+          accessibilityLabel={`Notifications${unreadNotifications ? `, ${unreadNotifications} unread` : ""}`}
         >
           <Text style={styles.bellTxt}>🔔</Text>
-          {friendNotifications.filter((item) => !item.readAt).length ? <View style={styles.badge}><Text style={styles.badgeTxt}>{friendNotifications.filter((item) => !item.readAt).length > 9 ? "9+" : friendNotifications.filter((item) => !item.readAt).length}</Text></View> : null}
+          {unreadNotifications ? <View style={styles.badge}><Text style={styles.badgeTxt}>{unreadNotifications > 9 ? "9+" : unreadNotifications}</Text></View> : null}
         </Pressable>
         </View>
       </View>
@@ -226,6 +295,11 @@ export default function Inbox() {
         onOpenDiscover={() => { setFriendPanelMode("discover"); setDiscoveryTerm(""); setFriendResults([]); setFriendError(""); setFriendNotice(""); }}
         friends={friends}
         notifications={friendNotifications}
+        activityNotifications={activityNotifications}
+        alertEvents={alertEvents}
+        onOpenActivityNotification={openActivityNotification}
+        onOpenAlertNotification={openAlertNotification}
+        onMarkFriendNotificationRead={(item) => { void markFriendNotificationRead(me, item.id).catch(() => undefined); }}
         conversationQuery={conversationQuery}
         setConversationQuery={setConversationQuery}
         friendTerm={friendTerm}
@@ -248,6 +322,19 @@ export default function Inbox() {
         panHandlers={friendSheetPan.panHandlers}
         dragY={friendSheetDragY}
       />
+      {friendActionTarget ? <Modal visible transparent animationType="slide" statusBarTranslucent onRequestClose={() => setFriendActionTarget(null)}>
+        <View style={styles.friendSheetBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setFriendActionTarget(null)} accessibilityRole="button" accessibilityLabel="Close friend actions" />
+          <View style={[styles.friendPanel, { paddingBottom: insets.bottom + 18 }]}>
+            <View style={styles.sheetDragArea}><View style={styles.sheetHandle} /></View>
+            <Text style={styles.friendPanelTitle}>{friendActionTarget.chat.blockedByMe ? "Blocked contact" : friendActionTarget.user?.displayName || friendActionTarget.user?.username || "Friend options"}</Text>
+            <Pressable style={styles.friendActionRow} onPress={() => chooseFriendAction("unfriend")}><Text style={styles.friendActionText}>Remove friend</Text></Pressable>
+            <Pressable style={styles.friendActionRow} onPress={() => chooseFriendAction(friendActionTarget.chat.blockedByMe ? "unblock" : "block")}><Text style={[styles.friendActionText, styles.friendActionDanger]}>{friendActionTarget.chat.blockedByMe ? "Unblock" : "Block"}</Text></Pressable>
+            <Pressable style={styles.friendActionRow} onPress={() => chooseFriendAction("delete")}><Text style={[styles.friendActionText, styles.friendActionDanger]}>Delete chat</Text></Pressable>
+            <Pressable style={styles.friendActionCancel} onPress={() => setFriendActionTarget(null)}><Text style={styles.friendActionCancelText}>Cancel</Text></Pressable>
+          </View>
+        </View>
+      </Modal> : null}
 
       <View style={styles.modeToggle}>
         {(["Messages", "Activity"] as InboxMode[]).map((item) => <Pressable key={item} onPress={() => setMode(item)} style={[styles.modeButton, mode === item && styles.modeButtonOn]} accessibilityRole="tab" accessibilityState={{ selected: mode === item }}><Text style={[styles.modeText, mode === item && styles.modeTextOn]}>{item}</Text></Pressable>)}
@@ -275,7 +362,7 @@ export default function Inbox() {
           contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
           style={styles.list}
         />
-      </> : activityTab === "friends" ? <ActivityView friends={friends} friendChats={friendChats} uid={me} onOpenFriends={() => { setFriendPanelMode("friends"); setFriendTab("friends"); setFriendSearchOpen(true); setFriendError(""); }} colors={colors} styles={styles} onScroll={onScroll} orbitOn={orbitOn} /> : <ActivityRequestsView requests={pendingFriendRequests} requestBusy={requestBusy} onRespond={respondToFriendRequest} onScroll={onScroll} orbitOn={orbitOn} styles={styles} />}
+      </> : activityTab === "friends" ? <ActivityView friends={friends} friendChats={friendChats} uid={me} onOpenFriends={() => { setFriendPanelMode("friends"); setFriendTab("friends"); setFriendSearchOpen(true); setFriendError(""); }} onOpenChat={openActivityFriendChat} onFriendActions={(chat, user, otherUid) => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined); setFriendActionTarget({ chat, user, otherUid }); }} colors={colors} styles={styles} onScroll={onScroll} orbitOn={orbitOn} /> : <ActivityRequestsView requests={pendingFriendRequests} requestBusy={requestBusy} onRespond={respondToFriendRequest} onScroll={onScroll} orbitOn={orbitOn} styles={styles} />}
     </View>
   );
 }
@@ -296,14 +383,19 @@ function FindFriendsBanner({ onPress, colors, styles }: { onPress: () => void; c
   </Pressable>;
 }
 
-function FriendSheet({ visible, mode, friendTab, setFriendTab, onClose, onModeChange, onOpenDiscover, friends, notifications, conversationQuery, setConversationQuery, friendTerm, setFriendTerm, discoveryTerm, setDiscoveryTerm, friendResults, friendSentIds, friendBusy, requestBusy, friendError, friendNotice, onSearchUsers, onAddFriend, onRespond, onOpenChat, colors, styles, insets, panHandlers, dragY }: {
+function FriendSheet({ visible, mode, friendTab, setFriendTab, onClose, onModeChange, onOpenDiscover, friends, notifications, activityNotifications, alertEvents, onOpenActivityNotification, onOpenAlertNotification, onMarkFriendNotificationRead, conversationQuery, setConversationQuery, friendTerm, setFriendTerm, discoveryTerm, setDiscoveryTerm, friendResults, friendSentIds, friendBusy, requestBusy, friendError, friendNotice, onSearchUsers, onAddFriend, onRespond, onOpenChat, colors, styles, insets, panHandlers, dragY }: {
   visible: boolean; mode: FriendPanelMode; friendTab: FriendTab; setFriendTab: (tab: FriendTab) => void; onClose: () => void; onModeChange: (mode: FriendPanelMode) => void; onOpenDiscover: () => void;
-  friends: PublicUser[]; notifications: FriendNotification[]; conversationQuery: string; setConversationQuery: (value: string) => void; friendTerm: string; setFriendTerm: (value: string) => void; discoveryTerm: string; setDiscoveryTerm: (value: string) => void;
+  friends: PublicUser[]; notifications: FriendNotification[]; activityNotifications: ActivityNotification[]; alertEvents: AlertEvent[]; onOpenActivityNotification: (item: ActivityNotification) => void; onOpenAlertNotification: (item: AlertEvent) => void; onMarkFriendNotificationRead: (item: FriendNotification) => void; conversationQuery: string; setConversationQuery: (value: string) => void; friendTerm: string; setFriendTerm: (value: string) => void; discoveryTerm: string; setDiscoveryTerm: (value: string) => void;
   friendResults: PublicUser[]; friendSentIds: Set<string>; friendBusy: boolean; requestBusy: string | null; friendError: string; friendNotice: string; onSearchUsers: () => Promise<void>; onAddFriend: (user: PublicUser) => Promise<void>; onRespond: (item: FriendNotification, action: "accepted" | "declined") => Promise<void>; onOpenChat: (user: PublicUser) => Promise<void>;
   colors: Colors; styles: ReturnType<typeof make>; insets: { bottom: number }; panHandlers: ReturnType<typeof PanResponder.create>["panHandlers"]; dragY: Animated.Value;
 }) {
   const pending = notifications.filter((item) => item.kind === "friend_request" && !item.readAt);
   const visibleFriends = friends.filter((user) => `${user.displayName} ${user.username}`.toLowerCase().includes(friendTerm.trim().toLowerCase()));
+  const allNotifications: SheetNotification[] = [
+    ...notifications.map((item) => ({ source: "friend" as const, id: item.id, at: timestampMs(item.createdAt), item })),
+    ...activityNotifications.map((item) => ({ source: "activity" as const, id: item.id, at: item.at, item })),
+    ...alertEvents.map((item) => ({ source: "alert" as const, id: item.id, at: item.at, item })),
+  ].sort((a, b) => b.at - a.at);
   const title = mode === "messages" ? "Search Inbox" : mode === "notifications" ? "Notifications" : mode === "discover" ? "Find people" : "Your friends";
   const requestRows = (items: FriendNotification[]) => items.map((item) => <View key={item.id} style={styles.sheetPersonRow}>
     <Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.actor.displayName || `@${item.actor.username}`}</Text><Text style={styles.usernameTxt}>@{item.actor.username}</Text>
@@ -321,7 +413,19 @@ function FriendSheet({ visible, mode, friendTab, setFriendTab, onClose, onModeCh
         </View>
         {mode === "messages" ? <View style={styles.friendSearchRow}><TextInput autoFocus value={conversationQuery} onChangeText={setConversationQuery} onSubmitEditing={onClose} placeholder="People, listings, or messages" placeholderTextColor={colors.subtle} style={styles.friendInput} returnKeyType="search" /><Pressable onPress={onClose} style={styles.findBtn}><Text style={styles.findTxt}>Done</Text></Pressable></View> : null}
         {mode === "notifications" ? <ScrollView style={styles.sheetList} keyboardShouldPersistTaps="handled">
-          {notifications.length ? notifications.map((item) => <View key={item.id} style={[styles.notificationRow, !item.readAt && styles.notificationUnread]}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.kind === "friend_request" ? `${item.actor.displayName || `@${item.actor.username}`} sent you a friend request` : item.kind === "friend_added" ? `${item.actor.displayName || `@${item.actor.username}`} became your friend` : `${item.actor.displayName || `@${item.actor.username}`} accepted your friend request`}</Text><Text style={styles.usernameTxt}>{item.kind === "friend_request" && !item.readAt ? "Respond to request" : "Friend activity"}</Text>{item.kind === "friend_request" && !item.readAt ? <View style={styles.requestActions}><Pressable disabled={requestBusy === item.requestId} onPress={() => void onRespond(item, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable disabled={Boolean(requestBusy)} onPress={() => void onRespond(item, "accepted")}><Text style={styles.acceptTxt}>{requestBusy === item.requestId ? "Adding…" : "Accept"}</Text></Pressable></View> : null}</View></View>) : <Text style={styles.noFriends}>You’re all caught up.</Text>}
+          {allNotifications.length ? allNotifications.map((entry) => {
+            if (entry.source === "friend") {
+              const item = entry.item;
+              const title = item.kind === "friend_request" ? `${item.actor.displayName || `@${item.actor.username}`} sent you a friend request` : item.kind === "friend_added" ? `${item.actor.displayName || `@${item.actor.username}`} became your friend` : `${item.actor.displayName || `@${item.actor.username}`} accepted your friend request`;
+              return <View key={`friend:${entry.id}`} style={[styles.notificationRow, !item.readAt && styles.notificationUnread]}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Pressable disabled={item.kind === "friend_request"} onPress={() => onMarkFriendNotificationRead(item)}><Text style={styles.requestText}>{title}</Text><Text style={styles.usernameTxt}>{item.kind === "friend_request" && !item.readAt ? "Respond to request" : `Friend activity · ${when(entry.at)}`}</Text></Pressable>{item.kind === "friend_request" && !item.readAt ? <View style={styles.requestActions}><Pressable disabled={requestBusy === item.requestId} onPress={() => void onRespond(item, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable disabled={Boolean(requestBusy)} onPress={() => void onRespond(item, "accepted")}><Text style={styles.acceptTxt}>{requestBusy === item.requestId ? "Adding…" : "Accept"}</Text></Pressable></View> : null}</View></View>;
+            }
+            if (entry.source === "activity") {
+              const item = entry.item;
+              return <Pressable key={`activity:${entry.id}`} onPress={() => onOpenActivityNotification(item)} style={[styles.notificationRow, !item.read && styles.notificationUnread]}>{item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.notificationThumb} contentFit="cover" /> : <View style={styles.notificationIcon}><Text style={styles.notificationIconText}>✦</Text></View>}<View style={{ flex: 1 }}><Text style={styles.requestText}>{item.title}</Text><Text style={styles.usernameTxt} numberOfLines={2}>{item.body}</Text><Text style={styles.notificationTime}>{when(entry.at)}</Text></View></Pressable>;
+            }
+            const item = entry.item;
+            return <Pressable key={`alert:${entry.id}`} onPress={() => onOpenAlertNotification(item)} style={[styles.notificationRow, !item.read && styles.notificationUnread]}>{item.photo ? <Image source={{ uri: item.photo }} style={styles.notificationThumb} contentFit="cover" /> : <View style={styles.notificationIcon}><Text style={styles.notificationIconText}>↗</Text></View>}<View style={{ flex: 1 }}><Text style={styles.requestText}>{item.title}</Text><Text style={styles.usernameTxt} numberOfLines={2}>{item.body}</Text><Text style={styles.notificationTime}>{when(entry.at)}</Text></View></Pressable>;
+          }) : <Text style={styles.noFriends}>You’re all caught up.</Text>}
         </ScrollView> : null}
         {mode === "friends" ? <>
           <View style={styles.friendTabs}>
@@ -356,13 +460,23 @@ function ActivityRequestsView({ requests, requestBusy, onRespond, onScroll, orbi
   </ScrollView>;
 }
 
-function ActivityView({ friends, friendChats, uid, onOpenFriends, colors, styles, onScroll, orbitOn }: { friends: PublicUser[]; friendChats: FriendChatPreview[]; uid: string; onOpenFriends: () => void; colors: Colors; styles: ReturnType<typeof make>; onScroll: (event: { nativeEvent: { contentOffset: { y: number } } }) => void; orbitOn: boolean }) {
+function ActivityView({ friends, friendChats, uid, onOpenFriends, onOpenChat, onFriendActions, colors, styles, onScroll, orbitOn }: { friends: PublicUser[]; friendChats: FriendChatPreview[]; uid: string; onOpenFriends: () => void; onOpenChat: (chat: FriendChatPreview, user: PublicUser | undefined, otherUid: string) => void; onFriendActions: (chat: FriendChatPreview, user: PublicUser | undefined, otherUid: string) => void; colors: Colors; styles: ReturnType<typeof make>; onScroll: (event: { nativeEvent: { contentOffset: { y: number } } }) => void; orbitOn: boolean }) {
   return <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }} style={styles.activityScroll} alwaysBounceVertical bounces scrollEventThrottle={16} onScroll={onScroll}>
     {orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
     <View style={styles.activityHeader}><Text style={styles.activityTitle}>Your circle</Text><Pressable onPress={onOpenFriends}><Text style={styles.activityLink}>Friends ›</Text></Pressable></View>
     {friends.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendRail}>{friends.map((user) => <Pressable key={user.uid} onPress={onOpenFriends} style={styles.friendBubble}><Avatar user={user} /><Text style={styles.friendBubbleName} numberOfLines={1}>{user.displayName || user.username}</Text></Pressable>)}</ScrollView> : null}
     <Text style={styles.activitySection}>RECENT CONVERSATIONS</Text>
-    {friendChats.length ? friendChats.map((chat) => { const other = chat.participantIds.find((id) => id !== uid) || ""; const user = friends.find((item) => item.uid === other); const unread = Number(chat.unreadBy?.[uid] || 0); return <Pressable key={chat.id} onPress={() => router.push({ pathname: "/friends/chat/[id]", params: { id: chat.id, name: user?.displayName || user?.username || "Friend", username: user?.username || "", avatarUri: user?.avatarUri || "" } })} style={styles.activityRow}><Avatar user={user || { uid: other, username: "friend", displayName: "Friend" }} /><View style={{ flex: 1 }}><Text style={[styles.requestText, unread ? { fontWeight: "900" } : null]}>{user?.displayName || user?.username || "Friend"}</Text><Text style={styles.usernameTxt} numberOfLines={1}>{friendMessagePreview(chat.lastText) || "Start chatting"}</Text></View>{unread ? <View style={styles.chatUnread}><Text style={styles.chatUnreadTxt}>{unread}</Text></View> : <Text style={styles.chatArrow}>›</Text>}</Pressable>; }) : <Text style={styles.empty}>Friend conversations will appear here.</Text>}
+    {friendChats.length ? friendChats.map((chat) => {
+      const other = chat.participantIds.find((id) => id !== uid) || "";
+      const user = friends.find((item) => item.uid === other);
+      const unread = Number(chat.unreadBy?.[uid] || 0);
+      const blocked = Boolean(chat.blockedByMe);
+      return <Pressable key={chat.id} onPress={() => onOpenChat(chat, user, other)} onLongPress={() => onFriendActions(chat, user, other)} delayLongPress={430} style={styles.activityRow} accessibilityRole="button" accessibilityLabel={blocked ? "Blocked conversation. Hold for options." : `${user?.displayName || user?.username || "Friend"}, recent conversation. Hold for options.`}>
+        {blocked ? <BlockedAvatar initial={chat.blockedInitial || user?.displayName || user?.username || "U"} size={52} backgroundColor={colors.neutral} textColor={colors.bone} slashColor={colors.danger} /> : <Avatar user={user || { uid: other, username: "friend", displayName: "Friend" }} />}
+        <View style={{ flex: 1 }}><Text style={[styles.requestText, unread && !blocked ? { fontWeight: "900" } : null]}>{blocked ? "Blocked" : user?.displayName || user?.username || "Friend"}</Text><Text style={styles.usernameTxt} numberOfLines={1}>{blocked ? "Blocked" : friendMessagePreview(chat.lastText) || "Start chatting"}</Text></View>
+        {!blocked && unread ? <View style={styles.chatUnread}><Text style={styles.chatUnreadTxt}>{unread > 9 ? "9+" : unread}</Text></View> : <Text style={styles.chatArrow}>›</Text>}
+      </Pressable>;
+    }) : <Text style={styles.empty}>Friend conversations will appear here.</Text>}
     {friends.length <= 5 ? <FindFriendsBanner onPress={onOpenFriends} colors={colors} styles={styles} /> : null}
   </ScrollView>;
 }
@@ -485,6 +599,15 @@ function make(colors: Colors) {
     discoverButtonText: { color: colors.success, fontSize: 15, fontWeight: "800" },
     notificationRow: { flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 14, paddingHorizontal: 8, borderRadius: 14 },
     notificationUnread: { backgroundColor: `${colors.success}12` },
+    notificationThumb: { width: 52, height: 52, borderRadius: 12, backgroundColor: colors.neutral },
+    notificationIcon: { width: 52, height: 52, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: `${colors.success}18` },
+    notificationIconText: { color: colors.success, fontSize: 24, fontWeight: "800" },
+    notificationTime: { color: colors.subtle, fontSize: 12, marginTop: 5 },
+    friendActionRow: { minHeight: 54, justifyContent: "center", borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}18` },
+    friendActionText: { color: colors.bone, fontSize: 16, fontWeight: "700" },
+    friendActionDanger: { color: colors.danger },
+    friendActionCancel: { minHeight: 48, alignItems: "center", justifyContent: "center", marginTop: 8, borderRadius: 15, backgroundColor: `${colors.bone}0C` },
+    friendActionCancelText: { color: colors.muted, fontSize: 15, fontWeight: "700" },
     requestRow: { flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 12 },
     requestText: { color: colors.bone, fontWeight: "700", fontSize: 16 },
     usernameTxt: { color: colors.subtle, fontSize: 14, marginTop: 3 },

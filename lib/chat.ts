@@ -11,6 +11,7 @@ const msgSubs = new Map<string, Set<(messages: ChatMsg[]) => void>>();
 const threadSubs = new Map<string, Set<(thread: ChatThread) => void>>();
 const inboxSubs = new Set<() => void>();
 const timers = new Map<string, ReturnType<typeof setInterval>>();
+const inboxLoads = new Map<string, Promise<void>>();
 const asMs = (value: unknown) => typeof value === "number" ? value : Date.parse(String(value || "")) || Date.now();
 function emitMessages(id: string) { msgSubs.get(id)?.forEach((callback) => callback(memory.messages[id] || [])); }
 function emitThread(id: string) { const thread = memory.threads[id]; if (thread) threadSubs.get(id)?.forEach((callback) => callback(thread)); }
@@ -37,7 +38,20 @@ export async function loadOlderMessages(id: string, before?: ChatMsg) { if (!bef
 export async function updateOfferStatus(threadIdValue: string, messageId: string, status: OfferStatus) { await marketplaceCall("update_message", { threadId: threadIdValue, messageId, offerStatus: status }); }
 export function listenThread(id: string, callback: (thread: ChatThread) => void) { let set = threadSubs.get(id); if (!set) { set = new Set(); threadSubs.set(id, set); } set.add(callback); if (memory.threads[id]) callback(memory.threads[id]); const stop = startPoll(`thread:${id}`, async () => { try { const result = await marketplaceCall<{ threads: ChatThread[] }>("list_threads"); const thread = (result.threads || []).find((item) => item.id === id); if (thread) storeThread(thread); } catch { /* retain local state */ } }); return () => { set!.delete(callback); stop(); }; }
 export function inboxFor(uid: string) { return Object.values(memory.threads).filter((thread) => thread.buyerId === uid || thread.sellerId === uid || (thread.recipientIds || []).includes(uid)).sort((a, b) => b.lastAt - a.lastAt); }
-export function useInbox(uid: string) { const [, tick] = useState(0); useEffect(() => { const notify = () => tick((value) => value + 1); inboxSubs.add(notify); const stop = startPoll(`inbox:${uid}`, async () => { if (!uid || uid === "me") return; try { const result = await marketplaceCall<{ threads: ChatThread[] }>("list_threads"); (result.threads || []).forEach(storeThread); } catch { /* retain last state */ } }); return () => { inboxSubs.delete(notify); stop(); }; }, [uid]); return inboxFor(uid); }
+export async function preloadMarketplaceInbox(uid: string) {
+  if (!uid || uid === "me") return;
+  const existing = inboxLoads.get(uid);
+  if (existing) return existing;
+  const request = (async () => {
+    try {
+      const result = await marketplaceCall<{ threads: ChatThread[] }>("list_threads");
+      (result.threads || []).forEach(storeThread);
+    } catch { /* retain the current cached inbox when offline */ }
+  })();
+  inboxLoads.set(uid, request);
+  try { await request; } finally { if (inboxLoads.get(uid) === request) inboxLoads.delete(uid); }
+}
+export function useInbox(uid: string) { const [, tick] = useState(0); useEffect(() => { const notify = () => tick((value) => value + 1); inboxSubs.add(notify); const stop = startPoll(`inbox:${uid}`, () => preloadMarketplaceInbox(uid)); return () => { inboxSubs.delete(notify); stop(); }; }, [uid]); return inboxFor(uid); }
 export function unreadFor(thread: ChatThread, uid: string) { return thread.buyerId === uid ? thread.unreadBuyer || 0 : thread.unreadSeller || 0; }
 export function setTyping(id: string, uid: string, on: boolean) { const thread = memory.threads[id]; if (thread) { thread.typingBy = on ? uid : ""; thread.typingAt = on ? Date.now() : 0; emitThread(id); } void marketplaceCall("set_typing", { threadId: id, on }).catch(() => undefined); }
 export function markSeen(id: string, uid: string) { const thread = memory.threads[id]; if (thread) { if (thread.buyerId === uid) thread.unreadBuyer = 0; else thread.unreadSeller = 0; emitThread(id); emitInbox(); } void marketplaceCall("mark_seen", { threadId: id }).catch(() => undefined); }

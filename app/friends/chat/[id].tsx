@@ -9,7 +9,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, FlatList, ImageBackground, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { impactAsync, ImpactFeedbackStyle, notificationAsync, NotificationFeedbackType } from "../../../lib/haptics";
-import { blockFriend, deleteFriendMessage, getCachedFriendMessages, listFriends, markFriendChatRead, reportFriendConversation, sendFriendMessage, subscribeFriendMessages, uploadFriendAttachment, friendMessagePreview, sendFriendVoiceMessage, type FriendMessage } from "../../../lib/friendChat";
+import { blockFriend, deleteFriendMessage, getCachedFriendMessages, getFriendConversationStatus, listFriends, markFriendChatRead, reportFriendConversation, sendFriendMessage, subscribeFriendMessages, unblockFriend, uploadFriendAttachment, friendMessagePreview, sendFriendVoiceMessage, type FriendMessage } from "../../../lib/friendChat";
+import { BlockedAvatar } from "../../../components/BlockedAvatar";
 import type { PublicUser } from "../../../lib/friends";
 import { pickFromLibrary } from "../../../lib/photo";
 import { useColors, useResolvedAppearance } from "../../../lib/theme";
@@ -160,14 +161,19 @@ export default function FriendChat() {
   const voiceRecorder = useAudioRecorder(VOICE_RECORDING_OPTIONS);
   const voiceRecorderState = useAudioRecorderState(voiceRecorder, 120);
   const insets = useSafeAreaInsets();
-  const { id: routeId, name: routeName, username: routeUsername, avatarUri: routeAvatarUri } = useLocalSearchParams<{ id: string; name?: string; username?: string; avatarUri?: string }>();
+  const { id: routeId, name: routeName, username: routeUsername, avatarUri: routeAvatarUri, blockedInitial: routeBlockedInitial } = useLocalSearchParams<{ id: string; name?: string; username?: string; avatarUri?: string; blockedInitial?: string }>();
   const chatId = Array.isArray(routeId) ? routeId[0] : routeId;
   const name = Array.isArray(routeName) ? routeName[0] : routeName;
   const app = useUvel();
   const { uid } = app;
   const wardrobePieces = useWardrobe();
   const peerUid = String(chatId || "").split("_").find((participant) => participant && participant !== uid) || "";
-  const [peer, setPeer] = useState<PublicUser | undefined>(() => routeName || routeUsername || routeAvatarUri ? { uid: peerUid, displayName: routeName || "", username: routeUsername || "", avatarUri: routeAvatarUri || undefined } : undefined);
+  const [peer, setPeer] = useState<PublicUser | undefined>(() => routeName || routeUsername || routeAvatarUri ? { uid: peerUid, displayName: routeName === "Blocked" ? "" : routeName || "", username: routeUsername || "", avatarUri: routeAvatarUri || undefined } : undefined);
+  const [conversationStatus, setConversationStatus] = useState<Awaited<ReturnType<typeof getFriendConversationStatus>> | null>(null);
+  const blockedByMe = Boolean(conversationStatus?.blockedByMe || (!conversationStatus && routeName === "Blocked"));
+  const blockedByThem = Boolean(conversationStatus?.blockedByThem);
+  const conversationUnavailable = blockedByMe || blockedByThem || Boolean(conversationStatus && !conversationStatus.isFriend);
+  const blockedInitial = conversationStatus?.blockedInitial || (Array.isArray(routeBlockedInitial) ? routeBlockedInitial[0] : routeBlockedInitial) || peer?.displayName || peer?.username || "U";
   const [messages, setMessages] = useState<FriendMessage[]>(() => getCachedFriendMessages(String(chatId || "")) || []);
   const [optimisticMessages, setOptimisticMessages] = useState<FriendMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -193,7 +199,7 @@ export default function FriendChat() {
   const voiceRecordingActive = useRef(false);
   const voiceStartedAt = useRef(0);
   const voiceLevels = useRef<number[]>([]);
-  const listName = peer?.displayName || peer?.username || name || "Friend";
+  const listName = blockedByMe ? "Blocked" : blockedByThem || (conversationStatus && !conversationStatus.isFriend) ? "Unavailable" : peer?.displayName || peer?.username || (name === "Blocked" && conversationStatus ? "Friend" : name) || "Friend";
   const visibleMessages = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     const combined = [...messages, ...optimisticMessages].sort((a, b) => (asDate(a.createdAt)?.getTime() || 0) - (asDate(b.createdAt)?.getTime() || 0));
@@ -218,6 +224,34 @@ export default function FriendChat() {
 
   useEffect(() => {
     let active = true;
+    setConversationStatus(null);
+    const refreshStatus = () => {
+      if (!chatId) return;
+      void getFriendConversationStatus(String(chatId)).then((status) => {
+        if (!active) return;
+        setConversationStatus(status);
+        if (status.blockedByMe || status.blockedByThem || !status.isFriend) {
+          setMessages([]);
+          setOptimisticMessages([]);
+          setDraft("");
+          setPhotoUri(undefined);
+        }
+      }).catch(() => undefined);
+    };
+    refreshStatus();
+    const timer = setInterval(refreshStatus, 8000);
+    return () => { active = false; clearInterval(timer); };
+  }, [chatId, retryCount]);
+
+  useEffect(() => {
+    let active = true;
+    if (conversationUnavailable) {
+      setMessages([]);
+      setOptimisticMessages([]);
+      setLoading(false);
+      setLoadError("");
+      return () => { active = false; };
+    }
     const cachedMessages = getCachedFriendMessages(String(chatId || ""));
     setMessages(cachedMessages || []);
     setLoading(!cachedMessages);
@@ -241,7 +275,7 @@ export default function FriendChat() {
       setLoadError(friendChatErrorMessage(error, "Messages are temporarily unavailable. Please try again shortly."));
     });
     return () => { active = false; unsubscribe(); };
-  }, [chatId, peerUid, retryCount, uid]);
+  }, [chatId, peerUid, retryCount, uid, conversationUnavailable]);
 
   useEffect(() => {
     if (!voiceRecordingActive.current) return;
@@ -350,7 +384,7 @@ export default function FriendChat() {
     const text = draft.trim();
     const localPhotoUri = photoUri;
     const replyTarget = replyingTo;
-    if ((!text && !localPhotoUri) || !chatId) return;
+    if ((!text && !localPhotoUri) || !chatId || conversationUnavailable) return;
 
     // Render locally first so the sender sees the message immediately instead of
     // waiting on token renewal, the Edge Function, and sequential database writes.
@@ -430,13 +464,33 @@ export default function FriendChat() {
     }
   }
 
+  async function unblockCurrentFriend() {
+    try {
+      await unblockFriend(peerUid);
+      setConversationStatus((status) => status ? { ...status, blockedByMe: false } : { isFriend: true, blockedByMe: false, blockedByThem: false, hidden: false });
+      void getFriendConversationStatus(String(chatId)).then(setConversationStatus).catch(() => undefined);
+      Alert.alert("Friend unblocked", "You can message each other again.");
+    } catch { Alert.alert("Couldn’t unblock friend", "Please try again."); }
+  }
+
+  async function blockCurrentFriend() {
+    try {
+      await blockFriend(peerUid);
+      setConversationStatus((status) => status ? { ...status, blockedByMe: true, blockedInitial: blockedInitial.slice(0, 1).toUpperCase() } : { isFriend: true, blockedByMe: true, blockedByThem: false, blockedInitial: blockedInitial.slice(0, 1).toUpperCase(), hidden: false });
+      setMessages([]);
+      setOptimisticMessages([]);
+      Alert.alert("Friend blocked", "New messages from this friend are blocked.");
+    } catch { Alert.alert("Couldn’t block friend", "Please try again."); }
+  }
+
   function safetyActions() {
-    Alert.alert(listName, "Manage this conversation", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Search messages", onPress: () => { setSearchOpen(true); setSearchQuery(""); } },
-      { text: "Report conversation", style: "destructive", onPress: () => { void reportFriendConversation(String(chatId), "Reported from friend chat").then(() => Alert.alert("Report sent", "Thanks. We’ll review this conversation." )).catch(() => Alert.alert("Report not sent", "Please try again.")); } },
-      { text: "Block friend", style: "destructive", onPress: () => { void blockFriend(peerUid).then(() => { Alert.alert("Friend blocked", "New messages from this friend are blocked."); router.back(); }).catch(() => Alert.alert("Couldn’t block friend", "Please try again.")); } },
-    ]);
+    const actions = [
+      { text: "Cancel", style: "cancel" as const },
+      ...(conversationUnavailable ? [] : [{ text: "Search messages", onPress: () => { setSearchOpen(true); setSearchQuery(""); } }]),
+      { text: "Report conversation", style: "destructive" as const, onPress: () => { void reportFriendConversation(String(chatId), "Reported from friend chat").then(() => Alert.alert("Report sent", "Thanks. We’ll review this conversation.")).catch(() => Alert.alert("Report not sent", "Please try again.")); } },
+      ...(blockedByMe ? [{ text: "Unblock friend", onPress: () => { void unblockCurrentFriend(); } }] : blockedByThem ? [] : conversationUnavailable ? [] : [{ text: "Block friend", style: "destructive" as const, onPress: () => Alert.alert("Block this friend?", "Their profile and chat details will be hidden, and you won’t be able to message each other.", [{ text: "Cancel", style: "cancel" }, { text: "Block", style: "destructive", onPress: () => { void blockCurrentFriend(); } }]) }]),
+    ];
+    Alert.alert(listName, "Manage this conversation", actions);
   }
 
   function confirmDeleteMessage() {
@@ -486,8 +540,8 @@ export default function FriendChat() {
     <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
       <Pressable onPress={() => router.back()} style={styles.headerIcon} accessibilityRole="button" accessibilityLabel="Back to messages"><Ionicons name="chevron-back" size={27} color={colors.bone} /></Pressable>
       <View style={styles.profileHeader}>
-        <Avatar uri={peer?.avatarUri} label={listName} styles={styles} large />
-        <View style={styles.profileCopy}><Text numberOfLines={1} style={styles.headerTitle}>{listName}</Text><Text numberOfLines={1} style={styles.headerSubtitle}>{peer?.username ? `@${peer.username}` : ""}</Text></View>
+        {conversationUnavailable ? <BlockedAvatar initial={blockedInitial} size={58} backgroundColor={colors.neutral} textColor={colors.bone} slashColor={colors.danger} /> : <Avatar uri={peer?.avatarUri} label={listName} styles={styles} large />}
+        <View style={styles.profileCopy}><Text numberOfLines={1} style={styles.headerTitle}>{listName}</Text><Text numberOfLines={1} style={styles.headerSubtitle}>{conversationUnavailable ? blockedByMe ? "Blocked" : "Messaging unavailable" : peer?.username ? `@${peer.username}` : ""}</Text></View>
         <Ionicons name="chevron-forward" size={15} color={colors.subtle} />
       </View>
       <Pressable onPress={safetyActions} style={styles.headerIcon} accessibilityRole="button" accessibilityLabel="Conversation options"><Ionicons name="ellipsis-horizontal" size={23} color={colors.bone} /></Pressable>
@@ -496,6 +550,7 @@ export default function FriendChat() {
     {searchOpen ? <View style={styles.searchBox}><Ionicons name="search" size={17} color={colors.subtle} /><TextInput autoFocus value={searchQuery} onChangeText={setSearchQuery} placeholder="Search messages" placeholderTextColor={colors.subtle} style={styles.searchInput} returnKeyType="search" /><Pressable onPress={() => setSearchQuery("")} accessibilityRole="button" accessibilityLabel="Clear search"><Ionicons name="close-circle" size={18} color={colors.subtle} /></Pressable></View> : null}
 
     <KeyboardAvoidingView style={styles.keyboardArea} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
+      {conversationUnavailable ? <View style={styles.blockedConversation}><Ionicons name="ban-outline" size={34} color={colors.danger} /><Text style={styles.blockedConversationTitle}>{blockedByMe ? "Blocked" : "Unavailable"}</Text><Text style={styles.blockedConversationCopy}>{blockedByMe ? "You blocked this person. Their profile and conversation details are hidden." : blockedByThem ? "This person is unavailable. You can’t view or send messages in this conversation." : "You’re no longer friends, so this conversation is unavailable."}</Text>{blockedByMe ? <Pressable onPress={() => void unblockCurrentFriend()} style={styles.unblockButton}><Text style={styles.unblockButtonText}>Unblock</Text></Pressable> : null}</View> : <>
       {loadError ? <View style={styles.errorBanner}><Ionicons name="cloud-offline-outline" size={17} color={colors.danger} /><Text style={styles.errorText} numberOfLines={3}>{loadError}</Text><Pressable onPress={() => { setLoading(true); setLoadError(""); setRetryCount((count) => count + 1); }} accessibilityRole="button" accessibilityLabel="Retry loading messages"><Text style={styles.retryText}>Retry</Text></Pressable></View> : null}
       {!loading && !loadError && visibleMessages.length === 0 ? <View pointerEvents="none" style={styles.emptyPrompt}><Text style={styles.emptyPromptText}>Say hi to {listName}</Text></View> : null}
       {!loading && searchQuery.trim() && visibleMessages.length === 0 ? <View style={styles.searchEmpty}><Ionicons name="search-outline" size={26} color={colors.subtle} /><Text style={styles.searchEmptyTitle}>No matching messages</Text><Text style={styles.searchEmptyCopy}>Try another word or name.</Text></View> : null}
@@ -535,6 +590,7 @@ export default function FriendChat() {
           <Text style={styles.sendTxt}>Send</Text>
         </Pressable>
       </View>
+      </>}
     </KeyboardAvoidingView>
 
     <Modal visible={Boolean(activeMessage)} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setActiveMessage(null)}>
@@ -601,6 +657,11 @@ function make(colors: ReturnType<typeof useColors>) {
     searchBox: { flexDirection: "row", alignItems: "center", gap: 9, marginHorizontal: 14, marginTop: 12, marginBottom: 3, paddingHorizontal: 12, height: 42, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}15` },
     searchInput: { flex: 1, color: colors.bone, fontSize: 14, paddingVertical: 0 },
     keyboardArea: { flex: 1 },
+    blockedConversation: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 36, gap: 12 },
+    blockedConversationTitle: { color: colors.bone, fontSize: 24, fontWeight: "800", textAlign: "center" },
+    blockedConversationCopy: { color: colors.muted, fontSize: 15, lineHeight: 22, textAlign: "center", maxWidth: 320 },
+    unblockButton: { minHeight: 46, minWidth: 132, paddingHorizontal: 22, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: colors.success, marginTop: 8 },
+    unblockButtonText: { color: colors.successInk, fontSize: 15, fontWeight: "800" },
     list: { flex: 1 },
     listContent: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, flexGrow: 1, justifyContent: "flex-end" },
     listContentEmpty: { minHeight: 120 },

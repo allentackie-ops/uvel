@@ -33,7 +33,7 @@ import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncStat
 import { FEED_PAGE_SIZE, feedPage } from "../../lib/feedOrder";
 import { unreadFor, useInbox } from "../../lib/chat";
 import { useFriendChatUnread } from "../../lib/friendChat";
-import { subscribeFriendNotifications, type FriendNotification } from "../../lib/friends";
+import { useFriendNotifications } from "../../lib/friends";
 import { useAlertCenter } from "../../lib/alerts";
 import { useActivityNotifications } from "../../lib/activityNotifications";
 import { usePersonalization } from "../../lib/personalization";
@@ -190,8 +190,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const friendChatUnread = useFriendChatUnread(app.uid || "me");
   const { events: alertEvents } = useAlertCenter(app.uid);
   const activityNotifications = useActivityNotifications(app.uid || "guest");
-  const [friendNotifications, setFriendNotifications] = useState<FriendNotification[]>([]);
-  useEffect(() => subscribeFriendNotifications(app.uid, setFriendNotifications), [app.uid]);
+  const friendNotifications = useFriendNotifications(app.uid);
   const unreadSocial = unread + friendChatUnread + friendNotifications.filter((item) => !item.readAt).length + alertEvents.filter((item) => !item.read).length + activityNotifications.filter((item) => !item.read).length;
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("All");

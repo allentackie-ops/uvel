@@ -111,6 +111,11 @@ export function unreadActivityCount(uid: string) {
   return activityNotifications(uid).filter((item) => !item.read).length;
 }
 
+export async function preloadActivityNotifications(uid: string) {
+  await hydrate(uid);
+  return activityNotifications(uid);
+}
+
 export function useActivityNotifications(uid: string) {
   const [, rerender] = useState(0);
   useEffect(() => {
