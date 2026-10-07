@@ -17,7 +17,7 @@ import { armNotificationHandler, registerPushToken, watchLastSeen } from "../lib
 import { syncEngagement } from "../lib/engagement";
 import { useCart } from "../lib/cart";
 import { useFirstFind } from "../lib/firstFind";
-import { signalTodayFeedRefresh, useUvel } from "../lib/store";
+import { useUvel } from "../lib/store";
 import { useColors, useResolvedAppearance } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
 import { pullLooks } from "../lib/trends";
@@ -746,7 +746,6 @@ export default function Root() {
   const pathname = usePathname();
   useOtaReady();
   const [intro, setIntro] = useState(true);
-  const refreshedUid = useRef("");
   const dismiss = useCallback(() => setIntro(false), []);
   const gateReady = hydrated && profileChecked;
   const signedIn = Boolean(uid);
@@ -758,16 +757,9 @@ export default function Root() {
   }, [signedIn, profileDone, intro]);
 
   useEffect(() => {
-    if (!gateReady || intro) return;
-    if (!signedIn) {
-      refreshedUid.current = "";
-      if (pathname !== "/") router.replace("/");
-      return;
-    }
-    if (!profileDone || !uid || refreshedUid.current === uid) return;
-    refreshedUid.current = uid;
-    signalTodayFeedRefresh();
-  }, [gateReady, intro, pathname, profileDone, signedIn, uid]);
+    if (!gateReady || intro || signedIn) return;
+    if (pathname !== "/") router.replace("/");
+  }, [gateReady, intro, pathname, signedIn]);
 
   useEffect(() => {
     if (!hydrated) return;

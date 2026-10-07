@@ -71,10 +71,22 @@ let memory = { ...defaults };
 let hydrated = false;
 const listeners = new Set<() => void>();
 let todayFeedRefreshSequence = 0;
+let pendingTodayFeedRefreshAfterSignIn = false;
 
 export function signalTodayFeedRefresh() {
   todayFeedRefreshSequence += 1;
   listeners.forEach((listener) => listener());
+}
+
+export function requestTodayFeedRefreshAfterSignIn() {
+  pendingTodayFeedRefreshAfterSignIn = true;
+  flushPendingTodayFeedRefreshAfterSignIn();
+}
+
+function flushPendingTodayFeedRefreshAfterSignIn() {
+  if (!pendingTodayFeedRefreshAfterSignIn || !memory.uid || !memory.profileDone) return;
+  pendingTodayFeedRefreshAfterSignIn = false;
+  signalTodayFeedRefresh();
 }
 
 async function load() {
@@ -249,6 +261,7 @@ async function applyAccount(
       );
     }
   }
+  flushPendingTodayFeedRefreshAfterSignIn();
 }
 
 function remoteProfileFlag(remote: Record<string, unknown> | null) {
@@ -436,6 +449,7 @@ export function useUvel() {
         onboardVersion: 4,
       });
       await stashProfile();
+      flushPendingTodayFeedRefreshAfterSignIn();
     },
     completeProfile: async (patch: {
       displayName?: string;
@@ -485,11 +499,13 @@ export function useUvel() {
         }
       }
       await stashProfile();
+      flushPendingTodayFeedRefreshAfterSignIn();
     },
     signOutAccount: async () => {
       const { signOut } = await import("./auth");
       await stashProfile();
       await signOut();
+      pendingTodayFeedRefreshAfterSignIn = false;
       attachAccountStores("");
       await save({
         onboarded: false,

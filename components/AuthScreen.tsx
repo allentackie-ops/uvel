@@ -21,6 +21,7 @@ import {
   signInGoogle,
   signInOrCreateEmail,
 } from "../lib/auth";
+import { requestTodayFeedRefreshAfterSignIn } from "../lib/store";
 import { DOCS } from "../lib/legal";
 import { useColors, useResolvedAppearance } from "../lib/theme";
 
@@ -56,7 +57,8 @@ export function AuthScreen({ onClose }: { onClose?: () => void } = {}) {
     setError("");
     setNotice("");
     try {
-      await action();
+      const session = await action();
+      if (session) requestTodayFeedRefreshAfterSignIn();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn’t sign in. Try again.");
     } finally {

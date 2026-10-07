@@ -190,6 +190,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const [job, setJob] = useState<LookScan | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const refreshTriggered = useRef(false);
+  const handledTodayFeedRefreshSequence = useRef(0);
   const hapticTriggered = useRef(false);
   const scrollY = useRef(new Animated.Value(0)).current;
   const todayListRef = useRef<FlatList<TodayFeedCard> | null>(null);
@@ -365,7 +366,9 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   }, [scrollY, todayHome]);
 
   useEffect(() => {
-    if (!todayHome || app.todayFeedRefreshSequence === 0) return;
+    const sequence = app.todayFeedRefreshSequence;
+    if (!todayHome || sequence === 0 || handledTodayFeedRefreshSequence.current === sequence) return;
+    handledTodayFeedRefreshSequence.current = sequence;
     void onRefresh();
   }, [app.todayFeedRefreshSequence, onRefresh, todayHome]);
 
