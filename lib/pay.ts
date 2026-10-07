@@ -1,6 +1,8 @@
 import Constants from "expo-constants";
 import * as WebBrowser from "expo-web-browser";
 import { NativeModules } from "react-native";
+import { AddressCollectionMode, CollectionMode } from "@stripe/stripe-react-native";
+import type { Address as CheckoutAddress } from "./orders";
 import {
   supabaseGroupedCheckout,
   supabaseGroupedStripeIntent,
@@ -64,6 +66,8 @@ export type CheckoutSession = {
 export type StripePaymentIntent = {
   clientSecret: string;
   paymentIntentId: string;
+  customerId?: string;
+  customerSessionClientSecret?: string;
 };
 
 export type GroupedCheckout = {
@@ -76,8 +80,42 @@ export type GroupedStripePaymentIntent = {
   clientSecret: string;
   paymentIntentId: string;
   checkoutBatchId: string;
+  customerId?: string;
+  customerSessionClientSecret?: string;
   alreadyPaid?: boolean;
 };
+
+export function stripePaymentSheetAddress(address: CheckoutAddress, email?: string) {
+  const clean = (value?: string) => String(value || "").trim() || undefined;
+  const stripeAddress = {
+    line1: clean(address.line1),
+    line2: clean(address.line2),
+    city: clean(address.city),
+    state: clean(address.region),
+    postalCode: clean(address.postal),
+    country: clean(address.country)?.toUpperCase(),
+  };
+  return {
+    defaultBillingDetails: {
+      email: clean(email),
+      name: clean(address.name),
+      phone: clean(address.phone),
+      address: stripeAddress,
+    },
+    defaultShippingDetails: {
+      name: clean(address.name),
+      phone: clean(address.phone),
+      address: stripeAddress,
+    },
+    billingDetailsCollectionConfiguration: {
+      name: CollectionMode.NEVER,
+      email: CollectionMode.NEVER,
+      phone: CollectionMode.NEVER,
+      address: AddressCollectionMode.NEVER,
+      attachDefaultsToPaymentMethod: true,
+    },
+  };
+}
 
 export async function createCheckoutSession(input: CheckoutPay): Promise<CheckoutSession> {
   return supabaseHostedCheckout(input);

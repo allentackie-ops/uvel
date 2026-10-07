@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
-import { useStripe } from "@stripe/stripe-react-native";
+import { LinkDisplay, useStripe } from "@stripe/stripe-react-native";
 import { useCallback, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,6 +12,7 @@ import {
   createGroupedCheckout,
   createGroupedStripePaymentIntent,
   paymentsExtra,
+  stripePaymentSheetAddress,
   validatePromotion,
   type PromotionQuote,
 } from "../lib/pay";
@@ -418,11 +419,18 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
       const initialized = await initPaymentSheet({
         merchantDisplayName: "Uvel",
         paymentIntentClientSecret: intent.clientSecret,
+        ...(intent.customerId && intent.customerSessionClientSecret
+          ? {
+              customerId: intent.customerId,
+              customerSessionClientSecret: intent.customerSessionClientSecret,
+            }
+          : {}),
+        link: { display: LinkDisplay.AUTOMATIC },
+        paymentMethodOrder: ["card", "link"],
+        primaryButtonLabel: "Pay now",
+        style: "alwaysDark",
         allowsDelayedPaymentMethods: false,
-        defaultBillingDetails: {
-          email: app.email || undefined,
-          name: address.name,
-        },
+        ...stripePaymentSheetAddress(address, app.email || undefined),
         applePay: { merchantCountryCode: "US" },
       });
       if (initialized.error) throw new Error(initialized.error.message);

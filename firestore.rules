@@ -50,6 +50,11 @@ service cloud.firestore {
       allow delete: if isSelf(uid);
     }
 
+    // Stripe customer IDs are maintained exclusively by trusted backend code.
+    match /stripeCustomers/{uid} {
+      allow read, write: if false;
+    }
+
     match /usernames/{username} {
       allow read: if signedIn();
       allow create: if signedIn()

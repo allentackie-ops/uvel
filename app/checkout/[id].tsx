@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { PlatformPay, useStripe } from "@stripe/stripe-react-native";
+import { LinkDisplay, PlatformPay, useStripe } from "@stripe/stripe-react-native";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -28,6 +28,7 @@ import {
   createStripePaymentIntent,
   openHostedPay,
   paymentsExtra,
+  stripePaymentSheetAddress,
   validatePromotion,
   type PromotionQuote,
 } from "../../lib/pay";
@@ -438,11 +439,18 @@ export default function Checkout() {
         const initialized = await initPaymentSheet({
           merchantDisplayName: "Uvel",
           paymentIntentClientSecret: intent.clientSecret,
+          ...(intent.customerId && intent.customerSessionClientSecret
+            ? {
+                customerId: intent.customerId,
+                customerSessionClientSecret: intent.customerSessionClientSecret,
+              }
+            : {}),
+          link: { display: LinkDisplay.AUTOMATIC },
+          paymentMethodOrder: ["card", "link"],
+          primaryButtonLabel: "Pay now",
+          style: "alwaysDark",
           allowsDelayedPaymentMethods: false,
-          defaultBillingDetails: {
-            email: app.email || undefined,
-            name: address.name,
-          },
+          ...stripePaymentSheetAddress(address, app.email || undefined),
         });
         if (initialized.error) throw new Error(initialized.error.message);
         const presented = await presentPaymentSheet();
@@ -690,6 +698,11 @@ export default function Checkout() {
               <Text style={styles.payTxt}>Buy with</Text>
               <Text style={styles.appleGlyph}></Text>
               <Text style={styles.payTxt}>Pay</Text>
+            </View>
+          ) : method.kind === "card" ? (
+            <View style={styles.cardButtonContent}>
+              <PayMark method={method} />
+              <Text style={styles.payTxt}>Pay with {method.label}</Text>
             </View>
           ) : (
             <Text style={styles.payTxt}>Pay with {method.label}</Text>
@@ -1144,6 +1157,12 @@ function make(colors: Colors) {
       alignItems: "center",
       justifyContent: "center",
       gap: 5,
+    },
+    cardButtonContent: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
     },
     appleGlyph: {
       color: colors.ink,

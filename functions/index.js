@@ -329,6 +329,59 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
   }
 });
 
+async function createStripeCustomerSession(stripe, db, uid, profile = {}) {
+  const customerRef = db.collection("stripeCustomers").doc(uid);
+  const customerSnapshot = await customerRef.get();
+  const stored = customerSnapshot.data() || {};
+  const storedCustomerId = String(stored.stripeCustomerId || "");
+  let customer = null;
+  let generation = Math.max(0, Math.floor(Number(stored.customerGeneration) || 0));
+  if (storedCustomerId) {
+    try {
+      customer = await stripe.customers.retrieve(storedCustomerId);
+    } catch (error) {
+      if (error?.code !== "resource_missing") throw error;
+    }
+    if (customer?.deleted) customer = null;
+    if (!customer) generation += 1;
+  }
+  if (!customer) {
+    const email = String(profile.email || "").trim();
+    const name = String(profile.name || "").trim();
+    const uidHash = crypto.createHash("sha256").update(String(uid)).digest("hex").slice(0, 32);
+    customer = await stripe.customers.create({
+      ...(email ? { email } : {}),
+      ...(name ? { name } : {}),
+      metadata: { firebaseUid: String(uid) },
+    }, { idempotencyKey: `uvel-customer-${uidHash}-${generation}` });
+    await customerRef.set({
+      stripeCustomerId: customer.id,
+      customerGeneration: generation,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } else {
+    await customerRef.set({
+      stripeCustomerId: customer.id,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  }
+  const customerSession = await stripe.customerSessions.create({
+    customer: customer.id,
+    components: {
+      mobile_payment_element: {
+        enabled: true,
+        features: {
+          payment_method_save: "enabled",
+          payment_method_redisplay: "enabled",
+          payment_method_remove: "enabled",
+        },
+      },
+    },
+  }, { apiVersion: "2025-10-29.clover" });
+  return { customerId: customer.id, customerSessionClientSecret: customerSession.client_secret };
+}
+
 exports.createStripePaymentIntent = onCall({ secrets: [stripeSecret] }, async (req) => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in before checking out.");
   const orderId = String(req.data?.orderId || "").trim();
@@ -348,9 +401,23 @@ exports.createStripePaymentIntent = onCall({ secrets: [stripeSecret] }, async (r
     const currentListing = await db.collection("listings").doc(String(order.pieceId)).get();
     if (currentListing.exists) assertListingOfferLock(currentListing.data() || {}, order);
   }
+  const customerSession = await createStripeCustomerSession(stripe, db, req.auth.uid, {
+    email: req.auth.token.email,
+    name: order.address?.name,
+  });
   if (order.paymentIntentId) {
-    const existing = await stripe.paymentIntents.retrieve(String(order.paymentIntentId));
-    if (["requires_payment_method", "requires_confirmation", "requires_action"].includes(existing.status)) return { clientSecret: existing.client_secret, paymentIntentId: existing.id };
+    let existing = await stripe.paymentIntents.retrieve(String(order.paymentIntentId));
+    let existingCustomerId = typeof existing.customer === "string" ? existing.customer : existing.customer?.id;
+    if (existingCustomerId && existingCustomerId !== customerSession.customerId) throw new HttpsError("failed-precondition", "This payment session belongs to a different buyer.");
+    if (!existingCustomerId && ["requires_payment_method", "requires_confirmation"].includes(existing.status)) {
+      existing = await stripe.paymentIntents.update(existing.id, { customer: customerSession.customerId });
+      existingCustomerId = typeof existing.customer === "string" ? existing.customer : existing.customer?.id;
+    }
+    if (["requires_payment_method", "requires_confirmation", "requires_action"].includes(existing.status)) return {
+      clientSecret: existing.client_secret,
+      paymentIntentId: existing.id,
+      ...(existingCustomerId === customerSession.customerId ? customerSession : {}),
+    };
   }
   const listingId = String(order.pieceId || "");
   let reserved = false;
@@ -369,13 +436,14 @@ exports.createStripePaymentIntent = onCall({ secrets: [stripeSecret] }, async (r
     const paymentIntent = await stripe.paymentIntents.create({
       amount: amountCents,
       currency: "usd",
+      customer: customerSession.customerId,
       automatic_payment_methods: { enabled: true },
       receipt_email: String(req.auth.token.email || "") || undefined,
       metadata: { orderId, listingId, brandId: String(order.brandId || ""), sellerId: String(order.sellerId || ""), buyerId: req.auth.uid },
       transfer_group: `order_${orderId}`,
     }, { idempotencyKey: `payment-intent-${orderId}` });
     await orderRef.set({ paymentProvider: "stripe", paymentReference: paymentIntent.id, paymentIntentId: paymentIntent.id, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
-    return { clientSecret: paymentIntent.client_secret, paymentIntentId: paymentIntent.id };
+    return { clientSecret: paymentIntent.client_secret, paymentIntentId: paymentIntent.id, ...customerSession };
   } catch (error) {
     if (reserved) await releaseOrderReservation(orderId, "payment_intent_failed").catch(() => undefined);
     throw error;
@@ -558,21 +626,37 @@ exports.createGroupedStripePaymentIntent = onCall({ secrets: [stripeSecret] }, a
     await reserveOrderInventory(snap.id, String(order.pieceId), String(order.brandId || ""), String(order.variantKey || ""), 120, true);
   }
   const stripe = require("stripe")(stripeSecret.value());
+  const customerSession = await createStripeCustomerSession(stripe, db, req.auth.uid, {
+    email: req.auth.token.email,
+    name: dbOrders[0].data()?.address?.name || batch.address?.name,
+  });
   let paymentAttempt = Math.max(0, Math.floor(Number(batch.paymentIntentAttempt) || 0));
   if (batch.paymentIntentId) {
-    const existing = await stripe.paymentIntents.retrieve(String(batch.paymentIntentId));
+    let existing = await stripe.paymentIntents.retrieve(String(batch.paymentIntentId));
     if (existing.status === "succeeded") {
       const settled = await markGroupedCheckoutPaid(batchId, existing.id, existing.amount_received || existing.amount, existing.currency);
       if (!settled.ok) throw new HttpsError("failed-precondition", "Payment was received but order confirmation is still being reconciled. Please contact Uvel support before retrying.");
       return { checkoutBatchId: batchId, alreadyPaid: true };
     }
-    if (["requires_payment_method", "requires_confirmation", "requires_action", "processing"].includes(existing.status)) return { clientSecret: existing.client_secret, paymentIntentId: existing.id, checkoutBatchId: batchId };
+    let existingCustomerId = typeof existing.customer === "string" ? existing.customer : existing.customer?.id;
+    if (existingCustomerId && existingCustomerId !== customerSession.customerId) throw new HttpsError("failed-precondition", "This payment session belongs to a different buyer.");
+    if (!existingCustomerId && ["requires_payment_method", "requires_confirmation"].includes(existing.status)) {
+      existing = await stripe.paymentIntents.update(existing.id, { customer: customerSession.customerId });
+      existingCustomerId = typeof existing.customer === "string" ? existing.customer : existing.customer?.id;
+    }
+    if (["requires_payment_method", "requires_confirmation", "requires_action", "processing"].includes(existing.status)) return {
+      clientSecret: existing.client_secret,
+      paymentIntentId: existing.id,
+      checkoutBatchId: batchId,
+      ...(existingCustomerId === customerSession.customerId ? customerSession : {}),
+    };
     if (existing.status === "canceled") paymentAttempt += 1;
   }
   try {
     const stripeIntent = await stripe.paymentIntents.create({
       amount: amountCents,
       currency: "usd",
+      customer: customerSession.customerId,
       automatic_payment_methods: { enabled: true },
       receipt_email: String(req.auth.token.email || "") || undefined,
       metadata: { checkoutBatchId: batchId, buyerId: req.auth.uid, schema: "uvel-checkout-batch-v1" },
@@ -580,7 +664,7 @@ exports.createGroupedStripePaymentIntent = onCall({ secrets: [stripeSecret] }, a
     }, { idempotencyKey: `group-payment-intent-${batchId}-${paymentAttempt}` });
     await batchRef.set({ status: "payment_pending", paymentProvider: "stripe", paymentReference: stripeIntent.id, paymentIntentId: stripeIntent.id, paymentIntentAttempt: paymentAttempt, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
     await Promise.all(dbOrders.map((snap) => snap.ref.set({ paymentProvider: "stripe", paymentReference: stripeIntent.id, paymentIntentId: stripeIntent.id, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true })));
-    return { checkoutBatchId: batchId, clientSecret: stripeIntent.client_secret, paymentIntentId: stripeIntent.id };
+    return { checkoutBatchId: batchId, clientSecret: stripeIntent.client_secret, paymentIntentId: stripeIntent.id, ...customerSession };
   } catch (error) {
     throw error;
   }
@@ -2050,11 +2134,23 @@ async function restoreAccountListings(uid) {
 async function purgeAccount(uid) {
   const db = admin.firestore();
   await deleteMirrorArtifacts(uid, db);
+  const stripeCustomerRef = db.collection("stripeCustomers").doc(uid);
+  const stripeCustomerSnap = await stripeCustomerRef.get();
+  const stripeCustomerId = String(stripeCustomerSnap.data()?.stripeCustomerId || "");
+  if (stripeCustomerId) {
+    const stripe = require("stripe")(stripeSecret.value());
+    try {
+      await stripe.customers.del(stripeCustomerId);
+    } catch (error) {
+      if (error?.code !== "resource_missing") throw error;
+    }
+  }
   const listingRefs = await accountListingRefs(uid);
   const usernameSnap = await db.collection("usernames").where("uid", "==", uid).get();
   const refs = [
     ...listingRefs,
     ...usernameSnap.docs.map((item) => item.ref),
+    stripeCustomerRef,
     db.collection("users").doc(uid),
   ];
   while (refs.length) {
@@ -2089,7 +2185,7 @@ exports.deleteAccount = onCall(async (req) => {
   return { ok: true, status: "deactivated", scheduledFor: scheduledFor.toMillis() };
 });
 
-exports.restoreAccount = onCall(async (req) => {
+exports.restoreAccount = onCall({ secrets: [stripeSecret] }, async (req) => {
   if (!req.auth) throw new HttpsError("unauthenticated", "Sign in first.");
   const uid = req.auth.uid;
   const db = admin.firestore();
@@ -2112,7 +2208,7 @@ exports.restoreAccount = onCall(async (req) => {
   return { ok: true, status: "active" };
 });
 
-exports.purgeDeactivatedAccounts = onSchedule("every 60 minutes", async () => {
+exports.purgeDeactivatedAccounts = onSchedule({ schedule: "every 60 minutes", secrets: [stripeSecret] }, async () => {
   const db = admin.firestore();
   const snapshot = await db.collection("users").where("deletionStatus", "==", "deactivated").limit(100).get();
   const now = Date.now();

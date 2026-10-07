@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { PlatformPay, useStripe } from "@stripe/stripe-react-native";
+import { LinkDisplay, PlatformPay, useStripe } from "@stripe/stripe-react-native";
 import { useEffect, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
@@ -13,7 +13,7 @@ import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
 import { payMethods, shippingCents, uvelFeeCents, type PayMethod } from "../lib/fees";
 import { loadLastPaymentMethod, rememberLastPaymentMethod } from "../lib/paymentPreference";
 import { cacheOrder, loadAddress, makePendingOrder } from "../lib/orders";
-import { createCheckoutSession, createStripePaymentIntent, openHostedPay, paymentsExtra } from "../lib/pay";
+import { createCheckoutSession, createStripePaymentIntent, openHostedPay, paymentsExtra, stripePaymentSheetAddress } from "../lib/pay";
 import { mirrorCheckoutOrder } from "../lib/supabaseCheckout";
 import { payWithWallet, useWallet } from "../lib/wallet";
 import { listingVisibleIn, restrictShipsTo } from "../lib/ships";
@@ -208,8 +208,18 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
           const initialized = await initPaymentSheet({
             merchantDisplayName: "Uvel",
             paymentIntentClientSecret: intent.clientSecret,
+            ...(intent.customerId && intent.customerSessionClientSecret
+              ? {
+                  customerId: intent.customerId,
+                  customerSessionClientSecret: intent.customerSessionClientSecret,
+                }
+              : {}),
+            link: { display: LinkDisplay.AUTOMATIC },
+            paymentMethodOrder: ["card", "link"],
+            primaryButtonLabel: "Pay now",
+            style: "alwaysDark",
             allowsDelayedPaymentMethods: false,
-            defaultBillingDetails: { email: app.email || undefined, name: address.name },
+            ...stripePaymentSheetAddress(address, app.email || undefined),
           });
           if (initialized.error) throw new Error(initialized.error.message);
           const presented = await presentPaymentSheet();
