@@ -9,6 +9,13 @@ type DraftPhoto = { uri: string };
 
 export type ListingDraft = {
   photos: DraftPhoto[];
+  studioStep?: "capture" | "backgrounds" | "form";
+  studioSelectedPhotoIndex?: number;
+  studioBackgroundByPhoto?: Record<string, string>;
+  studioReuseBackground?: boolean;
+  studioExtraSlotsEnabled?: boolean;
+  selectedPhotoIndex?: number;
+  formOpenSection?: "describe" | "selling" | null;
   clipUri?: string;
   name: string;
   brand: string;

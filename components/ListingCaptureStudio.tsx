@@ -3,7 +3,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import * as ImageManipulator from "expo-image-manipulator";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, PanResponder, useWindowDimensions } from "react-native";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +15,18 @@ export type CaptureBackground = { id: string; name: string; color: string; accen
 type Props = {
   photos: CapturePhoto[];
   backgrounds: CaptureBackground[];
+  initialMode?: "capture" | "backgrounds";
+  initialSelectedPhoto?: number;
+  initialBackgroundByPhoto?: Record<string, string>;
+  initialReuseBackground?: boolean;
+  initialExtraSlotsEnabled?: boolean;
+  onProgressChange?: (progress: {
+    mode: "capture" | "backgrounds";
+    selectedPhoto: number;
+    backgroundByPhoto: Record<string, string>;
+    reuseBackground: boolean;
+    extraSlotsEnabled: boolean;
+  }) => void;
   onCapture: (uri: string) => Promise<void> | void;
   onDeleteCapture: (uri: string) => void;
   onContinue: (backgroundByPhoto: Record<string, string>) => void;
@@ -25,24 +37,28 @@ const REQUIRED = 3;
 const MAX = 6;
 const FRAME_ASPECT = 4 / 5;
 
-export function ListingCaptureStudio({ photos, backgrounds, onCapture, onDeleteCapture, onContinue, onClose }: Props) {
+export function ListingCaptureStudio({ photos, backgrounds, initialMode = "capture", initialSelectedPhoto = 0, initialBackgroundByPhoto = {}, initialReuseBackground = false, initialExtraSlotsEnabled = false, onProgressChange, onCapture, onDeleteCapture, onContinue, onClose }: Props) {
   const colors = useColors();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
-  const [mode, setMode] = useState<"capture" | "backgrounds">("capture");
+  const [mode, setMode] = useState<"capture" | "backgrounds">(initialMode);
   const [busy, setBusy] = useState(false);
-  const [selectedPhoto, setSelectedPhoto] = useState(0);
-  const [backgroundByPhoto, setBackgroundByPhoto] = useState<Record<string, string>>({});
-  const [reuseBackground, setReuseBackground] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(initialSelectedPhoto);
+  const [backgroundByPhoto, setBackgroundByPhoto] = useState<Record<string, string>>(initialBackgroundByPhoto);
+  const [reuseBackground, setReuseBackground] = useState(initialReuseBackground);
   const [draggingPhotoIndex, setDraggingPhotoIndex] = useState<number | null>(null);
   const [dragOverDelete, setDragOverDelete] = useState(false);
   const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
   const [dragHasMoved, setDragHasMoved] = useState(false);
   const dragOverDeleteRef = useRef(false);
-  const [extraSlotsEnabled, setExtraSlotsEnabled] = useState(false);
+  const [extraSlotsEnabled, setExtraSlotsEnabled] = useState(initialExtraSlotsEnabled);
+
+  useEffect(() => {
+    onProgressChange?.({ mode, selectedPhoto, backgroundByPhoto, reuseBackground, extraSlotsEnabled });
+  }, [backgroundByPhoto, extraSlotsEnabled, mode, onProgressChange, reuseBackground, selectedPhoto]);
 
   async function takePicture() {
     if (busy || photos.length >= MAX || !cameraRef.current) return;

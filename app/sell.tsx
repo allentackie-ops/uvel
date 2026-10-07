@@ -153,7 +153,12 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const [draftDisabled, setDraftDisabled] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [showSellWelcome, setShowSellWelcome] = useState<boolean | null>(null);
-  const [studioStep, setStudioStep] = useState<"capture" | "form">(existing || draftParam === "1" ? "form" : "capture");
+  const [studioStep, setStudioStep] = useState<"capture" | "backgrounds" | "form">(existing || draftParam === "1" ? "form" : "capture");
+  const [studioMode, setStudioMode] = useState<"capture" | "backgrounds">("capture");
+  const [studioSelectedPhoto, setStudioSelectedPhoto] = useState(0);
+  const [studioBackgroundByPhoto, setStudioBackgroundByPhoto] = useState<Record<string, string>>({});
+  const [studioReuseBackground, setStudioReuseBackground] = useState(false);
+  const [studioExtraSlotsEnabled, setStudioExtraSlotsEnabled] = useState(false);
   const [openSection, setOpenSection] = useState<"describe" | "selling" | null>(existing ? "describe" : null);
   const previousPhotoCount = useRef(photos.length);
   const scrollRef = useRef<ScrollView>(null);
@@ -199,6 +204,15 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         setDraftOrigin(saved.origin);
         setDraftCurrency(saved.currency);
         setPhotos(saved.photos.map((photo) => ({ uri: photo.uri, status: "ok" as const })));
+        const restoredStep = saved.studioStep || "form";
+        setStudioStep(restoredStep === "form" ? "form" : restoredStep);
+        setStudioMode(restoredStep === "backgrounds" ? "backgrounds" : "capture");
+        setStudioSelectedPhoto(saved.studioSelectedPhotoIndex || 0);
+        setStudioBackgroundByPhoto(saved.studioBackgroundByPhoto || {});
+        setStudioReuseBackground(Boolean(saved.studioReuseBackground));
+        setStudioExtraSlotsEnabled(Boolean(saved.studioExtraSlotsEnabled));
+        setSelectedPhotoIndex(saved.selectedPhotoIndex || 0);
+        setOpenSection(saved.formOpenSection ?? null);
         setClipUri(saved.clipUri || "");
         setName(saved.name || "");
         setBrand(saved.brand || "");
@@ -262,6 +276,13 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     if (existing || !draftReady || draftDisabled) return;
     void saveListingDraft({
       photos: photos.map((photo) => ({ uri: photo.uri })),
+      studioStep,
+      studioSelectedPhotoIndex: studioSelectedPhoto,
+      studioBackgroundByPhoto,
+      studioReuseBackground,
+      studioExtraSlotsEnabled,
+      selectedPhotoIndex,
+      formOpenSection: openSection,
       clipUri: clipUri || undefined,
       name,
       brand,
@@ -283,7 +304,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       currency: listingCurrency,
       updatedAt: Date.now(),
     });
-  }, [existing?.id, draftReady, draftDisabled, photos, clipUri, name, brand, category, color, size, condition, material, notes, measurements, price, was, shopLook, shipsTo, shippingMethod, shippingCarrierIds, shippingBuyerPays, origin, listingCurrency]);
+  }, [existing?.id, draftReady, draftDisabled, photos, studioStep, studioSelectedPhoto, studioBackgroundByPhoto, studioReuseBackground, studioExtraSlotsEnabled, clipUri, name, brand, category, color, size, condition, material, notes, measurements, price, was, shopLook, shipsTo, shippingMethod, shippingCarrierIds, shippingBuyerPays, origin, listingCurrency]);
 
   useEffect(() => {
     if (existing || !draftReady || draftDisabled) return;
@@ -666,6 +687,21 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     setStudioStep("form");
   }
 
+  const handleStudioProgress = useCallback((progress: {
+    mode: "capture" | "backgrounds";
+    selectedPhoto: number;
+    backgroundByPhoto: Record<string, string>;
+    reuseBackground: boolean;
+    extraSlotsEnabled: boolean;
+  }) => {
+    setStudioStep(progress.mode);
+    setStudioMode(progress.mode);
+    setStudioSelectedPhoto(progress.selectedPhoto);
+    setStudioBackgroundByPhoto(progress.backgroundByPhoto);
+    setStudioReuseBackground(progress.reuseBackground);
+    setStudioExtraSlotsEnabled(progress.extraSlotsEnabled);
+  }, []);
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
       {showSellWelcome ? (
@@ -700,6 +736,12 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         <ListingCaptureStudio
           photos={photos}
           backgrounds={AI_CUTOUT_BACKGROUNDS as CaptureBackground[]}
+          initialMode={studioMode}
+          initialSelectedPhoto={studioSelectedPhoto}
+          initialBackgroundByPhoto={studioBackgroundByPhoto}
+          initialReuseBackground={studioReuseBackground}
+          initialExtraSlotsEnabled={studioExtraSlotsEnabled}
+          onProgressChange={handleStudioProgress}
           onCapture={addUri}
           onDeleteCapture={removeStudioPhoto}
           onContinue={finishCapture}
