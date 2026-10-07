@@ -769,16 +769,16 @@ export default function Root() {
 
   return (
     <SafeAreaProvider>
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: intro ? colors.pulse : colors.ink }}>
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
         <StatusBar style={appearance === "dark" ? "light" : "dark"} />
         <ReviewSync enabled={Boolean(signedIn && gateReady && !intro && profileDone)} />
-        {gateReady && !intro ? (
+        {gateReady ? (
           <View style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0 }}>
             <AppStack />
           </View>
         ) : null}
-        {gateReady && !signedIn && !intro ? <AuthScreen /> : null}
-        {gateReady && signedIn && !profileDone && !intro ? <AccountDetailsScreen /> : null}
+        {gateReady && !signedIn ? <AuthScreen /> : null}
+        {gateReady && signedIn && !profileDone ? <AccountDetailsScreen /> : null}
         {signedIn && profileDone && gateReady && !intro ? <DraftResumeNotice /> : null}
         {signedIn && profileDone && gateReady && !intro ? <FounderDeskNotice /> : null}
         {signedIn && profileDone && gateReady && !intro ? <FounderCheckNotice /> : null}
