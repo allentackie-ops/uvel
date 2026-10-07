@@ -18,6 +18,7 @@ import {
 } from "react-native";
 import { OrbitLoader } from "../components/OrbitLoader";
 import { SortablePhotoStrip } from "../components/SortablePhotoStrip";
+import { ListingCaptureStudio, type CaptureBackground } from "../components/ListingCaptureStudio";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../components/AccessiblePressable";
 import { MotionClip } from "../components/MotionClip";
@@ -160,6 +161,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const [draftDisabled, setDraftDisabled] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [showSellWelcome, setShowSellWelcome] = useState<boolean | null>(null);
+  const [studioStep, setStudioStep] = useState<"capture" | "form">(existing || draftParam === "1" ? "form" : "capture");
   const [openSection, setOpenSection] = useState<"describe" | "selling" | null>(existing ? "describe" : null);
   const previousPhotoCount = useRef(photos.length);
   const scrollRef = useRef<ScrollView>(null);
@@ -819,6 +821,12 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     setShowSellWelcome(false);
   }
 
+  function finishCapture(backgroundByPhoto: Record<string, string>) {
+    const firstBackground = photos[0] ? backgroundByPhoto[photos[0].uri] : undefined;
+    if (firstBackground) setSelectedBackground(firstBackground);
+    setStudioStep("form");
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
       {showSellWelcome ? (
@@ -849,7 +857,15 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           </View>
         </View>
       ) : null}
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      {!existing && draftParam !== "1" && showSellWelcome === false && studioStep !== "form" ? (
+        <ListingCaptureStudio
+          photos={photos}
+          backgrounds={AI_CUTOUT_BACKGROUNDS as CaptureBackground[]}
+          onCapture={addUri}
+          onContinue={finishCapture}
+          onClose={leaveSell}
+        />
+      ) : <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={[styles.top, { paddingTop: insets.top + 6 }]}>
           {draftParam === "1" ? (
             <AccessiblePressable
@@ -1349,7 +1365,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             <Text style={[styles.ctaTxt, !ctaReady && styles.ctaTxtOff]}>{ctaLabel}</Text>
           </AccessiblePressable>
         </View>
-      </KeyboardAvoidingView>
+      </KeyboardAvoidingView>}
 
       {gate.phase !== "idle" ? (
         <View style={[styles.gate, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 28 }]}>
