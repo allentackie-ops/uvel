@@ -5,9 +5,9 @@ import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, FlatList, ImageBackground, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { blockFriend, listFriends, markFriendChatRead, reportFriendConversation, sendFriendMessage, subscribeFriendMessages, uploadFriendAttachment, type FriendMessage } from "../../../lib/friendChat";
+import { blockFriend, deleteFriendMessage, listFriends, markFriendChatRead, reportFriendConversation, sendFriendMessage, subscribeFriendMessages, uploadFriendAttachment, type FriendMessage } from "../../../lib/friendChat";
 import type { PublicUser } from "../../../lib/friends";
 import { pickFromLibrary } from "../../../lib/photo";
 import { useColors, useResolvedAppearance } from "../../../lib/theme";
@@ -38,9 +38,9 @@ function dayLabel(value: unknown) {
   return date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: date.getFullYear() === now.getFullYear() ? undefined : "numeric" });
 }
 
-function timeLabel(value: unknown) {
+function timestampLabel(value: unknown) {
   const date = asDate(value);
-  return date ? date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "";
+  return date ? `Sent · ${date.toLocaleString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}` : "Time unavailable";
 }
 
 function initials(name: string) {
@@ -60,6 +60,8 @@ export default function FriendChat() {
   const [peer, setPeer] = useState<PublicUser | undefined>();
   const [messages, setMessages] = useState<FriendMessage[]>([]);
   const [draft, setDraft] = useState("");
+  const [replyingTo, setReplyingTo] = useState<FriendMessage | null>(null);
+  const [activeMessage, setActiveMessage] = useState<FriendMessage | null>(null);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -116,8 +118,9 @@ export default function FriendChat() {
         const base64 = await FileSystem.readAsStringAsync(photoUri, { encoding: FileSystem.EncodingType.Base64 });
         uploaded = await uploadFriendAttachment(base64, "image/jpeg");
       }
-      await sendFriendMessage(String(chatId), text, uploaded);
+      await sendFriendMessage(String(chatId), text, uploaded, replyingTo?.id);
       setPhotoUri(undefined);
+      setReplyingTo(null);
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     } catch (error) {
       setDraft(text);
@@ -145,12 +148,14 @@ export default function FriendChat() {
     ]);
   }
 
-  async function messageActions(message: FriendMessage) {
-    const choices: { text: string; onPress?: () => void; style?: "cancel" | "destructive" }[] = [];
-    if (message.text) choices.push({ text: "Copy message", onPress: () => { void Clipboard.setStringAsync(message.text); } });
-    if (message.photoUrl) choices.push({ text: "View photo", onPress: () => setPreviewUri(message.photoUrl) });
-    choices.push({ text: "Cancel", style: "cancel" });
-    Alert.alert("Message", "Choose an action", choices);
+  function confirmDeleteMessage() {
+    const message = activeMessage;
+    if (!message || message.from !== uid) return;
+    setActiveMessage(null);
+    Alert.alert("Delete message?", "This removes your message from this conversation.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => { void deleteFriendMessage(String(chatId), message.id).then(() => { setMessages((current) => current.filter((entry) => entry.id !== message.id)); setReplyingTo((current) => current?.id === message.id ? null : current); }).catch((error) => Alert.alert("Couldn’t delete message", error instanceof Error ? error.message : "Please try again.")); } },
+    ]);
   }
 
   const renderMessage = ({ item, index }: { item: FriendMessage; index: number }) => {
@@ -160,20 +165,20 @@ export default function FriendChat() {
     const startsDay = index === 0 || dayKey(previous?.createdAt) !== dayKey(item.createdAt);
     const grouped = previous?.from === item.from && !startsDay;
     const showPeerAvatar = !mine && (next?.from !== item.from || dayKey(next?.createdAt) !== dayKey(item.createdAt));
-    const isLatestOwn = mine && !visibleMessages.slice(index + 1).some((message) => message.from === uid);
-    const status = item.status === "read" ? "Read" : item.status === "delivered" ? "Delivered" : item.status === "sent" ? "Sent" : "";
+    const bubbleContent = <>
+      {item.replyTo ? <View style={styles.replyQuote}><View style={[styles.replyQuoteBar, mine && styles.replyQuoteBarMine]} /><View style={styles.replyQuoteCopy}><Text style={[styles.replyQuoteName, mine && styles.replyQuoteMine]} numberOfLines={1}>{item.replyTo.from === uid ? "You" : listName}</Text><Text style={[styles.replyQuoteText, mine && styles.replyQuoteMine]} numberOfLines={2}>{item.replyTo.text || (item.replyTo.photoUrl ? "Photo" : "Message")}</Text></View></View> : null}
+      {item.photoUrl ? <View style={styles.senderPanel}><Avatar uri={mine ? undefined : peer?.avatarUri} label={mine ? "You" : listName} styles={styles} /><View style={styles.senderPanelCopy}><Text numberOfLines={1} style={[styles.senderName, mine && styles.senderNameMine]}>{mine ? "You" : listName}</Text><Text numberOfLines={1} style={[styles.senderHandle, mine && styles.senderHandleMine]}>{mine ? "Shared a photo" : peer?.username ? `@${peer.username}` : "Friend on Uvel"}</Text></View></View> : null}
+      {item.photoUrl ? <Pressable onPress={() => setPreviewUri(item.photoUrl)} accessibilityRole="imagebutton" accessibilityLabel="View attached photo"><Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.messagePhoto} contentFit="cover" /></Pressable> : null}
+      {item.text ? <Text selectable style={[styles.bubbleText, mine ? styles.bubbleTextMine : styles.bubbleTextPeer]}>{item.text}</Text> : null}
+    </>;
     return <View key={item.id}>
       {startsDay ? <View style={styles.dayRule}><Text style={styles.dayPill}>{dayLabel(item.createdAt).toUpperCase()}</Text></View> : null}
       <View style={[styles.messageLine, mine ? styles.messageLineMine : styles.messageLinePeer, grouped && styles.messageLineGrouped]}>
         {!mine ? <View style={styles.avatarSlot}>{showPeerAvatar ? <Avatar uri={peer?.avatarUri} label={listName} styles={styles} /> : null}</View> : null}
-        <Pressable onLongPress={() => void messageActions(item)} delayLongPress={320} style={[styles.bubble, mine ? styles.bubbleMine : styles.bubblePeer, grouped && (mine ? styles.bubbleMineGrouped : styles.bubblePeerGrouped), item.photoUrl && styles.bubbleWithPhoto]} accessibilityRole="text" accessibilityLabel={`${mine ? "You" : listName}: ${item.text || "Photo"}`}>
-          {item.photoUrl ? <View style={styles.senderPanel}><Avatar uri={mine ? undefined : peer?.avatarUri} label={mine ? "You" : listName} styles={styles} /><View style={styles.senderPanelCopy}><Text numberOfLines={1} style={styles.senderName}>{mine ? "You" : listName}</Text><Text numberOfLines={1} style={styles.senderHandle}>{mine ? "Shared a photo" : peer?.username ? `@${peer.username}` : "Friend on Uvel"}</Text></View></View> : null}
-          {item.photoUrl ? <Pressable onPress={() => setPreviewUri(item.photoUrl)} accessibilityRole="imagebutton" accessibilityLabel="View attached photo"><Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.messagePhoto} contentFit="cover" /></Pressable> : null}
-          {item.text ? <Text selectable style={[styles.bubbleText, mine ? styles.bubbleTextMine : styles.bubbleTextPeer]}>{item.text}</Text> : null}
-          <Text style={[styles.messageTime, mine ? styles.messageTimeMine : styles.messageTimePeer]}>{timeLabel(item.createdAt)}</Text>
+        <Pressable style={[styles.bubbleFrame, grouped && (mine ? styles.bubbleMineGrouped : styles.bubblePeerGrouped)]} onLongPress={() => setActiveMessage(item)} delayLongPress={430} accessibilityRole="text" accessibilityLabel={`${mine ? "You" : listName}: ${item.text || "Photo"}`}>
+          {mine ? <ImageBackground source={require("../../../assets/chat/message-bubble-gradient.png")} resizeMode="stretch" imageStyle={styles.bubbleGradientImage} style={[styles.bubble, styles.bubbleMine, grouped && styles.bubbleMineGrouped, item.photoUrl && styles.bubbleWithPhoto]}>{bubbleContent}</ImageBackground> : <View style={[styles.bubble, styles.bubblePeer, grouped && styles.bubblePeerGrouped, item.photoUrl && styles.bubbleWithPhoto]}>{bubbleContent}</View>}
         </Pressable>
       </View>
-      {isLatestOwn && status ? <View style={styles.statusRow}><Text style={styles.statusText}>{status}</Text><Ionicons name={item.status === "read" ? "checkmark-done" : "checkmark"} size={14} color={colors.muted} /></View> : null}
     </View>;
   };
 
@@ -210,6 +215,7 @@ export default function FriendChat() {
         ListFooterComponent={<View style={{ height: 10 }} />}
         showsVerticalScrollIndicator={false}
       />
+      {replyingTo ? <View style={styles.replyComposer}><View style={styles.replyComposerAccent} /><View style={styles.replyComposerCopy}><Text style={styles.replyComposerTitle}>Replying to {replyingTo.from === uid ? "your message" : listName}</Text><Text numberOfLines={1} style={styles.replyComposerText}>{replyingTo.text || (replyingTo.photoUrl ? "Photo" : "Message")}</Text></View><Pressable onPress={() => setReplyingTo(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cancel reply"><Ionicons name="close" size={19} color={colors.muted} /></Pressable></View> : null}
       {photoUri ? <View style={styles.attachmentPreview}><Image cachePolicy="memory-disk" source={{ uri: photoUri }} style={styles.previewImage} contentFit="cover" /><View style={styles.previewCopy}><Text style={styles.previewTitle}>Photo attached</Text><Text style={styles.previewSubtitle}>Add a note or send it as is</Text></View><Pressable onPress={() => setPhotoUri(undefined)} style={styles.removePhoto} accessibilityRole="button" accessibilityLabel="Remove attached photo"><Ionicons name="close" size={18} color={colors.bone} /></Pressable></View> : null}
       <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         <Pressable onPress={() => void attachPhoto()} disabled={sending} style={styles.attachButton} accessibilityRole="button" accessibilityLabel="Attach a photo"><Ionicons name="add" size={26} color={colors.bone} /></Pressable>
@@ -222,6 +228,15 @@ export default function FriendChat() {
         </Pressable>
       </View>
     </KeyboardAvoidingView>
+
+    <Modal visible={Boolean(activeMessage)} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setActiveMessage(null)}>
+      <View style={styles.actionModal}><Pressable style={styles.actionScrim} onPress={() => setActiveMessage(null)} accessibilityRole="button" accessibilityLabel="Dismiss message actions" /><View style={[styles.actionSheet, { paddingBottom: Math.max(insets.bottom, 18) }]}><View style={styles.actionHandle} /><Text style={styles.actionTimestamp}>{timestampLabel(activeMessage?.createdAt)}</Text><Text numberOfLines={2} style={styles.actionExcerpt}>{activeMessage?.text || (activeMessage?.photoUrl ? "Photo message" : "Message")}</Text>
+        <Pressable style={styles.actionRow} onPress={() => { if (activeMessage) setReplyingTo(activeMessage); setActiveMessage(null); }}><Ionicons name="arrow-undo-outline" size={21} color={colors.bone} /><Text style={styles.actionLabel}>Reply</Text></Pressable>
+        {activeMessage?.text ? <Pressable style={styles.actionRow} onPress={() => { void Clipboard.setStringAsync(activeMessage.text); setActiveMessage(null); }}><Ionicons name="copy-outline" size={20} color={colors.bone} /><Text style={styles.actionLabel}>Copy</Text></Pressable> : null}
+        {activeMessage?.photoUrl ? <Pressable style={styles.actionRow} onPress={() => { setPreviewUri(activeMessage.photoUrl); setActiveMessage(null); }}><Ionicons name="image-outline" size={21} color={colors.bone} /><Text style={styles.actionLabel}>View photo</Text></Pressable> : null}
+        {activeMessage?.from === uid ? <Pressable style={styles.actionRow} onPress={confirmDeleteMessage}><Ionicons name="trash-outline" size={21} color={colors.danger} /><Text style={styles.actionDeleteLabel}>Delete message</Text></Pressable> : null}
+      </View></View>
+    </Modal>
 
     <Modal visible={Boolean(previewUri)} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setPreviewUri(undefined)}>
       <View style={styles.viewer}><Pressable onPress={() => setPreviewUri(undefined)} style={[styles.viewerClose, { top: insets.top + 16 }]} accessibilityRole="button" accessibilityLabel="Close photo"><Ionicons name="close" size={24} color="#FFFFFF" /></Pressable>{previewUri ? <Image source={{ uri: previewUri }} style={styles.viewerImage} contentFit="contain" /> : null}</View>
@@ -240,14 +255,14 @@ function make(colors: ReturnType<typeof useColors>) {
     headerIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
     profileHeader: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 4 },
     profileCopy: { flex: 1, minWidth: 0 },
-    headerTitle: { color: colors.bone, fontSize: 14, fontWeight: "800", letterSpacing: -0.2 },
-    headerSubtitle: { color: colors.muted, fontSize: 11, marginTop: 2 },
-    avatar: { width: 28, height: 28, borderRadius: 14, overflow: "hidden", backgroundColor: colors.neutral, alignItems: "center", justifyContent: "center" },
-    avatarLarge: { width: 38, height: 38, borderRadius: 19 },
+    headerTitle: { color: colors.bone, fontSize: 18, fontWeight: "800", letterSpacing: -0.35 },
+    headerSubtitle: { color: colors.muted, fontSize: 12, marginTop: 2 },
+    avatar: { width: 31, height: 31, borderRadius: 16, overflow: "hidden", backgroundColor: colors.neutral, alignItems: "center", justifyContent: "center" },
+    avatarLarge: { width: 46, height: 46, borderRadius: 23 },
     avatarExtraLarge: { width: 78, height: 78, borderRadius: 39 },
     avatarImage: { width: "100%", height: "100%" },
     avatarInitial: { color: colors.bone, fontWeight: "800", fontSize: 11 },
-    avatarInitialLarge: { fontSize: 14 },
+    avatarInitialLarge: { fontSize: 16 },
     avatarInitialExtraLarge: { fontSize: 25 },
     searchBox: { flexDirection: "row", alignItems: "center", gap: 9, marginHorizontal: 14, marginTop: 12, marginBottom: 3, paddingHorizontal: 12, height: 42, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}15` },
     searchInput: { flex: 1, color: colors.bone, fontSize: 14, paddingVertical: 0 },
@@ -261,26 +276,32 @@ function make(colors: ReturnType<typeof useColors>) {
     messageLineMine: { justifyContent: "flex-end" },
     messageLinePeer: { justifyContent: "flex-start" },
     messageLineGrouped: { marginTop: -2 },
-    avatarSlot: { width: 26, marginRight: 4, alignItems: "center" },
-    bubble: { maxWidth: "82%", minWidth: 50, paddingHorizontal: 13, paddingTop: 9, paddingBottom: 7, borderRadius: 18 },
-    bubbleMine: { backgroundColor: colors.success, borderBottomRightRadius: 7 },
+    avatarSlot: { width: 31, marginRight: 4, alignItems: "center" },
+    bubbleFrame: { maxWidth: "82%", minWidth: 50, borderRadius: 19, overflow: "hidden" },
+    bubble: { paddingHorizontal: 14, paddingTop: 11, paddingBottom: 10, borderRadius: 19 },
+    bubbleGradientImage: { borderRadius: 19 },
+    bubbleMine: { backgroundColor: "transparent", borderBottomRightRadius: 7 },
     bubblePeer: { backgroundColor: colors.neutral, borderBottomLeftRadius: 7 },
     bubbleMineGrouped: { borderBottomRightRadius: 7 },
     bubblePeerGrouped: { borderBottomLeftRadius: 7 },
     bubbleWithPhoto: { paddingHorizontal: 5, paddingTop: 5, paddingBottom: 6 },
-    senderPanel: { minHeight: 39, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 7, paddingVertical: 3, marginBottom: 4, borderRadius: 0, backgroundColor: "transparent" },
+    senderPanel: { minHeight: 45, flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 8, paddingVertical: 4, marginBottom: 5, borderRadius: 0, backgroundColor: "transparent" },
     senderPanelCopy: { flex: 1, minWidth: 0 },
-    senderName: { color: colors.bone, fontSize: 12, fontWeight: "800" },
-    senderHandle: { color: colors.muted, fontSize: 10, marginTop: 2 },
-    bubbleText: { fontSize: 15, lineHeight: 21 },
-    bubbleTextMine: { color: colors.successInk },
+    senderName: { color: colors.bone, fontSize: 15, fontWeight: "800" },
+    senderNameMine: { color: "#FFFFFF" },
+    senderHandle: { color: colors.muted, fontSize: 11, marginTop: 2 },
+    senderHandleMine: { color: "rgba(255,255,255,0.78)" },
+    bubbleText: { fontSize: 17, lineHeight: 24 },
+    bubbleTextMine: { color: "#FFFFFF" },
     bubbleTextPeer: { color: colors.bone },
-    messagePhoto: { width: 252, height: 410, maxWidth: "100%", borderRadius: 11, marginBottom: 5, backgroundColor: colors.neutral },
-    messageTime: { alignSelf: "flex-end", fontSize: 10, marginTop: 4, fontWeight: "600" },
-    messageTimeMine: { color: colors.successInk, opacity: 0.64 },
-    messageTimePeer: { color: colors.muted },
-    statusRow: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 3, marginTop: 2, marginBottom: 5, marginRight: 3 },
-    statusText: { color: colors.muted, fontSize: 10 },
+    replyQuote: { flexDirection: "row", alignItems: "stretch", gap: 8, marginBottom: 9, paddingVertical: 2 },
+    replyQuoteBar: { width: 3, borderRadius: 2, backgroundColor: colors.danger },
+    replyQuoteBarMine: { backgroundColor: "rgba(255,255,255,0.85)" },
+    replyQuoteCopy: { flex: 1, minWidth: 0 },
+    replyQuoteName: { color: colors.bone, fontSize: 12, fontWeight: "800" },
+    replyQuoteText: { color: colors.muted, fontSize: 13, marginTop: 2 },
+    replyQuoteMine: { color: "rgba(255,255,255,0.9)" },
+    messagePhoto: { width: 270, height: 430, maxWidth: "100%", borderRadius: 12, marginBottom: 5, backgroundColor: colors.neutral },
     emptyPrompt: { position: "absolute", zIndex: 1, alignSelf: "center", top: "47%" },
     emptyPromptText: { color: colors.muted, fontSize: 13 },
     loading: { position: "absolute", zIndex: 2, alignSelf: "center", top: "43%", alignItems: "center", gap: 10 },
@@ -297,14 +318,28 @@ function make(colors: ReturnType<typeof useColors>) {
     previewTitle: { color: colors.bone, fontWeight: "700", fontSize: 12 },
     previewSubtitle: { color: colors.muted, fontSize: 11, marginTop: 2 },
     removePhoto: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: colors.neutral },
+    replyComposer: { flexDirection: "row", alignItems: "center", gap: 10, marginHorizontal: 16, marginBottom: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, backgroundColor: colors.surface },
+    replyComposerAccent: { width: 3, height: 34, borderRadius: 2, backgroundColor: colors.danger },
+    replyComposerCopy: { flex: 1, minWidth: 0 },
+    replyComposerTitle: { color: colors.bone, fontSize: 12, fontWeight: "800" },
+    replyComposerText: { color: colors.muted, fontSize: 12, marginTop: 2 },
     composerWrap: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 13, paddingTop: 7, backgroundColor: colors.ink },
     attachButton: { width: 36, height: 44, alignItems: "center", justifyContent: "center", marginBottom: 1 },
     composerField: { flex: 1, minHeight: 46, maxHeight: 118, flexDirection: "row", alignItems: "center", borderRadius: 17, paddingLeft: 14, paddingRight: 11, backgroundColor: colors.surface },
     input: { flex: 1, maxHeight: 102, color: colors.bone, fontSize: 15, lineHeight: 20, paddingVertical: 10 },
     charCount: { color: colors.subtle, fontSize: 9, marginLeft: 5 },
-    sendButton: { minWidth: 47, height: 42, alignItems: "center", justifyContent: "center", marginBottom: 1 },
+    sendButton: { minWidth: 51, height: 44, alignItems: "center", justifyContent: "center", marginBottom: 1 },
     sendTxt: { color: colors.success, fontSize: 14, fontWeight: "800" },
     sendButtonDisabled: { opacity: 0.35 },
+    actionModal: { flex: 1, justifyContent: "flex-end" },
+    actionScrim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.5)" },
+    actionSheet: { paddingHorizontal: 22, paddingTop: 12, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: colors.surface },
+    actionHandle: { width: 38, height: 4, borderRadius: 2, alignSelf: "center", backgroundColor: colors.subtle, opacity: 0.6, marginBottom: 15 },
+    actionTimestamp: { color: colors.muted, fontSize: 12, textAlign: "center", fontWeight: "700" },
+    actionExcerpt: { color: colors.bone, fontSize: 15, textAlign: "center", marginTop: 7, marginBottom: 12 },
+    actionRow: { minHeight: 51, flexDirection: "row", alignItems: "center", gap: 15 },
+    actionLabel: { color: colors.bone, fontSize: 16, fontWeight: "600" },
+    actionDeleteLabel: { color: colors.danger, fontSize: 16, fontWeight: "700" },
     viewer: { flex: 1, backgroundColor: "rgba(0,0,0,0.96)", alignItems: "center", justifyContent: "center" },
     viewerClose: { position: "absolute", zIndex: 2, right: 18, width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(35,35,35,0.75)", alignItems: "center", justifyContent: "center" },
     viewerImage: { width: "100%", height: "82%" },

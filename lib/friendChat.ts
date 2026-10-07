@@ -3,7 +3,7 @@ import { marketplaceCall } from "./supabaseMarketplace";
 import { useEffect, useState } from "react";
 import type { PublicUser } from "./friends";
 
-export type FriendMessage = { id: string; text: string; from: string; photoUrl?: string; createdAt?: unknown; status?: string };
+export type FriendMessage = { id: string; text: string; from: string; photoUrl?: string; createdAt?: unknown; status?: string; replyTo?: { id: string; text: string; from: string; photoUrl?: string } };
 export type FriendChatPreview = { id: string; participantIds: string[]; lastText?: string; lastFrom?: string; lastAt?: unknown; unreadBy?: Record<string, number> };
 
 export async function listFriends() {
@@ -16,8 +16,12 @@ export async function createFriendChat(otherUid: string) {
   return result.conversationId;
 }
 
-export async function sendFriendMessage(conversationId: string, text: string, photoUrl?: string) {
-  return socialCall<{ messageId: string }>("send_message", { conversationId, text, photoUrl: photoUrl || "" });
+export async function sendFriendMessage(conversationId: string, text: string, photoUrl?: string, replyTo?: string) {
+  return socialCall<{ messageId: string }>("send_message", { conversationId, text, photoUrl: photoUrl || "", replyTo: replyTo || "" });
+}
+
+export async function deleteFriendMessage(conversationId: string, messageId: string) {
+  return socialCall<{ ok: boolean }>("delete_message", { conversationId, messageId });
 }
 
 export async function listFriendChats() {
