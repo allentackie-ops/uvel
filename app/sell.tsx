@@ -959,19 +959,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
             </AccessiblePressable>
 
-            <AccessiblePressable
-              onPress={openMeasurements}
-              style={({ pressed }) => [styles.choiceRow, styles.stackGap, pressed && { opacity: 0.92 }]}
-              accessibilityRole="button"
-              accessibilityLabel="Choose measurements and fit"
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.choiceValue}>{measurements.fit || measurements.length ? [measurements.fit, measurements.length].filter(Boolean).join(" · ") : "Measurements & fit"}</Text>
-                <Text style={styles.choiceSub}>{Object.keys(measurements).length ? "Details added" : "Help buyers understand the fit"}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
-            </AccessiblePressable>
-
             {existing ? (
               <AccessiblePressable
                 onPress={() =>
