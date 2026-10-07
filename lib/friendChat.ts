@@ -1,6 +1,5 @@
-import { httpsCallable } from "firebase/functions";
-import { firebaseFunctions, firebaseReady } from "./firebase";
 import { pollSocial, socialCall } from "./supabaseSocial";
+import { marketplaceCall } from "./supabaseMarketplace";
 import type { PublicUser } from "./friends";
 
 export type FriendMessage = { id: string; text: string; from: string; photoUrl?: string; createdAt?: unknown; status?: string };
@@ -26,9 +25,8 @@ export async function listFriendChats() {
 }
 
 export async function uploadFriendAttachment(base64: string, contentType = "image/jpeg") {
-  if (!firebaseReady()) throw new Error("Photo messages are unavailable offline.");
-  const call = httpsCallable<{ base64: string; contentType: string }, { url: string }>(firebaseFunctions(), "uploadFriendAttachment");
-  return (await call({ base64, contentType })).data.url;
+  const result = await marketplaceCall<{ url: string }>("upload_attachment", { base64, contentType });
+  return result.url;
 }
 
 export async function blockFriend(blockedUid: string) {
