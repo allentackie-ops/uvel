@@ -166,6 +166,7 @@ export default function FriendChat() {
       <View style={[styles.messageLine, mine ? styles.messageLineMine : styles.messageLinePeer, grouped && styles.messageLineGrouped]}>
         {!mine ? <View style={styles.avatarSlot}>{showPeerAvatar ? <Avatar uri={peer?.avatarUri} label={listName} styles={styles} /> : null}</View> : null}
         <Pressable onLongPress={() => void messageActions(item)} delayLongPress={320} style={[styles.bubble, mine ? styles.bubbleMine : styles.bubblePeer, grouped && (mine ? styles.bubbleMineGrouped : styles.bubblePeerGrouped), item.photoUrl && styles.bubbleWithPhoto]} accessibilityRole="text" accessibilityLabel={`${mine ? "You" : listName}: ${item.text || "Photo"}`}>
+          {!mine && item.photoUrl ? <View style={styles.senderPanel}><Avatar uri={peer?.avatarUri} label={listName} styles={styles} /><View style={styles.senderPanelCopy}><Text numberOfLines={1} style={styles.senderName}>{listName}</Text><Text numberOfLines={1} style={styles.senderHandle}>{peer?.username ? `@${peer.username}` : "Friend on Uvel"}</Text></View></View> : null}
           {item.photoUrl ? <Pressable onPress={() => setPreviewUri(item.photoUrl)} accessibilityRole="imagebutton" accessibilityLabel="View attached photo"><Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.messagePhoto} contentFit="cover" /></Pressable> : null}
           {item.text ? <Text selectable style={[styles.bubbleText, mine ? styles.bubbleTextMine : styles.bubbleTextPeer]}>{item.text}</Text> : null}
           <Text style={[styles.messageTime, mine ? styles.messageTimeMine : styles.messageTimePeer]}>{timeLabel(item.createdAt)}</Text>
@@ -186,6 +187,16 @@ export default function FriendChat() {
       </Pressable>
       <Pressable onPress={() => { setSearchOpen((open) => !open); setSearchQuery(""); }} style={styles.headerIcon} accessibilityRole="button" accessibilityLabel="Search conversation"><Ionicons name={searchOpen ? "close" : "search"} size={20} color={colors.bone} /></Pressable>
       <Pressable onPress={safetyActions} style={styles.headerIconSmall} accessibilityRole="button" accessibilityLabel="More conversation options"><Ionicons name="ellipsis-horizontal" size={22} color={colors.bone} /></Pressable>
+    </View>
+
+    <View style={styles.contactPanel}>
+      <Avatar uri={peer?.avatarUri} label={listName} styles={styles} large />
+      <View style={styles.contactCopy}>
+        <Text style={styles.contactEyebrow}>CONNECTED ON UVEL</Text>
+        <Text style={styles.contactName} numberOfLines={1}>{listName}</Text>
+        <Text style={styles.contactHandle} numberOfLines={1}>{peer?.username ? `@${peer.username}` : "Your friend on Uvel"}</Text>
+      </View>
+      <View style={styles.contactBadge}><Ionicons name="people" size={15} color={colors.success} /></View>
     </View>
 
     {searchOpen ? <View style={styles.searchBox}><Ionicons name="search" size={17} color={colors.subtle} /><TextInput autoFocus value={searchQuery} onChangeText={setSearchQuery} placeholder="Search messages" placeholderTextColor={colors.subtle} style={styles.searchInput} returnKeyType="search" /><Pressable onPress={() => setSearchQuery("")} accessibilityRole="button" accessibilityLabel="Clear search"><Ionicons name="close-circle" size={18} color={colors.subtle} /></Pressable></View> : null}
@@ -250,6 +261,12 @@ function make(colors: ReturnType<typeof useColors>) {
     avatarInitialExtraLarge: { fontSize: 25 },
     searchBox: { flexDirection: "row", alignItems: "center", gap: 9, marginHorizontal: 14, marginTop: 12, marginBottom: 3, paddingHorizontal: 12, height: 42, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}15` },
     searchInput: { flex: 1, color: colors.bone, fontSize: 14, paddingVertical: 0 },
+    contactPanel: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 11, marginHorizontal: 13, marginTop: 10, marginBottom: 5, paddingHorizontal: 11, paddingVertical: 9, borderRadius: 17, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}12` },
+    contactCopy: { flex: 1, minWidth: 0 },
+    contactEyebrow: { color: colors.success, fontSize: 8, fontWeight: "900", letterSpacing: 1.1, marginBottom: 3 },
+    contactName: { color: colors.bone, fontSize: 13, fontWeight: "800" },
+    contactHandle: { color: colors.muted, fontSize: 10, marginTop: 2 },
+    contactBadge: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: `${colors.success}12` },
     keyboardArea: { flex: 1 },
     list: { flex: 1 },
     listContent: { paddingHorizontal: 15, paddingTop: 12, paddingBottom: 12, flexGrow: 1, justifyContent: "flex-end" },
@@ -268,6 +285,10 @@ function make(colors: ReturnType<typeof useColors>) {
     bubbleMineGrouped: { borderBottomRightRadius: 7 },
     bubblePeerGrouped: { borderBottomLeftRadius: 7 },
     bubbleWithPhoto: { paddingHorizontal: 5, paddingTop: 5, paddingBottom: 6 },
+    senderPanel: { minHeight: 42, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 7, paddingVertical: 5, marginBottom: 6, borderRadius: 12, backgroundColor: colors.neutral },
+    senderPanelCopy: { flex: 1, minWidth: 0 },
+    senderName: { color: colors.bone, fontSize: 12, fontWeight: "800" },
+    senderHandle: { color: colors.muted, fontSize: 10, marginTop: 2 },
     bubbleText: { fontSize: 15, lineHeight: 21 },
     bubbleTextMine: { color: colors.successInk },
     bubbleTextPeer: { color: colors.bone },
