@@ -40,10 +40,15 @@ export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly
   const market = getMarket(app.country);
   const methods = payMethods(market.code);
   const [paymentMethodId, setPaymentMethodId] = useState(methods[0]?.id || "card");
+  const [paymentPreferenceReady, setPaymentPreferenceReady] = useState(false);
   useEffect(() => {
     let live = true;
+    setPaymentPreferenceReady(false);
+    setPaymentMethodId(methods[0]?.id || "card");
     void loadLastPaymentMethod(market.code).then((last) => {
-      if (live && last && methods.some((method) => method.id === last)) setPaymentMethodId(last);
+      if (!live) return;
+      if (last && methods.some((method) => method.id === last)) setPaymentMethodId(last);
+      setPaymentPreferenceReady(true);
     });
     return () => { live = false; };
   }, [market.code]);
@@ -51,10 +56,12 @@ export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly
   const wallet = useWallet(market.currency);
   const [paying, setPaying] = useState(false);
   const footerBottom = reserveTabBarSpace ? 64 + Math.max(insets.bottom, 8) : Math.max(insets.bottom, 8);
-  const paymentButtonLabel = paymentMethod?.kind === "apple"
+  const paymentButtonLabel = !paymentPreferenceReady
+    ? "Loading payment…"
+    : paymentMethod?.kind === "apple"
     ? "Pay with Apple Pay"
     : paymentMethod?.kind === "card"
-      ? "Pay with card"
+      ? "Pay with Card"
       : paymentMethod
         ? `Pay with ${paymentMethod.label}`
         : "Buy now";
@@ -231,7 +238,7 @@ export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly
             <View style={styles.descriptionSection}><Text style={styles.descriptionTitle}>Description</Text><Text style={styles.description}>{piece.notes?.trim() || "The seller hasn’t added a description yet."}</Text></View>
           </View>
         </ScrollView>
-        {!previewOnly ? <View style={[styles.footer, { bottom: footerBottom }]}><Pressable onPress={() => void buyNow()} disabled={paying} style={[styles.buyButton, paying && { opacity: 0.6 }]} accessibilityRole="button" accessibilityLabel={`${paymentButtonLabel} for ${piece.name}`} accessibilityState={{ busy: paying, disabled: paying }}><View style={[styles.buyContent, paymentMethod?.kind === "apple" && styles.appleBuyContent]}><PaymentMark method={paymentMethod} colors={colors} /><Text style={[styles.buyText, paymentMethod?.kind === "apple" && styles.appleBuyText]}>{paying ? "Processing…" : paymentButtonLabel}</Text></View></Pressable><Pressable onPress={addItem} style={styles.bagButton} accessibilityRole="button" accessibilityLabel={inBag ? `${piece.name} is in your bag` : `Add ${piece.name} to bag`}><Text style={styles.bagText}>{inBag ? "In bag" : "Add to cart"}</Text></Pressable><Pressable onPress={() => router.push({ pathname: "/try-on", params: { piece: piece.id } })} style={styles.tryOnButton} accessibilityRole="button" accessibilityLabel={`Try on ${piece.name}`} accessibilityHint="Opens the virtual try-on experience for this item."><Ionicons name="body-outline" size={20} color={colors.bone} /></Pressable></View> : null}
+        {!previewOnly ? <View style={[styles.footer, { bottom: footerBottom }]}><Pressable onPress={() => void buyNow()} disabled={paying || !paymentPreferenceReady} style={[styles.buyButton, (paying || !paymentPreferenceReady) && { opacity: 0.6 }]} accessibilityRole="button" accessibilityLabel={`${paymentButtonLabel} for ${piece.name}`} accessibilityState={{ busy: paying, disabled: paying || !paymentPreferenceReady }}><View style={[styles.buyContent, paymentMethod?.kind === "apple" && styles.appleBuyContent]}><PaymentMark method={paymentMethod} colors={colors} /><Text style={[styles.buyText, paymentMethod?.kind === "apple" && styles.appleBuyText]}>{paying ? "Processing…" : paymentButtonLabel}</Text></View></Pressable><Pressable onPress={addItem} style={styles.bagButton} accessibilityRole="button" accessibilityLabel={inBag ? `${piece.name} is in your bag` : `Add ${piece.name} to bag`}><Text style={styles.bagText}>{inBag ? "In bag" : "Add to cart"}</Text></Pressable><Pressable onPress={() => router.push({ pathname: "/try-on", params: { piece: piece.id } })} style={styles.tryOnButton} accessibilityRole="button" accessibilityLabel={`Try on ${piece.name}`} accessibilityHint="Opens the virtual try-on experience for this item."><Ionicons name="body-outline" size={20} color={colors.bone} /></Pressable></View> : null}
       </View>
       <TodayCartFab listingOpen showWhileListing={!previewOnly} onBeforeOpen={onClose} />
       <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void Share.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
