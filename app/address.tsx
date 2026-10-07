@@ -22,6 +22,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMarket, MARKETS } from "../lib/markets";
 import { addAddress, loadAddress, saveAddress, type Address } from "../lib/orders";
+import { loadSellerShippingSettings, saveSellerShippingSettings } from "../lib/sellerShipping";
 import { useUvel } from "../lib/store";
 import { useColors, useResolvedAppearance, type Colors } from "../lib/theme";
 
@@ -46,9 +47,10 @@ export default function Address() {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();
-  const { displayName } = useUvel();
+  const { displayName, country: appCountry } = useUvel();
   const { mode } = useLocalSearchParams<{ mode?: string }>();
   const adding = mode === "add";
+  const sellerMode = mode === "seller";
 
   const [selectedCountry, setSelectedCountry] = useState("US");
   const [name, setName] = useState(displayName);
@@ -71,6 +73,21 @@ export default function Address() {
 
   useEffect(() => {
     let active = true;
+    if (sellerMode) {
+      void loadSellerShippingSettings().then((settings) => {
+        if (!active) return;
+        const saved = settings.address;
+        setSelectedCountry(saved?.country || appCountry || "US");
+        setName(saved?.name || displayName);
+        setPhone(saved?.phone || "");
+        setLine1(saved?.line1 || "");
+        setLine2(saved?.line2 || "");
+        setCity(saved?.city || "");
+        setRegion(saved?.region || "");
+        setPostal(saved?.postal || "");
+      });
+      return () => { active = false; };
+    }
     if (adding) {
       setSelectedCountry("US");
       setName(displayName);
@@ -90,7 +107,7 @@ export default function Address() {
       setMakeDefault(true);
     });
     return () => { active = false; };
-  }, [adding, displayName]);
+  }, [adding, appCountry, displayName, sellerMode]);
 
   async function useMyLocation() {
     if (locating) return;
@@ -168,7 +185,8 @@ export default function Address() {
       country: country.code,
     };
     try {
-      if (adding) await addAddress(next, makeDefault);
+      if (sellerMode) await saveSellerShippingSettings({ address: next });
+      else if (adding) await addAddress(next, makeDefault);
       else await saveAddress(next, makeDefault);
       router.back();
     } catch {
@@ -208,7 +226,7 @@ export default function Address() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.heading}>{adding ? "Add a new address" : "Edit address"}</Text>
+          <Text style={styles.heading}>{sellerMode ? "Where you send from" : adding ? "Add a new address" : "Edit address"}</Text>
 
           <SelectField styles={styles} colors={colors} label="Country/Region" value={country.name} onPress={() => { Keyboard.dismiss(); setPickerMode("country"); }} />
 

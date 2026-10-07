@@ -50,7 +50,7 @@ export default function SellerShipping() {
           <Text style={styles.heading}>Set shipping once.</Text>
           <Text style={styles.lede}>When someone buys your item, they choose one of the providers you leave on. We’ll show the exact instructions on the order.</Text>
           <Text style={styles.section}>Your address</Text>
-          <AccessiblePressable onPress={() => router.push("/seller-shipping-address")} style={[styles.addressCard, settings.address && styles.addressCardSaved]} accessibilityRole="button" accessibilityLabel={settings.address ? "Edit saved shipping address" : "Add shipping address"} accessibilityHint="Opens a separate page to enter your shipping address.">
+          <AccessiblePressable onPress={() => router.push({ pathname: "/address", params: { mode: "seller" } })} style={[styles.addressCard, settings.address && styles.addressCardSaved]} accessibilityRole="button" accessibilityLabel={settings.address ? "Edit saved shipping address" : "Add shipping address"} accessibilityHint="Opens the address page with Use my location.">
             <View style={{ flex: 1 }}>
               <Text style={styles.addressTitle}>{settings.address ? "Address saved" : "Add your shipping address"}</Text>
               <Text style={styles.hint}>{settings.address ? `${settings.address.line1}, ${settings.address.city}${settings.address.region ? `, ${settings.address.region}` : ""} ${settings.address.postal}` : "Where you normally pack or hand over sold items."}</Text>
