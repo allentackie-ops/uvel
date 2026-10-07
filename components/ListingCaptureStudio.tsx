@@ -1,8 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Image } from "expo-image";
+import * as Haptics from "expo-haptics";
 import * as ImageManipulator from "expo-image-manipulator";
 import { useMemo, useRef, useState } from "react";
+import { Animated, PanResponder, useWindowDimensions } from "react-native";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, type Colors } from "../lib/theme";
@@ -14,6 +16,7 @@ type Props = {
   photos: CapturePhoto[];
   backgrounds: CaptureBackground[];
   onCapture: (uri: string) => Promise<void> | void;
+  onDeleteCapture: (uri: string) => void;
   onContinue: (backgroundByPhoto: Record<string, string>) => void;
   onClose: () => void;
 };
@@ -22,8 +25,9 @@ const REQUIRED = 3;
 const MAX = 6;
 const FRAME_ASPECT = 4 / 5;
 
-export function ListingCaptureStudio({ photos, backgrounds, onCapture, onContinue, onClose }: Props) {
+export function ListingCaptureStudio({ photos, backgrounds, onCapture, onDeleteCapture, onContinue, onClose }: Props) {
   const colors = useColors();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const cameraRef = useRef<CameraView>(null);
@@ -33,6 +37,8 @@ export function ListingCaptureStudio({ photos, backgrounds, onCapture, onContinu
   const [selectedPhoto, setSelectedPhoto] = useState(0);
   const [backgroundByPhoto, setBackgroundByPhoto] = useState<Record<string, string>>({});
   const [reuseBackground, setReuseBackground] = useState(false);
+  const [draggingPhotoIndex, setDraggingPhotoIndex] = useState<number | null>(null);
+  const [dragOverDelete, setDragOverDelete] = useState(false);
 
   async function takePicture() {
     if (busy || photos.length >= MAX || !cameraRef.current) return;
@@ -53,7 +59,7 @@ export function ListingCaptureStudio({ photos, backgrounds, onCapture, onContinu
       if (nextCount === REQUIRED) {
         Alert.alert("Three views captured", "Would you like to take more pictures? You can add up to six total.", [
           { text: "Not now", style: "cancel", onPress: () => setMode("backgrounds") },
-          { text: "Yes, take more", onPress: () => undefined },
+          { text: "Yes, take more", onPress: () => setMode("capture") },
         ]);
       } else if (nextCount >= MAX) {
         setMode("backgrounds");
@@ -111,12 +117,12 @@ export function ListingCaptureStudio({ photos, backgrounds, onCapture, onContinu
         <View style={[styles.guide, { top: insets.top + 152 }]} pointerEvents="none"><View style={styles.cornerTopLeft} /><View style={styles.cornerTopRight} /><View style={styles.cornerBottomLeft} /><View style={styles.cornerBottomRight} /></View>
         <View style={[styles.cameraBottom, { paddingBottom: insets.bottom + 18 }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRail}>
-            {photos.map((photo, index) => <Image key={`${photo.uri}-${index}`} source={{ uri: photo.uri }} style={styles.captureThumb} contentFit="cover" />)}
+            {photos.map((photo, index) => <DraggableCaptureThumb key={`${photo.uri}-${index}`} uri={photo.uri} index={index} styles={styles} onDragStart={() => { setDraggingPhotoIndex(index); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }} onDragMove={(moveX, moveY) => { const targetX = windowWidth / 2; const targetY = windowHeight - insets.bottom - 61; setDragOverDelete(Math.hypot(moveX - targetX, moveY - targetY) < 88); }} onDragEnd={(dragIndex) => { const targetX = windowWidth / 2; const targetY = windowHeight - insets.bottom - 61; const shouldDelete = Math.hypot(targetX - windowWidth / 2, targetY - (windowHeight - insets.bottom - 61)) < 88 && dragIndex === draggingPhotoIndex && dragOverDelete; if (shouldDelete) { onDeleteCapture(photo.uri); void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } setDraggingPhotoIndex(null); setDragOverDelete(false); }} />)}
             {Array.from({ length: Math.max(0, REQUIRED - photos.length) }).map((_, index) => <View key={`empty-${index}`} style={styles.emptyThumb}><Ionicons name="add" size={18} color="#FFFFFF99" /></View>)}
           </ScrollView>
           <View style={styles.captureActionRow}>
             <View style={styles.actionHint}><Ionicons name="sparkles-outline" size={16} color="#FFFFFFCC" /><Text style={styles.actionHintText}>{photos.length < REQUIRED ? `${REQUIRED - photos.length} more required` : photos.length < MAX ? "Add up to 3 more" : "All views captured"}</Text></View>
-            <Pressable onPress={() => void takePicture()} disabled={busy || photos.length >= MAX} style={[styles.shutter, (busy || photos.length >= MAX) && styles.shutterDisabled]} accessibilityRole="button" accessibilityLabel="Take listing photo"><View style={styles.shutterInner} /></Pressable>
+            {draggingPhotoIndex !== null ? <View style={[styles.shutter, styles.deleteTarget, dragOverDelete && styles.deleteTargetActive]} accessibilityRole="button" accessibilityLabel="Delete photo"><Ionicons name="trash" size={27} color="#FFFFFF" /></View> : <Pressable onPress={() => void takePicture()} disabled={busy || photos.length >= MAX} style={[styles.shutter, (busy || photos.length >= MAX) && styles.shutterDisabled]} accessibilityRole="button" accessibilityLabel="Take listing photo"><View style={styles.shutterInner} /></Pressable>}
             <Pressable onPress={() => photos.length >= REQUIRED && setMode("backgrounds")} disabled={photos.length < REQUIRED} style={[styles.nextButton, photos.length < REQUIRED && styles.nextDisabled]} accessibilityRole="button" accessibilityLabel="Continue to backgrounds"><Text style={styles.nextText}>Next</Text><Ionicons name="arrow-forward" size={18} color={photos.length >= REQUIRED ? colors.ink : "#FFFFFF66"} /></Pressable>
           </View>
         </View>
@@ -143,9 +149,41 @@ export function ListingCaptureStudio({ photos, backgrounds, onCapture, onContinu
   );
 }
 
+function DraggableCaptureThumb({ uri, index, styles, onDragStart, onDragMove, onDragEnd }: { uri: string; index: number; styles: ReturnType<typeof makeStyles>; onDragStart: () => void; onDragMove: (moveX: number, moveY: number) => void; onDragEnd: (index: number) => void }) {
+  const offset = useRef(new Animated.ValueXY()).current;
+  const dragStarted = useRef(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const responder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderGrant: () => {
+      timer.current = setTimeout(() => { dragStarted.current = true; onDragStart(); }, 300);
+    },
+    onPanResponderMove: (event, gesture) => {
+      if (!dragStarted.current) return;
+      offset.setValue({ x: gesture.dx, y: gesture.dy });
+      onDragMove(gesture.moveX, gesture.moveY);
+    },
+    onPanResponderRelease: (_, gesture) => {
+      if (timer.current) clearTimeout(timer.current);
+      if (dragStarted.current) onDragEnd(index);
+      dragStarted.current = false;
+      Animated.spring(offset, { toValue: { x: 0, y: 0 }, useNativeDriver: true, damping: 18, stiffness: 220 }).start();
+    },
+    onPanResponderTerminate: () => {
+      if (timer.current) clearTimeout(timer.current);
+      if (dragStarted.current) onDragEnd(index);
+      dragStarted.current = false;
+      Animated.spring(offset, { toValue: { x: 0, y: 0 }, useNativeDriver: true, damping: 18, stiffness: 220 }).start();
+    },
+    onPanResponderTerminationRequest: () => false,
+  }), [index, offset, onDragEnd, onDragMove, onDragStart]);
+  return <Animated.View style={[styles.captureThumbWrap, { transform: offset.getTranslateTransform() }]} {...responder.panHandlers}><Image source={{ uri }} style={styles.captureThumb} contentFit="cover" accessibilityRole="image" accessibilityLabel={`Captured photo ${index + 1}. Hold and drag to delete.`} /></Animated.View>;
+}
+
 function makeStyles(colors: Colors) {
   return StyleSheet.create({
-    root: { flex: 1, backgroundColor: "#111" }, cameraShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.18)" }, cameraTop: { position: "absolute", left: 0, right: 0, paddingHorizontal: 18, flexDirection: "row", alignItems: "flex-start", gap: 12 }, close: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "#00000055" }, captureCopy: { flex: 1 }, captureKicker: { color: "#FFFFFFAA", fontSize: 10, fontWeight: "800", letterSpacing: 1.6 }, captureTitle: { color: "#FFF", fontSize: 20, fontWeight: "800", marginTop: 3 }, countPill: { minWidth: 48, height: 32, paddingHorizontal: 10, borderRadius: 16, backgroundColor: "#00000066", alignItems: "center", justifyContent: "center" }, countText: { color: "#FFF", fontWeight: "800" }, guide: { position: "absolute", width: "88%", aspectRatio: FRAME_ASPECT, alignSelf: "center", borderWidth: 1, borderColor: "#FFFFFF66", borderRadius: 26 }, cornerTopLeft: { position: "absolute", left: -1, top: -1, width: 34, height: 34, borderLeftWidth: 3, borderTopWidth: 3, borderColor: colors.success, borderTopLeftRadius: 26 }, cornerTopRight: { position: "absolute", right: -1, top: -1, width: 34, height: 34, borderRightWidth: 3, borderTopWidth: 3, borderColor: colors.success, borderTopRightRadius: 26 }, cornerBottomLeft: { position: "absolute", left: -1, bottom: -1, width: 34, height: 34, borderLeftWidth: 3, borderBottomWidth: 3, borderColor: colors.success, borderBottomLeftRadius: 26 }, cornerBottomRight: { position: "absolute", right: -1, bottom: -1, width: 34, height: 34, borderRightWidth: 3, borderBottomWidth: 3, borderColor: colors.success, borderBottomRightRadius: 26 }, cameraBottom: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 18, backgroundColor: "#00000066" }, thumbRail: { gap: 8, paddingVertical: 12 }, captureThumb: { width: 48, height: 60, borderRadius: 10, borderWidth: 2, borderColor: colors.success }, emptyThumb: { width: 48, height: 60, borderRadius: 10, borderWidth: 1, borderColor: "#FFFFFF55", alignItems: "center", justifyContent: "center" }, captureActionRow: { minHeight: 86, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, actionHint: { width: 96, gap: 4 }, actionHintText: { color: "#FFFFFFCC", fontSize: 11, lineHeight: 15 }, shutter: { width: 74, height: 74, borderRadius: 37, borderWidth: 4, borderColor: "#FFF", alignItems: "center", justifyContent: "center" }, shutterInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.success }, shutterDisabled: { opacity: 0.45 }, nextButton: { width: 96, height: 42, borderRadius: 21, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 }, nextDisabled: { backgroundColor: "#FFFFFF22" }, nextText: { color: colors.ink, fontWeight: "800" }, permission: { flex: 1, backgroundColor: colors.ink, paddingHorizontal: 28, justifyContent: "center", position: "relative" }, permissionClose: { position: "absolute", top: 14, left: 18, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }, permissionContent: { width: "100%", maxWidth: 420, alignSelf: "center" }, permissionIcon: { width: 72, height: 72, borderRadius: 24, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", marginBottom: 30 }, eyebrow: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.8 }, permissionTitle: { color: colors.bone, fontSize: 32, lineHeight: 38, fontWeight: "800", marginTop: 14, maxWidth: 390 }, permissionBody: { color: colors.muted, fontSize: 16, lineHeight: 24, marginTop: 18, maxWidth: 390 }, primaryButton: { minHeight: 54, borderRadius: 27, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 20, marginTop: 32 }, primaryText: { color: colors.successInk, fontSize: 15, fontWeight: "800" }, primaryDisabled: { backgroundColor: colors.surface }, primaryTextDisabled: { color: colors.muted }, backgroundRoot: { flex: 1, backgroundColor: colors.ink }, backgroundHeader: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 18, paddingBottom: 12 }, headerCount: { color: colors.muted, fontSize: 12 }, backgroundTitle: { color: colors.bone, fontSize: 23, fontWeight: "800", marginTop: 2 }, backgroundContent: { paddingHorizontal: 18, paddingBottom: 30 }, backgroundIntro: { color: colors.muted, fontSize: 15, lineHeight: 21, marginTop: 12, marginBottom: 18 }, photoPicker: { gap: 10, paddingBottom: 8 }, largeThumb: { width: 78, height: 96, borderRadius: 14, overflow: "hidden", borderWidth: 2, borderColor: "transparent", position: "relative" }, largeThumbOn: { borderColor: colors.success }, largeThumbImage: { width: "100%", height: "100%" }, selectedCheck: { position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" }, thumbNumber: { position: "absolute", left: 7, bottom: 6, color: "#FFF", fontSize: 12, fontWeight: "800" }, sceneCard: { marginTop: 16, padding: 12, borderRadius: 20, backgroundColor: colors.surface }, sceneLabel: { color: colors.subtle, fontSize: 10, fontWeight: "800", letterSpacing: 1.3, marginBottom: 10 }, scenePreview: { height: 240, borderRadius: 14, backgroundColor: colors.ink, overflow: "hidden", alignItems: "center", justifyContent: "center" }, sceneImage: { width: "94%", height: "94%" }, backgroundRail: { gap: 8, paddingTop: 14, paddingBottom: 2 }, backgroundChoice: { width: 76, opacity: 0.68 }, backgroundChoiceOn: { opacity: 1 }, backgroundSwatch: { height: 54, borderRadius: 12, borderWidth: 2, borderColor: "transparent", alignItems: "center", justifyContent: "center" }, backgroundDot: { width: 17, height: 17, borderRadius: 9, opacity: 0.7 }, backgroundName: { color: colors.muted, fontSize: 10, textAlign: "center", marginTop: 5 }, reuseRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 20 }, reuseTitle: { color: colors.bone, fontSize: 14, fontWeight: "700" }, reuseBody: { color: colors.muted, fontSize: 12, marginTop: 3 }, backgroundFooter: { paddingHorizontal: 18, paddingTop: 10 }
+    root: { flex: 1, backgroundColor: "#111" }, cameraShade: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.18)" }, cameraTop: { position: "absolute", left: 0, right: 0, paddingHorizontal: 18, flexDirection: "row", alignItems: "flex-start", gap: 12 }, close: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", backgroundColor: "#00000055" }, captureCopy: { flex: 1 }, captureKicker: { color: "#FFFFFFAA", fontSize: 10, fontWeight: "800", letterSpacing: 1.6 }, captureTitle: { color: "#FFF", fontSize: 20, fontWeight: "800", marginTop: 3 }, countPill: { minWidth: 48, height: 32, paddingHorizontal: 10, borderRadius: 16, backgroundColor: "#00000066", alignItems: "center", justifyContent: "center" }, countText: { color: "#FFF", fontWeight: "800" }, guide: { position: "absolute", width: "88%", aspectRatio: FRAME_ASPECT, alignSelf: "center", borderWidth: 1, borderColor: "#FFFFFF66", borderRadius: 26 }, cornerTopLeft: { position: "absolute", left: -1, top: -1, width: 34, height: 34, borderLeftWidth: 3, borderTopWidth: 3, borderColor: colors.success, borderTopLeftRadius: 26 }, cornerTopRight: { position: "absolute", right: -1, top: -1, width: 34, height: 34, borderRightWidth: 3, borderTopWidth: 3, borderColor: colors.success, borderTopRightRadius: 26 }, cornerBottomLeft: { position: "absolute", left: -1, bottom: -1, width: 34, height: 34, borderLeftWidth: 3, borderBottomWidth: 3, borderColor: colors.success, borderBottomLeftRadius: 26 }, cornerBottomRight: { position: "absolute", right: -1, bottom: -1, width: 34, height: 34, borderRightWidth: 3, borderBottomWidth: 3, borderColor: colors.success, borderBottomRightRadius: 26 }, cameraBottom: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 18, backgroundColor: "#00000066" }, thumbRail: { gap: 8, paddingVertical: 12 }, captureThumbWrap: { width: 48, height: 60 }, captureThumb: { width: 48, height: 60, borderRadius: 10, borderWidth: 2, borderColor: colors.success }, emptyThumb: { width: 48, height: 60, borderRadius: 10, borderWidth: 1, borderColor: "#FFFFFF55", alignItems: "center", justifyContent: "center" }, captureActionRow: { minHeight: 86, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, actionHint: { width: 96, gap: 4 }, actionHintText: { color: "#FFFFFFCC", fontSize: 11, lineHeight: 15 }, shutter: { width: 74, height: 74, borderRadius: 37, borderWidth: 4, borderColor: "#FFF", alignItems: "center", justifyContent: "center" }, shutterInner: { width: 58, height: 58, borderRadius: 29, backgroundColor: colors.success }, deleteTarget: { backgroundColor: "#8F2424", borderColor: "#FFFFFF99" }, deleteTargetActive: { backgroundColor: "#D33131", transform: [{ scale: 1.08 }] }, shutterDisabled: { opacity: 0.45 }, nextButton: { width: 96, height: 42, borderRadius: 21, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 }, nextDisabled: { backgroundColor: "#FFFFFF22" }, nextText: { color: colors.ink, fontWeight: "800" }, permission: { flex: 1, backgroundColor: colors.ink, paddingHorizontal: 28, justifyContent: "center", position: "relative" }, permissionClose: { position: "absolute", top: 14, left: 18, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }, permissionContent: { width: "100%", maxWidth: 420, alignSelf: "center" }, permissionIcon: { width: 72, height: 72, borderRadius: 24, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", marginBottom: 30 }, eyebrow: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.8 }, permissionTitle: { color: colors.bone, fontSize: 32, lineHeight: 38, fontWeight: "800", marginTop: 14, maxWidth: 390 }, permissionBody: { color: colors.muted, fontSize: 16, lineHeight: 24, marginTop: 18, maxWidth: 390 }, primaryButton: { minHeight: 54, borderRadius: 27, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 20, marginTop: 32 }, primaryText: { color: colors.successInk, fontSize: 15, fontWeight: "800" }, primaryDisabled: { backgroundColor: colors.surface }, primaryTextDisabled: { color: colors.muted }, backgroundRoot: { flex: 1, backgroundColor: colors.ink }, backgroundHeader: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 18, paddingBottom: 12 }, headerCount: { color: colors.muted, fontSize: 12 }, backgroundTitle: { color: colors.bone, fontSize: 23, fontWeight: "800", marginTop: 2 }, backgroundContent: { paddingHorizontal: 18, paddingBottom: 30 }, backgroundIntro: { color: colors.muted, fontSize: 15, lineHeight: 21, marginTop: 12, marginBottom: 18 }, photoPicker: { gap: 10, paddingBottom: 8 }, largeThumb: { width: 78, height: 96, borderRadius: 14, overflow: "hidden", borderWidth: 2, borderColor: "transparent", position: "relative" }, largeThumbOn: { borderColor: colors.success }, largeThumbImage: { width: "100%", height: "100%" }, selectedCheck: { position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" }, thumbNumber: { position: "absolute", left: 7, bottom: 6, color: "#FFF", fontSize: 12, fontWeight: "800" }, sceneCard: { marginTop: 16, padding: 12, borderRadius: 20, backgroundColor: colors.surface }, sceneLabel: { color: colors.subtle, fontSize: 10, fontWeight: "800", letterSpacing: 1.3, marginBottom: 10 }, scenePreview: { height: 240, borderRadius: 14, backgroundColor: colors.ink, overflow: "hidden", alignItems: "center", justifyContent: "center" }, sceneImage: { width: "94%", height: "94%" }, backgroundRail: { gap: 8, paddingTop: 14, paddingBottom: 2 }, backgroundChoice: { width: 76, opacity: 0.68 }, backgroundChoiceOn: { opacity: 1 }, backgroundSwatch: { height: 54, borderRadius: 12, borderWidth: 2, borderColor: "transparent", alignItems: "center", justifyContent: "center" }, backgroundDot: { width: 17, height: 17, borderRadius: 9, opacity: 0.7 }, backgroundName: { color: colors.muted, fontSize: 10, textAlign: "center", marginTop: 5 }, reuseRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 20 }, reuseTitle: { color: colors.bone, fontSize: 14, fontWeight: "700" }, reuseBody: { color: colors.muted, fontSize: 12, marginTop: 3 }, backgroundFooter: { paddingHorizontal: 18, paddingTop: 10 }
   });
 }
 

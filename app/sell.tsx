@@ -862,6 +862,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           photos={photos}
           backgrounds={AI_CUTOUT_BACKGROUNDS as CaptureBackground[]}
           onCapture={addUri}
+          onDeleteCapture={removePhoto}
           onContinue={finishCapture}
           onClose={leaveSell}
         />
