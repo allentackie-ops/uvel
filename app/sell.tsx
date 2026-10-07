@@ -417,6 +417,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   }
 
   function removePhoto(uri: string) {
+    if (photos.length <= MIN_NORMAL_PHOTOS) return;
     const removedIndex = photos.findIndex((photo) => photo.uri === uri);
     setPhotos((prev) => prev.filter((p) => p.uri !== uri));
     if (removedIndex >= 0) {
@@ -428,6 +429,16 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     const photo = photos[index];
     if (!photo) return;
     const deleteAction = { text: "Delete this", style: "destructive" as const, onPress: () => removePhoto(photo.uri) };
+    if (photos.length <= MIN_NORMAL_PHOTOS) {
+      const buttons = index === 0
+        ? [{ text: "Cancel", style: "cancel" as const }]
+        : [
+            { text: "Set this picture to main", onPress: () => reorderPhotos(index, 0) },
+            { text: "Cancel", style: "cancel" as const },
+          ];
+      Alert.alert(index === 0 ? "Main picture" : "Picture options", undefined, buttons);
+      return;
+    }
     const buttons = index === 0
       ? [deleteAction, { text: "Cancel", style: "cancel" as const }]
       : [
@@ -727,7 +738,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.photosLabel}>Photos · {photos.length}/{MAX}</Text>
+          <Text style={styles.photosLabel}>Photos · {photos.length}/{photos.length}</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
