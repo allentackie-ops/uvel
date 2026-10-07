@@ -39,10 +39,9 @@ import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
 import { useColors, type Colors } from "../lib/theme";
 import { addPiece, getPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
-import { setImmersivePreview } from "../lib/immersivePreview";
 import { mirrorAcceptedFirebaseListing } from "../lib/supabaseListings";
 
-const MAX = 10;
+const MAX = 6;
 const SELL_WELCOME_SEEN_KEY = "uvel.sell-welcome-seen";
 const SELL_WELCOME_IMAGE = require("../assets/sell-welcome.png");
 const UVEL_ICON = require("../assets/icon.png");
@@ -143,7 +142,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   );
   const [fitsOpen, setFitsOpen] = useState(Boolean(existing && fits === "1"));
   const [shopLook, setShopLook] = useState(existing?.shopLook || "uvel");
-  const [lookOpen, setLookOpen] = useState(false);
   const [fromPhoto, setFromPhoto] = useState<FromPhoto>({});
   const [shipsTo, setShipsTo] = useState<ShipsTo>(
     existing?.shipsTo ?? encodeShipsTo(origin, "home"),
@@ -175,7 +173,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     if (embedded) router.replace("/(tabs)/index");
     else router.back();
   }, [embedded]);
-  const currentLook = shopLookOf(shopLook);
   function completeNavigation(listingId?: string) {
     if (returnTo === "listing" && listingId) {
       router.replace({ pathname: "/closet/[id]", params: { id: listingId } });
@@ -357,10 +354,10 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     { key: "price", done: hasPrice, label: "Add a price" },
   ] as const;
   const nextStep = steps.find((step) => !step.done);
-  const canList = !nextStep && gate.phase === "idle" && (Boolean(existing) || aiConfirmed);
+  const canList = !nextStep && gate.phase === "idle";
   const progress = steps.filter((step) => step.done).length;
   const ph = colors.muted;
-  const ctaLabel = nextStep?.label ?? (aiConfirmed || existing ? "Complete" : "Review AI listing above");
+  const ctaLabel = nextStep?.label ?? "Complete";
   const ctaReady = gate.phase === "idle" && !checking && (Boolean(nextStep) || canList);
 
   useEffect(() => {
@@ -501,6 +498,20 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     }
   }
 
+  function openPhotoActions(index: number) {
+    const photo = photos[index];
+    if (!photo) return;
+    const deleteAction = { text: "Delete this", style: "destructive" as const, onPress: () => removePhoto(photo.uri) };
+    const buttons = index === 0
+      ? [deleteAction, { text: "Cancel", style: "cancel" as const }]
+      : [
+          { text: "Set this picture to main", onPress: () => reorderPhotos(index, 0) },
+          deleteAction,
+          { text: "Cancel", style: "cancel" as const },
+        ];
+    Alert.alert(index === 0 ? "Main picture" : "Picture options", undefined, buttons);
+  }
+
   function reorderPhotos(from: number, to: number) {
     setPhotos((prev) => {
       if (from === to || from < 0 || to < 0 || from >= prev.length || to >= prev.length) return prev;
@@ -571,21 +582,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     router.push({ pathname: "/listing-details", params: { selected: JSON.stringify(measurements) } });
   }
 
-  function openImmersivePreview() {
-    const uris = photos.map((photo) => photo.uri);
-    if (!uris.length) return;
-    setImmersivePreview({
-      id: existing?.id || `preview-${Date.now()}`,
-      photo: uris[0], photos: uris, clipUri: clipUri || undefined,
-      name: name.trim() || "Your listing", brand: brand.trim() || "Unlabeled",
-      category: category || "Tops", color: color.trim() || "Not added", size: size.trim() || "Not added",
-      condition: condition || "Not added", material: material.trim() || "Not added", notes: notes.trim(), measurements,
-      listPriceCents: Math.max(1, Number(price) || 1) * 100, originalPriceCents: Math.max(0, Number(was) || 0) * 100,
-      status: "listed", createdAt: Date.now(), ownerId: uid, ownerName: displayName, ownerPhoto: avatarUri || existing?.ownerPhoto,
-      country: origin, currency: listingCurrency, shipsTo, shippingMethod, shippingCarriers: shippingCarrierIds, shippingBuyerPays, shopLook,
-    });
-    router.push({ pathname: "/immersive-shopping", params: { preview: "1" } });
-  }
 
   function openPrice() {
     if (!hasPhoto) {
@@ -899,14 +895,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             </AccessiblePressable>
           ) : <View style={{ width: 40 }} />}
         </View>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${(progress / 9) * 100}%` }]} />
-        </View>
-        <View style={styles.progressLabels}>
-          <Text style={[styles.progressLabel, hasPhoto && styles.progressLabelOn]}>Capture</Text>
-          <Text style={[styles.progressLabel, hasTitle && hasNotes && styles.progressLabelOn]}>Describe</Text>
-          <Text style={[styles.progressLabel, hasPrice && styles.progressLabelOn]}>Price</Text>
-        </View>
 
         <ScrollView
           ref={scrollRef}
@@ -926,6 +914,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               photos={photos}
               onPreview={setSelectedPhotoIndex}
               onReorder={reorderPhotos}
+              onLongPress={openPhotoActions}
               renderPhoto={(p, i) => (
                 <View style={[styles.photoTile, i === 0 ? styles.photoCover : styles.photoThumb, i === selectedPhotoIndex && styles.photoSelected]}>
                   <Image cachePolicy="memory-disk" source={{ uri: p.uri }} style={styles.photoImage} contentFit="cover" accessibilityRole="image" accessibilityLabel={`Photo ${i + 1}${i === 0 ? ", main photo" : ""}`} />
@@ -933,16 +922,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                   {p.status === "warn" ? <View style={styles.warnDot} /> : null}
                   {p.status === "unverified" ? <View style={styles.unverifiedDot} /> : null}
                   {p.status === "checking" ? <View style={styles.photoCheck}><OrbitLoader size={24} /></View> : null}
-                  <AccessiblePressable
-                    onPress={() => removePhoto(p.uri)}
-                    hitSlop={10}
-                    style={({ pressed }) => [styles.photoX, pressed && { opacity: 0.92 }]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Remove photo ${i + 1}`}
-                    accessibilityHint="Double tap to remove this photo from the listing."
-                  >
-                    <Text style={styles.photoXTxt}>×</Text>
-                  </AccessiblePressable>
                 </View>
               )}
             />
@@ -964,82 +943,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             ) : null}
           </ScrollView>
 
-          {!existing ? (
-            <View style={styles.aiStudio}>
-              <View style={styles.aiStudioHeader}>
-                <View style={styles.aiStudioIcon}><Ionicons name="sparkles" size={18} color={colors.ink} /></View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.aiStudioTitle}>{aiStudioReady ? "Your listing is ready to review" : "AI listing studio"}</Text>
-                  <Text style={styles.aiStudioBody}>{aiStudioReady ? "We identified the piece and drafted the details. Choose a clean background, then confirm." : `Take ${MIN_NORMAL_PHOTOS} clear photos in person. Uvel will identify the item and draft the listing.`}</Text>
-                </View>
-              </View>
-              {aiStudioReady && previewPhoto ? (
-                <>
-                  <View style={[styles.cutoutPreview, { backgroundColor: AI_CUTOUT_BACKGROUNDS.find((item) => item.id === selectedBackground)?.color || "#E8DED0" }]}>
-                    <Image source={{ uri: cutoutUri || previewPhoto.uri }} style={styles.cutoutImage} contentFit="contain" accessibilityLabel="AI product cutout preview" />
-                    <View style={styles.cutoutBadge}><Ionicons name={cutoutStatus === "ready" ? "sparkles" : "sync-outline"} size={13} color={colors.ink} /><Text style={styles.cutoutBadgeText}>{cutoutStatus === "ready" ? "Clean cutout ready" : cutoutStatus === "processing" ? "Generating cutout…" : "Cutout needs another try"}</Text></View>
-                  </View>
-                  <Text style={styles.backgroundLabel}>Choose a background · {AI_CUTOUT_BACKGROUNDS.length} natural options</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.backgroundRail}>
-                    {AI_CUTOUT_BACKGROUNDS.map((background) => (
-                      <AccessiblePressable key={background.id} onPress={() => { setSelectedBackground(background.id); setAiConfirmed(false); }} style={[styles.backgroundChoice, selectedBackground === background.id && styles.backgroundChoiceOn]} accessibilityRole="button" accessibilityLabel={`Use ${background.name} background`} accessibilityState={{ selected: selectedBackground === background.id }}>
-                        <View style={[styles.backgroundSwatch, { backgroundColor: background.color }, selectedBackground === background.id && { borderColor: colors.success }]}><View style={[styles.backgroundDot, { backgroundColor: background.accent }]} /></View>
-                        <Text style={styles.backgroundName} numberOfLines={1}>{background.name}</Text>
-                      </AccessiblePressable>
-                    ))}
-                  </ScrollView>
-                  <AccessiblePressable disabled={cutoutStatus !== "ready"} onPress={() => { setAiConfirmed((confirmed) => !confirmed); setOpenSection("describe"); }} style={[styles.aiConfirm, aiConfirmed && styles.aiConfirmOn, cutoutStatus !== "ready" && { opacity: 0.5 }]} accessibilityRole="checkbox" accessibilityState={{ checked: aiConfirmed, disabled: cutoutStatus !== "ready" }}>
-                    <Ionicons name={aiConfirmed ? "checkmark-circle" : "ellipse-outline"} size={22} color={aiConfirmed ? colors.success : colors.subtle} />
-                    <View style={{ flex: 1 }}><Text style={styles.aiConfirmTitle}>{aiConfirmed ? "Listing reviewed" : "I reviewed the AI listing"}</Text><Text style={styles.aiConfirmBody}>I’ll check the suggested details below before posting.</Text></View>
-                  </AccessiblePressable>
-                </>
-              ) : null}
-            </View>
-          ) : null}
-
-          <Text style={styles.photosLabel}>In motion</Text>
-          {clipUri ? (
-            <View style={styles.clipRow}>
-              <View style={styles.clipTile}>
-                <MotionClip uri={clipUri} style={styles.clipPreview} />
-                <View style={styles.mainPhotoPill}>
-                  <Text style={styles.mainPhotoTxt}>Up to 15s</Text>
-                </View>
-                <AccessiblePressable
-                  onPress={() => setClipUri("")}
-                  hitSlop={10}
-                  style={({ pressed }) => [styles.photoX, pressed && { opacity: 0.92 }]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Remove clip"
-                >
-                  <Text style={styles.photoXTxt}>×</Text>
-                </AccessiblePressable>
-              </View>
-              <AccessiblePressable
-                onPress={chooseClip}
-                style={({ pressed }) => [styles.clipSwap, pressed && { opacity: 0.92 }]}
-                accessibilityRole="button"
-                accessibilityLabel="Replace clip"
-              >
-                <Text style={styles.clipSwapTxt}>Replace</Text>
-              </AccessiblePressable>
-            </View>
-          ) : (
-            <AccessiblePressable
-              onPress={chooseClip}
-              style={({ pressed }) => [styles.clipAdd, pressed && { opacity: 0.92 }]}
-              accessibilityRole="button"
-              accessibilityLabel="Add a clip of the piece in motion"
-              accessibilityHint="Optional. Record or choose a clip up to 15 seconds. You can trim it."
-            >
-              <Ionicons name="videocam-outline" size={22} color={colors.bone} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.clipAddTitle}>Add a clip</Text>
-                <Text style={styles.clipAddBody}>Optional · up to 15 seconds · trim only</Text>
-              </View>
-              <Ionicons name="add" size={20} color={colors.subtle} />
-            </AccessiblePressable>
-          )}
 
           {existing && fitsOpen && wardrobeUris.length ? (
             <View style={styles.picker}>
@@ -1085,12 +988,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
             </View>
           ) : null}
 
-          {SELL_VERIFICATION_ENABLED && hasPhoto && !photoReadyForPricing && !checking ? (
-            <View style={styles.analysisNotice} accessibilityLiveRegion="polite">
-              <Text style={styles.analysisTitle}>Photo review required for price recommendations</Text>
-              <Text style={styles.analysisCopy}>Uvel will show recommendations after a product photo has been reviewed successfully.</Text>
-            </View>
-          ) : null}
 
           <View style={styles.sheet}>
             <AccessiblePressable
@@ -1274,64 +1171,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
               <Ionicons name="chevron-forward" size={18} color={colors.subtle} />
             </AccessiblePressable>
 
-            <AccessiblePressable
-              onPress={() => setLookOpen((open) => !open)}
-              style={({ pressed }) => [styles.choiceRow, styles.stackGap, pressed && { opacity: 0.92 }]}
-              accessibilityRole="button"
-              accessibilityLabel={`Shop look: ${currentLook.name}`}
-              accessibilityHint="Double tap to choose how buyers see this listing."
-              accessibilityState={{ expanded: lookOpen }}
-            >
-              <View style={styles.lookRowLeft}>
-                <View style={[styles.lookChip, { backgroundColor: currentLook.page, borderColor: currentLook.accent }]} />
-                <View>
-                  <Text style={styles.choiceValue}>{currentLook.name}</Text>
-                  <Text style={styles.choiceSub}>Shop look</Text>
-                </View>
-              </View>
-              <Ionicons name={lookOpen ? "chevron-down" : "chevron-forward"} size={18} color={colors.subtle} />
-            </AccessiblePressable>
-
-            {lookOpen ? (
-              <View style={styles.lookGrid}>
-                {SHOP_LOOKS.map((look) => {
-                  const on = shopLook === look.id;
-                  return (
-                    <AccessiblePressable
-                      key={look.id}
-                      onPress={() => {
-                        setShopLook(look.id);
-                        setLookOpen(false);
-                        if (existing) updatePiece(existing.id, { shopLook: look.id });
-                      }}
-                      style={({ pressed }) => [
-                        styles.lookCard,
-                        { backgroundColor: look.surface, borderColor: on ? look.accent : look.page },
-                        on && styles.lookCardOn,
-                        pressed && { opacity: 0.92 },
-                      ]}
-                      accessibilityRole="radio"
-                      accessibilityLabel={look.name}
-                      accessibilityHint="Double tap to choose this Shop the look style."
-                      accessibilityState={{ selected: on }}
-                    >
-                      <View style={[styles.lookSwatch, { backgroundColor: look.page, borderColor: look.accent }]}>
-                        <View style={[styles.lookSwatchSurface, { backgroundColor: look.surface }]} />
-                        <View style={styles.lookDots}>
-                          <View style={[styles.lookDot, { backgroundColor: look.bone }]} />
-                          <View style={[styles.lookDot, { backgroundColor: look.accent }]} />
-                        </View>
-                      </View>
-                      <Text style={[styles.lookName, { color: look.bone }]}>{look.name}</Text>
-                      <Text style={[styles.lookLine, { color: look.muted }]} numberOfLines={1}>
-                        {look.line}
-                      </Text>
-                    </AccessiblePressable>
-                  );
-                })}
-              </View>
-            ) : null}
-
             {existing ? (
               <AccessiblePressable
                 onPress={() =>
@@ -1343,11 +1182,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 style={styles.preview}
               >
                 <Text style={styles.previewTxt}>Preview as a buyer →</Text>
-              </AccessiblePressable>
-            ) : null}
-            {photos.length ? (
-              <AccessiblePressable onPress={openImmersivePreview} style={styles.preview} accessibilityRole="button" accessibilityLabel="Preview in Immersive Shopping">
-                <Text style={styles.previewTxt}>Preview in Immersive Shopping →</Text>
               </AccessiblePressable>
             ) : null}
             </View> : null}

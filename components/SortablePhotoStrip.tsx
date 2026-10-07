@@ -9,13 +9,14 @@ type Props = {
   photos: SortablePhoto[];
   onPreview: (index: number) => void;
   onReorder: (from: number, to: number) => void;
+  onLongPress?: (index: number) => void;
   renderPhoto: (photo: SortablePhoto, index: number) => ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
 };
 
 const REORDER_STEP = 72;
 
-export function SortablePhotoStrip({ photos, onPreview, onReorder, renderPhoto, contentContainerStyle }: Props) {
+export function SortablePhotoStrip({ photos, onPreview, onReorder, onLongPress, renderPhoto, contentContainerStyle }: Props) {
   return (
     <View style={[{ flexDirection: "row", alignItems: "flex-start", gap: 8 }, contentContainerStyle]}>
       {photos.map((photo, index) => (
@@ -25,6 +26,7 @@ export function SortablePhotoStrip({ photos, onPreview, onReorder, renderPhoto, 
           count={photos.length}
           onPreview={onPreview}
           onReorder={onReorder}
+          onLongPress={onLongPress}
         >
           {renderPhoto(photo, index)}
         </SortablePhotoTile>
@@ -38,12 +40,14 @@ function SortablePhotoTile({
   count,
   onPreview,
   onReorder,
+  onLongPress,
   children,
 }: {
   index: number;
   count: number;
   onPreview: (index: number) => void;
   onReorder: (from: number, to: number) => void;
+  onLongPress?: (index: number) => void;
   children: ReactNode;
 }) {
   const dragIndex = useSharedValue(-1);
@@ -71,9 +75,15 @@ function SortablePhotoTile({
     .onEnd(() => {
       dragIndex.value = -1;
     });
+  const hold = Gesture.LongPress()
+    .minDuration(350)
+    .onStart(() => {
+      if (onLongPress) runOnJS(onLongPress)(index);
+    });
+  const gesture = onLongPress ? Gesture.Race(hold, tap) : Gesture.Race(drag, tap);
 
   return (
-    <GestureDetector gesture={Gesture.Race(drag, tap)}>
+    <GestureDetector gesture={gesture}>
       <View>{children}</View>
     </GestureDetector>
   );
