@@ -9,6 +9,8 @@ type DraftPhoto = { uri: string };
 
 export type ListingDraft = {
   photos: DraftPhoto[];
+  supabaseListingId?: string;
+  processingStatus?: "idle" | "queued" | "processing" | "completed" | "failed";
   studioStep?: "capture" | "backgrounds" | "form";
   studioSelectedPhotoIndex?: number;
   studioBackgroundByPhoto?: Record<string, string>;

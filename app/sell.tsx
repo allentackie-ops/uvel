@@ -27,7 +27,7 @@ import { getMarket, getMarketByCurrency, moneyExact } from "../lib/markets";
 import { takePendingListingPrice } from "../lib/listingPriceDraft";
 import { clearListingDraft, loadListingDraft, saveListingDraft } from "../lib/listingDraft";
 import { reviewListingPhoto, type PhotoReview } from "../lib/photoCheck";
-import { preparePersonalListingCutout, submitPersonalListingForReview, uploadPersonalListingPhotos, type PersonalListingReviewResult } from "../lib/listingReview";
+import { getSupabaseListingStatus, publishSupabaseListing, startSupabaseListingProcessing } from "../lib/listingReview";
 import { encodeShipsTo, type ShipsTo } from "../lib/ships";
 import { carriersForCountry, loadSellerShippingSettings, shippingMethodLabel, type SellerShippingSettings } from "../lib/sellerShipping";
 import { takePendingListingSelection } from "../lib/listingOptions";
@@ -35,7 +35,6 @@ import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
 import { useColors, type Colors } from "../lib/theme";
 import { addPiece, getPiece, updatePiece, useWardrobe } from "../lib/wardrobe";
-import { mirrorAcceptedFirebaseListing } from "../lib/supabaseListings";
 
 const MAX = 6;
 const SELL_WELCOME_SEEN_KEY = "uvel.sell-welcome-seen";
@@ -70,10 +69,10 @@ const AI_CUTOUT_BACKGROUNDS = [
 // Personal seller listings must pass the server-side checks before publication.
 const SELL_VERIFICATION_ENABLED = true;
 const STAGES = [
-  "Checking your listing photos…",
-  "Comparing against active store images…",
-  "Checking the media format…",
-  "Finishing the safety review…",
+  "Getting your listing right…",
+  "Making each photo ready…",
+  "Writing the listing details…",
+  "Saving your progress…",
 ];
 
 type Slot = {
@@ -145,10 +144,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   const [stage, setStage] = useState(0);
   const [selectedBackground, setSelectedBackground] = useState(AI_CUTOUT_BACKGROUNDS[0].id);
   const [aiConfirmed, setAiConfirmed] = useState(false);
-  const [cutoutUri, setCutoutUri] = useState<string>();
-  const [cutoutStatus, setCutoutStatus] = useState<"idle" | "processing" | "ready" | "failed">("idle");
-  const cutoutBusy = useRef(false);
   const [newListingId, setNewListingId] = useState<string>();
+  const [supabaseProcessingStatus, setSupabaseProcessingStatus] = useState<"idle" | "queued" | "processing" | "completed" | "failed">("idle");
   const [draftReady, setDraftReady] = useState(draftParam !== "1");
   const [draftDisabled, setDraftDisabled] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -201,6 +198,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     void loadListingDraft().then((saved) => {
       if (!active) return;
       if (saved) {
+        if (saved.supabaseListingId) setNewListingId(saved.supabaseListingId);
+        setSupabaseProcessingStatus(saved.processingStatus || "idle");
         setDraftOrigin(saved.origin);
         setDraftCurrency(saved.currency);
         setPhotos(saved.photos.map((photo) => ({ uri: photo.uri, status: "ok" as const })));
@@ -243,6 +242,42 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   }, [draftParam, existing?.id]);
 
   useEffect(() => {
+    if (existing || draftParam !== "1" || !newListingId) return;
+    let active = true;
+    const poll = async () => {
+      try {
+        const status = await getSupabaseListingStatus(newListingId);
+        if (!active) return;
+        setSupabaseProcessingStatus(status.processingStatus);
+        if (status.processingStatus === "processing" || status.processingStatus === "queued") {
+          setGate({ phase: "review", line: status.processingMessage || "Getting the listing right" });
+          return;
+        }
+        if (status.processingStatus === "failed") {
+          setGate({ phase: "block", headline: "Your listing needs attention", reasons: [status.processingError || "We could not finish the listing."] });
+          return;
+        }
+        if (status.processingStatus === "completed") {
+          if (status.title) setName(status.title);
+          if (status.brand && status.brand !== "Unlabeled") setBrand(status.brand);
+          if (status.category) setCategory(status.category as Category);
+          if (status.color && status.color !== "N/A") setColor(status.color);
+          if (status.material && status.material !== "N/A") setMaterial(status.material);
+          if (status.description) setNotes(status.description);
+          if (status.priceCents) setPrice(String(Math.round(status.priceCents / 100)));
+          setStudioStep("form");
+          setGate({ phase: "idle" });
+        }
+      } catch {
+        // The draft remains local and will retry the next time the page is opened.
+      }
+    };
+    void poll();
+    const timer = setInterval(() => void poll(), 3500);
+    return () => { active = false; clearInterval(timer); };
+  }, [draftParam, existing, newListingId]);
+
+  useEffect(() => {
     void loadSellerShippingSettings().then(setShippingSettings);
   }, []);
 
@@ -276,6 +311,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     if (existing || !draftReady || draftDisabled) return;
     void saveListingDraft({
       photos: photos.map((photo) => ({ uri: photo.uri })),
+      supabaseListingId: newListingId,
+      processingStatus: supabaseProcessingStatus,
       studioStep,
       studioSelectedPhotoIndex: studioSelectedPhoto,
       studioBackgroundByPhoto,
@@ -304,7 +341,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       currency: listingCurrency,
       updatedAt: Date.now(),
     });
-  }, [existing?.id, draftReady, draftDisabled, photos, studioStep, studioSelectedPhoto, studioBackgroundByPhoto, studioReuseBackground, studioExtraSlotsEnabled, clipUri, name, brand, category, color, size, condition, material, notes, measurements, price, was, shopLook, shipsTo, shippingMethod, shippingCarrierIds, shippingBuyerPays, origin, listingCurrency]);
+  }, [existing?.id, draftReady, draftDisabled, photos, newListingId, supabaseProcessingStatus, studioStep, studioSelectedPhoto, studioBackgroundByPhoto, studioReuseBackground, studioExtraSlotsEnabled, clipUri, name, brand, category, color, size, condition, material, notes, measurements, price, was, shopLook, shipsTo, shippingMethod, shippingCarrierIds, shippingBuyerPays, origin, listingCurrency]);
 
   useEffect(() => {
     if (existing || !draftReady || draftDisabled) return;
@@ -393,22 +430,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       if (Object.keys(next).length) setFromPhoto((prev) => ({ ...prev, ...next }));
     }
   }, [aiStudioReady, existing?.id, photos]);
-
-  useEffect(() => {
-    if (existing || !aiStudioReady || cutoutUri || cutoutBusy.current) return;
-    cutoutBusy.current = true;
-    setCutoutStatus("processing");
-    const listingId = newListingId || `w-${Date.now().toString(36)}`;
-    if (!newListingId) setNewListingId(listingId);
-    void uploadPersonalListingPhotos(listingId, photos.map((photo) => photo.uri))
-      .then((uploaded) => preparePersonalListingCutout(listingId, uploaded.map((item) => item.path)))
-      .then((prepared) => {
-        setCutoutUri(prepared.cutoutPhoto);
-        setCutoutStatus("ready");
-      })
-      .catch(() => setCutoutStatus("failed"))
-      .finally(() => { cutoutBusy.current = false; });
-  }, [aiStudioReady, cutoutUri, existing?.id, newListingId, photos]);
 
   useEffect(() => {
     if (gate.phase !== "review") return;
@@ -539,14 +560,13 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     });
   }
 
-  async function publish() {
-    if (!canList) return;
-    if (!existing && photos.length < MIN_NORMAL_PHOTOS) {
+  async function queueProcessing(backgroundByPhoto: Record<string, string>) {
+    if (photos.length < MIN_NORMAL_PHOTOS) {
       Alert.alert("Take three photos first", `Normal listings need at least ${MIN_NORMAL_PHOTOS} in-person camera photos before Uvel can create the listing.`);
       return;
     }
     const uris = photos.map((p) => p.uri);
-    const listingId = existing?.id || newListingId || `w-${Date.now().toString(36)}`;
+    const listingId = existing?.id || newListingId || `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0").slice(-12)}`;
     if (!existing?.id && !newListingId) setNewListingId(listingId);
     const draft = {
       photo: uris[0],
@@ -573,82 +593,55 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       studioBackgroundId: selectedBackground,
     };
     const face = avatarUri || existing?.ownerPhoto;
-    const listed = {
-      ...draft,
-      ownerId: uid,
-      ownerName: displayName,
-      ownerPhoto: face || undefined,
-      country: origin,
-      currency: listingCurrency,
-      shipsTo,
-    };
-    setGate({ phase: "review", line: STAGES[0] });
-    let result: PersonalListingReviewResult;
+    const listed = { ...draft, ownerId: uid, ownerName: displayName, ownerPhoto: face || undefined, country: origin, currency: listingCurrency, shipsTo };
+    setGate({ phase: "review", line: "Getting the listing right" });
     try {
-      result = await submitPersonalListingForReview({
+      const backgroundMap = Object.fromEntries(AI_CUTOUT_BACKGROUNDS.map((item) => [item.id, { name: item.name, color: item.color }]));
+      const backgroundKeys = uris.map((uri, index) => backgroundByPhoto[uri] || studioBackgroundByPhoto[String(index)] || selectedBackground);
+      await startSupabaseListingProcessing({
         listingId,
         photos: uris,
-        name: listed.name,
+        backgroundKeys,
+        backgroundMap,
+        selectedBackgroundKey: selectedBackground,
+        title: listed.name,
         brand: listed.brand,
-        category: String(listed.category),
+        category: String(listed.category || ""),
         color: listed.color,
         size: listed.size,
         condition: listed.condition,
         material: listed.material,
-        notes: listed.notes,
-        listPriceCents: listed.listPriceCents,
-        originalPriceCents: listed.originalPriceCents,
-        country: listed.country || origin,
+        description: listed.notes,
+        priceCents: listed.listPriceCents,
         currency: listed.currency || listingCurrency,
-        shipsTo: listed.shipsTo,
-        shippingMethod,
-        shippingCarriers: shippingCarrierIds,
-        shippingBuyerPays,
-        shopLook,
-        clipUri: clipUri || undefined,
-        ownerName: displayName,
-        ownerPhoto: face || undefined,
+        country: listed.country || origin,
       });
+      setSupabaseProcessingStatus("queued");
     } catch (error) {
       if (!existing && !getPiece(listingId)) addPiece({ ...listed, id: listingId, status: "draft" });
-      const message = error instanceof Error ? error.message : "The review service is unavailable.";
-      setGate({ phase: "block", headline: "Couldn’t finish the review", reasons: [`${message} Nothing went live. Please try again shortly.`] });
+      const message = error instanceof Error ? error.message : "The listing could not be started.";
+      setGate({ phase: "block", headline: "Couldn’t start the listing", reasons: [message] });
       return;
     }
-    const reviewed = {
-      ...listed,
-      photo: result.photos[0] || listed.photo,
-      photos: result.photos.length ? result.photos : uris,
-      photoStoragePaths: result.photoStoragePaths,
-      status: result.status,
-    };
-    if (getPiece(listingId)) updatePiece(listingId, reviewed);
-    else addPiece({ ...reviewed, id: listingId });
-    if (!result.ok) {
-      setGate({ phase: "block", headline: result.headline, reasons: result.reasons });
-      return;
+    if (getPiece(listingId)) updatePiece(listingId, { ...listed, id: listingId, status: "draft" });
+    else addPiece({ ...listed, id: listingId, status: "draft" });
+    setDraftDisabled(false);
+    setGate({ phase: "review", line: "Getting the listing right" });
+  }
+
+  async function publish() {
+    if (supabaseProcessingStatus !== "completed" || !newListingId) return;
+    if (!canList) return;
+    try {
+      await publishSupabaseListing(newListingId);
+      if (getPiece(newListingId)) updatePiece(newListingId, { status: "listed" });
+      setDraftDisabled(true);
+      void clearListingDraft();
+      setGate({ phase: "pass" });
+      setTimeout(() => completeNavigation(newListingId), 900);
+    } catch (error) {
+      setGate({ phase: "block", headline: "Couldn’t post the listing", reasons: [error instanceof Error ? error.message : "Please try again."] });
     }
-    void mirrorAcceptedFirebaseListing({
-      firebaseListingId: listingId,
-      title: listed.name,
-      brand: listed.brand,
-      category: String(listed.category),
-      color: listed.color,
-      size: listed.size,
-      condition: listed.condition,
-      material: listed.material,
-      description: listed.notes,
-      priceCents: listed.listPriceCents,
-      currency: listed.currency || listingCurrency,
-      country: listed.country || origin,
-      backgroundKey: selectedBackground,
-      photoStoragePaths: result.photoStoragePaths,
-      photoUrls: result.photos,
-    }).catch(() => undefined);
-    setDraftDisabled(true);
-    void clearListingDraft();
-    setGate({ phase: "pass" });
-    setTimeout(() => completeNavigation(listingId), 1100);
   }
 
   function confirmDeleteDraft() {
@@ -685,6 +678,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     const firstBackground = photos[0] ? backgroundByPhoto[photos[0].uri] : undefined;
     if (firstBackground) setSelectedBackground(firstBackground);
     setStudioStep("form");
+    void queueProcessing(backgroundByPhoto);
   }
 
   const handleStudioProgress = useCallback((progress: {
@@ -1061,8 +1055,17 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
           {gate.phase === "review" ? (
             <>
               <OrbitLoader size={24} />
-              <Text style={styles.gateH}>{STAGES[stage]}</Text>
-              <Text style={styles.gateP}>Nothing goes live until every review check is complete.</Text>
+              <Text style={styles.gateH}>Your listing is being edited</Text>
+              <Text style={styles.gateP}>{gate.line || STAGES[stage]}</Text>
+              <Text style={styles.gateP}>It usually takes about 30 seconds. You can leave this screen—we’ll let you know when it’s ready.</Text>
+              <AccessiblePressable
+                onPress={leaveSell}
+                style={({ pressed }) => [styles.gateCta, pressed && { opacity: 0.92 }]}
+                accessibilityRole="button"
+                accessibilityLabel="Leave listing processing"
+              >
+                <Text style={styles.ctaTxt}>Leave for now</Text>
+              </AccessiblePressable>
             </>
           ) : null}
           {gate.phase === "block" ? (

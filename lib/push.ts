@@ -2,6 +2,7 @@ import Constants from "expo-constants";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { AppState, Platform } from "react-native";
 import { firebaseDb, firebaseReady } from "./firebase";
+import { getSupabase } from "./supabase";
 
 /** Bundled stitch chime. Filename must match app.json expo-notifications sounds. */
 export const UVEL_SOUND = "uvel.wav";
@@ -91,6 +92,17 @@ export async function registerPushToken(uid: string) {
       { expoPushToken: token, lastSeen: Date.now(), updatedAt: Date.now() },
       { merge: true },
     );
+    const supabase = getSupabase();
+    if (supabase) {
+      try {
+        await supabase.from("profiles").upsert(
+          { legacy_firebase_uid: uid, expo_push_token: token, updated_at: new Date().toISOString() },
+          { onConflict: "legacy_firebase_uid" },
+        );
+      } catch {
+        /* Firebase token registration should still succeed if Supabase profile RLS blocks this mirror. */
+      }
+    }
     return true;
   } catch {
     return false;
