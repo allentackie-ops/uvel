@@ -3,7 +3,8 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { PlatformPay, useStripe } from "@stripe/stripe-react-native";
 import { useEffect, useRef, useState } from "react";
-import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "../lib/haptics";
 import { getBrand, type Brand } from "../lib/brands";
@@ -28,9 +29,11 @@ import { FriendShareSheet, type FriendSharePayload } from "./FriendShareSheet";
 
 export type ListingOrigin = { x: number; y: number; width: number; height: number; radius?: number; radii?: [number, number, number, number]; photo?: string; measure?: (callback: (rect: { x: number; y: number; width: number; height: number }) => void) => void };
 type Props = { piece: ClosetPiece; origin: ListingOrigin; onClose: () => void; onInteraction?: (action: PersonalizationAction, piece: ClosetPiece, query?: string, dwellSeconds?: number) => void; previewOnly?: boolean; showDoubleTapHint?: boolean; onDoubleTapHintDismiss?: () => void; firstListing?: boolean; reserveTabBarSpace?: boolean };
+type TransitionRect = { x: number; y: number; width: number; height: number; radius: number };
 
-export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly = false, reserveTabBarSpace = false }: Props) {
+export function TodayListingOverlay({ piece, origin, onClose, onInteraction, previewOnly = false, reserveTabBarSpace = false }: Props) {
   const insets = useSafeAreaInsets();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const colors = useColors();
   const styles = makeStyles(colors);
   const app = useUvel();
@@ -78,6 +81,36 @@ export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly
   const inBag = cart.has(piece.id);
   const currentPhoto = gallery[Math.min(activePhoto, gallery.length - 1)] || piece.photo;
   const sharePayload: FriendSharePayload = { kind: "listing", id: piece.id, title: piece.name, deepLink: `uvel://piece/${piece.id}`, imageUri: piece.photo, previewText: `Have a look at ${piece.name} on Uvel.` };
+  const initialOrigin: TransitionRect = origin.width <= 1 || origin.height <= 1
+    ? { x: 0, y: 0, width: screenWidth, height: screenHeight, radius: 0 }
+    : { x: origin.x, y: origin.y, width: origin.width, height: origin.height, radius: origin.radius || origin.radii?.[0] || 0 };
+  const fromRect = useSharedValue(initialOrigin);
+  const toRect = useSharedValue<TransitionRect>({ x: 0, y: 0, width: screenWidth, height: screenHeight, radius: 0 });
+  const transitionProgress = useSharedValue(0);
+  const [transitioning, setTransitioning] = useState(true);
+  const closing = useRef(false);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  const finishClose = () => onCloseRef.current();
+  const backdropMotion = useAnimatedStyle(() => ({ opacity: transitionProgress.value }));
+  const sheetMotion = useAnimatedStyle(() => {
+    const progress = transitionProgress.value;
+    const from = fromRect.value;
+    const to = toRect.value;
+    return {
+      left: from.x + (to.x - from.x) * progress,
+      top: from.y + (to.y - from.y) * progress,
+      width: from.width + (to.width - from.width) * progress,
+      height: from.height + (to.height - from.height) * progress,
+      borderRadius: from.radius * (1 - progress),
+      opacity: progress,
+    };
+  });
+  useEffect(() => {
+    transitionProgress.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) }, (finished) => {
+      if (finished) runOnJS(setTransitioning)(false);
+    });
+  }, [transitionProgress]);
   const sizes = piece.sizes?.length ? piece.sizes : [piece.size || "One size"];
   const buyNow = async () => {
     if (previewOnly || paying || !paymentMethod) return;
@@ -218,13 +251,41 @@ export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly
   const toggleSaved = () => { app.toggleSaved(piece.id); onInteraction?.("save", piece); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); };
   const saveFromPhotoDoubleTap = () => { if (!app.saved.includes(piece.id)) { app.toggleSaved(piece.id); onInteraction?.("save", piece); } void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); };
   const handlePhotoPress = () => { const now = Date.now(); if (lastPhotoTap.current !== 0 && now - lastPhotoTap.current <= 300) { lastPhotoTap.current = 0; saveFromPhotoDoubleTap(); return; } lastPhotoTap.current = now; };
+  const closeListing = () => {
+    if (closing.current) return;
+    closing.current = true;
+    setTransitioning(true);
+    const animateBack = (rect: TransitionRect) => {
+      fromRect.value = rect;
+      transitionProgress.value = withTiming(0, { duration: 420, easing: Easing.in(Easing.cubic) }, (finished) => {
+        if (finished) runOnJS(finishClose)();
+      });
+    };
+    const fallbackOrigin: TransitionRect = { x: origin.x, y: origin.y, width: origin.width, height: origin.height, radius: origin.radius || origin.radii?.[0] || 0 };
+    if (!origin.measure) {
+      animateBack(fallbackOrigin);
+      return;
+    }
+    let started = false;
+    const fallbackTimer = setTimeout(() => {
+      if (started) return;
+      started = true;
+      animateBack(fallbackOrigin);
+    }, 80);
+    origin.measure((rect) => {
+      if (started) return;
+      started = true;
+      clearTimeout(fallbackTimer);
+      animateBack({ ...rect, radius: fallbackOrigin.radius });
+    });
+  };
   const openSeller = () => { if (brand?.id) router.push({ pathname: "/brand/[id]", params: { id: brand.id } }); else if (sellerId) router.push({ pathname: "/seller/[id]", params: { id: sellerId } }); };
   return (
     <View style={styles.root}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close listing details" />
-      <View style={[styles.sheet, { paddingTop: insets.top }]}>
+      <Animated.View style={[styles.backdrop, backdropMotion]}><Pressable style={StyleSheet.absoluteFill} onPress={closeListing} accessibilityRole="button" accessibilityLabel="Close listing details" /></Animated.View>
+      <Animated.View style={[styles.sheet, { paddingTop: insets.top }, sheetMotion]} pointerEvents={transitioning ? "none" : "auto"}>
         <View style={styles.header}>
-          <Pressable onPress={onClose} hitSlop={10} style={styles.back} accessibilityRole="button" accessibilityLabel="Close listing"><Ionicons name="chevron-down" size={27} color={colors.bone} /></Pressable>
+          <Pressable onPress={closeListing} hitSlop={10} style={styles.back} accessibilityRole="button" accessibilityLabel="Close listing"><Ionicons name="chevron-down" size={27} color={colors.bone} /></Pressable>
         </View>
         <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer} showsVerticalScrollIndicator={false}>
           <View style={styles.hero}><Pressable style={StyleSheet.absoluteFill} onPress={handlePhotoPress} accessibilityRole="image" accessibilityLabel={`${piece.name} photo`} accessibilityHint="Double tap to save this listing."><Image source={{ uri: currentPhoto }} style={styles.heroImage} contentFit="cover" /></Pressable>{gallery.length > 1 ? <View style={styles.dots}>{gallery.map((photo, index) => <Pressable key={`${photo}-${index}`} onPress={() => setActivePhoto(index)} style={[styles.dot, index === activePhoto && styles.dotActive]} accessibilityLabel={`View photo ${index + 1}`} />)}</View> : null}<Pressable onPress={toggleSaved} style={styles.like} accessibilityRole="button" accessibilityLabel="Like listing" accessibilityState={{ selected: app.saved.includes(piece.id) }}><Ionicons name={app.saved.includes(piece.id) ? "heart" : "heart-outline"} size={22} color={app.saved.includes(piece.id) ? MARKET_RED : colors.bone} /></Pressable><Pressable onPress={() => setShareOpen(true)} style={styles.share} accessibilityRole="button" accessibilityLabel={`Share ${piece.name}`}><Ionicons name="share-outline" size={22} color={colors.bone} /></Pressable></View>
@@ -288,7 +349,7 @@ export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly
             </Pressable>
           </View>
         ) : null}
-      </View>
+      </Animated.View>
       <TodayCartFab listingOpen showWhileListing={!previewOnly} onBeforeOpen={onClose} />
       <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void Share.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
     </View>
@@ -312,4 +373,4 @@ function PaymentMark({ method, colors }: { method?: PayMethod; colors: Colors })
   );
 }
 function Fact({ label, value, styles }: { label: string; value: string; styles: ReturnType<typeof makeStyles> }) { return <View style={styles.fact}><Text style={styles.factLabel}>{label}</Text><Text style={styles.factValue}>{value}</Text></View>; }
-function makeStyles(colors: Colors) { return StyleSheet.create({ root: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, elevation: 100 }, backdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)" }, sheet: { flex: 1, marginTop: 0, backgroundColor: colors.ink, overflow: "hidden", zIndex: 2, elevation: 10 }, header: { height: 48, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` }, back: { width: 30, alignItems: "flex-start", justifyContent: "center" }, bag: { width: 27, alignItems: "flex-end" }, content: { flex: 1 }, contentContainer: { paddingBottom: 150 }, hero: { width: "100%", aspectRatio: 0.92, backgroundColor: colors.surface, position: "relative", overflow: "hidden" }, heroImage: { width: "100%", height: "100%" }, dots: { position: "absolute", bottom: 9, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 5 }, dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.subtle }, dotActive: { backgroundColor: colors.bone, width: 12 }, like: { position: "absolute", left: 14, bottom: 14, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 3 }, share: { position: "absolute", right: 14, bottom: 14, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 3 }, thumbs: { gap: 7, paddingHorizontal: 12, paddingTop: 9 }, thumb: { width: 54, height: 54, borderRadius: 4, overflow: "hidden", borderWidth: 1, borderColor: colors.subtle }, thumbActive: { borderWidth: 2, borderColor: colors.bone }, thumbImage: { width: "100%", height: "100%" }, info: { paddingHorizontal: 16, paddingTop: 9 }, titleRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 }, title: { flex: 1, color: colors.bone, fontSize: 13, lineHeight: 17 }, rating: { flexDirection: "row", alignItems: "center", gap: 3 }, stars: { color: "#eeb100", fontSize: 15, letterSpacing: 0.5 }, reviewCount: { color: colors.bone, fontSize: 10, textDecorationLine: "underline" }, priceRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }, price: { color: MARKET_RED, fontSize: 17, fontWeight: "800" }, condition: { color: colors.bone, backgroundColor: colors.neutral, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 3, fontSize: 10, fontWeight: "700" }, available: { color: colors.muted, fontSize: 11 }, promo: { color: colors.muted, fontSize: 10, lineHeight: 14, marginTop: 6 }, promoStrong: { color: MARKET_RED, fontWeight: "800" }, label: { color: colors.bone, fontSize: 11, fontWeight: "800", marginTop: 13 }, sizeRail: { gap: 7, paddingTop: 8, paddingBottom: 2 }, size: { minWidth: 42, height: 36, paddingHorizontal: 9, borderWidth: 1, borderColor: colors.subtle, borderRadius: 4, alignItems: "center", justifyContent: "center" }, sizeSelected: { backgroundColor: colors.bone, borderColor: colors.bone }, sizeText: { color: colors.bone, fontSize: 11 }, sizeTextSelected: { color: colors.ink, fontWeight: "800" }, details: { height: 51, borderWidth: 1, borderColor: colors.subtle, borderRadius: 8, marginTop: 16, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, detailsTitle: { flexDirection: "row", alignItems: "center", gap: 8 }, detailsText: { color: colors.bone, fontSize: 13, fontWeight: "800" }, detailsBody: { flexDirection: "row", flexWrap: "wrap", borderWidth: 1, borderTopWidth: 0, borderColor: colors.subtle, paddingHorizontal: 12, paddingBottom: 6 }, fact: { width: "50%", paddingVertical: 10 }, factLabel: { color: colors.muted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8 }, factValue: { color: colors.bone, fontSize: 12, fontWeight: "700", marginTop: 3 }, seller: { marginTop: 16, paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: `${colors.bone}20` }, sellerTop: { flexDirection: "row", alignItems: "center", gap: 10 }, sellerTap: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 }, messageButton: { height: 36, paddingHorizontal: 11, borderWidth: 1, borderColor: colors.subtle, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 5 }, messageText: { color: colors.bone, fontSize: 11, fontWeight: "800" }, sellerRating: { flexDirection: "row", alignItems: "center", gap: 4, marginLeft: 50, marginTop: 8 }, avatar: { width: 40, height: 40, borderRadius: 20 }, avatarFallback: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#ded3c5", alignItems: "center", justifyContent: "center" }, avatarText: { color: colors.bone, fontSize: 17, fontWeight: "800" }, sellerCopy: { flex: 1 }, sellerLabel: { color: colors.muted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8 }, sellerNameRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 }, sellerName: { color: colors.bone, fontSize: 13, fontWeight: "800", flexShrink: 1 }, sellerMeta: { color: colors.muted, fontSize: 10, marginTop: 3 }, descriptionSection: { marginTop: 4, paddingTop: 14, paddingBottom: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}20` }, descriptionTitle: { color: colors.bone, fontSize: 13, fontWeight: "800", marginBottom: 6 }, description: { color: colors.muted, fontSize: 13, lineHeight: 20 }, buyContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, paddingHorizontal: 5 }, appleBuyContent: { gap: 1 }, footer: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: colors.ink, paddingHorizontal: 16, paddingTop: 8, flexDirection: "row", alignItems: "center", gap: 8 }, buyButton: { width: 148, height: 48, borderWidth: 1, borderColor: colors.bone, borderRadius: 25, alignItems: "center", justifyContent: "center", backgroundColor: colors.ink }, buyText: { color: colors.bone, fontSize: 14, fontWeight: "800" }, appleBuyText: { fontSize: 17 }, bagButton: { flex: 1, height: 48, borderRadius: 25, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone }, tryOnButton: { width: 44, height: 48, borderWidth: 1, borderColor: colors.subtle, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: colors.ink }, bagText: { color: colors.ink, fontSize: 14, fontWeight: "800" }, heartButton: { width: 48, height: 48, borderWidth: 1, borderColor: colors.subtle, borderRadius: 25, alignItems: "center", justifyContent: "center", backgroundColor: colors.ink } }); }
+function makeStyles(colors: Colors) { return StyleSheet.create({ root: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, zIndex: 100, elevation: 100 }, backdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.45)" }, sheet: { position: "absolute", top: 0, left: 0, backgroundColor: colors.ink, overflow: "hidden", zIndex: 2, elevation: 10 }, header: { height: 48, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 9, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` }, back: { width: 30, alignItems: "flex-start", justifyContent: "center" }, bag: { width: 27, alignItems: "flex-end" }, content: { flex: 1 }, contentContainer: { paddingBottom: 150 }, hero: { width: "100%", aspectRatio: 0.92, backgroundColor: colors.surface, position: "relative", overflow: "hidden" }, heroImage: { width: "100%", height: "100%" }, dots: { position: "absolute", bottom: 9, left: 0, right: 0, flexDirection: "row", justifyContent: "center", gap: 5 }, dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.subtle }, dotActive: { backgroundColor: colors.bone, width: 12 }, like: { position: "absolute", left: 14, bottom: 14, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 3 }, share: { position: "absolute", right: 14, bottom: 14, width: 44, height: 44, borderRadius: 22, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 3 }, thumbs: { gap: 7, paddingHorizontal: 12, paddingTop: 9 }, thumb: { width: 54, height: 54, borderRadius: 4, overflow: "hidden", borderWidth: 1, borderColor: colors.subtle }, thumbActive: { borderWidth: 2, borderColor: colors.bone }, thumbImage: { width: "100%", height: "100%" }, info: { paddingHorizontal: 16, paddingTop: 9 }, titleRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 }, title: { flex: 1, color: colors.bone, fontSize: 13, lineHeight: 17 }, rating: { flexDirection: "row", alignItems: "center", gap: 3 }, stars: { color: "#eeb100", fontSize: 15, letterSpacing: 0.5 }, reviewCount: { color: colors.bone, fontSize: 10, textDecorationLine: "underline" }, priceRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }, price: { color: MARKET_RED, fontSize: 17, fontWeight: "800" }, condition: { color: colors.bone, backgroundColor: colors.neutral, borderRadius: 4, paddingHorizontal: 6, paddingVertical: 3, fontSize: 10, fontWeight: "700" }, available: { color: colors.muted, fontSize: 11 }, promo: { color: colors.muted, fontSize: 10, lineHeight: 14, marginTop: 6 }, promoStrong: { color: MARKET_RED, fontWeight: "800" }, label: { color: colors.bone, fontSize: 11, fontWeight: "800", marginTop: 13 }, sizeRail: { gap: 7, paddingTop: 8, paddingBottom: 2 }, size: { minWidth: 42, height: 36, paddingHorizontal: 9, borderWidth: 1, borderColor: colors.subtle, borderRadius: 4, alignItems: "center", justifyContent: "center" }, sizeSelected: { backgroundColor: colors.bone, borderColor: colors.bone }, sizeText: { color: colors.bone, fontSize: 11 }, sizeTextSelected: { color: colors.ink, fontWeight: "800" }, details: { height: 51, borderWidth: 1, borderColor: colors.subtle, borderRadius: 8, marginTop: 16, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, detailsTitle: { flexDirection: "row", alignItems: "center", gap: 8 }, detailsText: { color: colors.bone, fontSize: 13, fontWeight: "800" }, detailsBody: { flexDirection: "row", flexWrap: "wrap", borderWidth: 1, borderTopWidth: 0, borderColor: colors.subtle, paddingHorizontal: 12, paddingBottom: 6 }, fact: { width: "50%", paddingVertical: 10 }, factLabel: { color: colors.muted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8 }, factValue: { color: colors.bone, fontSize: 12, fontWeight: "700", marginTop: 3 }, seller: { marginTop: 16, paddingVertical: 12, borderTopWidth: 1, borderBottomWidth: 1, borderColor: `${colors.bone}20` }, sellerTop: { flexDirection: "row", alignItems: "center", gap: 10 }, sellerTap: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 }, messageButton: { height: 36, paddingHorizontal: 11, borderWidth: 1, borderColor: colors.subtle, borderRadius: 18, flexDirection: "row", alignItems: "center", gap: 5 }, messageText: { color: colors.bone, fontSize: 11, fontWeight: "800" }, sellerRating: { flexDirection: "row", alignItems: "center", gap: 4, marginLeft: 50, marginTop: 8 }, avatar: { width: 40, height: 40, borderRadius: 20 }, avatarFallback: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#ded3c5", alignItems: "center", justifyContent: "center" }, avatarText: { color: colors.bone, fontSize: 17, fontWeight: "800" }, sellerCopy: { flex: 1 }, sellerLabel: { color: colors.muted, fontSize: 9, textTransform: "uppercase", letterSpacing: 0.8 }, sellerNameRow: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 2 }, sellerName: { color: colors.bone, fontSize: 13, fontWeight: "800", flexShrink: 1 }, sellerMeta: { color: colors.muted, fontSize: 10, marginTop: 3 }, descriptionSection: { marginTop: 4, paddingTop: 14, paddingBottom: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: `${colors.bone}20` }, descriptionTitle: { color: colors.bone, fontSize: 13, fontWeight: "800", marginBottom: 6 }, description: { color: colors.muted, fontSize: 13, lineHeight: 20 }, buyContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, paddingHorizontal: 5 }, appleBuyContent: { gap: 1 }, footer: { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: colors.ink, paddingHorizontal: 16, paddingTop: 8, flexDirection: "row", alignItems: "center", gap: 8 }, buyButton: { width: 148, height: 48, borderWidth: 1, borderColor: colors.bone, borderRadius: 25, alignItems: "center", justifyContent: "center", backgroundColor: colors.ink }, buyText: { color: colors.bone, fontSize: 14, fontWeight: "800" }, appleBuyText: { fontSize: 17 }, bagButton: { flex: 1, height: 48, borderRadius: 25, alignItems: "center", justifyContent: "center", backgroundColor: colors.bone }, tryOnButton: { width: 44, height: 48, borderWidth: 1, borderColor: colors.subtle, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: colors.ink }, bagText: { color: colors.ink, fontSize: 14, fontWeight: "800" }, heartButton: { width: 48, height: 48, borderWidth: 1, borderColor: colors.subtle, borderRadius: 25, alignItems: "center", justifyContent: "center", backgroundColor: colors.ink } }); }

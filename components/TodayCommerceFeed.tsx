@@ -574,9 +574,9 @@ function DealsFeature({ pieces, market, onOpen }: { pieces: ClosetPiece[]; marke
 
 function DealFeatureCard({ piece, market, onOpen, styles }: { piece: ClosetPiece; market: ReturnType<typeof getMarket>; onOpen: TodayCommerceFeedProps["onOpenPiece"]; styles: ReturnType<typeof make> }) {
   const app = useUvel();
-  const imageRef = useRef<View>(null);
-  const measureImage = (callback: (rect: ListingRect) => void) => {
-    imageRef.current?.measureInWindow((x, y, width, height) => callback({ x, y, width, height }));
+  const cardRef = useRef<View>(null);
+  const measureCard = (callback: (rect: ListingRect) => void) => {
+    cardRef.current?.measureInWindow((x, y, width, height) => callback({ x, y, width, height }));
   };
   const saved = app.saved.includes(piece.id);
   const discountRates = [0.2, 0.25, 0.3, 0.35];
@@ -584,9 +584,9 @@ function DealFeatureCard({ piece, market, onOpen, styles }: { piece: ClosetPiece
   const price = moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market);
   const originalPrice = moneyInMarket(Math.round(piece.listPriceCents / (1 - rate)), piece.currency || market.currency, market);
   const brand = piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Uvel seller";
-  return <View style={styles.dealFeatureCard}>
-    <AccessiblePressable onPress={() => measureImage((rect) => onOpen(piece, { ...rect, radii: [15, 15, 0, 0], photo: piece.photo, measure: measureImage }))} style={styles.dealFeaturePress} accessibilityRole="button" accessibilityLabel={`Open deal for ${piece.name} by ${brand}, ${price}`}>
-      <View ref={imageRef} collapsable={false} style={styles.dealFeatureImageWrap}>
+  return <View ref={cardRef} collapsable={false} style={styles.dealFeatureCard}>
+    <AccessiblePressable onPress={() => measureCard((rect) => onOpen(piece, { ...rect, radius: 15, photo: piece.photo, measure: measureCard }))} style={styles.dealFeaturePress} accessibilityRole="button" accessibilityLabel={`Open deal for ${piece.name} by ${brand}, ${price}`}>
+      <View style={styles.dealFeatureImageWrap}>
         <View style={styles.dealFeatureBadge}><Text style={styles.dealFeatureBadgeText}>{Math.round(rate * 100)}% OFF</Text></View>
         <Image source={{ uri: piece.photo }} style={styles.dealFeatureImage} contentFit="cover" accessible={false} />
         <AccessiblePressable onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); void app.toggleSaved(piece.id); }} hitSlop={8} style={styles.dealFeatureHeart} accessibilityRole="button" accessibilityLabel={`${saved ? "Remove" : "Save"} ${piece.name}`} accessibilityState={{ selected: saved }}>
@@ -609,16 +609,16 @@ function ProductCard({ piece, market, onOpen, deals, compact }: { piece: ClosetP
   const colors = useColors();
   const styles = make(colors);
   const app = useUvel();
-  const imageRef = useRef<View>(null);
-  const measureImage = (callback: (rect: ListingRect) => void) => {
-    imageRef.current?.measureInWindow((x, y, width, height) => callback({ x, y, width, height }));
+  const cardRef = useRef<View>(null);
+  const measureCard = (callback: (rect: ListingRect) => void) => {
+    cardRef.current?.measureInWindow((x, y, width, height) => callback({ x, y, width, height }));
   };
   const brand = piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Uvel seller";
   const price = moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market);
   const saved = app.saved.includes(piece.id);
   const dealAccent = TODAY_DEALS_RED;
-  return <View style={[styles.productCard, compact && styles.productCardCompact]}><AccessiblePressable onPress={() => measureImage((rect) => onOpen(piece, { ...rect, radii: [14, 14, 0, 0], photo: piece.photo, measure: measureImage }))} style={styles.productPress} accessibilityRole="button" accessibilityLabel={`Open ${piece.name} by ${brand}, ${price}`}>
-    <View ref={imageRef} collapsable={false} style={styles.productImageWrap}>{deals ? <View style={[styles.discount, { backgroundColor: TODAY_DEALS_RED }]}><Text style={[styles.discountText, { color: "#FFFFFF" }]}>{["20% off", "15% off", "30% off", "10% off"][piece.id.length % 4]}</Text></View> : null}<Image source={{ uri: piece.photo }} style={styles.productImage} contentFit="cover" accessible={false} /><AccessiblePressable onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); void app.toggleSaved(piece.id); }} hitSlop={8} style={[styles.productHeart, { backgroundColor: dealAccent }]} accessibilityRole="button" accessibilityLabel={`${saved ? "Remove" : "Save"} ${piece.name}`} accessibilityState={{ selected: saved }}><Ionicons name={saved ? "heart" : "heart-outline"} size={22} color="#FFFFFF" /></AccessiblePressable></View>
+  return <View ref={cardRef} collapsable={false} style={[styles.productCard, compact && styles.productCardCompact]}><AccessiblePressable onPress={() => measureCard((rect) => onOpen(piece, { ...rect, radius: 14, photo: piece.photo, measure: measureCard }))} style={styles.productPress} accessibilityRole="button" accessibilityLabel={`Open ${piece.name} by ${brand}, ${price}`}>
+    <View style={styles.productImageWrap}>{deals ? <View style={[styles.discount, { backgroundColor: TODAY_DEALS_RED }]}><Text style={[styles.discountText, { color: "#FFFFFF" }]}>{["20% off", "15% off", "30% off", "10% off"][piece.id.length % 4]}</Text></View> : null}<Image source={{ uri: piece.photo }} style={styles.productImage} contentFit="cover" accessible={false} /><AccessiblePressable onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); void app.toggleSaved(piece.id); }} hitSlop={8} style={[styles.productHeart, { backgroundColor: dealAccent }]} accessibilityRole="button" accessibilityLabel={`${saved ? "Remove" : "Save"} ${piece.name}`} accessibilityState={{ selected: saved }}><Ionicons name={saved ? "heart" : "heart-outline"} size={22} color="#FFFFFF" /></AccessiblePressable></View>
     <Text style={styles.productName} numberOfLines={2}>{piece.name}</Text><Text style={styles.productPrice}>{price}</Text><Text style={styles.productBrand} numberOfLines={1}>{brand}</Text>
   </AccessiblePressable></View>;
 }

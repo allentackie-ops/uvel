@@ -67,9 +67,9 @@ export function ListingCard({
   const colors = useColors();
   const likeColor = MARKET_RED;
   const styles = make(colors);
-  const mediaRef = useRef<View>(null);
-  const measureMedia = (callback: (rect: { x: number; y: number; width: number; height: number }) => void) => {
-    mediaRef.current?.measureInWindow((x, y, width, height) => callback({ x, y, width, height }));
+  const cardRef = useRef<View>(null);
+  const measureCard = (callback: (rect: { x: number; y: number; width: number; height: number }) => void) => {
+    cardRef.current?.measureInWindow((x, y, width, height) => callback({ x, y, width, height }));
   };
   useWardrobe();
   const app = useUvel();
@@ -98,14 +98,15 @@ export function ListingCard({
         router.push({ pathname: "/closet/[id]", params: { id: live.id } });
         return;
       }
-      measureMedia((rect) => onOpen(live, { ...rect, radius: framed ? 0 : 18, photo: live.photo, measure: measureMedia }));
+      measureCard((rect) => onOpen(live, { ...rect, radius: framed ? 0 : 18, photo: live.photo, measure: measureCard }));
     }}
       style={({ pressed }) => [styles.wrap, hasCustomLook && { backgroundColor: shopLook.surface, borderColor: shopLook.page, borderWidth: 1 }, wide ? { width: wide, flex: undefined } : null, framed && styles.framed, pressed && app.accessibilityMode && styles.focused]}
       accessibilityRole="button"
       accessibilityLabel={`${brand} ${live.name}, ${credit > 0 ? `${moneyInMarket(saleCents, here.currency, here)} with First Find, was ${moneyInMarket(localPriceCents, itemCurrency, here)}` : moneyInMarket(live.listPriceCents, itemCurrency, here)}${typeof live.stockQuantity === "number" ? live.stockQuantity === 0 ? ", sold out" : live.stockQuantity <= 10 ? `, ${live.stockQuantity} remaining` : "" : ""}${!confirmed ? ", availability not confirmed" : ""}`}
       accessibilityHint="Double tap to view this listing."
     >
-      <View ref={mediaRef} collapsable={false}>
+      <View ref={cardRef} collapsable={false}>
+      <View>
           <Image cachePolicy="memory-disk"
             source={{ uri: live.photo }}
             style={[styles.img, hasCustomLook && { backgroundColor: shopLook.page }, wide ? { width: wide, borderRadius: framed ? 0 : 18 } : null, framed && styles.framedImg]}
@@ -182,6 +183,7 @@ export function ListingCard({
         <Text style={[styles.sizeLine, framed && styles.brandFramed, hasCustomLook && { color: shopLook.muted }]} numberOfLines={1}>
           {[live.size || live.sizes?.[0] || "One size", live.condition || "Condition not listed"].join(" · ")}
         </Text>
+      </View>
       </View>
     </AccessiblePressable>
   );
