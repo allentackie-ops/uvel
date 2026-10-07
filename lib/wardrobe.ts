@@ -109,6 +109,11 @@ function testShopPieces(): ClosetPiece[] {
   });
 }
 
+const TEST_SHOP_PIECE_IDS = new Set(GARMENTS.map((garment) => `test-${garment.id}`));
+export function isSampleCatalogPiece(id: string) {
+  return TEST_SHOP_PIECE_IDS.has(id);
+}
+
 const KEY = "uvel-wardrobe-v1";
 const DEMO_BRAND_IDS = new Set(["maison-found", "archive-1982", "atelier-no4"]);
 const DEMO_BRAND_OWNER_IDS = new Set(["house-maison", "house-archive", "house-atelier"]);
@@ -232,24 +237,32 @@ function watchPublicListings(force = false): Promise<void> {
   listingsSettled = new Promise<void>((resolve) => {
     settleListings = resolve;
   });
-  let reconcileRemoteIdsOnServerSnapshot = force;
   listingsWatchStarted = true;
   setMarketplaceSyncState("loading");
   try {
     const q = query(collection(firebaseDb(), "listings"), where("status", "==", "listed"));
     listingsUnsubscribe = onSnapshot(q, (snap) => {
-      if (reconcileRemoteIdsOnServerSnapshot && !snap.metadata.fromCache) {
-        const snapshotIds = new Set(snap.docs.map((document) => document.id));
-        remoteListingIds.forEach((id) => {
-          if (!snapshotIds.has(id)) remoteListingIds.delete(id);
+      if (!snap.metadata.fromCache) {
+        remoteListingIds.clear();
+        snap.docs.forEach((document) => {
+          if (document.metadata.hasPendingWrites) return;
+          const data = document.data() as Record<string, unknown>;
+          const identity = {
+            brandId: typeof data.brandId === "string" ? data.brandId : undefined,
+            ownerId: typeof data.ownerId === "string" && data.ownerId.trim()
+              ? data.ownerId.trim()
+              : typeof data.listedByUid === "string" && data.listedByUid.trim()
+                ? data.listedByUid.trim()
+                : undefined,
+          };
+          if (!isDemoListing(identity)) remoteListingIds.add(document.id);
         });
-        reconcileRemoteIdsOnServerSnapshot = false;
       }
       snap.docChanges().forEach((change) => {
         const existing = pieces.find((piece) => piece.id === change.doc.id);
         if (change.type === "removed") {
-          remoteListingIds.delete(change.doc.id);
-          if (existing && existing.brandId) {
+          if (!snap.metadata.fromCache) remoteListingIds.delete(change.doc.id);
+          if (!snap.metadata.fromCache && existing && existing.brandId) {
             pieces = pieces.map((piece) => piece.id === change.doc.id ? { ...piece, status: "sold", stockQuantity: 0 } : piece);
           }
           return;
@@ -273,13 +286,13 @@ function watchPublicListings(force = false): Promise<void> {
           createdAt: timestampMillis(data.createdAt),
         });
         if (isDemoListing(remote)) return;
-        remoteListingIds.add(remote.id);
+        if (!snap.metadata.fromCache && !change.doc.metadata.hasPendingWrites) remoteListingIds.add(remote.id);
         pieces = pieces.some((piece) => piece.id === remote.id)
           ? pieces.map((piece) => piece.id === remote.id ? { ...piece, ...remote } : piece)
           : [remote, ...pieces];
       });
-      setMarketplaceSyncState("confirmed");
-      settleListingSnapshot();
+      setMarketplaceSyncState(snap.metadata.fromCache ? "loading" : "confirmed");
+      if (!snap.metadata.fromCache) settleListingSnapshot();
     }, () => {
       listingsWatchStarted = false;
       listingsUnsubscribe = null;

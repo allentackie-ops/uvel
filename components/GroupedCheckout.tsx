@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
-import { LinkDisplay, useStripe } from "@stripe/stripe-react-native";
+import { LinkDisplay, PlatformPay, useStripe } from "@stripe/stripe-react-native";
 import { useCallback, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { AccessiblePressable } from "./AccessiblePressable";
+import { CardCheckoutSheet } from "./CardCheckoutSheet";
 import { Sheet } from "./Sheet";
 import {
   createGroupedCheckout,
@@ -18,15 +19,17 @@ import {
 } from "../lib/pay";
 import { loadAddress, type Address } from "../lib/orders";
 import { removeManyFromCart } from "../lib/cart";
+import { rememberLastPaymentMethod } from "../lib/paymentPreference";
 import { getBrand } from "../lib/brands";
 import { brandMakes } from "../lib/brandMake";
-import { shippingCents, uvelFeeCents } from "../lib/fees";
+import { payMethods, shippingCents, uvelFeeCents, type PayMethod } from "../lib/fees";
 import { getMarket, moneyExact, convertCents } from "../lib/markets";
 import { listingVisibleIn, restrictShipsTo, shipsToLabel } from "../lib/ships";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import {
   getPiece,
+  isSampleCatalogPiece,
   isRemoteListedPiece,
   refreshMarketplaceListings,
   useMarketplaceSyncState,
@@ -35,6 +38,14 @@ import {
 } from "../lib/wardrobe";
 import { carriersForListing } from "../lib/sellerShipping";
 import { useFirstFind } from "../lib/firstFind";
+
+type GroupedCardSession = {
+  clientSecret: string;
+  customerId?: string;
+  customerSessionClientSecret?: string;
+  methodId: string;
+  orderIds: Array<{ id: string; pieceId: string }>;
+};
 
 type CheckoutLine = {
   piece: ClosetPiece;
@@ -70,11 +81,15 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const app = useUvel();
-  const { initPaymentSheet, presentPaymentSheet } = useStripe();
+  const { confirmPlatformPayPayment, initPaymentSheet, presentPaymentSheet } = useStripe();
   useWardrobe();
   const firstFind = useFirstFind();
   const sync = useMarketplaceSyncState();
   const market = getMarket(app.country);
+  const methods = useMemo(
+    () => payMethods(market.code).filter((method) => method.kind !== "apple" || Platform.OS === "ios"),
+    [market.code],
+  );
   const [address, setAddress] = useState<Address | null>(null);
   const [priceBreakdownOpen, setPriceBreakdownOpen] = useState(false);
   const [policyPieceId, setPolicyPieceId] = useState("");
@@ -87,11 +102,15 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
     Record<string, { carrierId: string }>
   >({});
   const [paying, setPaying] = useState(false);
+  const [payMethodId, setPayMethodId] = useState("apple");
+  const [paymentPickerOpen, setPaymentPickerOpen] = useState(false);
+  const [cardSession, setCardSession] = useState<GroupedCardSession | null>(null);
   const [refreshingAvailability, setRefreshingAvailability] = useState(false);
   const [message, setMessage] = useState("");
   const [checkoutAttempt] = useState(
     () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
   );
+  const selectedPayMethod: PayMethod = methods.find((method) => method.id === payMethodId) || methods[0] || { id: "card", label: "Card", kind: "card", icon: "card" };
 
   useFocusEffect(
     useCallback(() => {
@@ -146,6 +165,7 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
       const available =
         piece.status === "listed" &&
         !piece.sellerPaused &&
+        sync === "confirmed" &&
         isRemoteListedPiece(piece.id);
       const variants = Boolean(
         piece.brandId &&
@@ -221,8 +241,13 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
     pieces.length === ids.length &&
     lines.length === ids.length &&
     lines.every((line) => line.available);
+  const availabilityChecking = sync === "loading";
+  const availabilityUnavailable = sync === "unavailable";
+  const previewItemNames = lines
+    .filter((line) => isSampleCatalogPiece(line.piece.id))
+    .map((line) => line.piece.name);
   const unavailableItemNames = lines
-    .filter((line) => !line.available)
+    .filter((line) => !line.available && !isSampleCatalogPiece(line.piece.id))
     .map((line) => line.piece.name);
   const allShipHere = lines.every((line) => line.addressOk);
   const tooManyItems = ids.length > 8;
@@ -274,7 +299,6 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
       !hasVariant &&
       !hasMissingCarrier &&
       market.code === "US" &&
-      sync === "confirmed" &&
       paymentsExtra.stripePk,
   );
 
@@ -368,12 +392,14 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
       );
       return;
     }
-    if (!allAvailable || sync !== "confirmed") {
-      setMessage(sync === "loading"
-        ? "Uvel is still checking the live listings. Try again in a moment."
-        : sync === "unavailable"
-          ? "Uvel could not reach the live marketplace. Retry the availability check above."
-          : "At least one item is no longer confirmed as live. Retry the check or remove that item from your bag.");
+    if (!allAvailable) {
+        setMessage(availabilityChecking
+          ? "Uvel is still checking live listing availability. Try again in a moment."
+          : availabilityUnavailable
+            ? "Uvel could not reach live inventory. Retry the availability check above. No payment has been taken."
+            : previewItemNames.length
+              ? "These demo catalog previews are not live listings and cannot be purchased. Replace them with real listings from sellers. No payment has been taken."
+            : "At least one item could not be verified as actively listed. Retry the check or remove it from your bag. No payment has been taken.");
       return;
     }
     if (!allShipHere) {
@@ -416,30 +442,45 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
         });
         return;
       }
-      const initialized = await initPaymentSheet({
-        merchantDisplayName: "Uvel",
-        paymentIntentClientSecret: intent.clientSecret,
-        ...(intent.customerId && intent.customerSessionClientSecret
-          ? {
-              customerId: intent.customerId,
-              customerSessionClientSecret: intent.customerSessionClientSecret,
-            }
-          : {}),
-        link: { display: LinkDisplay.AUTOMATIC },
-        paymentMethodOrder: ["card", "link"],
-        primaryButtonLabel: "Pay now",
-        style: "alwaysDark",
-        allowsDelayedPaymentMethods: false,
-        ...stripePaymentSheetAddress(address, app.email || undefined),
-        applePay: { merchantCountryCode: "US" },
-      });
-      if (initialized.error) throw new Error(initialized.error.message);
-      const presented = await presentPaymentSheet();
-      if (presented.error) {
-        if (presented.error.code !== "Canceled")
-          throw new Error(presented.error.message);
+      if (selectedPayMethod.kind === "card") {
+        setCardSession({
+          clientSecret: intent.clientSecret,
+          customerId: intent.customerId,
+          customerSessionClientSecret: intent.customerSessionClientSecret,
+          methodId: selectedPayMethod.id,
+          orderIds: batch.orderIds,
+        });
         return;
       }
+      const immediate = (label: string, amount: number): PlatformPay.CartSummaryItem => ({
+        label,
+        amount: (amount / 100).toFixed(2),
+        paymentType: PlatformPay.PaymentType.Immediate,
+      });
+      const itemsCents = lines.reduce(
+        (sum, line) => sum + line.itemCents - line.discountCents - line.creditCents,
+        0,
+      );
+      const feesCents = lines.reduce((sum, line) => sum + line.feeCents, 0);
+      const shippingTotalCents = lines.reduce((sum, line) => sum + line.shipCents, 0);
+      const cartItems: PlatformPay.CartSummaryItem[] = [
+        ...(itemsCents > 0 ? [immediate(`${lines.length} items`, itemsCents)] : []),
+        ...(feesCents > 0 ? [immediate("Buyer protection", feesCents)] : []),
+        ...(shippingTotalCents > 0 ? [immediate("Shipping", shippingTotalCents)] : []),
+        immediate("Uvel", totalCents),
+      ];
+      const confirmed = await confirmPlatformPayPayment(intent.clientSecret, {
+        applePay: {
+          merchantCountryCode: "US",
+          currencyCode: market.currency,
+          cartItems,
+        },
+      });
+      if (confirmed.error) {
+        if (confirmed.error.code === "Canceled") return;
+        throw new Error(confirmed.error.message);
+      }
+      void rememberLastPaymentMethod(market.code, selectedPayMethod.id);
       removeManyFromCart(batch.orderIds.map((order) => order.pieceId));
       router.replace({
         pathname: "/order/[id]",
@@ -456,9 +497,55 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
     }
   }
 
+  function finishGroupedCardPayment(session: GroupedCardSession | null = cardSession) {
+    if (!session) return;
+    setCardSession(null);
+    void rememberLastPaymentMethod(market.code, session.methodId);
+    removeManyFromCart(session.orderIds.map((order) => order.pieceId));
+    router.replace({ pathname: "/order/[id]", params: { id: session.orderIds[0].id } });
+  }
+
+  async function payWithLinkFromCardSheet() {
+    const session = cardSession;
+    if (!session || !address || paying) return;
+    setCardSession(null);
+    setPaying(true);
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    try {
+      const initialized = await initPaymentSheet({
+        merchantDisplayName: "Uvel",
+        paymentIntentClientSecret: session.clientSecret,
+        ...(session.customerId && session.customerSessionClientSecret
+          ? { customerId: session.customerId, customerSessionClientSecret: session.customerSessionClientSecret }
+          : {}),
+        link: { display: LinkDisplay.AUTOMATIC },
+        paymentMethodOrder: ["link", "card"],
+        primaryButtonLabel: "Pay now",
+        style: "alwaysDark",
+        allowsDelayedPaymentMethods: false,
+        ...stripePaymentSheetAddress(address, app.email || undefined),
+      });
+      if (initialized.error) throw new Error(initialized.error.message);
+      const presented = await presentPaymentSheet();
+      if (presented.error) {
+        if (presented.error.code === "Canceled") {
+          setCardSession(session);
+          return;
+        }
+        throw new Error(presented.error.message);
+      }
+      finishGroupedCardPayment(session);
+    } catch (error) {
+      setCardSession(session);
+      Alert.alert("Payment", error instanceof Error ? error.message : "Couldn’t open Link. Please try again.");
+    } finally {
+      setPaying(false);
+    }
+  }
+
   return (
     <View style={styles.page}>
-      <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
+      <StatusBar style={colors.ink === "#FFFFFF" ? "dark" : "light"} />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
         <AccessiblePressable
           onPress={() => router.back()}
@@ -477,18 +564,22 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {!allAvailable || sync !== "confirmed" ? (
+        {!allAvailable ? (
           <View style={styles.availabilityNotice}>
             <Text style={styles.availabilityCopy}>
-              {sync === "loading"
+              {availabilityChecking
                 ? "Checking live listing availability…"
-                : sync === "unavailable"
-                  ? "The marketplace couldn’t confirm these items right now. No payment has been taken."
-                  : unavailableItemNames.length
-                    ? `${unavailableItemNames.slice(0, 3).join(", ")}${unavailableItemNames.length > 3 ? `, and ${unavailableItemNames.length - 3} more` : ""} ${unavailableItemNames.length === 1 ? "isn’t" : "aren’t"} confirmed as actively listed. It may have sold or been removed.`
-                    : "One or more bag items couldn’t be loaded from the live marketplace."}
+                : availabilityUnavailable
+                  ? "The live marketplace couldn’t be reached. No payment has been taken."
+                  : previewItemNames.length && !unavailableItemNames.length
+                    ? `${previewItemNames.slice(0, 3).join(", ")}${previewItemNames.length > 3 ? `, and ${previewItemNames.length - 3} more` : ""} ${previewItemNames.length === 1 ? "is a demo catalog preview, not a live listing" : "are demo catalog previews, not live listings"}. Replace them with real seller listings to check out. No payment has been taken.`
+                    : previewItemNames.length
+                      ? `Demo catalog previews: ${previewItemNames.slice(0, 3).join(", ")}. These are not live listings. ${unavailableItemNames.slice(0, 3).join(", ")} could not be verified as actively listed. No payment has been taken.`
+                      : unavailableItemNames.length
+                        ? `${unavailableItemNames.slice(0, 3).join(", ")}${unavailableItemNames.length > 3 ? `, and ${unavailableItemNames.length - 3} more` : ""} could not be verified as actively listed in live inventory. No payment has been taken.`
+                        : "One or more bag items couldn’t be verified in live inventory. No payment has been taken."}
             </Text>
-            {sync !== "loading" ? (
+            {!availabilityChecking && (availabilityUnavailable || unavailableItemNames.length > 0) ? (
               <AccessiblePressable
                 onPress={() => void retryAvailability()}
                 disabled={refreshingAvailability}
@@ -586,19 +677,21 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
           <Ionicons name="chevron-forward" size={21} color={colors.success} />
         </AccessiblePressable>
         <AccessiblePressable
-          onPress={() => void payAll()}
-          disabled={!canPay}
+          onPress={() => setPaymentPickerOpen(true)}
           style={styles.actionRow}
           accessibilityRole="button"
-          accessibilityLabel="Pay with Apple Pay"
-          accessibilityState={{ disabled: !canPay, busy: paying }}
+          accessibilityLabel={`Payment method: ${selectedPayMethod.label}. Change payment method.`}
         >
           <View style={styles.actionIcon}>
-            <Ionicons name="card-outline" size={21} color={colors.success} />
+            {selectedPayMethod.kind === "apple" ? (
+              <Text style={styles.paymentAppleMark}>Pay</Text>
+            ) : (
+              <Ionicons name="card-outline" size={21} color={colors.success} />
+            )}
           </View>
           <View style={styles.actionCopy}>
             <Text style={styles.actionTitle}>Payment</Text>
-            <Text style={styles.actionSub}>Apple Pay</Text>
+            <Text style={styles.actionSub}>{selectedPayMethod.label}</Text>
           </View>
           <Ionicons name="chevron-forward" size={21} color={colors.success} />
         </AccessiblePressable>
@@ -680,17 +773,22 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
           accessibilityLabel={
             paying
               ? "Processing payment"
-              : `Buy ${lines.length} items for ${moneyExact(totalCents, market.currency)}`
+              : `Pay with ${selectedPayMethod.label} for ${moneyExact(totalCents, market.currency)}`
           }
           accessibilityState={{ disabled: !canPay, busy: paying }}
         >
           {paying ? (
             <Text style={styles.payButtonText}>Preparing checkout…</Text>
-          ) : (
+          ) : selectedPayMethod.kind === "apple" ? (
             <View style={styles.appleButtonContent}>
               <Text style={styles.payButtonText}>Buy with</Text>
               <Text style={styles.appleGlyph}></Text>
               <Text style={styles.payButtonText}>Pay</Text>
+            </View>
+          ) : (
+            <View style={styles.cardButtonContent}>
+              <Text style={styles.payButtonText}>Pay with Card</Text>
+              <Ionicons name="card-outline" size={23} color={colors.ink} style={styles.cardButtonIcon} />
             </View>
           )}
         </AccessiblePressable>
@@ -954,6 +1052,47 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
           </ScrollView>
         ) : null}
       </Sheet>
+      <Sheet open={paymentPickerOpen} onClose={() => setPaymentPickerOpen(false)}>
+        <Text style={styles.sheetTitle}>Payment method</Text>
+        <Text style={styles.sheetCopy}>Choose how you’d like to pay.</Text>
+        {methods.map((method) => (
+          <AccessiblePressable
+            key={method.id}
+            onPress={() => {
+              setPayMethodId(method.id);
+              setPaymentPickerOpen(false);
+            }}
+            style={styles.paymentOption}
+            accessibilityRole="radio"
+            accessibilityLabel={method.label}
+            accessibilityState={{ selected: selectedPayMethod.id === method.id }}
+          >
+            <View style={styles.paymentOptionIcon}>
+              {method.kind === "apple" ? (
+                <Text style={styles.paymentOptionApple}>Pay</Text>
+              ) : (
+                <Ionicons name="card-outline" size={23} color={colors.bone} />
+              )}
+            </View>
+            <Text style={styles.paymentOptionName}>{method.label}</Text>
+            {selectedPayMethod.id === method.id ? (
+              <Ionicons name="checkmark-circle" size={23} color={colors.success} />
+            ) : null}
+          </AccessiblePressable>
+        ))}
+      </Sheet>
+      {cardSession && address ? (
+        <CardCheckoutSheet
+          visible
+          clientSecret={cardSession.clientSecret}
+          address={address}
+          email={app.email || undefined}
+          amountLabel={moneyExact(totalCents, market.currency)}
+          onClose={() => setCardSession(null)}
+          onPaid={() => finishGroupedCardPayment(cardSession)}
+          onPayWithLink={() => void payWithLinkFromCardSheet()}
+        />
+      ) : null}
     </View>
   );
 }
@@ -1166,6 +1305,13 @@ function make(colors: Colors) {
     payButtonText: { color: colors.ink, fontSize: 17, fontWeight: "600" },
     appleButtonContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 },
     appleGlyph: { color: colors.ink, fontSize: 25, lineHeight: 27, marginTop: -2 },
+    cardButtonContent: { width: "100%", position: "relative", flexDirection: "row", alignItems: "center", justifyContent: "center" },
+    cardButtonIcon: { position: "absolute", right: 22 },
+    paymentAppleMark: { color: colors.success, fontSize: 13, fontWeight: "800" },
+    paymentOption: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
+    paymentOptionIcon: { width: 44, height: 44, borderRadius: 13, backgroundColor: colors.info, borderWidth: 1, borderColor: `${colors.bone}20`, alignItems: "center", justifyContent: "center" },
+    paymentOptionApple: { color: colors.bone, fontSize: 12, fontWeight: "800" },
+    paymentOptionName: { flex: 1, color: colors.bone, fontSize: 16, fontWeight: "700" },
     secureText: {
       color: colors.bone,
       textAlign: "center",

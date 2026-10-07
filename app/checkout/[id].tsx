@@ -6,6 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -88,7 +89,7 @@ export default function Checkout() {
     offerId?: string;
     applePay?: string;
   }>();
-  const autoPresentApplePay = applePayParam === "1";
+  const autoPresentApplePay = applePayParam === "1" && Platform.OS === "ios";
   const acceptedOfferId = typeof offerIdParam === "string" ? offerIdParam : "";
   const checkoutIds = useMemo(() => {
     const supplied = Array.isArray(idsParam)
@@ -115,7 +116,9 @@ export default function Checkout() {
     presentPaymentSheet,
   } = useStripe();
   const market = getMarket(app.country);
-  const methods = payMethods(market.code);
+  const methods = payMethods(market.code).filter(
+    (method) => method.kind !== "apple" || Platform.OS === "ios",
+  );
   const [address, setAddress] = useState<Address | null>(null);
   const [ship, setShip] = useState<"standard" | "express">("standard");
   const [carrierId, setCarrierId] = useState("");
@@ -592,7 +595,7 @@ export default function Checkout() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
+      <StatusBar style={colors.ink === "#FFFFFF" ? "dark" : "light"} />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
         <AccessiblePressable
           onPress={() => router.back()}
