@@ -57,10 +57,16 @@ export default function Inbox() {
   }, [friendSearchOpen]);
 
   async function runFriendSearch() {
-    if (friendTerm.trim().length < 2) return;
+    const term = friendTerm.trim();
+    if (term.length < 2) {
+      setFriendResults([]);
+      setFriendError("Enter at least 2 characters to search.");
+      return;
+    }
     setFriendBusy(true);
     setFriendError("");
-    try { setFriendResults(await searchUsers(friendTerm)); } catch (e) { setFriendError(e instanceof Error ? e.message : "Couldn’t search friends."); }
+    setFriendResults([]);
+    try { setFriendResults(await searchUsers(term)); } catch (e) { setFriendError(e instanceof Error ? e.message : "Couldn’t search friends."); }
     finally { setFriendBusy(false); }
   }
 
@@ -134,15 +140,15 @@ export default function Inbox() {
       {friendSearchOpen ? <View style={styles.friendPanel}>
         <View style={styles.friendPanelHead}><Text style={styles.friendPanelTitle}>{friendPanelMode === "messages" ? "Search Inbox" : "Find friends"}</Text><Pressable onPress={() => { setFriendSearchOpen(false); setFriendResults([]); }} accessibilityRole="button" accessibilityLabel="Close search"><Text style={styles.closeTxt}>×</Text></Pressable></View>
         {friendPanelMode === "messages" ? <View style={styles.friendSearchRow}><TextInput autoFocus value={conversationQuery} onChangeText={setConversationQuery} onSubmitEditing={() => setFriendSearchOpen(false)} placeholder="People, listings, or messages" placeholderTextColor={colors.subtle} style={styles.friendInput} returnKeyType="search" /><Pressable onPress={() => setFriendSearchOpen(false)} style={styles.findBtn}><Text style={styles.findTxt}>Done</Text></Pressable></View> : <>
-        <View style={styles.friendSearchRow}><TextInput value={friendTerm} onChangeText={setFriendTerm} onSubmitEditing={() => void runFriendSearch()} placeholder="Name or username" placeholderTextColor={colors.subtle} style={styles.friendInput} autoCapitalize="none" returnKeyType="search" /><Pressable onPress={() => void runFriendSearch()} style={styles.findBtn}><Text style={styles.findTxt}>{friendBusy ? "…" : "Search"}</Text></Pressable></View>
+        <View style={styles.friendSearchRow}><TextInput value={friendTerm} onChangeText={(value) => { setFriendTerm(value); setFriendError(""); }} onSubmitEditing={() => void runFriendSearch()} placeholder="Name or username" placeholderTextColor={colors.subtle} style={styles.friendInput} autoCapitalize="none" returnKeyType="search" /><Pressable onPress={() => void runFriendSearch()} style={styles.findBtn} accessibilityRole="button" accessibilityLabel="Search for friends"><Text style={styles.findTxt}>{friendBusy ? "…" : "Search"}</Text></Pressable></View>
         {friendError ? <Text style={styles.friendError}>{friendError}</Text> : null}
+        {friendResults.map((user) => <View key={user.uid} style={styles.requestRow}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Pressable onPress={() => void addFriend(user)} style={styles.addBtn}><Text style={styles.addTxt}>Add</Text></Pressable></View>)}
         {friendNotifications.filter((item) => item.kind === "friend_request" && !item.readAt).map((item) => <View key={item.id} style={styles.requestRow}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.actor.displayName || `@${item.actor.username}`} added you</Text><View style={styles.requestActions}><Pressable onPress={() => void respondFriendRequest(item.requestId, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable onPress={() => void respondFriendRequest(item.requestId, "accepted")}><Text style={styles.acceptTxt}>Add back</Text></Pressable></View></View></View>)}
         {friendNotifications.filter((item) => item.kind === "friend_added" && !item.readAt).map((item) => <View key={item.id} style={styles.requestRow}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.actor.displayName || `@${item.actor.username}`} has been added as a friend.</Text><Text style={styles.usernameTxt}>You’re now connected on Uvel.</Text></View></View>)}
         {friends.length ? <Text style={styles.sectionLabel}>YOUR FRIENDS</Text> : null}
         {friends.map((user) => <Pressable key={user.uid} onPress={() => void openFriendChat(user)} style={styles.requestRow} accessibilityRole="button" accessibilityLabel={`Chat with ${user.displayName || user.username}`}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Text style={styles.chatArrow}>›</Text></Pressable>)}
         {friendChats.length ? <Text style={styles.sectionLabel}>FRIEND CHATS</Text> : null}
         {friendChats.map((chat) => { const other = chat.participantIds.find((id) => id !== me) || ""; const user = friends.find((item) => item.uid === other); const unread = Number(chat.unreadBy?.[me] || 0); return <Pressable key={chat.id} onPress={() => router.push({ pathname: "/friends/chat/[id]", params: { id: chat.id, name: user?.displayName || user?.username || "Friend" } })} style={styles.requestRow} accessibilityRole="button"><Avatar user={user || { uid: other, username: "friend", displayName: "Friend" }} /><View style={{ flex: 1 }}><Text style={[styles.requestText, unread ? { fontWeight: "900" } : null]}>{user?.displayName || user?.username || "Friend"}</Text><Text style={styles.usernameTxt} numberOfLines={1}>{chat.lastText || "Start chatting"}</Text></View>{unread ? <View style={styles.chatUnread}><Text style={styles.chatUnreadTxt}>{unread}</Text></View> : <Text style={styles.chatArrow}>›</Text>}</Pressable>; })}
-        {friendResults.map((user) => <View key={user.uid} style={styles.requestRow}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Pressable onPress={() => void addFriend(user)} style={styles.addBtn}><Text style={styles.addTxt}>Add</Text></Pressable></View>)}
         {!friendResults.length && !friendNotifications.some((item) => ["friend_request", "friend_added"].includes(item.kind) && !item.readAt) && friendTerm.length >= 2 && !friendBusy ? <Text style={styles.noFriends}>No users found.</Text> : null}
         </>}
       </View> : null}
