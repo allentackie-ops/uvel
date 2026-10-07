@@ -12,6 +12,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader } from "./OrbitLoader";
+import { DateOfBirthPicker } from "./DateOfBirthPicker";
 import { checkUsernameAvailability, claimUsername } from "../lib/auth";
 import { useColors, useResolvedAppearance } from "../lib/theme";
 import { useUvel } from "../lib/store";
@@ -19,46 +20,41 @@ import { isValidUsername, normalizeUsername } from "../lib/username";
 
 type Availability = "idle" | "invalid" | "checking" | "available" | "taken" | "unavailable";
 
-function maskDate(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 8);
-  const day = digits.slice(0, 2);
-  const month = digits.slice(2, 4);
-  const year = digits.slice(4, 8);
-  if (digits.length <= 2) return day;
-  if (digits.length <= 4) return `${day} / ${month}`;
-  return `${day} / ${month} / ${year}`;
+function parseBirthDate(value: string) {
+  const date = parseCalendarDate(value);
+  if (!date) return null;
+  const now = new Date();
+  let age = now.getFullYear() - date.getFullYear();
+  if (now.getMonth() < date.getMonth() || (now.getMonth() === date.getMonth() && now.getDate() < date.getDate())) age -= 1;
+  if (age < 18) return null;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function parseBirthDate(value: string) {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length !== 8) return null;
-  const day = Number(digits.slice(0, 2));
-  const month = Number(digits.slice(2, 4));
-  const year = Number(digits.slice(4, 8));
+function parseCalendarDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
   if (year < 1920 || month < 1 || month > 12 || day < 1 || day > 31) return null;
   const date = new Date(year, month - 1, day);
   if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
-  const now = new Date();
-  let age = now.getFullYear() - year;
-  if (now.getMonth() < month - 1 || (now.getMonth() === month - 1 && now.getDate() < day)) age -= 1;
-  if (age < 18) return null;
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return date;
 }
 
 function dateError(value: string) {
-  const digits = value.replace(/\D/g, "");
-  if (!digits.length || digits.length < 8) return "";
-  const day = Number(digits.slice(0, 2));
-  const month = Number(digits.slice(2, 4));
-  const year = Number(digits.slice(4, 8));
-  const date = new Date(year, month - 1, day);
-  if (year < 1920 || date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
-    return "Enter a valid date of birth.";
-  }
+  if (!value) return "";
+  const date = parseCalendarDate(value);
+  if (!date) return "Choose a valid date of birth.";
   const now = new Date();
-  let age = now.getFullYear() - year;
-  if (now.getMonth() < month - 1 || (now.getMonth() === month - 1 && now.getDate() < day)) age -= 1;
+  let age = now.getFullYear() - date.getFullYear();
+  if (now.getMonth() < date.getMonth() || (now.getMonth() === date.getMonth() && now.getDate() < date.getDate())) age -= 1;
   return age < 18 ? "You must be 18 or older to create an account." : "";
+}
+
+function formatBirthDate(value: string) {
+  const date = parseCalendarDate(value);
+  return date?.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }) ?? "";
 }
 
 export function AccountDetailsScreen() {
@@ -70,18 +66,19 @@ export function AccountDetailsScreen() {
   const accent = colors.link || colors.pulse;
   const positive = dark ? "#8DE4A5" : "#187443";
   const negative = dark ? "#FF8585" : "#B12631";
-  const [birthdayInput, setBirthdayInput] = useState("");
+  const [birthdayIso, setBirthdayIso] = useState("");
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [usernameInput, setUsernameInput] = useState("");
   const [availability, setAvailability] = useState<Availability>("idle");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const requestId = useRef(0);
   const username = normalizeUsername(usernameInput);
-  const birthdayIso = useMemo(() => parseBirthDate(birthdayInput), [birthdayInput]);
-  const dobError = useMemo(() => dateError(birthdayInput), [birthdayInput]);
+  const birthdayDate = useMemo(() => parseBirthDate(birthdayIso), [birthdayIso]);
+  const dobError = useMemo(() => dateError(birthdayIso), [birthdayIso]);
   const usernameValid = isValidUsername(username);
   const canContinue = Boolean(
-    birthdayIso &&
+    birthdayDate &&
     usernameValid &&
     availability !== "checking" &&
     availability !== "taken" &&
@@ -141,8 +138,8 @@ export function AccountDetailsScreen() {
   }
 
   async function finish() {
-    if (!birthdayIso || !usernameValid || availability === "taken" || availability === "checking" || submitting) {
-      if (!birthdayIso && !dobError) setError("Enter your date of birth as DD / MM / YYYY.");
+    if (!birthdayDate || !usernameValid || availability === "taken" || availability === "checking" || submitting) {
+      if (!birthdayDate && !dobError) setError("Choose your date of birth.");
       else if (!usernameValid) setError("Use 3–20 lowercase letters, numbers, or underscores.");
       return;
     }
@@ -153,7 +150,7 @@ export function AccountDetailsScreen() {
       await app.completeAccountSetup({
         username: claimed.username,
         usernameChangedAt: claimed.usernameChangedAt,
-        birthday: birthdayIso,
+        birthday: birthdayDate,
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not finish setting up your account.";
@@ -189,24 +186,22 @@ export function AccountDetailsScreen() {
 
           <View style={styles.fieldGroup}>
             <Text style={[styles.label, { color: colors.bone }]}>Date of birth</Text>
-            <View style={[styles.field, { backgroundColor: colors.surface, borderColor: colors.subtle }]}>
+            <Pressable
+              onPress={() => {
+                setError("");
+                setDatePickerOpen(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Date of birth"
+              accessibilityHint="Opens a calendar. Tap the month and year to jump to your birth year."
+              style={[styles.field, { backgroundColor: colors.surface, borderColor: colors.subtle }]}
+            >
               <Ionicons name="calendar-outline" size={20} color={colors.muted} />
-              <TextInput
-                value={birthdayInput}
-                onChangeText={(value) => {
-                  setBirthdayInput(maskDate(value));
-                  setError("");
-                }}
-                placeholder="DD / MM / YYYY"
-                placeholderTextColor={colors.muted}
-                keyboardType="number-pad"
-                textContentType="none"
-                autoComplete="off"
-                maxLength={14}
-                accessibilityLabel="Date of birth, day month year"
-                style={[styles.fieldInput, { color: colors.bone }]}
-              />
-            </View>
+              <Text style={[styles.dobValue, { color: birthdayIso ? colors.bone : colors.muted }]}>
+                {birthdayIso ? formatBirthDate(birthdayIso) : "Select your date of birth"}
+              </Text>
+              <Ionicons name="chevron-down" size={18} color={colors.muted} />
+            </Pressable>
             {dobError ? <Text style={[styles.inlineError, { color: negative }]}>{dobError}</Text> : null}
           </View>
 
@@ -263,6 +258,15 @@ export function AccountDetailsScreen() {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+      <DateOfBirthPicker
+        visible={datePickerOpen}
+        value={birthdayIso || null}
+        onClose={() => setDatePickerOpen(false)}
+        onSelect={(value) => {
+          setBirthdayIso(value);
+          setError("");
+        }}
+      />
     </View>
   );
 }
@@ -277,6 +281,7 @@ const styles = StyleSheet.create({
   fieldGroup: { marginBottom: 22 },
   label: { fontSize: 15, fontWeight: "600", marginBottom: 9 },
   field: { minHeight: 58, borderRadius: 15, borderWidth: 1, paddingHorizontal: 15, flexDirection: "row", alignItems: "center", gap: 11 },
+  dobValue: { flex: 1, minWidth: 0, fontSize: 16, lineHeight: 22 },
   fieldInput: { flex: 1, minWidth: 0, minHeight: 56, paddingVertical: 8, fontSize: 16 },
   at: { fontSize: 17, fontWeight: "700" },
   usernameInput: { paddingLeft: 0 },
