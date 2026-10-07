@@ -6,7 +6,7 @@ import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Alert, Animated, FlatList, ImageBackground, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Animated, FlatList, ImageBackground, Keyboard, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { impactAsync, ImpactFeedbackStyle, notificationAsync, NotificationFeedbackType } from "../../../lib/haptics";
 import { blockFriend, deleteFriendMessage, getCachedFriendMessages, getFriendConversationStatus, listFriends, markFriendChatRead, reportFriendConversation, sendFriendMessage, subscribeFriendMessages, unblockFriend, uploadFriendAttachment, friendMessagePreview, sendFriendVoiceMessage, type FriendMessage } from "../../../lib/friendChat";
@@ -219,6 +219,7 @@ export default function FriendChat() {
   const [searchQuery, setSearchQuery] = useState("");
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [shareSheetMode, setShareSheetMode] = useState<"saved" | "mine" | null>(null);
+  const [shareSearchQuery, setShareSearchQuery] = useState("");
   const [selectedShareKeys, setSelectedShareKeys] = useState<string[]>([]);
   const [retryCount, setRetryCount] = useState(0);
   const listRef = useRef<FlatList<FriendMessage>>(null);
@@ -230,6 +231,7 @@ export default function FriendChat() {
   const voiceStartedAt = useRef(0);
   const voiceLevels = useRef<number[]>([]);
   const listName = blockedByMe ? "Blocked" : blockedByThem || (conversationStatus && !conversationStatus.isFriend) ? "Unavailable" : peer?.displayName || peer?.username || (name === "Blocked" && conversationStatus ? "Friend" : name) || "Friend";
+  const messageRecipientName = (peer?.displayName || peer?.username || name || "friend").trim().replace(/^@/, "").split(/\s+/)[0] || "friend";
   const visibleMessages = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     const combined = [...messages, ...optimisticMessages].sort((a, b) => (asDate(a.createdAt)?.getTime() || 0) - (asDate(b.createdAt)?.getTime() || 0));
@@ -244,6 +246,10 @@ export default function FriendChat() {
   }), [app.saved, wardrobePieces]);
   const myShareOptions = useMemo<ShareOption[]>(() => wardrobePieces.filter((piece) => piece.status === "listed" && (piece.ownerId === uid || piece.listedByUid === uid)).map((piece) => ({ id: piece.id, kind: "closet", name: piece.name, brand: piece.brand, priceCents: piece.listPriceCents, currency: piece.currency, photoUri: piece.photo || piece.photos?.[0] })), [wardrobePieces, uid]);
   const sheetOptions = shareSheetMode === "saved" ? savedShareOptions : myShareOptions;
+  const filteredSheetOptions = useMemo(() => {
+    const query = shareSearchQuery.trim().toLowerCase();
+    return query ? sheetOptions.filter((item) => `${item.name} ${item.brand} ${item.id}`.toLowerCase().includes(query)) : sheetOptions;
+  }, [sheetOptions, shareSearchQuery]);
   const sheetPanResponder = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponder: (_event, gesture) => gesture.dy > 8,
     onPanResponderMove: (_event, gesture) => sheetDragY.setValue(Math.max(0, gesture.dy)),
@@ -457,6 +463,7 @@ export default function FriendChat() {
   function openShareSheet(mode: "saved" | "mine") {
     setAttachMenuOpen(false);
     setSelectedShareKeys([]);
+    setShareSearchQuery("");
     sheetDragY.setValue(0);
     setShareSheetMode(mode);
   }
@@ -526,6 +533,12 @@ export default function FriendChat() {
     Alert.alert(listName, "Manage this conversation", actions);
   }
 
+  function closeMessageSearch() {
+    Keyboard.dismiss();
+    setSearchOpen(false);
+    setSearchQuery("");
+  }
+
   function showMessageActions(message: FriendMessage) {
     setCopiedMessageId(null);
     setActiveMessage(message);
@@ -592,7 +605,7 @@ export default function FriendChat() {
       <Pressable onPress={safetyActions} style={styles.headerIcon} accessibilityRole="button" accessibilityLabel="Conversation options"><Ionicons name="ellipsis-horizontal" size={23} color={colors.bone} /></Pressable>
     </View>
 
-    {searchOpen ? <View style={styles.searchBox}><Ionicons name="search" size={17} color={colors.subtle} /><TextInput autoFocus value={searchQuery} onChangeText={setSearchQuery} placeholder="Search messages" placeholderTextColor={colors.subtle} style={styles.searchInput} returnKeyType="search" /><Pressable onPress={() => setSearchQuery("")} accessibilityRole="button" accessibilityLabel="Clear search"><Ionicons name="close-circle" size={18} color={colors.subtle} /></Pressable></View> : null}
+    {searchOpen ? <View style={styles.searchBox}><Ionicons name="search" size={17} color={colors.subtle} /><TextInput autoFocus value={searchQuery} onChangeText={setSearchQuery} placeholder="Search messages" placeholderTextColor={colors.subtle} style={styles.searchInput} returnKeyType="search" /><Pressable onPress={closeMessageSearch} accessibilityRole="button" accessibilityLabel="Close search"><Ionicons name="close-circle" size={18} color={colors.subtle} /></Pressable></View> : null}
 
     <KeyboardAvoidingView style={styles.keyboardArea} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
       {conversationUnavailable ? <View style={styles.blockedConversation}><Ionicons name="ban-outline" size={34} color={colors.danger} /><Text style={styles.blockedConversationTitle}>{blockedByMe ? "Blocked" : "Unavailable"}</Text><Text style={styles.blockedConversationCopy}>{blockedByMe ? "You blocked this person. Their profile and conversation details are hidden." : blockedByThem ? "This person is unavailable. You can’t view or send messages in this conversation." : "You’re no longer friends, so this conversation is unavailable."}</Text>{blockedByMe ? <Pressable onPress={() => void unblockCurrentFriend()} style={styles.unblockButton}><Text style={styles.unblockButtonText}>Unblock</Text></Pressable> : null}</View> : <>
@@ -625,7 +638,7 @@ export default function FriendChat() {
           </View> : null}
         </View>
         <View style={styles.composerField}>
-          <TextInput ref={messageInputRef} value={draft} onChangeText={setDraft} editable={!isRecordingVoice} placeholder={isRecordingVoice ? "Recording voice note…" : "Message your friend"} placeholderTextColor={colors.subtle} style={styles.input} maxLength={2000} multiline blurOnSubmit={false} textAlignVertical="center" accessibilityLabel="Write a message" />
+          <TextInput ref={messageInputRef} value={draft} onChangeText={setDraft} editable={!isRecordingVoice} placeholder={isRecordingVoice ? "Recording voice note…" : `Message ${messageRecipientName}`} placeholderTextColor={colors.subtle} style={styles.input} maxLength={2000} multiline blurOnSubmit={false} textAlignVertical="center" accessibilityLabel="Write a message" />
           <Text style={styles.charCount}>{draft.length >= 1800 ? `${draft.length}/2000` : ""}</Text>
         </View>
         <Pressable onPressIn={beginVoicePress} onPressOut={releaseVoicePress} style={[styles.voiceRecordButton, isRecordingVoice && styles.voiceRecordButtonActive]} accessibilityRole="button" accessibilityLabel={isRecordingVoice ? "Recording voice note, release to send" : "Hold to record a voice note"} accessibilityHint="Press and hold to record. Release to send the voice note.">
@@ -651,11 +664,13 @@ export default function FriendChat() {
     <Modal visible={shareSheetMode !== null} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setShareSheetMode(null)}>
       <View style={styles.shareSheetModal}>
         <Pressable style={styles.shareSheetScrim} onPress={() => setShareSheetMode(null)} accessibilityRole="button" accessibilityLabel="Close listings" />
+        <KeyboardAvoidingView style={styles.shareSheetKeyboardDock} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <Animated.View style={[styles.shareSheet, { paddingBottom: Math.max(insets.bottom, 16), transform: [{ translateY: sheetDragY }] }]}>
           <View {...sheetPanResponder.panHandlers} style={styles.shareSheetHandleArea}><View style={styles.actionHandle} /></View>
           <View style={styles.shareSheetHeading}><View><Text style={styles.shareSheetTitle}>{shareSheetMode === "saved" ? "Saved listings" : "My listings"}</Text><Text style={styles.shareSheetSubtitle}>Select one or more to share</Text></View><Pressable onPress={() => setShareSheetMode(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close"><Ionicons name="close" size={21} color={colors.muted} /></Pressable></View>
-          {sheetOptions.length ? <ScrollView style={styles.shareListingScroll} contentContainerStyle={styles.shareListingContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            {sheetOptions.map((item) => {
+          <View style={styles.shareSearchRow}><Ionicons name="search" size={17} color={colors.subtle} /><TextInput value={shareSearchQuery} onChangeText={setShareSearchQuery} placeholder={shareSheetMode === "saved" ? "Search saved items" : "Search my listings"} placeholderTextColor={colors.subtle} style={styles.shareSearchInput} autoCapitalize="none" returnKeyType="search" accessibilityLabel="Search listings" />{shareSearchQuery ? <Pressable onPress={() => setShareSearchQuery("")} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear listing search"><Ionicons name="close-circle" size={18} color={colors.subtle} /></Pressable> : null}</View>
+          {filteredSheetOptions.length ? <ScrollView style={styles.shareListingScroll} contentContainerStyle={styles.shareListingContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+            {filteredSheetOptions.map((item) => {
               const key = shareOptionKey(item);
               const selected = selectedShareKeys.includes(key);
               const garment = item.kind === "catalog" ? getGarment(item.id) : undefined;
@@ -665,11 +680,12 @@ export default function FriendChat() {
                 <View style={[styles.shareCheck, selected && styles.shareCheckSelected]}>{selected ? <Ionicons name="checkmark" size={15} color={colors.ink} /> : null}</View>
               </Pressable>;
             })}
-          </ScrollView> : <View style={styles.shareEmpty}><Ionicons name={shareSheetMode === "saved" ? "heart-outline" : "pricetag-outline"} size={28} color={shareSheetMode === "saved" ? colors.danger : colors.muted} /><Text style={styles.shareEmptyText}>{shareSheetMode === "saved" ? "You don’t have any listings saved." : "You have not posted a listing."}</Text></View>}
+          </ScrollView> : <View style={styles.shareEmpty}><Ionicons name={shareSheetMode === "saved" ? "heart-outline" : "pricetag-outline"} size={28} color={shareSheetMode === "saved" ? colors.danger : colors.muted} /><Text style={styles.shareEmptyText}>{sheetOptions.length === 0 ? shareSheetMode === "saved" ? "You don’t have any listings saved." : "You have not posted a listing." : "No listings match your search."}</Text></View>}
           <Pressable onPress={sendSelectedListings} disabled={!selectedShareKeys.length} style={[styles.shareSendButton, !selectedShareKeys.length && styles.shareSendDisabled]} accessibilityRole="button" accessibilityLabel={`Send ${selectedShareKeys.length} selected listing${selectedShareKeys.length === 1 ? "" : "s"}`}>
             <Text style={styles.shareSendText}>{selectedShareKeys.length ? `Send ${selectedShareKeys.length > 1 ? `(${selectedShareKeys.length})` : ""}` : "Select listings to send"}</Text>
           </Pressable>
         </Animated.View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
 
@@ -808,10 +824,13 @@ function make(colors: ReturnType<typeof useColors>) {
     viewerClose: { position: "absolute", zIndex: 2, right: 18, width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(35,35,35,0.75)", alignItems: "center", justifyContent: "center" },
     viewerImage: { width: "100%", height: "82%" },
     shareSheetModal: { flex: 1, justifyContent: "flex-end" },
+    shareSheetKeyboardDock: { flex: 1, justifyContent: "flex-end" },
     shareSheetScrim: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0,0,0,0.48)" },
     shareSheet: { maxHeight: "82%", paddingHorizontal: 18, paddingTop: 8, borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: colors.surface },
     shareSheetHandleArea: { height: 24, alignItems: "center", justifyContent: "center" },
     shareSheetHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingTop: 5, paddingBottom: 13 },
+    shareSearchRow: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 11, paddingHorizontal: 12, borderRadius: 14, backgroundColor: colors.ink, borderWidth: 1, borderColor: `${colors.bone}15` },
+    shareSearchInput: { flex: 1, color: colors.bone, fontSize: 14, paddingVertical: 0 },
     shareSheetTitle: { color: colors.bone, fontSize: 20, fontWeight: "800" },
     shareSheetSubtitle: { color: colors.muted, fontSize: 12, marginTop: 3 },
     shareListingScroll: { flexGrow: 0, maxHeight: 440 },
