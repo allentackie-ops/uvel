@@ -1,7 +1,8 @@
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
-  Linking,
+  Keyboard,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -20,12 +21,13 @@ import {
   signInGoogle,
   signInOrCreateEmail,
 } from "../lib/auth";
-import { PRIVACY_URL, TERMS_URL } from "../lib/legal";
+import { DOCS } from "../lib/legal";
 import { useColors, useResolvedAppearance } from "../lib/theme";
 
 type Provider = "apple" | "google";
 type Screen = "entry" | "email-password";
 type Busy = Provider | "email" | "reset" | null;
+type LegalId = "privacy" | "terms";
 
 function validEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -43,6 +45,7 @@ export function AuthScreen({ onClose }: { onClose?: () => void } = {}) {
   const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [legalId, setLegalId] = useState<LegalId | null>(null);
   const emailReady = validEmail(email);
   const accent = colors.link || colors.pulse;
   const outline = dark ? "rgba(244,240,230,0.45)" : "#191919";
@@ -77,6 +80,11 @@ export function AuthScreen({ onClose }: { onClose?: () => void } = {}) {
       return;
     }
     void run("email", () => signInOrCreateEmail(email, password));
+  }
+
+  function openLegal(id: LegalId) {
+    Keyboard.dismiss();
+    setLegalId(id);
   }
 
   async function sendReset() {
@@ -213,11 +221,11 @@ export function AuthScreen({ onClose }: { onClose?: () => void } = {}) {
 
               <View style={styles.legalRow}>
                 <Text style={[styles.legalText, { color: colors.bone }]}>By continuing, you agree to our </Text>
-                <Pressable onPress={() => void Linking.openURL(PRIVACY_URL).catch(() => undefined)}>
+                <Pressable onPress={() => openLegal("privacy")} accessibilityRole="link">
                   <Text style={[styles.legalLink, { color: accent }]}>privacy policy</Text>
                 </Pressable>
                 <Text style={[styles.legalText, { color: colors.bone }]}> and </Text>
-                <Pressable onPress={() => void Linking.openURL(TERMS_URL).catch(() => undefined)}>
+                <Pressable onPress={() => openLegal("terms")} accessibilityRole="link">
                   <Text style={[styles.legalLink, { color: accent }]}>terms of use</Text>
                 </Pressable>
                 <Text style={[styles.legalText, { color: colors.bone }]}>.</Text>
@@ -292,6 +300,43 @@ export function AuthScreen({ onClose }: { onClose?: () => void } = {}) {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
+      <Modal
+        visible={legalId !== null}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setLegalId(null)}
+      >
+        {legalId ? (
+          <View style={[styles.legalPage, { backgroundColor: colors.ink, paddingTop: Math.max(insets.top, 12) }]}>
+            <View style={[styles.legalHeader, { borderBottomColor: colors.subtle }]}>
+              <Pressable
+                onPress={() => setLegalId(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Back to sign in"
+                style={[styles.legalBack, { backgroundColor: colors.surface }]}
+              >
+                <Ionicons name="arrow-back" size={21} color={colors.bone} />
+              </Pressable>
+              <Text style={[styles.legalTitle, { color: colors.bone }]}>{DOCS[legalId].title}</Text>
+              <View style={styles.legalBackSpacer} />
+            </View>
+            <ScrollView
+              contentContainerStyle={[styles.legalContent, { paddingBottom: Math.max(insets.bottom, 16) + 28 }]}
+              showsVerticalScrollIndicator={false}
+            >
+              <Text style={[styles.legalMeta, { color: colors.subtle }]}>Last updated {DOCS[legalId].updated}</Text>
+              {DOCS[legalId].sections.map((section) => (
+                <View key={section.heading} style={styles.legalSection}>
+                  <Text style={[styles.legalHeading, { color: colors.bone }]}>{section.heading}</Text>
+                  {section.body.map((paragraph) => (
+                    <Text key={paragraph} style={[styles.legalParagraph, { color: colors.muted }]}>{paragraph}</Text>
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+      </Modal>
     </View>
   );
 }
@@ -324,6 +369,16 @@ const styles = StyleSheet.create({
   legalRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "baseline", marginTop: 46, paddingHorizontal: 10 },
   legalText: { fontSize: 14, lineHeight: 21 },
   legalLink: { fontSize: 14, lineHeight: 21, textDecorationLine: "underline", fontWeight: "500" },
+  legalPage: { flex: 1 },
+  legalHeader: { minHeight: 62, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth },
+  legalBack: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
+  legalBackSpacer: { width: 42, height: 42 },
+  legalTitle: { flex: 1, textAlign: "center", fontSize: 17, fontWeight: "700", paddingHorizontal: 8 },
+  legalContent: { paddingHorizontal: 22, paddingTop: 18 },
+  legalMeta: { fontSize: 12, marginBottom: 22 },
+  legalSection: { marginBottom: 22 },
+  legalHeading: { fontSize: 17, fontWeight: "600", marginBottom: 8 },
+  legalParagraph: { fontSize: 15, lineHeight: 22, marginBottom: 8 },
   backButton: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", marginBottom: 42 },
   emailEyebrow: { fontSize: 12, fontWeight: "700", letterSpacing: 1.1 },
   emailDisplay: { fontSize: 19, lineHeight: 26, fontWeight: "600", marginTop: 8 },
