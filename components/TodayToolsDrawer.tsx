@@ -82,7 +82,16 @@ export function TodayToolsDrawer({ onClose, onOpenSell, onOpenMirror }: TodayToo
       <Pressable
         onPress={() => Alert.alert(C.logOutTitle, C.logOutBody, [
           { text: C.cancel, style: "cancel" },
-          { text: C.logOut, style: "destructive", onPress: () => { onClose(); void app.signOutAccount(); } },
+          {
+            text: C.logOut,
+            style: "destructive",
+            onPress: () => {
+              onClose();
+              void app.signOutAccount().catch((error) =>
+                Alert.alert(C.logOutTitle, error instanceof Error ? error.message : "Could not log out. Please try again."),
+              );
+            },
+          },
         ])}
         style={({ pressed }) => [styles.signOutRow, pressed && { opacity: 0.72 }]}
         accessibilityRole="button"

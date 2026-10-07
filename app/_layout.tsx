@@ -743,6 +743,7 @@ export default function Root() {
   const { hydrated, uid, profileDone, profileChecked } = useUvel();
   const appearance = useResolvedAppearance();
   const colors = useColors();
+  const pathname = usePathname();
   useOtaReady();
   const [intro, setIntro] = useState(true);
   const refreshedUid = useRef("");
@@ -760,12 +761,13 @@ export default function Root() {
     if (!gateReady || intro) return;
     if (!signedIn) {
       refreshedUid.current = "";
+      if (pathname !== "/") router.replace("/");
       return;
     }
     if (!profileDone || !uid || refreshedUid.current === uid) return;
     refreshedUid.current = uid;
     signalTodayFeedRefresh();
-  }, [gateReady, intro, profileDone, signedIn, uid]);
+  }, [gateReady, intro, pathname, profileDone, signedIn, uid]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -778,7 +780,7 @@ export default function Root() {
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: intro ? colors.pulse : colors.ink }}>
         <StatusBar style={appearance === "dark" ? "light" : "dark"} />
         <ReviewSync enabled={Boolean(signedIn && gateReady && !intro && profileDone)} />
-        {gateReady && signedIn && profileDone ? <AppStack /> : null}
+        {gateReady && !intro ? <AppStack /> : null}
         {gateReady && !signedIn && !intro ? <AuthScreen /> : null}
         {gateReady && signedIn && !profileDone && !intro ? <AccountDetailsScreen /> : null}
         {signedIn && profileDone && gateReady && !intro ? <DraftResumeNotice /> : null}

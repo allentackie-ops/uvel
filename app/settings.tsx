@@ -205,7 +205,14 @@ export default function Settings({ onBack }: { onBack?: () => void }) {
           onPress={() =>
             Alert.alert(C.logOutTitle, C.logOutBody, [
               { text: C.stay, style: "cancel" },
-              { text: C.logOut, style: "destructive", onPress: () => void app.signOutAccount() },
+              {
+                text: C.logOut,
+                style: "destructive",
+                onPress: () =>
+                  void app.signOutAccount().catch((error) =>
+                    Alert.alert(C.logOutTitle, error instanceof Error ? error.message : "Could not log out. Please try again."),
+                  ),
+              },
             ])
           }
           style={styles.out}
