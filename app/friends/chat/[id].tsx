@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
-import * as FileSystem from "expo-file-system";
+import { File } from "expo-file-system";
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus, useAudioRecorder, useAudioRecorderState } from "expo-audio";
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
@@ -101,15 +101,27 @@ function makeVoiceWaveform(samples: number[]) {
     return Math.max(4, Math.min(22, Math.round(4 + level * 18)));
   });
 }
-async function recordingAsBase64(uri: string) {
-  if (Platform.OS !== "web") return FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
-  const blob = await fetch(uri).then((response) => response.blob());
+async function localUriAsBase64(uri: string) {
+  if (Platform.OS !== "web") return new File(uri).base64();
+  const response = await fetch(uri);
+  if (!response.ok) throw new Error("The file could not be read.");
+  const blob = await response.blob();
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => typeof reader.result === "string" ? resolve(reader.result.slice(reader.result.indexOf(",") + 1)) : reject(new Error("The voice note could not be read."));
     reader.onerror = () => reject(reader.error || new Error("The voice note could not be read."));
     reader.readAsDataURL(blob);
   });
+}
+function removeLocalRecording(uri: string) {
+  if (Platform.OS === "web") {
+    if (uri.startsWith("blob:")) URL.revokeObjectURL(uri);
+    return;
+  }
+  try {
+    const file = new File(uri);
+    if (file.exists) file.delete();
+  } catch { /* Temporary recording cleanup is best-effort. */ }
 }
 
 function VoiceNoteBubble({ uri, note, mine, styles }: { uri: string; note: VoiceNoteMeta; mine: boolean; styles: ReturnType<typeof make> }) {
@@ -309,7 +321,7 @@ export default function FriendChat() {
       if (!uri) throw new Error("No recording was saved. Please try again.");
       const durationMs = Math.min(MAX_VOICE_NOTE_SECONDS * 1000, Math.round(Math.max(recorderStatus.durationMillis || 0, Date.now() - voiceStartedAt.current)));
       if (durationMs < 320) {
-        await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+        removeLocalRecording(uri);
         return;
       }
       const payload = makeVoicePayload(durationMs, makeVoiceWaveform(voiceLevels.current));
@@ -318,16 +330,16 @@ export default function FriendChat() {
       setOptimisticMessages((current) => [...current, optimistic]);
       setLoadError("");
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
-      const base64 = await recordingAsBase64(uri);
+      const base64 = await localUriAsBase64(uri);
       const contentType = Platform.OS === "web" ? "audio/webm" : "audio/mp4";
       const result = await sendFriendVoiceMessage(String(chatId), base64, contentType, payload);
       setOptimisticMessages((current) => current.map((message) => message.id === localId ? { ...message, id: result.messageId, photoUrl: result.audioUrl, status: "sent" } : message));
       void notificationAsync(NotificationFeedbackType.Success);
-      await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+      removeLocalRecording(uri);
     } catch (error) {
       if (localId) setOptimisticMessages((current) => current.filter((message) => message.id !== localId));
       setLoadError(friendChatErrorMessage(error, "Couldn’t send your voice note. Please try again."));
-      if (uri) await FileSystem.deleteAsync(uri, { idempotent: true }).catch(() => undefined);
+      if (uri) removeLocalRecording(uri);
     } finally {
       voiceLevels.current = [];
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, interruptionMode: "mixWithOthers" }).catch(() => undefined);
@@ -362,7 +374,7 @@ export default function FriendChat() {
     try {
       let uploaded = "";
       if (localPhotoUri) {
-        const base64 = await FileSystem.readAsStringAsync(localPhotoUri, { encoding: FileSystem.EncodingType.Base64 });
+        const base64 = await localUriAsBase64(localPhotoUri);
         uploaded = await uploadFriendAttachment(base64, "image/jpeg");
       }
       const result = await sendFriendMessage(String(chatId), text, uploaded, replyTarget?.id);
