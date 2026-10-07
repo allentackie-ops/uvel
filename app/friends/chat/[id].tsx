@@ -60,11 +60,11 @@ export default function FriendChat() {
   const peerUid = String(chatId || "").split("_").find((participant) => participant && participant !== uid) || "";
   const [peer, setPeer] = useState<PublicUser | undefined>();
   const [messages, setMessages] = useState<FriendMessage[]>([]);
+  const [optimisticMessages, setOptimisticMessages] = useState<FriendMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [replyingTo, setReplyingTo] = useState<FriendMessage | null>(null);
   const [activeMessage, setActiveMessage] = useState<FriendMessage | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [photoUri, setPhotoUri] = useState<string | undefined>();
@@ -77,8 +77,9 @@ export default function FriendChat() {
   const listName = peer?.displayName || peer?.username || name || "Friend";
   const visibleMessages = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return query ? messages.filter((message) => message.text.toLowerCase().includes(query)) : messages;
-  }, [messages, searchQuery]);
+    const combined = [...messages, ...optimisticMessages].sort((a, b) => (asDate(a.createdAt)?.getTime() || 0) - (asDate(b.createdAt)?.getTime() || 0));
+    return query ? combined.filter((message) => message.text.toLowerCase().includes(query)) : combined;
+  }, [messages, optimisticMessages, searchQuery]);
 
   useEffect(() => {
     let active = true;
@@ -89,6 +90,7 @@ export default function FriendChat() {
     const unsubscribe = subscribeFriendMessages(String(chatId || ""), (next) => {
       if (!active) return;
       setMessages(next);
+      setOptimisticMessages((current) => current.filter((message) => !next.some((serverMessage) => serverMessage.id === message.id)));
       setLoading(false);
       setLoadError("");
       const last = next[next.length - 1];
@@ -106,29 +108,46 @@ export default function FriendChat() {
 
   useEffect(() => {
     if (!searchQuery && messages.length) requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: false }));
-  }, [messages.length, searchQuery]);
+  }, [visibleMessages.length, searchQuery]);
 
   async function send() {
     const text = draft.trim();
-    if ((!text && !photoUri) || !chatId || sending) return;
-    setSending(true);
+    const localPhotoUri = photoUri;
+    const replyTarget = replyingTo;
+    if ((!text && !localPhotoUri) || !chatId) return;
+
+    // Render locally first so the sender sees the message immediately instead of
+    // waiting on token renewal, the Edge Function, and sequential database writes.
+    const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const optimistic: FriendMessage = {
+      id: localId,
+      text,
+      from: uid,
+      photoUrl: localPhotoUri,
+      createdAt: new Date(),
+      status: "sending",
+      replyTo: replyTarget ? { id: replyTarget.id, text: replyTarget.text, from: replyTarget.from, photoUrl: replyTarget.photoUrl } : undefined,
+    };
+    setOptimisticMessages((current) => [...current, optimistic]);
     setDraft("");
+    setPhotoUri(undefined);
+    setReplyingTo(null);
     setLoadError("");
+    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+
     try {
       let uploaded = "";
-      if (photoUri) {
-        const base64 = await FileSystem.readAsStringAsync(photoUri, { encoding: FileSystem.EncodingType.Base64 });
+      if (localPhotoUri) {
+        const base64 = await FileSystem.readAsStringAsync(localPhotoUri, { encoding: FileSystem.EncodingType.Base64 });
         uploaded = await uploadFriendAttachment(base64, "image/jpeg");
       }
-      await sendFriendMessage(String(chatId), text, uploaded, replyingTo?.id);
-      setPhotoUri(undefined);
-      setReplyingTo(null);
-      requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+      const result = await sendFriendMessage(String(chatId), text, uploaded, replyTarget?.id);
+      setOptimisticMessages((current) => current.map((message) => message.id === localId ? { ...message, id: result.messageId, photoUrl: uploaded || undefined, status: "sent" } : message));
     } catch (error) {
-      setDraft(text);
+      setOptimisticMessages((current) => current.filter((message) => message.id !== localId));
+      setDraft((current) => current || text);
+      if (localPhotoUri) setPhotoUri((current) => current || localPhotoUri);
       setLoadError(error instanceof Error ? error.message : "Your message didn’t send. Try again.");
-    } finally {
-      setSending(false);
     }
   }
 
@@ -172,6 +191,7 @@ export default function FriendChat() {
       {item.photoUrl ? <View style={styles.senderPanel}><Avatar uri={mine ? undefined : peer?.avatarUri} label={mine ? "You" : listName} styles={styles} /><View style={styles.senderPanelCopy}><Text numberOfLines={1} style={[styles.senderName, mine && styles.senderNameMine]}>{mine ? "You" : listName}</Text><Text numberOfLines={1} style={[styles.senderHandle, mine && styles.senderHandleMine]}>{mine ? "Shared a photo" : peer?.username ? `@${peer.username}` : "Friend on Uvel"}</Text></View></View> : null}
       {item.photoUrl ? <Pressable onPress={() => setPreviewUri(item.photoUrl)} accessibilityRole="imagebutton" accessibilityLabel="View attached photo"><Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.messagePhoto} contentFit="cover" /></Pressable> : null}
       {item.text ? <Text style={[styles.bubbleText, mine ? styles.bubbleTextMine : styles.bubbleTextPeer]}>{item.text}</Text> : null}
+      {mine && item.status === "sending" ? <Text style={styles.messageStatus}>Sending…</Text> : null}
     </>;
     return <View key={item.id}>
       {startsDay ? <View style={styles.dayRule}><Text style={styles.dayPill}>{dayLabel(item.createdAt).toUpperCase()}</Text></View> : null}
@@ -202,7 +222,7 @@ export default function FriendChat() {
     <KeyboardAvoidingView style={styles.keyboardArea} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
       {loadError ? <View style={styles.errorBanner}><Ionicons name="cloud-offline-outline" size={17} color={colors.danger} /><Text style={styles.errorText} numberOfLines={3}>{loadError}</Text><Pressable onPress={() => { setLoading(true); setLoadError(""); setRetryCount((count) => count + 1); }} accessibilityRole="button" accessibilityLabel="Retry loading messages"><Text style={styles.retryText}>Retry</Text></Pressable></View> : null}
       {loading ? <View style={styles.loading}><ActivityIndicator color={colors.success} /><Text style={styles.loadingText}>Opening your conversation…</Text></View> : null}
-      {!loading && !loadError && messages.length === 0 ? <View pointerEvents="none" style={styles.emptyPrompt}><Text style={styles.emptyPromptText}>Say hi to {listName}</Text></View> : null}
+      {!loading && !loadError && visibleMessages.length === 0 ? <View pointerEvents="none" style={styles.emptyPrompt}><Text style={styles.emptyPromptText}>Say hi to {listName}</Text></View> : null}
       {!loading && searchQuery.trim() && visibleMessages.length === 0 ? <View style={styles.searchEmpty}><Ionicons name="search-outline" size={26} color={colors.subtle} /><Text style={styles.searchEmptyTitle}>No matching messages</Text><Text style={styles.searchEmptyCopy}>Try another word or name.</Text></View> : null}
       <FlatList
         ref={listRef}
@@ -225,8 +245,8 @@ export default function FriendChat() {
           <TextInput value={draft} onChangeText={setDraft} placeholder="Message your friend" placeholderTextColor={colors.subtle} style={styles.input} maxLength={2000} multiline blurOnSubmit={false} textAlignVertical="center" accessibilityLabel="Write a message" />
           <Text style={styles.charCount}>{draft.length >= 1800 ? `${draft.length}/2000` : ""}</Text>
         </View>
-        <Pressable onPress={() => void send()} disabled={(!draft.trim() && !photoUri) || sending} style={[styles.sendButton, ((!draft.trim() && !photoUri) || sending) && styles.sendButtonDisabled]} accessibilityRole="button" accessibilityLabel="Send message">
-          {sending ? <ActivityIndicator size="small" color={colors.success} /> : <Text style={styles.sendTxt}>Send</Text>}
+        <Pressable onPress={() => void send()} disabled={!draft.trim() && !photoUri} style={[styles.sendButton, (!draft.trim() && !photoUri) && styles.sendButtonDisabled]} accessibilityRole="button" accessibilityLabel="Send message">
+          <Text style={styles.sendTxt}>Send</Text>
         </Pressable>
       </View>
     </KeyboardAvoidingView>
@@ -296,6 +316,7 @@ function make(colors: ReturnType<typeof useColors>) {
     bubbleText: { fontSize: 18, lineHeight: 27 },
     bubbleTextMine: { color: "#FFFFFF" },
     bubbleTextPeer: { color: colors.bone },
+    messageStatus: { color: "rgba(255,255,255,0.72)", fontSize: 11, marginTop: 3, textAlign: "right" },
     replyQuote: { flexDirection: "row", alignItems: "stretch", gap: 8, marginBottom: 9, paddingVertical: 2 },
     replyQuoteBar: { width: 3, borderRadius: 2, backgroundColor: colors.danger },
     replyQuoteBarMine: { backgroundColor: "rgba(255,255,255,0.85)" },
