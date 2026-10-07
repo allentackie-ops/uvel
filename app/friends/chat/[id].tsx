@@ -191,14 +191,13 @@ export default function FriendChat() {
       {item.photoUrl ? <View style={styles.senderPanel}><Avatar uri={mine ? undefined : peer?.avatarUri} label={mine ? "You" : listName} styles={styles} /><View style={styles.senderPanelCopy}><Text numberOfLines={1} style={[styles.senderName, mine && styles.senderNameMine]}>{mine ? "You" : listName}</Text><Text numberOfLines={1} style={[styles.senderHandle, mine && styles.senderHandleMine]}>{mine ? "Shared a photo" : peer?.username ? `@${peer.username}` : "Friend on Uvel"}</Text></View></View> : null}
       {item.photoUrl ? <Pressable onPress={() => setPreviewUri(item.photoUrl)} accessibilityRole="imagebutton" accessibilityLabel="View attached photo"><Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.messagePhoto} contentFit="cover" /></Pressable> : null}
       {item.text ? <Text style={[styles.bubbleText, mine ? styles.bubbleTextMine : styles.bubbleTextPeer]}>{item.text}</Text> : null}
-      {mine && item.status === "sending" ? <Text style={styles.messageStatus}>Sending…</Text> : null}
     </>;
     return <View key={item.id}>
       {startsDay ? <View style={styles.dayRule}><Text style={styles.dayPill}>{dayLabel(item.createdAt).toUpperCase()}</Text></View> : null}
       <View style={[styles.messageLine, mine ? styles.messageLineMine : styles.messageLinePeer, grouped && styles.messageLineGrouped]}>
         {!mine ? <View style={styles.avatarSlot}>{showPeerAvatar ? <Avatar uri={peer?.avatarUri} label={listName} styles={styles} /> : null}</View> : null}
         <Pressable style={[styles.bubbleFrame, grouped && (mine ? styles.bubbleMineGrouped : styles.bubblePeerGrouped)]} onLongPress={() => { setCopiedMessageId(null); setActiveMessage(item); void notificationAsync(NotificationFeedbackType.Success); }} delayLongPress={430} accessibilityRole="text" accessibilityLabel={`${mine ? "You" : listName}: ${item.text || "Photo"}`}>
-          {mine ? <ImageBackground source={require("../../../assets/chat/message-bubble-gradient.png")} resizeMode="stretch" imageStyle={styles.bubbleGradientImage} style={[styles.bubble, styles.bubbleMine, grouped && styles.bubbleMineGrouped, item.photoUrl && styles.bubbleWithPhoto]}>{bubbleContent}</ImageBackground> : <View style={[styles.bubble, styles.bubblePeer, grouped && styles.bubblePeerGrouped, item.photoUrl && styles.bubbleWithPhoto]}>{bubbleContent}</View>}
+          {mine ? <ImageBackground source={require("../../../assets/chat/message-bubble-gradient.png")} resizeMode="stretch" imageStyle={styles.bubbleGradientImage} style={[styles.bubble, styles.bubbleMine, grouped && styles.bubbleMineGrouped, item.photoUrl && styles.bubbleWithPhoto, item.status === "sending" && styles.bubblePending]}>{bubbleContent}</ImageBackground> : <View style={[styles.bubble, styles.bubblePeer, grouped && styles.bubblePeerGrouped, item.photoUrl && styles.bubbleWithPhoto]}>{bubbleContent}</View>}
         </Pressable>
       </View>
     </View>;
@@ -303,6 +302,7 @@ function make(colors: ReturnType<typeof useColors>) {
     bubble: { paddingHorizontal: 16, paddingTop: 13, paddingBottom: 12, borderRadius: 21 },
     bubbleGradientImage: { borderRadius: 19 },
     bubbleMine: { backgroundColor: "transparent", borderBottomRightRadius: 7 },
+    bubblePending: { opacity: 0.48 },
     bubblePeer: { backgroundColor: colors.neutral, borderBottomLeftRadius: 7 },
     bubbleMineGrouped: { borderBottomRightRadius: 7 },
     bubblePeerGrouped: { borderBottomLeftRadius: 7 },
@@ -316,7 +316,6 @@ function make(colors: ReturnType<typeof useColors>) {
     bubbleText: { fontSize: 18, lineHeight: 27 },
     bubbleTextMine: { color: "#FFFFFF" },
     bubbleTextPeer: { color: colors.bone },
-    messageStatus: { color: "rgba(255,255,255,0.72)", fontSize: 11, marginTop: 3, textAlign: "right" },
     replyQuote: { flexDirection: "row", alignItems: "stretch", gap: 8, marginBottom: 9, paddingVertical: 2 },
     replyQuoteBar: { width: 3, borderRadius: 2, backgroundColor: colors.danger },
     replyQuoteBarMine: { backgroundColor: "rgba(255,255,255,0.85)" },
