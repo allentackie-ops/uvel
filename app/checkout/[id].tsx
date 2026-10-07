@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { LinkDisplay, PlatformPay, useStripe } from "@stripe/stripe-react-native";
 import { StatusBar } from "expo-status-bar";
@@ -13,6 +14,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "../../components/AccessiblePressable";
+import { CardCheckoutSheet } from "../../components/CardCheckoutSheet";
 import { Sheet } from "../../components/Sheet";
 import {
   payMethods,
@@ -49,6 +51,15 @@ import { carriersForListing } from "../../lib/sellerShipping";
 import { GroupedCheckout } from "../../components/GroupedCheckout";
 import { watchListingOffer, type ListingOffer } from "../../lib/offers";
 import { mirrorCheckoutOrder } from "../../lib/supabaseCheckout";
+
+type CardPaymentSession = {
+  orderId: string;
+  clientSecret: string;
+  paymentIntentId: string;
+  customerId?: string;
+  customerSessionClientSecret?: string;
+  methodId: string;
+};
 
 export default function Checkout() {
   const colors = useColors();
@@ -117,6 +128,7 @@ export default function Checkout() {
     return () => { live = false; };
   }, [autoPresentApplePay, market.code]);
   const [payOpen, setPayOpen] = useState(false);
+  const [cardSession, setCardSession] = useState<CardPaymentSession | null>(null);
   const [paying, setPaying] = useState(false);
   const [feeInfo, setFeeInfo] = useState(false);
   const [policyOpen, setPolicyOpen] = useState(false);
@@ -436,6 +448,10 @@ export default function Checkout() {
           router.replace({ pathname: "/order/[id]", params: { id: order.id } });
           return;
         }
+        if (method.kind === "card") {
+          setCardSession({ ...intent, orderId: order.id, methodId: method.id });
+          return;
+        }
         const initialized = await initPaymentSheet({
           merchantDisplayName: "Uvel",
           paymentIntentClientSecret: intent.clientSecret,
@@ -494,6 +510,59 @@ export default function Checkout() {
         unavailable
           ? "Stripe checkout is not connected yet. The Firebase payment function has not been deployed. Upgrade Firebase to Blaze, deploy the Functions, then try again."
           : raw || "Couldn’t complete that.",
+      );
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  function finishCardPayment(session: CardPaymentSession | null = cardSession) {
+    if (!session || !piece) return;
+    setCardSession(null);
+    void rememberLastPaymentMethod(market.code, session.methodId);
+    removeFromCart(piece.id);
+    router.replace({ pathname: "/order/[id]", params: { id: session.orderId } });
+  }
+
+  async function payWithLinkFromCardSheet() {
+    const session = cardSession;
+    if (!session || !address) return;
+    setCardSession(null);
+    setPaying(true);
+    // Let the custom modal dismiss before Stripe presents its Link authentication UI.
+    await new Promise((resolve) => setTimeout(resolve, 220));
+    try {
+      const initialized = await initPaymentSheet({
+        merchantDisplayName: "Uvel",
+        paymentIntentClientSecret: session.clientSecret,
+        ...(session.customerId && session.customerSessionClientSecret
+          ? {
+              customerId: session.customerId,
+              customerSessionClientSecret: session.customerSessionClientSecret,
+            }
+          : {}),
+        link: { display: LinkDisplay.AUTOMATIC },
+        paymentMethodOrder: ["link", "card"],
+        primaryButtonLabel: "Pay now",
+        style: "alwaysDark",
+        allowsDelayedPaymentMethods: false,
+        ...stripePaymentSheetAddress(address, app.email || undefined),
+      });
+      if (initialized.error) throw new Error(initialized.error.message);
+      const presented = await presentPaymentSheet();
+      if (presented.error) {
+        if (presented.error.code === "Canceled") {
+          setCardSession(session);
+          return;
+        }
+        throw new Error(presented.error.message);
+      }
+      finishCardPayment(session);
+    } catch (error) {
+      setCardSession(session);
+      Alert.alert(
+        "Payment",
+        error instanceof Error ? error.message : "Couldn’t open Link. Please try again.",
       );
     } finally {
       setPaying(false);
@@ -701,8 +770,8 @@ export default function Checkout() {
             </View>
           ) : method.kind === "card" ? (
             <View style={styles.cardButtonContent}>
-              <PayMark method={method} />
-              <Text style={styles.payTxt}>Pay with {method.label}</Text>
+              <Text style={styles.payTxt}>Pay with Card</Text>
+              <Ionicons name="card-outline" size={23} color={colors.ink} style={styles.cardButtonIcon} />
             </View>
           ) : (
             <Text style={styles.payTxt}>Pay with {method.label}</Text>
@@ -711,8 +780,19 @@ export default function Checkout() {
         <Text style={styles.secureText}>
           This payment will be processed by Stripe
         </Text>
-        <PaymentBrands styles={styles} />
       </View>
+      {cardSession && address ? (
+        <CardCheckoutSheet
+          visible
+          clientSecret={cardSession.clientSecret}
+          address={address}
+          email={app.email || undefined}
+          amountLabel={moneyExact(total, market.currency)}
+          onClose={() => setCardSession(null)}
+          onPaid={() => finishCardPayment(cardSession)}
+          onPayWithLink={() => void payWithLinkFromCardSheet()}
+        />
+      ) : null}
       {feeInfo ? (
         <Sheet open={feeInfo} onClose={() => setFeeInfo(false)}>
           <Text style={styles.sheetH}>Price details</Text>
@@ -897,6 +977,13 @@ export default function Checkout() {
 }
 
 function PayMark({ method }: { method: PayMethod }) {
+  if (method.icon === "card") {
+    return (
+      <View style={[mark.wrap, { backgroundColor: "transparent" }]}>
+        <Ionicons name="card-outline" size={26} color="#D6D6D6" />
+      </View>
+    );
+  }
   const src =
     method.icon === "apple"
       ? require("../../assets/pay/apple-pay.png")
@@ -904,9 +991,7 @@ function PayMark({ method }: { method: PayMethod }) {
         ? require("../../assets/pay/mtn-momo.png")
         : method.icon === "telecel"
           ? require("../../assets/pay/telecel.png")
-          : method.icon === "card"
-            ? require("../../assets/pay/card.png")
-            : null;
+          : null;
   if (!src) {
     return (
       <View style={mark.box}>
@@ -915,50 +1000,14 @@ function PayMark({ method }: { method: PayMethod }) {
     );
   }
   const apple = method.icon === "apple";
-  const card = method.icon === "card";
   return (
     <View style={[mark.wrap, apple && { backgroundColor: "transparent" }]}>
       <Image
         cachePolicy="memory-disk"
         source={src}
-        style={apple ? mark.apple : card ? mark.card : mark.sq}
+        style={apple ? mark.apple : mark.sq}
         contentFit="contain"
       />
-    </View>
-  );
-}
-
-function PaymentBrands({ styles }: { styles: ReturnType<typeof make> }) {
-  return (
-    <View
-      style={styles.paymentBrands}
-      accessibilityLabel="Accepted payment methods"
-    >
-      <View style={styles.brandTile}>
-        <Image
-          source={require("../../assets/pay/apple-pay.png")}
-          style={styles.appleBrand}
-          contentFit="contain"
-        />
-      </View>
-      <View style={styles.brandTile}>
-        <Text style={styles.visaBrand}>VISA</Text>
-      </View>
-      <View style={styles.brandTile}>
-        <View style={styles.mastercardBrand}>
-          <View style={[styles.cardCircle, styles.cardCircleRed]} />
-          <View style={[styles.cardCircle, styles.cardCircleOrange]} />
-        </View>
-      </View>
-      <View style={styles.brandTile}>
-        <View style={styles.mastercardBrand}>
-          <View style={[styles.cardCircle, styles.cardCircleRed]} />
-          <View style={[styles.cardCircle, styles.cardCircleBlue]} />
-        </View>
-      </View>
-      <View style={styles.amexTile}>
-        <Text style={styles.amexBrand}>AMEX</Text>
-      </View>
     </View>
   );
 }
@@ -973,7 +1022,6 @@ const mark = StyleSheet.create({
     overflow: "hidden",
   },
   apple: { width: 46, height: 28 },
-  card: { width: 52, height: 22 },
   sq: { width: 28, height: 28 },
   box: {
     width: 36,
@@ -1159,11 +1207,13 @@ function make(colors: Colors) {
       gap: 5,
     },
     cardButtonContent: {
+      width: "100%",
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: 8,
+      position: "relative",
     },
+    cardButtonIcon: { position: "absolute", right: 20 },
     appleGlyph: {
       color: colors.ink,
       fontSize: 25,
@@ -1176,64 +1226,6 @@ function make(colors: Colors) {
       fontSize: 14,
       marginTop: 8,
       letterSpacing: 0.1,
-    },
-    paymentBrands: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      marginTop: 8,
-    },
-    brandTile: {
-      width: 54,
-      height: 36,
-      borderRadius: 8,
-      backgroundColor: "#FFFFFF",
-      borderWidth: 2,
-      borderColor: "#9A9A9A",
-      alignItems: "center",
-      justifyContent: "center",
-      overflow: "hidden",
-    },
-    appleBrand: { width: 46, height: 29 },
-    visaBrand: {
-      color: "#163A80",
-      fontSize: 17,
-      fontStyle: "italic",
-      fontWeight: "900",
-      letterSpacing: -1.4,
-    },
-    mastercardBrand: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      width: 42,
-      height: 26,
-    },
-    cardCircle: {
-      width: 20,
-      height: 20,
-      borderRadius: 10,
-      marginHorizontal: -3,
-    },
-    cardCircleRed: { backgroundColor: "#EB001B" },
-    cardCircleOrange: { backgroundColor: "#F79E1B" },
-    cardCircleBlue: { backgroundColor: "#2563C7" },
-    amexTile: {
-      width: 54,
-      height: 36,
-      borderRadius: 10,
-      backgroundColor: "#2674C8",
-      borderWidth: 2,
-      borderColor: "#9DC7F2",
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    amexBrand: {
-      color: "#FFFFFF",
-      fontSize: 12,
-      fontWeight: "900",
-      letterSpacing: -0.5,
     },
     sheetH: {
       color: colors.bone,
