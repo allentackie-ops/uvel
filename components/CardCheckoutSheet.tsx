@@ -117,7 +117,7 @@ export function CardCheckoutSheet({
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboard}
         >
-          <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 18) + 18 }]} accessibilityViewIsModal>
+          <View style={[styles.sheet, { paddingBottom: insets.bottom + 4 }]} accessibilityViewIsModal>
             <View style={styles.header}>
               <AccessiblePressable
                 onPress={onClose}
@@ -209,8 +209,11 @@ export function CardCheckoutSheet({
               accessibilityRole="button"
               accessibilityLabel="Pay with Link"
             >
-              <Ionicons name="link-outline" size={19} color={FG} />
-              <Text style={styles.linkText}>Pay with <Text style={styles.linkWord}>Link</Text></Text>
+              <Text style={styles.linkText}>Pay with</Text>
+              <View style={styles.linkTab}>
+                <Ionicons name="link" size={14} color="#fff" />
+                <Text style={styles.linkWord}>Link</Text>
+              </View>
             </AccessiblePressable>
           </View>
         </KeyboardAvoidingView>
@@ -227,33 +230,34 @@ const styles = StyleSheet.create({
     backgroundColor: BG,
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingTop: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: "#242424",
   },
-  header: { height: 76, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 42 },
-  closeButton: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, borderColor: "#343434", alignItems: "center", justifyContent: "center" },
-  title: { color: FG, fontSize: 21, fontWeight: "700", letterSpacing: 0.1 },
-  headerSpacer: { width: 46 },
-  cardRow: { minHeight: 60, borderWidth: 1, borderColor: BORDER, borderRadius: 3, flexDirection: "row", alignItems: "center", paddingHorizontal: 12, backgroundColor: "#0d0d0d" },
+  header: { height: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
+  closeButton: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: "#343434", alignItems: "center", justifyContent: "center" },
+  title: { color: FG, fontSize: 18, fontWeight: "700", letterSpacing: 0.1 },
+  headerSpacer: { width: 40 },
+  cardRow: { minHeight: 50, borderWidth: 1, borderColor: BORDER, borderRadius: 3, flexDirection: "row", alignItems: "center", paddingHorizontal: 9, backgroundColor: "#0d0d0d" },
   cardIcon: { marginRight: 8 },
-  cardField: { flex: 1, height: 54, minWidth: 0 },
-  zipInput: { width: 48, height: 48, color: FG, fontSize: 14, textAlign: "center", paddingHorizontal: 0, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: "#333" },
-  saveRow: { flexDirection: "row", alignItems: "center", minHeight: 60, marginTop: 20, marginBottom: 22, paddingHorizontal: 8 },
-  toggle: { width: 48, height: 28, borderRadius: 16, borderWidth: 1, borderColor: "#777", alignItems: "flex-start", justifyContent: "center", padding: 2, marginRight: 15, backgroundColor: "#111" },
+  cardField: { flex: 1, height: 44, minWidth: 0 },
+  zipInput: { width: 44, height: 40, color: FG, fontSize: 13, textAlign: "center", paddingHorizontal: 0, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: "#333" },
+  saveRow: { flexDirection: "row", alignItems: "center", minHeight: 42, marginTop: 8, marginBottom: 10, paddingHorizontal: 8 },
+  toggle: { width: 44, height: 26, borderRadius: 15, borderWidth: 1, borderColor: "#777", alignItems: "flex-start", justifyContent: "center", padding: 2, marginRight: 13, backgroundColor: "#111" },
   toggleOn: { backgroundColor: "#fff", borderColor: "#fff", alignItems: "flex-end" },
-  toggleKnob: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#767676", alignItems: "center", justifyContent: "center" },
-  toggleKnobOn: { width: 24, height: 24, borderRadius: 12, backgroundColor: "#101010" },
-  saveText: { color: FG, fontSize: 16, fontWeight: "500" },
+  toggleKnob: { width: 20, height: 20, borderRadius: 10, backgroundColor: "#767676", alignItems: "center", justifyContent: "center" },
+  toggleKnobOn: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#101010" },
+  saveText: { color: FG, fontSize: 15, fontWeight: "500" },
   error: { color: "#ff9b9b", fontSize: 13, lineHeight: 18, marginBottom: 10, marginHorizontal: 8 },
-  payButton: { height: 58, borderRadius: 4, backgroundColor: "#ededed", alignItems: "center", justifyContent: "center" },
+  payButton: { height: 48, borderRadius: 4, backgroundColor: "#ededed", alignItems: "center", justifyContent: "center" },
   payButtonDisabled: { backgroundColor: PAY_DISABLED },
   payText: { color: "#161616", fontSize: 16, fontWeight: "700" },
-  dividerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 12, marginBottom: 2 },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 6, marginBottom: 0 },
   divider: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: "#3a3a3a" },
   orText: { color: MUTED, fontSize: 12 },
-  linkButton: { minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  linkButton: { minHeight: 34, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
   linkText: { color: FG, fontSize: 15, fontWeight: "500" },
-  linkWord: { fontWeight: "800", letterSpacing: 0.2 },
+  linkTab: { minHeight: 28, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingHorizontal: 10, borderRadius: 5, backgroundColor: "#00A86B" },
+  linkWord: { color: "#fff", fontSize: 14, fontWeight: "800", letterSpacing: 0.15 },
 });
