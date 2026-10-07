@@ -45,9 +45,11 @@ export default function Inbox() {
   const [friendPanelMode, setFriendPanelMode] = useState<"friends" | "messages">("friends");
   const [friendTerm, setFriendTerm] = useState("");
   const [friendResults, setFriendResults] = useState<PublicUser[]>([]);
+  const [friendSentIds, setFriendSentIds] = useState<Set<string>>(() => new Set());
   const [friendNotifications, setFriendNotifications] = useState<FriendNotification[]>([]);
   const [friendBusy, setFriendBusy] = useState(false);
   const [friendError, setFriendError] = useState("");
+  const [friendNotice, setFriendNotice] = useState("");
   const [friends, setFriends] = useState<PublicUser[]>([]);
   const [friendChats, setFriendChats] = useState<FriendChatPreview[]>([]);
   useEffect(() => subscribeFriendNotifications(uid, setFriendNotifications), [uid]);
@@ -65,14 +67,21 @@ export default function Inbox() {
     }
     setFriendBusy(true);
     setFriendError("");
+    setFriendNotice("");
     setFriendResults([]);
     try { setFriendResults(await searchUsers(term)); } catch (e) { setFriendError(e instanceof Error ? e.message : "Couldn’t search friends."); }
     finally { setFriendBusy(false); }
   }
 
   async function addFriend(user: PublicUser) {
+    if (friendSentIds.has(user.uid)) return;
     setFriendBusy(true);
-    try { await sendFriendRequest(user.uid); setFriendResults((items) => items.filter((item) => item.uid !== user.uid)); }
+    setFriendError("");
+    try {
+      await sendFriendRequest(user.uid);
+      setFriendSentIds((current) => new Set(current).add(user.uid));
+      setFriendNotice(`Request sent to ${user.displayName || `@${user.username}`}. They need to accept it before you become friends.`);
+    }
     catch (e) { setFriendError(e instanceof Error ? e.message : "Couldn’t send request."); }
     finally { setFriendBusy(false); }
   }
@@ -142,7 +151,8 @@ export default function Inbox() {
         {friendPanelMode === "messages" ? <View style={styles.friendSearchRow}><TextInput autoFocus value={conversationQuery} onChangeText={setConversationQuery} onSubmitEditing={() => setFriendSearchOpen(false)} placeholder="People, listings, or messages" placeholderTextColor={colors.subtle} style={styles.friendInput} returnKeyType="search" /><Pressable onPress={() => setFriendSearchOpen(false)} style={styles.findBtn}><Text style={styles.findTxt}>Done</Text></Pressable></View> : <>
         <View style={styles.friendSearchRow}><TextInput value={friendTerm} onChangeText={(value) => { setFriendTerm(value); setFriendError(""); }} onSubmitEditing={() => void runFriendSearch()} placeholder="Name or username" placeholderTextColor={colors.subtle} style={styles.friendInput} autoCapitalize="none" returnKeyType="search" /><Pressable onPress={() => void runFriendSearch()} style={styles.findBtn} accessibilityRole="button" accessibilityLabel="Search for friends"><Text style={styles.findTxt}>{friendBusy ? "…" : "Search"}</Text></Pressable></View>
         {friendError ? <Text style={styles.friendError}>{friendError}</Text> : null}
-        {friendResults.map((user) => <View key={user.uid} style={styles.requestRow}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Pressable onPress={() => void addFriend(user)} style={styles.addBtn}><Text style={styles.addTxt}>Add</Text></Pressable></View>)}
+        {friendNotice ? <Text style={styles.friendNotice}>{friendNotice}</Text> : null}
+        {friendResults.map((user) => { const sent = friendSentIds.has(user.uid); return <View key={user.uid} style={styles.requestRow}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Pressable disabled={sent || friendBusy} onPress={() => void addFriend(user)} style={[styles.addBtn, sent && styles.addBtnSent]}><Text style={[styles.addTxt, sent && styles.addTxtSent]}>{sent ? "Sent" : "Add"}</Text></Pressable></View>; })}
         {friendNotifications.filter((item) => item.kind === "friend_request" && !item.readAt).map((item) => <View key={item.id} style={styles.requestRow}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.actor.displayName || `@${item.actor.username}`} added you</Text><View style={styles.requestActions}><Pressable onPress={() => void respondFriendRequest(item.requestId, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable onPress={() => void respondFriendRequest(item.requestId, "accepted")}><Text style={styles.acceptTxt}>Add back</Text></Pressable></View></View></View>)}
         {friendNotifications.filter((item) => item.kind === "friend_added" && !item.readAt).map((item) => <View key={item.id} style={styles.requestRow}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.actor.displayName || `@${item.actor.username}`} has been added as a friend.</Text><Text style={styles.usernameTxt}>You’re now connected on Uvel.</Text></View></View>)}
         {friends.length ? <Text style={styles.sectionLabel}>YOUR FRIENDS</Text> : null}
@@ -308,6 +318,7 @@ function make(colors: Colors) {
     findBtn: { paddingHorizontal: 14, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: colors.success },
     findTxt: { color: colors.successInk, fontWeight: "800" },
     friendError: { color: "#E24B4B", fontSize: 12, marginTop: 8 },
+    friendNotice: { color: colors.success, fontSize: 12, lineHeight: 17, marginTop: 8 },
     requestRow: { flexDirection: "row", gap: 10, alignItems: "center", paddingVertical: 10 },
     requestText: { color: colors.bone, fontWeight: "700" },
     usernameTxt: { color: colors.subtle, fontSize: 12, marginTop: 2 },
@@ -316,6 +327,8 @@ function make(colors: Colors) {
     acceptTxt: { color: colors.success, fontWeight: "800" },
     addBtn: { borderRadius: 12, paddingHorizontal: 13, paddingVertical: 8, backgroundColor: colors.success },
     addTxt: { color: colors.successInk, fontWeight: "800" },
+    addBtnSent: { backgroundColor: `${colors.success}33` },
+    addTxtSent: { color: colors.success },
     noFriends: { color: colors.muted, paddingVertical: 12 },
     sectionLabel: { color: colors.subtle, fontSize: 11, letterSpacing: 1.4, fontWeight: "800", marginTop: 12, marginBottom: 2 },
     chatArrow: { color: colors.success, fontSize: 26 },
