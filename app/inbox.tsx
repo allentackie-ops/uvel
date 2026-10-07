@@ -56,7 +56,8 @@ export default function Inbox() {
   const [mode, setMode] = useState<InboxMode>("Messages");
   const [activityTab, setActivityTab] = useState<ActivityTab>("friends");
   const [filter, setFilter] = useState<Filter>("All");
-  const [conversationQuery, setConversationQuery] = useState("");
+  const [searchTab, setSearchTab] = useState<NotificationTab>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const refreshTriggered = useRef(false);
   const [friendSearchOpen, setFriendSearchOpen] = useState(false);
@@ -148,6 +149,8 @@ export default function Inbox() {
     setFriendSheetExpanded(false);
     setFriendSearchOpen(false);
     setFriendResults([]);
+    setSearchTab(null);
+    setSearchQuery("");
   }, []);
   const friendSheetDragY = useMemo(() => new Animated.Value(0), []);
   const [friendSheetExpanded, setFriendSheetExpanded] = useState(false);
@@ -202,18 +205,14 @@ export default function Inbox() {
   const unreadActivityCount = friendNotifications.filter((item) => !item.readAt).length + activityOnlyNotifications.filter((item) => !item.read).length + alertEvents.filter((item) => !item.read).length;
   const unreadNotifications = unreadMessageCount + unreadActivityCount;
 
-  const visible = useMemo(() => {
-    const query = conversationQuery.trim().toLowerCase();
-    return threads.filter((t) => {
-      const selling = t.sellerId === me || (t.recipientIds || []).includes(me);
-      const buying = t.buyerId === me;
-      if (filter === "Selling" && !selling) return false;
-      if (filter === "Buying" && !buying) return false;
-      if (filter === "Unread" && !unreadFor(t, me)) return false;
-      if (!query) return true;
-      return [t.lastText, t.pieceName, t.brandName, t.sellerName, t.buyerName].filter(Boolean).join(" ").toLowerCase().includes(query);
-    });
-  }, [conversationQuery, threads, filter, me]);
+  const visible = useMemo(() => threads.filter((t) => {
+    const selling = t.sellerId === me || (t.recipientIds || []).includes(me);
+    const buying = t.buyerId === me;
+    if (filter === "Selling" && !selling) return false;
+    if (filter === "Buying" && !buying) return false;
+    if (filter === "Unread" && !unreadFor(t, me)) return false;
+    return true;
+  }), [threads, filter, me]);
 
   function openActivityFriendChat(chat: FriendChatPreview, user: PublicUser | undefined, _otherUid: string) {
     const blocked = Boolean(chat.blockedByMe);
@@ -290,7 +289,7 @@ export default function Inbox() {
         </Pressable>
         <Text style={styles.navTitle}>Inbox</Text>
         <View style={styles.navActions}>
-        <Pressable onPress={() => { setFriendPanelMode("messages"); setFriendSearchOpen(true); setFriendError(""); }} hitSlop={12} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Search Inbox"><Text style={styles.searchTxt}>⌕</Text></Pressable>
+        <Pressable onPress={() => { setFriendPanelMode("messages"); setSearchTab(null); setSearchQuery(""); setFriendSearchOpen(true); setFriendError(""); }} hitSlop={12} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Search Messages or Activity"><Text style={styles.searchTxt}>⌕</Text></Pressable>
         <Pressable
           onPress={() => { if (friendPanelMode === "notifications" && friendSearchOpen) closeFriendPanel(); else { setFriendPanelMode("notifications"); setNotificationTab(null); setFriendSheetExpanded(false); setFriendSearchOpen(true); } }}
           hitSlop={12}
@@ -317,9 +316,14 @@ export default function Inbox() {
         onOpenMessageThread={openMessageNotification}
         friendTab={friendTab}
         setFriendTab={setFriendTab}
+        searchTab={searchTab}
+        setSearchTab={setSearchTab}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        activityChats={friendChats}
+        onOpenActivitySearchChat={openActivityFriendChat}
         onClose={closeFriendPanel}
         onModeChange={setFriendPanelMode}
-        onOpenDiscover={() => { setFriendPanelMode("discover"); setDiscoveryTerm(""); setFriendResults([]); setFriendError(""); setFriendNotice(""); }}
         friends={friends}
         notifications={friendNotifications}
         activityNotifications={activityNotifications}
@@ -327,8 +331,6 @@ export default function Inbox() {
         onOpenActivityNotification={openActivityNotification}
         onOpenAlertNotification={openAlertNotification}
         onMarkFriendNotificationRead={(item) => { void markFriendNotificationRead(me, item.id).catch(() => undefined); }}
-        conversationQuery={conversationQuery}
-        setConversationQuery={setConversationQuery}
         friendTerm={friendTerm}
         setFriendTerm={setFriendTerm}
         discoveryTerm={discoveryTerm}
@@ -389,7 +391,7 @@ export default function Inbox() {
           contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
           style={styles.list}
         />
-      </> : activityTab === "friends" ? <ActivityView friends={friends} friendChats={friendChats} uid={me} onOpenFriends={() => { setFriendPanelMode("friends"); setFriendTab("friends"); setFriendSearchOpen(true); setFriendError(""); }} onOpenChat={openActivityFriendChat} onFriendActions={(chat, user, otherUid) => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined); setFriendActionTarget({ chat, user, otherUid }); }} colors={colors} styles={styles} onScroll={onScroll} orbitOn={orbitOn} /> : <ActivityRequestsView requests={pendingFriendRequests} requestBusy={requestBusy} onRespond={respondToFriendRequest} onScroll={onScroll} orbitOn={orbitOn} styles={styles} />}
+      </> : activityTab === "friends" ? <ActivityView friends={friends} friendChats={friendChats} uid={me} onOpenFriends={() => { setFriendPanelMode("friends"); setFriendTab("friends"); setFriendSearchOpen(true); setFriendError(""); }} onFindFriends={() => { setFriendPanelMode("discover"); setDiscoveryTerm(""); setFriendResults([]); setFriendError(""); setFriendNotice(""); setFriendSheetExpanded(false); setFriendSearchOpen(true); }} onOpenChat={openActivityFriendChat} onFriendActions={(chat, user, otherUid) => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => undefined); setFriendActionTarget({ chat, user, otherUid }); }} colors={colors} styles={styles} onScroll={onScroll} orbitOn={orbitOn} /> : <ActivityRequestsView requests={pendingFriendRequests} requestBusy={requestBusy} onRespond={respondToFriendRequest} onScroll={onScroll} orbitOn={orbitOn} styles={styles} />}
     </View>
   );
 }
@@ -410,15 +412,23 @@ function FindFriendsBanner({ onPress, colors, styles }: { onPress: () => void; c
   </Pressable>;
 }
 
-function FriendSheet({ visible, mode, friendTab, setFriendTab, notificationTab, setNotificationTab, uid, messageThreads, messageUnreadCount, activityUnreadCount, expanded, onOpenMessageThread, onClose, onModeChange, onOpenDiscover, friends, notifications, activityNotifications, alertEvents, onOpenActivityNotification, onOpenAlertNotification, onMarkFriendNotificationRead, conversationQuery, setConversationQuery, friendTerm, setFriendTerm, discoveryTerm, setDiscoveryTerm, friendResults, friendSentIds, friendBusy, requestBusy, friendError, friendNotice, onSearchUsers, onAddFriend, onRespond, onOpenChat, colors, styles, insets, panHandlers, dragY }: {
-  visible: boolean; mode: FriendPanelMode; friendTab: FriendTab; setFriendTab: (tab: FriendTab) => void; notificationTab: NotificationTab; setNotificationTab: (tab: NotificationTab) => void; uid: string; messageThreads: ChatThread[]; messageUnreadCount: number; activityUnreadCount: number; expanded: boolean; onOpenMessageThread: (thread: ChatThread) => void; onClose: () => void; onModeChange: (mode: FriendPanelMode) => void; onOpenDiscover: () => void;
-  friends: PublicUser[]; notifications: FriendNotification[]; activityNotifications: ActivityNotification[]; alertEvents: AlertEvent[]; onOpenActivityNotification: (item: ActivityNotification) => void; onOpenAlertNotification: (item: AlertEvent) => void; onMarkFriendNotificationRead: (item: FriendNotification) => void; conversationQuery: string; setConversationQuery: (value: string) => void; friendTerm: string; setFriendTerm: (value: string) => void; discoveryTerm: string; setDiscoveryTerm: (value: string) => void;
+function FriendSheet({ visible, mode, friendTab, setFriendTab, notificationTab, setNotificationTab, searchTab, setSearchTab, searchQuery, setSearchQuery, uid, messageThreads, activityChats, messageUnreadCount, activityUnreadCount, expanded, onOpenMessageThread, onOpenActivitySearchChat, onClose, onModeChange, friends, notifications, activityNotifications, alertEvents, onOpenActivityNotification, onOpenAlertNotification, onMarkFriendNotificationRead, friendTerm, setFriendTerm, discoveryTerm, setDiscoveryTerm, friendResults, friendSentIds, friendBusy, requestBusy, friendError, friendNotice, onSearchUsers, onAddFriend, onRespond, onOpenChat, colors, styles, insets, panHandlers, dragY }: {
+  visible: boolean; mode: FriendPanelMode; friendTab: FriendTab; setFriendTab: (tab: FriendTab) => void; notificationTab: NotificationTab; setNotificationTab: (tab: NotificationTab) => void; searchTab: NotificationTab; setSearchTab: (tab: NotificationTab) => void; searchQuery: string; setSearchQuery: (query: string) => void; uid: string; messageThreads: ChatThread[]; activityChats: FriendChatPreview[]; messageUnreadCount: number; activityUnreadCount: number; expanded: boolean; onOpenMessageThread: (thread: ChatThread) => void; onOpenActivitySearchChat: (chat: FriendChatPreview, user: PublicUser | undefined, otherUid: string) => void; onClose: () => void; onModeChange: (mode: FriendPanelMode) => void;
+  friends: PublicUser[]; notifications: FriendNotification[]; activityNotifications: ActivityNotification[]; alertEvents: AlertEvent[]; onOpenActivityNotification: (item: ActivityNotification) => void; onOpenAlertNotification: (item: AlertEvent) => void; onMarkFriendNotificationRead: (item: FriendNotification) => void; friendTerm: string; setFriendTerm: (value: string) => void; discoveryTerm: string; setDiscoveryTerm: (value: string) => void;
   friendResults: PublicUser[]; friendSentIds: Set<string>; friendBusy: boolean; requestBusy: string | null; friendError: string; friendNotice: string; onSearchUsers: () => Promise<void>; onAddFriend: (user: PublicUser) => Promise<void>; onRespond: (item: FriendNotification, action: "accepted" | "declined") => Promise<void>; onOpenChat: (user: PublicUser) => Promise<void>;
   colors: Colors; styles: ReturnType<typeof make>; insets: { bottom: number }; panHandlers: ReturnType<typeof PanResponder.create>["panHandlers"]; dragY: Animated.Value;
 }) {
   const pending = notifications.filter((item) => item.kind === "friend_request" && !item.readAt);
   const visibleFriends = friends.filter((user) => `${user.displayName} ${user.username}`.toLowerCase().includes(friendTerm.trim().toLowerCase()));
   const messageThreadsSorted = [...messageThreads].sort((a, b) => b.lastAt - a.lastAt);
+  const searchNeedle = searchQuery.trim().toLowerCase();
+  const messageSearchResults = searchNeedle ? messageThreadsSorted.filter((thread) => [thread.lastText, thread.pieceName, thread.brandName, thread.sellerName, thread.buyerName].filter(Boolean).join(" ").toLowerCase().includes(searchNeedle)) : [];
+  const activitySearchResults = searchNeedle ? [...activityChats].filter((chat) => {
+    if (chat.blockedByMe || chat.blockedByThem || chat.hidden) return false;
+    const otherUid = chat.participantIds.find((id) => id !== uid) || "";
+    const user = friends.find((entry) => entry.uid === otherUid);
+    return `${user?.displayName || ""} ${user?.username || ""} ${friendMessagePreview(chat.lastText)}`.toLowerCase().includes(searchNeedle);
+  }).sort((a, b) => timestampMs(b.lastAt) - timestampMs(a.lastAt)) : [];
   const messageActivityItems = activityNotifications.filter((item) => item.kind.startsWith("offer_"));
   const messageActivityRows: SheetNotification[] = messageActivityItems.map((item) => ({ source: "activity", id: item.id, at: item.at, item }));
   const activityRows: SheetNotification[] = [
@@ -455,7 +465,18 @@ function FriendSheet({ visible, mode, friendTab, setFriendTab, notificationTab, 
           {mode === "discover" ? <Pressable onPress={() => onModeChange("friends")} hitSlop={10}><Text style={styles.sheetBack}>‹</Text></Pressable> : null}
           <Text style={styles.friendPanelTitle}>{title}</Text><Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close panel"><Text style={styles.closeTxt}>×</Text></Pressable>
         </View>
-        {mode === "messages" ? <View style={styles.friendSearchRow}><TextInput autoFocus value={conversationQuery} onChangeText={setConversationQuery} onSubmitEditing={onClose} placeholder="People, listings, or messages" placeholderTextColor={colors.subtle} style={styles.friendInput} returnKeyType="search" /><Pressable onPress={onClose} style={styles.findBtn}><Text style={styles.findTxt}>Done</Text></Pressable></View> : null}
+        {mode === "messages" ? <>
+          <View style={styles.notificationTabs} accessibilityRole="tablist">
+            {(["messages", "activity"] as const).map((tab) => <Pressable key={`search:${tab}`} onPress={() => setSearchTab(tab)} style={[styles.notificationTab, searchTab === tab && styles.notificationTabOn]} accessibilityRole="tab" accessibilityState={{ selected: searchTab === tab }}><Text style={[styles.notificationTabText, searchTab === tab && styles.notificationTabTextOn]}>{tab === "messages" ? "Messages" : "Activity"}</Text></Pressable>)}
+          </View>
+          {searchTab === null ? <View style={styles.notificationPrompt}><Text style={styles.notificationPromptText}>Choose Messages or Activity to search.</Text></View> : <>
+            <View style={styles.friendSearchRow}><TextInput key={searchTab} autoFocus value={searchQuery} onChangeText={setSearchQuery} onSubmitEditing={() => Keyboard.dismiss()} placeholder={searchTab === "messages" ? "Search messages" : "Search activity messages"} placeholderTextColor={colors.subtle} style={styles.friendInput} autoCapitalize="none" returnKeyType="search" accessibilityLabel={searchTab === "messages" ? "Search Messages" : "Search Activity"} /><Pressable onPress={() => setSearchQuery("")} style={styles.findBtn} accessibilityRole="button" accessibilityLabel="Clear search"><Text style={styles.findTxt}>Clear</Text></Pressable></View>
+            {!searchNeedle ? <View style={styles.notificationPrompt}><Text style={styles.notificationPromptText}>Type a name, listing, or message to search.</Text></View> : <ScrollView style={[styles.sheetList, styles.notificationList]} keyboardShouldPersistTaps="handled">
+              {searchTab === "messages" ? messageSearchResults.map((thread) => { const person = thread.brandName || (thread.buyerId === uid ? thread.sellerName : thread.buyerName) || "Uvel member"; return <Pressable key={`search-message:${thread.id}`} onPress={() => onOpenMessageThread(thread)} style={styles.notificationRow} accessibilityRole="button" accessibilityLabel={`Open message from ${person} about ${thread.pieceName}`}>{thread.piecePhoto ? <Image source={{ uri: thread.piecePhoto }} style={styles.notificationThumb} contentFit="cover" /> : <View style={styles.notificationIcon}><Text style={styles.notificationIconText}>✉</Text></View>}<View style={{ flex: 1 }}><Text style={styles.requestText} numberOfLines={1}>{person}</Text><Text style={styles.usernameTxt} numberOfLines={1}>{thread.pieceName}</Text><Text style={styles.usernameTxt} numberOfLines={2}>{thread.lastText || "New conversation"}</Text></View><Text style={styles.chatArrow}>›</Text></Pressable>; }) : activitySearchResults.map((chat) => { const otherUid = chat.participantIds.find((id) => id !== uid) || ""; const user = friends.find((entry) => entry.uid === otherUid); const person = user?.displayName || user?.username || "Friend"; return <Pressable key={`search-activity:${chat.id}`} onPress={() => { onClose(); onOpenActivitySearchChat(chat, user, otherUid); }} style={styles.notificationRow} accessibilityRole="button" accessibilityLabel={`Open activity conversation with ${person}`}><Avatar user={user || { uid: otherUid, username: "friend", displayName: "Friend" }} /><View style={{ flex: 1 }}><Text style={styles.requestText} numberOfLines={1}>{person}</Text><Text style={styles.usernameTxt} numberOfLines={2}>{friendMessagePreview(chat.lastText) || "Start chatting"}</Text><Text style={styles.notificationTime}>{when(timestampMs(chat.lastAt))}</Text></View><Text style={styles.chatArrow}>›</Text></Pressable>; })}
+              {searchTab === "messages" && !messageSearchResults.length ? <Text style={styles.noFriends}>No message matches found.</Text> : null}{searchTab === "activity" && !activitySearchResults.length ? <Text style={styles.noFriends}>No activity messages match found.</Text> : null}
+            </ScrollView>}
+          </>}
+        </> : null}
         {mode === "notifications" ? <>
           <View style={styles.notificationTabs} accessibilityRole="tablist">
             {(["messages", "activity"] as const).map((tab) => {
@@ -488,7 +509,6 @@ function FriendSheet({ visible, mode, friendTab, setFriendTab, notificationTab, 
               {visibleFriends.map((user) => <Pressable key={user.uid} onPress={() => { onClose(); void onOpenChat(user); }} style={styles.sheetPersonRow} accessibilityRole="button" accessibilityLabel={`Chat with ${user.displayName || user.username}`}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Text style={styles.chatArrow}>›</Text></Pressable>)}
               {!visibleFriends.length ? <Text style={styles.noFriends}>{friendTerm.trim() ? "No friends match that search." : "You haven’t added any friends yet."}</Text> : null}
             </ScrollView>
-            <Pressable onPress={onOpenDiscover} style={styles.discoverButton}><Text style={styles.discoverButtonText}>Find new friends</Text></Pressable>
           </> : <ScrollView style={styles.sheetList} keyboardShouldPersistTaps="handled">{requestRows(pending)}{!pending.length ? <Text style={styles.noFriends}>No pending friend requests.</Text> : null}</ScrollView>}
         </> : null}
         {mode === "discover" ? <>
@@ -511,7 +531,7 @@ function ActivityRequestsView({ requests, requestBusy, onRespond, onScroll, orbi
   </ScrollView>;
 }
 
-function ActivityView({ friends, friendChats, uid, onOpenFriends, onOpenChat, onFriendActions, colors, styles, onScroll, orbitOn }: { friends: PublicUser[]; friendChats: FriendChatPreview[]; uid: string; onOpenFriends: () => void; onOpenChat: (chat: FriendChatPreview, user: PublicUser | undefined, otherUid: string) => void; onFriendActions: (chat: FriendChatPreview, user: PublicUser | undefined, otherUid: string) => void; colors: Colors; styles: ReturnType<typeof make>; onScroll: (event: { nativeEvent: { contentOffset: { y: number } } }) => void; orbitOn: boolean }) {
+function ActivityView({ friends, friendChats, uid, onOpenFriends, onFindFriends, onOpenChat, onFriendActions, colors, styles, onScroll, orbitOn }: { friends: PublicUser[]; friendChats: FriendChatPreview[]; uid: string; onOpenFriends: () => void; onFindFriends: () => void; onOpenChat: (chat: FriendChatPreview, user: PublicUser | undefined, otherUid: string) => void; onFriendActions: (chat: FriendChatPreview, user: PublicUser | undefined, otherUid: string) => void; colors: Colors; styles: ReturnType<typeof make>; onScroll: (event: { nativeEvent: { contentOffset: { y: number } } }) => void; orbitOn: boolean }) {
   return <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 28 }} style={styles.activityScroll} alwaysBounceVertical bounces scrollEventThrottle={16} onScroll={onScroll}>
     {orbitOn ? <View style={styles.refreshOrbit}><OrbitLoader /></View> : null}
     <View style={styles.activityHeader}><Text style={styles.activityTitle}>Your circle</Text></View>
@@ -528,7 +548,7 @@ function ActivityView({ friends, friendChats, uid, onOpenFriends, onOpenChat, on
         {!blocked && unread ? <View style={styles.chatUnread}><Text style={styles.chatUnreadTxt}>{unread > 9 ? "9+" : unread}</Text></View> : <Text style={styles.chatArrow}>›</Text>}
       </Pressable>;
     }) : <Text style={styles.empty}>Friend conversations will appear here.</Text>}
-    {friends.length <= 5 ? <FindFriendsBanner onPress={onOpenFriends} colors={colors} styles={styles} /> : null}
+    {friends.length <= 5 ? <FindFriendsBanner onPress={onFindFriends} colors={colors} styles={styles} /> : null}
   </ScrollView>;
 }
 
@@ -647,9 +667,7 @@ function make(colors: Colors) {
     friendNotice: { color: colors.success, fontSize: 14, lineHeight: 20, marginTop: 8 },
     sheetList: { flexGrow: 0, flexShrink: 1, maxHeight: 440 },
     sheetPersonRow: { flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}15` },
-    discoverButton: { minHeight: 50, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: `${colors.success}20`, marginTop: 10 },
-    discoverButtonText: { color: colors.success, fontSize: 15, fontWeight: "800" },
-    notificationRow: { flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 14, paddingHorizontal: 8, borderRadius: 14 },
+        notificationRow: { flexDirection: "row", gap: 12, alignItems: "center", paddingVertical: 14, paddingHorizontal: 8, borderRadius: 14 },
     notificationUnread: { backgroundColor: `${colors.success}12` },
     notificationTabs: { flexDirection: "row", gap: 8, padding: 4, borderRadius: 18, backgroundColor: `${colors.ink}CC`, marginBottom: 12 },
     notificationList: { maxHeight: 640 },
@@ -710,8 +728,8 @@ function make(colors: Colors) {
     priorityMeta: { color: colors.muted, fontSize: 11, marginTop: 3 },
     priorityArrow: { color: colors.success, fontSize: 28, marginRight: 3 },
     findBanner: { marginHorizontal: 16, marginTop: 18, padding: 18, minHeight: 98, borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.success}55`, flexDirection: "row", alignItems: "center", gap: 14 },
-    findBannerIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
-    findBannerIconText: { color: colors.successInk, fontSize: 28, lineHeight: 30 },
+    findBannerIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#E5465E", alignItems: "center", justifyContent: "center" },
+    findBannerIconText: { color: "#FFFFFF", fontSize: 28, lineHeight: 30 },
     findBannerCopy: { flex: 1 },
     findBannerTitle: { color: colors.bone, fontSize: 18, fontWeight: "800" },
     findBannerBody: { color: colors.muted, fontSize: 14, lineHeight: 19, marginTop: 4 },
