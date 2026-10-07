@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
 import { BrandVerifiedMark } from "../components/VerifiedMark";
@@ -42,12 +42,13 @@ export default function Inbox() {
   const [refreshing, setRefreshing] = useState(false);
   const refreshTriggered = useRef(false);
   const [friendSearchOpen, setFriendSearchOpen] = useState(false);
-  const [friendPanelMode, setFriendPanelMode] = useState<"friends" | "messages">("friends");
+  const [friendPanelMode, setFriendPanelMode] = useState<"friends" | "messages" | "notifications">("friends");
   const [friendTerm, setFriendTerm] = useState("");
   const [friendResults, setFriendResults] = useState<PublicUser[]>([]);
   const [friendSentIds, setFriendSentIds] = useState<Set<string>>(() => new Set());
   const [friendNotifications, setFriendNotifications] = useState<FriendNotification[]>([]);
   const [friendBusy, setFriendBusy] = useState(false);
+  const [requestBusy, setRequestBusy] = useState<string | null>(null);
   const [friendError, setFriendError] = useState("");
   const [friendNotice, setFriendNotice] = useState("");
   const [friends, setFriends] = useState<PublicUser[]>([]);
@@ -84,6 +85,25 @@ export default function Inbox() {
     }
     catch (e) { setFriendError(e instanceof Error ? e.message : "Couldn’t send request."); }
     finally { setFriendBusy(false); }
+  }
+
+  async function respondToFriendRequest(item: FriendNotification, action: "accepted" | "declined") {
+    if (requestBusy) return;
+    setRequestBusy(item.requestId);
+    setFriendError("");
+    try {
+      await respondFriendRequest(item.requestId, action);
+      setFriendNotifications((items) => items.map((notification) => notification.id === item.id ? { ...notification, readAt: Date.now() } : notification));
+      if (action === "accepted") {
+        const [nextFriends, nextChats] = await Promise.all([listFriends(), listFriendChats()]);
+        setFriends(nextFriends);
+        setFriendChats(nextChats);
+      }
+    } catch (e) {
+      setFriendError(e instanceof Error ? e.message : `Couldn’t ${action === "accepted" ? "add" : "decline"} that request.`);
+    } finally {
+      setRequestBusy(null);
+    }
   }
 
   async function openFriendChat(user: PublicUser) {
@@ -137,23 +157,28 @@ export default function Inbox() {
         <View style={styles.navActions}>
         <Pressable onPress={() => { setFriendPanelMode("messages"); setFriendSearchOpen(true); setFriendError(""); }} hitSlop={12} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Search Inbox"><Text style={styles.searchTxt}>⌕</Text></Pressable>
         <Pressable
-          onPress={() => { if (!friendNotifications.length) Alert.alert("Notifications", "No friend notifications yet."); else { setFriendPanelMode("friends"); setFriendSearchOpen(true); } }}
+          onPress={() => { if (friendPanelMode === "notifications") setFriendSearchOpen((open) => !open); else { setFriendPanelMode("notifications"); setFriendSearchOpen(true); } }}
           hitSlop={12}
           style={styles.bell}
+          accessibilityRole="button"
+          accessibilityLabel={`Notifications${friendNotifications.filter((item) => !item.readAt).length ? `, ${friendNotifications.filter((item) => !item.readAt).length} unread` : ""}`}
         >
           <Text style={styles.bellTxt}>🔔</Text>
+          {friendNotifications.filter((item) => !item.readAt).length ? <View style={styles.badge}><Text style={styles.badgeTxt}>{friendNotifications.filter((item) => !item.readAt).length > 9 ? "9+" : friendNotifications.filter((item) => !item.readAt).length}</Text></View> : null}
         </Pressable>
         </View>
       </View>
 
       {friendSearchOpen ? <View style={styles.friendPanel}>
-        <View style={styles.friendPanelHead}><Text style={styles.friendPanelTitle}>{friendPanelMode === "messages" ? "Search Inbox" : "Find friends"}</Text><Pressable onPress={() => { setFriendSearchOpen(false); setFriendResults([]); }} accessibilityRole="button" accessibilityLabel="Close search"><Text style={styles.closeTxt}>×</Text></Pressable></View>
-        {friendPanelMode === "messages" ? <View style={styles.friendSearchRow}><TextInput autoFocus value={conversationQuery} onChangeText={setConversationQuery} onSubmitEditing={() => setFriendSearchOpen(false)} placeholder="People, listings, or messages" placeholderTextColor={colors.subtle} style={styles.friendInput} returnKeyType="search" /><Pressable onPress={() => setFriendSearchOpen(false)} style={styles.findBtn}><Text style={styles.findTxt}>Done</Text></Pressable></View> : <>
+        <View style={styles.friendPanelHead}><Text style={styles.friendPanelTitle}>{friendPanelMode === "messages" ? "Search Inbox" : friendPanelMode === "notifications" ? "Notifications" : "Find friends"}</Text><Pressable onPress={() => { setFriendSearchOpen(false); setFriendResults([]); }} accessibilityRole="button" accessibilityLabel="Close panel"><Text style={styles.closeTxt}>×</Text></Pressable></View>
+        {friendPanelMode === "notifications" ? <ScrollView style={styles.notificationList} nestedScrollEnabled>
+          {friendNotifications.length ? friendNotifications.map((item) => <View key={item.id} style={[styles.notificationRow, !item.readAt && styles.notificationUnread]}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.kind === "friend_request" ? `${item.actor.displayName || `@${item.actor.username}`} added you` : item.kind === "friend_added" ? `${item.actor.displayName || `@${item.actor.username}`} has been added as a friend` : `${item.actor.displayName || `@${item.actor.username}`} accepted your friend request`}</Text><Text style={styles.usernameTxt}>{item.kind === "friend_request" && !item.readAt ? "Respond to request" : "Friend activity"}</Text>{item.kind === "friend_request" && !item.readAt ? <View style={styles.requestActions}><Pressable disabled={requestBusy === item.requestId} onPress={() => void respondToFriendRequest(item, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable disabled={Boolean(requestBusy)} onPress={() => void respondToFriendRequest(item, "accepted")}><Text style={styles.acceptTxt}>{requestBusy === item.requestId ? "Adding…" : "Add back"}</Text></Pressable></View> : null}</View></View>) : <Text style={styles.noFriends}>You’re all caught up.</Text>}
+        </ScrollView> : friendPanelMode === "messages" ? <View style={styles.friendSearchRow}><TextInput autoFocus value={conversationQuery} onChangeText={setConversationQuery} onSubmitEditing={() => setFriendSearchOpen(false)} placeholder="People, listings, or messages" placeholderTextColor={colors.subtle} style={styles.friendInput} returnKeyType="search" /><Pressable onPress={() => setFriendSearchOpen(false)} style={styles.findBtn}><Text style={styles.findTxt}>Done</Text></Pressable></View> : <>
         <View style={styles.friendSearchRow}><TextInput value={friendTerm} onChangeText={(value) => { setFriendTerm(value); setFriendError(""); }} onSubmitEditing={() => void runFriendSearch()} placeholder="Name or username" placeholderTextColor={colors.subtle} style={styles.friendInput} autoCapitalize="none" returnKeyType="search" /><Pressable onPress={() => void runFriendSearch()} style={styles.findBtn} accessibilityRole="button" accessibilityLabel="Search for friends"><Text style={styles.findTxt}>{friendBusy ? "…" : "Search"}</Text></Pressable></View>
         {friendError ? <Text style={styles.friendError}>{friendError}</Text> : null}
         {friendNotice ? <Text style={styles.friendNotice}>{friendNotice}</Text> : null}
         {friendResults.map((user) => { const sent = friendSentIds.has(user.uid); return <View key={user.uid} style={styles.requestRow}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Pressable disabled={sent || friendBusy} onPress={() => void addFriend(user)} style={[styles.addBtn, sent && styles.addBtnSent]}><Text style={[styles.addTxt, sent && styles.addTxtSent]}>{sent ? "Sent" : "Add"}</Text></Pressable></View>; })}
-        {friendNotifications.filter((item) => item.kind === "friend_request" && !item.readAt).map((item) => <View key={item.id} style={styles.requestRow}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.actor.displayName || `@${item.actor.username}`} added you</Text><View style={styles.requestActions}><Pressable onPress={() => void respondFriendRequest(item.requestId, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable onPress={() => void respondFriendRequest(item.requestId, "accepted")}><Text style={styles.acceptTxt}>Add back</Text></Pressable></View></View></View>)}
+        {friendNotifications.filter((item) => item.kind === "friend_request" && !item.readAt).map((item) => <View key={item.id} style={styles.requestRow}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.actor.displayName || `@${item.actor.username}`} added you</Text><View style={styles.requestActions}><Pressable disabled={requestBusy === item.requestId} onPress={() => void respondToFriendRequest(item, "declined")}><Text style={styles.declineTxt}>Decline</Text></Pressable><Pressable disabled={Boolean(requestBusy)} onPress={() => void respondToFriendRequest(item, "accepted")}><Text style={styles.acceptTxt}>{requestBusy === item.requestId ? "Adding…" : "Add back"}</Text></Pressable></View></View></View>)}
         {friendNotifications.filter((item) => item.kind === "friend_added" && !item.readAt).map((item) => <View key={item.id} style={styles.requestRow}><Avatar user={item.actor} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{item.actor.displayName || `@${item.actor.username}`} has been added as a friend.</Text><Text style={styles.usernameTxt}>You’re now connected on Uvel.</Text></View></View>)}
         {friends.length ? <Text style={styles.sectionLabel}>YOUR FRIENDS</Text> : null}
         {friends.map((user) => <Pressable key={user.uid} onPress={() => void openFriendChat(user)} style={styles.requestRow} accessibilityRole="button" accessibilityLabel={`Chat with ${user.displayName || user.username}`}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Text style={styles.chatArrow}>›</Text></Pressable>)}
@@ -304,12 +329,14 @@ function make(colors: Colors) {
       marginRight: 8,
     },
     bellTxt: { fontSize: 16 },
+    badge: { position: "absolute", top: -3, right: -3, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: "#E24B4B", alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.ink },
+    badgeTxt: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" },
     modeToggle: { marginHorizontal: 16, marginBottom: 14, padding: 3, borderRadius: 22, backgroundColor: `${colors.bone}10`, flexDirection: "row" },
     modeButton: { flex: 1, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
     modeButtonOn: { backgroundColor: colors.surface },
     modeText: { color: colors.muted, fontSize: 14, fontWeight: "700" },
     modeTextOn: { color: colors.bone },
-    friendPanel: { marginHorizontal: 12, marginBottom: 12, padding: 14, borderRadius: 18, backgroundColor: colors.surface },
+    friendPanel: { marginHorizontal: 12, marginBottom: 12, padding: 14, borderRadius: 18, backgroundColor: colors.surface, maxHeight: 420 },
     friendPanelHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
     friendPanelTitle: { color: colors.bone, fontWeight: "800", fontSize: 17 },
     closeTxt: { color: colors.muted, fontSize: 24 },
@@ -319,6 +346,9 @@ function make(colors: Colors) {
     findTxt: { color: colors.successInk, fontWeight: "800" },
     friendError: { color: "#E24B4B", fontSize: 12, marginTop: 8 },
     friendNotice: { color: colors.success, fontSize: 12, lineHeight: 17, marginTop: 8 },
+    notificationList: { maxHeight: 360 },
+    notificationRow: { flexDirection: "row", gap: 10, alignItems: "center", paddingVertical: 10, paddingHorizontal: 8, borderRadius: 12 },
+    notificationUnread: { backgroundColor: `${colors.success}12` },
     requestRow: { flexDirection: "row", gap: 10, alignItems: "center", paddingVertical: 10 },
     requestText: { color: colors.bone, fontWeight: "700" },
     usernameTxt: { color: colors.subtle, fontSize: 12, marginTop: 2 },

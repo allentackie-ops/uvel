@@ -1,5 +1,6 @@
 import { pollSocial, socialCall } from "./supabaseSocial";
 import { marketplaceCall } from "./supabaseMarketplace";
+import { useEffect, useState } from "react";
 import type { PublicUser } from "./friends";
 
 export type FriendMessage = { id: string; text: string; from: string; photoUrl?: string; createdAt?: unknown; status?: string };
@@ -22,6 +23,23 @@ export async function sendFriendMessage(conversationId: string, text: string, ph
 export async function listFriendChats() {
   const result = await socialCall<{ chats: FriendChatPreview[] }>("list_chats");
   return result.chats || [];
+}
+
+export function useFriendChatUnread(uid: string) {
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!uid || uid === "me") {
+      setUnread(0);
+      return () => undefined;
+    }
+    return pollSocial(async () => {
+      const chats = await listFriendChats();
+      return chats.reduce((total, chat) => total + Number(chat.unreadBy?.[uid] || 0), 0);
+    }, setUnread, 5000);
+  }, [uid]);
+
+  return unread;
 }
 
 export async function uploadFriendAttachment(base64: string, contentType = "image/jpeg") {

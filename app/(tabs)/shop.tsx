@@ -32,6 +32,10 @@ import { useLiveShopCampaigns } from "../../lib/marketing";
 import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
 import { FEED_PAGE_SIZE, feedPage } from "../../lib/feedOrder";
 import { unreadFor, useInbox } from "../../lib/chat";
+import { useFriendChatUnread } from "../../lib/friendChat";
+import { subscribeFriendNotifications, type FriendNotification } from "../../lib/friends";
+import { useAlertCenter } from "../../lib/alerts";
+import { useActivityNotifications } from "../../lib/activityNotifications";
 import { usePersonalization } from "../../lib/personalization";
 import { useFirstFind } from "../../lib/firstFind";
 import { convertCents, getMarket, moneyExact, moneyInMarket } from "../../lib/markets";
@@ -183,6 +187,12 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const { q: qParam, look: lookParam, scan } = useLocalSearchParams<{ q?: string; look?: string; scan?: string }>();
   const chats = useInbox(app.uid || "me");
   const unread = chats.reduce((count, thread) => count + unreadFor(thread, app.uid || "me"), 0);
+  const friendChatUnread = useFriendChatUnread(app.uid || "me");
+  const { events: alertEvents } = useAlertCenter(app.uid);
+  const activityNotifications = useActivityNotifications(app.uid || "guest");
+  const [friendNotifications, setFriendNotifications] = useState<FriendNotification[]>([]);
+  useEffect(() => subscribeFriendNotifications(app.uid, setFriendNotifications), [app.uid]);
+  const unreadSocial = unread + friendChatUnread + friendNotifications.filter((item) => !item.readAt).length + alertEvents.filter((item) => !item.read).length + activityNotifications.filter((item) => !item.read).length;
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<(typeof CATEGORIES)[number]>("All");
   const [aiIds, setAiIds] = useState<string[] | null>(null);
@@ -626,16 +636,16 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           </AccessiblePressable>
         ) : null}
         {overHero && todayHome ? (
-          <TodayMessagesButton onPress={() => router.push("/inbox")} unread={unread} onHintVisibilityChange={handleMessagesHintVisibility} />
+          <TodayMessagesButton onPress={() => router.push("/inbox")} unread={unreadSocial} onHintVisibilityChange={handleMessagesHintVisibility} />
         ) : (
           <AccessiblePressable
             onPress={() => router.push("/inbox")}
             style={({ pressed }) => [styles.messageButton, pressed && { opacity: 0.84 }]}
             accessibilityRole="button"
-            accessibilityLabel={`${C.messages}${unread ? `, ${unread} unread` : ""}`}
+            accessibilityLabel={`${C.messages}${unreadSocial ? `, ${unreadSocial} unread` : ""}`}
           >
             <Ionicons name="chatbubble-ellipses-outline" size={24} color={overHero ? "#F4F0E6" : colors.bone} />
-            {unread ? <View style={styles.messageBadge}><Text style={styles.messageBadgeText}>{unread > 9 ? "9+" : unread}</Text></View> : null}
+            {unreadSocial ? <View style={styles.messageBadge}><Text style={styles.messageBadgeText}>{unreadSocial > 9 ? "9+" : unreadSocial}</Text></View> : null}
           </AccessiblePressable>
         )}
       </View>
