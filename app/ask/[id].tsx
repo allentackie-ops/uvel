@@ -40,12 +40,13 @@ import {
 import { createListingOffer, respondToListingOffer } from "../../lib/offers";
 import { pickFromLibrary, takePhoto } from "../../lib/photo";
 import { useUvel } from "../../lib/store";
-import { useColors, type Colors } from "../../lib/theme";
+import { useColors, useResolvedAppearance, type Colors } from "../../lib/theme";
 import { getPiece, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { useOrders } from "../../lib/orders";
 
 export default function Ask() {
   const colors = useColors();
+  const appearance = useResolvedAppearance();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { id: rawId, threadId: rawThreadId, orderId: rawOrderId, supportCaseId: rawSupportCaseId, pieceName: rawPieceName, piecePhoto: rawPiecePhoto, piecePriceCents: rawPiecePriceCents, brandId: rawBrandId } = useLocalSearchParams<{ id?: string | string[]; threadId?: string | string[]; orderId?: string | string[]; supportCaseId?: string | string[]; pieceName?: string | string[]; piecePhoto?: string | string[]; piecePriceCents?: string | string[]; brandId?: string | string[] }>();
@@ -361,7 +362,7 @@ export default function Ask() {
   if (!piece) {
     return (
       <View style={styles.page}>
-        <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
+        <StatusBar style={appearance === "dark" ? "light" : "dark"} />
         <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Go back">
             <Text style={styles.navBack}>‹</Text>
@@ -379,7 +380,7 @@ export default function Ask() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
+      <StatusBar style={appearance === "dark" ? "light" : "dark"} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
         <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
           <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>

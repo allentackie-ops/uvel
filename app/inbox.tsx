@@ -9,7 +9,7 @@ import { BrandVerifiedMark } from "../components/VerifiedMark";
 import { getBrand, useBrands } from "../lib/brands";
 import { unreadFor, useInbox, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
-import { useColors, type Colors } from "../lib/theme";
+import { useColors, useResolvedAppearance, type Colors } from "../lib/theme";
 import * as Haptics from "../lib/haptics";
 import { respondFriendRequest, searchUsers, sendFriendRequest, subscribeFriendNotifications, type FriendNotification, type PublicUser } from "../lib/friends";
 import { createFriendChat, listFriendChats, listFriends, type FriendChatPreview } from "../lib/friendChat";
@@ -29,6 +29,7 @@ function when(ms: number) {
 
 export default function Inbox() {
   const colors = useColors();
+  const appearance = useResolvedAppearance();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { uid } = useUvel();
@@ -112,7 +113,7 @@ export default function Inbox() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
+      <StatusBar style={appearance === "dark" ? "light" : "dark"} />
       <View style={[styles.nav, { paddingTop: insets.top + 4 }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={styles.navBtn}>
           <Text style={styles.navBack}>‹</Text>
