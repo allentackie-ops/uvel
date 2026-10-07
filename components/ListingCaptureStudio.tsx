@@ -74,8 +74,9 @@ export function ListingCaptureStudio({ photos, backgrounds, initialMode = "captu
         [{ crop: { originX: Math.round((result.width - cropWidth) / 2), originY: Math.round((result.height - cropHeight) / 2), width: cropWidth, height: cropHeight } }],
         { compress: 0.82, format: ImageManipulator.SaveFormat.JPEG },
       );
-      await onCapture(framed.uri);
       const nextCount = photos.length + 1;
+      setBusy(false);
+      void onCapture(framed.uri);
       if (nextCount === REQUIRED) {
           Alert.alert("Three views captured", "Would you like to take more pictures? You can add up to six total.", [
             { text: "Not now", style: "cancel", onPress: () => setMode("backgrounds") },
@@ -137,7 +138,7 @@ export function ListingCaptureStudio({ photos, backgrounds, initialMode = "captu
         <View style={[styles.guide, { top: insets.top + 152 }]} pointerEvents="none"><View style={styles.cornerTopLeft} /><View style={styles.cornerTopRight} /><View style={styles.cornerBottomLeft} /><View style={styles.cornerBottomRight} /></View>
         <View style={[styles.cameraBottom, { paddingBottom: insets.bottom + 18 }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.thumbRail}>
-            {photos.map((photo, index) => <DraggableCaptureThumb key={`${photo.uri}-${index}`} uri={photo.uri} index={index} styles={styles} isDragging={draggingPhotoIndex === index && dragHasMoved} onDragStart={() => { dragOverDeleteRef.current = false; setDragOverDelete(false); setDragHasMoved(false); setDraggingPhotoIndex(index); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }} onDragMove={(moveX, moveY) => { setDragHasMoved(true); setDragPosition({ x: moveX, y: moveY }); const targetX = windowWidth / 2; const targetY = windowHeight - insets.bottom - 61; const overDelete = Math.hypot(moveX - targetX, moveY - targetY) < 88; dragOverDeleteRef.current = overDelete; setDragOverDelete(overDelete); }} onDragEnd={(dragIndex) => { const shouldDelete = dragIndex === draggingPhotoIndex && dragOverDeleteRef.current; if (shouldDelete) { onDeleteCapture(photo.uri); void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } dragOverDeleteRef.current = false; setDraggingPhotoIndex(null); setDragOverDelete(false); setDragHasMoved(false); setDragPosition({ x: 0, y: 0 }); }} />)}
+            {photos.map((photo, index) => <DraggableCaptureThumb key={`${photo.uri}-${index}`} uri={photo.uri} index={index} styles={styles} isDragging={draggingPhotoIndex === index && dragHasMoved} onDragStart={() => { dragOverDeleteRef.current = false; setDragOverDelete(false); setDragHasMoved(false); setDraggingPhotoIndex(index); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); }} onDragMove={(moveX, moveY) => { setDragHasMoved(true); setDragPosition({ x: moveX, y: moveY }); const targetX = windowWidth / 2; const targetY = windowHeight - insets.bottom - 61; const overDelete = Math.hypot(moveX - targetX, moveY - targetY) < 88; dragOverDeleteRef.current = overDelete; setDragOverDelete(overDelete); }} onDragEnd={(dragIndex) => { const shouldDelete = dragIndex === draggingPhotoIndex && dragOverDeleteRef.current; dragOverDeleteRef.current = false; setDraggingPhotoIndex(null); setDragOverDelete(false); setDragHasMoved(false); setDragPosition({ x: 0, y: 0 }); if (shouldDelete) { onDeleteCapture(photo.uri); void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } }} />)}
             {Array.from({ length: Math.max(0, (extraSlotsEnabled ? MAX : REQUIRED) - photos.length) }).map((_, index) => <View key={`empty-${index}`} style={styles.emptyThumb}><Ionicons name="add" size={18} color="#FFFFFF99" /></View>)}
           </ScrollView>
           <View style={styles.captureActionRow}>
