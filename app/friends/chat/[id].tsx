@@ -48,6 +48,15 @@ function initials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase() || "F";
 }
 
+function friendChatErrorMessage(error: unknown, fallback: string) {
+  const message = error instanceof Error ? error.message : "";
+  if (/failed to send a request to the edge function/i.test(message)) {
+    console.warn("[FriendChat] Edge Function transport failure", error);
+    return fallback;
+  }
+  return message || fallback;
+}
+
 export default function FriendChat() {
   const colors = useColors();
   const appearance = useResolvedAppearance();
@@ -101,7 +110,7 @@ export default function FriendChat() {
     }, (error) => {
       if (!active) return;
       setLoading(false);
-      setLoadError(error instanceof Error ? error.message : "Couldn’t load messages. Check your connection and try again.");
+      setLoadError(friendChatErrorMessage(error, "Messages are temporarily unavailable. Please try again shortly."));
     });
     return () => { active = false; unsubscribe(); };
   }, [chatId, peerUid, retryCount, uid]);
@@ -147,7 +156,7 @@ export default function FriendChat() {
       setOptimisticMessages((current) => current.filter((message) => message.id !== localId));
       setDraft((current) => current || text);
       if (localPhotoUri) setPhotoUri((current) => current || localPhotoUri);
-      setLoadError(error instanceof Error ? error.message : "Your message didn’t send. Try again.");
+      setLoadError(friendChatErrorMessage(error, "Couldn’t send your message just now. Your draft is saved—please try again."));
     }
   }
 
@@ -175,7 +184,7 @@ export default function FriendChat() {
     setActiveMessage(null);
     Alert.alert("Delete message?", "This removes your message from this conversation.", [
       { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => { void deleteFriendMessage(String(chatId), message.id).then(() => { setMessages((current) => current.filter((entry) => entry.id !== message.id)); setReplyingTo((current) => current?.id === message.id ? null : current); }).catch((error) => Alert.alert("Couldn’t delete message", error instanceof Error ? error.message : "Please try again.")); } },
+      { text: "Delete", style: "destructive", onPress: () => { void deleteFriendMessage(String(chatId), message.id).then(() => { setMessages((current) => current.filter((entry) => entry.id !== message.id)); setReplyingTo((current) => current?.id === message.id ? null : current); }).catch((error) => Alert.alert("Couldn’t delete message", friendChatErrorMessage(error, "Please check your connection and try again."))); } },
     ]);
   }
 
