@@ -25,6 +25,10 @@ export async function listFriendChats() {
   return result.chats || [];
 }
 
+export async function markFriendChatRead(conversationId: string) {
+  return socialCall<{ ok: boolean }>("mark_read", { conversationId });
+}
+
 export function useFriendChatUnread(uid: string) {
   const [unread, setUnread] = useState(0);
 
@@ -55,9 +59,9 @@ export async function reportFriendConversation(conversationId: string, reason: s
   return socialCall<{ reported: boolean }>("report", { conversationId, reason });
 }
 
-export function subscribeFriendMessages(conversationId: string, callback: (messages: FriendMessage[]) => void) {
+export function subscribeFriendMessages(conversationId: string, callback: (messages: FriendMessage[]) => void, onError?: (error: unknown) => void) {
   return pollSocial(async () => {
     const result = await socialCall<{ messages: FriendMessage[] }>("list_messages", { conversationId });
     return result.messages || [];
-  }, callback, 2500);
+  }, callback, 2500, onError);
 }

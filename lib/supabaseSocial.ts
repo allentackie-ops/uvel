@@ -50,9 +50,9 @@ export async function mirrorSocialProfiles(users: PublicUser[]) {
   } catch { /* Firebase remains the fallback profile source during migration. */ }
 }
 
-export function pollSocial<T>(load: () => Promise<T>, callback: (value: T) => void, intervalMs: number) {
+export function pollSocial<T>(load: () => Promise<T>, callback: (value: T) => void, intervalMs: number, onError?: (error: unknown) => void) {
   let active = true;
-  const refresh = () => { void load().then((value) => { if (active) callback(value); }).catch(() => undefined); };
+  const refresh = () => { void load().then((value) => { if (active) callback(value); }).catch((error) => { if (active) onError?.(error); }); };
   refresh();
   const timer = setInterval(refresh, intervalMs);
   return () => { active = false; clearInterval(timer); };
