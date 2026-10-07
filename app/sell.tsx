@@ -925,22 +925,6 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
                 </View>
               )}
             />
-            {photos.length < MAX ? (
-              <AccessiblePressable
-                onPress={choosePhoto}
-                style={({ pressed }) => [
-                  styles.photoAdd,
-                  photos.length === 0 ? styles.photoAddEmpty : styles.photoAddMore,
-                  pressed && { opacity: 0.92 },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={`Add photo, ${photos.length} of ${MAX} added`}
-                accessibilityHint={`Double tap to choose more listing photos. Up to ${MAX} photos allowed.`}
-              >
-                <Ionicons name="add" size={28} color={colors.bone} />
-                <Text style={styles.photoAddTxt}>{photos.length === 0 ? C.addPhoto : "Add more"}</Text>
-              </AccessiblePressable>
-            ) : null}
           </ScrollView>
 
 
