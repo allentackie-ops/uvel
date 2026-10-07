@@ -31,6 +31,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { FirstLaunchWelcome } from "../components/FirstLaunchWelcome";
 import { pullOta } from "../lib/ota";
 import { DOCS } from "../lib/legal";
 import { useUvel } from "../lib/store";
@@ -48,6 +49,9 @@ import { LANGS, isRtl, langLabel, t } from "../lib/i18n";
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
 const PAGES = [
+  {
+    kind: "welcome" as const,
+  },
   {
     kind: "film" as const,
     source: require("../assets/onboarding/tryon.mp4"),
@@ -164,7 +168,7 @@ function Catalog({
       >
         <View style={styles.dots}>
           {PAGES.map((_, i) => (
-            <View key={i} style={[styles.dot, i === 2 && styles.dotOn]} />
+            <View key={i} style={[styles.dot, i === PAGES.length - 1 && styles.dotOn]} />
           ))}
         </View>
         <View style={{ flex: 1 }} />
@@ -567,11 +571,11 @@ export default function Onboard() {
   }
 
   const isLogin = auth === "login";
-  const copy = [
-    { kicker: C.tryOnKicker, title: C.tryOnTitle, lede: C.tryOnLede, cta: C.next },
-    { kicker: C.styleKicker, title: C.styleTitle, lede: C.styleLede, cta: C.next },
-    { kicker: "", title: C.marketTitle, lede: "", cta: C.signUp },
-  ][page];
+  const copy = page === 1
+    ? { kicker: C.tryOnKicker, title: C.tryOnTitle, lede: C.tryOnLede, cta: C.next }
+    : page === 2
+      ? { kicker: C.styleKicker, title: C.styleTitle, lede: C.styleLede, cta: C.next }
+      : null;
   const filteredLangs = LANGS.filter((l) =>
     l.label.toLowerCase().includes(langQuery.trim().toLowerCase()),
   );
@@ -590,7 +594,9 @@ export default function Onboard() {
       >
         {PAGES.map((p, i) => (
           <View key={i} style={{ width: SCREEN_W, height: "100%" }}>
-            {p.kind === "market" ? (
+            {p.kind === "welcome" ? (
+              <FirstLaunchWelcome active={page === i} onContinue={next} />
+            ) : p.kind === "market" ? (
               <Catalog
                 onSignUp={() => {
                   setAuth("signup");
@@ -616,23 +622,25 @@ export default function Onboard() {
 
       {auth === null || !emailOn ? (
         <>
-          <Pressable
-            onPress={() => {
-              openLangs();
-            }}
-            style={[styles.langBtn, { top: insets.top + 6 }]}
-            hitSlop={10}
-          >
-            <View style={styles.globe}>
-              <View style={styles.globeMeridian} />
-              <View style={styles.globeEquator} />
-            </View>
-            <Text style={styles.langLabel} numberOfLines={1}>
-              {langLabel(locale || "en-US")}
-            </Text>
-            <Text style={styles.langChev}>▾</Text>
-          </Pressable>
-          {PAGES[page].kind !== "market" ? (
+          {PAGES[page].kind !== "welcome" ? (
+            <Pressable
+              onPress={() => {
+                openLangs();
+              }}
+              style={[styles.langBtn, { top: insets.top + 6 }]}
+              hitSlop={10}
+            >
+              <View style={styles.globe}>
+                <View style={styles.globeMeridian} />
+                <View style={styles.globeEquator} />
+              </View>
+              <Text style={styles.langLabel} numberOfLines={1}>
+                {langLabel(locale || "en-US")}
+              </Text>
+              <Text style={styles.langChev}>▾</Text>
+            </Pressable>
+          ) : null}
+          {PAGES[page].kind === "film" ? (
             <Pressable onPress={skipToAuthPage} style={[styles.skip, { top: insets.top + 8 }]} hitSlop={16}>
               <Text style={styles.skipText}>{C.skip}</Text>
             </Pressable>
@@ -640,7 +648,7 @@ export default function Onboard() {
         </>
       ) : null}
 
-      {PAGES[page].kind !== "market" ? (
+      {PAGES[page].kind === "film" && copy ? (
         <View style={[styles.copy, { paddingBottom: Math.max(insets.bottom, 12) + 14 }]}>
           <View style={styles.dots}>
             {PAGES.map((_, i) => (
