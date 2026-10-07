@@ -70,6 +70,12 @@ const defaults: State = {
 let memory = { ...defaults };
 let hydrated = false;
 const listeners = new Set<() => void>();
+let todayFeedRefreshSequence = 0;
+
+export function signalTodayFeedRefresh() {
+  todayFeedRefreshSequence += 1;
+  listeners.forEach((listener) => listener());
+}
 
 async function load() {
   const raw = await AsyncStorage.getItem(KEY);
@@ -322,6 +328,7 @@ export function useUvel() {
   return {
     ...memory,
     hydrated,
+    todayFeedRefreshSequence,
     toggleSaved: (id: string) =>
       save({
         saved: memory.saved.includes(id)
@@ -409,6 +416,26 @@ export function useUvel() {
       }),
     acceptSession: async (s: Session) => {
       await applyAccount(s, { restored: false });
+    },
+    completeAccountSetup: async (patch: {
+      username: string;
+      usernameChangedAt: number;
+      birthday: string;
+    }) => {
+      const uid = memory.uid;
+      if (!uid) throw new Error("Sign in first.");
+      const { saveAccountDetails } = await import("./auth");
+      await saveAccountDetails(patch);
+      await save({
+        username: patch.username,
+        usernameChangedAt: patch.usernameChangedAt,
+        birthday: patch.birthday,
+        profileDone: true,
+        profileChecked: true,
+        onboarded: true,
+        onboardVersion: 4,
+      });
+      await stashProfile();
     },
     completeProfile: async (patch: {
       displayName?: string;

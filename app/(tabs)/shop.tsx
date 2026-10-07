@@ -364,6 +364,11 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
     }
   }, [scrollY, todayHome]);
 
+  useEffect(() => {
+    if (!todayHome || app.todayFeedRefreshSequence === 0) return;
+    void onRefresh();
+  }, [app.todayFeedRefreshSequence, onRefresh, todayHome]);
+
   const onScroll = useCallback((event: { nativeEvent: { contentOffset: { y: number } } }) => {
     const y = event.nativeEvent.contentOffset.y;
     if (resettingAfterRefresh.current) {

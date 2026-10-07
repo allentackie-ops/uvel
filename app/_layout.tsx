@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { LaunchSplash } from "../components/LaunchSplash";
 import { AuthScreen } from "../components/AuthScreen";
+import { AccountDetailsScreen } from "../components/AccountDetailsScreen";
 import { ShakeToReport } from "../components/ShakeToReport";
 import { observeListing } from "../lib/alerts";
 import { useOtaReady } from "../lib/ota";
@@ -16,7 +17,7 @@ import { armNotificationHandler, registerPushToken, watchLastSeen } from "../lib
 import { syncEngagement } from "../lib/engagement";
 import { useCart } from "../lib/cart";
 import { useFirstFind } from "../lib/firstFind";
-import { useUvel } from "../lib/store";
+import { signalTodayFeedRefresh, useUvel } from "../lib/store";
 import { useColors, useResolvedAppearance } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
 import { pullLooks } from "../lib/trends";
@@ -744,6 +745,7 @@ export default function Root() {
   const colors = useColors();
   useOtaReady();
   const [intro, setIntro] = useState(true);
+  const refreshedUid = useRef("");
   const dismiss = useCallback(() => setIntro(false), []);
   const gateReady = hydrated && profileChecked;
   const signedIn = Boolean(uid);
@@ -753,6 +755,17 @@ export default function Root() {
       if (inviteId) router.replace({ pathname: "/brand/accept-invite", params: { id: inviteId } });
     });
   }, [signedIn, profileDone, intro]);
+
+  useEffect(() => {
+    if (!gateReady || intro) return;
+    if (!signedIn) {
+      refreshedUid.current = "";
+      return;
+    }
+    if (!profileDone || !uid || refreshedUid.current === uid) return;
+    refreshedUid.current = uid;
+    signalTodayFeedRefresh();
+  }, [gateReady, intro, profileDone, signedIn, uid]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -765,12 +778,13 @@ export default function Root() {
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: intro ? colors.pulse : colors.ink }}>
         <StatusBar style={appearance === "dark" ? "light" : "dark"} />
         <ReviewSync enabled={Boolean(signedIn && gateReady && !intro && profileDone)} />
-        {gateReady && signedIn ? <AppStack /> : null}
+        {gateReady && signedIn && profileDone ? <AppStack /> : null}
         {gateReady && !signedIn && !intro ? <AuthScreen /> : null}
-        {signedIn && gateReady && !intro ? <DraftResumeNotice /> : null}
-        {signedIn && gateReady && !intro ? <FounderDeskNotice /> : null}
-        {signedIn && gateReady && !intro ? <FounderCheckNotice /> : null}
-        {signedIn && gateReady && !intro ? <FriendShareLinkNotice uid={uid} /> : null}
+        {gateReady && signedIn && !profileDone && !intro ? <AccountDetailsScreen /> : null}
+        {signedIn && profileDone && gateReady && !intro ? <DraftResumeNotice /> : null}
+        {signedIn && profileDone && gateReady && !intro ? <FounderDeskNotice /> : null}
+        {signedIn && profileDone && gateReady && !intro ? <FounderCheckNotice /> : null}
+        {signedIn && profileDone && gateReady && !intro ? <FriendShareLinkNotice uid={uid} /> : null}
         {intro || !gateReady ? <LaunchSplash ready={gateReady} onDone={dismiss} /> : null}
       </GestureHandlerRootView>
     </SafeAreaProvider>

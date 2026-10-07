@@ -1,4 +1,3 @@
-import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -6,12 +5,9 @@ import {
   Dimensions,
   FlatList,
   Image as MosaicImg,
-  Keyboard,
-  KeyboardAvoidingView,
   Linking,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,7 +15,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { OrbitLoader } from "../components/OrbitLoader";
+import { AuthScreen } from "../components/AuthScreen";
 import Animated, {
   Easing,
   runOnJS,
@@ -35,15 +31,6 @@ import { FirstLaunchWelcome } from "../components/FirstLaunchWelcome";
 import { pullOta } from "../lib/ota";
 import { DOCS } from "../lib/legal";
 import { useUvel } from "../lib/store";
-import {
-  isAlreadyAccount,
-  resetPassword,
-  signInApple,
-  signInEmail,
-  signInGoogle,
-  signUpEmail,
-  type Session,
-} from "../lib/auth";
 import { LANGS, isRtl, langLabel, t } from "../lib/i18n";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
@@ -242,51 +229,8 @@ function Film({ source, active }: { source: number; active: boolean }) {
   );
 }
 
-function AuthBtn({
-  icon,
-  label,
-  filled,
-  onPress,
-  mark,
-  busy,
-  disabled,
-}: {
-  icon: number;
-  label: string;
-  filled?: boolean;
-  onPress: () => void;
-  mark?: boolean;
-  busy?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled || busy}
-      style={[styles.authBtn, filled ? styles.authFilled : styles.authOutline]}
-    >
-      {busy ? (
-        <OrbitLoader size={24} />
-      ) : (
-        <>
-          <View style={styles.authIconWrap}>
-            <Image cachePolicy="memory-disk"
-              source={icon}
-              style={mark ? styles.authMark : styles.authIcon}
-              contentFit="contain"
-            />
-          </View>
-          <Text style={[styles.authLabel, filled ? styles.authLabelDark : styles.authLabelLight]}>
-            {label}
-          </Text>
-        </>
-      )}
-    </Pressable>
-  );
-}
-
 export default function Onboard() {
-  const { acceptSession, locale, setLocale, onboardVersion } = useUvel();
+  const { locale, setLocale, onboardVersion } = useUvel();
   const insets = useSafeAreaInsets();
   const C = t(locale || "en-US");
   const rtl = isRtl(locale || "en-US");
@@ -296,21 +240,8 @@ export default function Onboard() {
   const langDim = useSharedValue(0);
   const startPage = (onboardVersion ?? 0) >= 4 ? PAGES.length - 1 : 0;
   const [page, setPage] = useState(startPage);
-  const [auth, setAuth] = useState<null | "signup" | "login">(null);
-  const [pane, setPane] = useState<"providers" | "email">("providers");
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [agreed, setAgreed] = useState(false);
-  const [showPass, setShowPass] = useState(false);
-  const [note, setNote] = useState("");
+  const [authOpen, setAuthOpen] = useState(false);
   const scroller = useRef<ScrollView>(null);
-  const sheetY = useSharedValue(SCREEN_H);
-  const dim = useSharedValue(0);
-  const emailX = useSharedValue(SCREEN_W);
-  const [emailOn, setEmailOn] = useState(false);
   const [legalId, setLegalId] = useState<"terms" | "privacy" | null>(null);
 
   useEffect(() => {
@@ -322,117 +253,8 @@ export default function Onboard() {
   }, [startPage]);
 
   function closeAuth() {
-    setAuth(null);
-    setPane("providers");
-    setBusy(null);
-    setError("");
-    setNote("");
-    setEmail("");
-    setPassword("");
-    setName("");
-    setAgreed(false);
-    setShowPass(false);
-    setEmailOn(false);
-    emailX.value = SCREEN_W;
+    setAuthOpen(false);
   }
-
-  useEffect(() => {
-    if (!auth) return;
-    sheetY.value = SCREEN_H;
-    dim.value = 0;
-    sheetY.value = withTiming(0, {
-      duration: 360,
-      easing: Easing.out(Easing.cubic),
-    });
-    dim.value = withTiming(1, { duration: 280 });
-  }, [!!auth, dim, sheetY]);
-
-  const dismissSheet = () => {
-    dim.value = withTiming(0, { duration: 240 });
-    sheetY.value = withTiming(
-      SCREEN_H,
-      { duration: 300, easing: Easing.in(Easing.cubic) },
-      (finished) => {
-        if (finished) runOnJS(closeAuth)();
-      },
-    );
-  };
-
-  const pan = Gesture.Pan()
-    .activeOffsetY(12)
-    .failOffsetX([-40, 40])
-    .onUpdate((e) => {
-      const y = Math.max(0, e.translationY);
-      sheetY.value = y;
-      dim.value = Math.max(0, 1 - y / (SCREEN_H * 0.42));
-    })
-    .onEnd((e) => {
-      if (e.translationY > 100 || e.velocityY > 800) {
-        dim.value = withTiming(0, { duration: 240 });
-        sheetY.value = withTiming(
-          SCREEN_H,
-          { duration: 300, easing: Easing.in(Easing.cubic) },
-          (finished) => {
-            if (finished) runOnJS(closeAuth)();
-          },
-        );
-      } else {
-        sheetY.value = withSpring(0, {
-          damping: 28,
-          stiffness: 240,
-          overshootClamping: true,
-        });
-        dim.value = withTiming(1, { duration: 180 });
-      }
-    });
-
-  const sheetSlide = useAnimatedStyle(() => ({
-    transform: [{ translateY: sheetY.value }],
-  }));
-
-  const dimStyle = useAnimatedStyle(() => ({
-    opacity: dim.value,
-  }));
-
-  function hideEmail() {
-    setPane("providers");
-    setEmailOn(false);
-    setError("");
-    setNote("");
-  }
-
-  function openEmail() {
-    Keyboard.dismiss();
-    setError("");
-    setNote("");
-    setPane("email");
-    emailX.value = SCREEN_W;
-    setEmailOn(true);
-  }
-
-  useEffect(() => {
-    if (!emailOn) return;
-    emailX.value = SCREEN_W;
-    emailX.value = withTiming(0, {
-      duration: 420,
-      easing: Easing.bezier(0.22, 1, 0.36, 1),
-    });
-  }, [emailOn, emailX]);
-
-  function backFromEmail() {
-    Keyboard.dismiss();
-    emailX.value = withTiming(
-      SCREEN_W,
-      { duration: 360, easing: Easing.in(Easing.cubic) },
-      (finished) => {
-        if (finished) runOnJS(hideEmail)();
-      },
-    );
-  }
-
-  const emailSlide = useAnimatedStyle(() => ({
-    transform: [{ translateX: emailX.value }],
-  }));
 
   function closeLangs() {
     setLangsOpen(false);
@@ -514,50 +336,9 @@ export default function Onboard() {
     setPage(n);
   }
 
-  function afterSignIn(session: Session) {
-    closeAuth();
-    void acceptSession(session);
-  }
-
-  async function run(kind: string, fn: () => Promise<Session>) {
-    setError("");
-    setNote("");
-    setBusy(kind);
-    const watchdog = setTimeout(() => {
-      setBusy(null);
-      setError("That took too long. Try again.");
-    }, 40000);
-    try {
-      const session = await fn();
-      clearTimeout(watchdog);
-      if (emailOn) {
-        afterSignIn(session);
-        return;
-      }
-      dim.value = withTiming(0, { duration: 200 });
-      sheetY.value = withTiming(
-        SCREEN_H,
-        { duration: 280, easing: Easing.in(Easing.cubic) },
-        (finished) => {
-          if (finished) runOnJS(afterSignIn)(session);
-        },
-      );
-    } catch (err) {
-      clearTimeout(watchdog);
-      setBusy(null);
-      if (auth === "signup" && isAlreadyAccount(err)) {
-        setAuth("login");
-        setError("You already have an account. Log in instead.");
-        return;
-      }
-      setError(err instanceof Error ? err.message : "Couldn’t sign in.");
-    }
-  }
-
   function next() {
     if (page >= PAGES.length - 1) {
-      setAuth("signup");
-      setPane("providers");
+      setAuthOpen(true);
       return;
     }
     const n = page + 1;
@@ -570,7 +351,6 @@ export default function Onboard() {
     if (n !== page && n >= 0 && n < PAGES.length) setPage(n);
   }
 
-  const isLogin = auth === "login";
   const copy = page === 1
     ? { kicker: C.tryOnKicker, title: C.tryOnTitle, lede: C.tryOnLede, cta: C.next }
     : page === 2
@@ -598,16 +378,8 @@ export default function Onboard() {
               <FirstLaunchWelcome active={page === i} onContinue={next} />
             ) : p.kind === "market" ? (
               <Catalog
-                onSignUp={() => {
-                  setAuth("signup");
-                  setPane("providers");
-                  setError("");
-                }}
-                onLogIn={() => {
-                  setAuth("login");
-                  setPane("providers");
-                  setError("");
-                }}
+                onSignUp={() => setAuthOpen(true)}
+                onLogIn={() => setAuthOpen(true)}
                 onLegal={setLegalId}
                 insets={insets}
                 copy={{ marketTitle: C.marketTitle, signUp: C.signUp, logIn: C.logIn, continueAgreement: C.continueAgreement, termsAndConditions: C.termsAndConditions, andWord: C.andWord, privacyPolicy: C.privacyPolicy }}
@@ -620,7 +392,7 @@ export default function Onboard() {
         ))}
       </ScrollView>
 
-      {auth === null || !emailOn ? (
+      {!authOpen ? (
         <>
           {PAGES[page].kind !== "welcome" ? (
             <Pressable
@@ -664,190 +436,7 @@ export default function Onboard() {
         </View>
       ) : null}
 
-      {auth !== null ? (
-        <View style={styles.overlay} pointerEvents="box-none">
-          <Animated.View pointerEvents="none" style={[styles.dimFill, dimStyle]} />
-          <Pressable style={StyleSheet.absoluteFill} onPress={dismissSheet} />
-          <GestureDetector gesture={pan}>
-            <Animated.View
-              style={[
-                styles.sheet,
-                sheetSlide,
-                {
-                  minHeight: gridMetrics(insets.top).sheetMin,
-                  paddingBottom: Math.max(insets.bottom, 18) + 8,
-                },
-              ]}
-            >
-              <Pressable onPress={dismissSheet} style={styles.close} hitSlop={16}>
-                <Text style={styles.closeX}>✕</Text>
-              </Pressable>
-              <Text style={styles.sheetTitle}>{isLogin ? C.logInTo : C.signUpFor}</Text>
-              {isLogin ? (
-                <View style={{ height: 22 }} />
-              ) : (
-                <Text style={styles.sheetLede}>{C.appleHint}</Text>
-              )}
-              <AuthBtn
-                icon={require("../assets/auth/apple.png")}
-                label={C.continueApple}
-                filled
-                busy={busy === "apple"}
-                disabled={busy !== null}
-                onPress={() => void run("apple", () => signInApple(auth === "login" ? "login" : "signup"))}
-              />
-              <View style={styles.orRow}>
-                <View style={styles.orLine} />
-                <Text style={styles.orText}>{C.orWord}</Text>
-                <View style={styles.orLine} />
-              </View>
-              <AuthBtn
-                icon={require("../assets/auth/google.png")}
-                label={C.continueGoogle}
-                busy={busy === "google"}
-                disabled={busy !== null}
-                onPress={() => void run("google", () => signInGoogle(auth === "login" ? "login" : "signup"))}
-              />
-              {error ? <Text style={styles.error}>{error}</Text> : null}
-              <Pressable
-                onPress={openEmail}
-                style={styles.email}
-              >
-                <Text style={styles.emailText}>{C.continueEmail}</Text>
-              </Pressable>
-            </Animated.View>
-          </GestureDetector>
-        </View>
-      ) : null}
-
-      {emailOn ? (
-        <Animated.View style={[styles.emailScreen, emailSlide]}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
-          <View style={[styles.emailHead, { paddingTop: insets.top + 6 }]}>
-            <Pressable
-              onPress={backFromEmail}
-              style={styles.emailBack}
-              hitSlop={16}
-            >
-              <Text style={styles.backText}>‹</Text>
-            </Pressable>
-            <Text style={styles.emailHeadTitle}>{C.continue}</Text>
-            <View style={{ width: 36 }} />
-          </View>
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{
-              paddingHorizontal: 20,
-              paddingBottom: Math.max(insets.bottom, 16) + 24,
-            }}
-          >
-            {!isLogin ? (
-              <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder={C.fullName}
-                placeholderTextColor="rgba(255,255,255,0.38)"
-                autoCapitalize="words"
-                autoCorrect={false}
-                textContentType="name"
-                style={styles.field}
-              />
-            ) : null}
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder={C.email}
-              placeholderTextColor="rgba(255,255,255,0.38)"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              style={styles.field}
-            />
-            <View>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder={C.password}
-                placeholderTextColor="rgba(255,255,255,0.38)"
-                secureTextEntry={!showPass}
-                textContentType={isLogin ? "password" : "newPassword"}
-                style={[styles.field, { paddingRight: 72 }]}
-              />
-              <Pressable onPress={() => setShowPass((v) => !v)} style={styles.eye} hitSlop={8}>
-                <Text style={styles.eyeText}>{showPass ? C.hide : C.show}</Text>
-              </Pressable>
-            </View>
-            {error ? <Text style={[styles.error, { textAlign: "left" }]}>{error}</Text> : null}
-            {note ? <Text style={[styles.note, { textAlign: "left" }]}>{note}</Text> : null}
-            {!isLogin ? (
-              <Pressable onPress={() => setAgreed((v) => !v)} style={styles.agreeRow}>
-                <View style={[styles.box, agreed && styles.boxOn]}>
-                  {agreed ? <Text style={styles.tick}>✓</Text> : null}
-                </View>
-                <Text style={styles.agreeText}>
-                  {C.agree}{" "}
-                  <Text
-                    style={styles.agreeLink}
-                    onPress={() => void Linking.openURL("https://allentackie-ops.github.io/uvel/")}
-                  >
-                    {C.privacy}
-                  </Text>
-                </Text>
-              </Pressable>
-            ) : null}
-            <Pressable
-              onPress={() => {
-                if (!isLogin && !agreed) {
-                  setError(C.tickAgree);
-                  return;
-                }
-                if (!isLogin && !name.trim()) {
-                  setError(C.addName);
-                  return;
-                }
-                void run("email", () =>
-                  isLogin ? signInEmail(email, password) : signUpEmail(email, password, name),
-                );
-              }}
-              style={[styles.authBtn, styles.authFilled, { marginTop: 10 }]}
-              disabled={busy !== null}
-            >
-              {busy === "email" ? (
-                <OrbitLoader size={24} />
-              ) : (
-                <Text style={[styles.authLabel, styles.authLabelDark]}>
-                  {isLogin ? C.logIn : C.continue}
-                </Text>
-              )}
-            </Pressable>
-            {isLogin ? (
-              <Pressable
-                onPress={async () => {
-                  setError("");
-                  setNote("");
-                  setBusy("reset");
-                  try {
-                    await resetPassword(email);
-                    setNote(C.resetEmailSent);
-                  } catch (err) {
-                    setError(err instanceof Error ? err.message : C.resetEmailFailed);
-                  } finally {
-                    setBusy(null);
-                  }
-                }}
-                style={styles.email}
-              >
-                <Text style={styles.emailText}>{C.forgot}</Text>
-              </Pressable>
-            ) : null}
-          </ScrollView>
-        </KeyboardAvoidingView>
-        </Animated.View>
-      ) : null}
+      {authOpen ? <AuthScreen onClose={closeAuth} /> : null}
 
       {langsOpen ? (
         <View style={styles.langOverlay} pointerEvents="box-none">
@@ -1116,148 +705,4 @@ const styles = StyleSheet.create({
   ctaLoginText: { color: "#fff", fontSize: 15, fontWeight: "600" },
   legalCopy: { color: "rgba(255,255,255,0.58)", fontSize: 11, lineHeight: 16, textAlign: "center", marginTop: 12, paddingHorizontal: 8 },
   legalLink: { color: "#C5D4A0", textDecorationLine: "underline" },
-  email: { height: 44, alignItems: "center", justifyContent: "center", marginTop: 6 },
-  emailText: { color: "#C5D4A0", fontSize: 16, fontWeight: "600" },
-  overlay: {
-    ...StyleSheet.absoluteFill,
-    justifyContent: "flex-end",
-    zIndex: 10,
-  },
-  dimFill: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: "rgba(0,0,0,0.52)",
-  },
-  sheet: {
-    backgroundColor: "#16180F",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 18,
-  },
-  close: { position: "absolute", right: 18, top: 16, zIndex: 2 },
-  closeX: { color: "rgba(255,255,255,0.88)", fontSize: 18, fontWeight: "400" },
-  sheetTitle: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "700",
-    textAlign: "center",
-    marginTop: 8,
-  },
-  sheetLede: {
-    color: "rgba(255,255,255,0.62)",
-    fontSize: 15,
-    textAlign: "center",
-    marginTop: 8,
-    marginBottom: 22,
-  },
-  authBtn: {
-    height: 52,
-    borderRadius: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 12,
-    marginBottom: 12,
-  },
-  authFilled: { backgroundColor: "#fff" },
-  authOutline: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.55)",
-  },
-  authIconWrap: { width: 24, height: 24, alignItems: "center", justifyContent: "center" },
-  authIcon: { width: 22, height: 22 },
-  authMark: { width: 24, height: 24, borderRadius: 12 },
-  authLabel: { fontSize: 16, fontWeight: "600" },
-  authLabelDark: { color: "#111" },
-  authLabelLight: { color: "#fff" },
-  orRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 14,
-    marginTop: 2,
-  },
-  orLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: "rgba(255,255,255,0.22)" },
-  orText: { color: "rgba(255,255,255,0.45)", fontSize: 13 },
-  field: {
-    height: 52,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.22)",
-    color: "#fff",
-    paddingHorizontal: 16,
-    marginBottom: 12,
-    fontSize: 16,
-  },
-  error: {
-    color: "#E8B4B4",
-    fontSize: 14,
-    textAlign: "center",
-    marginBottom: 10,
-    marginTop: 2,
-  },
-  note: {
-    color: "#C5D4A0",
-    fontSize: 14,
-    textAlign: "center",
-    marginBottom: 10,
-  },
-  back: { position: "absolute", left: 16, top: 14, zIndex: 2, padding: 4 },
-  backText: { color: "rgba(255,255,255,0.88)", fontSize: 28, lineHeight: 30, fontWeight: "300" },
-  emailScreen: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: "#12140A",
-    zIndex: 30,
-  },
-  emailHead: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 8,
-    paddingBottom: 18,
-  },
-  emailBack: { width: 36, alignItems: "center" },
-  emailHeadTitle: {
-    color: "#fff",
-    fontSize: 17,
-    fontWeight: "600",
-  },
-  eye: {
-    position: "absolute",
-    right: 14,
-    top: 0,
-    height: 52,
-    justifyContent: "center",
-  },
-  eyeText: { color: "rgba(255,255,255,0.55)", fontSize: 14, fontWeight: "600" },
-  agreeRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 18,
-  },
-  box: {
-    width: 22,
-    height: 22,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.45)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 2,
-  },
-  boxOn: {
-    backgroundColor: "#C5D4A0",
-    borderColor: "#C5D4A0",
-  },
-  tick: { color: "#12140A", fontSize: 13, fontWeight: "700" },
-  agreeText: {
-    flex: 1,
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  agreeLink: { color: "#C5D4A0", textDecorationLine: "underline" },
 });

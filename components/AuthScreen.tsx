@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -10,81 +11,80 @@ import {
   View,
 } from "react-native";
 import { Image } from "expo-image";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader } from "./OrbitLoader";
 import {
-  isAlreadyAccount,
   resetPassword,
   signInApple,
-  signInEmail,
   signInGoogle,
-  signUpEmail,
+  signInOrCreateEmail,
 } from "../lib/auth";
-import { useColors } from "../lib/theme";
-
-type Mode = "signin" | "signup";
+import { PRIVACY_URL, TERMS_URL } from "../lib/legal";
+import { useColors, useResolvedAppearance } from "../lib/theme";
 
 type Provider = "apple" | "google";
+type Screen = "entry" | "email-password";
+type Busy = Provider | "email" | "reset" | null;
 
-export function AuthScreen() {
+function validEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+export function AuthScreen({ onClose }: { onClose?: () => void } = {}) {
   const colors = useColors();
+  const appearance = useResolvedAppearance();
   const insets = useSafeAreaInsets();
-  const [mode, setMode] = useState<Mode>("signin");
-  const [name, setName] = useState("");
+  const dark = appearance === "dark";
+  const [screen, setScreen] = useState<Screen>("entry");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [agreed, setAgreed] = useState(false);
-  const [busy, setBusy] = useState<Provider | "email" | "reset" | null>(null);
+  const [busy, setBusy] = useState<Busy>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const emailReady = validEmail(email);
+  const accent = colors.link || colors.pulse;
+  const outline = dark ? "rgba(244,240,230,0.45)" : "#191919";
 
-  const isSignup = mode === "signup";
-
-  function switchMode(next: Mode) {
-    setMode(next);
-    setError("");
-    setNotice("");
-    setBusy(null);
-  }
-
-  async function run(provider: Provider | "email", action: () => Promise<unknown>) {
+  async function run(provider: Busy, action: () => Promise<unknown>) {
+    if (busy) return;
     setBusy(provider);
     setError("");
     setNotice("");
     try {
       await action();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Couldn’t sign in. Try again.";
-      setError(isSignup && isAlreadyAccount(err) ? "You already have an account. Switch to Sign in." : message);
+      setError(err instanceof Error ? err.message : "Couldn’t sign in. Try again.");
     } finally {
       setBusy(null);
     }
   }
 
-  function submitEmail() {
-    if (!email.trim() || !password) {
-      setError("Enter your email and password.");
+  function continueWithEmail() {
+    if (!emailReady) {
+      setError("Enter a valid email address.");
       return;
     }
-    if (isSignup && !name.trim()) {
-      setError("Enter your name.");
+    setError("");
+    setNotice("");
+    setScreen("email-password");
+  }
+
+  function submitPassword() {
+    if (!password) {
+      setError("Enter your password to continue.");
       return;
     }
-    if (isSignup && !agreed) {
-      setError("Accept the Uvel terms to create an account.");
-      return;
-    }
-    void run("email", () =>
-      isSignup ? signUpEmail(email, password, name) : signInEmail(email, password),
-    );
+    void run("email", () => signInOrCreateEmail(email, password));
   }
 
   async function sendReset() {
-    if (!email.trim()) {
-      setError("Enter your email first.");
+    if (!emailReady) {
+      setError("Go back and enter a valid email address first.");
       return;
     }
+    if (busy) return;
     setBusy("reset");
     setError("");
     setNotice("");
@@ -98,6 +98,8 @@ export function AuthScreen() {
     }
   }
 
+  const buttonDisabled = busy !== null;
+
   return (
     <View style={[styles.root, { backgroundColor: colors.ink }]}>
       <KeyboardAvoidingView
@@ -105,112 +107,189 @@ export function AuthScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
-          contentContainerStyle={{ paddingTop: Math.max(insets.top, 22) + 18, paddingBottom: Math.max(insets.bottom, 22) + 24 }}
+          contentContainerStyle={[
+            styles.content,
+            {
+              paddingTop: Math.max(insets.top, 20) + (screen === "entry" ? 46 : 20),
+              paddingBottom: Math.max(insets.bottom, 20) + 28,
+            },
+          ]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <Image source={require("../assets/icon.png")} style={styles.logo} contentFit="contain" />
-            <Text style={[styles.wordmark, { color: colors.bone }]}>Uvel</Text>
-            <Text style={[styles.subtitle, { color: colors.muted }]}>Your closet, your finds, your style.</Text>
-          </View>
+          {screen === "entry" ? (
+            <>
+              {onClose ? (
+                <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close sign in" style={[styles.closeButton, { backgroundColor: colors.surface }]}>
+                  <Ionicons name="close" size={22} color={colors.bone} />
+                </Pressable>
+              ) : null}
+              <Text style={[styles.title, { color: colors.bone }]}>Sign In or Create Account</Text>
+              <Text style={[styles.subtitle, { color: colors.bone }]}>
+                Pick up where you left off, or find your next favorite.
+              </Text>
 
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.subtle }]}>
-            <View style={[styles.segmented, { backgroundColor: colors.neutral }]}>
-              <Pressable
-                onPress={() => switchMode("signin")}
-                style={[styles.segment, mode === "signin" && { backgroundColor: colors.bone }]}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: mode === "signin" }}
-              >
-                <Text style={[styles.segmentText, { color: mode === "signin" ? colors.ink : colors.muted }]}>Sign in</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => switchMode("signup")}
-                style={[styles.segment, mode === "signup" && { backgroundColor: colors.bone }]}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: mode === "signup" }}
-              >
-                <Text style={[styles.segmentText, { color: mode === "signup" ? colors.ink : colors.muted }]}>Create account</Text>
-              </Pressable>
-            </View>
+              <View style={styles.providers}>
+                <Pressable
+                  onPress={() => void run("apple", () => signInApple())}
+                  disabled={buttonDisabled}
+                  accessibilityRole="button"
+                  accessibilityLabel="Sign in with Apple"
+                  accessibilityState={{ disabled: buttonDisabled, busy: busy === "apple" }}
+                  style={[styles.providerButton, styles.appleButton, { borderColor: outline }, buttonDisabled && styles.disabled]}
+                >
+                  {busy === "apple" ? (
+                    <OrbitLoader size={22} />
+                  ) : (
+                    <>
+                      <Image source={require("../assets/auth/apple.png")} style={styles.appleIcon} contentFit="contain" />
+                      <Text style={styles.appleLabel}>Sign in with Apple</Text>
+                    </>
+                  )}
+                </Pressable>
+                <Pressable
+                  onPress={() => void run("google", () => signInGoogle())}
+                  disabled={buttonDisabled}
+                  accessibilityRole="button"
+                  accessibilityLabel="Sign in with Google"
+                  accessibilityState={{ disabled: buttonDisabled, busy: busy === "google" }}
+                  style={[styles.providerButton, styles.googleButton, { borderColor: colors.subtle }, buttonDisabled && styles.disabled]}
+                >
+                  {busy === "google" ? (
+                    <OrbitLoader size={22} />
+                  ) : (
+                    <>
+                      <Image source={require("../assets/auth/google.png")} style={styles.googleIcon} contentFit="contain" />
+                      <Text style={[styles.googleLabel, { color: colors.bone }]}>Sign in with Google</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
 
-            <Text style={[styles.title, { color: colors.bone }]}>{isSignup ? "Create your Uvel account" : "Welcome back"}</Text>
-            <Text style={[styles.lede, { color: colors.muted }]}>
-              {isSignup ? "Save your style and shop Uvel finds anywhere." : "Sign in to continue to your closet."}
-            </Text>
+              <View style={styles.dividerRow}>
+                <View style={[styles.divider, { backgroundColor: colors.subtle }]} />
+                <Text style={[styles.dividerText, { color: colors.muted }]}>or</Text>
+                <View style={[styles.divider, { backgroundColor: colors.subtle }]} />
+              </View>
 
-            <Pressable
-              onPress={() => void run("apple", () => signInApple(isSignup ? "signup" : "login"))}
-              disabled={busy !== null}
-              style={[styles.providerButton, styles.appleButton, busy !== null && styles.disabled]}
-            >
-              {busy === "apple" ? <OrbitLoader size={22} /> : <><Image source={require("../assets/auth/apple.png")} style={styles.providerIcon} contentFit="contain" /><Text style={styles.appleLabel}>Continue with Apple</Text></>}
-            </Pressable>
-            <Pressable
-              onPress={() => void run("google", () => signInGoogle(isSignup ? "signup" : "login"))}
-              disabled={busy !== null}
-              style={[styles.providerButton, styles.googleButton, { borderColor: colors.subtle }, busy !== null && styles.disabled]}
-            >
-              {busy === "google" ? <OrbitLoader size={22} /> : <><Image source={require("../assets/auth/google.png")} style={styles.providerIcon} contentFit="contain" /><Text style={[styles.googleLabel, { color: colors.bone }]}>Continue with Google</Text></>}
-            </Pressable>
-
-            <View style={styles.dividerRow}><View style={[styles.divider, { backgroundColor: colors.subtle }]} /><Text style={[styles.dividerText, { color: colors.muted }]}>or</Text><View style={[styles.divider, { backgroundColor: colors.subtle }]} /></View>
-
-            {isSignup ? (
+              <Text style={[styles.fieldLabel, { color: colors.bone }]}>Email address</Text>
               <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder="Full name"
+                value={email}
+                onChangeText={(value) => {
+                  setEmail(value);
+                  setError("");
+                }}
+                onSubmitEditing={continueWithEmail}
+                placeholder=""
                 placeholderTextColor={colors.muted}
-                autoCapitalize="words"
+                autoCapitalize="none"
                 autoCorrect={false}
-                textContentType="name"
-                style={[styles.input, { color: colors.bone, borderColor: colors.subtle }]}
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                autoComplete="email"
+                returnKeyType="next"
+                accessibilityLabel="Email address"
+                style={[styles.emailInput, { color: colors.bone, borderBottomColor: accent }]}
               />
-            ) : null}
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Email"
-              placeholderTextColor={colors.muted}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              style={[styles.input, { color: colors.bone, borderColor: colors.subtle }]}
-            />
-            <View style={styles.passwordWrap}>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Password"
-                placeholderTextColor={colors.muted}
-                secureTextEntry={!showPassword}
-                textContentType={isSignup ? "newPassword" : "password"}
-                style={[styles.input, styles.passwordInput, { color: colors.bone, borderColor: colors.subtle }]}
-              />
-              <Pressable onPress={() => setShowPassword((value) => !value)} style={styles.showButton} hitSlop={8}>
-                <Text style={[styles.showText, { color: colors.muted }]}>{showPassword ? "Hide" : "Show"}</Text>
+
+              {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
+              <Pressable
+                onPress={continueWithEmail}
+                disabled={!emailReady || buttonDisabled}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !emailReady || buttonDisabled }}
+                style={[
+                  styles.continueButton,
+                  { backgroundColor: emailReady ? colors.bone : (dark ? "#4A484C" : "#969499") },
+                  (!emailReady || buttonDisabled) && styles.disabled,
+                ]}
+              >
+                {busy === "email" ? (
+                  <OrbitLoader size={22} />
+                ) : (
+                  <Text style={[styles.continueText, { color: emailReady ? colors.ink : "#FFFFFF" }]}>Continue</Text>
+                )}
               </Pressable>
-            </View>
 
-            {isSignup ? (
-              <Pressable onPress={() => setAgreed((value) => !value)} style={styles.agreeRow} accessibilityRole="checkbox" accessibilityState={{ checked: agreed }}>
-                <View style={[styles.checkbox, { borderColor: colors.subtle }, agreed && { backgroundColor: colors.bone, borderColor: colors.bone }]}>{agreed ? <Text style={[styles.check, { color: colors.ink }]}>✓</Text> : null}</View>
-                <Text style={[styles.agreeText, { color: colors.muted }]}>I agree to Uvel’s terms and privacy policy.</Text>
+              <View style={styles.legalRow}>
+                <Text style={[styles.legalText, { color: colors.bone }]}>By continuing, you agree to our </Text>
+                <Pressable onPress={() => void Linking.openURL(PRIVACY_URL).catch(() => undefined)}>
+                  <Text style={[styles.legalLink, { color: accent }]}>privacy policy</Text>
+                </Pressable>
+                <Text style={[styles.legalText, { color: colors.bone }]}> and </Text>
+                <Pressable onPress={() => void Linking.openURL(TERMS_URL).catch(() => undefined)}>
+                  <Text style={[styles.legalLink, { color: accent }]}>terms of use</Text>
+                </Pressable>
+                <Text style={[styles.legalText, { color: colors.bone }]}>.</Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <Pressable
+                onPress={() => {
+                  setScreen("entry");
+                  setPassword("");
+                  setError("");
+                  setNotice("");
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Back to sign in options"
+                style={styles.backButton}
+              >
+                <Ionicons name="arrow-back" size={22} color={colors.bone} />
               </Pressable>
-            ) : null}
+              <Text style={[styles.emailEyebrow, { color: colors.muted }]}>EMAIL ADDRESS</Text>
+              <Text style={[styles.emailDisplay, { color: colors.bone }]}>{email.trim()}</Text>
+              <Text style={[styles.passwordTitle, { color: colors.bone }]}>Enter your password</Text>
+              <Text style={[styles.passwordSubtitle, { color: colors.muted }]}>
+                Sign in, or choose a password to create your Uvel account.
+              </Text>
 
-            {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
-            {notice ? <Text style={[styles.notice, { color: colors.success }]}>{notice}</Text> : null}
-            <Pressable onPress={submitEmail} disabled={busy !== null} style={[styles.submit, { backgroundColor: colors.bone }, busy !== null && styles.disabled]}>
-              {busy === "email" ? <OrbitLoader size={22} /> : <Text style={[styles.submitText, { color: colors.ink }]}>{isSignup ? "Create account" : "Sign in"}</Text>}
-            </Pressable>
-            {!isSignup ? <Pressable onPress={() => void sendReset()} disabled={busy !== null} style={styles.reset}><Text style={[styles.resetText, { color: colors.muted }]}>Forgot password?</Text></Pressable> : null}
-          </View>
+              <View style={[styles.passwordField, { borderBottomColor: accent }]}>
+                <TextInput
+                  value={password}
+                  onChangeText={(value) => {
+                    setPassword(value);
+                    setError("");
+                  }}
+                  onSubmitEditing={submitPassword}
+                  placeholder="Password"
+                  placeholderTextColor={colors.muted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  secureTextEntry={!showPassword}
+                  textContentType="password"
+                  autoComplete="current-password"
+                  returnKeyType="go"
+                  accessibilityLabel="Password"
+                  style={[styles.passwordInput, { color: colors.bone }]}
+                />
+                <Pressable onPress={() => setShowPassword((value) => !value)} hitSlop={10}>
+                  <Text style={[styles.showText, { color: colors.muted }]}>{showPassword ? "Hide" : "Show"}</Text>
+                </Pressable>
+              </View>
 
-          <Text style={[styles.footer, { color: colors.muted }]}>You can change your preferences anytime.</Text>
+              {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
+              {notice ? <Text style={[styles.notice, { color: colors.success }]}>{notice}</Text> : null}
+              <Pressable
+                onPress={submitPassword}
+                disabled={!password || buttonDisabled}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !password || buttonDisabled, busy: busy === "email" }}
+                style={[
+                  styles.continueButton,
+                  { backgroundColor: password ? colors.bone : (dark ? "#4A484C" : "#969499") },
+                  (!password || buttonDisabled) && styles.disabled,
+                ]}
+              >
+                {busy === "email" ? <OrbitLoader size={22} /> : <Text style={[styles.continueText, { color: password ? colors.ink : "#FFFFFF" }]}>Continue</Text>}
+              </Pressable>
+              <Pressable onPress={() => void sendReset()} disabled={buttonDisabled} style={styles.resetButton}>
+                <Text style={[styles.resetText, { color: accent }]}>Forgot password?</Text>
+              </Pressable>
+              <Text style={[styles.passwordFootnote, { color: colors.muted }]}>New accounts continue with your date of birth and username.</Text>
+            </>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -220,40 +299,40 @@ export function AuthScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1 },
   keyboard: { flex: 1 },
-  header: { alignItems: "center", paddingHorizontal: 24, marginBottom: 24 },
-  logo: { width: 64, height: 64, borderRadius: 16, marginBottom: 12 },
-  wordmark: { fontSize: 32, fontWeight: "800", letterSpacing: -0.8 },
-  subtitle: { fontSize: 14, marginTop: 6 },
-  card: { marginHorizontal: 18, borderRadius: 24, borderWidth: StyleSheet.hairlineWidth, padding: 18 },
-  segmented: { flexDirection: "row", borderRadius: 12, padding: 4, marginBottom: 26 },
-  segment: { flex: 1, minHeight: 42, borderRadius: 9, alignItems: "center", justifyContent: "center" },
-  segmentText: { fontSize: 14, fontWeight: "700" },
-  title: { fontSize: 24, fontWeight: "800", letterSpacing: -0.4 },
-  lede: { fontSize: 14, lineHeight: 20, marginTop: 7, marginBottom: 20 },
-  providerButton: { height: 52, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 11 },
+  content: { flexGrow: 1, paddingHorizontal: 26 },
+  closeButton: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", marginBottom: 28 },
+  title: { fontSize: 30, lineHeight: 37, fontWeight: "800", letterSpacing: -0.8 },
+  subtitle: { fontSize: 16, lineHeight: 24, marginTop: 22 },
+  providers: { marginTop: 48, gap: 12 },
+  providerButton: { minHeight: 58, borderRadius: 30, borderWidth: 1.5, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12 },
   appleButton: { backgroundColor: "#FFFFFF" },
-  googleButton: { borderWidth: 1, backgroundColor: "transparent" },
-  providerIcon: { width: 22, height: 22 },
-  appleLabel: { color: "#111111", fontSize: 15, fontWeight: "700" },
-  googleLabel: { fontSize: 15, fontWeight: "700" },
-  disabled: { opacity: 0.55 },
-  dividerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 13 },
+  googleButton: { backgroundColor: "transparent" },
+  appleIcon: { width: 20, height: 22 },
+  googleIcon: { width: 21, height: 21 },
+  appleLabel: { color: "#111111", fontSize: 17, fontWeight: "600" },
+  googleLabel: { fontSize: 17, fontWeight: "600" },
+  disabled: { opacity: 0.58 },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: 14, marginTop: 46, marginBottom: 34 },
   divider: { flex: 1, height: StyleSheet.hairlineWidth },
-  dividerText: { fontSize: 13 },
-  input: { height: 52, borderWidth: 1, borderRadius: 12, paddingHorizontal: 15, fontSize: 16, marginBottom: 11 },
-  passwordWrap: { position: "relative" },
-  passwordInput: { paddingRight: 66 },
-  showButton: { position: "absolute", right: 14, top: 0, height: 52, justifyContent: "center" },
-  showText: { fontSize: 13, fontWeight: "700" },
-  agreeRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: 3, marginBottom: 7 },
-  checkbox: { width: 21, height: 21, borderWidth: 1.5, borderRadius: 5, alignItems: "center", justifyContent: "center", marginTop: 1 },
-  check: { fontSize: 14, fontWeight: "800" },
-  agreeText: { flex: 1, fontSize: 13, lineHeight: 19 },
-  error: { fontSize: 13, lineHeight: 18, marginTop: 5, marginBottom: 7 },
-  notice: { fontSize: 13, lineHeight: 18, marginTop: 5, marginBottom: 7 },
-  submit: { height: 52, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 7 },
-  submitText: { fontSize: 15, fontWeight: "800" },
-  reset: { alignItems: "center", paddingVertical: 15 },
+  dividerText: { fontSize: 16 },
+  fieldLabel: { fontSize: 15, fontWeight: "500" },
+  emailInput: { minHeight: 49, borderBottomWidth: 2, paddingHorizontal: 0, paddingVertical: 7, fontSize: 18 },
+  error: { fontSize: 13, lineHeight: 18, marginTop: 10 },
+  notice: { fontSize: 13, lineHeight: 18, marginTop: 10 },
+  continueButton: { height: 58, borderRadius: 30, alignItems: "center", justifyContent: "center", marginTop: 42 },
+  continueText: { fontSize: 17, fontWeight: "600" },
+  legalRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "baseline", marginTop: 46, paddingHorizontal: 10 },
+  legalText: { fontSize: 14, lineHeight: 21 },
+  legalLink: { fontSize: 14, lineHeight: 21, textDecorationLine: "underline", fontWeight: "500" },
+  backButton: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", marginBottom: 42 },
+  emailEyebrow: { fontSize: 12, fontWeight: "700", letterSpacing: 1.1 },
+  emailDisplay: { fontSize: 19, lineHeight: 26, fontWeight: "600", marginTop: 8 },
+  passwordTitle: { fontSize: 29, lineHeight: 36, fontWeight: "800", letterSpacing: -0.6, marginTop: 40 },
+  passwordSubtitle: { fontSize: 15, lineHeight: 22, marginTop: 12 },
+  passwordField: { minHeight: 54, borderBottomWidth: 2, flexDirection: "row", alignItems: "center", marginTop: 38 },
+  passwordInput: { flex: 1, minHeight: 52, fontSize: 18, paddingVertical: 8 },
+  showText: { fontSize: 14, fontWeight: "600", paddingHorizontal: 8, paddingVertical: 12 },
+  resetButton: { alignSelf: "center", paddingVertical: 18 },
   resetText: { fontSize: 14, fontWeight: "600" },
-  footer: { textAlign: "center", fontSize: 12, marginTop: 18, paddingHorizontal: 34 },
+  passwordFootnote: { fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 20 },
 });

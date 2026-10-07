@@ -17,7 +17,7 @@ import {
   signOut as fbSignOut,
   updateProfile,
 } from "firebase/auth";
-import { doc, getDoc, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, getDoc, runTransaction, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firebaseAuth, firebaseDb, firebaseExtra, firebaseFunctions, firebaseReady } from "./firebase";
 import type { AuthVia } from "./sessionPath";
@@ -96,13 +96,13 @@ function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
 async function afterAuth(cred: UserCredential, provider: string, _mode: AuthVia) {
   const returning = await isReturningUser(cred);
   await restoreDeactivatedAccount();
-  void remember(cred.user, provider);
+  await remember(cred.user, provider);
   return session(cred.user, returning ? "login" : "signup");
 }
 
 async function isReturningUser(cred: UserCredential) {
   const extra = getAdditionalUserInfo(cred);
-  if (extra?.isNewUser === false) return true;
+  if (extra?.isNewUser !== undefined) return !extra.isNewUser;
   const created = Date.parse(cred.user.metadata.creationTime ?? "");
   const last = Date.parse(cred.user.metadata.lastSignInTime ?? "");
   if (Number.isFinite(created) && Number.isFinite(last) && last - created > 15_000) return true;
@@ -152,6 +152,43 @@ export async function writeUserProfile(uid: string, data: Record<string, unknown
   }
 }
 
+export async function saveAccountDetails(data: {
+  username: string;
+  usernameChangedAt: number;
+  birthday: string;
+}) {
+  needFirebase();
+  const user = firebaseAuth().currentUser;
+  if (!user) throw new Error("Sign in first.");
+  const username = normalizeUsername(data.username);
+  if (!isValidUsername(username)) throw new Error("Choose a valid username.");
+  const name = user.displayName?.trim() || user.email?.split("@")[0] || username;
+  const profileRef = doc(firebaseDb(), "users", user.uid);
+  const existing = await getDoc(profileRef);
+  if (!existing.exists()) {
+    await setDoc(profileRef, {
+      email: user.email ?? "",
+      name,
+      nameLower: name.toLowerCase(),
+      provider: user.providerData[0]?.providerId ?? "email",
+      seen: true,
+      updatedAt: serverTimestamp(),
+    });
+  }
+  await updateDoc(profileRef, {
+    email: user.email ?? "",
+    name,
+    nameLower: name.toLowerCase(),
+    username,
+    usernameNormalized: username,
+    usernameChangedAt: data.usernameChangedAt,
+    birthday: data.birthday,
+    profileDone: true,
+    seen: true,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function claimUsername(value: string): Promise<{ username: string; usernameChangedAt: number }> {
   needFirebase();
   const username = normalizeUsername(value);
@@ -168,6 +205,16 @@ export async function claimUsername(value: string): Promise<{ username: string; 
     if (!isMissingFunction(err)) throw usernameError(err);
     return claimUsernameOnClient(username, uid);
   }
+}
+
+export async function checkUsernameAvailability(value: string): Promise<boolean> {
+  needFirebase();
+  const username = normalizeUsername(value);
+  if (!isValidUsername(username)) return false;
+  const uid = firebaseAuth().currentUser?.uid;
+  if (!uid) throw new Error("Sign in first.");
+  const snap = await getDoc(doc(firebaseDb(), "usernames", username));
+  return !snap.exists() || snap.data()?.uid === uid;
 }
 
 function isMissingFunction(err: unknown) {
@@ -268,10 +315,54 @@ export async function signInEmail(email: string, password: string) {
   try {
     const cred = await signInWithEmailAndPassword(firebaseAuth(), email.trim(), password);
     await restoreDeactivatedAccount();
-    void remember(cred.user, "email");
+    await remember(cred.user, "email");
     return session(cred.user, "login");
   } catch (err) {
     throw new Error(nice(err));
+  }
+}
+
+export async function signInOrCreateEmail(email: string, password: string) {
+  needFirebase();
+  const normalizedEmail = email.trim();
+  let methods: string[] = [];
+  try {
+    methods = await fetchSignInMethodsForEmail(firebaseAuth(), normalizedEmail);
+  } catch {
+    // Firebase may hide provider methods; the sign-in and account-conflict checks remain safe.
+  }
+  if (methods.length > 0 && !methods.includes("password")) {
+    throw new Error("This email uses another sign-in option. Choose Apple or Google.");
+  }
+  if (methods.includes("password")) return signInEmail(normalizedEmail, password);
+
+  try {
+    const cred = await signInWithEmailAndPassword(firebaseAuth(), normalizedEmail, password);
+    await restoreDeactivatedAccount();
+    await remember(cred.user, "email");
+    return session(cred.user, "login");
+  } catch (signInError) {
+    const code = typeof signInError === "object" && signInError && "code" in signInError
+      ? String((signInError as { code: string }).code)
+      : "";
+    if (!/(user-not-found|invalid-credential|wrong-password)/.test(code)) {
+      throw new Error(nice(signInError));
+    }
+    try {
+      const cred = await createUserWithEmailAndPassword(firebaseAuth(), normalizedEmail, password);
+      const display = normalizedEmail.split("@")[0] || normalizedEmail;
+      await updateProfile(cred.user, { displayName: display }).catch(() => undefined);
+      await remember(cred.user, "email");
+      return session(cred.user, "signup");
+    } catch (createError) {
+      const createCode = typeof createError === "object" && createError && "code" in createError
+        ? String((createError as { code: string }).code)
+        : "";
+      if (createCode.includes("email-already-in-use")) {
+        throw new Error("That email already has an account. Check your password or choose Apple or Google.");
+      }
+      throw new Error(nice(createError));
+    }
   }
 }
 
