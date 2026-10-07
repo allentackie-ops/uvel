@@ -118,8 +118,10 @@ Deno.serve(async (req) => {
       const message = text(body.text, 2000);
       const encoded = text(body.base64, 6_000_000);
       const contentType = text(body.contentType, 80).toLowerCase();
+      const replyTo = text(body.replyTo, 40) || null;
       const ids = chatId.split("_");
       if (ids.length !== 2 || !ids.includes(uid) || !message.startsWith("uvel_voice_note:") || !encoded) return out({ error: "That voice note is not valid." }, 400);
+      if (replyTo && !/^[0-9a-f-]{36}$/i.test(replyTo)) return out({ error: "That reply target is invalid." }, 400);
       if (!["audio/mp4", "audio/webm"].includes(contentType)) return out({ error: "That voice format is not supported." }, 400);
       if (encoded.length > Math.ceil(4 * 1024 * 1024 * 1.4)) return out({ error: "That voice note is too long." }, 413);
       const bytes = Uint8Array.from(atob(encoded.includes(",") ? encoded.split(",").pop()! : encoded), (char) => char.charCodeAt(0));
@@ -130,13 +132,14 @@ Deno.serve(async (req) => {
       const { data: chat, error: chatError } = await db.from("friend_chats").select("id,user_a,user_b,unread_a,unread_b").eq("id", chatId).maybeSingle();
       if (chatError) throw chatError;
       if (!chat || ![chat.user_a, chat.user_b].includes(uid)) return out({ error: "Conversation not found." }, 404);
+      if (replyTo) { const { data: target, error: targetError } = await db.from("friend_messages").select("id").eq("id", replyTo).eq("chat_id", chatId).maybeSingle(); if (targetError) throw targetError; if (!target) return out({ error: "The message you’re replying to is no longer available." }, 404); }
       const extension = contentType === "audio/mp4" ? "m4a" : "webm";
       const path = `${uid}/${crypto.randomUUID()}.${extension}`;
       const { error: uploadError } = await db.storage.from("message-media").upload(path, bytes, { contentType, upsert: false, cacheControl: "31536000" });
       if (uploadError) throw uploadError;
       const { data: signed, error: signedError } = await db.storage.from("message-media").createSignedUrl(path, 60 * 60 * 24 * 365);
       if (signedError || !signed?.signedUrl) throw signedError || new Error("Voice note could not be opened.");
-      const { data: sent, error: sendError } = await db.from("friend_messages").insert({ chat_id: chatId, from_uid: uid, text: message, photo_url: signed.signedUrl }).select("id").single();
+      const { data: sent, error: sendError } = await db.from("friend_messages").insert({ chat_id: chatId, from_uid: uid, text: message, photo_url: signed.signedUrl, reply_to: replyTo }).select("id").single();
       if (sendError) throw sendError;
       const now = new Date().toISOString();
       const update = uid === chat.user_a

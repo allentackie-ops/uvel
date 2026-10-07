@@ -5,7 +5,7 @@ import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, 
 import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Alert, Animated, FlatList, ImageBackground, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { impactAsync, ImpactFeedbackStyle, notificationAsync, NotificationFeedbackType } from "../../../lib/haptics";
@@ -16,7 +16,7 @@ import { pickFromLibrary } from "../../../lib/photo";
 import { useColors, useResolvedAppearance } from "../../../lib/theme";
 import { useUvel } from "../../../lib/store";
 import { getGarment, usd } from "../../../lib/catalog";
-import { useWardrobe } from "../../../lib/wardrobe";
+import { getPiece, useWardrobe } from "../../../lib/wardrobe";
 
 function asDate(value: unknown): Date | null {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
@@ -125,24 +125,48 @@ function removeLocalRecording(uri: string) {
   } catch { /* Temporary recording cleanup is best-effort. */ }
 }
 
-function VoiceNoteBubble({ uri, note, mine, styles }: { uri: string; note: VoiceNoteMeta; mine: boolean; styles: ReturnType<typeof make> }) {
+function VoiceNoteBubble({ uri, note, mine, styles, onLongPress }: { uri: string; note: VoiceNoteMeta; mine: boolean; styles: ReturnType<typeof make>; onLongPress: () => void }) {
   const player = useAudioPlayer(uri, { updateInterval: 120 });
   const status = useAudioPlayerStatus(player);
   const duration = Math.max(note.durationMs / 1000, status.duration || 0);
-  const progress = duration ? Math.min(1, status.currentTime / duration) : 0;
+  const [playbackCompleted, setPlaybackCompleted] = useState(false);
+  useEffect(() => {
+    if (status.playing) setPlaybackCompleted(false);
+    else if (status.didJustFinish || (duration > 0 && duration - status.currentTime <= 0.15)) setPlaybackCompleted(true);
+  }, [duration, status.currentTime, status.didJustFinish, status.playing]);
+  const playbackFinished = playbackCompleted || Boolean(status.didJustFinish) || (duration > 0 && duration - status.currentTime <= 0.15);
+  const progress = playbackFinished ? 1 : duration ? Math.min(1, status.currentTime / duration) : 0;
   const bars = note.waveform.length ? note.waveform : Array.from({ length: 42 }, () => 5);
+  const suppressNextPress = useRef(false);
+  function handleLongPress() {
+    suppressNextPress.current = true;
+    setTimeout(() => { suppressNextPress.current = false; }, 500);
+    onLongPress();
+  }
   function togglePlayback() {
     if (status.playing) player.pause();
     else {
-      if (status.didJustFinish || (duration > 0 && status.currentTime >= duration)) void player.seekTo(0);
+      if (status.didJustFinish || (duration > 0 && status.currentTime >= duration)) { setPlaybackCompleted(false); void player.seekTo(0); }
       player.play();
     }
   }
-  return <Pressable onPress={togglePlayback} style={[styles.voiceNote, mine && styles.voiceNoteMine]} accessibilityRole="button" accessibilityLabel={`${status.playing ? "Pause" : "Play"} voice note, ${formatVoiceTime(duration)}`}>
+  return <Pressable onPress={() => { if (suppressNextPress.current) { suppressNextPress.current = false; return; } togglePlayback(); }} onLongPress={handleLongPress} delayLongPress={430} style={[styles.voiceNote, mine && styles.voiceNoteMine]} accessibilityRole="button" accessibilityLabel={`${status.playing ? "Pause" : "Play"} voice note, ${formatVoiceTime(duration)}`}>
     <View style={styles.voicePlayButton}><Ionicons name={status.playing ? "pause" : "play"} size={20} color="#FFFFFF" /></View>
     <View style={styles.voiceWaveform}>{bars.map((height, index) => <View key={index} style={[styles.voiceWaveBar, { height, opacity: (index + 1) / bars.length <= progress ? 1 : 0.48 }]} />)}</View>
     <Text style={styles.voiceDuration}>{formatVoiceTime(status.playing ? Math.max(0, duration - status.currentTime) : duration)}</Text>
   </Pressable>;
+}
+
+function SwipeToReply({ children, onReply }: { children: ReactNode; onReply: () => void }) {
+  const onReplyRef = useRef(onReply);
+  onReplyRef.current = onReply;
+  const panResponder = useMemo(() => PanResponder.create({
+    onStartShouldSetPanResponder: () => false,
+    onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 18 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.25,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderRelease: (_event, gesture) => { if (Math.abs(gesture.dx) >= 68) onReplyRef.current(); },
+  }), []);
+  return <View {...panResponder.panHandlers}>{children}</View>;
 }
 
 function friendChatErrorMessage(error: unknown, fallback: string) {
@@ -193,6 +217,7 @@ export default function FriendChat() {
   const [selectedShareKeys, setSelectedShareKeys] = useState<string[]>([]);
   const [retryCount, setRetryCount] = useState(0);
   const listRef = useRef<FlatList<FriendMessage>>(null);
+  const messageInputRef = useRef<TextInput>(null);
   const lastReadMessage = useRef("");
   const sheetDragY = useRef(new Animated.Value(0)).current;
   const voiceHoldActive = useRef(false);
@@ -205,8 +230,9 @@ export default function FriendChat() {
     const combined = [...messages, ...optimisticMessages].sort((a, b) => (asDate(a.createdAt)?.getTime() || 0) - (asDate(b.createdAt)?.getTime() || 0));
     return query ? combined.filter((message) => displayMessageText(message).toLowerCase().includes(query)) : combined;
   }, [messages, optimisticMessages, searchQuery]);
+  // app.saved is the same ID collection written by the Today heart button.
   const savedShareOptions = useMemo<ShareOption[]>(() => app.saved.flatMap<ShareOption>((id): ShareOption[] => {
-    const piece = wardrobePieces.find((item) => item.id === id);
+    const piece = wardrobePieces.find((item) => item.id === id) || getPiece(id);
     if (piece) return [{ id: piece.id, kind: "closet", name: piece.name, brand: piece.brand, priceCents: piece.listPriceCents, currency: piece.currency, photoUri: piece.photo || piece.photos?.[0] }];
     const garment = getGarment(id);
     return garment ? [{ id: garment.id, kind: "catalog", name: garment.name, brand: garment.brand, priceCents: garment.priceCents }] : [];
@@ -359,14 +385,16 @@ export default function FriendChat() {
         return;
       }
       const payload = makeVoicePayload(durationMs, makeVoiceWaveform(voiceLevels.current));
+      const replyTarget = replyingTo;
       localId = `local-voice-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-      const optimistic: FriendMessage = { id: localId, text: payload, from: uid, photoUrl: uri, createdAt: new Date(), status: "sending" };
+      const optimistic: FriendMessage = { id: localId, text: payload, from: uid, photoUrl: uri, createdAt: new Date(), status: "sending", replyTo: replyTarget ? { id: replyTarget.id, text: replyTarget.text, from: replyTarget.from, photoUrl: replyTarget.photoUrl } : undefined };
       setOptimisticMessages((current) => [...current, optimistic]);
+      if (replyTarget) setReplyingTo(null);
       setLoadError("");
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
       const base64 = await localUriAsBase64(uri);
       const contentType = Platform.OS === "web" ? "audio/webm" : "audio/mp4";
-      const result = await sendFriendVoiceMessage(String(chatId), base64, contentType, payload);
+      const result = await sendFriendVoiceMessage(String(chatId), base64, contentType, payload, replyTarget?.id);
       setOptimisticMessages((current) => current.map((message) => message.id === localId ? { ...message, id: result.messageId, photoUrl: result.audioUrl, status: "sent" } : message));
       void notificationAsync(NotificationFeedbackType.Success);
       removeLocalRecording(uri);
@@ -493,6 +521,18 @@ export default function FriendChat() {
     Alert.alert(listName, "Manage this conversation", actions);
   }
 
+  function showMessageActions(message: FriendMessage) {
+    setCopiedMessageId(null);
+    setActiveMessage(message);
+    void notificationAsync(NotificationFeedbackType.Success);
+  }
+
+  function replyToMessage(message: FriendMessage) {
+    setReplyingTo(message);
+    void impactAsync(ImpactFeedbackStyle.Light).catch(() => undefined);
+    requestAnimationFrame(() => messageInputRef.current?.focus());
+  }
+
   function confirmDeleteMessage() {
     const message = activeMessage;
     if (!message || message.from !== uid) return;
@@ -514,25 +554,25 @@ export default function FriendChat() {
     const voiceNote = parseVoiceNote(item.text);
     const sharedCatalogItem = sharedListing?.kind === "catalog" ? getGarment(sharedListing.id) : undefined;
     const bubbleContent = <>
-      {item.replyTo ? <View style={styles.replyQuote}><View style={[styles.replyQuoteBar, mine && styles.replyQuoteBarMine]} /><View style={styles.replyQuoteCopy}><Text style={[styles.replyQuoteName, mine && styles.replyQuoteMine]} numberOfLines={1}>{item.replyTo.from === uid ? "You" : listName}</Text><Text style={[styles.replyQuoteText, mine && styles.replyQuoteMine]} numberOfLines={2}>{parseSharedListing(item.replyTo.text)?.name || item.replyTo.text || (item.replyTo.photoUrl ? "Photo" : "Message")}</Text></View></View> : null}
+      {item.replyTo ? <View style={styles.replyQuote}><View style={[styles.replyQuoteBar, mine && styles.replyQuoteBarMine]} /><View style={styles.replyQuoteCopy}><Text style={[styles.replyQuoteName, mine && styles.replyQuoteMine]} numberOfLines={1}>{item.replyTo.from === uid ? "You" : listName}</Text><Text style={[styles.replyQuoteText, mine && styles.replyQuoteMine]} numberOfLines={2}>{parseSharedListing(item.replyTo.text)?.name || displayMessageText(item.replyTo) || (item.replyTo.photoUrl ? "Photo" : "Message")}</Text></View></View> : null}
       {!sharedListing && !voiceNote && item.photoUrl ? <View style={styles.senderPanel}><Avatar uri={mine ? undefined : peer?.avatarUri} label={mine ? "You" : listName} styles={styles} /><View style={styles.senderPanelCopy}><Text numberOfLines={1} style={[styles.senderName, mine && styles.senderNameMine]}>{mine ? "You" : listName}</Text><Text numberOfLines={1} style={[styles.senderHandle, mine && styles.senderHandleMine]}>{mine ? "Shared a photo" : peer?.username ? `@${peer.username}` : ""}</Text></View></View> : null}
       {sharedListing ? <Pressable style={styles.sharedListingCard} onPress={() => router.push(sharedListing.kind === "catalog" ? { pathname: "/product/[id]", params: { id: sharedListing.id } } : { pathname: "/closet/[id]", params: { id: sharedListing.id } })} accessibilityRole="button" accessibilityLabel={`Open shared listing ${sharedListing.name}`}>
         {sharedCatalogItem ? <Image cachePolicy="memory-disk" source={sharedCatalogItem.image} style={styles.sharedListingImage} contentFit="cover" /> : item.photoUrl ? <Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.sharedListingImage} contentFit="cover" /> : <View style={[styles.sharedListingImage, styles.sharedListingImageFallback]}><Ionicons name="shirt-outline" size={27} color={colors.muted} /></View>}
         <View style={styles.sharedListingCopy}><Text numberOfLines={1} style={[styles.sharedListingBrand, mine && styles.senderHandleMine]}>{sharedListing.brand}</Text><Text numberOfLines={2} style={[styles.sharedListingName, mine && styles.senderNameMine]}>{sharedListing.name}</Text><Text style={[styles.sharedListingPrice, mine && styles.senderNameMine]}>{usd(sharedListing.priceCents, sharedListing.currency || "USD")}</Text></View>
       </Pressable> : null}
-      {voiceNote && item.photoUrl ? <VoiceNoteBubble uri={item.photoUrl} note={voiceNote} mine={mine} styles={styles} /> : null}
+      {voiceNote && item.photoUrl ? <VoiceNoteBubble uri={item.photoUrl} note={voiceNote} mine={mine} styles={styles} onLongPress={() => showMessageActions(item)} /> : null}
       {!sharedListing && !voiceNote && item.photoUrl ? <Pressable onPress={() => setPreviewUri(item.photoUrl)} accessibilityRole="imagebutton" accessibilityLabel="View attached photo"><Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.messagePhoto} contentFit="cover" /></Pressable> : null}
       {item.text && !sharedListing && !voiceNote ? <Text style={[styles.bubbleText, mine ? styles.bubbleTextMine : styles.bubbleTextPeer]}>{item.text}</Text> : null}
     </>;
-    return <View key={item.id}>
+    return <SwipeToReply onReply={() => replyToMessage(item)}>
       {startsDay ? <View style={styles.dayRule}><Text style={styles.dayPill}>{dayLabel(item.createdAt).toUpperCase()}</Text></View> : null}
       <View style={[styles.messageLine, mine ? styles.messageLineMine : styles.messageLinePeer, grouped && styles.messageLineGrouped]}>
         {!mine ? <View style={styles.avatarSlot}>{showPeerAvatar ? <Avatar uri={peer?.avatarUri} label={listName} styles={styles} /> : null}</View> : null}
-        <Pressable style={[styles.bubbleFrame, grouped && (mine ? styles.bubbleMineGrouped : styles.bubblePeerGrouped)]} onLongPress={() => { setCopiedMessageId(null); setActiveMessage(item); void notificationAsync(NotificationFeedbackType.Success); }} delayLongPress={430} accessibilityRole="text" accessibilityLabel={`${mine ? "You" : listName}: ${displayMessageText(item) || "Photo"}`}>
+        <Pressable style={[styles.bubbleFrame, grouped && (mine ? styles.bubbleMineGrouped : styles.bubblePeerGrouped)]} onLongPress={voiceNote ? undefined : () => showMessageActions(item)} delayLongPress={430} accessibilityRole="text" accessibilityLabel={`${mine ? "You" : listName}: ${displayMessageText(item) || "Photo"}`}>
           {mine ? <ImageBackground source={require("../../../assets/chat/message-bubble-gradient.png")} resizeMode="stretch" imageStyle={styles.bubbleGradientImage} style={[styles.bubble, styles.bubbleMine, grouped && styles.bubbleMineGrouped, item.photoUrl && !voiceNote && styles.bubbleWithPhoto, item.status === "sending" && styles.bubblePending]}>{bubbleContent}</ImageBackground> : <View style={[styles.bubble, styles.bubblePeer, grouped && styles.bubblePeerGrouped, item.photoUrl && !voiceNote && styles.bubbleWithPhoto]}>{bubbleContent}</View>}
         </Pressable>
       </View>
-    </View>;
+    </SwipeToReply>;
   };
 
   return <View style={styles.page}>
@@ -568,19 +608,19 @@ export default function FriendChat() {
         showsVerticalScrollIndicator={false}
       />
       {isRecordingVoice ? <View style={styles.voiceLiveBanner}><View style={styles.voiceLiveDot} /><Text style={styles.voiceLiveText}>Recording {formatVoiceTime(voiceElapsedMs / 1000)} · release to send</Text></View> : null}
-      {replyingTo ? <View style={styles.replyComposer}><View style={styles.replyComposerAccent} /><View style={styles.replyComposerCopy}><Text style={styles.replyComposerTitle}>Replying to {replyingTo.from === uid ? "your message" : listName}</Text><Text numberOfLines={1} style={styles.replyComposerText}>{replyingTo.text || (replyingTo.photoUrl ? "Photo" : "Message")}</Text></View><Pressable onPress={() => setReplyingTo(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cancel reply"><Ionicons name="close" size={19} color={colors.muted} /></Pressable></View> : null}
+      {replyingTo ? <View style={styles.replyComposer}><View style={styles.replyComposerAccent} /><View style={styles.replyComposerCopy}><Text style={styles.replyComposerTitle}>Replying to {replyingTo.from === uid ? "your message" : listName}</Text><Text numberOfLines={1} style={styles.replyComposerText}>{displayMessageText(replyingTo) || (replyingTo.photoUrl ? "Photo" : "Message")}</Text></View><Pressable onPress={() => setReplyingTo(null)} hitSlop={8} accessibilityRole="button" accessibilityLabel="Cancel reply"><Ionicons name="close" size={19} color={colors.muted} /></Pressable></View> : null}
       {photoUri ? <View style={styles.attachmentPreview}><Image cachePolicy="memory-disk" source={{ uri: photoUri }} style={styles.previewImage} contentFit="cover" /><View style={styles.previewCopy}><Text style={styles.previewTitle}>Photo attached</Text><Text style={styles.previewSubtitle}>Add a note or send it as is</Text></View><Pressable onPress={() => setPhotoUri(undefined)} style={styles.removePhoto} accessibilityRole="button" accessibilityLabel="Remove attached photo"><Ionicons name="close" size={18} color={colors.bone} /></Pressable></View> : null}
       <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         <View style={styles.attachWrap}>
           <Pressable onPress={() => setAttachMenuOpen((open) => !open)} style={styles.attachButton} accessibilityRole="button" accessibilityLabel="Add to message" accessibilityState={{ expanded: attachMenuOpen }}><Ionicons name={attachMenuOpen ? "close" : "add"} size={26} color={colors.bone} /></Pressable>
           {attachMenuOpen ? <View style={styles.attachMenu}>
             <Pressable style={styles.attachMenuRow} onPress={() => { setAttachMenuOpen(false); void attachPhoto(); }}><Ionicons name="images-outline" size={20} color={colors.bone} /><Text style={styles.attachMenuText}>Camera roll</Text></Pressable>
-            <Pressable style={styles.attachMenuRow} onPress={() => openShareSheet("saved")}><Ionicons name="bookmark-outline" size={20} color={colors.bone} /><Text style={styles.attachMenuText}>Saved</Text></Pressable>
+            <Pressable style={styles.attachMenuRow} onPress={() => openShareSheet("saved")}><Ionicons name="heart" size={20} color={colors.danger} /><Text style={styles.attachMenuText}>Saved</Text></Pressable>
             <Pressable style={styles.attachMenuRow} onPress={() => openShareSheet("mine")}><Ionicons name="pricetag-outline" size={20} color={colors.bone} /><Text style={styles.attachMenuText}>My listings</Text></Pressable>
           </View> : null}
         </View>
         <View style={styles.composerField}>
-          <TextInput value={draft} onChangeText={setDraft} editable={!isRecordingVoice} placeholder={isRecordingVoice ? "Recording voice note…" : "Message your friend"} placeholderTextColor={colors.subtle} style={styles.input} maxLength={2000} multiline blurOnSubmit={false} textAlignVertical="center" accessibilityLabel="Write a message" />
+          <TextInput ref={messageInputRef} value={draft} onChangeText={setDraft} editable={!isRecordingVoice} placeholder={isRecordingVoice ? "Recording voice note…" : "Message your friend"} placeholderTextColor={colors.subtle} style={styles.input} maxLength={2000} multiline blurOnSubmit={false} textAlignVertical="center" accessibilityLabel="Write a message" />
           <Text style={styles.charCount}>{draft.length >= 1800 ? `${draft.length}/2000` : ""}</Text>
         </View>
         <Pressable onPressIn={beginVoicePress} onPressOut={releaseVoicePress} style={[styles.voiceRecordButton, isRecordingVoice && styles.voiceRecordButtonActive]} accessibilityRole="button" accessibilityLabel={isRecordingVoice ? "Recording voice note, release to send" : "Hold to record a voice note"} accessibilityHint="Press and hold to record. Release to send the voice note.">
@@ -620,7 +660,7 @@ export default function FriendChat() {
                 <View style={[styles.shareCheck, selected && styles.shareCheckSelected]}>{selected ? <Ionicons name="checkmark" size={15} color={colors.ink} /> : null}</View>
               </Pressable>;
             })}
-          </ScrollView> : <View style={styles.shareEmpty}><Ionicons name={shareSheetMode === "saved" ? "bookmark-outline" : "pricetag-outline"} size={28} color={colors.muted} /><Text style={styles.shareEmptyText}>{shareSheetMode === "saved" ? "You don’t have any listings saved." : "You have not posted a listing."}</Text></View>}
+          </ScrollView> : <View style={styles.shareEmpty}><Ionicons name={shareSheetMode === "saved" ? "heart-outline" : "pricetag-outline"} size={28} color={shareSheetMode === "saved" ? colors.danger : colors.muted} /><Text style={styles.shareEmptyText}>{shareSheetMode === "saved" ? "You don’t have any listings saved." : "You have not posted a listing."}</Text></View>}
           <Pressable onPress={sendSelectedListings} disabled={!selectedShareKeys.length} style={[styles.shareSendButton, !selectedShareKeys.length && styles.shareSendDisabled]} accessibilityRole="button" accessibilityLabel={`Send ${selectedShareKeys.length} selected listing${selectedShareKeys.length === 1 ? "" : "s"}`}>
             <Text style={styles.shareSendText}>{selectedShareKeys.length ? `Send ${selectedShareKeys.length > 1 ? `(${selectedShareKeys.length})` : ""}` : "Select listings to send"}</Text>
           </Pressable>

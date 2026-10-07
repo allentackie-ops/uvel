@@ -41,8 +41,8 @@ export async function sendFriendMessage(conversationId: string, text: string, ph
   return socialCall<{ messageId: string }>("send_message", { conversationId, text, photoUrl: photoUrl || "", replyTo: replyTo || "" });
 }
 
-export async function sendFriendVoiceMessage(conversationId: string, base64: string, contentType: string, text: string) {
-  return socialCall<{ messageId: string; audioUrl: string }>("send_voice_message", { conversationId, base64, contentType, text });
+export async function sendFriendVoiceMessage(conversationId: string, base64: string, contentType: string, text: string, replyTo?: string) {
+  return socialCall<{ messageId: string; audioUrl: string }>("send_voice_message", { conversationId, base64, contentType, text, replyTo: replyTo || "" });
 }
 
 export async function deleteFriendMessage(conversationId: string, messageId: string) {
