@@ -1,15 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
+import { PlatformPay, useStripe } from "@stripe/stripe-react-native";
 import { useEffect, useRef, useState } from "react";
-import { Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "../lib/haptics";
 import { getBrand, type Brand } from "../lib/brands";
-import { addToCart, useCart } from "../lib/cart";
-import { getMarket, moneyInMarket } from "../lib/markets";
-import { payMethods, type PayMethod } from "../lib/fees";
-import { loadLastPaymentMethod } from "../lib/paymentPreference";
+import { addToCart, removeFromCart, useCart } from "../lib/cart";
+import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
+import { payMethods, shippingCents, uvelFeeCents, type PayMethod } from "../lib/fees";
+import { loadLastPaymentMethod, rememberLastPaymentMethod } from "../lib/paymentPreference";
+import { cacheOrder, loadAddress, makePendingOrder } from "../lib/orders";
+import { createCheckoutSession, createStripePaymentIntent, openHostedPay, paymentsExtra } from "../lib/pay";
+import { mirrorCheckoutOrder } from "../lib/supabaseCheckout";
+import { payWithWallet, useWallet } from "../lib/wallet";
+import { listingVisibleIn, restrictShipsTo } from "../lib/ships";
+import { carriersForListing } from "../lib/sellerShipping";
+import { brandMakes } from "../lib/brandMake";
 import { useUvel } from "../lib/store";
 import type { ClosetPiece } from "../lib/wardrobe";
 import type { PersonalizationAction } from "../lib/personalization";
@@ -26,6 +34,7 @@ export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly
   const colors = useColors();
   const styles = makeStyles(colors);
   const app = useUvel();
+  const { confirmPlatformPayPayment, initPaymentSheet, presentPaymentSheet } = useStripe();
   const cart = useCart();
   const brand = piece.brandId ? getBrand(piece.brandId) : undefined;
   const market = getMarket(app.country);
@@ -39,9 +48,11 @@ export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly
     return () => { live = false; };
   }, [market.code]);
   const paymentMethod = methods.find((method) => method.id === paymentMethodId) || methods[0];
+  const wallet = useWallet(market.currency);
+  const [paying, setPaying] = useState(false);
   const footerBottom = reserveTabBarSpace ? 64 + Math.max(insets.bottom, 8) : Math.max(insets.bottom, 8);
   const paymentButtonLabel = paymentMethod?.kind === "apple"
-    ? "Pay"
+    ? "Pay with Apple Pay"
     : paymentMethod?.kind === "card"
       ? "Pay with card"
       : paymentMethod
@@ -59,7 +70,141 @@ export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly
   const currentPhoto = gallery[Math.min(activePhoto, gallery.length - 1)] || piece.photo;
   const sharePayload: FriendSharePayload = { kind: "listing", id: piece.id, title: piece.name, deepLink: `uvel://piece/${piece.id}`, imageUri: piece.photo, previewText: `Have a look at ${piece.name} on Uvel.` };
   const sizes = piece.sizes?.length ? piece.sizes : [piece.size || "One size"];
-  const buyNow = () => { if (!previewOnly) router.push({ pathname: "/checkout/[id]", params: { id: piece.id, ...(paymentMethod?.kind === "apple" ? { applePay: "1" } : {}) } }); };
+  const buyNow = async () => {
+    if (previewOnly || paying || !paymentMethod) return;
+    if (!app.uid) {
+      Alert.alert("Sign in to buy", "Sign in before starting payment.");
+      return;
+    }
+    setPaying(true);
+    try {
+      const address = await loadAddress();
+      if (!address) {
+        Alert.alert("Add a shipping address", "Save your shipping address once, then you can pay directly from the listing.");
+        router.push("/address");
+        return;
+      }
+      const effectiveShipsTo = restrictShipsTo(
+        piece.country || market.code,
+        piece.shipsTo,
+        brand?.operatingCountries,
+      );
+      if (!listingVisibleIn({ origin: piece.country, shipsTo: effectiveShipsTo, buyer: address.country })) {
+        throw new Error("This seller doesn’t ship this piece to that country.");
+      }
+      if (piece.status !== "listed" || piece.sellerPaused || (piece.stockQuantity !== undefined && piece.stockQuantity <= 0)) {
+        throw new Error("This listing is no longer available.");
+      }
+      const currency = piece.currency || market.currency;
+      const itemCents = convertCents(piece.listPriceCents, currency, market);
+      const fee = uvelFeeCents(piece.listPriceCents, currency, market);
+      const carrierOptions = !brand || !brandMakes(brand)
+        ? carriersForListing(piece.country || market.code, piece.shippingCarriers, piece.shippingMethod || "dropoff")
+        : [];
+      const carrier = carrierOptions[0];
+      const shippingSpeed = carrier?.speed === "express" ? "express" : "standard";
+      const buyerPaysShipping = piece.shippingBuyerPays !== false || Boolean(brand && brandMakes(brand));
+      const shipCost = buyerPaysShipping
+        ? shippingCents(address.country === (piece.country || market.code), shippingSpeed === "express", market)
+        : 0;
+      const total = itemCents + fee + shipCost;
+      if (total <= 0) throw new Error("This listing cannot be purchased right now.");
+      const order = makePendingOrder({
+        pieceId: piece.id,
+        pieceName: piece.name,
+        piecePhoto: piece.photo,
+        brandId: piece.brandId,
+        variantKey: selectedSize || undefined,
+        variantLabel: selectedSize || undefined,
+        buyerId: app.uid,
+        sellerId: sellerId || "seller",
+        itemCents,
+        feeCents: fee,
+        shipCents: shipCost,
+        taxCents: 0,
+        totalCents: total,
+        currency: market.currency,
+        country: address.country,
+        payMethod: paymentMethod.label,
+        delivery: carrier ? `${carrier.name} · ${shippingSpeed}` : shippingSpeed,
+        carrier: carrier?.name,
+        address,
+        madeByUvel: Boolean(brand && brandMakes(brand)),
+      });
+      await mirrorCheckoutOrder(order);
+      await cacheOrder(order);
+      if (wallet.availableCents >= total && total > 0) {
+        await payWithWallet(order.id);
+        await rememberLastPaymentMethod(market.code, paymentMethod.id);
+        removeFromCart(piece.id);
+        router.replace({ pathname: "/order/[id]", params: { id: order.id } });
+        return;
+      }
+      if (paymentMethod.kind === "apple" || market.code === "US") {
+        if (!paymentsExtra.stripePk) throw new Error("Stripe checkout is not configured yet.");
+        const intent = await createStripePaymentIntent(order.id, total, market.currency);
+        if (paymentMethod.kind === "apple") {
+          const immediate = (label: string, amount: number): PlatformPay.CartSummaryItem => ({
+            label,
+            amount: (amount / 100).toFixed(2),
+            paymentType: PlatformPay.PaymentType.Immediate,
+          });
+          const cartItems: PlatformPay.CartSummaryItem[] = [
+            immediate(piece.name, itemCents),
+            ...(fee > 0 ? [immediate("Buyer protection", fee)] : []),
+            ...(shipCost > 0 ? [immediate("Shipping", shipCost)] : []),
+            immediate("Uvel", total),
+          ];
+          const confirmed = await confirmPlatformPayPayment(intent.clientSecret, {
+            applePay: { merchantCountryCode: market.code, currencyCode: market.currency, cartItems },
+          });
+          if (confirmed.error) {
+            if (confirmed.error.code === "Canceled") return;
+            throw new Error(confirmed.error.message);
+          }
+        } else {
+          const initialized = await initPaymentSheet({
+            merchantDisplayName: "Uvel",
+            paymentIntentClientSecret: intent.clientSecret,
+            allowsDelayedPaymentMethods: false,
+            defaultBillingDetails: { email: app.email || undefined, name: address.name },
+          });
+          if (initialized.error) throw new Error(initialized.error.message);
+          const presented = await presentPaymentSheet();
+          if (presented.error) {
+            if (presented.error.code === "Canceled") return;
+            throw new Error(presented.error.message);
+          }
+        }
+        await rememberLastPaymentMethod(market.code, paymentMethod.id);
+        removeFromCart(piece.id);
+        router.replace({ pathname: "/order/[id]", params: { id: order.id } });
+        return;
+      }
+      const session = await createCheckoutSession({
+        amountCents: total,
+        currency: market.currency,
+        email: app.email || "pay@uvel.app",
+        method: paymentMethod.id,
+        country: market.code,
+        reference: `uvel-${piece.id}-${Date.now()}`,
+        name: piece.name,
+        orderId: order.id,
+        listingId: piece.id,
+        brandId: piece.brandId || "",
+        variantKey: selectedSize,
+      });
+      if (!session.url) throw new Error("That payment method isn’t live yet.");
+      if (!(await openHostedPay(session.url))) return;
+      await rememberLastPaymentMethod(market.code, paymentMethod.id);
+      removeFromCart(piece.id);
+      router.replace({ pathname: "/order/[id]", params: { id: order.id } });
+    } catch (error) {
+      Alert.alert("Payment", error instanceof Error ? error.message : "Couldn’t complete that.");
+    } finally {
+      setPaying(false);
+    }
+  };
   const addItem = () => { if (previewOnly || inBag) return; addToCart(piece.id); void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => undefined); };
   const toggleSaved = () => { app.toggleSaved(piece.id); onInteraction?.("save", piece); void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); };
   const saveFromPhotoDoubleTap = () => { if (!app.saved.includes(piece.id)) { app.toggleSaved(piece.id); onInteraction?.("save", piece); } void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined); };
@@ -86,7 +231,7 @@ export function TodayListingOverlay({ piece, onClose, onInteraction, previewOnly
             <View style={styles.descriptionSection}><Text style={styles.descriptionTitle}>Description</Text><Text style={styles.description}>{piece.notes?.trim() || "The seller hasn’t added a description yet."}</Text></View>
           </View>
         </ScrollView>
-        {!previewOnly ? <View style={[styles.footer, { bottom: footerBottom }]}><Pressable onPress={buyNow} style={styles.buyButton} accessibilityRole="button" accessibilityLabel={`${paymentButtonLabel} for ${piece.name}`}><View style={[styles.buyContent, paymentMethod?.kind === "apple" && styles.appleBuyContent]}><PaymentMark method={paymentMethod} colors={colors} /><Text style={[styles.buyText, paymentMethod?.kind === "apple" && styles.appleBuyText]}>{paymentButtonLabel}</Text></View></Pressable><Pressable onPress={addItem} style={styles.bagButton} accessibilityRole="button" accessibilityLabel={inBag ? `${piece.name} is in your bag` : `Add ${piece.name} to bag`}><Text style={styles.bagText}>{inBag ? "In bag" : "Add to cart"}</Text></Pressable><Pressable onPress={() => router.push({ pathname: "/try-on", params: { piece: piece.id } })} style={styles.tryOnButton} accessibilityRole="button" accessibilityLabel={`Try on ${piece.name}`} accessibilityHint="Opens the virtual try-on experience for this item."><Ionicons name="body-outline" size={20} color={colors.bone} /></Pressable></View> : null}
+        {!previewOnly ? <View style={[styles.footer, { bottom: footerBottom }]}><Pressable onPress={() => void buyNow()} disabled={paying} style={[styles.buyButton, paying && { opacity: 0.6 }]} accessibilityRole="button" accessibilityLabel={`${paymentButtonLabel} for ${piece.name}`} accessibilityState={{ busy: paying, disabled: paying }}><View style={[styles.buyContent, paymentMethod?.kind === "apple" && styles.appleBuyContent]}><PaymentMark method={paymentMethod} colors={colors} /><Text style={[styles.buyText, paymentMethod?.kind === "apple" && styles.appleBuyText]}>{paying ? "Processing…" : paymentButtonLabel}</Text></View></Pressable><Pressable onPress={addItem} style={styles.bagButton} accessibilityRole="button" accessibilityLabel={inBag ? `${piece.name} is in your bag` : `Add ${piece.name} to bag`}><Text style={styles.bagText}>{inBag ? "In bag" : "Add to cart"}</Text></Pressable><Pressable onPress={() => router.push({ pathname: "/try-on", params: { piece: piece.id } })} style={styles.tryOnButton} accessibilityRole="button" accessibilityLabel={`Try on ${piece.name}`} accessibilityHint="Opens the virtual try-on experience for this item."><Ionicons name="body-outline" size={20} color={colors.bone} /></Pressable></View> : null}
       </View>
       <TodayCartFab listingOpen showWhileListing={!previewOnly} onBeforeOpen={onClose} />
       <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void Share.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
