@@ -12,7 +12,7 @@ import { useUvel } from "../lib/store";
 import { useColors, useResolvedAppearance, type Colors } from "../lib/theme";
 import * as Haptics from "../lib/haptics";
 import { respondFriendRequest, searchUsers, sendFriendRequest, subscribeFriendNotifications, type FriendNotification, type PublicUser } from "../lib/friends";
-import { createFriendChat, listFriendChats, listFriends, type FriendChatPreview } from "../lib/friendChat";
+import { createFriendChat, listFriendChats, listFriends, preloadFriendMessages, type FriendChatPreview } from "../lib/friendChat";
 
 type Filter = "All" | "Unread" | "Selling" | "Buying";
 type InboxMode = "Messages" | "Activity";
@@ -56,7 +56,11 @@ export default function Inbox() {
   useEffect(() => subscribeFriendNotifications(uid, setFriendNotifications), [uid]);
   useEffect(() => {
     void listFriends().then(setFriends).catch(() => setFriends([]));
-    void listFriendChats().then(setFriendChats).catch(() => setFriendChats([]));
+    void listFriendChats().then((chats) => {
+      setFriendChats(chats);
+      // Warm the most recently active conversations while the inbox is visible.
+      chats.slice(0, 5).forEach((chat) => { void preloadFriendMessages(chat.id).catch(() => undefined); });
+    }).catch(() => setFriendChats([]));
   }, [friendSearchOpen]);
 
   async function runFriendSearch() {
@@ -107,7 +111,7 @@ export default function Inbox() {
   }
 
   async function openFriendChat(user: PublicUser) {
-    try { const conversationId = await createFriendChat(user.uid); router.push({ pathname: "/friends/chat/[id]", params: { id: conversationId, name: user.displayName || user.username } }); }
+    try { const conversationId = await createFriendChat(user.uid); router.push({ pathname: "/friends/chat/[id]", params: { id: conversationId, name: user.displayName || user.username, username: user.username, avatarUri: user.avatarUri || "" } }); }
     catch (e) { setFriendError(e instanceof Error ? e.message : "Couldn’t open friend chat."); }
   }
   const onRefresh = useCallback(async () => {
@@ -183,7 +187,7 @@ export default function Inbox() {
         {friends.length ? <Text style={styles.sectionLabel}>YOUR FRIENDS</Text> : null}
         {friends.map((user) => <Pressable key={user.uid} onPress={() => void openFriendChat(user)} style={styles.requestRow} accessibilityRole="button" accessibilityLabel={`Chat with ${user.displayName || user.username}`}><Avatar user={user} /><View style={{ flex: 1 }}><Text style={styles.requestText}>{user.displayName || "Uvel member"}</Text><Text style={styles.usernameTxt}>@{user.username}</Text></View><Text style={styles.chatArrow}>›</Text></Pressable>)}
         {friendChats.length ? <Text style={styles.sectionLabel}>FRIEND CHATS</Text> : null}
-        {friendChats.map((chat) => { const other = chat.participantIds.find((id) => id !== me) || ""; const user = friends.find((item) => item.uid === other); const unread = Number(chat.unreadBy?.[me] || 0); return <Pressable key={chat.id} onPress={() => router.push({ pathname: "/friends/chat/[id]", params: { id: chat.id, name: user?.displayName || user?.username || "Friend" } })} style={styles.requestRow} accessibilityRole="button"><Avatar user={user || { uid: other, username: "friend", displayName: "Friend" }} /><View style={{ flex: 1 }}><Text style={[styles.requestText, unread ? { fontWeight: "900" } : null]}>{user?.displayName || user?.username || "Friend"}</Text><Text style={styles.usernameTxt} numberOfLines={1}>{chat.lastText || "Start chatting"}</Text></View>{unread ? <View style={styles.chatUnread}><Text style={styles.chatUnreadTxt}>{unread}</Text></View> : <Text style={styles.chatArrow}>›</Text>}</Pressable>; })}
+        {friendChats.map((chat) => { const other = chat.participantIds.find((id) => id !== me) || ""; const user = friends.find((item) => item.uid === other); const unread = Number(chat.unreadBy?.[me] || 0); return <Pressable key={chat.id} onPress={() => router.push({ pathname: "/friends/chat/[id]", params: { id: chat.id, name: user?.displayName || user?.username || "Friend", username: user?.username || "", avatarUri: user?.avatarUri || "" } })} style={styles.requestRow} accessibilityRole="button"><Avatar user={user || { uid: other, username: "friend", displayName: "Friend" }} /><View style={{ flex: 1 }}><Text style={[styles.requestText, unread ? { fontWeight: "900" } : null]}>{user?.displayName || user?.username || "Friend"}</Text><Text style={styles.usernameTxt} numberOfLines={1}>{chat.lastText || "Start chatting"}</Text></View>{unread ? <View style={styles.chatUnread}><Text style={styles.chatUnreadTxt}>{unread}</Text></View> : <Text style={styles.chatArrow}>›</Text>}</Pressable>; })}
         {!friendResults.length && !friendNotifications.some((item) => ["friend_request", "friend_added"].includes(item.kind) && !item.readAt) && friendTerm.length >= 2 && !friendBusy ? <Text style={styles.noFriends}>No users found.</Text> : null}
         </>}
       </View> : null}
@@ -239,7 +243,7 @@ function ActivityView({ friends, friendChats, notifications, uid, onOpenFriends,
     {friends.length ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.friendRail}>{friends.map((user) => <Pressable key={user.uid} onPress={onOpenFriends} style={styles.friendBubble}><Avatar user={user} /><Text style={styles.friendBubbleName} numberOfLines={1}>{user.displayName || user.username}</Text></Pressable>)}</ScrollView> : null}
     {pending.length ? <View style={styles.requestCard}><View style={styles.requestCardCopy}><Text style={styles.requestCardTitle}>Friend requests</Text><Text style={styles.requestCardBody}>{pending.length} waiting for you</Text></View><Pressable onPress={onOpenFriends} style={styles.reviewBtn}><Text style={styles.reviewTxt}>Review</Text></Pressable></View> : null}
     <Text style={styles.activitySection}>RECENT CONVERSATIONS</Text>
-    {friendChats.length ? friendChats.map((chat) => { const other = chat.participantIds.find((id) => id !== uid) || ""; const user = friends.find((item) => item.uid === other); const unread = Number(chat.unreadBy?.[uid] || 0); return <Pressable key={chat.id} onPress={() => router.push({ pathname: "/friends/chat/[id]", params: { id: chat.id, name: user?.displayName || user?.username || "Friend" } })} style={styles.activityRow}><Avatar user={user || { uid: other, username: "friend", displayName: "Friend" }} /><View style={{ flex: 1 }}><Text style={[styles.requestText, unread ? { fontWeight: "900" } : null]}>{user?.displayName || user?.username || "Friend"}</Text><Text style={styles.usernameTxt} numberOfLines={1}>{chat.lastText || "Start chatting"}</Text></View>{unread ? <View style={styles.chatUnread}><Text style={styles.chatUnreadTxt}>{unread}</Text></View> : <Text style={styles.chatArrow}>›</Text>}</Pressable>; }) : <Text style={styles.empty}>Friend conversations will appear here.</Text>}
+    {friendChats.length ? friendChats.map((chat) => { const other = chat.participantIds.find((id) => id !== uid) || ""; const user = friends.find((item) => item.uid === other); const unread = Number(chat.unreadBy?.[uid] || 0); return <Pressable key={chat.id} onPress={() => router.push({ pathname: "/friends/chat/[id]", params: { id: chat.id, name: user?.displayName || user?.username || "Friend", username: user?.username || "", avatarUri: user?.avatarUri || "" } })} style={styles.activityRow}><Avatar user={user || { uid: other, username: "friend", displayName: "Friend" }} /><View style={{ flex: 1 }}><Text style={[styles.requestText, unread ? { fontWeight: "900" } : null]}>{user?.displayName || user?.username || "Friend"}</Text><Text style={styles.usernameTxt} numberOfLines={1}>{chat.lastText || "Start chatting"}</Text></View>{unread ? <View style={styles.chatUnread}><Text style={styles.chatUnreadTxt}>{unread}</Text></View> : <Text style={styles.chatArrow}>›</Text>}</Pressable>; }) : <Text style={styles.empty}>Friend conversations will appear here.</Text>}
     {friends.length <= 5 ? <FindFriendsBanner onPress={onOpenFriends} colors={colors} styles={styles} /> : null}
   </ScrollView>;
 }

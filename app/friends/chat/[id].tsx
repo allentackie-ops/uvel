@@ -5,10 +5,10 @@ import { Image } from "expo-image";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, ImageBackground, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, FlatList, ImageBackground, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { notificationAsync, NotificationFeedbackType } from "../../../lib/haptics";
-import { blockFriend, deleteFriendMessage, listFriends, markFriendChatRead, reportFriendConversation, sendFriendMessage, subscribeFriendMessages, uploadFriendAttachment, type FriendMessage } from "../../../lib/friendChat";
+import { blockFriend, deleteFriendMessage, getCachedFriendMessages, listFriends, markFriendChatRead, reportFriendConversation, sendFriendMessage, subscribeFriendMessages, uploadFriendAttachment, type FriendMessage } from "../../../lib/friendChat";
 import type { PublicUser } from "../../../lib/friends";
 import { pickFromLibrary } from "../../../lib/photo";
 import { useColors, useResolvedAppearance } from "../../../lib/theme";
@@ -62,19 +62,19 @@ export default function FriendChat() {
   const appearance = useResolvedAppearance();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { id: routeId, name: routeName } = useLocalSearchParams<{ id: string; name?: string }>();
+  const { id: routeId, name: routeName, username: routeUsername, avatarUri: routeAvatarUri } = useLocalSearchParams<{ id: string; name?: string; username?: string; avatarUri?: string }>();
   const chatId = Array.isArray(routeId) ? routeId[0] : routeId;
   const name = Array.isArray(routeName) ? routeName[0] : routeName;
   const { uid } = useUvel();
   const peerUid = String(chatId || "").split("_").find((participant) => participant && participant !== uid) || "";
-  const [peer, setPeer] = useState<PublicUser | undefined>();
-  const [messages, setMessages] = useState<FriendMessage[]>([]);
+  const [peer, setPeer] = useState<PublicUser | undefined>(() => routeName || routeUsername || routeAvatarUri ? { uid: peerUid, displayName: routeName || "", username: routeUsername || "", avatarUri: routeAvatarUri || undefined } : undefined);
+  const [messages, setMessages] = useState<FriendMessage[]>(() => getCachedFriendMessages(String(chatId || "")) || []);
   const [optimisticMessages, setOptimisticMessages] = useState<FriendMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [replyingTo, setReplyingTo] = useState<FriendMessage | null>(null);
   const [activeMessage, setActiveMessage] = useState<FriendMessage | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !getCachedFriendMessages(String(chatId || "")));
   const [loadError, setLoadError] = useState("");
   const [photoUri, setPhotoUri] = useState<string | undefined>();
   const [previewUri, setPreviewUri] = useState<string | undefined>();
@@ -92,9 +92,11 @@ export default function FriendChat() {
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
+    const cachedMessages = getCachedFriendMessages(String(chatId || ""));
+    setMessages(cachedMessages || []);
+    setLoading(!cachedMessages);
     setLoadError("");
-    if (peerUid) void listFriends().then((friends) => { if (active) setPeer(friends.find((friend) => friend.uid === peerUid)); }).catch(() => undefined);
+    if (peerUid && (!peer?.username || !peer?.avatarUri)) void listFriends().then((friends) => { if (active) setPeer(friends.find((friend) => friend.uid === peerUid) || peer); }).catch(() => undefined);
     if (chatId) void markFriendChatRead(String(chatId)).catch(() => undefined);
     const unsubscribe = subscribeFriendMessages(String(chatId || ""), (next) => {
       if (!active) return;
@@ -197,7 +199,7 @@ export default function FriendChat() {
     const showPeerAvatar = !mine && (next?.from !== item.from || dayKey(next?.createdAt) !== dayKey(item.createdAt));
     const bubbleContent = <>
       {item.replyTo ? <View style={styles.replyQuote}><View style={[styles.replyQuoteBar, mine && styles.replyQuoteBarMine]} /><View style={styles.replyQuoteCopy}><Text style={[styles.replyQuoteName, mine && styles.replyQuoteMine]} numberOfLines={1}>{item.replyTo.from === uid ? "You" : listName}</Text><Text style={[styles.replyQuoteText, mine && styles.replyQuoteMine]} numberOfLines={2}>{item.replyTo.text || (item.replyTo.photoUrl ? "Photo" : "Message")}</Text></View></View> : null}
-      {item.photoUrl ? <View style={styles.senderPanel}><Avatar uri={mine ? undefined : peer?.avatarUri} label={mine ? "You" : listName} styles={styles} /><View style={styles.senderPanelCopy}><Text numberOfLines={1} style={[styles.senderName, mine && styles.senderNameMine]}>{mine ? "You" : listName}</Text><Text numberOfLines={1} style={[styles.senderHandle, mine && styles.senderHandleMine]}>{mine ? "Shared a photo" : peer?.username ? `@${peer.username}` : "Friend on Uvel"}</Text></View></View> : null}
+      {item.photoUrl ? <View style={styles.senderPanel}><Avatar uri={mine ? undefined : peer?.avatarUri} label={mine ? "You" : listName} styles={styles} /><View style={styles.senderPanelCopy}><Text numberOfLines={1} style={[styles.senderName, mine && styles.senderNameMine]}>{mine ? "You" : listName}</Text><Text numberOfLines={1} style={[styles.senderHandle, mine && styles.senderHandleMine]}>{mine ? "Shared a photo" : peer?.username ? `@${peer.username}` : ""}</Text></View></View> : null}
       {item.photoUrl ? <Pressable onPress={() => setPreviewUri(item.photoUrl)} accessibilityRole="imagebutton" accessibilityLabel="View attached photo"><Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.messagePhoto} contentFit="cover" /></Pressable> : null}
       {item.text ? <Text style={[styles.bubbleText, mine ? styles.bubbleTextMine : styles.bubbleTextPeer]}>{item.text}</Text> : null}
     </>;
@@ -218,7 +220,7 @@ export default function FriendChat() {
       <Pressable onPress={() => router.back()} style={styles.headerIcon} accessibilityRole="button" accessibilityLabel="Back to messages"><Ionicons name="chevron-back" size={27} color={colors.bone} /></Pressable>
       <View style={styles.profileHeader}>
         <Avatar uri={peer?.avatarUri} label={listName} styles={styles} large />
-        <View style={styles.profileCopy}><Text numberOfLines={1} style={styles.headerTitle}>{listName}</Text><Text numberOfLines={1} style={styles.headerSubtitle}>{peer?.username ? `@${peer.username}` : "Friend on Uvel"}</Text></View>
+        <View style={styles.profileCopy}><Text numberOfLines={1} style={styles.headerTitle}>{listName}</Text><Text numberOfLines={1} style={styles.headerSubtitle}>{peer?.username ? `@${peer.username}` : ""}</Text></View>
         <Ionicons name="chevron-forward" size={15} color={colors.subtle} />
       </View>
       <Pressable onPress={safetyActions} style={styles.headerIcon} accessibilityRole="button" accessibilityLabel="Conversation options"><Ionicons name="ellipsis-horizontal" size={23} color={colors.bone} /></Pressable>
@@ -228,7 +230,6 @@ export default function FriendChat() {
 
     <KeyboardAvoidingView style={styles.keyboardArea} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
       {loadError ? <View style={styles.errorBanner}><Ionicons name="cloud-offline-outline" size={17} color={colors.danger} /><Text style={styles.errorText} numberOfLines={3}>{loadError}</Text><Pressable onPress={() => { setLoading(true); setLoadError(""); setRetryCount((count) => count + 1); }} accessibilityRole="button" accessibilityLabel="Retry loading messages"><Text style={styles.retryText}>Retry</Text></Pressable></View> : null}
-      {loading ? <View style={styles.loading}><ActivityIndicator color={colors.success} /><Text style={styles.loadingText}>Opening your conversation…</Text></View> : null}
       {!loading && !loadError && visibleMessages.length === 0 ? <View pointerEvents="none" style={styles.emptyPrompt}><Text style={styles.emptyPromptText}>Say hi to {listName}</Text></View> : null}
       {!loading && searchQuery.trim() && visibleMessages.length === 0 ? <View style={styles.searchEmpty}><Ionicons name="search-outline" size={26} color={colors.subtle} /><Text style={styles.searchEmptyTitle}>No matching messages</Text><Text style={styles.searchEmptyCopy}>Try another word or name.</Text></View> : null}
       <FlatList

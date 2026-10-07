@@ -29,6 +29,19 @@ export async function listFriendChats() {
   return result.chats || [];
 }
 
+const friendMessageCache = new Map<string, FriendMessage[]>();
+
+export function getCachedFriendMessages(conversationId: string) {
+  return friendMessageCache.get(conversationId);
+}
+
+export async function preloadFriendMessages(conversationId: string) {
+  const result = await socialCall<{ messages: FriendMessage[] }>("list_messages", { conversationId });
+  const next = result.messages || [];
+  friendMessageCache.set(conversationId, next);
+  return next;
+}
+
 export async function markFriendChatRead(conversationId: string) {
   return socialCall<{ ok: boolean }>("mark_read", { conversationId });
 }
@@ -67,5 +80,8 @@ export function subscribeFriendMessages(conversationId: string, callback: (messa
   return pollSocial(async () => {
     const result = await socialCall<{ messages: FriendMessage[] }>("list_messages", { conversationId });
     return result.messages || [];
-  }, callback, 2500, onError);
+  }, (messages) => {
+    friendMessageCache.set(conversationId, messages);
+    callback(messages);
+  }, 2500, onError);
 }
