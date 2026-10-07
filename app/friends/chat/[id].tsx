@@ -7,6 +7,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, ImageBackground, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { notificationAsync, NotificationFeedbackType } from "../../../lib/haptics";
 import { blockFriend, deleteFriendMessage, listFriends, markFriendChatRead, reportFriendConversation, sendFriendMessage, subscribeFriendMessages, uploadFriendAttachment, type FriendMessage } from "../../../lib/friendChat";
 import type { PublicUser } from "../../../lib/friends";
 import { pickFromLibrary } from "../../../lib/photo";
@@ -62,6 +63,7 @@ export default function FriendChat() {
   const [draft, setDraft] = useState("");
   const [replyingTo, setReplyingTo] = useState<FriendMessage | null>(null);
   const [activeMessage, setActiveMessage] = useState<FriendMessage | null>(null);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -169,13 +171,13 @@ export default function FriendChat() {
       {item.replyTo ? <View style={styles.replyQuote}><View style={[styles.replyQuoteBar, mine && styles.replyQuoteBarMine]} /><View style={styles.replyQuoteCopy}><Text style={[styles.replyQuoteName, mine && styles.replyQuoteMine]} numberOfLines={1}>{item.replyTo.from === uid ? "You" : listName}</Text><Text style={[styles.replyQuoteText, mine && styles.replyQuoteMine]} numberOfLines={2}>{item.replyTo.text || (item.replyTo.photoUrl ? "Photo" : "Message")}</Text></View></View> : null}
       {item.photoUrl ? <View style={styles.senderPanel}><Avatar uri={mine ? undefined : peer?.avatarUri} label={mine ? "You" : listName} styles={styles} /><View style={styles.senderPanelCopy}><Text numberOfLines={1} style={[styles.senderName, mine && styles.senderNameMine]}>{mine ? "You" : listName}</Text><Text numberOfLines={1} style={[styles.senderHandle, mine && styles.senderHandleMine]}>{mine ? "Shared a photo" : peer?.username ? `@${peer.username}` : "Friend on Uvel"}</Text></View></View> : null}
       {item.photoUrl ? <Pressable onPress={() => setPreviewUri(item.photoUrl)} accessibilityRole="imagebutton" accessibilityLabel="View attached photo"><Image cachePolicy="memory-disk" source={{ uri: item.photoUrl }} style={styles.messagePhoto} contentFit="cover" /></Pressable> : null}
-      {item.text ? <Text selectable style={[styles.bubbleText, mine ? styles.bubbleTextMine : styles.bubbleTextPeer]}>{item.text}</Text> : null}
+      {item.text ? <Text style={[styles.bubbleText, mine ? styles.bubbleTextMine : styles.bubbleTextPeer]}>{item.text}</Text> : null}
     </>;
     return <View key={item.id}>
       {startsDay ? <View style={styles.dayRule}><Text style={styles.dayPill}>{dayLabel(item.createdAt).toUpperCase()}</Text></View> : null}
       <View style={[styles.messageLine, mine ? styles.messageLineMine : styles.messageLinePeer, grouped && styles.messageLineGrouped]}>
         {!mine ? <View style={styles.avatarSlot}>{showPeerAvatar ? <Avatar uri={peer?.avatarUri} label={listName} styles={styles} /> : null}</View> : null}
-        <Pressable style={[styles.bubbleFrame, grouped && (mine ? styles.bubbleMineGrouped : styles.bubblePeerGrouped)]} onLongPress={() => setActiveMessage(item)} delayLongPress={430} accessibilityRole="text" accessibilityLabel={`${mine ? "You" : listName}: ${item.text || "Photo"}`}>
+        <Pressable style={[styles.bubbleFrame, grouped && (mine ? styles.bubbleMineGrouped : styles.bubblePeerGrouped)]} onLongPress={() => { setCopiedMessageId(null); setActiveMessage(item); }} delayLongPress={430} accessibilityRole="text" accessibilityLabel={`${mine ? "You" : listName}: ${item.text || "Photo"}`}>
           {mine ? <ImageBackground source={require("../../../assets/chat/message-bubble-gradient.png")} resizeMode="stretch" imageStyle={styles.bubbleGradientImage} style={[styles.bubble, styles.bubbleMine, grouped && styles.bubbleMineGrouped, item.photoUrl && styles.bubbleWithPhoto]}>{bubbleContent}</ImageBackground> : <View style={[styles.bubble, styles.bubblePeer, grouped && styles.bubblePeerGrouped, item.photoUrl && styles.bubbleWithPhoto]}>{bubbleContent}</View>}
         </Pressable>
       </View>
@@ -232,7 +234,7 @@ export default function FriendChat() {
     <Modal visible={Boolean(activeMessage)} transparent animationType="slide" statusBarTranslucent onRequestClose={() => setActiveMessage(null)}>
       <View style={styles.actionModal}><Pressable style={styles.actionScrim} onPress={() => setActiveMessage(null)} accessibilityRole="button" accessibilityLabel="Dismiss message actions" /><View style={[styles.actionSheet, { paddingBottom: Math.max(insets.bottom, 18) }]}><View style={styles.actionHandle} /><Text style={styles.actionTimestamp}>{timestampLabel(activeMessage?.createdAt)}</Text><Text numberOfLines={2} style={styles.actionExcerpt}>{activeMessage?.text || (activeMessage?.photoUrl ? "Photo message" : "Message")}</Text>
         <Pressable style={styles.actionRow} onPress={() => { if (activeMessage) setReplyingTo(activeMessage); setActiveMessage(null); }}><Ionicons name="arrow-undo-outline" size={21} color={colors.bone} /><Text style={styles.actionLabel}>Reply</Text></Pressable>
-        {activeMessage?.text ? <Pressable style={styles.actionRow} onPress={() => { void Clipboard.setStringAsync(activeMessage.text); setActiveMessage(null); }}><Ionicons name="copy-outline" size={20} color={colors.bone} /><Text style={styles.actionLabel}>Copy</Text></Pressable> : null}
+        {activeMessage?.text ? <Pressable style={styles.actionRow} onPress={() => { const message = activeMessage; void Clipboard.setStringAsync(message.text).then(() => { setCopiedMessageId(message.id); void notificationAsync(NotificationFeedbackType.Success); }); }} accessibilityRole="button" accessibilityLabel={copiedMessageId === activeMessage.id ? "Copied to clipboard" : "Copy message"}><Ionicons name={copiedMessageId === activeMessage.id ? "checkmark-circle-outline" : "copy-outline"} size={22} color={copiedMessageId === activeMessage.id ? colors.success : colors.bone} /><Text style={[styles.actionLabel, copiedMessageId === activeMessage.id && styles.actionCopiedLabel]}>{copiedMessageId === activeMessage.id ? "Copied to clipboard" : "Copy"}</Text></Pressable> : null}
         {activeMessage?.photoUrl ? <Pressable style={styles.actionRow} onPress={() => { setPreviewUri(activeMessage.photoUrl); setActiveMessage(null); }}><Ionicons name="image-outline" size={21} color={colors.bone} /><Text style={styles.actionLabel}>View photo</Text></Pressable> : null}
         {activeMessage?.from === uid ? <Pressable style={styles.actionRow} onPress={confirmDeleteMessage}><Ionicons name="trash-outline" size={21} color={colors.danger} /><Text style={styles.actionDeleteLabel}>Delete message</Text></Pressable> : null}
       </View></View>
@@ -251,34 +253,34 @@ function Avatar({ uri, label, styles, large = false, extraLarge = false }: { uri
 function make(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    header: { minHeight: 56, flexDirection: "row", alignItems: "center", paddingHorizontal: 7, paddingBottom: 7, backgroundColor: colors.ink },
+    header: { minHeight: 64, flexDirection: "row", alignItems: "center", paddingHorizontal: 7, paddingBottom: 7, backgroundColor: colors.ink },
     headerIcon: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
-    profileHeader: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 4 },
+    profileHeader: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 4 },
     profileCopy: { flex: 1, minWidth: 0 },
-    headerTitle: { color: colors.bone, fontSize: 18, fontWeight: "800", letterSpacing: -0.35 },
-    headerSubtitle: { color: colors.muted, fontSize: 12, marginTop: 2 },
-    avatar: { width: 31, height: 31, borderRadius: 16, overflow: "hidden", backgroundColor: colors.neutral, alignItems: "center", justifyContent: "center" },
-    avatarLarge: { width: 46, height: 46, borderRadius: 23 },
+    headerTitle: { color: colors.bone, fontSize: 19, fontWeight: "800", letterSpacing: -0.35 },
+    headerSubtitle: { color: colors.muted, fontSize: 13, marginTop: 2 },
+    avatar: { width: 38, height: 38, borderRadius: 19, overflow: "hidden", backgroundColor: colors.neutral, alignItems: "center", justifyContent: "center" },
+    avatarLarge: { width: 54, height: 54, borderRadius: 27 },
     avatarExtraLarge: { width: 78, height: 78, borderRadius: 39 },
     avatarImage: { width: "100%", height: "100%" },
-    avatarInitial: { color: colors.bone, fontWeight: "800", fontSize: 11 },
-    avatarInitialLarge: { fontSize: 16 },
+    avatarInitial: { color: colors.bone, fontWeight: "800", fontSize: 13 },
+    avatarInitialLarge: { fontSize: 18 },
     avatarInitialExtraLarge: { fontSize: 25 },
     searchBox: { flexDirection: "row", alignItems: "center", gap: 9, marginHorizontal: 14, marginTop: 12, marginBottom: 3, paddingHorizontal: 12, height: 42, borderRadius: 14, backgroundColor: colors.surface, borderWidth: 1, borderColor: `${colors.bone}15` },
     searchInput: { flex: 1, color: colors.bone, fontSize: 14, paddingVertical: 0 },
     keyboardArea: { flex: 1 },
     list: { flex: 1 },
-    listContent: { paddingHorizontal: 10, paddingTop: 5, paddingBottom: 7, flexGrow: 1, justifyContent: "flex-end" },
+    listContent: { paddingHorizontal: 14, paddingTop: 8, paddingBottom: 10, flexGrow: 1, justifyContent: "flex-end" },
     listContentEmpty: { minHeight: 120 },
-    dayRule: { alignItems: "center", alignSelf: "center", marginTop: 4, marginBottom: 9, paddingHorizontal: 8, paddingVertical: 3 },
-    dayPill: { color: colors.muted, fontSize: 10, fontWeight: "700", letterSpacing: 0.45 },
-    messageLine: { flexDirection: "row", alignItems: "flex-end", marginBottom: 1 },
+    dayRule: { alignItems: "center", alignSelf: "center", marginTop: 8, marginBottom: 13, paddingHorizontal: 8, paddingVertical: 4 },
+    dayPill: { color: colors.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.55 },
+    messageLine: { flexDirection: "row", alignItems: "flex-end", marginBottom: 3 },
     messageLineMine: { justifyContent: "flex-end" },
     messageLinePeer: { justifyContent: "flex-start" },
     messageLineGrouped: { marginTop: -2 },
-    avatarSlot: { width: 31, marginRight: 4, alignItems: "center" },
-    bubbleFrame: { maxWidth: "82%", minWidth: 50, borderRadius: 19, overflow: "hidden" },
-    bubble: { paddingHorizontal: 14, paddingTop: 11, paddingBottom: 10, borderRadius: 19 },
+    avatarSlot: { width: 40, marginRight: 6, alignItems: "center" },
+    bubbleFrame: { maxWidth: "86%", minWidth: 56, borderRadius: 21, overflow: "hidden" },
+    bubble: { paddingHorizontal: 16, paddingTop: 13, paddingBottom: 12, borderRadius: 21 },
     bubbleGradientImage: { borderRadius: 19 },
     bubbleMine: { backgroundColor: "transparent", borderBottomRightRadius: 7 },
     bubblePeer: { backgroundColor: colors.neutral, borderBottomLeftRadius: 7 },
@@ -291,7 +293,7 @@ function make(colors: ReturnType<typeof useColors>) {
     senderNameMine: { color: "#FFFFFF" },
     senderHandle: { color: colors.muted, fontSize: 11, marginTop: 2 },
     senderHandleMine: { color: "rgba(255,255,255,0.78)" },
-    bubbleText: { fontSize: 17, lineHeight: 24 },
+    bubbleText: { fontSize: 18, lineHeight: 27 },
     bubbleTextMine: { color: "#FFFFFF" },
     bubbleTextPeer: { color: colors.bone },
     replyQuote: { flexDirection: "row", alignItems: "stretch", gap: 8, marginBottom: 9, paddingVertical: 2 },
@@ -326,7 +328,7 @@ function make(colors: ReturnType<typeof useColors>) {
     composerWrap: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 13, paddingTop: 7, backgroundColor: colors.ink },
     attachButton: { width: 36, height: 44, alignItems: "center", justifyContent: "center", marginBottom: 1 },
     composerField: { flex: 1, minHeight: 46, maxHeight: 118, flexDirection: "row", alignItems: "center", borderRadius: 17, paddingLeft: 14, paddingRight: 11, backgroundColor: colors.surface },
-    input: { flex: 1, maxHeight: 102, color: colors.bone, fontSize: 15, lineHeight: 20, paddingVertical: 10 },
+    input: { flex: 1, maxHeight: 102, color: colors.bone, fontSize: 16, lineHeight: 22, paddingVertical: 10 },
     charCount: { color: colors.subtle, fontSize: 9, marginLeft: 5 },
     sendButton: { minWidth: 51, height: 44, alignItems: "center", justifyContent: "center", marginBottom: 1 },
     sendTxt: { color: colors.success, fontSize: 14, fontWeight: "800" },
@@ -338,7 +340,8 @@ function make(colors: ReturnType<typeof useColors>) {
     actionTimestamp: { color: colors.muted, fontSize: 12, textAlign: "center", fontWeight: "700" },
     actionExcerpt: { color: colors.bone, fontSize: 15, textAlign: "center", marginTop: 7, marginBottom: 12 },
     actionRow: { minHeight: 51, flexDirection: "row", alignItems: "center", gap: 15 },
-    actionLabel: { color: colors.bone, fontSize: 16, fontWeight: "600" },
+    actionLabel: { color: colors.bone, fontSize: 17, fontWeight: "600" },
+    actionCopiedLabel: { color: colors.success },
     actionDeleteLabel: { color: colors.danger, fontSize: 16, fontWeight: "700" },
     viewer: { flex: 1, backgroundColor: "rgba(0,0,0,0.96)", alignItems: "center", justifyContent: "center" },
     viewerClose: { position: "absolute", zIndex: 2, right: 18, width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(35,35,35,0.75)", alignItems: "center", justifyContent: "center" },
