@@ -1,20 +1,9 @@
-import { httpsCallable } from "firebase/functions";
-import { firebaseFunctions, firebaseReady } from "./firebase";
-import { mirrorSocialProfiles, pollSocial, searchSupabaseUsers, socialCall } from "./supabaseSocial";
+import { pollSocial, searchSupabaseUsers, socialCall } from "./supabaseSocial";
 
 export type PublicUser = { uid: string; username: string; displayName: string; avatarUri?: string };
 export type FriendNotification = { id: string; kind: "friend_request" | "friend_accepted" | "friend_added"; requestId: string; actor: PublicUser; readAt?: unknown; createdAt?: unknown };
-
 export async function searchUsers(term: string) {
-  try {
-    const users = await searchSupabaseUsers(term);
-    if (users.length) return users;
-  } catch { /* use Firebase search while profiles are being seeded */ }
-  if (!firebaseReady()) return [] as PublicUser[];
-  const call = httpsCallable<{ term: string }, { users: PublicUser[] }>(firebaseFunctions(), "searchUsers");
-  const users = (await call({ term: term.trim() })).data.users || [];
-  await mirrorSocialProfiles(users);
-  return users;
+  return searchSupabaseUsers(term);
 }
 
 export async function sendFriendRequest(toUid: string) {
