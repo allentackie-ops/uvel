@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "../lib/haptics";
 import { OrbitLoader } from "./OrbitLoader";
 import { TodayListingOverlay, type ListingOrigin } from "./TodayListingOverlay";
 import { CATEGORIES, type Category } from "../lib/catalog";
@@ -102,6 +103,7 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
         if (y <= -60 && !refreshing) {
           pullTriggered.current = true;
           pullOffset.setValue(72);
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           void load(true, true);
         }
       },
