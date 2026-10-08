@@ -30,6 +30,8 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
   const app = useUvel();
   const insets = useSafeAreaInsets();
   const [friends, setFriends] = useState<PublicUser[]>(() => getCachedFriendInbox(app.uid)?.friends || []);
+  const [existingSearchOpen, setExistingSearchOpen] = useState(false);
+  const [existingSearchQuery, setExistingSearchQuery] = useState("");
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState<Record<string, PublicUser>>({});
   const [sending, setSending] = useState(false);
@@ -48,6 +50,10 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
   const scrollHandler = useAnimatedScrollHandler({ onScroll: (event) => { scrollY.value = event.contentOffset.y; } });
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
   const backdropStyle = useAnimatedStyle(() => ({ opacity: interpolate(translateY.value, [0, 360], [1, 0], Extrapolation.CLAMP) }));
+  const visibleFriends = useMemo(() => {
+    const term = existingSearchQuery.trim().toLowerCase();
+    return term ? friends.filter((friend) => `${friend.displayName || ""} ${friend.username || ""}`.toLowerCase().includes(term)) : friends;
+  }, [existingSearchQuery, friends]);
   const shareLink = useMemo(() => {
     if (!payload) return "";
     const separator = payload.deepLink.includes("?") ? "&" : "?";
@@ -65,6 +71,8 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
     setCopied(false);
     setToast("");
     setSelected({});
+    setExistingSearchOpen(false);
+    setExistingSearchQuery("");
     const cached = getCachedFriendInbox(app.uid)?.friends || [];
     if (cached.length) setFriends(cached);
     void restoreFriendInboxCache(app.uid).then((snapshot) => {
@@ -214,20 +222,21 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
         >
         <View style={styles.head}>
           <Text style={[styles.title, { color: colors.bone }]}>Share with friends</Text>
-          <Pressable onPress={() => setFinderVisible(true)} hitSlop={10} style={styles.headerSearch} accessibilityRole="button" accessibilityLabel="Search friends">
+          <Pressable onPress={() => setExistingSearchOpen((open) => !open)} hitSlop={10} style={styles.headerSearch} accessibilityRole="button" accessibilityLabel="Search your friends" accessibilityState={{ expanded: existingSearchOpen }}>
             <Ionicons name="search" size={21} color={colors.bone} />
           </Pressable>
         </View>
         <Text style={[styles.preview, { color: colors.muted }]} numberOfLines={2}>{payload.title}</Text>
+        {existingSearchOpen ? <View style={[styles.existingSearchBox, { backgroundColor: colors.ink }]}><Ionicons name="search" size={18} color={colors.muted} /><TextInput autoFocus value={existingSearchQuery} onChangeText={setExistingSearchQuery} placeholder="Search your friends" placeholderTextColor={colors.subtle} style={[styles.existingSearchInput, { color: colors.bone }]} autoCapitalize="none" returnKeyType="search" /><Pressable onPress={() => { setExistingSearchQuery(""); setExistingSearchOpen(false); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close friend search"><Ionicons name="close-circle" size={18} color={colors.muted} /></Pressable></View> : null}
         <TextInput value={message} onChangeText={setMessage} placeholder="Add a message (optional)" placeholderTextColor={colors.subtle} style={[styles.input, { backgroundColor: colors.ink, color: colors.bone }]} maxLength={300} />
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>FRIENDS</Text>
-        <Pressable onPress={() => setFinderVisible(true)} disabled={sending} style={[styles.findFriends, { borderColor: `${colors.danger}80`, backgroundColor: `${colors.danger}14` }]} accessibilityRole="button" accessibilityLabel="Find friends">
-          <View style={[styles.findIcon, { backgroundColor: colors.danger }]}><Ionicons name="person-add" size={19} color={colors.ink} /></View><View style={styles.findCopy}><Text style={[styles.findTitle, { color: colors.bone }]}>Find friends</Text><Text style={[styles.findSubtitle, { color: colors.muted }]}>Search by name or username</Text></View><Ionicons name="chevron-forward" size={20} color={colors.muted} />
+        <Pressable onPress={() => setFinderVisible(true)} disabled={sending} style={styles.findBanner} accessibilityRole="button" accessibilityLabel="Find friends">
+          <View style={styles.findBannerIcon}><Text style={styles.findBannerIconText}>＋</Text></View><View style={styles.findBannerCopy}><Text style={styles.findBannerTitle}>Find friends</Text><Text style={styles.findBannerBody}>Connect with friends to buy, sell, and discover together.</Text></View><Text style={styles.findBannerArrow}>›</Text>
         </Pressable>
-        {friends.length ? <ScrollView horizontal keyboardShouldPersistTaps="always" keyboardDismissMode="none" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>{friends.map((friend) => <Pressable key={friend.uid} onPress={() => toggleFriend(friend)} disabled={sending} style={styles.friend} accessibilityRole="button" accessibilityLabel={`${selected[friend.uid] ? "Deselect" : "Select"} ${friend.displayName || friend.username}`} accessibilityState={{ selected: Boolean(selected[friend.uid]) }}>
+        {visibleFriends.length ? <ScrollView horizontal keyboardShouldPersistTaps="always" keyboardDismissMode="none" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>{visibleFriends.map((friend) => <Pressable key={friend.uid} onPress={() => toggleFriend(friend)} disabled={sending} style={styles.friend} accessibilityRole="button" accessibilityLabel={`${selected[friend.uid] ? "Deselect" : "Select"} ${friend.displayName || friend.username}`} accessibilityState={{ selected: Boolean(selected[friend.uid]) }}>
           <View>{friend.avatarUri ? <Image cachePolicy="memory-disk" source={{ uri: friend.avatarUri }} style={[styles.avatar, selected[friend.uid] && styles.avatarSelected]} contentFit="cover" /> : <View style={[styles.avatar, styles.fallback, selected[friend.uid] && styles.avatarSelected]}><Text style={{ color: colors.successInk, fontWeight: "800" }}>{(friend.displayName || friend.username || "U").slice(0, 1).toUpperCase()}</Text></View>}{selected[friend.uid] ? <View style={[styles.selectedBadge, { backgroundColor: colors.success }]}><Ionicons name="checkmark" size={12} color={colors.successInk} /></View> : null}</View>
           <Text style={[styles.name, { color: colors.bone }]} numberOfLines={1}>{friend.displayName || `@${friend.username}`}</Text>
-        </Pressable>)}</ScrollView> : <Text style={[styles.emptyFriends, { color: colors.muted }]}>Your friends will appear here.</Text>}
+        </Pressable>)}</ScrollView> : <Text style={[styles.emptyFriends, { color: colors.muted }]}>{friends.length ? "No matching friends." : "Your friends will appear here."}</Text>}
         {Object.keys(selected).length ? <Pressable onPress={sendSelected} disabled={sending} style={[styles.sendButton, { backgroundColor: colors.success }]} accessibilityRole="button" accessibilityLabel={`Send to ${Object.keys(selected).length} selected friends`}><Text style={[styles.sendButtonText, { color: colors.successInk }]}>{sending ? "Sending…" : `Send to ${Object.keys(selected).length} ${Object.keys(selected).length === 1 ? "friend" : "friends"}`}</Text></Pressable> : null}
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>SHARE TO</Text>
         <ScrollView horizontal keyboardShouldPersistTaps="always" keyboardDismissMode="none" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.externalRail}>
@@ -277,6 +286,8 @@ const styles = StyleSheet.create({
   headerSearch: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 22, fontWeight: "800" },
   preview: { marginTop: 5, fontSize: 14 },
+  existingSearchBox: { marginTop: 12, minHeight: 44, borderRadius: 14, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 },
+  existingSearchInput: { flex: 1, minHeight: 40, fontSize: 14 },
   input: { marginTop: 16, borderRadius: 14, minHeight: 48, paddingHorizontal: 14, fontSize: 14 },
   sectionLabel: { fontSize: 10, fontWeight: "800", letterSpacing: 1.5, marginTop: 20 },
   rail: { gap: 16, paddingTop: 14, paddingBottom: 2 },
@@ -294,6 +305,13 @@ const styles = StyleSheet.create({
   findTitle: { fontSize: 15, fontWeight: "800" },
   findSubtitle: { fontSize: 12 },
   emptyFriends: { marginTop: 14, fontSize: 13 },
+  findBanner: { marginTop: 12, padding: 12, minHeight: 76, borderRadius: 17, backgroundColor: "#201E18", borderWidth: 1, borderColor: "#D6E27A55", flexDirection: "row", alignItems: "center", gap: 10 },
+  findBannerIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#E5465E", alignItems: "center", justifyContent: "center" },
+  findBannerIconText: { color: "#FFFFFF", fontSize: 23, lineHeight: 25 },
+  findBannerCopy: { flex: 1 },
+  findBannerTitle: { color: "#F4F0E6", fontSize: 15, fontWeight: "800" },
+  findBannerBody: { color: "#B5B0A4", fontSize: 11, lineHeight: 15, marginTop: 2 },
+  findBannerArrow: { color: "#D6E27A", fontSize: 25 },
   externalRail: { gap: 18, paddingTop: 14 },
   externalAction: { width: 60, alignItems: "center", gap: 6 },
   externalIcon: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
