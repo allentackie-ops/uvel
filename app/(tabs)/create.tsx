@@ -207,7 +207,7 @@ function makeStyles(colors: Colors, width: number, _fontLoaded: boolean) {
     hero: { height: heroHeight, borderRadius: 19, overflow: "hidden", position: "relative", marginBottom: 16 },
     heroSlide: { ...StyleSheet.absoluteFill, overflow: "hidden" },
     heroBackdrop: { ...StyleSheet.absoluteFill, zIndex: 0 },
-    heroModel: { position: "absolute", right: -28, bottom: -40, width: "110%", height: "160%" },
+    heroModel: { position: "absolute", right: -28, bottom: -58, width: "110%", height: "160%" },
     heroCopy: { position: "absolute", left: 17, top: 27, zIndex: 3, width: "61%" },
     heroTitle: { fontSize: 27, lineHeight: 30, fontWeight: "900", letterSpacing: -0.8 },
     heroScript: { fontSize: 49, lineHeight: 46, fontWeight: "700", marginTop: -2, marginBottom: -2 },
