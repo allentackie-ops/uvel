@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Image } from "expo-image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader } from "./OrbitLoader";
 import { TodayListingOverlay, type ListingOrigin } from "./TodayListingOverlay";
@@ -45,12 +45,16 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin>({ x: 0, y: 0, width: 0, height: 0 });
   const requestId = useRef(0);
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const pullOffset = useRef(new Animated.Value(0)).current;
+  const pullTriggered = useRef(false);
+  const wasRefreshing = useRef(false);
   const bannerColor = story.headerColor || story.color;
 
-  const load = useCallback(async (refreshListings: boolean) => {
+  const load = useCallback(async (refreshListings: boolean, showPullLoader = false) => {
     const currentRequest = ++requestId.current;
     setLoadError("");
-    setRefreshing(true);
+    if (showPullLoader) setRefreshing(true);
     if (refreshListings) await refreshMarketplaceListings().catch(() => undefined);
     try {
       const result = await fetchTrendingScores(market.code);
@@ -64,7 +68,7 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
     } finally {
       if (currentRequest === requestId.current) {
         setLoading(false);
-        setRefreshing(false);
+        if (showPullLoader) setRefreshing(false);
       }
     }
   }, [market.code]);
@@ -73,6 +77,36 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
     void load(true);
     return () => { requestId.current += 1; };
   }, [load]);
+
+  useEffect(() => {
+    if (refreshing) {
+      wasRefreshing.current = true;
+      Animated.spring(pullOffset, { toValue: 72, damping: 22, stiffness: 180, mass: 0.8, useNativeDriver: true }).start();
+    } else if (wasRefreshing.current) {
+      wasRefreshing.current = false;
+      Animated.timing(pullOffset, { toValue: 0, duration: 280, useNativeDriver: true }).start(() => {
+        pullTriggered.current = false;
+      });
+    }
+  }, [pullOffset, refreshing]);
+
+  const handleScroll = useMemo(() => Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    {
+      useNativeDriver: true,
+      listener: (event: { nativeEvent: { contentOffset: { y: number } } }) => {
+        const y = event.nativeEvent.contentOffset.y;
+        if (pullTriggered.current) return;
+        if (y < 0) pullOffset.setValue(Math.min(72, -y));
+        else pullOffset.setValue(0);
+        if (y <= -60 && !refreshing) {
+          pullTriggered.current = true;
+          pullOffset.setValue(72);
+          void load(true, true);
+        }
+      },
+    },
+  ), [load, pullOffset, refreshing, scrollY]);
 
   const localPieces = useMemo(() => shopFloor(market.code).filter((piece) =>
     !piece.brandId && (piece.country || "").toUpperCase() === market.code,
@@ -122,10 +156,14 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
         </Pressable>
       </View>
 
-      <ScrollView
+      <Animated.ScrollView
+        style={{ transform: [{ translateY: pullOffset }] }}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={colors.bone} colors={[colors.bone]} />}
         contentContainerStyle={{ paddingBottom: insets.bottom + 34 }}
+        alwaysBounceVertical
+        bounces
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
       >
         <View style={styles.section}>
           <View style={styles.sectionHeading}>
@@ -174,8 +212,9 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
               <Text style={[styles.emptyText, { color: colors.muted }]}>Newly published brand pieces that ship to {market.name} will appear here when shoppers engage with them.</Text>
             </View>}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
+      {refreshing ? <View pointerEvents="none" style={[styles.pullOrbitLayer, { top: insets.top + 64 }]}><OrbitLoader size={58} /></View> : null}
       {openPiece ? <TodayListingOverlay piece={openPiece} origin={openOrigin} onClose={() => setOpenPiece(null)} closeMode="instant" /> : null}
     </View>
   );
@@ -221,6 +260,7 @@ const styles = StyleSheet.create({
   headerButton: { width: 34, height: 42, alignItems: "center", justifyContent: "center" },
   headerSearch: { flex: 1, height: 50, borderRadius: 25, borderWidth: 1, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 9 },
   headerSearchText: { fontSize: 15 },
+  pullOrbitLayer: { position: "absolute", left: 0, right: 0, height: 72, alignItems: "center", justifyContent: "center", zIndex: 4 },
   section: { marginTop: 12, marginBottom: 22 },
   sectionHeading: { paddingHorizontal: 18, marginBottom: 12 },
   sectionTitle: { fontSize: 21, lineHeight: 26, fontWeight: "900" },
