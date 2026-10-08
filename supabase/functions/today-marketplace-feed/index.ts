@@ -34,7 +34,6 @@ type ListingRow = {
   currency: string | null;
   country: string | null;
   created_at: string;
-  ai_analysis: Record<string, unknown> | null;
   listing_photos: ListingPhoto[] | null;
 };
 
@@ -55,7 +54,7 @@ Deno.serve(async (request) => {
 
     const { data, error } = await supabase
       .from("listings")
-      .select("id,owner_id,owner_firebase_uid,title,brand,category,color,size,condition,material,description,price_cents,currency,country,created_at,ai_analysis,listing_photos(storage_path,render_storage_path,sort_order)")
+      .select("id,owner_id,owner_firebase_uid,title,brand,category,color,size,condition,material,description,price_cents,currency,country,created_at,listing_photos(storage_path,render_storage_path,sort_order)")
       .eq("status", "listed")
       .order("created_at", { ascending: false })
       .limit(limit);
@@ -95,7 +94,6 @@ Deno.serve(async (request) => {
         priceCents: listing.price_cents,
         currency: listing.currency,
         country: listing.country,
-        isDemo: listing.ai_analysis?.demo === true && listing.ai_analysis?.purpose === "checkout_testing",
         createdAt: listing.created_at,
         photos: (listing.listing_photos || [])
           .slice()

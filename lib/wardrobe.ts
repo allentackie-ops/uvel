@@ -245,7 +245,6 @@ function supabaseListingToPiece(listing: SupabaseMarketplaceListing): ClosetPiec
     listedByUid: ownerId,
     country: listing.country || undefined,
     currency: listing.currency || undefined,
-    shipsTo: listing.isDemo ? "all" : undefined,
     stockQuantity: 1,
   });
 }
