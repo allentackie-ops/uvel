@@ -18,6 +18,8 @@ const { quoteGroupedLine, groupedCarrier } = require("./groupedCheckoutMath");
 const stripeConnect = require("./stripeConnect");
 const { notifyUid } = require("./notify");
 const { detectListingAlertKinds, allowsListingAlertKind } = require("./listingAlertLogic");
+const { promotionCurrencyMismatch } = require("./promotionLogic");
+const { resolvePromotionQuote } = require("./promotionQuote");
 const { assertListingOfferLock, assertOfferOrderPricing } = require("./offerPricing");
 Object.assign(exports, require("./listingOffers"));
 const listingReview = require("./listingReview");
@@ -219,7 +221,10 @@ exports.createCheckout = onCall({ secrets: [stripeSecret, paystackSecret] }, asy
     throw new HttpsError("failed-precondition", "That promotion is invalid, expired, unavailable, or does not apply to this listing.");
   }
   const baseTotalCents = Math.max(0, Math.floor(Number(order.itemCents || 0))) + Math.max(0, Math.floor(Number(order.feeCents || 0))) + Math.max(0, Math.floor(Number(order.shipCents || 0))) + Math.max(0, Math.floor(Number(order.taxCents || 0)));
-  const expectedTotalCents = Math.max(0, baseTotalCents - Math.min(baseTotalCents, Number(promotionQuote?.discountCents || 0)));
+  const itemSubtotalCents = Math.max(0, Math.floor(Number(order.itemCents || 0)));
+  const promoDiscountCents = Math.min(itemSubtotalCents, Math.max(0, Math.floor(Number(promotionQuote?.discountCents || 0))));
+  const creditCents = Math.min(Math.max(0, Math.floor(Number(order.creditCents || 0))), Math.max(0, itemSubtotalCents - promoDiscountCents));
+  const expectedTotalCents = Math.max(0, baseTotalCents - promoDiscountCents - creditCents);
   if (!Number.isSafeInteger(expectedTotalCents) || expectedTotalCents <= 0 || order.totalCents !== expectedTotalCents || amountCents !== expectedTotalCents) {
     throw new HttpsError("invalid-argument", "Order amount changed.");
   }
@@ -394,6 +399,31 @@ exports.createStripePaymentIntent = onCall({ secrets: [stripeSecret] }, async (r
   const order = orderSnap.data() || {};
   if (order.buyerId !== req.auth.uid || order.status !== "pending") throw new HttpsError("failed-precondition", "Order is not available for payment.");
   if (order.offerId) await assertOfferOrderPricing(db, order, req.auth.uid);
+  const itemCents = Math.max(0, Math.floor(Number(order.itemCents || 0)));
+  const feeCents = Math.max(0, Math.floor(Number(order.feeCents || 0)));
+  const shipCents = Math.max(0, Math.floor(Number(order.shipCents || 0)));
+  const taxCents = Math.max(0, Math.floor(Number(order.taxCents || 0)));
+  const discountCents = Math.max(0, Math.floor(Number(order.discountCents || 0)));
+  const creditCents = Math.max(0, Math.floor(Number(order.creditCents || 0)));
+  const appliedDiscountCents = Math.min(itemCents, discountCents);
+  const appliedCreditCents = Math.min(creditCents, Math.max(0, itemCents - appliedDiscountCents));
+  const expectedTotal = Math.max(0, itemCents + feeCents + shipCents + taxCents - appliedDiscountCents - appliedCreditCents);
+  if (!Number.isSafeInteger(expectedTotal) || Math.floor(Number(order.totalCents || 0)) !== expectedTotal) throw new HttpsError("failed-precondition", "This order total changed. Return to checkout and try again.");
+  if (order.promotionId || order.promotionCode) {
+    const quote = await resolvePromotionQuote(db, {
+      brandId: order.brandId || "",
+      listingId: String(order.pieceId || ""),
+      promotionId: String(order.promotionId || ""),
+      code: String(order.promotionCode || ""),
+      currency: String(order.currency || "USD"),
+      itemCents,
+    });
+    if (!quote || quote.discountCents !== discountCents || quote.source !== order.promotionSource || (order.promotionCode && quote.code !== String(order.promotionCode).toUpperCase())) {
+      throw new HttpsError("failed-precondition", "This promo code is no longer valid for this order. Reapply it before paying.");
+    }
+  } else if (discountCents > 0) {
+    throw new HttpsError("failed-precondition", "This order has an unverified discount. Return to checkout and try again.");
+  }
   const amountCents = Math.floor(Number(order.totalCents || 0));
   const currency = String(order.currency || "USD").toUpperCase();
   if (!Number.isSafeInteger(amountCents) || amountCents <= 0 || currency !== "USD") throw new HttpsError("failed-precondition", "Stripe PaymentSheet is currently available for US-dollar orders only.");
@@ -933,59 +963,6 @@ async function resolveCampaignAttribution(db, input, requireLive = true) {
   };
 }
 
-async function resolvePromotionQuote(db, input) {
-  const brandId = String(input.brandId || "").trim();
-  const listingId = String(input.listingId || "").trim();
-  const promotionId = String(input.promotionId || "").trim();
-  const code = String(input.code || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
-  const currency = String(input.currency || "").toUpperCase();
-  const itemCents = Math.floor(Number(input.itemCents) || 0);
-  if (!listingId || !currency || !Number.isSafeInteger(itemCents) || itemCents <= 0 || (!promotionId && !code)) return null;
-  const listingSnap = await db.collection("listings").doc(listingId).get();
-  const listing = listingSnap.data() || {};
-  if (!listingSnap.exists || listing.status !== "listed" || listing.sellerPaused === true) return null;
-  if (brandId && listing.brandId !== brandId) return null;
-  let promotionSnap = null;
-  let source = "brand";
-  if (promotionId) {
-    const brandSnap = brandId ? await db.collection("brandPromotions").doc(promotionId).get() : null;
-    if (brandSnap && brandSnap.exists) promotionSnap = brandSnap;
-    if (!promotionSnap) {
-      const listingPromotion = await db.collection("listingPromotions").doc(promotionId).get();
-      if (listingPromotion.exists) { promotionSnap = listingPromotion; source = "listing"; }
-    }
-  } else {
-    if (brandId) {
-      const promotions = await db.collection("brandPromotions").where("brandId", "==", brandId).get();
-      promotionSnap = promotions.docs.find((snap) => String(snap.data()?.code || "").toUpperCase() === code) || null;
-    }
-    if (!promotionSnap) {
-      const promotions = await db.collection("listingPromotions").where("listingId", "==", listingId).get();
-      promotionSnap = promotions.docs.find((snap) => String(snap.data()?.code || "").toUpperCase() === code) || null;
-      if (promotionSnap) source = "listing";
-    }
-  }
-  if (!promotionSnap || !promotionSnap.exists) return null;
-  const promotion = promotionSnap.data() || {};
-  const storedCode = String(promotion.code || "").toUpperCase();
-  const now = Date.now();
-  const active = promotion.status === "live" && (!promotion.startAt || timestampMillis(promotion.startAt) <= now) && (!promotion.endAt || timestampMillis(promotion.endAt) >= now);
-  if ((source === "brand" && promotion.brandId !== brandId) || (source === "listing" && promotion.listingId !== listingId) || (code && storedCode !== code) || !active) return null;
-  const promotionCurrency = String(promotion.currency || "").toUpperCase();
-  if (promotionCurrency && promotionCurrency !== currency) return null;
-  const minimumOrderCents = Math.max(0, Math.floor(Number(promotion.minimumOrderCents) || 0));
-  if (itemCents < minimumOrderCents) return null;
-  const usageCount = Math.max(0, Math.floor(Number(promotion.usageCount) || 0));
-  const usageLimit = promotion.usageLimit == null ? undefined : Math.max(1, Math.floor(Number(promotion.usageLimit) || 0));
-  if (usageLimit != null && usageCount >= usageLimit) return null;
-  const kind = String(promotion.kind || "");
-  const value = Number(promotion.value);
-  if (!['percentage', 'fixed'].includes(kind) || !Number.isFinite(value) || value <= 0 || (kind === "percentage" && value > 70)) return null;
-  const discountCents = kind === "percentage" ? Math.min(itemCents, Math.floor(itemCents * value / 100)) : Math.min(itemCents, Math.floor(value * 100));
-  if (!discountCents) return null;
-  return { promotionId: promotionSnap.id, code: storedCode, kind, value, currency, discountCents, minimumOrderCents, source };
-}
-
 async function saveCampaignAttribution(input) {
   const db = admin.firestore();
   const brandId = String(input.brandId || "").trim();
@@ -1038,6 +1015,12 @@ exports.validatePromotion = onCall(async (req) => {
       const promotion = matched.data() || {};
       if (promotion.status === "ended" || (promotion.endAt && timestampMillis(promotion.endAt) < Date.now())) throw new HttpsError("failed-precondition", "This promo code has ended.");
       if (promotion.status !== "live" || (promotion.startAt && timestampMillis(promotion.startAt) > Date.now())) throw new HttpsError("failed-precondition", "This promo code isn't active right now.");
+      const currencyMessage = promotionCurrencyMismatch(promotion, input.currency);
+      if (currencyMessage) throw new HttpsError("failed-precondition", currencyMessage);
+      const minimumOrderCents = Math.max(0, Math.floor(Number(promotion.minimumOrderCents) || 0));
+      if (minimumOrderCents > Math.floor(Number(input.itemCents) || 0)) throw new HttpsError("failed-precondition", "This promo requires a higher item subtotal to apply.");
+      const usageLimit = promotion.usageLimit == null ? undefined : Math.max(1, Math.floor(Number(promotion.usageLimit) || 0));
+      if (usageLimit != null && Math.max(0, Math.floor(Number(promotion.usageCount) || 0)) >= usageLimit) throw new HttpsError("failed-precondition", "This promo code has reached its usage limit.");
     }
     throw new HttpsError("failed-precondition", "That promo code is invalid or does not apply to this listing.");
   }
@@ -1054,6 +1037,13 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
     if (!snap.exists) return { ok: false, reason: "order-not-found" };
     const order = snap.data() || {};
     if (order.status === "paid") return { ok: true, duplicate: true };
+    let promotionRef = null;
+    let promotionSnap = null;
+    if (order.promotionId) {
+      const promotionCollection = order.promotionSource === "listing" || !order.brandId ? "listingPromotions" : "brandPromotions";
+      promotionRef = db.collection(promotionCollection).doc(String(order.promotionId));
+      promotionSnap = await tx.get(promotionRef);
+    }
     let verifiedAttribution = null;
     const storedAttribution = order.campaignAttribution && typeof order.campaignAttribution === "object" ? order.campaignAttribution : null;
     if (order.brandId && order.pieceId && ["brand_page", "shop", "today"].includes(String(storedAttribution?.source || "")) && storedAttribution.brandId === order.brandId && storedAttribution.campaignId) {
@@ -1107,15 +1097,12 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
       tx.set(offerRef, { status: "purchased", purchasedAt: paidAt, updatedAt: paidAt }, { merge: true });
     }
     tx.update(orderRef, paidUpdate);
-    if (order.promotionId) {
-      const promotionCollection = order.promotionSource === "listing" || !order.brandId ? "listingPromotions" : "brandPromotions";
-      const promotionRef = db.collection(promotionCollection).doc(String(order.promotionId));
-      const promotionSnap = await tx.get(promotionRef);
+    if (promotionRef && promotionSnap?.exists) {
       const promotion = promotionSnap.data() || {};
-      const belongsToOrder = promotionCollection === "listingPromotions"
+      const belongsToOrder = promotionRef.parent.id === "listingPromotions"
         ? promotion.listingId === order.pieceId
         : promotion.brandId === order.brandId;
-      if (promotionSnap.exists && belongsToOrder) {
+      if (belongsToOrder) {
         tx.set(promotionRef, { usageCount: increment(1), updatedAt: paidAt }, { merge: true });
       }
     }
@@ -1165,13 +1152,21 @@ async function markOrderPaid(orderId, provider, providerReference, providerAmoun
         }, { merge: true });
       }
     }
-    return { ok: true, attribution: verifiedAttribution };
+    return {
+      ok: true,
+      attribution: verifiedAttribution,
+      notification: { sellerId: String(order.sellerId || ""), buyerId: String(order.buyerId || ""), pieceName: String(order.pieceName || "Your listing"), pieceId: String(order.pieceId || "") },
+    };
   });
   if (result.ok && !result.duplicate && result.attribution?.campaignId) {
     await saveCampaignAttribution({ ...result.attribution, type: "purchase", orderId, valueCents: Math.max(0, Number(providerAmount) || 0), currency: String(providerCurrency || "USD"), eventId: `purchase_${orderId}` }).catch(() => undefined);
   }
   if (result.ok && !result.duplicate) {
     await wallet.creditSellerPending(orderId).catch(() => undefined);
+    const notification = result.notification || {};
+    if (notification.sellerId && notification.sellerId !== notification.buyerId) {
+      await notifyUid(db, notification.sellerId, "You sold something", `${notification.pieceName || "Your listing"} just sold.`, { kind: "sold", pieceId: notification.pieceId || "", orderId }).catch(() => undefined);
+    }
   }
   return result;
 }
@@ -1385,9 +1380,10 @@ exports.updateOrderFulfillment = onCall(async (req) => {
 function stripeWebhook() {
   return onRequest({ secrets: [stripeSecret, stripeWebhookSecret] }, async (req, res) => {
     if (req.method !== "POST") return res.status(405).send("POST only");
+    let stripe;
     let event;
     try {
-      const stripe = require("stripe")(stripeSecret.value());
+      stripe = require("stripe")(stripeSecret.value());
       event = stripe.webhooks.constructEvent(req.rawBody, req.headers["stripe-signature"], stripeWebhookSecret.value());
     } catch (e) {
       return res.status(400).send(`Webhook signature verification failed: ${e.message}`);
@@ -1396,23 +1392,26 @@ function stripeWebhook() {
       const session = event.data.object;
       const metadata = session.metadata || {};
       const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : "";
-      const result = await markOrderPaid(metadata.orderId, "stripe", session.id, session.amount_total, session.currency, paymentIntentId, "", { brandId: metadata.brandId, campaignId: metadata.campaignId, collectionId: metadata.collectionId, promotionId: metadata.promotionId, listingId: metadata.listingId, valueCents: session.amount_total });
+      const orderId = String(metadata.orderId || metadata.firebase_order_id || "");
+      const result = await markOrderPaid(orderId, "stripe", session.id, session.amount_total, session.currency, paymentIntentId, "", { brandId: metadata.brandId || metadata.brand_id, campaignId: metadata.campaignId || metadata.campaign_id, collectionId: metadata.collectionId || metadata.collection_id, promotionId: metadata.promotionId || metadata.promotion_id, listingId: metadata.listingId || metadata.listing_id, valueCents: session.amount_total });
       if (!result.ok && !result.duplicate) return res.status(400).json(result);
     }
     if (event.type === "payment_intent.succeeded") {
       const paymentIntent = event.data.object;
       const metadata = paymentIntent.metadata || {};
       let result;
-      if (metadata.checkoutBatchId) {
-        result = await markGroupedCheckoutPaid(String(metadata.checkoutBatchId), paymentIntent.id, paymentIntent.amount_received || paymentIntent.amount, paymentIntent.currency);
+      const checkoutBatchId = String(metadata.checkoutBatchId || metadata.checkout_batch_id || "");
+      if (checkoutBatchId) {
+        result = await markGroupedCheckoutPaid(checkoutBatchId, paymentIntent.id, paymentIntent.amount_received || paymentIntent.amount, paymentIntent.currency);
         if (!result.ok && !result.duplicate) {
           const amount = Math.floor(Number(paymentIntent.amount_received || paymentIntent.amount) || 0);
           if (amount <= 0) return res.status(400).json({ ok: false, reason: "invalid-captured-amount" });
-          const refund = await stripe.refunds.create({ payment_intent: paymentIntent.id, amount, metadata: { checkoutBatchId: String(metadata.checkoutBatchId), reason: String(result.reason || "settlement-failed") } }, { idempotencyKey: `uvel-group-refund-${String(metadata.checkoutBatchId)}` });
-          await markGroupedCheckoutRefunded(String(metadata.checkoutBatchId), refund.id, String(refund.status || "processing"), String(result.reason || "settlement-failed"));
+          const refund = await stripe.refunds.create({ payment_intent: paymentIntent.id, amount, metadata: { checkoutBatchId, reason: String(result.reason || "settlement-failed") } }, { idempotencyKey: `uvel-group-refund-${checkoutBatchId}` });
+          await markGroupedCheckoutRefunded(checkoutBatchId, refund.id, String(refund.status || "processing"), String(result.reason || "settlement-failed"));
         }
       } else {
-        result = await markOrderPaid(metadata.orderId, "stripe", paymentIntent.id, paymentIntent.amount_received || paymentIntent.amount, paymentIntent.currency, paymentIntent.id, "", { brandId: metadata.brandId, listingId: metadata.listingId, valueCents: paymentIntent.amount_received || paymentIntent.amount });
+        const orderId = String(metadata.orderId || metadata.firebase_order_id || "");
+        result = await markOrderPaid(orderId, "stripe", paymentIntent.id, paymentIntent.amount_received || paymentIntent.amount, paymentIntent.currency, paymentIntent.id, "", { brandId: metadata.brandId || metadata.brand_id, listingId: metadata.listingId || metadata.listing_id, valueCents: paymentIntent.amount_received || paymentIntent.amount });
       }
       if (!result.ok && !result.duplicate) return res.status(400).json(result);
     }
@@ -1421,10 +1420,11 @@ function stripeWebhook() {
     }
     if (event.type === "refund.created" || event.type === "refund.updated") {
       const refund = event.data.object || {};
-      if (refund.metadata?.checkoutBatchId) {
-        await markGroupedCheckoutRefunded(String(refund.metadata.checkoutBatchId), String(refund.id || ""), String(refund.status || "processing"), String(refund.metadata.reason || "settlement-reconciliation"));
+      const checkoutBatchId = String(refund.metadata?.checkoutBatchId || refund.metadata?.checkout_batch_id || "");
+      if (checkoutBatchId) {
+        await markGroupedCheckoutRefunded(checkoutBatchId, String(refund.id || ""), String(refund.status || "processing"), String(refund.metadata.reason || "settlement-reconciliation"));
       } else {
-        await recordProviderRefund(String(refund.metadata?.orderId || ""), String(refund.id || ""), String(refund.status || "processing"));
+        await recordProviderRefund(String(refund.metadata?.orderId || refund.metadata?.firebase_order_id || ""), String(refund.id || ""), String(refund.status || "processing"));
       }
     }
     return res.status(200).send("ok");
@@ -3215,7 +3215,10 @@ exports.saveListingPromotion = onCall(async (req) => {
   const code = marketingText(input.code, 32).toUpperCase().replace(/[^A-Z0-9_-]/g, "");
   const value = Number(input.value);
   const expiresInDays = Number(input.expiresInDays);
-  if (!listingId || code.length < 3 || !Number.isFinite(value) || value <= 0 || value > 70) throw new HttpsError("invalid-argument", "Promo codes max out at 70%.");
+  if (!listingId) throw new HttpsError("invalid-argument", "Choose a listing for this promo code.");
+  if (code.length < 3) throw new HttpsError("invalid-argument", "Promo codes need at least 3 letters or numbers.");
+  if (!Number.isFinite(value) || value <= 0) throw new HttpsError("invalid-argument", "Enter a discount greater than zero.");
+  if (value > 70) throw new HttpsError("invalid-argument", "Promo codes max out at 70%.");
   if (![1, 3, 30, 365].includes(expiresInDays)) throw new HttpsError("invalid-argument", "Choose a valid promo expiry.");
   const db = admin.firestore();
   const listingSnap = await db.collection("listings").doc(listingId).get();
@@ -3295,7 +3298,11 @@ exports.saveBrandPromotion = onCall((req) => saveMarketingRecord(req, "brandProm
   const value = Number(input.value);
   const minimumOrderCents = Math.max(0, Math.floor(Number(input.minimumOrderCents) || 0));
   const usageLimit = input.usageLimit == null || input.usageLimit === "" ? undefined : Number(input.usageLimit);
-  if (code.length < 3 || !["percentage", "fixed"].includes(kind) || !Number.isFinite(value) || value <= 0 || (kind === "percentage" && value > 70) || (usageLimit != null && (!Number.isSafeInteger(usageLimit) || usageLimit <= 0))) throw new HttpsError("invalid-argument", "Promo codes max out at 70%.");
+  if (code.length < 3) throw new HttpsError("invalid-argument", "Promo codes need at least 3 letters or numbers.");
+  if (!["percentage", "fixed"].includes(kind)) throw new HttpsError("invalid-argument", "Choose a valid discount type.");
+  if (!Number.isFinite(value) || value <= 0) throw new HttpsError("invalid-argument", "Enter a discount greater than zero.");
+  if (kind === "percentage" && value > 70) throw new HttpsError("invalid-argument", "Promo codes max out at 70%.");
+  if (usageLimit != null && (!Number.isSafeInteger(usageLimit) || usageLimit <= 0)) throw new HttpsError("invalid-argument", "Usage limit must be a whole number greater than zero.");
   const duplicateSnap = await db.collection("brandPromotions").where("brandId", "==", brandId).get();
   if (duplicateSnap.docs.some((snap) => snap.id !== id && String(snap.data()?.code || "").toUpperCase() === code)) throw new HttpsError("already-exists", "This promo code has been used.");
   const listingCodeMatches = (await db.collection("listingPromotions").get()).docs.some((snap) => String(snap.data()?.code || "").toUpperCase() === code);
@@ -3305,6 +3312,7 @@ exports.saveBrandPromotion = onCall((req) => saveMarketingRecord(req, "brandProm
   const endAt = marketingTime(input.endAt);
   if (startAt && endAt && endAt <= startAt) throw new HttpsError("invalid-argument", "Promotion end time must be after its start time.");
   const requestedStatus = MARKETING_STATUSES.has(String(input.status || "draft")) ? String(input.status || "draft") : "draft";
+  if (requestedStatus === "live" && endAt && endAt < Date.now()) throw new HttpsError("failed-precondition", "Promotion end date has already passed.");
   const status = requestedStatus === "live" && startAt && startAt > Date.now() ? "scheduled" : requestedStatus;
   return { code, kind, value: Math.round(value * 100) / 100, currency: marketingText(input.currency, 3).toUpperCase() || undefined, minimumOrderCents, ...(usageLimit != null ? { usageLimit } : {}), status, ...(startAt ? { startAt } : {}), ...(endAt ? { endAt } : {}), createdAt: input.createdAt || admin.firestore.FieldValue.serverTimestamp() };
 }));

@@ -25,7 +25,7 @@ import {
 } from "../../lib/fees";
 import { getMarket, moneyExact, convertCents } from "../../lib/markets";
 import { listingVisibleIn, restrictShipsTo } from "../../lib/ships";
-import { cacheOrder, loadAddress, makePendingOrder, type Address } from "../../lib/orders";
+import { loadAddress, placeOrder, type Address } from "../../lib/orders";
 import {
   createCheckoutSession,
   createStripePaymentIntent,
@@ -363,7 +363,7 @@ export default function Checkout() {
     setPaying(true);
     try {
       if (!app.uid) throw new Error("Sign in before checking out.");
-      const order = makePendingOrder({
+      const order = await placeOrder({
         pieceId: piece.id,
         pieceName: piece.name,
         piecePhoto: piece.photo,
@@ -395,8 +395,7 @@ export default function Checkout() {
         address,
         madeByUvel: making,
       });
-      await mirrorCheckoutOrder(order);
-      await cacheOrder(order);
+      void mirrorCheckoutOrder(order).catch(() => undefined);
       if (piece.brandId && typeof campaignId === "string" && campaignId)
         void recordCampaignAttribution({
           brandId: piece.brandId,
@@ -422,7 +421,7 @@ export default function Checkout() {
       if (method.kind === "apple" || market.code === "US") {
         if (!paymentsExtra.stripePk)
           throw new Error("Stripe checkout is not configured yet.");
-        const intent = await createStripePaymentIntent(order.id, total, market.currency);
+        const intent = await createStripePaymentIntent(order.id);
         if (method.kind === "apple") {
           const immediate = (label: string, amount: number): PlatformPay.CartSummaryItem => ({
             label,

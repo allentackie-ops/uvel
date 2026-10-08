@@ -12,7 +12,7 @@ import { addToCart, removeFromCart, useCart } from "../lib/cart";
 import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
 import { payMethods, shippingCents, uvelFeeCents, type PayMethod } from "../lib/fees";
 import { loadLastPaymentMethod, rememberLastPaymentMethod } from "../lib/paymentPreference";
-import { cacheOrder, loadAddress, makePendingOrder } from "../lib/orders";
+import { loadAddress, placeOrder } from "../lib/orders";
 import { createCheckoutSession, createStripePaymentIntent, openHostedPay, paymentsExtra, stripePaymentSheetAddress } from "../lib/pay";
 import { mirrorCheckoutOrder } from "../lib/supabaseCheckout";
 import { payWithWallet, useWallet } from "../lib/wallet";
@@ -157,7 +157,7 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
         : 0;
       const total = itemCents + fee + shipCost;
       if (total <= 0) throw new Error("This listing cannot be purchased right now.");
-      const order = makePendingOrder({
+      const order = await placeOrder({
         pieceId: piece.id,
         pieceName: piece.name,
         piecePhoto: piece.photo,
@@ -179,8 +179,7 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
         address,
         madeByUvel: Boolean(brand && brandMakes(brand)),
       });
-      await mirrorCheckoutOrder(order);
-      await cacheOrder(order);
+      void mirrorCheckoutOrder(order).catch(() => undefined);
       if (wallet.availableCents >= total && total > 0) {
         await payWithWallet(order.id);
         await rememberLastPaymentMethod(market.code, paymentMethod.id);
@@ -190,7 +189,7 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
       }
       if (paymentMethod.kind === "apple" || market.code === "US") {
         if (!paymentsExtra.stripePk) throw new Error("Stripe checkout is not configured yet.");
-        const intent = await createStripePaymentIntent(order.id, total, market.currency);
+        const intent = await createStripePaymentIntent(order.id);
         if (paymentMethod.kind === "apple") {
           const immediate = (label: string, amount: number): PlatformPay.CartSummaryItem => ({
             label,

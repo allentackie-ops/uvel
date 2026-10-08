@@ -3,8 +3,6 @@ import { useEffect, useState } from "react";
 import { collection, doc, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { firebaseAuth, firebaseDb, firebaseFunctions, firebaseReady } from "./firebase";
-import { sendPush } from "./push";
-import { readUserLite } from "./chat";
 
 export type Address = {
   id?: string;
@@ -326,6 +324,19 @@ export async function cacheOrder(order: Order) {
   }
 }
 
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) return value.map((item) => stripUndefined(item)) as T;
+  if (value && typeof value === "object") {
+    if (value instanceof Date || typeof (value as { toMillis?: unknown }).toMillis === "function") return value;
+    const result: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      if (item !== undefined) result[key] = stripUndefined(item);
+    }
+    return result as T;
+  }
+  return value;
+}
+
 export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status">, options: { id?: string; checkoutBatchId?: string } = {}): Promise<Order> {
   if (!firebaseReady() || !firebaseAuth().currentUser) {
     throw new Error("Orders are unavailable until Uvel reconnects to the marketplace service.");
@@ -333,20 +344,13 @@ export async function placeOrder(order: Omit<Order, "id" | "createdAt" | "status
   const full = makePendingOrder(order, options);
   try {
     await setDoc(doc(firebaseDb(), "orders", full.id), {
-      ...full,
+      ...stripUndefined(full),
       createdAt: serverTimestamp(),
     });
   } catch {
     throw new Error("We couldn’t save this order securely, so no payment was started. Please try again when Uvel reconnects.");
   }
   await cacheOrder(full);
-  if (order.sellerId && order.sellerId !== order.buyerId) {
-    const other = await readUserLite(order.sellerId);
-    const token = typeof other?.expoPushToken === "string" ? other.expoPushToken : "";
-    if (token) {
-      void sendPush(token, "You sold something", `${order.pieceName} just sold.`, { kind: "sold", pieceId: order.pieceId, orderId: full.id });
-    }
-  }
   return full;
 }
 

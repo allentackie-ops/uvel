@@ -1130,11 +1130,26 @@ function MarketingSection({ brand, pieces, state, viewer, manager, theme, colors
   const [launchStatus, setLaunchStatus] = useState<MarketingStatus>("draft");
   const [busy, setBusy] = useState(false);
   const listed = pieces.filter((piece) => piece.status === "listed");
-  const parseDate = (value: string) => { const time = Date.parse(value); return Number.isFinite(time) ? time : undefined; };
-  const scheduledTimes = () => { const startAt = parseDate(startDate); const endAt = parseDate(endDate); if (startAt && endAt && endAt <= startAt) throw new Error("End date must be after the start date."); return { startAt, endAt }; };
+  const parseDate = (value: string, endOfDay = false) => {
+    const date = value.trim();
+    if (!date) return undefined;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Use YYYY-MM-DD for scheduled dates.");
+    const time = Date.parse(`${date}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`);
+    if (!Number.isFinite(time) || new Date(time).toISOString().slice(0, 10) !== date) throw new Error("Enter a real calendar date in YYYY-MM-DD format.");
+    return time;
+  };
+  const scheduledTimes = () => {
+    const startAt = parseDate(startDate);
+    const endAt = parseDate(endDate, true);
+    if (startAt && endAt && endAt < startAt) throw new Error("End date must be on or after the start date.");
+    return { startAt, endAt };
+  };
   const selectProduct = (id: string) => setSelectedProductIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   const resetForm = () => { setCollectionName(""); setCollectionDescription(""); setCampaignName(""); setCampaignHeadline(""); setCampaignBody(""); setCampaignCollectionId(""); setCampaignPromotionId(""); setEditingCampaignId(undefined); setPromotionCode(""); setPromotionValue(""); setMinimumOrder(""); setPromotionUsageLimit(""); setStartDate(""); setEndDate(""); setSelectedProductIds([]); setLaunchStatus("draft"); };
-  const statusForSave = (startAt?: number) => launchStatus === "live" && startAt && startAt > Date.now() ? "scheduled" : launchStatus;
+  const statusForSave = (startAt?: number, endAt?: number): MarketingStatus => {
+    if (endAt && endAt < Date.now()) return "ended";
+    return launchStatus === "live" && startAt && startAt > Date.now() ? "scheduled" : launchStatus;
+  };
   const editCampaign = (item: BrandCampaign, duplicate = false) => {
     setTab("campaigns");
     setEditingCampaignId(duplicate ? undefined : item.id);
@@ -1170,11 +1185,11 @@ function MarketingSection({ brand, pieces, state, viewer, manager, theme, colors
     try {
       const times = scheduledTimes();
       if (tab === "collections") {
-        await saveBrandCollection({ brandId: brand.id, name: collectionName, description: collectionDescription, productIds: selectedProductIds, coverProductId: selectedProductIds[0] || "", status: statusForSave(times.startAt), ...times });
+        await saveBrandCollection({ brandId: brand.id, name: collectionName, description: collectionDescription, productIds: selectedProductIds, coverProductId: selectedProductIds[0] || "", status: statusForSave(times.startAt, times.endAt), ...times });
       } else if (tab === "campaigns") {
-        await saveBrandCampaign({ id: editingCampaignId, brandId: brand.id, name: campaignName, headline: campaignHeadline, body: campaignBody, channel: campaignChannel, collectionId: campaignCollectionId || undefined, promotionId: campaignPromotionId || undefined, productIds: selectedProductIds, status: statusForSave(times.startAt), ...times });
+        await saveBrandCampaign({ id: editingCampaignId, brandId: brand.id, name: campaignName, headline: campaignHeadline, body: campaignBody, channel: campaignChannel, collectionId: campaignCollectionId || undefined, promotionId: campaignPromotionId || undefined, productIds: selectedProductIds, status: statusForSave(times.startAt, times.endAt), ...times });
       } else {
-        await saveBrandPromotion({ brandId: brand.id, code: promotionCode, kind: promotionKind, value: Number(promotionValue), currency: getMarket(brand.country).currency, minimumOrderCents: Math.round(Number(minimumOrder) * 100) || 0, usageLimit: promotionUsageLimit ? Math.max(1, Math.floor(Number(promotionUsageLimit))) : undefined, status: statusForSave(times.startAt), ...times });
+        await saveBrandPromotion({ brandId: brand.id, code: promotionCode, kind: promotionKind, value: Number(promotionValue), currency: getMarket(brand.country).currency, minimumOrderCents: Math.round(Number(minimumOrder) * 100) || 0, usageLimit: promotionUsageLimit ? Math.max(1, Math.floor(Number(promotionUsageLimit))) : undefined, status: statusForSave(times.startAt, times.endAt), ...times });
       }
       resetForm();
       Alert.alert("Saved", tab === "collections" ? "Collection saved to the brand workspace." : tab === "campaigns" ? editingCampaignId ? "Campaign changes saved." : "Campaign saved with its launch timing." : "Promotion saved to the brand workspace.");

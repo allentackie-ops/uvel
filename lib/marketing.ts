@@ -185,7 +185,8 @@ export function useMarketing(brandId: string): MarketingState {
 function idFor(prefix: string) { return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`; }
 
 async function saveRemote(functionName: string, payload: object) {
-  if (!firebaseReady() || !firebaseAuth().currentUser) return;
+  if (!firebaseReady()) throw new Error("Brand marketing is unavailable while Firebase reconnects.");
+  if (!firebaseAuth().currentUser) throw new Error("Sign in before saving brand marketing.");
   await httpsCallable(firebaseFunctions(), functionName)(payload);
 }
 
@@ -212,7 +213,7 @@ export async function saveBrandCampaign(input: Omit<BrandCampaign, "id" | "creat
 export async function saveBrandPromotion(input: Omit<BrandPromotion, "id" | "createdAt" | "updatedAt"> & { id?: string; startAt?: number; endAt?: number }) {
   const code = input.code.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
   if (!input.brandId || code.length < 3 || !Number.isFinite(input.value) || input.value <= 0) throw new Error("Add a valid promotion code and value.");
-  if (input.kind === "percentage" && input.value > 100) throw new Error("Percentage promotions cannot exceed 100%.");
+  if (input.kind === "percentage" && input.value > 70) throw new Error("Promo codes max out at 70%.");
   const now = Date.now();
   const existing = cache.promotions.find((item) => item.id === input.id);
   const item: BrandPromotion = normalizePromotion({ ...input, id: input.id || idFor("promotion"), code, createdAt: existing?.createdAt || now, updatedAt: now });

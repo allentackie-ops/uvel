@@ -1,6 +1,7 @@
 const { HttpsError } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const { assertListingOfferLock, assertOfferOrderPricing, millis } = require("./offerPricing");
+const { promotionQuoteFromRecord } = require("./promotionQuote");
 
 const RELEASE_MS = 2 * 24 * 60 * 60 * 1000;
 
@@ -269,10 +270,44 @@ async function payWithWalletHandler(req) {
       }
     }
     const total = Math.max(0, Math.floor(Number(order.totalCents || 0)));
+    const itemCents = Math.max(0, Math.floor(Number(order.itemCents || 0)));
+    const feeCents = Math.max(0, Math.floor(Number(order.feeCents || 0)));
+    const shipCents = Math.max(0, Math.floor(Number(order.shipCents || 0)));
+    const taxCents = Math.max(0, Math.floor(Number(order.taxCents || 0)));
+    const discountCents = Math.max(0, Math.floor(Number(order.discountCents || 0)));
+    const creditCents = Math.max(0, Math.floor(Number(order.creditCents || 0)));
+    const appliedDiscountCents = Math.min(itemCents, discountCents);
+    const appliedCreditCents = Math.min(creditCents, Math.max(0, itemCents - appliedDiscountCents));
+    const expectedTotal = Math.max(0, itemCents + feeCents + shipCents + taxCents - appliedDiscountCents - appliedCreditCents);
+    if (!Number.isSafeInteger(expectedTotal) || total !== expectedTotal) throw new HttpsError("failed-precondition", "This order total changed. Return to checkout and try again.");
     const wref = walletRef(db, req.auth.uid);
     const wsnap = await tx.get(wref);
     const available = Math.max(0, Math.floor(Number((wsnap.data() || {}).availableCents || 0)));
     if (available < total) throw new HttpsError("failed-precondition", "Your Uvel balance is not enough for this order.");
+    let promotionRef = null;
+    let promotionSnap = null;
+    if (order.promotionId || order.promotionCode) {
+      if (!order.promotionId) throw new HttpsError("failed-precondition", "This promo code is no longer valid. Reapply it before paying.");
+      const collectionName = order.promotionSource === "listing" || !order.brandId ? "listingPromotions" : "brandPromotions";
+      promotionRef = db.collection(collectionName).doc(String(order.promotionId || ""));
+      promotionSnap = await tx.get(promotionRef);
+      const source = collectionName === "listingPromotions" ? "listing" : "brand";
+      const quote = promotionSnap.exists
+        ? promotionQuoteFromRecord(promotionSnap.id, promotionSnap.data() || {}, source, {
+            brandId: String(order.brandId || ""),
+            listingId: String(order.pieceId || ""),
+            promotionId: String(order.promotionId),
+            code: String(order.promotionCode || ""),
+            currency: String(order.currency || "USD"),
+            itemCents,
+          })
+        : null;
+      if (!quote || quote.discountCents !== discountCents || (order.promotionSource && order.promotionSource !== quote.source)) {
+        throw new HttpsError("failed-precondition", "This promo code is no longer valid for this order. Reapply it before paying.");
+      }
+    } else if (discountCents > 0) {
+      throw new HttpsError("failed-precondition", "This order has an unverified discount. Return to checkout and try again.");
+    }
     const paidAt = admin.firestore.FieldValue.serverTimestamp();
     tx.set(wref, {
       availableCents: increment(-total),
@@ -309,16 +344,17 @@ async function payWithWalletHandler(req) {
       }, { merge: true });
       tx.set(offerRef, { status: "purchased", purchasedAt: paidAt, updatedAt: paidAt }, { merge: true });
     }
-    if (order.promotionId) {
-      const collectionName = order.promotionSource === "listing" || !order.brandId ? "listingPromotions" : "brandPromotions";
-      const promotionRef = db.collection(collectionName).doc(String(order.promotionId));
-      const promotionSnap = await tx.get(promotionRef);
-      const promotion = promotionSnap.data() || {};
-      const belongsToOrder = collectionName === "listingPromotions" ? promotion.listingId === order.pieceId : promotion.brandId === order.brandId;
-      if (promotionSnap.exists && belongsToOrder) tx.set(promotionRef, { usageCount: increment(1), updatedAt: paidAt }, { merge: true });
-    }
+    if (promotionRef && promotionSnap?.exists) tx.set(promotionRef, { usageCount: increment(1), updatedAt: paidAt }, { merge: true });
   });
   await creditSellerPending(orderId);
+  try {
+    const { notifyUid } = require("./notify");
+    if (checkedOrder.sellerId && checkedOrder.sellerId !== checkedOrder.buyerId) {
+      await notifyUid(db, checkedOrder.sellerId, "You sold something", `${checkedOrder.pieceName || "Your listing"} just sold.`, { kind: "sold", pieceId: String(checkedOrder.pieceId || ""), orderId });
+    }
+  } catch {
+    /* Payment settlement is authoritative even if a push notification fails. */
+  }
   return { ok: true, orderId, processor: "wallet" };
 }
 
