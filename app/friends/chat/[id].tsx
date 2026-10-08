@@ -17,6 +17,7 @@ import { useColors, useResolvedAppearance } from "../../../lib/theme";
 import { useUvel } from "../../../lib/store";
 import { getGarment, usd } from "../../../lib/catalog";
 import { getPiece, useWardrobe } from "../../../lib/wardrobe";
+import { parseSharedListing, sharedListingPayload, type SharedListingShare } from "../../../lib/sharedListing";
 
 function asDate(value: unknown): Date | null {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
@@ -52,21 +53,7 @@ function initials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0] || "").join("").toUpperCase() || "F";
 }
 
-const SHARED_LISTING_PREFIX = "uvel_shared_listing:";
-type SharedListingKind = "closet" | "catalog";
-type SharedListingRef = { id: string; kind: SharedListingKind; name: string; brand: string; priceCents: number; currency?: string };
-type ShareOption = SharedListingRef & { photoUri?: string };
-function parseSharedListing(text: string): SharedListingRef | null {
-  if (!text.startsWith(SHARED_LISTING_PREFIX)) return null;
-  try {
-    const value = JSON.parse(text.slice(SHARED_LISTING_PREFIX.length)) as SharedListingRef;
-    return value?.id && (value.kind === "closet" || value.kind === "catalog") && typeof value.name === "string" && typeof value.brand === "string" && Number.isFinite(value.priceCents) ? value : null;
-  } catch { return null; }
-}
-function sharedListingPayload(item: ShareOption) {
-  const { id, kind, name, brand, priceCents, currency } = item;
-  return `${SHARED_LISTING_PREFIX}${JSON.stringify({ id, kind, name, brand, priceCents, currency })}`;
-}
+type ShareOption = SharedListingShare;
 function displayMessageText(message?: FriendMessage | null) {
   return message ? friendMessagePreview(message.text) : "";
 }

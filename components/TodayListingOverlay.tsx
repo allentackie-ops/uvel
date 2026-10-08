@@ -86,7 +86,7 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
   const [shareOpen, setShareOpen] = useState(false);
   const inBag = cart.has(piece.id);
   const currentPhoto = gallery[Math.min(activePhoto, gallery.length - 1)] || piece.photo;
-  const sharePayload: FriendSharePayload = { kind: "listing", id: piece.id, title: piece.name, deepLink: `uvel://piece/${piece.id}`, imageUri: piece.photo, previewText: `Have a look at ${piece.name} on Uvel.` };
+  const sharePayload: FriendSharePayload = { kind: "listing", id: piece.id, title: piece.name, deepLink: `uvel://piece/${piece.id}`, imageUri: piece.photo, previewText: `Have a look at ${piece.name} on Uvel.`, listing: { id: piece.id, kind: "closet", name: piece.name, brand: piece.brand || piece.category || "Uvel", priceCents: piece.listPriceCents, currency: piece.currency, photoUri: piece.photo } };
   const initialOrigin: TransitionRect = origin.width <= 1 || origin.height <= 1
     ? { x: 0, y: 0, width: screenWidth, height: screenHeight, radius: 0 }
     : { x: origin.x, y: origin.y, width: origin.width, height: origin.height, radius: origin.radius || origin.radii?.[0] || 0 };

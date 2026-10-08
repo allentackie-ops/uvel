@@ -12,10 +12,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createFriendChat, getCachedFriendInbox, refreshFriendInbox, sendFriendMessage, uploadFriendAttachment, restoreFriendInboxCache } from "../lib/friendChat";
 import { searchUsers, sendFriendRequest, type PublicUser } from "../lib/friends";
 import { addActivityNotification } from "../lib/activityNotifications";
+import { sharedListingPayload, type SharedListingShare } from "../lib/sharedListing";
 import { useColors } from "../lib/theme";
 import { useUvel } from "../lib/store";
 
-export type FriendSharePayload = { kind: "listing" | "mirror"; id?: string; title: string; deepLink: string; imageUri?: string; previewText?: string };
+export type FriendSharePayload = { kind: "listing" | "mirror"; id?: string; title: string; deepLink: string; imageUri?: string; previewText?: string; listing?: SharedListingShare };
 
 type FriendShareSheetProps = {
   visible: boolean;
@@ -131,7 +132,8 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
     const recipients = Object.values(selected);
     if (!recipients.length) return;
     const names = recipients.map((friend) => friend.displayName || `@${friend.username}`);
-    const text = `${message.trim() ? `${message.trim()}\n\n` : ""}${payload.previewText || `Check this out: ${payload.title}`}\n${shareLink}`;
+    const listingText = payload.kind === "listing" && payload.listing ? sharedListingPayload(payload.listing) : "";
+    const text = listingText || `${message.trim() ? `${message.trim()}\n\n` : ""}${payload.previewText || `Check this out: ${payload.title}`}\n${shareLink}`;
     setSending(true);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     void addActivityNotification(app.uid, {

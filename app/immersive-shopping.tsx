@@ -679,7 +679,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const brand = piece.brand && piece.brand !== "Unlabeled" ? piece.brand : piece.category;
   const sellerName = brandRecord?.name || piece.ownerName || piece.listedByName || (piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Uvel seller");
   const sellerPhoto = brandRecord?.logoUri || piece.ownerPhoto || null;
-  const sharePayload: FriendSharePayload = { kind: "listing", id: piece.id, title: piece.name, deepLink: `uvel://piece/${piece.id}`, imageUri: piece.photo, previewText: `Have a look at ${piece.name} on Uvel.` };
+  const sharePayload: FriendSharePayload = { kind: "listing", id: piece.id, title: piece.name, deepLink: `uvel://piece/${piece.id}`, imageUri: piece.photo, previewText: `Have a look at ${piece.name} on Uvel.`, listing: { id: piece.id, kind: "closet", name: piece.name, brand: piece.brand || piece.category || "Uvel", priceCents: piece.listPriceCents, currency: piece.currency, photoUri: piece.photo } };
   const heartStyle = useAnimatedStyle(() => ({
     opacity: heartOpacity.value,
     transform: [

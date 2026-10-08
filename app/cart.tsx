@@ -102,6 +102,7 @@ export default function Cart() {
         title: priced.length === 1 ? priced[0].piece.name : "My bag on Uvel",
         deepLink: priced.length === 1 ? `uvel://piece/${priced[0].piece.id}` : "uvel://cart",
         imageUri: priced[0].piece.photo,
+        listing: priced.length === 1 ? { id: priced[0].piece.id, kind: "closet", name: priced[0].piece.name, brand: priced[0].piece.brand || priced[0].piece.category || "Uvel", priceCents: priced[0].piece.listPriceCents, currency: priced[0].piece.currency, photoUri: priced[0].piece.photo } : undefined,
         previewText: priced.length === 1
           ? `Have a look at ${priced[0].piece.name} in my bag on Uvel.`
           : `Have a look at my bag on Uvel.\n${bagNames.map((name) => `• ${name}`).join("\n")}`,
