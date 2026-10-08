@@ -3,7 +3,7 @@ import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { useEffect, useState } from "react";
 import { firebaseDb, firebaseReady } from "./firebase";
 
-export type ActivityNotificationKind = "more_like" | "not_interested" | "bookmark" | "seller_listing" | "price_drop" | "restock" | "offer_received" | "offer_accepted" | "offer_declined" | "offer_expired" | "mirror_ready" | "mirror_failed";
+export type ActivityNotificationKind = "more_like" | "not_interested" | "bookmark" | "seller_listing" | "price_drop" | "restock" | "offer_received" | "offer_accepted" | "offer_declined" | "offer_expired" | "mirror_ready" | "mirror_failed" | "share_sent";
 
 export type ActivityNotification = {
   id: string;
@@ -67,7 +67,7 @@ async function hydrate(uid: string) {
       const remote = snapshot.docs.map((item) => {
         const data = item.data() as Record<string, unknown>;
         const rawKind = String(data.kind || "seller_listing");
-        const kind: ActivityNotificationKind = ["price_drop", "restock", "offer_received", "offer_accepted", "offer_declined", "offer_expired", "mirror_ready", "mirror_failed"].includes(rawKind)
+        const kind: ActivityNotificationKind = ["price_drop", "restock", "offer_received", "offer_accepted", "offer_declined", "offer_expired", "mirror_ready", "mirror_failed", "share_sent"].includes(rawKind)
           ? rawKind as ActivityNotificationKind
           : "seller_listing";
         const createdAt = data.createdAt as { toMillis?: () => number } | undefined;

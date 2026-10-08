@@ -9,8 +9,9 @@ import { Alert, Keyboard, KeyboardAvoidingView, Linking, Modal, Platform, Pressa
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withSpring, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { createFriendChat, listFriends, sendFriendMessage, uploadFriendAttachment } from "../lib/friendChat";
+import { createFriendChat, getCachedFriendInbox, refreshFriendInbox, sendFriendMessage, uploadFriendAttachment, restoreFriendInboxCache } from "../lib/friendChat";
 import { searchUsers, sendFriendRequest, type PublicUser } from "../lib/friends";
+import { addActivityNotification } from "../lib/activityNotifications";
 import { useColors } from "../lib/theme";
 import { useUvel } from "../lib/store";
 
@@ -27,9 +28,10 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
   const colors = useColors();
   const app = useUvel();
   const insets = useSafeAreaInsets();
-  const [friends, setFriends] = useState<PublicUser[]>([]);
+  const [friends, setFriends] = useState<PublicUser[]>(() => getCachedFriendInbox(app.uid)?.friends || []);
   const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Record<string, PublicUser>>({});
+  const [sending, setSending] = useState(false);
   const [finderVisible, setFinderVisible] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PublicUser[]>([]);
@@ -61,9 +63,15 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
     setResults([]);
     setCopied(false);
     setToast("");
-    void listFriends().then(setFriends).catch(() => setFriends([]));
+    setSelected({});
+    const cached = getCachedFriendInbox(app.uid)?.friends || [];
+    if (cached.length) setFriends(cached);
+    void restoreFriendInboxCache(app.uid).then((snapshot) => {
+      if (snapshot?.friends?.length) setFriends(snapshot.friends);
+    }).catch(() => undefined);
+    void refreshFriendInbox(app.uid).then((snapshot) => setFriends(snapshot.friends)).catch(() => undefined);
     translateY.value = withSpring(0, { damping: 24, stiffness: 220, mass: 0.85 });
-  }, [visible, translateY]);
+  }, [app.uid, visible, translateY]);
 
   function dismiss() {
     translateY.value = withTiming(620, { duration: 220 }, (finished) => {
@@ -92,23 +100,54 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
       }
     }), [contentScrollGesture, onClose, panStartScrollY, panStartedOnHandle, scrollY, translateY]);
 
-  async function shareTo(friend: PublicUser) {
-    if (!payload) return;
-    setBusy(friend.uid);
-    try {
-      const id = await createFriendChat(friend.uid);
-      let photoUrl = "";
-      if (payload.imageUri) {
-        const base64 = await FileSystem.readAsStringAsync(payload.imageUri, { encoding: FileSystem.EncodingType.Base64 });
-        photoUrl = await uploadFriendAttachment(base64, "image/jpeg");
-      }
-      await sendFriendMessage(id, `${message.trim() ? `${message.trim()}\n\n` : ""}${payload.previewText || `Check this out: ${payload.title}`}\n${shareLink}`, photoUrl);
-      setMessage("");
-      Alert.alert("Shared", `Sent to ${friend.displayName || `@${friend.username}`}.`);
-      onClose();
-    } catch (e) {
-      Alert.alert("Couldn’t share", e instanceof Error ? e.message : "Try again.");
-    } finally { setBusy(null); }
+  function toggleFriend(friend: PublicUser) {
+    if (sending) return;
+    setSelected((current) => {
+      const next = { ...current };
+      if (next[friend.uid]) delete next[friend.uid];
+      else next[friend.uid] = friend;
+      return next;
+    });
+    void Haptics.selectionAsync();
+  }
+
+  async function deliverShare(recipientIds: string[], text: string, imageUri?: string) {
+    let photoUrl = "";
+    if (imageUri) {
+      const base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: FileSystem.EncodingType.Base64 });
+      photoUrl = await uploadFriendAttachment(base64, "image/jpeg");
+    }
+    const results = await Promise.allSettled(recipientIds.map(async (friendUid) => {
+      const id = await createFriendChat(friendUid);
+      return sendFriendMessage(id, text, photoUrl);
+    }));
+    if (results.some((result) => result.status === "rejected")) {
+      console.warn("One or more friend shares failed to deliver.");
+    }
+  }
+
+  function sendSelected() {
+    if (!payload || sending) return;
+    const recipients = Object.values(selected);
+    if (!recipients.length) return;
+    const names = recipients.map((friend) => friend.displayName || `@${friend.username}`);
+    const text = `${message.trim() ? `${message.trim()}\n\n` : ""}${payload.previewText || `Check this out: ${payload.title}`}\n${shareLink}`;
+    setSending(true);
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    void addActivityNotification(app.uid, {
+      kind: "share_sent",
+      title: "Shared",
+      body: `Sent to ${names.join(", ")}.`,
+      lookId: payload.id || payload.deepLink,
+      target: "none",
+    }).catch(() => undefined);
+    void deliverShare(recipients.map((friend) => friend.uid), text, payload.imageUri).catch((error) => {
+      console.warn("Friend share delivery failed", error);
+    });
+    setSelected({});
+    setMessage("");
+    onClose();
+    setSending(false);
   }
 
   async function findFriends() {
@@ -177,12 +216,13 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
         <Text style={[styles.preview, { color: colors.muted }]} numberOfLines={2}>{payload.title}</Text>
         <TextInput value={message} onChangeText={setMessage} placeholder="Add a message (optional)" placeholderTextColor={colors.subtle} style={[styles.input, { backgroundColor: colors.ink, color: colors.bone }]} maxLength={300} />
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>FRIENDS</Text>
-        {friends.length ? <ScrollView horizontal keyboardShouldPersistTaps="always" keyboardDismissMode="none" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>{friends.map((friend) => <Pressable key={friend.uid} onPress={() => void shareTo(friend)} disabled={Boolean(busy)} style={styles.friend} accessibilityRole="button" accessibilityLabel={`Share with ${friend.displayName || friend.username}`}>
-          {friend.avatarUri ? <Image cachePolicy="memory-disk" source={{ uri: friend.avatarUri }} style={styles.avatar} contentFit="cover" /> : <View style={[styles.avatar, styles.fallback]}><Text style={{ color: colors.successInk, fontWeight: "800" }}>{(friend.displayName || friend.username || "U").slice(0, 1).toUpperCase()}</Text></View>}
-          <Text style={[styles.name, { color: colors.bone }]} numberOfLines={1}>{busy === friend.uid ? "…" : friend.displayName || `@${friend.username}`}</Text>
+        {friends.length ? <ScrollView horizontal keyboardShouldPersistTaps="always" keyboardDismissMode="none" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>{friends.map((friend) => <Pressable key={friend.uid} onPress={() => toggleFriend(friend)} disabled={sending} style={styles.friend} accessibilityRole="button" accessibilityLabel={`${selected[friend.uid] ? "Deselect" : "Select"} ${friend.displayName || friend.username}`} accessibilityState={{ selected: Boolean(selected[friend.uid]) }}>
+          <View>{friend.avatarUri ? <Image cachePolicy="memory-disk" source={{ uri: friend.avatarUri }} style={[styles.avatar, selected[friend.uid] && styles.avatarSelected]} contentFit="cover" /> : <View style={[styles.avatar, styles.fallback, selected[friend.uid] && styles.avatarSelected]}><Text style={{ color: colors.successInk, fontWeight: "800" }}>{(friend.displayName || friend.username || "U").slice(0, 1).toUpperCase()}</Text></View>}{selected[friend.uid] ? <View style={[styles.selectedBadge, { backgroundColor: colors.success }]}><Ionicons name="checkmark" size={12} color={colors.successInk} /></View> : null}</View>
+          <Text style={[styles.name, { color: colors.bone }]} numberOfLines={1}>{friend.displayName || `@${friend.username}`}</Text>
         </Pressable>)}</ScrollView> : <Pressable onPress={() => setFinderVisible(true)} style={[styles.findFriends, { borderColor: `${colors.bone}35`, backgroundColor: `${colors.ink}88` }]} accessibilityRole="button" accessibilityLabel="Find friends">
           <View style={[styles.findIcon, { backgroundColor: colors.success }]}><Ionicons name="person-add" size={19} color={colors.successInk} /></View><View style={styles.findCopy}><Text style={[styles.findTitle, { color: colors.bone }]}>Find friends</Text><Text style={[styles.findSubtitle, { color: colors.muted }]}>Search people to share with</Text></View><Ionicons name="chevron-forward" size={20} color={colors.muted} />
         </Pressable>}
+        {Object.keys(selected).length ? <Pressable onPress={sendSelected} disabled={sending} style={[styles.sendButton, { backgroundColor: colors.success }]} accessibilityRole="button" accessibilityLabel={`Send to ${Object.keys(selected).length} selected friends`}><Ionicons name="paper-plane" size={17} color={colors.successInk} /><Text style={[styles.sendButtonText, { color: colors.successInk }]}>{sending ? "Sending…" : `Send to ${Object.keys(selected).length} ${Object.keys(selected).length === 1 ? "friend" : "friends"}`}</Text></Pressable> : null}
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>SHARE TO</Text>
         <ScrollView horizontal keyboardShouldPersistTaps="always" keyboardDismissMode="none" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.externalRail}>
           <ExternalAction icon={copied ? "checkmark" : "copy-outline"} label={copied ? "Copied" : "Copy link"} onPress={() => void openExternal("copy")} colors={colors} />
@@ -219,7 +259,7 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
 }
 
 function ExternalAction({ icon, label, onPress, colors, family = "ion" }: { icon: keyof typeof Ionicons.glyphMap | keyof typeof MaterialCommunityIcons.glyphMap; label: string; onPress: () => void; colors: ReturnType<typeof useColors>; family?: "ion" | "material" }) {
-  return <Pressable delayPressIn={0} onPress={onPress} style={styles.externalAction} accessibilityRole="button" accessibilityLabel={label}><View style={[styles.externalIcon, { backgroundColor: `${colors.bone}16` }]}>{family === "material" ? <MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={23} color={colors.bone} /> : <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={22} color={colors.bone} />}</View><Text style={[styles.externalLabel, { color: colors.muted }]}>{label}</Text></Pressable>;
+  return <Pressable onPress={onPress} style={styles.externalAction} accessibilityRole="button" accessibilityLabel={label}><View style={[styles.externalIcon, { backgroundColor: `${colors.bone}16` }]}>{family === "material" ? <MaterialCommunityIcons name={icon as keyof typeof MaterialCommunityIcons.glyphMap} size={23} color={colors.bone} /> : <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={22} color={colors.bone} />}</View><Text style={[styles.externalLabel, { color: colors.muted }]}>{label}</Text></Pressable>;
 }
 
 const styles = StyleSheet.create({
@@ -235,8 +275,12 @@ const styles = StyleSheet.create({
   rail: { gap: 16, paddingTop: 14, paddingBottom: 2 },
   friend: { width: 70, alignItems: "center", gap: 5 },
   avatar: { width: 54, height: 54, borderRadius: 27 },
+  avatarSelected: { borderWidth: 3, borderColor: "#D6E27A" },
+  selectedBadge: { position: "absolute", right: -2, bottom: -2, width: 19, height: 19, borderRadius: 10, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: "#16140F" },
   fallback: { alignItems: "center", justifyContent: "center", backgroundColor: "#D6E27A" },
   name: { fontSize: 11, textAlign: "center" },
+  sendButton: { marginTop: 16, minHeight: 48, borderRadius: 24, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  sendButtonText: { fontSize: 15, fontWeight: "800" },
   findFriends: { marginTop: 12, borderWidth: 1, borderRadius: 16, minHeight: 70, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 12 },
   findIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   findCopy: { flex: 1, gap: 3 },
