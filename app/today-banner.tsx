@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 import { TodayBannerStoryPage } from "../components/TodayBannerStoryPage";
+import { TrendingNowPage } from "../components/TrendingNowPage";
 import { useColors } from "../lib/theme";
 import { getTodayBannerStory, releaseTodayBannerStory } from "../lib/todayBannerStories";
 import { recordReviewListingView } from "../lib/appReview";
@@ -33,14 +34,18 @@ export default function TodayBannerRoute() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.ink }}>
-      <TodayBannerStoryPage
-        story={story}
-        onClose={goBack}
-        onOpenPiece={(piece) => {
-          void recordReviewListingView();
-          router.push({ pathname: "/closet/[id]", params: { id: piece.id, v: "buy", source: "today-banner" } });
-        }}
-      />
+      {story.id === "trending-now" ? (
+        <TrendingNowPage story={story} onClose={goBack} />
+      ) : (
+        <TodayBannerStoryPage
+          story={story}
+          onClose={goBack}
+          onOpenPiece={(piece) => {
+            void recordReviewListingView();
+            router.push({ pathname: "/closet/[id]", params: { id: piece.id, v: "buy", source: "today-banner" } });
+          }}
+        />
+      )}
     </View>
   );
 }

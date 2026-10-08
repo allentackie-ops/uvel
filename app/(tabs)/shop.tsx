@@ -275,10 +275,6 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
     }).catch(() => undefined);
   }, [app.profileDone, onListingOpenChange, todayHome]);
   const openTodayBanner = useCallback((story: BannerStory) => {
-    if (story.id === "trending-now") {
-      router.push("/trending");
-      return;
-    }
     const id = keepTodayBannerStory(story);
     router.push({ pathname: "/today-banner", params: { id } });
   }, []);
