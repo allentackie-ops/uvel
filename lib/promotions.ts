@@ -1,5 +1,4 @@
-import { httpsCallable } from "firebase/functions";
-import { firebaseAuth, firebaseFunctions, firebaseReady } from "./firebase";
+import { supabasePromotionCall } from "./supabasePromotion";
 
 export type ListingPromotion = {
   id: string;
@@ -8,7 +7,7 @@ export type ListingPromotion = {
   code: string;
   kind: "percentage";
   value: number;
-  status: "live" | "paused" | "ended";
+  status: "draft" | "scheduled" | "live" | "paused" | "ended";
   usageCount?: number;
   usageLimit?: number;
   endAt?: number;
@@ -25,24 +24,19 @@ type SaveListingPromotionInput = {
 };
 
 export async function saveListingPromotion(input: SaveListingPromotionInput): Promise<ListingPromotion> {
-  if (!firebaseReady() || !firebaseAuth().currentUser) {
-    throw new Error("Sign in before creating a promo code.");
-  }
-  const call = httpsCallable<SaveListingPromotionInput, ListingPromotion>(firebaseFunctions(), "saveListingPromotion");
-  const result = await call(input);
-  return result.data;
+  const endAt = Date.now() + input.expiresInDays * 24 * 60 * 60 * 1000;
+  const result = await supabasePromotionCall<{ promotion: ListingPromotion }>("save", {
+    input: { id: input.promotionId, listingId: input.listingId, code: input.code, kind: "percentage", value: input.value, status: "live", endAt },
+  });
+  return result.promotion;
 }
 
 export async function listListingPromotions(): Promise<ListingPromotion[]> {
-  if (!firebaseReady() || !firebaseAuth().currentUser) return [];
-  const call = httpsCallable<void, ListingPromotion[]>(firebaseFunctions(), "listMyListingPromotions");
-  const result = await call();
-  return result.data;
+  const result = await supabasePromotionCall<{ promotions: ListingPromotion[] }>("list_owner");
+  return result.promotions;
 }
 
 export async function updateListingPromotionStatus(input: { promotionId: string; status: "live" | "paused" | "ended" }): Promise<ListingPromotion> {
-  if (!firebaseReady() || !firebaseAuth().currentUser) throw new Error("Sign in before updating a promo code.");
-  const call = httpsCallable<{ promotionId: string; status: "live" | "paused" | "ended" }, ListingPromotion>(firebaseFunctions(), "updateListingPromotionStatus");
-  const result = await call(input);
-  return result.data;
+  const result = await supabasePromotionCall<{ promotion: ListingPromotion }>("status", input);
+  return result.promotion;
 }

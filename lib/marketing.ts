@@ -4,6 +4,7 @@ import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import type { ClosetPiece } from "./wardrobe";
 import { firebaseAuth, firebaseDb, firebaseFunctions, firebaseReady } from "./firebase";
+import { supabasePromotionCall } from "./supabasePromotion";
 
 export type MarketingStatus = "draft" | "scheduled" | "live" | "paused" | "ended";
 export type CampaignChannel = "brand_page" | "shop" | "today";
@@ -119,13 +120,17 @@ export function watchBrandMarketing(brandId: string) {
   const stops = [
     ["brandCollections", (data: Record<string, unknown>, id: string) => normalizeCollection({ ...(data as unknown as BrandCollection), id } as BrandCollection), "collections"],
     ["brandCampaigns", (data: Record<string, unknown>, id: string) => normalizeCampaign({ ...(data as unknown as BrandCampaign), id } as BrandCampaign), "campaigns"],
-    ["brandPromotions", (data: Record<string, unknown>, id: string) => normalizePromotion({ ...(data as unknown as BrandPromotion), id } as BrandPromotion), "promotions"],
   ].map(([path, normalize, key]) => onSnapshot(query(collection(firebaseDb(), path as string), where("brandId", "==", brandId)), (snap) => {
     const remote = snap.docs.map((item) => (normalize as (data: Record<string, unknown>, id: string) => unknown)(item.data(), item.id));
     cache = { ...cache, [key as string]: mergeBrand((cache[key as keyof MarketingState] || []) as Array<{ id: string; brandId: string }>, brandId, remote as Array<{ id: string; brandId: string }>) } as MarketingState;
     void persist();
     emit();
   }, () => undefined));
+  void supabasePromotionCall<{ promotions: BrandPromotion[] }>("list_brand", { brandId }).then((result) => {
+    cache = { ...cache, promotions: mergeBrand(cache.promotions, brandId, result.promotions.map(normalizePromotion)) };
+    void persist();
+    emit();
+  }).catch(() => undefined);
   const stop = () => stops.forEach((unsubscribe) => unsubscribe());
   watches.set(brandId, stop);
   return () => { watches.delete(brandId); stop(); };
@@ -217,9 +222,10 @@ export async function saveBrandPromotion(input: Omit<BrandPromotion, "id" | "cre
   const now = Date.now();
   const existing = cache.promotions.find((item) => item.id === input.id);
   const item: BrandPromotion = normalizePromotion({ ...input, id: input.id || idFor("promotion"), code, createdAt: existing?.createdAt || now, updatedAt: now });
-  await saveRemote("saveBrandPromotion", item);
-  cache = { ...cache, promotions: [item, ...cache.promotions.filter((row) => row.id !== item.id)] };
-  await persist(); emit(); return item;
+  const result = await supabasePromotionCall<{ promotion: BrandPromotion }>("save", { input: item });
+  const saved = normalizePromotion(result.promotion);
+  cache = { ...cache, promotions: [saved, ...cache.promotions.filter((row) => row.id !== saved.id)] };
+  await persist(); emit(); return saved;
 }
 
 export function productsForCollection(collectionItem: BrandCollection, products: ClosetPiece[]) {

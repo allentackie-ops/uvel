@@ -1,5 +1,6 @@
 import { firebaseAuth, firebaseReady } from "./firebase";
 import { requireSupabase } from "./supabase";
+import { supabasePromotionCall } from "./supabasePromotion";
 import type { Address, Order } from "./orders";
 import type { CheckoutPay, CheckoutSession, GroupedCheckout, GroupedStripePaymentIntent, PromotionQuote, StripePaymentIntent } from "./pay";
 
@@ -59,5 +60,5 @@ export async function supabaseGroupedStripeIntent(checkoutBatchId: string) {
 }
 
 export async function supabaseValidatePromotion(input: { brandId?: string; listingId: string; promotionId?: string; code?: string; currency: string; itemCents: number }) {
-  return checkoutCall<PromotionQuote>("promotion", { input });
+  return supabasePromotionCall<PromotionQuote>("validate", { input });
 }
