@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import { Image } from "expo-image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { OrbitLoader } from "./OrbitLoader";
 import { TodayListingOverlay, type ListingOrigin } from "./TodayListingOverlay";
 import { CATEGORIES, type Category } from "../lib/catalog";
 import { getMarket, moneyInMarket } from "../lib/markets";
@@ -16,6 +17,7 @@ import { listingVisibleIn } from "../lib/ships";
 
 type RankedPiece = { piece: ClosetPiece; score: TrendScore };
 const EMPTY_SCORES: TrendScore[] = [];
+const COLOR_FADE_STRIPS = Array.from({ length: 56 }, (_, index) => Math.pow(index / 55, 1.65));
 
 function rankPieces(pieces: ClosetPiece[], scores: TrendScore[]): RankedPiece[] {
   const byId = new Map(scores.map((score) => [score.listingId, score]));
@@ -103,20 +105,21 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
 
   return (
     <View style={[styles.root, { backgroundColor: colors.ink }]}>
-      <LinearGradient
-        colors={[bannerColor, `${bannerColor}AA`, colors.ink]}
-        locations={[0, 0.34, 1]}
-        style={styles.bannerGradient}
-        pointerEvents="none"
-      />
+      <View pointerEvents="none" style={styles.bannerColorField}>
+        <View style={[styles.bannerColorLayer, { backgroundColor: bannerColor }]} />
+        <View style={[styles.bannerColorFade, { height: 340 }]}>
+          {COLOR_FADE_STRIPS.map((opacity, index) => <View key={index} style={[styles.bannerColorFadeStrip, { backgroundColor: colors.ink, opacity }]} />)}
+        </View>
+      </View>
+
       <View style={[styles.header, { paddingTop: insets.top + 8, height: insets.top + 64 }]}>
         <Pressable onPress={onClose} hitSlop={12} style={styles.headerButton} accessibilityRole="button" accessibilityLabel="Back to Today">
           <Ionicons name="arrow-back" size={24} color={colors.bone} />
         </Pressable>
-        <View style={styles.headerSearch}>
-          <Ionicons name="search-outline" size={20} color="#111111" />
-          <Text style={styles.headerSearchText}>Search Uvel</Text>
-        </View>
+        <Pressable onPress={() => router.push("/search")} style={[styles.headerSearch, { backgroundColor: colors.surface, borderColor: `${colors.bone}35` }]} accessibilityRole="button" accessibilityLabel="Search all clothing">
+          <Ionicons name="search-outline" size={20} color={colors.muted} />
+          <Text style={[styles.headerSearchText, { color: colors.subtle }]}>Search all clothing</Text>
+        </Pressable>
       </View>
 
       <ScrollView
@@ -131,9 +134,9 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
               <Text style={[styles.sectionSub, { color: colors.muted }]}>Top 10 · local listings · last {windowDays} days</Text>
             </View>
           </View>
-          {loading && !topTen.length ? <LoadingRow colors={colors} /> : topTen.length
+          {loading && !topTen.length ? <LoadingOrbit /> : topTen.length
             ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
-              {topTen.map((item, index) => <RankedCard key={item.piece.id} item={item} rank={index + 1} market={market} colors={colors} onOpen={openListing} />)}
+              {topTen.map((item) => <RankedCard key={item.piece.id} item={item} market={market} colors={colors} onOpen={openListing} />)}
             </ScrollView>
             : <View style={[styles.empty, { backgroundColor: colors.surface }]}>
               <Ionicons name="trending-up-outline" size={20} color={colors.muted} />
@@ -150,7 +153,7 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
               </View>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
-              {section.items.map((item, index) => <RankedCard key={item.piece.id} item={item} rank={index + 1} market={market} colors={colors} onOpen={openListing} />)}
+              {section.items.map((item) => <RankedCard key={item.piece.id} item={item} market={market} colors={colors} onOpen={openListing} />)}
             </ScrollView>
           </View>
         ))}
@@ -164,7 +167,7 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
           </View>
           {rankedBrandItems.length
             ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
-              {rankedBrandItems.map((item, index) => <BrandRankedCard key={item.piece.id} item={item} rank={index + 1} market={market} colors={colors} onOpen={openListing} />)}
+              {rankedBrandItems.map((item) => <BrandRankedCard key={item.piece.id} item={item} market={market} colors={colors} onOpen={openListing} />)}
             </ScrollView>
             : <View style={[styles.empty, { backgroundColor: colors.surface }]}>
               <Ionicons name="globe-outline" size={20} color={colors.muted} />
@@ -178,13 +181,12 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
   );
 }
 
-function RankedCard({ item, rank, market, colors, onOpen }: { item: RankedPiece; rank: number; market: ReturnType<typeof getMarket>; colors: ReturnType<typeof useColors>; onOpen: (piece: ClosetPiece, ref: { current: View | null }) => void }) {
+function RankedCard({ item, market, colors, onOpen }: { item: RankedPiece; market: ReturnType<typeof getMarket>; colors: ReturnType<typeof useColors>; onOpen: (piece: ClosetPiece, ref: { current: View | null }) => void }) {
   const ref = useRef<View>(null);
   const piece = item.piece;
-  return <Pressable ref={ref} onPress={() => onOpen(piece, ref)} style={[styles.card, { backgroundColor: colors.surface }]} accessibilityRole="button" accessibilityLabel={`Rank ${rank}, ${piece.name}, ${moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}`}>
+  return <Pressable ref={ref} onPress={() => onOpen(piece, ref)} style={[styles.card, { backgroundColor: colors.surface }]} accessibilityRole="button" accessibilityLabel={`Open ${piece.name}, ${moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}`}>
     <View style={[styles.imageFrame, { backgroundColor: colors.neutral }]}>
       {piece.photo ? <Image source={{ uri: piece.photo }} style={styles.image} contentFit="cover" cachePolicy="memory-disk" /> : null}
-      <View style={styles.rankPill}><Text style={styles.rankText}>#{rank}</Text></View>
     </View>
     <Text style={[styles.brand, { color: colors.muted }]} numberOfLines={1}>{(piece.brand || "Uvel seller").toUpperCase()}</Text>
     <Text style={[styles.name, { color: colors.bone }]} numberOfLines={2}>{piece.name}</Text>
@@ -192,13 +194,12 @@ function RankedCard({ item, rank, market, colors, onOpen }: { item: RankedPiece;
   </Pressable>;
 }
 
-function BrandRankedCard({ item, rank, market, colors, onOpen }: { item: TrendingBrandItem; rank: number; market: ReturnType<typeof getMarket>; colors: ReturnType<typeof useColors>; onOpen: (piece: ClosetPiece, ref: { current: View | null }) => void }) {
+function BrandRankedCard({ item, market, colors, onOpen }: { item: TrendingBrandItem; market: ReturnType<typeof getMarket>; colors: ReturnType<typeof useColors>; onOpen: (piece: ClosetPiece, ref: { current: View | null }) => void }) {
   const ref = useRef<View>(null);
   const piece = item.piece;
-  return <Pressable ref={ref} onPress={() => onOpen(piece, ref)} style={[styles.card, { backgroundColor: colors.surface }]} accessibilityRole="button" accessibilityLabel={`Rank ${rank}, ${piece.brand}, ${piece.name}`}>
+  return <Pressable ref={ref} onPress={() => onOpen(piece, ref)} style={[styles.card, { backgroundColor: colors.surface }]} accessibilityRole="button" accessibilityLabel={`Open ${piece.brand}, ${piece.name}`}>
     <View style={[styles.imageFrame, { backgroundColor: colors.neutral }]}>
       {piece.photo ? <Image source={{ uri: piece.photo }} style={styles.image} contentFit="cover" cachePolicy="memory-disk" /> : null}
-      <View style={styles.rankPill}><Text style={styles.rankText}>#{rank}</Text></View>
     </View>
     <Text style={[styles.brand, { color: colors.muted }]} numberOfLines={1}>{(piece.brand || "Brand").toUpperCase()}</Text>
     <Text style={[styles.name, { color: colors.bone }]} numberOfLines={2}>{piece.name}</Text>
@@ -206,17 +207,20 @@ function BrandRankedCard({ item, rank, market, colors, onOpen }: { item: Trendin
   </Pressable>;
 }
 
-function LoadingRow({ colors }: { colors: ReturnType<typeof useColors> }) {
-  return <View style={[styles.empty, { backgroundColor: colors.surface }]}><Text style={[styles.emptyText, { color: colors.muted }]}>Loading this store’s live trends…</Text></View>;
+function LoadingOrbit() {
+  return <View style={styles.loadingRow}><OrbitLoader size={58} /></View>;
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, overflow: "hidden" },
-  bannerGradient: { position: "absolute", top: 0, left: 0, right: 0, height: 370 },
+  root: { flex: 1 },
+  bannerColorField: { position: "absolute", top: 0, left: 0, right: 0, height: 480, overflow: "hidden" },
+  bannerColorLayer: { position: "absolute", top: 0, left: 0, right: 0, height: 480, opacity: 0.24 },
+  bannerColorFade: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "column" },
+  bannerColorFadeStrip: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 10, zIndex: 1 },
   headerButton: { width: 34, height: 42, alignItems: "center", justifyContent: "center" },
-  headerSearch: { flex: 1, height: 40, borderRadius: 20, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 8, backgroundColor: "#FFFFFF" },
-  headerSearchText: { fontSize: 13, color: "#111111" },
+  headerSearch: { flex: 1, height: 50, borderRadius: 25, borderWidth: 1, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 9 },
+  headerSearchText: { fontSize: 15 },
   section: { marginTop: 12, marginBottom: 22 },
   sectionHeading: { paddingHorizontal: 18, marginBottom: 12 },
   sectionTitle: { fontSize: 21, lineHeight: 26, fontWeight: "900" },
@@ -225,11 +229,10 @@ const styles = StyleSheet.create({
   card: { width: 164, borderRadius: 12, overflow: "hidden", paddingBottom: 12 },
   imageFrame: { width: 164, height: 178, position: "relative", overflow: "hidden" },
   image: { width: "100%", height: "100%" },
-  rankPill: { position: "absolute", top: 9, left: 9, height: 27, minWidth: 36, borderRadius: 14, backgroundColor: "#F5F6FA", alignItems: "center", justifyContent: "center", paddingHorizontal: 8 },
-  rankText: { color: "#111111", fontSize: 11, fontWeight: "900" },
   brand: { fontSize: 9, fontWeight: "800", letterSpacing: 0.8, paddingHorizontal: 10, marginTop: 9 },
   name: { fontSize: 13, lineHeight: 17, fontWeight: "700", paddingHorizontal: 10, marginTop: 4, minHeight: 34 },
   price: { fontSize: 16, fontWeight: "900", paddingHorizontal: 10, marginTop: 7 },
   empty: { marginHorizontal: 18, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 15, flexDirection: "row", alignItems: "flex-start", gap: 10 },
   emptyText: { flex: 1, fontSize: 12, lineHeight: 18 },
+  loadingRow: { height: 210, alignItems: "center", justifyContent: "center" },
 });
