@@ -35,6 +35,7 @@ import { takeImmersivePreview } from "../lib/immersivePreview";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const MIN_REFRESH_MS = 1200;
+const MAX_REFRESH_WAIT_MS = 10000;
 const IMMERSIVE_WELCOME_KEY = "uvel-immersive-welcome-seen-v1";
 let immersiveResumeIndex = 0;
 const CATALOG_BRAND_IDS: Record<string, string> = {
@@ -272,48 +273,57 @@ export default function ImmersiveShopping() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
     try {
       await Promise.all([
-        refreshMarketplaceListings(),
+        Promise.race([
+          refreshMarketplaceListings(),
+          new Promise<void>((resolve) => setTimeout(resolve, MAX_REFRESH_WAIT_MS)),
+        ]),
         new Promise<void>((resolve) => setTimeout(resolve, MIN_REFRESH_MS)),
       ]);
     } catch {
       // Keep the local feed usable if the marketplace refresh is unavailable.
     } finally {
-      const nextEpoch = feedEpochRef.current + 1;
-      const nextSeed = Math.floor(Math.random() * 0x7fffffff);
-      const refreshedPieces = shopFloor(app.country);
-      const refreshedRanked = rankPersonalized(refreshedPieces, app.country);
-      const refreshedSession: FeedSession = {
-        queue: firstFeedPass(refreshedRanked, nextSeed, refreshOriginId.current),
-        repeat: refreshedRanked,
-        seed: nextSeed,
-      };
-      const refreshedFeed = Array.from({ length: Math.min(3, refreshedSession.queue.length) }, (_, index) =>
-        sessionItemAt(refreshedSession, index),
-      ).filter((piece): piece is ShopFloorPiece => Boolean(piece));
-      const incomingImages = refreshedFeed
-        .slice(0, 3)
-        .map((piece) => piece.photo)
-        .filter((uri): uri is string => /^https?:\/\//i.test(uri));
       try {
-        if (incomingImages.length) await Image.prefetch(incomingImages, "memory-disk");
+        const nextEpoch = feedEpochRef.current + 1;
+        const nextSeed = Math.floor(Math.random() * 0x7fffffff);
+        const refreshedPieces = shopFloor(app.country);
+        const refreshedRanked = rankPersonalized(refreshedPieces, app.country);
+        const refreshedSession: FeedSession = {
+          queue: firstFeedPass(refreshedRanked, nextSeed, refreshOriginId.current),
+          repeat: refreshedRanked,
+          seed: nextSeed,
+        };
+        const refreshedFeed = Array.from({ length: Math.min(3, refreshedSession.queue.length) }, (_, index) =>
+          sessionItemAt(refreshedSession, index),
+        ).filter((piece): piece is ShopFloorPiece => Boolean(piece));
+        const incomingImages = refreshedFeed
+          .slice(0, 3)
+          .map((piece) => piece.photo)
+          .filter((uri): uri is string => /^https?:\/\//i.test(uri));
+        try {
+          if (incomingImages.length) await Image.prefetch(incomingImages, "memory-disk");
+        } catch {
+          // The refreshed card can still load normally if prefetch is unavailable.
+        }
+        feedEpochRef.current = nextEpoch;
+        setSessionSeed(nextSeed);
+        setFeedSession(refreshedSession);
+        setActiveIndex(0);
+        activeIndexShared.value = 0;
+        swipeY.value = 0;
+        feedbackPromptRef.current = null;
+        feedbackPromptTiming.current.nextIndex = randomPromptGap(3, 6);
+        setFeedbackPromptPieceId(null);
+        setRefreshState({ active: false, epoch: nextEpoch, anchorId: refreshOriginId.current });
       } catch {
-        // The refreshed card can still load normally if prefetch is unavailable.
+        // Always release the loader if rebuilding the refreshed feed fails.
+        setRefreshState((state) => ({ ...state, active: false }));
+      } finally {
+        refreshFeedSnapshot.current = null;
+        refreshInFlight.current = false;
+        refreshActiveShared.value = 0;
+        refreshImageScale.value = withTiming(1, { duration: 240, easing: Easing.out(Easing.cubic) });
+        swipeLock.value = 0;
       }
-      feedEpochRef.current = nextEpoch;
-      setSessionSeed(nextSeed);
-      setFeedSession(refreshedSession);
-      setActiveIndex(0);
-      activeIndexShared.value = 0;
-      swipeY.value = 0;
-      feedbackPromptRef.current = null;
-      feedbackPromptTiming.current.nextIndex = randomPromptGap(3, 6);
-      setFeedbackPromptPieceId(null);
-      refreshFeedSnapshot.current = null;
-      setRefreshState({ active: false, epoch: nextEpoch, anchorId: refreshOriginId.current });
-      refreshInFlight.current = false;
-      refreshActiveShared.value = 0;
-      refreshImageScale.value = withTiming(1, { duration: 240, easing: Easing.out(Easing.cubic) });
-      swipeLock.value = 0;
     }
   }, [activeIndexShared, app.country, pieces, rankPersonalized, refreshActiveShared, refreshImageScale, swipeLock, swipeY]);
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
