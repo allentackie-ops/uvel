@@ -6,7 +6,7 @@ import { ownedBrand, useBrands } from "../../lib/brands";
 import { useUvel } from "../../lib/store";
 import { useBrandListingDrafts } from "../../lib/brandListingDraft";
 
-const REFERENCE_SCREEN = require("../../assets/create/red-launchpad-reference.png");
+const REFERENCE_SCREEN = require("../../assets/create/red-launchpad-reference-clean.png");
 
 export default function Create() {
   const insets = useSafeAreaInsets();
@@ -28,9 +28,6 @@ export default function Create() {
 
         {/* Header controls match the approved reference image. */}
         <Pressable onPress={() => router.push("/you")} style={[styles.hit, styles.menuHit]} accessibilityRole="button" accessibilityLabel="Open menu" />
-        <Pressable onPress={() => router.push("/search")} style={[styles.hit, styles.searchHit]} accessibilityRole="button" accessibilityLabel="Search" />
-        <Pressable onPress={() => router.push("/inbox")} style={[styles.hit, styles.messageHit]} accessibilityRole="button" accessibilityLabel="Open messages" />
-
         {/* Hero and launch cards preserve the real creation flows. */}
         <Pressable onPress={() => router.push("/brand/founder")} style={[styles.hit, styles.heroHit]} accessibilityRole="button" accessibilityLabel="Start creating" />
         <Pressable onPress={() => openLaunch("listing", brand)} style={[styles.hit, styles.productHit]} accessibilityRole="button" accessibilityLabel="Create one product" />
@@ -58,8 +55,6 @@ const styles = StyleSheet.create({
   referenceAspect: { width: "100%", aspectRatio: 1440 / 2560 },
   hit: { position: "absolute", backgroundColor: "transparent" },
   menuHit: { left: "3%", top: "1.5%", width: "11%", height: "5%" },
-  searchHit: { right: "12%", top: "1.5%", width: "11%", height: "5%" },
-  messageHit: { right: "2%", top: "1.5%", width: "11%", height: "5%" },
   heroHit: { left: "3%", top: "16.5%", width: "94%", height: "29%" },
   productHit: { left: "3%", top: "49%", width: "30%", height: "24%" },
   collectionHit: { left: "35%", top: "49%", width: "30%", height: "24%" },
