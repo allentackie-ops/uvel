@@ -1,6 +1,7 @@
 import * as SplashScreen from "expo-splash-screen";
-import { useEffect, useRef } from "react";
-import { ImageBackground, StyleSheet, useWindowDimensions } from "react-native";
+import { useVideoPlayer, VideoView } from "expo-video";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import Animated, {
   Easing,
@@ -9,12 +10,16 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { Image } from "expo-image";
+
+const INTRO_VIDEO = require("../assets/launch/uvel-intro.mp4");
+const INTRO_POSTER = require("../assets/launch/uvel-intro-poster.jpg");
+const MIN_INTRO_MS = 800;
+const EXIT_MS = 260;
+const NATIVE_SPLASH_FALLBACK_MS = 1_200;
+const PLAYBACK_FALLBACK_MS = 15_000;
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
-
-const MIN_INTRO_MS = 800;
-const REVEAL_MS = 460;
-const EXIT_MS = 200;
 
 export function LaunchSplash({
   onDone,
@@ -23,88 +28,118 @@ export function LaunchSplash({
   onDone: () => void;
   ready: boolean;
 }) {
-  const { width } = useWindowDimensions();
+  const player = useVideoPlayer(INTRO_VIDEO, (instance) => {
+    instance.loop = false;
+    instance.muted = true;
+  });
   const started = useRef(false);
+  const dismissed = useRef(false);
   const mountedAt = useRef(Date.now());
-  const reveal = useSharedValue(0.01);
-  const markOpacity = useSharedValue(0);
-  const scale = useSharedValue(0.985);
+  const [videoHasFrame, setVideoHasFrame] = useState(false);
+  const [playbackFinished, setPlaybackFinished] = useState(false);
+  const [playbackFailed, setPlaybackFailed] = useState(false);
   const opacity = useSharedValue(1);
-  const cardSize = Math.min(width * 0.7, 292);
+
+  const hideNativeSplash = useCallback(() => {
+    void SplashScreen.hideAsync().catch(() => undefined);
+  }, []);
+
+  const startPlayback = useCallback(() => {
+    if (started.current) return;
+    started.current = true;
+    player.play();
+  }, [player]);
+
+  const handleFirstFrame = useCallback(() => {
+    setVideoHasFrame(true);
+    hideNativeSplash();
+  }, [hideNativeSplash]);
+
+  const handleDone = useCallback(() => {
+    if (dismissed.current) return;
+    dismissed.current = true;
+    onDone();
+  }, [onDone]);
 
   useEffect(() => {
-    const hideTimer = setTimeout(() => {
-      void SplashScreen.hideAsync().catch(() => undefined);
-    }, 20);
+    const statusSubscription = player.addListener("statusChange", ({ status }) => {
+      if (status === "readyToPlay") startPlayback();
+      if (status === "error") {
+        setPlaybackFailed(true);
+        hideNativeSplash();
+      }
+    });
+    const endSubscription = player.addListener("playToEnd", () => {
+      setPlaybackFinished(true);
+    });
+    const initialStatus = player.status;
+    if (initialStatus === "readyToPlay") startPlayback();
+    if (initialStatus === "error") {
+      setPlaybackFailed(true);
+      hideNativeSplash();
+    }
 
-    reveal.value = withTiming(1, {
-      duration: REVEAL_MS,
-      easing: Easing.out(Easing.cubic),
-    });
-    markOpacity.value = withTiming(1, {
-      duration: 180,
-      easing: Easing.out(Easing.quad),
-    });
-    scale.value = withTiming(1, {
-      duration: 520,
-      easing: Easing.out(Easing.cubic),
-    });
+    const nativeSplashTimer = setTimeout(hideNativeSplash, NATIVE_SPLASH_FALLBACK_MS);
+    const playbackTimer = setTimeout(() => {
+      setPlaybackFailed(true);
+      player.pause();
+    }, PLAYBACK_FALLBACK_MS);
 
-    return () => clearTimeout(hideTimer);
-  }, [markOpacity, reveal, scale]);
+    return () => {
+      statusSubscription.remove();
+      endSubscription.remove();
+      clearTimeout(nativeSplashTimer);
+      clearTimeout(playbackTimer);
+    };
+  }, [hideNativeSplash, player, startPlayback]);
 
   useEffect(() => {
-    if (!ready || started.current) return;
+    if (!ready || (!playbackFinished && !playbackFailed) || dismissed.current) return;
     const remaining = Math.max(0, MIN_INTRO_MS - (Date.now() - mountedAt.current));
     const timer = setTimeout(() => {
-      started.current = true;
       opacity.value = withTiming(
         0,
         { duration: EXIT_MS, easing: Easing.out(Easing.cubic) },
         (finished) => {
-          if (finished) runOnJS(onDone)();
+          if (finished) runOnJS(handleDone)();
         },
       );
     }, remaining);
     return () => clearTimeout(timer);
-  }, [ready, onDone, opacity]);
+  }, [handleDone, opacity, playbackFailed, playbackFinished, ready]);
 
   const fade = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  const scaleStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: scale.value }],
-  }));
-  const clip = useAnimatedStyle(() => {
-    const visibleWidth = cardSize * reveal.value;
-    return {
-      width: visibleWidth,
-      left: (cardSize - visibleWidth) / 2,
-      opacity: markOpacity.value,
-    };
-  });
-  const imagePosition = useAnimatedStyle(() => ({
-    left: -((cardSize - cardSize * reveal.value) / 2),
-  }));
 
   return (
-    <Animated.View pointerEvents="auto" style={[styles.root, fade]}>
-      <ImageBackground
-        source={require("../assets/splash.png")}
-        resizeMode="cover"
-        style={styles.paper}
-        imageStyle={styles.paperImage}
-      >
-        <StatusBar style="dark" />
-        <Animated.View style={[styles.stage, { width: cardSize, height: cardSize }, scaleStyle]}>
-          <Animated.View style={[styles.revealWindow, { height: cardSize }, clip]}>
-            <Animated.Image
-              source={require("../assets/icon.png")}
-              resizeMode="cover"
-              style={[styles.mark, { width: cardSize, height: cardSize }, imagePosition]}
-              accessible={false}
-            />
-          </Animated.View>
-        </Animated.View>
-      </ImageBackground>
+    <Animated.View
+      pointerEvents="auto"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={[styles.root, fade]}
+    >
+      <StatusBar style="dark" />
+      <View style={styles.stage}>
+        <VideoView
+          player={player}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          nativeControls={false}
+          surfaceType="textureView"
+          useExoShutter={false}
+          onFirstFrameRender={handleFirstFrame}
+        />
+        {!videoHasFrame ? (
+          <Image
+            source={INTRO_POSTER}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            cachePolicy="memory-disk"
+            transition={0}
+            onLoad={hideNativeSplash}
+            accessibilityLabel="Uvel crimson woven logo"
+          />
+        ) : null}
+      </View>
     </Animated.View>
   );
 }
@@ -114,34 +149,11 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     zIndex: 80,
     elevation: 80,
-  },
-  paper: {
-    ...StyleSheet.absoluteFill,
-    alignItems: "center",
-    justifyContent: "center",
     backgroundColor: "#F5EEE7",
   },
-  paperImage: {
-    width: "100%",
-    height: "100%",
-  },
   stage: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  revealWindow: {
-    position: "absolute",
-    top: 0,
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "#F5EEE7",
     overflow: "hidden",
-    borderRadius: 2,
-    shadowColor: "#4A2019",
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 7 },
-    elevation: 3,
-  },
-  mark: {
-    position: "absolute",
-    top: 0,
   },
 });
