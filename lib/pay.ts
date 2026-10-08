@@ -1,10 +1,15 @@
 import Constants from "expo-constants";
 import * as WebBrowser from "expo-web-browser";
 import { NativeModules } from "react-native";
-import { httpsCallable } from "firebase/functions";
 import { AddressCollectionMode, CollectionMode } from "@stripe/stripe-react-native";
 import type { Address as CheckoutAddress } from "./orders";
-import { firebaseAuth, firebaseFunctions, firebaseReady } from "./firebase";
+import {
+  supabaseGroupedCheckout,
+  supabaseGroupedStripeIntent,
+  supabaseHostedCheckout,
+  supabaseStripePaymentIntent,
+  supabaseValidatePromotion,
+} from "./supabaseCheckout";
 
 type Extra = {
   payments?: {
@@ -113,43 +118,23 @@ export function stripePaymentSheetAddress(address: CheckoutAddress, email?: stri
 }
 
 export async function createCheckoutSession(input: CheckoutPay): Promise<CheckoutSession> {
-  if (!firebaseReady()) throw new Error("Checkout is temporarily unavailable while the marketplace service reconnects.");
-  if (!firebaseAuth().currentUser) throw new Error("Sign in before checking out.");
-  const call = httpsCallable<CheckoutPay, CheckoutSession>(firebaseFunctions(), "createCheckout");
-  const result = await call(input);
-  return result.data;
+  return supabaseHostedCheckout(input);
 }
 
-export async function createStripePaymentIntent(orderId: string): Promise<StripePaymentIntent> {
-  if (!firebaseReady()) throw new Error("Checkout is temporarily unavailable while the marketplace service reconnects.");
-  if (!firebaseAuth().currentUser) throw new Error("Sign in before checking out.");
-  const call = httpsCallable<{ orderId: string }, StripePaymentIntent>(firebaseFunctions(), "createStripePaymentIntent");
-  const result = await call({ orderId });
-  return result.data;
+export async function createStripePaymentIntent(orderId: string, amountCents?: number, currency?: string): Promise<StripePaymentIntent> {
+  return supabaseStripePaymentIntent(orderId, amountCents, currency);
 }
 
 export async function createGroupedCheckout(input: { checkoutBatchId: string; listingIds: string[]; address: unknown; shippingChoices: Array<{ listingId: string; carrierId: string; creditCents: number; promotionId?: string; promotionCode?: string }> }): Promise<GroupedCheckout> {
-  if (!firebaseReady()) throw new Error("Checkout is temporarily unavailable while the marketplace service reconnects.");
-  if (!firebaseAuth().currentUser) throw new Error("Sign in before checking out.");
-  const call = httpsCallable<typeof input, GroupedCheckout>(firebaseFunctions(), "createGroupedCheckout");
-  const result = await call(input);
-  return result.data;
+  return supabaseGroupedCheckout(input as Parameters<typeof supabaseGroupedCheckout>[0]);
 }
 
 export async function createGroupedStripePaymentIntent(checkoutBatchId: string): Promise<GroupedStripePaymentIntent> {
-  if (!firebaseReady()) throw new Error("Checkout is temporarily unavailable while the marketplace service reconnects.");
-  if (!firebaseAuth().currentUser) throw new Error("Sign in before checking out.");
-  const call = httpsCallable<{ checkoutBatchId: string }, GroupedStripePaymentIntent>(firebaseFunctions(), "createGroupedStripePaymentIntent");
-  const result = await call({ checkoutBatchId });
-  return result.data;
+  return supabaseGroupedStripeIntent(checkoutBatchId);
 }
 
 export async function validatePromotion(input: { brandId?: string; listingId: string; promotionId?: string; code?: string; currency: string; itemCents: number }): Promise<PromotionQuote> {
-  if (!firebaseReady()) throw new Error("Promotions are temporarily unavailable while the marketplace service reconnects.");
-  if (!firebaseAuth().currentUser) throw new Error("Sign in before applying a promotion.");
-  const call = httpsCallable<typeof input, PromotionQuote>(firebaseFunctions(), "validatePromotion");
-  const result = await call(input);
-  return result.data;
+  return supabaseValidatePromotion(input);
 }
 
 export async function openHostedPay(url: string) {
