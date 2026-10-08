@@ -90,9 +90,8 @@ export default function Create() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.intro}>
-          <Text style={styles.title}>Create</Text>
-          <Text style={styles.subtitle}>Make something worth talking about.</Text>
+        <View style={styles.collageIntro} accessibilityRole="image" accessibilityLabel="Floating collage of a red leather jacket, handbag, and megaphone">
+          <Image source={require("../../assets/create/header-collage-compact.png")} style={styles.collageIntroImage} contentFit="cover" cachePolicy="memory-disk" accessible={false} />
         </View>
         <HeroCarousel brand={brand} styles={styles} fontLoaded={fontLoaded} />
         <LaunchShelf brand={brand} styles={styles} />
@@ -195,19 +194,19 @@ function openLaunch(kind: (typeof LAUNCH_ITEMS)[number]["kind"], brand?: Brand) 
 function makeStyles(colors: Colors, width: number, _fontLoaded: boolean) {
   const dark = colors.ink !== "#FFFFFF";
   const horizontal = Math.max(14, Math.min(22, width * 0.042));
+  const collageHeight = Math.max(112, Math.min(120, width * 0.30));
   const heroHeight = Math.max(230, Math.min(278, width * 0.64));
   const cardHeight = Math.max(164, Math.min(184, width * 0.42));
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: dark ? colors.ink : "#FFFEFC" },
     scroll: { flex: 1 },
     content: { paddingHorizontal: horizontal },
-    intro: { marginTop: 8, marginBottom: 11 },
-    title: { color: dark ? colors.bone : "#111111", fontSize: 43, lineHeight: 47, fontWeight: "900", letterSpacing: -1.9 },
-    subtitle: { color: dark ? colors.muted : "#5D5D5D", fontSize: 16, lineHeight: 21, fontWeight: "600", marginTop: 0 },
+    collageIntro: { height: collageHeight, width: "100%", marginBottom: 5, overflow: "hidden", position: "relative" },
+    collageIntroImage: { ...StyleSheet.absoluteFill, width: "100%", height: "100%" },
     hero: { height: heroHeight, borderRadius: 19, overflow: "hidden", position: "relative", marginBottom: 16 },
     heroSlide: { ...StyleSheet.absoluteFill, overflow: "hidden" },
     heroBackdrop: { ...StyleSheet.absoluteFill, zIndex: 0 },
-    heroModel: { position: "absolute", right: -28, bottom: -58, width: "110%", height: "160%" },
+    heroModel: { position: "absolute", right: -28, bottom: -88, width: "110%", height: "160%" },
     heroCopy: { position: "absolute", left: 17, top: 27, zIndex: 3, width: "61%" },
     heroTitle: { fontSize: 27, lineHeight: 30, fontWeight: "900", letterSpacing: -0.8 },
     heroScript: { fontSize: 49, lineHeight: 46, fontWeight: "700", marginTop: -2, marginBottom: -2 },
