@@ -14,6 +14,7 @@ export type SupabaseMarketplaceListing = {
   priceCents?: number | null;
   currency?: string | null;
   country?: string | null;
+  isDemo?: boolean | null;
   createdAt?: string | null;
   photos: string[];
 };
