@@ -138,6 +138,10 @@ export default function TabsLayout() {
   }
 
   const onToday = pageIndex === 0;
+  const isCreate = pageIndex === 1;
+  const tabBackground = isCreate ? "#FFFEFC" : colors.ink;
+  const tabInactive = isCreate ? "#6F6A69" : inactiveIcon;
+  const tabActive = isCreate ? "#A52231" : colors.success;
   const swipeEnabled = !listingOpen && (onToday || open);
 
   return (
@@ -202,9 +206,9 @@ export default function TabsLayout() {
               accessibilityLabel="Dismiss tab explanation"
             />
           ) : null}
-          <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]} pointerEvents={open ? "none" : "auto"}>
-            <View style={[styles.bar, { backgroundColor: colors.ink }]}>
-              <Animated.View pointerEvents="none" style={[styles.activeDash, { left: TAB_BAR_HORIZONTAL_PADDING + (tabWidth - 30) / 2 }, dashStyle, { backgroundColor: colors.success }]} />
+          <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: tabBackground }]} pointerEvents={open ? "none" : "auto"}>
+            <View style={[styles.bar, { backgroundColor: tabBackground }]}>
+              <Animated.View pointerEvents="none" style={[styles.activeDash, { left: TAB_BAR_HORIZONTAL_PADDING + (tabWidth - 30) / 2 }, dashStyle, { backgroundColor: tabActive }]} />
               {ROUTES.map((_, index) => {
                 const active = pageIndex === index;
                 return (
@@ -226,7 +230,7 @@ export default function TabsLayout() {
                       </View>
                     ) : null}
                     <View style={styles.iconSlot} accessibilityElementsHidden>
-                      <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={TAB_ICON_SIZE} color={active ? (index === 0 ? todayActiveColor : colors.success) : inactiveIcon} />
+                      <Ionicons name={active ? ACTIVE_ICONS[index] : ICONS[index]} size={TAB_ICON_SIZE} color={active ? (index === 0 ? todayActiveColor : tabActive) : tabInactive} />
                     </View>
                   </Pressable>
                 );
