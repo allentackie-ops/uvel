@@ -20,6 +20,7 @@ import { listingVisibleIn, restrictShipsTo } from "../lib/ships";
 import { carriersForListing } from "../lib/sellerShipping";
 import { brandMakes } from "../lib/brandMake";
 import { useUvel } from "../lib/store";
+import { recordListingView } from "../lib/alerts";
 import type { ClosetPiece } from "../lib/wardrobe";
 import type { PersonalizationAction } from "../lib/personalization";
 import { MARKET_RED, useColors, type Colors } from "../lib/theme";
@@ -37,6 +38,11 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
   const colors = useColors();
   const styles = makeStyles(colors);
   const app = useUvel();
+  useEffect(() => {
+    const sellerUid = piece.ownerId || piece.listedByUid || "";
+    if (!app.uid || previewOnly || (piece.status !== "listed" && piece.status !== "sold") || sellerUid === app.uid) return;
+    void recordListingView(app.uid, piece.id);
+  }, [app.uid, piece.id, piece.listedByUid, piece.ownerId, piece.status, previewOnly]);
   const { confirmPlatformPayPayment, initPaymentSheet, presentPaymentSheet } = useStripe();
   const cart = useCart();
   const brand = piece.brandId ? getBrand(piece.brandId) : undefined;

@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCart } from "../lib/cart";
+import { useActivityNotifications } from "../lib/activityNotifications";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
@@ -15,6 +16,7 @@ type Tool = {
   menuIcon?: boolean;
   label: string;
   onPress: () => void;
+  badge?: number;
 };
 
 export function TodayToolsDrawer({ onClose, onOpenSell, onOpenMirror }: TodayToolsDrawerProps) {
@@ -24,6 +26,8 @@ export function TodayToolsDrawer({ onClose, onOpenSell, onOpenMirror }: TodayToo
   const app = useUvel();
   const C = useCopy();
   const cart = useCart();
+  const activity = useActivityNotifications(app.uid || "guest");
+  const alertUnread = activity.filter((item) => (item.kind === "price_drop" || item.kind === "restock") && !item.read).length;
   const name = app.displayName || "Uvel member";
   const handle = app.username ? `@${app.username}` : "";
   const photo = app.avatarUri;
@@ -40,7 +44,7 @@ export function TodayToolsDrawer({ onClose, onOpenSell, onOpenMirror }: TodayToo
     { icon: "add-circle-outline", label: "List an item", onPress: onOpenSell },
   ];
   const moreTools: Tool[] = [
-    { icon: "notifications-outline", label: "Price & restock alerts", onPress: () => router.push("/alerts") },
+    { icon: "notifications-outline", label: "Price & restock alerts", badge: alertUnread, onPress: () => router.push("/alerts") },
     { icon: "help-circle-outline", label: C.helpSupport, onPress: () => router.push("/guide") },
     { icon: "settings-outline", menuIcon: true, label: C.settings, onPress: () => router.push("/settings") },
   ];
@@ -117,6 +121,7 @@ function ToolRow({ tool, styles, onClose }: { tool: Tool; styles: ReturnType<typ
     >
       {tool.menuIcon ? <View style={styles.menuIcon} accessibilityElementsHidden><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View> : <Ionicons name={tool.icon} size={22} color={styles.label.color} />}
       <Text style={styles.label}>{tool.label}</Text>
+      {tool.badge && tool.badge > 0 ? <View style={styles.badge}><Text style={styles.badgeText}>{tool.badge > 99 ? "99+" : tool.badge}</Text></View> : null}
     </Pressable>
   );
 }
@@ -137,6 +142,8 @@ function make(colors: Colors) {
     menuIcon: { width: 22, gap: 4 },
     menuLine: { height: 2, width: 22, borderRadius: 1, backgroundColor: colors.bone },
     label: { color: colors.bone, fontSize: 18, fontWeight: "700" },
+    badge: { minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", marginLeft: "auto" },
+    badgeText: { color: colors.successInk, fontSize: 11, fontWeight: "900" },
     signOutRow: { minHeight: 56, flexDirection: "row", alignItems: "center", gap: 16 },
     signOutLabel: { color: colors.bone, fontSize: 18, fontWeight: "700" },
   });

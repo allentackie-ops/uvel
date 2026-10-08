@@ -39,6 +39,13 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "expiresAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "listingAlertViews",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "listingId", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -5,6 +5,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
+import { markActivityNotificationRead } from "../lib/activityNotifications";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { LaunchSplash } from "../components/LaunchSplash";
@@ -102,6 +103,12 @@ function PushSync() {
           const listingId = typeof data.listingId === "string" ? data.listingId : typeof data.pieceId === "string" ? data.pieceId : "";
           const offerId = typeof data.offerId === "string" ? data.offerId : "";
           const offerThreadId = typeof data.threadId === "string" ? data.threadId : "";
+          if ((kind === "price_drop" || kind === "restock") && listingId) {
+            const alertId = typeof data.alertId === "string" ? data.alertId : "";
+            if (alertId) void markActivityNotificationRead(uid, alertId);
+            router.push({ pathname: "/closet/[id]", params: { id: listingId } });
+            return;
+          }
           if (kind === "offer_accepted" && listingId && offerId) {
             router.push({ pathname: "/checkout/[id]", params: { id: listingId, offerId } });
             return;

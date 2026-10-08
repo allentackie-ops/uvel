@@ -37,7 +37,8 @@ export default function Alerts() {
   const { preferences, events } = useAlertCenter(app.uid);
   const activity = useActivityNotifications(app.uid || "guest");
   const offerActivity = activity.filter((item) => item.kind.startsWith("offer_"));
-  const otherActivity = activity.filter((item) => !item.kind.startsWith("offer_"));
+  const priceRestockActivity = activity.filter((item) => item.kind === "price_drop" || item.kind === "restock");
+  const otherActivity = activity.filter((item) => !item.kind.startsWith("offer_") && item.kind !== "price_drop" && item.kind !== "restock");
 
   function openListing(id: string, eventId?: string, source: "today" | "immersive" = "today") {
     if (eventId) void markAlertRead(app.uid, eventId);
@@ -50,6 +51,10 @@ export default function Alerts() {
 
   function openActivity(item: (typeof activity)[number]) {
     void markActivityNotificationRead(app.uid || "guest", item.id);
+    if ((item.kind === "price_drop" || item.kind === "restock") && item.lookId) {
+      router.push({ pathname: "/closet/[id]", params: { id: item.lookId } });
+      return;
+    }
     if (item.kind === "offer_accepted" && item.lookId && item.offerId) {
       router.push({ pathname: "/checkout/[id]", params: { id: item.lookId, offerId: item.offerId } });
       return;
@@ -71,7 +76,7 @@ export default function Alerts() {
     <View style={styles.page}>
       <ScrollView contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
         <Header styles={styles} />
-        <Text style={styles.sectionTitle}>Watching · {preferences.length}</Text>
+        <Text style={styles.sectionTitle}>Saved alert preferences · {preferences.length}</Text>
         {preferences.length ? preferences.map((preference) => {
           const piece = getPiece(preference.listingId) || pieces.find((item) => item.id === preference.listingId);
           return (
@@ -86,12 +91,22 @@ export default function Alerts() {
           );
         }) : (
           <View style={styles.panel}>
-            <Text style={styles.panelTitle}>Nothing watched yet</Text>
-            <Text style={styles.panelCopy}>Open a saved listing and choose Price drops, Restocks, or Both.</Text>
+            <Text style={styles.panelTitle}>Listing views are tracked automatically</Text>
+            <Text style={styles.panelCopy}>Open a listing to receive price-drop and restock alerts. Any optional per-listing preferences you have saved will appear here.</Text>
           </View>
         )}
 
-        <Text style={styles.sectionTitle}>Saved-item alerts</Text>
+        <Text style={styles.sectionTitle}>Price & restock alerts</Text>
+        {priceRestockActivity.length ? priceRestockActivity.slice(0, 20).map((item) => (
+          <Pressable key={`activity-${item.id}`} onPress={() => openActivity(item)} style={[styles.event, !item.read && styles.eventUnread]} accessibilityRole="button" accessibilityLabel={`${item.title}. Open listing.`}>
+            {item.imageUrl ? <Image cachePolicy="memory-disk" source={{ uri: item.imageUrl }} style={styles.eventThumb} contentFit="cover" /> : <View style={styles.eventThumb} />}
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={styles.eventTop}><Text style={styles.eventTitle} numberOfLines={1}>{item.title}</Text>{!item.read ? <View style={styles.unread} /> : null}</View>
+              <Text style={styles.eventBody} numberOfLines={2}>{item.body}</Text>
+              <Text style={styles.eventTime}>{ago(item.at)}</Text>
+            </View>
+          </Pressable>
+        )) : null}
         {events.length ? events.slice(0, 20).map((event) => (
           <Pressable key={event.id} onPress={() => openListing(event.listingId, event.id, event.source === "immersive" ? "immersive" : "today")} style={[styles.event, !event.read && styles.eventUnread]} accessibilityRole="button" accessibilityLabel={`Open ${event.title} for ${event.listingName}`}>
             {event.photo ? <Image cachePolicy="memory-disk" source={{ uri: event.photo }} style={styles.eventThumb} contentFit="cover" /> : <View style={styles.eventThumb} />}
@@ -104,12 +119,12 @@ export default function Alerts() {
               <Text style={styles.eventTime}>{ago(event.at)}</Text>
             </View>
           </Pressable>
-        )) : (
+        )) : !priceRestockActivity.length ? (
           <View style={styles.panel}>
             <Text style={styles.panelTitle}>No alerts yet</Text>
-            <Text style={styles.panelCopy}>When a watched listing changes and Uvel records it, the alert will appear here.</Text>
+            <Text style={styles.panelCopy}>When a listing you viewed drops in price or comes back in stock, the alert will appear here.</Text>
           </View>
-        )}
+        ) : null}
 
         <Text style={styles.sectionTitle}>Offers & sales</Text>
         {offerActivity.length ? offerActivity.slice(0, 20).map((item) => (

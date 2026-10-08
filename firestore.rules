@@ -80,6 +80,14 @@ service cloud.firestore {
       allow create, delete: if false;
     }
 
+    match /users/{uid}/listingAlertViews/{listingId} {
+      allow read, write: if false;
+    }
+
+    match /users/{uid}/listingAlertOptOuts/{listingId} {
+      allow read, write: if false;
+    }
+
     match /users/{uid}/mirrorJobs/{jobId} {
       allow read: if isSelf(uid);
       allow create, update, delete: if false;

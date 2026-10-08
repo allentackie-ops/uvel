@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
+import { httpsCallable } from "firebase/functions";
 import type { ClosetPiece } from "./wardrobe";
+import { firebaseFunctions, firebaseReady } from "./firebase";
 import { armNotificationHandler, UVEL_SOUND } from "./push";
 
 export type AlertKind = "price_drop" | "restock" | "both";
@@ -14,6 +16,7 @@ export type AlertPreference = {
   lastPriceCents: number;
   baselineStock: number | null;
   lastStock: number | null;
+  serverTracked?: boolean;
   createdAt: number;
   updatedAt: number;
 };
@@ -65,6 +68,7 @@ function normalizePreference(value: AlertPreference): AlertPreference {
     lastPriceCents: Math.max(0, Number(value.lastPriceCents) || 0),
     baselineStock: typeof value.baselineStock === "number" ? Math.max(0, value.baselineStock) : null,
     lastStock: typeof value.lastStock === "number" ? Math.max(0, value.lastStock) : null,
+    serverTracked: Boolean(value.serverTracked),
   };
 }
 
@@ -161,6 +165,10 @@ export async function setAlertPreference(uid: string, piece: ClosetPiece, kind: 
   if (!uid || !piece.id) return false;
   await hydrateAlerts(uid);
   if (kind === "off") {
+    if (firebaseReady()) {
+      const stop = httpsCallable<{ listingId: string }, { stopped: boolean }>(firebaseFunctions(), "stopListingAlert");
+      await stop({ listingId: piece.id });
+    }
     delete preferences[piece.id];
     await persist();
     emit();
@@ -176,11 +184,13 @@ export async function setAlertPreference(uid: string, piece: ClosetPiece, kind: 
     lastPriceCents: Math.max(0, piece.listPriceCents),
     baselineStock: current?.baselineStock ?? stock,
     lastStock: stock,
+    serverTracked: current?.serverTracked ?? false,
     createdAt: current?.createdAt ?? Date.now(),
     updatedAt: Date.now(),
   };
   await persist();
   emit();
+  if (firebaseReady()) await recordListingView(uid, piece.id, { explicitOptIn: true, alertKind: kind });
   return true;
 }
 
@@ -188,6 +198,25 @@ export async function enableAlert(uid: string, piece: ClosetPiece, kind: AlertKi
   const permission = await requestLocalPermission();
   const saved = await setAlertPreference(uid, piece, kind, source);
   return { saved, permission };
+}
+
+export async function recordListingView(uid: string, listingId: string, options: { explicitOptIn?: boolean; alertKind?: AlertKind } = {}) {
+  if (!uid || !listingId || !firebaseReady()) return false;
+  try {
+    await hydrateAlerts(uid);
+    const record = httpsCallable<{ listingId: string; explicitOptIn?: boolean; alertKind?: AlertKind }, { tracked: boolean }>(firebaseFunctions(), "recordListingView");
+    const result = await record({ listingId, ...options });
+    const tracked = Boolean(result.data?.tracked);
+    const preference = uid === activeUid ? preferences[listingId] : undefined;
+    if (tracked && preference && !preference.serverTracked) {
+      preferences[listingId] = { ...preference, serverTracked: true };
+      await persist();
+      emit();
+    }
+    return tracked;
+  } catch {
+    return false;
+  }
 }
 
 export function getAlertPreference(uid: string, listingId: string) {
@@ -214,6 +243,17 @@ export async function observeListing(uid: string, piece: ClosetPiece) {
   await hydrateAlerts(uid);
   const preference = preferences[piece.id];
   if (!preference) return;
+  const serverTrackable = piece.status === "listed" || piece.status === "sold";
+  if (serverTrackable && preference.serverTracked) {
+    preferences[piece.id] = {
+      ...preference,
+      lastPriceCents: Math.max(0, piece.listPriceCents),
+      lastStock: stockOf(piece),
+      updatedAt: Date.now(),
+    };
+    await persist();
+    return;
+  }
   const currentPrice = Math.max(0, piece.listPriceCents);
   const currentStock = stockOf(piece);
   const at = Date.now();
@@ -261,6 +301,7 @@ export async function observeListing(uid: string, piece: ClosetPiece) {
   }
   await persist();
   if (nextEvents.length) emit();
+  if (serverTrackable && !preference.serverTracked) void recordListingView(uid, piece.id, { explicitOptIn: true, alertKind: preference.kind });
 }
 
 export function useAlertPreference(uid: string, listingId: string) {

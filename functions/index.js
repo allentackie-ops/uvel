@@ -17,6 +17,7 @@ const wallet = require("./wallet");
 const { quoteGroupedLine, groupedCarrier } = require("./groupedCheckoutMath");
 const stripeConnect = require("./stripeConnect");
 const { notifyUid } = require("./notify");
+const { detectListingAlertKinds, allowsListingAlertKind } = require("./listingAlertLogic");
 const { assertListingOfferLock, assertOfferOrderPricing } = require("./offerPricing");
 Object.assign(exports, require("./listingOffers"));
 const listingReview = require("./listingReview");
@@ -2695,6 +2696,137 @@ async function notifyListingReview(db, listingId, listing, title, body, status, 
   }, { merge: true });
   await notifyUid(db, uid, title, body, { kind: "listing_review", listingId, status });
 }
+
+exports.recordListingView = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in to track listing alerts.");
+  const listingId = String(req.data?.listingId || "").trim();
+  if (!listingId || listingId.length > 150 || listingId.includes("/")) throw new HttpsError("invalid-argument", "A valid listing ID is required.");
+  const db = admin.firestore();
+  const listingRef = db.collection("listings").doc(listingId);
+  const listingSnap = await listingRef.get();
+  if (!listingSnap.exists) return { tracked: false };
+  const listing = listingSnap.data() || {};
+  if (listing.status !== "listed" && listing.status !== "sold") return { tracked: false };
+  const sellerUid = String(listing.ownerId || listing.listedByUid || "");
+  if (sellerUid && sellerUid === req.auth.uid) return { tracked: false };
+
+  const now = Date.now();
+  const userRef = db.collection("users").doc(req.auth.uid);
+  const viewRef = userRef.collection("listingAlertViews").doc(listingId);
+  const optOutRef = userRef.collection("listingAlertOptOuts").doc(listingId);
+  const explicitOptIn = req.data?.explicitOptIn === true;
+  const requestedAlertKind = ["price_drop", "restock", "both"].includes(String(req.data?.alertKind || ""))
+    ? String(req.data.alertKind)
+    : "both";
+  const tracked = await db.runTransaction(async (tx) => {
+    const previous = await tx.get(viewRef);
+    const optOut = await tx.get(optOutRef);
+    if (optOut.exists && !explicitOptIn) return false;
+    const data = previous.exists ? previous.data() || {} : {};
+    if (optOut.exists) tx.delete(optOutRef);
+    tx.set(viewRef, {
+      viewerUid: req.auth.uid,
+      listingId,
+      alertKind: explicitOptIn ? requestedAlertKind : (["price_drop", "restock", "both"].includes(String(data.alertKind || "")) ? data.alertKind : "both"),
+      firstViewedAt: timestampMillis(data.firstViewedAt) || now,
+      lastViewedAt: now,
+      expiresAt: now + 180 * 24 * 60 * 60 * 1000,
+    }, { merge: true });
+    return true;
+  });
+  return { tracked };
+});
+
+exports.stopListingAlert = onCall(async (req) => {
+  if (!req.auth) throw new HttpsError("unauthenticated", "Sign in to update listing alerts.");
+  const listingId = String(req.data?.listingId || "").trim();
+  if (!listingId || listingId.length > 150 || listingId.includes("/")) throw new HttpsError("invalid-argument", "A valid listing ID is required.");
+  const userRef = admin.firestore().collection("users").doc(req.auth.uid);
+  const batch = admin.firestore().batch();
+  batch.delete(userRef.collection("listingAlertViews").doc(listingId));
+  batch.set(userRef.collection("listingAlertOptOuts").doc(listingId), {
+    viewerUid: req.auth.uid,
+    listingId,
+    disabledAt: Date.now(),
+  }, { merge: true });
+  await batch.commit();
+  return { stopped: true };
+});
+
+exports.notifyListingViewersOfPriceOrRestock = onDocumentWritten({ document: "listings/{listingId}" }, async (event) => {
+  const beforeSnap = event.data?.before;
+  const afterSnap = event.data?.after;
+  if (!beforeSnap?.exists || !afterSnap?.exists) return;
+  const before = beforeSnap.data() || {};
+  const after = afterSnap.data() || {};
+  const changeKinds = detectListingAlertKinds(before, after);
+  if (!changeKinds.length) return;
+
+  const listingId = String(event.params.listingId || afterSnap.id);
+
+  const db = admin.firestore();
+  const sellerUid = String(after.ownerId || after.listedByUid || "");
+  const listingName = String(after.name || "A listing you viewed").trim().slice(0, 120);
+  const imageUrl = String(after.photo || (Array.isArray(after.photos) ? after.photos[0] : "") || "");
+  const updateAt = afterSnap.updateTime?.toMillis?.() || Date.now();
+  const changes = [];
+  if (changeKinds.includes("price_drop")) changes.push({
+    kind: "price_drop",
+    title: "Price drop on a listing you viewed",
+    body: `The seller reduced the price of ${listingName}. Tap to see the updated listing.`,
+    pushBody: "A listing you viewed has dropped in price. Tap to see it.",
+  });
+  if (changeKinds.includes("restock")) changes.push({
+    kind: "restock",
+    title: "A listing you viewed is back in stock",
+    body: `The seller restocked ${listingName}. Tap to see the listing.`,
+    pushBody: "A listing you viewed is back in stock. Tap to see it.",
+  });
+
+  const watchers = await db.collectionGroup("listingAlertViews").where("listingId", "==", listingId).get();
+  for (let offset = 0; offset < watchers.docs.length; offset += 25) {
+    await Promise.all(watchers.docs.slice(offset, offset + 25).map(async (watcherSnap) => {
+      const watcher = watcherSnap.data() || {};
+      const viewerUid = String(watcher.viewerUid || watcherSnap.ref.parent.parent?.id || "");
+      if (!viewerUid || viewerUid === sellerUid) return;
+      if (timestampMillis(watcher.lastViewedAt) > updateAt) return;
+      if (timestampMillis(watcher.expiresAt) && timestampMillis(watcher.expiresAt) <= Date.now()) {
+        await watcherSnap.ref.delete().catch(() => undefined);
+        return;
+      }
+      for (const change of changes) {
+        if (!allowsListingAlertKind(watcher.alertKind, change.kind)) continue;
+        const eventKey = String(event.id || updateAt);
+        const digest = crypto.createHash("sha256").update(`${viewerUid}|${listingId}|${change.kind}|${eventKey}`).digest("hex").slice(0, 40);
+        const notificationId = `listing_alert_${digest}`;
+        const notificationRef = db.collection("users").doc(viewerUid).collection("notifications").doc(notificationId);
+        const created = await db.runTransaction(async (tx) => {
+          const existing = await tx.get(notificationRef);
+          if (existing.exists) return false;
+          tx.create(notificationRef, {
+            id: notificationId,
+            kind: change.kind,
+            title: change.title,
+            body: change.body,
+            listingId,
+            imageUrl,
+            readAt: null,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          return true;
+        });
+        if (created) {
+          await notifyUid(db, viewerUid, change.title, change.pushBody, {
+            kind: change.kind,
+            listingId,
+            pieceId: listingId,
+            alertId: notificationId,
+          });
+        }
+      }
+    }));
+  }
+});
 
 exports.notifyListingFollowers = onDocumentWritten({ document: "listings/{listingId}" }, async (event) => {
   const afterSnap = event.data?.after;
