@@ -300,7 +300,7 @@ export default function Checkout() {
       const raw = error instanceof Error ? error.message : String(error || "");
       setPromotionMessage(
         /not-found|404|not connected|unavailable/i.test(raw)
-          ? "Promotions will be available when Firebase checkout is deployed."
+          ? "Promotions are temporarily unavailable through Supabase. Please try again."
           : raw || "That promotion is not valid for this listing.",
       );
     } finally {
