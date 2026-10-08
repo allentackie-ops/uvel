@@ -121,8 +121,8 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#F5EEE7",
-          "image": "./assets/splash.png",
-          "resizeMode": "contain",
+          "image": "./assets/launch/uvel-intro-poster.jpg",
+          "resizeMode": "cover",
           "enableFullScreenImage_legacy": true
         }
       ],
