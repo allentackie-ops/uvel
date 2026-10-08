@@ -141,7 +141,7 @@ export default function TabsLayout() {
   const isCreate = pageIndex === 1;
   const createTabBackground = appearance === "dark" ? colors.ink : "#FFFEFC";
   const createTabInactive = appearance === "dark" ? "#A9A398" : "#6F6A69";
-  const createTabActive = appearance === "dark" ? "#FF8797" : "#A52231";
+  const createTabActive = appearance === "dark" ? "#FFFFFF" : "#111111";
   const tabBackground = isCreate ? createTabBackground : colors.ink;
   const tabInactive = isCreate ? createTabInactive : inactiveIcon;
   const tabActive = isCreate ? createTabActive : colors.success;
