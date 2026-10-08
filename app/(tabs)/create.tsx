@@ -191,7 +191,7 @@ function openLaunch(kind: (typeof LAUNCH_ITEMS)[number]["kind"], brand?: Brand) 
 function makeStyles(colors: Colors, width: number, _fontLoaded: boolean) {
   const dark = colors.ink !== "#FFFFFF";
   const horizontal = Math.max(14, Math.min(22, width * 0.042));
-  const heroHeight = Math.max(208, Math.min(238, width * 0.55));
+  const heroHeight = Math.max(230, Math.min(278, width * 0.64));
   const cardHeight = Math.max(164, Math.min(184, width * 0.42));
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: dark ? colors.ink : "#FFFEFC" },
@@ -202,7 +202,7 @@ function makeStyles(colors: Colors, width: number, _fontLoaded: boolean) {
     subtitle: { color: dark ? colors.muted : "#5D5D5D", fontSize: 16, lineHeight: 21, fontWeight: "600", marginTop: 0 },
     hero: { height: heroHeight, borderRadius: 19, overflow: "hidden", position: "relative", marginBottom: 16 },
     heroSlide: { ...StyleSheet.absoluteFill, overflow: "hidden" },
-    heroModel: { position: "absolute", right: -28, bottom: -40, width: "100%", height: "150%" },
+    heroModel: { position: "absolute", right: -28, bottom: -40, width: "110%", height: "160%" },
     heroCopy: { position: "absolute", left: 17, top: 27, zIndex: 3, width: "61%" },
     heroTitle: { fontSize: 27, lineHeight: 30, fontWeight: "900", letterSpacing: -0.8 },
     heroScript: { fontSize: 49, lineHeight: 46, fontWeight: "700", marginTop: -2, marginBottom: -2 },
