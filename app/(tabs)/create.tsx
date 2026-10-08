@@ -23,6 +23,19 @@ const PEACH = "#FCE9EF";
 
 const BANNERS = [
   {
+    poster: require("../../assets/create/creator-popout-rose.jpg"),
+    image: null,
+    composite: true,
+    background: "#8C0B20",
+    title: "Your next",
+    script: "big idea",
+    finish: "starts here",
+    titleColor: "#FFFFFF",
+    scriptColor: "#FFA0AE",
+    burst: "#FFB35C",
+    tags: ["IDEA", "DROP", "BRAND"],
+  },
+  {
     poster: require("../../assets/create/hero-poster-bg-ruby.jpg"),
     image: require("../../assets/create/hero-model-ruby.png"),
     background: "#A71332",
@@ -129,7 +142,7 @@ function HeroCarousel({ brand, styles, fontLoaded }: { brand?: Brand; styles: Sc
     <View style={[styles.hero, { backgroundColor: banner.background }]}>
       <Animated.View style={[styles.heroSlide, slideStyle]}>
         <Image source={banner.poster} style={styles.heroBackdrop} contentFit="cover" cachePolicy="memory-disk" />
-        <Image source={banner.image} style={styles.heroModel} contentFit="contain" cachePolicy="memory-disk" />
+        {banner.image ? <Image source={banner.image} style={styles.heroModel} contentFit="contain" cachePolicy="memory-disk" /> : null}
         <View style={styles.heroCopy}>
           <Text style={[styles.heroTitle, { color: banner.titleColor }]}>{banner.title}</Text>
           <Text style={[styles.heroScript, { color: banner.scriptColor, fontFamily: fontLoaded ? "UvelAllura" : "Georgia" }]}>{banner.script}</Text>
@@ -139,10 +152,12 @@ function HeroCarousel({ brand, styles, fontLoaded }: { brand?: Brand; styles: Sc
             <Text style={styles.heroButtonText}>Start creating</Text><Ionicons name="chevron-forward" size={20} color={MARKET_RED} />
           </Pressable>
         </View>
-        <View style={[styles.sticker, styles.stickerIdea, { transform: [{ rotate: "8deg" }] }]}><Text style={styles.stickerText}>{banner.tags[0]}</Text></View>
-        <View style={[styles.sticker, styles.stickerDrop, { backgroundColor: banner.burst, transform: [{ rotate: "-10deg" }] }]}><Text style={styles.stickerText}>{banner.tags[1]}</Text></View>
-        <View style={[styles.sticker, styles.stickerBrand, { transform: [{ rotate: "-6deg" }] }]}><Text style={styles.stickerText}>{brand ? "YOUR BRAND" : banner.tags[2]}</Text></View>
-        <View style={[styles.burstOne, { backgroundColor: banner.burst }]} /><View style={[styles.burstTwo, { backgroundColor: banner.burst }]} /><View style={styles.burstThree} />
+        {banner.composite ? null : <>
+          <View style={[styles.sticker, styles.stickerIdea, { transform: [{ rotate: "8deg" }] }]}><Text style={styles.stickerText}>{banner.tags[0]}</Text></View>
+          <View style={[styles.sticker, styles.stickerDrop, { backgroundColor: banner.burst, transform: [{ rotate: "-10deg" }] }]}><Text style={styles.stickerText}>{banner.tags[1]}</Text></View>
+          <View style={[styles.sticker, styles.stickerBrand, { transform: [{ rotate: "-6deg" }] }]}><Text style={styles.stickerText}>{brand ? "YOUR BRAND" : banner.tags[2]}</Text></View>
+          <View style={[styles.burstOne, { backgroundColor: banner.burst }]} /><View style={[styles.burstTwo, { backgroundColor: banner.burst }]} /><View style={styles.burstThree} />
+        </>}
       </Animated.View>
     </View>
   );
