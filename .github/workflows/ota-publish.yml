@@ -16,6 +16,15 @@ on:
         required: true
         default: "Add Today visual search camera flow"
         type: string
+      platform:
+        description: "Platform to publish"
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - ios
+          - android
       ios_group_id:
         description: "Required for rollback: latest iOS update group ID"
         required: false
@@ -50,9 +59,7 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           CI: "1"
-        run: |
-          npx eas-cli@latest update --channel production --platform ios --message "${{ inputs.message }}"
-          npx eas-cli@latest update --channel production --platform android --message "${{ inputs.message }}"
+        run: npx eas-cli@latest update --channel production --platform "${{ inputs.platform }}" --message "${{ inputs.message }}"
   rollback:
     if: ${{ inputs.action == 'rollback' }}
     runs-on: ubuntu-latest
