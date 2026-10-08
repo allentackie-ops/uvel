@@ -29,7 +29,7 @@ import { useCopy } from "../../lib/useCopy";
 import { useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
 import { useLiveShopCampaigns } from "../../lib/marketing";
-import { getPiece, refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
+import { refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
 import { FEED_PAGE_SIZE, feedPage } from "../../lib/feedOrder";
 import { unreadFor, useInbox } from "../../lib/chat";
 import { useFriendChatUnread } from "../../lib/friendChat";
@@ -430,7 +430,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
 
   const shopCampaignRows = useMemo(() => liveCampaigns
     .filter((campaign) => campaign.channel === "shop" && (!campaign.startAt || campaign.startAt <= Date.now()) && (!campaign.endAt || campaign.endAt >= Date.now()))
-    .map((campaign) => ({ campaign, lead: campaign.productIds.map((productId) => live.find((piece) => piece.id === productId) || getPiece(productId)).find(Boolean) }))
+    .map((campaign) => ({ campaign, lead: campaign.productIds.map((productId) => live.find((piece) => piece.id === productId)).find(Boolean) }))
     .filter((row): row is { campaign: (typeof liveCampaigns)[number]; lead: (typeof live)[number] } => Boolean(row.lead))
     .slice(0, 6), [liveCampaigns, live]);
 

@@ -2,10 +2,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image as RNImage } from "react-native";
 import { useEffect, useState } from "react";
 import * as FileSystem from "expo-file-system";
-import { collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, setDoc, where } from "firebase/firestore";
+import { deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { GARMENTS, type Category } from "./catalog";
 import { firebaseAuth, firebaseDb, firebaseFunctions, firebaseReady } from "./firebase";
 import { httpsCallable } from "firebase/functions";
+import { fetchSupabaseMarketplaceListings, type SupabaseMarketplaceListing } from "./supabaseMarketplaceFeed";
 import { reviewListingPhoto } from "./photoCheck";
 import { listingVisibleIn, type ShipsTo } from "./ships";
 
@@ -173,13 +174,13 @@ const NAMES: Record<Category, string[]> = {
 let pieces: ClosetPiece[] = [];
 const listeners = new Set<() => void>();
 let listingsWatchStarted = false;
-let listingsUnsubscribe: (() => void) | null = null;
-let settleListings: () => void = () => undefined;
+let listingsRequestId = 0;
 let listingsSettled: Promise<void> = Promise.resolve();
 let wardrobeHydrated = false;
 const remoteListingIds = new Set<string>();
 export type MarketplaceSyncState = "loading" | "confirmed" | "unavailable";
 let marketplaceSyncState: MarketplaceSyncState = "loading";
+const MARKETPLACE_SYNC_TIMEOUT_MS = 12_000;
 
 function timestampMillis(value: unknown) {
   if (typeof value === "number") return value;
@@ -217,93 +218,68 @@ function normalize(p: ClosetPiece): ClosetPiece {
   };
 }
 
-function settleListingSnapshot() {
-  settleListings();
-  settleListings = () => undefined;
+function supabaseListingToPiece(listing: SupabaseMarketplaceListing): ClosetPiece {
+  const categoryValue = String(listing.category || "").trim().toLowerCase();
+  const category = CATS.find((item) => item.toLowerCase() === categoryValue) || "Accessories";
+  const photos = Array.isArray(listing.photos) ? listing.photos.filter((photo) => typeof photo === "string" && photo.length > 0) : [];
+  const priceCents = Number.isFinite(Number(listing.priceCents)) ? Number(listing.priceCents) : 0;
+  const parsedCreatedAt = listing.createdAt ? Date.parse(listing.createdAt) : Number.NaN;
+  const ownerId = listing.ownerId || undefined;
+  return normalize({
+    id: listing.id,
+    photo: photos[0] || "",
+    photos,
+    name: listing.title || "Your piece",
+    brand: listing.brand || "Unlabeled",
+    category,
+    color: listing.color || "",
+    size: listing.size || "",
+    condition: listing.condition || "",
+    material: listing.material || "",
+    notes: listing.description || "",
+    listPriceCents: priceCents,
+    originalPriceCents: priceCents,
+    status: "listed",
+    createdAt: Number.isFinite(parsedCreatedAt) ? parsedCreatedAt : Date.now(),
+    ownerId,
+    listedByUid: ownerId,
+    country: listing.country || undefined,
+    currency: listing.currency || undefined,
+    stockQuantity: 1,
+  });
 }
 
 function watchPublicListings(force = false): Promise<void> {
   if (listingsWatchStarted && !force) return listingsSettled;
-  if (force) {
-    listingsUnsubscribe?.();
-    listingsUnsubscribe = null;
-    listingsWatchStarted = false;
-    settleListingSnapshot();
-  }
-  if (!firebaseReady()) {
-    setMarketplaceSyncState("unavailable");
-    return Promise.resolve();
-  }
-  listingsSettled = new Promise<void>((resolve) => {
-    settleListings = resolve;
-  });
+  const requestId = ++listingsRequestId;
   listingsWatchStarted = true;
   setMarketplaceSyncState("loading");
-  try {
-    const q = query(collection(firebaseDb(), "listings"), where("status", "==", "listed"));
-    listingsUnsubscribe = onSnapshot(q, (snap) => {
-      if (!snap.metadata.fromCache) {
-        remoteListingIds.clear();
-        snap.docs.forEach((document) => {
-          if (document.metadata.hasPendingWrites) return;
-          const data = document.data() as Record<string, unknown>;
-          const identity = {
-            brandId: typeof data.brandId === "string" ? data.brandId : undefined,
-            ownerId: typeof data.ownerId === "string" && data.ownerId.trim()
-              ? data.ownerId.trim()
-              : typeof data.listedByUid === "string" && data.listedByUid.trim()
-                ? data.listedByUid.trim()
-                : undefined,
-          };
-          if (!isDemoListing(identity)) remoteListingIds.add(document.id);
-        });
-      }
-      snap.docChanges().forEach((change) => {
-        const existing = pieces.find((piece) => piece.id === change.doc.id);
-        if (change.type === "removed") {
-          if (!snap.metadata.fromCache) remoteListingIds.delete(change.doc.id);
-          if (!snap.metadata.fromCache && existing && existing.brandId) {
-            pieces = pieces.map((piece) => piece.id === change.doc.id ? { ...piece, status: "sold", stockQuantity: 0 } : piece);
-          }
-          return;
-        }
-        const data = change.doc.data() as Record<string, unknown>;
-        const remoteOwnerId = typeof data.ownerId === "string" && data.ownerId.trim()
-          ? data.ownerId.trim()
-          : typeof data.listedByUid === "string" && data.listedByUid.trim()
-            ? data.listedByUid.trim()
-            : undefined;
-        const remoteOwnerName = typeof data.ownerName === "string" && data.ownerName.trim()
-          ? data.ownerName.trim()
-          : typeof data.listedByName === "string" && data.listedByName.trim()
-            ? data.listedByName.trim()
-            : undefined;
-        const remote = normalize({
-          ...(data as unknown as ClosetPiece),
-          id: change.doc.id,
-          ownerId: remoteOwnerId,
-          ownerName: remoteOwnerName,
-          createdAt: timestampMillis(data.createdAt),
-        });
-        if (isDemoListing(remote)) return;
-        if (!snap.metadata.fromCache && !change.doc.metadata.hasPendingWrites) remoteListingIds.add(remote.id);
-        pieces = pieces.some((piece) => piece.id === remote.id)
-          ? pieces.map((piece) => piece.id === remote.id ? { ...piece, ...remote } : piece)
-          : [remote, ...pieces];
-      });
-      setMarketplaceSyncState(snap.metadata.fromCache ? "loading" : "confirmed");
-      if (!snap.metadata.fromCache) settleListingSnapshot();
-    }, () => {
-      listingsWatchStarted = false;
-      listingsUnsubscribe = null;
-      setMarketplaceSyncState("unavailable");
-      settleListingSnapshot();
+
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error("Supabase marketplace refresh timed out.")), MARKETPLACE_SYNC_TIMEOUT_MS);
+  });
+  listingsSettled = Promise.race([fetchSupabaseMarketplaceListings(100), deadline])
+    .then((listings) => {
+      if (requestId !== listingsRequestId) return;
+      const refreshed = listings.map(supabaseListingToPiece).filter((piece) => !isDemoListing(piece));
+      const nextRemoteIds = new Set(refreshed.map((piece) => piece.id));
+      const previousRemoteIds = new Set(remoteListingIds);
+      remoteListingIds.clear();
+      nextRemoteIds.forEach((id) => remoteListingIds.add(id));
+      pieces = [
+        ...refreshed,
+        ...pieces.filter((piece) => !previousRemoteIds.has(piece.id) && !nextRemoteIds.has(piece.id)),
+      ];
+      setMarketplaceSyncState("confirmed");
+    })
+    .catch(() => {
+      if (requestId === listingsRequestId) setMarketplaceSyncState("unavailable");
+    })
+    .finally(() => {
+      if (timeout) clearTimeout(timeout);
+      if (requestId === listingsRequestId) listingsWatchStarted = false;
     });
-  } catch {
-    listingsWatchStarted = false;
-    setMarketplaceSyncState("unavailable");
-    settleListingSnapshot();
-  }
   return listingsSettled;
 }
 
@@ -405,7 +381,7 @@ export function listedPieces() {
   return pieces.filter((p) => p.status === "listed" && !p.sellerPaused && remoteListingIds.has(p.id));
 }
 
-/** Bundled catalog used while the public marketplace is unavailable. */
+/** Bundled catalog for explicit demo/preview surfaces; never used by live marketplace reads. */
 export function fallbackShopFloor() {
   return testShopPieces();
 }
@@ -415,7 +391,7 @@ export function shopFloor(buyerCountry: string) {
   const remote = listedPieces().filter((p) =>
     listingVisibleIn({ origin: p.country, shipsTo: p.shipsTo, buyer: buyerCountry }),
   );
-  return remote.length ? remote : fallbackShopFloor();
+  return remote;
 }
 
 export async function analyzePhoto(photo: string): Promise<Omit<ClosetPiece, "id" | "status" | "createdAt">> {

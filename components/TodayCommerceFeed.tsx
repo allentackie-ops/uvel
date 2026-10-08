@@ -194,6 +194,18 @@ export function TodayCommerceFeed({
       >
       <PosterCarousel banners={bannerTemplates} onOpenBanner={onOpenBanner} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterHeight={posterHeight} posterInterval={posterInterval} />
 
+      {pieces.length === 0 ? (
+        <View style={{ marginHorizontal: 20, marginTop: 26, padding: 22, borderRadius: 20, backgroundColor: "#201F1C", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" }}>
+          <Ionicons name="shirt-outline" size={28} color={colors.bone} />
+          <Text style={{ color: colors.bone, fontSize: 19, fontWeight: "800", marginTop: 12 }}>No live listings yet</Text>
+          <Text style={{ color: "rgba(255,255,255,0.68)", fontSize: 14, lineHeight: 20, marginTop: 7 }}>Today shows published marketplace items from Supabase. New pieces will appear here when they are listed.</Text>
+          <Pressable onPress={onRefresh} style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7, marginTop: 16, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 999, backgroundColor: "rgba(255,255,255,0.1)" }} accessibilityRole="button" accessibilityLabel="Refresh marketplace listings">
+            <Ionicons name="refresh" size={15} color={colors.bone} />
+            <Text style={{ color: colors.bone, fontSize: 13, fontWeight: "700" }}>Refresh marketplace</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <>
       <SectionTitle title="For you" onPress={onOpenSearch} />
       <ProductRail pieces={recommended.slice(0, 4)} market={market} onOpen={onOpenPiece} deals />
 
@@ -237,6 +249,8 @@ export function TodayCommerceFeed({
 
       <SectionTitle title="Recently viewed" onPress={onOpenSearch} />
       <ProductRail pieces={personalized.slice(4, 8).length ? personalized.slice(4, 8) : personalized.slice(0, 4)} market={market} onOpen={onOpenPiece} compact />
+        </>
+      )}
       </Animated.ScrollView>
       <Modal visible={locationOpen} transparent animationType="fade" onRequestClose={() => setLocationOpen(false)} statusBarTranslucent>
         <Pressable style={styles.locationBackdrop} onPress={() => setLocationOpen(false)} accessibilityRole="button" accessibilityLabel="Close delivery address popup">
@@ -501,7 +515,7 @@ function LoopingVideo({ source, style, contentFit = "cover" }: { source: number;
       player.pause();
     };
   }, [player]);
-  return <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, style]}>
+  return <View pointerEvents="none" style={[StyleSheet.absoluteFill, style]}>
     <VideoView player={player} style={StyleSheet.absoluteFill} contentFit={contentFit} nativeControls={false} surfaceType="textureView" />
   </View>;
 }
