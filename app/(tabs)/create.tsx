@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ownedBrand, useBrands, type Brand } from "../../lib/brands";
 import { useUvel } from "../../lib/store";
 import { MARKET_RED, useColors, useResolvedAppearance, type Colors } from "../../lib/theme";
-import { useBrandListingDrafts } from "../../lib/brandListingDraft";
+import { brandListingDraftProgress, useBrandListingDrafts } from "../../lib/brandListingDraft";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const LAUNCH_IMAGES = [
@@ -17,7 +17,6 @@ const LAUNCH_IMAGES = [
   require("../../assets/create/collection-cutout.png"),
   require("../../assets/create/brand-cutout.png"),
 ];
-const DRAFT_IMAGE = require("../../assets/create/draft-leather-thumbnail.jpg");
 const PINK = "#FCE8EC";
 const PALE_YELLOW = "#FFF2E6";
 const PEACH = "#FCE9EF";
@@ -169,16 +168,42 @@ function LaunchShelf({ brand, styles }: { brand?: Brand; styles: ScreenStyles })
 }
 
 function DraftShelf({ brand, drafts, styles }: { brand?: Brand; drafts: ReturnType<typeof useBrandListingDrafts>; styles: ScreenStyles }) {
+  if (!brand) return null;
   const draft = drafts[0];
-  const title = draft?.name?.trim() || (brand ? "Your next drop" : "Leather edit");
-  const meta = draft ? "Continue your listing" : brand ? "Start a saved listing" : "60% complete";
+  if (!draft) {
+    return (
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Saved drafts</Text>
+        <View style={styles.draftEmptyCard}>
+          <View style={styles.draftEmptyIcon}><Ionicons name="shirt-outline" size={22} color={MARKET_RED} /></View>
+          <Text style={styles.draftEmptyTitle}>No unfinished products yet</Text>
+          <Text style={styles.draftEmptyBody}>Start listing a piece for {brand.name}. Anything you leave unfinished will be saved here.</Text>
+          <Pressable onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })} style={({ pressed }) => [styles.emptyDraftButton, pressed && styles.pressed]} accessibilityRole="button">
+            <Text style={styles.emptyDraftButtonText}>Start a product listing</Text><Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+  const title = draft.name.trim() || "Untitled product";
+  const completion = brandListingDraftProgress(draft);
+  const updated = new Date(draft.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const meta = `${draft.photos.length ? `${draft.photos.length} photo${draft.photos.length === 1 ? "" : "s"}` : "No photos yet"} · Updated ${updated}`;
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Saved draft</Text>
-      <Pressable onPress={() => draft && brand ? router.push({ pathname: "/brand/list", params: { id: brand.id, draftId: draft.id } }) : router.push("/brand/founder")} style={({ pressed }) => [styles.draftCard, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel={`Continue ${title}`}>
-        <Image source={DRAFT_IMAGE} style={styles.draftImage} contentFit="cover" cachePolicy="memory-disk" />
-        <View style={styles.draftCopy}><Text style={styles.draftTitle} numberOfLines={1}>{title}</Text><Text style={styles.draftMeta}>{meta}</Text><View style={styles.progressTrack}><View style={[styles.progressFill, { width: "60%" }]} /></View></View>
+      <View style={styles.draftHeading}><Text style={[styles.sectionTitle, styles.draftSectionTitle]}>Pick up where you left off</Text><Text style={styles.draftCount}>{drafts.length} saved</Text></View>
+      <Pressable onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id, draftId: draft.id } })} style={({ pressed }) => [styles.draftCard, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel={`Continue ${title}, ${completion}% complete`}>
+        {draft.photos[0]?.uri ? <Image source={{ uri: draft.photos[0].uri }} style={styles.draftImage} contentFit="cover" cachePolicy="memory-disk" /> : <View style={styles.draftImagePlaceholder}><Ionicons name="shirt-outline" size={25} color={MARKET_RED} /></View>}
+        <View style={styles.draftCopy}>
+          <Text style={styles.draftTitle} numberOfLines={1}>{title}</Text>
+          <Text style={styles.draftMeta} numberOfLines={1}>{meta}</Text>
+          <View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${completion}%` }]} /></View>
+          <Text style={styles.draftProgressText}>{completion}% complete</Text>
+        </View>
         <View style={styles.continueButton}><Text style={styles.continueText}>Continue</Text><Ionicons name="chevron-forward" size={18} color="#FFFFFF" /></View>
+      </Pressable>
+      <Pressable onPress={() => router.push({ pathname: "/brand/drafts", params: { id: brand.id } })} style={({ pressed }) => [styles.allDraftsButton, pressed && styles.pressed]} accessibilityRole="button">
+        <Text style={styles.allDraftsText}>See all {drafts.length === 1 ? "saved drafts" : `${drafts.length} saved drafts`}</Text><Ionicons name="arrow-forward" size={16} color={MARKET_RED} />
       </Pressable>
     </View>
   );
@@ -234,15 +259,28 @@ function makeStyles(colors: Colors, width: number, _fontLoaded: boolean) {
     launchImage: { position: "absolute", left: 2, right: 2, bottom: 5, height: "66%", width: "96%" },
     brandCardLabel: { position: "absolute", right: 11, bottom: 39, width: "43%", color: "#151515", fontFamily: "Georgia", fontSize: 9, lineHeight: 10, fontStyle: "italic", fontWeight: "900", textAlign: "center", transform: [{ rotate: "-8deg" }] },
     launchArrow: { position: "absolute", right: 8, bottom: 8, width: 30, height: 30, borderRadius: 16, backgroundColor: "#FFFFFFE8", alignItems: "center", justifyContent: "center" },
-    draftCard: { minHeight: 74, flexDirection: "row", alignItems: "center", overflow: "hidden", borderRadius: 14, backgroundColor: dark ? colors.surface : "#FFFFFF", borderWidth: 1, borderColor: dark ? `${colors.subtle}55` : "#E9E6E5", paddingRight: 9 },
-    draftImage: { width: 78, height: 74 },
+    draftCard: { minHeight: 88, flexDirection: "row", alignItems: "center", overflow: "hidden", borderRadius: 14, backgroundColor: dark ? colors.surface : "#FFFFFF", borderWidth: 1, borderColor: dark ? `${colors.subtle}55` : "#E9E6E5", paddingRight: 9 },
+    draftHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
+    draftSectionTitle: { marginBottom: 0, flex: 1 },
+    draftCount: { color: dark ? colors.muted : "#707070", fontSize: 11, fontWeight: "700", marginLeft: 8 },
+    draftImage: { width: 76, height: 88 },
+    draftImagePlaceholder: { width: 76, height: 88, alignItems: "center", justifyContent: "center", backgroundColor: dark ? "#33272A" : "#FCE8EC" },
     draftCopy: { flex: 1, minWidth: 0, paddingHorizontal: 11 },
     draftTitle: { color: dark ? colors.bone : "#151515", fontSize: 14, fontWeight: "900" },
     draftMeta: { color: dark ? colors.muted : "#707070", fontSize: 11, marginTop: 2 },
+    draftProgressText: { color: dark ? colors.muted : "#707070", fontSize: 10, marginTop: 4 },
     progressTrack: { height: 5, borderRadius: 3, backgroundColor: dark ? "#343841" : "#EFE9E7", overflow: "hidden", marginTop: 7 },
     progressFill: { height: "100%", borderRadius: 3, backgroundColor: MARKET_RED },
     continueButton: { flexDirection: "row", alignItems: "center", gap: 3, backgroundColor: MARKET_RED, borderRadius: 22, paddingHorizontal: 12, paddingVertical: 10 },
     continueText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
+    allDraftsButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, minHeight: 38, marginTop: 4 },
+    allDraftsText: { color: MARKET_RED, fontSize: 12, fontWeight: "800" },
+    draftEmptyCard: { alignItems: "center", borderRadius: 14, borderWidth: 1, borderColor: dark ? `${colors.subtle}55` : "#E9E6E5", backgroundColor: dark ? colors.surface : "#FFFFFF", paddingHorizontal: 20, paddingVertical: 18 },
+    draftEmptyIcon: { width: 42, height: 42, borderRadius: 22, backgroundColor: dark ? "#33272A" : "#FCE8EC", alignItems: "center", justifyContent: "center" },
+    draftEmptyTitle: { color: dark ? colors.bone : "#151515", fontSize: 15, fontWeight: "900", marginTop: 10 },
+    draftEmptyBody: { color: dark ? colors.muted : "#707070", fontSize: 12, lineHeight: 18, textAlign: "center", marginTop: 4 },
+    emptyDraftButton: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: MARKET_RED, borderRadius: 22, paddingHorizontal: 14, paddingVertical: 10, marginTop: 13 },
+    emptyDraftButtonText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
     pressed: { opacity: 0.82, transform: [{ scale: 0.985 }] },
   });
 }
