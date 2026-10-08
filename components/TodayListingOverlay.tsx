@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { LinkDisplay, PlatformPay, useStripe } from "@stripe/stripe-react-native";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, Share, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,6 +21,7 @@ import { carriersForListing } from "../lib/sellerShipping";
 import { brandMakes } from "../lib/brandMake";
 import { useUvel } from "../lib/store";
 import { recordListingView } from "../lib/alerts";
+import { recordListingTrendSignal, type TrendInteraction } from "../lib/trending";
 import { shopFloor, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import type { PersonalizationAction } from "../lib/personalization";
 import { MARKET_RED, useColors, type Colors } from "../lib/theme";
@@ -48,6 +49,25 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
   const cart = useCart();
   const brand = piece.brandId ? getBrand(piece.brandId) : undefined;
   const market = getMarket(app.country);
+  const sellerId = piece.ownerId || piece.listedByUid || "";
+  const trendOpenedAt = useRef(Date.now());
+  const trendDwellRecorded = useRef(false);
+  const recordTrendSignal = useCallback((interaction: Exclude<TrendInteraction, "qualified_view">) => {
+    if (previewOnly || piece.status !== "listed" || (sellerId && sellerId === app.uid)) return;
+    void recordListingTrendSignal({ listingId: piece.id, marketCode: market.code, interaction });
+  }, [app.uid, market.code, piece.id, piece.status, previewOnly, sellerId]);
+  const recordQualifiedDwell = useCallback(() => {
+    if (trendDwellRecorded.current || previewOnly || piece.status !== "listed" || (sellerId && sellerId === app.uid)) return;
+    const dwellSeconds = Math.floor((Date.now() - trendOpenedAt.current) / 1000);
+    if (dwellSeconds < 10) return;
+    trendDwellRecorded.current = true;
+    void recordListingTrendSignal({ listingId: piece.id, marketCode: market.code, interaction: "qualified_view", dwellSeconds });
+  }, [app.uid, market.code, piece.id, piece.status, previewOnly, sellerId]);
+  useEffect(() => {
+    trendOpenedAt.current = Date.now();
+    trendDwellRecorded.current = false;
+    return () => recordQualifiedDwell();
+  }, [market.code, piece.id, piece.status, recordQualifiedDwell]);
   const methods = payMethods(market.code);
   const [paymentMethodId, setPaymentMethodId] = useState(methods[0]?.id || "card");
   const [paymentPreferenceReady, setPaymentPreferenceReady] = useState(false);
@@ -77,7 +97,6 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
         ? `Pay with ${paymentMethod.label}`
         : "Buy now";
   const paymentAccessibilityLabel = paymentMethod?.kind === "apple" ? "Pay with Apple Pay" : paymentButtonLabel;
-  const sellerId = piece.ownerId || piece.listedByUid || "";
   const sellerName = brand?.name || piece.ownerName || piece.listedByName || "Uvel seller";
   const moreSellerListings = useMemo(() => {
     const candidates = [...wardrobePieces, ...shopFloor(app.country)];
@@ -282,6 +301,7 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
   const closeListing = () => {
     if (closing.current) return;
     closing.current = true;
+    recordQualifiedDwell();
     if (closeMode === "instant") {
       onCloseRef.current();
       return;
@@ -386,7 +406,12 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
         ) : null}
       </Animated.View>
       <TodayCartFab listingOpen showWhileListing={!previewOnly} onBeforeOpen={onClose} />
-      <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onExternalShare={() => { setShareOpen(false); void Share.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` }); }} />
+      <FriendShareSheet visible={shareOpen} payload={sharePayload} onClose={() => setShareOpen(false)} onListingSignal={recordTrendSignal} onExternalShare={() => {
+        setShareOpen(false);
+        void Share.share({ title: piece.name, message: `Have a look at ${piece.name} on Uvel. uvel://piece/${piece.id}` })
+          .then((result) => { if (result.action === Share.sharedAction) recordTrendSignal("share"); })
+          .catch(() => undefined);
+      }} />
     </View>
   );
 }

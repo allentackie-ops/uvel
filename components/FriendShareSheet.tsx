@@ -23,9 +23,10 @@ type FriendShareSheetProps = {
   payload: FriendSharePayload | null;
   onClose: () => void;
   onExternalShare: () => void;
+  onListingSignal?: (signal: "share" | "copy_link") => void;
 };
 
-export function FriendShareSheet({ visible, payload, onClose, onExternalShare }: FriendShareSheetProps) {
+export function FriendShareSheet({ visible, payload, onClose, onExternalShare, onListingSignal }: FriendShareSheetProps) {
   const colors = useColors();
   const app = useUvel();
   const insets = useSafeAreaInsets();
@@ -133,6 +134,7 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
     if (results.some((result) => result.status === "rejected")) {
       console.warn("One or more friend shares failed to deliver.");
     }
+    return results.some((result) => result.status === "fulfilled");
   }
 
   function sendSelected() {
@@ -151,7 +153,9 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
       lookId: payload.id || payload.deepLink,
       target: "none",
     }).catch(() => undefined);
-    void deliverShare(recipients.map((friend) => friend.uid), text, payload.imageUri).catch((error) => {
+    void deliverShare(recipients.map((friend) => friend.uid), text, payload.imageUri).then((delivered) => {
+      if (delivered && payload.kind === "listing") onListingSignal?.("share");
+    }).catch((error) => {
       console.warn("Friend share delivery failed", error);
     });
     setSelected({});
@@ -177,7 +181,11 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
     if (!payload) return;
     Keyboard.dismiss();
     const text = `${payload.previewText || `Check this out: ${payload.title}`}\n${shareLink}`;
-    if (kind === "more") { await Share.share({ message: text, title: payload.title }); return; }
+    if (kind === "more") {
+      const result = await Share.share({ message: text, title: payload.title });
+      if (result.action === Share.sharedAction && payload.kind === "listing") onListingSignal?.("share");
+      return;
+    }
     const urls: Record<Exclude<typeof kind, "copy" | "more">, string> = {
       message: `sms:&body=${encodeURIComponent(text)}`,
       whatsapp: `whatsapp://send?text=${encodeURIComponent(text)}`,
@@ -185,6 +193,7 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
     };
     if (kind === "copy") {
       await Clipboard.setStringAsync(text);
+      if (payload.kind === "listing") onListingSignal?.("copy_link");
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setCopied(true);
       setToast("Copied to clipboard");
@@ -195,12 +204,14 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
     try {
       if (await Linking.canOpenURL(url)) {
         await Linking.openURL(url);
+        if (payload.kind === "listing") onListingSignal?.("share");
         return;
       }
     } catch {
       // Fall through to the native share sheet when the app or URL scheme is unavailable.
     }
-    await Share.share({ message: text, title: payload.title });
+    const result = await Share.share({ message: text, title: payload.title });
+    if (result.action === Share.sharedAction && payload.kind === "listing") onListingSignal?.("share");
   }
 
   if (!payload) return null;

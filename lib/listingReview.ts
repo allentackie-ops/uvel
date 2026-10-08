@@ -102,6 +102,26 @@ export async function uploadSupabaseListingPhotos(listingId: string, photos: str
   return uploaded;
 }
 
+/** Brand catalog items can have one to five images; keep their media in Supabase Storage. */
+export async function uploadSupabaseBrandPhotos(listingId: string, photos: string[]): Promise<string[]> {
+  const { token } = await currentIdentity();
+  if (!/^[A-Za-z0-9_-]{1,120}$/.test(listingId) || photos.length < 1 || photos.length > 5) {
+    throw new Error("Brand products need a valid ID and between one and five photos.");
+  }
+  const paths: string[] = [];
+  for (let index = 0; index < photos.length; index += 1) {
+    const result = await processorCall<{ ok: true; storagePath: string }>(token, {
+      action: "upload",
+      listingId,
+      photoIndex: index,
+      contentType: contentTypeOf(photos[index]),
+      base64: await localBase64(photos[index]),
+    }, "listing-photo-upload");
+    paths.push(result.storagePath);
+  }
+  return paths;
+}
+
 async function processorCall<T>(token: string, body: Record<string, unknown>, functionName = "listing-processor") {
   const { data, error } = await requireSupabase().functions.invoke(functionName, { body, headers: { "x-firebase-id-token": token } });
   if (error) throw error;

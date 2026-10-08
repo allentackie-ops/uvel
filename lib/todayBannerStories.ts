@@ -1,6 +1,7 @@
 import type { ClosetPiece } from "./wardrobe";
 
 export type BannerStory = {
+  id?: string;
   title: string;
   subtitle: string;
   color: string;

@@ -9,6 +9,7 @@ import { httpsCallable } from "firebase/functions";
 import { fetchSupabaseMarketplaceListings, type SupabaseMarketplaceListing } from "./supabaseMarketplaceFeed";
 import { reviewListingPhoto } from "./photoCheck";
 import { listingVisibleIn, type ShipsTo } from "./ships";
+import { removeSyncedBrandCatalogItem, syncBrandCatalogPatch, syncNewBrandCatalogItem } from "./supabaseBrandCatalog";
 
 export type ClosetStatus = "owned" | "draft" | "review_pending" | "listed" | "sold" | "archived" | "rejected";
 
@@ -528,6 +529,11 @@ export function updatePiece(id: string, patch: Partial<ClosetPiece>) {
   });
   void persist();
   if (changed) void persistRemote(changed);
+  if (changed?.brandId) {
+    const syncFields: Array<keyof ClosetPiece> = ["name", "brand", "category", "color", "size", "sizes", "sku", "marketPrices", "marketAvailability", "condition", "material", "notes", "measurements", "listPriceCents", "originalPriceCents", "status", "ownerId", "ownerName", "country", "currency", "shipsTo", "brandId", "listedByUid", "listedByName", "stockQuantity", "sizeStock", "reservedQuantity", "reservedSizeStock", "shippingMethod", "shippingCarriers", "shippingBuyerPays", "photos", "photo"];
+    const mirrorPatch = Object.fromEntries(Object.entries(patch).filter(([key]) => syncFields.includes(key as keyof ClosetPiece))) as Partial<ClosetPiece>;
+    if (Object.keys(mirrorPatch).length) void syncBrandCatalogPatch(id, mirrorPatch).catch(() => undefined);
+  }
 }
 
 export function listPiece(id: string, patch: Partial<ClosetPiece> = {}) {
@@ -554,6 +560,7 @@ export function removePiece(id: string) {
   void persist();
   if (removed?.brandId && firebaseReady() && firebaseAuth().currentUser) {
     void deleteDoc(doc(firebaseDb(), "listings", id)).catch(() => undefined);
+    void removeSyncedBrandCatalogItem(id).catch(() => undefined);
   }
 }
 
@@ -599,6 +606,7 @@ export async function updateBrandCatalogRemote(id: string, patch: Partial<Closet
   if (!firebaseReady() || !firebaseAuth().currentUser) return false;
   const call = httpsCallable(firebaseFunctions(), "updateBrandCatalog");
   await call({ listingId: id, patch: serializable(patch) });
+  await syncBrandCatalogPatch(id, patch);
   return true;
 }
 
@@ -623,5 +631,6 @@ export async function createBrandCatalogRemote(piece: ClosetPiece, options?: { u
   }
   const call = httpsCallable(firebaseFunctions(), "createBrandCatalog");
   await call({ listingId: piece.id, piece: serializable(remotePiece) });
+  await syncNewBrandCatalogItem(remotePiece);
   return true;
 }
