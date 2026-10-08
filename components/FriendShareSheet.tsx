@@ -214,16 +214,20 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
         >
         <View style={styles.head}>
           <Text style={[styles.title, { color: colors.bone }]}>Share with friends</Text>
+          <Pressable onPress={() => setFinderVisible(true)} hitSlop={10} style={styles.headerSearch} accessibilityRole="button" accessibilityLabel="Search friends">
+            <Ionicons name="search" size={21} color={colors.bone} />
+          </Pressable>
         </View>
         <Text style={[styles.preview, { color: colors.muted }]} numberOfLines={2}>{payload.title}</Text>
         <TextInput value={message} onChangeText={setMessage} placeholder="Add a message (optional)" placeholderTextColor={colors.subtle} style={[styles.input, { backgroundColor: colors.ink, color: colors.bone }]} maxLength={300} />
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>FRIENDS</Text>
+        <Pressable onPress={() => setFinderVisible(true)} disabled={sending} style={[styles.findFriends, { borderColor: `${colors.danger}80`, backgroundColor: `${colors.danger}14` }]} accessibilityRole="button" accessibilityLabel="Find friends">
+          <View style={[styles.findIcon, { backgroundColor: colors.danger }]}><Ionicons name="person-add" size={19} color={colors.ink} /></View><View style={styles.findCopy}><Text style={[styles.findTitle, { color: colors.bone }]}>Find friends</Text><Text style={[styles.findSubtitle, { color: colors.muted }]}>Search by name or username</Text></View><Ionicons name="chevron-forward" size={20} color={colors.muted} />
+        </Pressable>
         {friends.length ? <ScrollView horizontal keyboardShouldPersistTaps="always" keyboardDismissMode="none" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>{friends.map((friend) => <Pressable key={friend.uid} onPress={() => toggleFriend(friend)} disabled={sending} style={styles.friend} accessibilityRole="button" accessibilityLabel={`${selected[friend.uid] ? "Deselect" : "Select"} ${friend.displayName || friend.username}`} accessibilityState={{ selected: Boolean(selected[friend.uid]) }}>
           <View>{friend.avatarUri ? <Image cachePolicy="memory-disk" source={{ uri: friend.avatarUri }} style={[styles.avatar, selected[friend.uid] && styles.avatarSelected]} contentFit="cover" /> : <View style={[styles.avatar, styles.fallback, selected[friend.uid] && styles.avatarSelected]}><Text style={{ color: colors.successInk, fontWeight: "800" }}>{(friend.displayName || friend.username || "U").slice(0, 1).toUpperCase()}</Text></View>}{selected[friend.uid] ? <View style={[styles.selectedBadge, { backgroundColor: colors.success }]}><Ionicons name="checkmark" size={12} color={colors.successInk} /></View> : null}</View>
           <Text style={[styles.name, { color: colors.bone }]} numberOfLines={1}>{friend.displayName || `@${friend.username}`}</Text>
-        </Pressable>)}</ScrollView> : <Pressable onPress={() => setFinderVisible(true)} style={[styles.findFriends, { borderColor: `${colors.bone}35`, backgroundColor: `${colors.ink}88` }]} accessibilityRole="button" accessibilityLabel="Find friends">
-          <View style={[styles.findIcon, { backgroundColor: colors.success }]}><Ionicons name="person-add" size={19} color={colors.successInk} /></View><View style={styles.findCopy}><Text style={[styles.findTitle, { color: colors.bone }]}>Find friends</Text><Text style={[styles.findSubtitle, { color: colors.muted }]}>Search people to share with</Text></View><Ionicons name="chevron-forward" size={20} color={colors.muted} />
-        </Pressable>}
+        </Pressable>)}</ScrollView> : <Text style={[styles.emptyFriends, { color: colors.muted }]}>Your friends will appear here.</Text>}
         {Object.keys(selected).length ? <Pressable onPress={sendSelected} disabled={sending} style={[styles.sendButton, { backgroundColor: colors.success }]} accessibilityRole="button" accessibilityLabel={`Send to ${Object.keys(selected).length} selected friends`}><Text style={[styles.sendButtonText, { color: colors.successInk }]}>{sending ? "Sending…" : `Send to ${Object.keys(selected).length} ${Object.keys(selected).length === 1 ? "friend" : "friends"}`}</Text></Pressable> : null}
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>SHARE TO</Text>
         <ScrollView horizontal keyboardShouldPersistTaps="always" keyboardDismissMode="none" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.externalRail}>
@@ -270,6 +274,7 @@ const styles = StyleSheet.create({
   keyboardRoot: { flex: 1, justifyContent: "flex-end" },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingBottom: 30, paddingTop: 14, minHeight: 390 },
   head: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  headerSearch: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   title: { fontSize: 22, fontWeight: "800" },
   preview: { marginTop: 5, fontSize: 14 },
   input: { marginTop: 16, borderRadius: 14, minHeight: 48, paddingHorizontal: 14, fontSize: 14 },
@@ -288,6 +293,7 @@ const styles = StyleSheet.create({
   findCopy: { flex: 1, gap: 3 },
   findTitle: { fontSize: 15, fontWeight: "800" },
   findSubtitle: { fontSize: 12 },
+  emptyFriends: { marginTop: 14, fontSize: 13 },
   externalRail: { gap: 18, paddingTop: 14 },
   externalAction: { width: 60, alignItems: "center", gap: 6 },
   externalIcon: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
