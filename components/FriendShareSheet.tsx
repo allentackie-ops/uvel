@@ -230,8 +230,8 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
         {existingSearchOpen ? <View style={[styles.existingSearchBox, { backgroundColor: colors.ink }]}><Ionicons name="search" size={18} color={colors.muted} /><TextInput autoFocus value={existingSearchQuery} onChangeText={setExistingSearchQuery} placeholder="Search your friends" placeholderTextColor={colors.subtle} style={[styles.existingSearchInput, { color: colors.bone }]} autoCapitalize="none" returnKeyType="search" /><Pressable onPress={() => { setExistingSearchQuery(""); setExistingSearchOpen(false); }} hitSlop={8} accessibilityRole="button" accessibilityLabel="Close friend search"><Ionicons name="close-circle" size={18} color={colors.muted} /></Pressable></View> : null}
         <TextInput value={message} onChangeText={setMessage} placeholder="Add a message (optional)" placeholderTextColor={colors.subtle} style={[styles.input, { backgroundColor: colors.ink, color: colors.bone }]} maxLength={300} />
         <Text style={[styles.sectionLabel, { color: colors.muted }]}>FRIENDS</Text>
-        <Pressable onPress={() => setFinderVisible(true)} disabled={sending} style={styles.findBanner} accessibilityRole="button" accessibilityLabel="Find friends">
-          <View style={styles.findBannerIcon}><Text style={styles.findBannerIconText}>＋</Text></View><View style={styles.findBannerCopy}><Text style={styles.findBannerTitle}>Find friends</Text><Text style={styles.findBannerBody}>Connect with friends to buy, sell, and discover together.</Text></View><Text style={styles.findBannerArrow}>›</Text>
+        <Pressable onPress={() => setFinderVisible(true)} disabled={sending} style={[styles.findBanner, { backgroundColor: colors.surface, borderColor: `${colors.success}55` }]} accessibilityRole="button" accessibilityLabel="Find friends">
+          <View style={styles.findBannerIcon}><Text style={styles.findBannerIconText}>＋</Text></View><View style={styles.findBannerCopy}><Text style={[styles.findBannerTitle, { color: colors.bone }]}>Find friends</Text><Text style={[styles.findBannerBody, { color: colors.muted }]}>Connect with friends to buy, sell, and discover together.</Text></View><Text style={[styles.findBannerArrow, { color: colors.success }]}>›</Text>
         </Pressable>
         {visibleFriends.length ? <ScrollView horizontal keyboardShouldPersistTaps="always" keyboardDismissMode="none" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>{visibleFriends.map((friend) => <Pressable key={friend.uid} onPress={() => toggleFriend(friend)} disabled={sending} style={styles.friend} accessibilityRole="button" accessibilityLabel={`${selected[friend.uid] ? "Deselect" : "Select"} ${friend.displayName || friend.username}`} accessibilityState={{ selected: Boolean(selected[friend.uid]) }}>
           <View>{friend.avatarUri ? <Image cachePolicy="memory-disk" source={{ uri: friend.avatarUri }} style={[styles.avatar, selected[friend.uid] && styles.avatarSelected]} contentFit="cover" /> : <View style={[styles.avatar, styles.fallback, selected[friend.uid] && styles.avatarSelected]}><Text style={{ color: colors.successInk, fontWeight: "800" }}>{(friend.displayName || friend.username || "U").slice(0, 1).toUpperCase()}</Text></View>}{selected[friend.uid] ? <View style={[styles.selectedBadge, { backgroundColor: colors.success }]}><Ionicons name="checkmark" size={12} color={colors.successInk} /></View> : null}</View>
@@ -305,13 +305,13 @@ const styles = StyleSheet.create({
   findTitle: { fontSize: 15, fontWeight: "800" },
   findSubtitle: { fontSize: 12 },
   emptyFriends: { marginTop: 14, fontSize: 13 },
-  findBanner: { marginTop: 12, padding: 12, minHeight: 76, borderRadius: 17, backgroundColor: "#201E18", borderWidth: 1, borderColor: "#D6E27A55", flexDirection: "row", alignItems: "center", gap: 10 },
+  findBanner: { marginTop: 12, padding: 12, minHeight: 76, borderRadius: 17, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 10 },
   findBannerIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: "#E5465E", alignItems: "center", justifyContent: "center" },
   findBannerIconText: { color: "#FFFFFF", fontSize: 23, lineHeight: 25 },
   findBannerCopy: { flex: 1 },
-  findBannerTitle: { color: "#F4F0E6", fontSize: 15, fontWeight: "800" },
-  findBannerBody: { color: "#B5B0A4", fontSize: 11, lineHeight: 15, marginTop: 2 },
-  findBannerArrow: { color: "#D6E27A", fontSize: 25 },
+  findBannerTitle: { fontSize: 15, fontWeight: "800" },
+  findBannerBody: { fontSize: 11, lineHeight: 15, marginTop: 2 },
+  findBannerArrow: { fontSize: 25 },
   externalRail: { gap: 18, paddingTop: 14 },
   externalAction: { width: 60, alignItems: "center", gap: 6 },
   externalIcon: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center" },
