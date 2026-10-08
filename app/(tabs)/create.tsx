@@ -24,6 +24,7 @@ const PEACH = "#FCE9EF";
 
 const BANNERS = [
   {
+    poster: require("../../assets/create/hero-poster-bg-ruby.jpg"),
     image: require("../../assets/create/hero-model-ruby.png"),
     background: "#A71332",
     title: "Your next",
@@ -35,6 +36,7 @@ const BANNERS = [
     tags: ["IDEA", "DROP", "BRAND"],
   },
   {
+    poster: require("../../assets/create/hero-poster-bg-gold.jpg"),
     image: require("../../assets/create/hero-model-gold.png"),
     background: "#E4AD25",
     title: "Build your",
@@ -46,6 +48,7 @@ const BANNERS = [
     tags: ["PICK", "MIX", "STYLE"],
   },
   {
+    poster: require("../../assets/create/hero-poster-bg-green.jpg"),
     image: require("../../assets/create/hero-model-green.png"),
     background: "#9EC943",
     title: "Make it",
@@ -127,6 +130,7 @@ function HeroCarousel({ brand, styles, fontLoaded }: { brand?: Brand; styles: Sc
   return (
     <View style={[styles.hero, { backgroundColor: banner.background }]}>
       <Animated.View style={[styles.heroSlide, slideStyle]}>
+        <Image source={banner.poster} style={styles.heroBackdrop} contentFit="cover" cachePolicy="memory-disk" />
         <Image source={banner.image} style={styles.heroModel} contentFit="contain" cachePolicy="memory-disk" />
         <View style={styles.heroCopy}>
           <Text style={[styles.heroTitle, { color: banner.titleColor }]}>{banner.title}</Text>
@@ -202,6 +206,7 @@ function makeStyles(colors: Colors, width: number, _fontLoaded: boolean) {
     subtitle: { color: dark ? colors.muted : "#5D5D5D", fontSize: 16, lineHeight: 21, fontWeight: "600", marginTop: 0 },
     hero: { height: heroHeight, borderRadius: 19, overflow: "hidden", position: "relative", marginBottom: 16 },
     heroSlide: { ...StyleSheet.absoluteFill, overflow: "hidden" },
+    heroBackdrop: { ...StyleSheet.absoluteFill, zIndex: 0 },
     heroModel: { position: "absolute", right: -28, bottom: -40, width: "110%", height: "160%" },
     heroCopy: { position: "absolute", left: 17, top: 27, zIndex: 3, width: "61%" },
     heroTitle: { fontSize: 27, lineHeight: 30, fontWeight: "900", letterSpacing: -0.8 },
