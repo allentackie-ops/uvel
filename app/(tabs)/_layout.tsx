@@ -139,9 +139,12 @@ export default function TabsLayout() {
 
   const onToday = pageIndex === 0;
   const isCreate = pageIndex === 1;
-  const tabBackground = isCreate ? "#FFFEFC" : colors.ink;
-  const tabInactive = isCreate ? "#6F6A69" : inactiveIcon;
-  const tabActive = isCreate ? "#A52231" : colors.success;
+  const createTabBackground = appearance === "dark" ? colors.ink : "#FFFEFC";
+  const createTabInactive = appearance === "dark" ? "#A9A398" : "#6F6A69";
+  const createTabActive = appearance === "dark" ? "#FF8797" : "#A52231";
+  const tabBackground = isCreate ? createTabBackground : colors.ink;
+  const tabInactive = isCreate ? createTabInactive : inactiveIcon;
+  const tabActive = isCreate ? createTabActive : colors.success;
   const swipeEnabled = !listingOpen && (onToday || open);
 
   return (
