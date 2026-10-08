@@ -36,6 +36,19 @@ const BANNERS = [
     tags: ["IDEA", "DROP", "BRAND"],
   },
   {
+    poster: require("../../assets/create/creator-popout-saffron.jpg"),
+    image: null,
+    composite: true,
+    background: "#D79119",
+    title: "Your style.",
+    script: "Your story.",
+    finish: "Your brand.",
+    titleColor: "#42101A",
+    scriptColor: "#B73E2D",
+    burst: "#FFF2C8",
+    tags: ["MAKE", "MARK", "YOURS"],
+  },
+  {
     poster: require("../../assets/create/hero-poster-bg-ruby.jpg"),
     image: require("../../assets/create/hero-model-ruby.png"),
     background: "#A71332",
@@ -117,6 +130,7 @@ function HeroCarousel({ brand, styles, fontLoaded }: { brand?: Brand; styles: Sc
   const [index, setIndex] = useState(0);
   const transition = useRef(new Animated.Value(0)).current;
   const banner = BANNERS[index];
+  const compositeBanner = "composite" in banner && banner.composite;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -143,7 +157,11 @@ function HeroCarousel({ brand, styles, fontLoaded }: { brand?: Brand; styles: Sc
       <Animated.View style={[styles.heroSlide, slideStyle]}>
         <Image source={banner.poster} style={styles.heroBackdrop} contentFit="cover" cachePolicy="memory-disk" />
         {banner.image ? <Image source={banner.image} style={styles.heroModel} contentFit="contain" cachePolicy="memory-disk" /> : null}
-        <View style={styles.heroCopy}>
+        {compositeBanner ? (
+          <Pressable onPress={() => router.push("/brand/founder")} style={({ pressed }) => [styles.heroButton, styles.heroButtonComposite, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="Start creating">
+            <Text style={styles.heroButtonText}>Start creating</Text><Ionicons name="chevron-forward" size={20} color={MARKET_RED} />
+          </Pressable>
+        ) : <View style={styles.heroCopy}>
           <Text style={[styles.heroTitle, { color: banner.titleColor }]}>{banner.title}</Text>
           <Text style={[styles.heroScript, { color: banner.scriptColor, fontFamily: fontLoaded ? "UvelAllura" : "Georgia" }]}>{banner.script}</Text>
           <Text style={[styles.heroTitle, styles.heroFinish, { color: banner.titleColor }]}>{banner.finish}</Text>
@@ -151,8 +169,8 @@ function HeroCarousel({ brand, styles, fontLoaded }: { brand?: Brand; styles: Sc
           <Pressable onPress={() => router.push("/brand/founder")} style={({ pressed }) => [styles.heroButton, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="Start creating">
             <Text style={styles.heroButtonText}>Start creating</Text><Ionicons name="chevron-forward" size={20} color={MARKET_RED} />
           </Pressable>
-        </View>
-        {banner.composite ? null : <>
+        </View>}
+        {compositeBanner ? null : <>
           <View style={[styles.sticker, styles.stickerIdea, { transform: [{ rotate: "8deg" }] }]}><Text style={styles.stickerText}>{banner.tags[0]}</Text></View>
           <View style={[styles.sticker, styles.stickerDrop, { backgroundColor: banner.burst, transform: [{ rotate: "-10deg" }] }]}><Text style={styles.stickerText}>{banner.tags[1]}</Text></View>
           <View style={[styles.sticker, styles.stickerBrand, { transform: [{ rotate: "-6deg" }] }]}><Text style={styles.stickerText}>{brand ? "YOUR BRAND" : banner.tags[2]}</Text></View>
@@ -253,6 +271,7 @@ function makeStyles(colors: Colors, width: number, _fontLoaded: boolean) {
     heroFinish: { fontSize: 26, lineHeight: 30 },
     heroUnderline: { width: "82%", height: 3, borderRadius: 4, transform: [{ rotate: "-3deg" }], marginTop: 2, marginLeft: 48 },
     heroButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "#FFFFFF", borderRadius: 24, paddingHorizontal: 15, paddingVertical: 9, marginTop: 14 },
+    heroButtonComposite: { position: "absolute", left: 17, bottom: 14, zIndex: 4, marginTop: 0 },
     heroButtonText: { color: MARKET_RED, fontSize: 14, fontWeight: "900" },
     sticker: { position: "absolute", zIndex: 4, backgroundColor: "#FFFFFF", paddingHorizontal: 8, paddingVertical: 5, borderRadius: 4, shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 4, shadowOffset: { width: 1, height: 2 }, elevation: 3 },
     stickerText: { color: "#141313", fontSize: 10, fontWeight: "900", letterSpacing: 0.25 },
