@@ -181,6 +181,7 @@ export default function ClosetPiece() {
     <TodayListingOverlay
       piece={piece}
       origin={{ x: W / 2, y: insets.top, width: 1, height: 1 }}
+      closeMode={source === "friendChat" ? "instant" : "animated"}
       onClose={() => {
         if (source?.startsWith("today")) void requestNativeReviewIfEligible();
         router.back();

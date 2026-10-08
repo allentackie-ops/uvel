@@ -29,10 +29,10 @@ import { TodayCartFab } from "./TodayCartFab";
 import { FriendShareSheet, type FriendSharePayload } from "./FriendShareSheet";
 
 export type ListingOrigin = { x: number; y: number; width: number; height: number; radius?: number; radii?: [number, number, number, number]; photo?: string; measure?: (callback: (rect: { x: number; y: number; width: number; height: number }) => void) => void };
-type Props = { piece: ClosetPiece; origin: ListingOrigin; onClose: () => void; onInteraction?: (action: PersonalizationAction, piece: ClosetPiece, query?: string, dwellSeconds?: number) => void; previewOnly?: boolean; showDoubleTapHint?: boolean; onDoubleTapHintDismiss?: () => void; firstListing?: boolean; reserveTabBarSpace?: boolean };
+type Props = { piece: ClosetPiece; origin: ListingOrigin; onClose: () => void; onInteraction?: (action: PersonalizationAction, piece: ClosetPiece, query?: string, dwellSeconds?: number) => void; previewOnly?: boolean; showDoubleTapHint?: boolean; onDoubleTapHintDismiss?: () => void; firstListing?: boolean; reserveTabBarSpace?: boolean; closeMode?: "animated" | "instant" };
 type TransitionRect = { x: number; y: number; width: number; height: number; radius: number };
 
-export function TodayListingOverlay({ piece, origin, onClose, onInteraction, previewOnly = false, reserveTabBarSpace = false }: Props) {
+export function TodayListingOverlay({ piece, origin, onClose, onInteraction, previewOnly = false, reserveTabBarSpace = false, closeMode = "animated" }: Props) {
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const colors = useColors();
@@ -269,6 +269,10 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
   const closeListing = () => {
     if (closing.current) return;
     closing.current = true;
+    if (closeMode === "instant") {
+      onCloseRef.current();
+      return;
+    }
     setTransitioning(true);
     const animateBack = (rect: TransitionRect) => {
       fromRect.value = rect;

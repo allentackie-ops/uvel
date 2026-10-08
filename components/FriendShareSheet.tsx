@@ -140,7 +140,7 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare }:
     const recipients = Object.values(selected);
     if (!recipients.length) return;
     const names = recipients.map((friend) => friend.displayName || `@${friend.username}`);
-    const listingText = payload.kind === "listing" && payload.listing ? sharedListingPayload(payload.listing) : "";
+    const listingText = payload.kind === "listing" && payload.listing ? sharedListingPayload(payload.listing, message) : "";
     const text = listingText || `${message.trim() ? `${message.trim()}\n\n` : ""}${payload.previewText || `Check this out: ${payload.title}`}\n${shareLink}`;
     setSending(true);
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
