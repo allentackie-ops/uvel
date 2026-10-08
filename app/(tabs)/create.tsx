@@ -2,277 +2,220 @@ import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMemo } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { BrandBanner } from "../../components/BrandBanner";
-import { ownedBrand, themeFor, useBrands, type Brand } from "../../lib/brands";
-import { adaptBrandThemeToAppearance } from "../../lib/brandThemes";
+import { ownedBrand, useBrands, type Brand } from "../../lib/brands";
 import { useUvel } from "../../lib/store";
-import { useColors, useResolvedAppearance, type Colors } from "../../lib/theme";
+import { MARKET_RED, useColors, type Colors } from "../../lib/theme";
 import { useBrandListingDrafts } from "../../lib/brandListingDraft";
 
-const HERO_IMAGE = require("../../assets/create/idea-to-brand.jpg");
-const FORMAT_IMAGES = [
-  require("../../assets/create/collection.jpg"),
+const HERO_IMAGE = require("../../assets/create/red-launchpad-hero.png");
+const LAUNCH_IMAGES = [
   require("../../assets/create/listing.jpg"),
+  require("../../assets/create/collection.jpg"),
   require("../../assets/create/announcement.jpg"),
 ];
 const DRAFT_IMAGE = require("../../assets/create/draft.jpg");
-const FORMAT_ITEMS = [
-  { label: "Collection", body: "Launch a curated set of products.", kind: "collection" as const },
-  { label: "Listing", body: "Add a single product to your catalog.", kind: "listing" as const },
-  { label: "Announcement", body: "Share news, drops, or updates.", kind: "announcement" as const },
+const PAPER = "#FFFEFC";
+const INK = "#141313";
+const MUTED = "#6F6A69";
+const PINK = "#FCE8EC";
+const PALE_YELLOW = "#FFF2C8";
+const PEACH = "#FFE8D8";
+
+const LAUNCH_ITEMS = [
+  { title: "One product", body: "List it fast", kind: "listing" as const, icon: "pricetag-outline" as const },
+  { title: "A collection", body: "Build a story", kind: "collection" as const, icon: "layers-outline" as const },
+  { title: "A brand", body: "Make it yours", kind: "brand" as const, icon: "megaphone-outline" as const },
 ];
+
+type ScreenStyles = ReturnType<typeof makeStyles>;
 
 export default function Create() {
   const baseColors = useColors();
-  const appearance = useResolvedAppearance();
   const insets = useSafeAreaInsets();
   const app = useUvel();
   useBrands();
   const brand = ownedBrand(app.uid);
-  const colors = useMemo<Colors>(() => {
-    if (!brand) return baseColors;
-    const theme = adaptBrandThemeToAppearance(themeFor(brand), appearance, baseColors);
-    return {
-      ...baseColors,
-      ink: theme.bg,
-      bone: theme.ink,
-      muted: theme.muted,
-      surface: theme.card,
-      subtle: theme.muted,
-      success: theme.accent,
-      successInk: theme.accentInk,
-      pulse: theme.accent,
-      pulseInk: theme.accentInk,
-      info: theme.card,
-      infoInk: theme.ink,
-      neutral: theme.card,
-      neutralInk: theme.ink,
-    };
-  }, [appearance, baseColors, brand]);
-  const styles = useMemo(() => make(colors), [colors]);
-  const brandDrafts = useBrandListingDrafts(brand?.id);
+  const colors = useMemo<Colors>(() => ({
+    ...baseColors,
+    ink: PAPER,
+    bone: INK,
+    muted: MUTED,
+    surface: "#FFFFFF",
+    subtle: "#D9D2D1",
+    success: MARKET_RED,
+    successInk: "#FFFFFF",
+    pulse: MARKET_RED,
+    pulseInk: "#FFFFFF",
+    info: PINK,
+    infoInk: INK,
+    neutral: "#F5E4E7",
+    neutralInk: INK,
+  }), [baseColors]);
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const drafts = useBrandListingDrafts(brand?.id);
 
   return (
     <ScrollView
       style={styles.page}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 18, paddingBottom: insets.bottom + 112 }]}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 10, paddingBottom: insets.bottom + 112 }]}
       showsVerticalScrollIndicator={false}
     >
-      <EditorialHeader brand={brand} styles={styles} />
-      {brand && brandDrafts.length ? <Pressable onPress={() => router.push({ pathname: "/brand/drafts", params: { id: brand.id } })} style={styles.draftNotice}><View style={styles.draftNoticeIcon}><Ionicons name="document-text-outline" size={17} color={colors.successInk} /></View><View style={styles.draftNoticeCopy}><Text style={styles.draftNoticeTitle}>You have a saved brand draft</Text><Text style={styles.draftNoticeBody}>Tap to continue your unfinished listing.</Text></View><Ionicons name="arrow-forward" size={17} color={colors.bone} /></Pressable> : null}
-      <Hero brand={brand} colors={colors} styles={styles} />
-      <FormatShelf brand={brand} colors={colors} styles={styles} />
-      <DraftShelf brand={brand} colors={colors} styles={styles} />
-      <BusinessShelf brand={brand} colors={colors} styles={styles} />
+      <UtilityHeader styles={styles} />
+      <View style={styles.pageTitleBlock}>
+        <Text style={styles.pageTitle}>Create</Text>
+        <Text style={styles.pageSubtitle}>{brand ? "Make your next big thing." : "Make something worth talking about."}</Text>
+      </View>
+      <LaunchHero brand={brand} styles={styles} />
+      <LaunchShelf brand={brand} styles={styles} />
+      <DraftShelf brand={brand} drafts={drafts} styles={styles} />
     </ScrollView>
   );
 }
 
-type ScreenStyles = ReturnType<typeof make>;
-type SharedProps = { colors: Colors; styles: ScreenStyles };
-
-function EditorialHeader({ brand, styles }: { brand?: Brand; styles: ScreenStyles }) {
-  function showBrandLogoPrompt() {
-    Alert.alert(
-      "Your brand logo lives here",
-      "Set up your brand to add a logo that will appear in this spot across your Create experience.",
-      [
-        { text: "Not now", style: "cancel" },
-        { text: "Set up my brand", onPress: () => router.push("/brand/founder") },
-      ],
-    );
-  }
-
+function UtilityHeader({ styles }: { styles: ScreenStyles }) {
   return (
-    <View style={styles.header}>
-      <View style={styles.headerIdentity}>
-        <Text style={styles.kicker}>{brand ? "YOUR BRAND" : "YOUR NEXT IDEA"}</Text>
-        <Text style={styles.brandName} numberOfLines={1}>{brand?.name || "Create"}</Text>
-      </View>
-      {brand ? <BrandLogo brand={brand} styles={styles} size={54} /> : <Pressable onPress={showBrandLogoPrompt} style={({ pressed }) => [styles.headerMark, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="Set up your brand logo" accessibilityHint="Explains where your brand logo will appear and opens brand setup."><Ionicons name="camera-outline" size={25} color={styles.headerMarkIcon.color} /></Pressable>}
+    <View style={styles.utilityHeader}>
+      <Pressable onPress={() => router.push("/you")} style={styles.utilityButton} accessibilityRole="button" accessibilityLabel="Open menu">
+        <Ionicons name="menu-outline" size={28} color={INK} />
+      </Pressable>
+      <Text style={styles.wordmark}>Uvel</Text>
+      <View style={styles.utilitySpacer} />
+      <Pressable onPress={() => router.push("/search")} style={styles.utilityButton} accessibilityRole="button" accessibilityLabel="Search">
+        <Ionicons name="search-outline" size={25} color={INK} />
+      </Pressable>
+      <Pressable onPress={() => router.push("/inbox")} style={styles.utilityButton} accessibilityRole="button" accessibilityLabel="Open messages">
+        <Ionicons name="chatbubble-ellipses-outline" size={24} color={INK} />
+      </Pressable>
     </View>
   );
 }
 
-function Hero({ brand, colors, styles }: SharedProps & { brand?: Brand }) {
+function LaunchHero({ brand, styles }: { brand?: Brand; styles: ScreenStyles }) {
   return (
-    <Pressable onPress={() => router.push("/brand/founder")} style={({ pressed }) => [styles.hero, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="Open Founder Studio">
-      {brand?.bannerUri ? <BrandBanner uri={brand.bannerUri} kind={brand.bannerKind} style={styles.heroImage} /> : <Image source={HERO_IMAGE} style={styles.heroImage} contentFit="cover" cachePolicy="memory-disk" />}
+    <Pressable
+      onPress={() => router.push("/brand/founder")}
+      style={({ pressed }) => [styles.hero, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel="Start creating"
+    >
+      <View style={styles.heroBurstOne} />
+      <View style={styles.heroBurstTwo} />
+      <Image source={HERO_IMAGE} style={styles.heroModel} contentFit="contain" cachePolicy="memory-disk" />
       <View style={styles.heroCopy}>
-        {!brand ? <Text style={styles.heroKicker}>START WITH AN IDEA</Text> : null}
-        <Text style={styles.heroTitle}>{brand ? "Build what’s next\nfor your brand." : "Turn your idea\ninto something real."}</Text>
-        <Text style={styles.heroBody}>{brand ? "Shape the next chapter with a clear path from idea to launch." : "A simple place to shape a brand, a product, or your first listing."}</Text>
-        <View style={styles.heroRule} />
+        <Text style={styles.heroKicker}>{brand ? "YOUR BRAND · NEXT DROP" : "IDEA · DROP · BRAND"}</Text>
+        <Text style={styles.heroTitle}>Your next{`\n`}big thing{`\n`}starts here</Text>
+        <View style={styles.heroButton}><Text style={styles.heroButtonText}>Start creating</Text><Ionicons name="arrow-forward" size={20} color={MARKET_RED} /></View>
       </View>
+      <View style={[styles.heroSticker, styles.heroStickerIdea]}><Text style={styles.heroStickerText}>IDEA</Text></View>
+      <View style={[styles.heroSticker, styles.heroStickerDrop]}><Text style={styles.heroStickerText}>DROP</Text></View>
+      <View style={[styles.heroSticker, styles.heroStickerBrand]}><Text style={styles.heroStickerText}>BRAND</Text></View>
     </Pressable>
   );
 }
 
-function FormatShelf({ brand, colors, styles }: SharedProps & { brand?: Brand }) {
+function LaunchShelf({ brand, styles }: { brand?: Brand; styles: ScreenStyles }) {
   return (
-    <Shelf title="Start with a format" styles={styles}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalShelf}>
-        {FORMAT_ITEMS.map((item, index) => (
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Choose your launch</Text></View>
+      <View style={styles.launchGrid}>
+        {LAUNCH_ITEMS.map((item, index) => (
           <Pressable
-            key={item.label}
-            onPress={() => {
-              if (!brand) return router.push("/brand/founder");
-              if (item.kind === "collection") return router.push({ pathname: "/brand/collections", params: { id: brand.id } });
-              if (item.kind === "listing") return router.push({ pathname: "/brand/list", params: { id: brand.id } });
-              return router.push({ pathname: "/brand/announcement", params: { id: brand.id } });
-            }}
-            style={({ pressed }) => [styles.formatCard, pressed && styles.pressed]}
+            key={item.title}
+            onPress={() => openLaunch(item.kind, brand)}
+            style={({ pressed }) => [styles.launchCard, index === 0 ? styles.launchCardPink : index === 1 ? styles.launchCardYellow : styles.launchCardPeach, pressed && styles.pressed]}
             accessibilityRole="button"
-            accessibilityLabel={`${item.label}: ${item.body}`}
+            accessibilityLabel={`${item.title}: ${item.body}`}
           >
-            <Image source={FORMAT_IMAGES[index]} style={styles.formatImage} contentFit="cover" />
-            <View style={styles.formatInfo}>
-              <View style={styles.cardTitleRow}><Text style={styles.formatTitle}>{item.label}</Text><Ionicons name="arrow-forward" size={18} color={colors.bone} /></View>
-              <Text style={styles.formatBody}>{item.body}</Text>
-            </View>
+            <View style={styles.launchCardTop}><Text style={styles.launchTitle}>{item.title}</Text><Ionicons name="chevron-forward" size={17} color={MARKET_RED} /></View>
+            <Text style={styles.launchBody}>{item.body}</Text>
+            <Image source={LAUNCH_IMAGES[index]} style={styles.launchImage} contentFit="cover" cachePolicy="memory-disk" />
+            <View style={styles.launchIcon}><Ionicons name={item.icon} size={18} color={MARKET_RED} /></View>
           </Pressable>
         ))}
-      </ScrollView>
-    </Shelf>
+      </View>
+    </View>
   );
 }
 
-function DraftShelf({ brand, colors, styles }: SharedProps & { brand?: Brand }) {
+function openLaunch(kind: (typeof LAUNCH_ITEMS)[number]["kind"], brand?: Brand) {
+  if (!brand) return router.push("/brand/founder");
+  if (kind === "listing") return router.push({ pathname: "/brand/list", params: { id: brand.id } });
+  if (kind === "collection") return router.push({ pathname: "/brand/collections", params: { id: brand.id } });
+  return router.push({ pathname: "/brand/announcement", params: { id: brand.id } });
+}
+
+function DraftShelf({ brand, drafts, styles }: { brand?: Brand; drafts: ReturnType<typeof useBrandListingDrafts>; styles: ScreenStyles }) {
+  const draft = drafts[0];
+  const title = draft?.name?.trim() || (brand ? "Your next drop" : "Weekend edit");
+  const meta = draft ? "Continue your listing" : brand ? "Start a saved listing" : "Start your first draft";
   return (
-    <Shelf title="Continue a draft" styles={styles}>
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Saved draft</Text><Pressable onPress={() => brand ? router.push({ pathname: "/brand/drafts", params: { id: brand.id } }) : router.push("/brand/founder")}><Text style={styles.seeAll}>See all <Text style={styles.seeAllArrow}>›</Text></Text></Pressable></View>
       <Pressable
-        onPress={() => brand ? router.push({ pathname: "/brand/drafts", params: { id: brand.id } }) : router.push("/brand/founder")}
+        onPress={() => draft && brand ? router.push({ pathname: "/brand/list", params: { id: brand.id, draftId: draft.id } }) : router.push("/brand/founder")}
         style={({ pressed }) => [styles.draftCard, pressed && styles.pressed]}
         accessibilityRole="button"
-        accessibilityLabel="Open saved drafts"
+        accessibilityLabel={`Continue ${title}`}
       >
-        <Image source={DRAFT_IMAGE} style={styles.draftImage} contentFit="cover" />
-        <View style={styles.draftInfo}>
-          <Text style={styles.draftTitle}>{brand ? "Your brand listing drafts" : "Your next direction"}</Text>
-          <Text style={styles.draftMeta}>{brand ? "Resume a saved listing" : "Resume in Founder Studio"}</Text>
-        </View>
+        <Image source={DRAFT_IMAGE} style={styles.draftImage} contentFit="cover" cachePolicy="memory-disk" />
+        <View style={styles.draftCopy}><Text style={styles.draftTitle} numberOfLines={1}>{title}</Text><Text style={styles.draftMeta}>{meta}</Text><View style={styles.progressTrack}><View style={[styles.progressFill, { width: draft ? "60%" : "18%" }]} /></View></View>
+        <View style={styles.continueButton}><Text style={styles.continueText}>Continue</Text><Ionicons name="arrow-forward" size={18} color="#FFFFFF" /></View>
       </Pressable>
-    </Shelf>
-  );
-}
-
-function BusinessShelf({ brand, colors, styles }: SharedProps & { brand?: Brand }) {
-  return (
-    <Shelf title="Your business" styles={styles}>
-      <View style={styles.businessRow}>
-        <BusinessTile
-          label="Founder Studio"
-          body={brand ? "Develop new ideas, products, and more." : "Shape your idea into a brand."}
-          icon="color-palette-outline"
-          accent
-          colors={colors}
-          styles={styles}
-          onPress={() => router.push("/brand/founder")}
-        />
-        <BusinessTile
-          label="Brand HQ"
-          body={brand ? "Manage catalog, orders, team, and growth." : "Available when your brand is ready."}
-          icon="briefcase-outline"
-          colors={colors}
-          styles={styles}
-          onPress={() => brand ? router.push({ pathname: "/brand/hq", params: { id: brand.id } }) : router.push("/brand/founder")}
-        />
-        <BusinessTile
-          label="Insights"
-          body="Understand performance and your audience."
-          icon="bar-chart-outline"
-          colors={colors}
-          styles={styles}
-          onPress={() => brand ? router.push({ pathname: "/brand/hq", params: { id: brand.id, section: "analytics" } }) : router.push("/brand/founder")}
-        />
-      </View>
-    </Shelf>
-  );
-}
-
-function BusinessTile({ label, body, icon, accent, colors, styles, onPress }: SharedProps & { label: string; body: string; icon: keyof typeof Ionicons.glyphMap; accent?: boolean; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.businessTile, accent && styles.businessTileAccent, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel={`${label}: ${body}`}>
-      <View style={[styles.tileIcon, accent && styles.tileIconAccent]}><Ionicons name={icon} size={22} color={accent ? colors.successInk : colors.bone} /></View>
-      <View style={styles.cardTitleRow}><Text style={[styles.tileTitle, accent && styles.tileTitleAccent]}>{label}</Text><Ionicons name="arrow-forward" size={17} color={accent ? colors.successInk : colors.bone} /></View>
-      <Text style={[styles.tileBody, accent && styles.tileBodyAccent]}>{body}</Text>
-    </Pressable>
-  );
-}
-
-function Shelf({ title, action, styles, children }: { title: string; action?: string; styles: ScreenStyles; children: React.ReactNode }) {
-  return (
-    <View style={styles.shelf}>
-      <View style={styles.shelfHeader}><Text style={styles.shelfTitle}>{title}</Text>{action ? <Pressable onPress={() => undefined}><Text style={styles.shelfAction}>{action} <Text style={styles.shelfArrow}>→</Text></Text></Pressable> : null}</View>
-      {children}
     </View>
   );
 }
 
-function BrandLogo({ brand, styles, size, floating }: { brand: Brand; styles: ScreenStyles; size: number; floating?: boolean }) {
-  return (
-    <View style={[styles.logoFrame, { width: size, height: size, borderRadius: floating ? 18 : 16 }, floating && styles.floatingLogo]}>
-      {brand.logoUri ? <Image source={{ uri: brand.logoUri }} style={styles.logoImage} contentFit="contain" cachePolicy="memory-disk" /> : <Text style={styles.logoInitial}>{brand.name.slice(0, 1).toUpperCase()}</Text>}
-    </View>
-  );
-}
-
-function make(colors: Colors) {
+function makeStyles(colors: Colors) {
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: colors.ink },
+    page: { flex: 1, backgroundColor: PAPER },
     content: { paddingHorizontal: 18 },
-    draftNotice: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.success + "66", borderRadius: 16, padding: 12, marginBottom: 18 },
-    draftNoticeIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
-    draftNoticeCopy: { flex: 1 },
-    draftNoticeTitle: { color: colors.bone, fontSize: 13, fontWeight: "900" },
-    draftNoticeBody: { color: colors.muted, fontSize: 11, marginTop: 2 },
-    header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 18 },
-    headerIdentity: { flex: 1, paddingRight: 14 },
-    kicker: { color: colors.subtle, fontSize: 10, letterSpacing: 2.8, fontWeight: "800" },
-    brandName: { color: colors.bone, fontSize: 40, lineHeight: 45, fontWeight: "800", letterSpacing: -1.2, marginTop: 5 },
-    headerMark: { width: 54, height: 54, borderRadius: 27, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" },
-    headerMarkIcon: { color: colors.success },
-    logoFrame: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.subtle + "55", overflow: "hidden", alignItems: "center", justifyContent: "center" },
-    logoImage: { width: "100%", height: "100%" },
-    logoInitial: { color: colors.bone, fontSize: 23, fontWeight: "800" },
-    floatingLogo: { position: "absolute", right: 16, top: 16, borderColor: colors.bone + "AA", backgroundColor: colors.ink },
-    hero: { height: 305, borderRadius: 26, overflow: "hidden", backgroundColor: colors.surface, marginBottom: 28 },
-    heroImage: StyleSheet.absoluteFill,
-    heroCopy: { position: "absolute", left: 20, right: 20, bottom: 20 },
-    heroKicker: { color: colors.success, fontSize: 10, letterSpacing: 2.6, fontWeight: "800" },
-    heroTitle: { color: "#F4F0E6", fontSize: 31, lineHeight: 34, fontWeight: "800", letterSpacing: -0.8, marginTop: 8 },
-    heroBody: { color: "#F4F0E6", fontSize: 14, lineHeight: 20, marginTop: 9, maxWidth: 290 },
-    heroRule: { width: 42, height: 2, backgroundColor: colors.success, marginTop: 16 },
-    heroTap: { position: "absolute", right: 18, bottom: 18, flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: colors.ink + "B8", borderRadius: 18, paddingHorizontal: 11, paddingVertical: 8 },
-    heroTapText: { color: colors.bone, fontSize: 11, fontWeight: "800" },
-    shelf: { marginBottom: 27 },
-    shelfHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
-    shelfTitle: { color: colors.bone, fontSize: 25, lineHeight: 30, fontWeight: "700", letterSpacing: -0.5 },
-    shelfAction: { color: colors.bone, fontSize: 13, fontWeight: "700" },
-    shelfArrow: { fontSize: 18 },
-    horizontalShelf: { gap: 12, paddingRight: 18 },
-    formatCard: { width: 194, borderRadius: 18, overflow: "hidden", backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.subtle + "32" },
-    formatImage: { width: "100%", height: 140 },
-    formatInfo: { padding: 14, minHeight: 105 },
-    cardTitleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
-    formatTitle: { color: colors.bone, fontSize: 18, fontWeight: "800", flex: 1 },
-    formatBody: { color: colors.muted, fontSize: 12, lineHeight: 17, marginTop: 6 },
-    draftCard: { flexDirection: "row", alignItems: "center", overflow: "hidden", borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.subtle + "32", minHeight: 112 },
-    draftImage: { width: 122, height: 112 },
-    draftInfo: { flex: 1, paddingHorizontal: 16, justifyContent: "center" },
-    draftTitle: { color: colors.bone, fontSize: 18, fontWeight: "800" },
-    draftMeta: { color: colors.muted, fontSize: 12, marginTop: 4 },
-    businessRow: { flexDirection: "row", gap: 10 },
-    businessTile: { flex: 1, minHeight: 164, borderRadius: 18, padding: 13, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.subtle + "32" },
-    businessTileAccent: { backgroundColor: colors.success, borderColor: colors.success },
-    tileIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center", marginBottom: 14 },
-    tileIconAccent: { backgroundColor: colors.successInk + "15" },
-    tileTitle: { color: colors.bone, fontSize: 14, lineHeight: 18, fontWeight: "800", flex: 1 },
-    tileTitleAccent: { color: colors.successInk },
-    tileBody: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 10 },
-    tileBodyAccent: { color: colors.successInk + "CC" },
+    utilityHeader: { height: 46, flexDirection: "row", alignItems: "center", gap: 8 },
+    utilityButton: { width: 38, height: 40, alignItems: "center", justifyContent: "center" },
+    utilitySpacer: { flex: 1 },
+    wordmark: { color: INK, fontSize: 24, fontWeight: "900", letterSpacing: -1 },
+    pageTitleBlock: { marginTop: 8, marginBottom: 16 },
+    pageTitle: { color: INK, fontSize: 42, lineHeight: 47, fontWeight: "900", letterSpacing: -1.5 },
+    pageSubtitle: { color: MUTED, fontSize: 16, lineHeight: 21, marginTop: 3, fontWeight: "600" },
+    hero: { height: 342, borderRadius: 25, overflow: "hidden", backgroundColor: MARKET_RED, position: "relative", marginBottom: 25 },
+    heroModel: { position: "absolute", right: -26, bottom: -28, width: "72%", height: "92%" },
+    heroCopy: { position: "absolute", left: 20, top: 24, zIndex: 3 },
+    heroKicker: { color: "#FFD7DD", fontSize: 10, fontWeight: "900", letterSpacing: 1.7 },
+    heroTitle: { color: "#FFFFFF", fontSize: 34, lineHeight: 34, fontWeight: "900", letterSpacing: -1, marginTop: 10 },
+    heroButton: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#FFFFFF", borderRadius: 23, paddingHorizontal: 17, paddingVertical: 12, marginTop: 21 },
+    heroButtonText: { color: MARKET_RED, fontSize: 14, fontWeight: "900" },
+    heroBurstOne: { position: "absolute", width: 130, height: 18, borderRadius: 9, backgroundColor: "#F47C6B", right: 24, top: 37, transform: [{ rotate: "-20deg" }] },
+    heroBurstTwo: { position: "absolute", width: 70, height: 15, borderRadius: 8, backgroundColor: "#FFB36C", right: 68, top: 72, transform: [{ rotate: "35deg" }] },
+    heroSticker: { position: "absolute", zIndex: 4, backgroundColor: "#FFFFFF", paddingHorizontal: 9, paddingVertical: 6, borderRadius: 4, shadowColor: "#000", shadowOpacity: 0.16, shadowRadius: 4, shadowOffset: { width: 1, height: 2 }, elevation: 3 },
+    heroStickerText: { color: INK, fontSize: 10, fontWeight: "900", letterSpacing: 0.5 },
+    heroStickerIdea: { right: 148, top: 61, transform: [{ rotate: "-8deg" }] },
+    heroStickerDrop: { right: 37, top: 129, transform: [{ rotate: "8deg" }] },
+    heroStickerBrand: { right: 22, bottom: 31, transform: [{ rotate: "-6deg" }] },
+    section: { marginBottom: 25 },
+    sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 11 },
+    sectionTitle: { color: INK, fontSize: 24, lineHeight: 29, fontWeight: "900", letterSpacing: -0.6 },
+    seeAll: { color: MARKET_RED, fontSize: 13, fontWeight: "900" },
+    seeAllArrow: { fontSize: 19 },
+    launchGrid: { flexDirection: "row", gap: 8 },
+    launchCard: { flex: 1, minHeight: 200, borderRadius: 16, overflow: "hidden", paddingTop: 13, position: "relative" },
+    launchCardPink: { backgroundColor: PINK },
+    launchCardYellow: { backgroundColor: PALE_YELLOW },
+    launchCardPeach: { backgroundColor: PEACH },
+    launchCardTop: { paddingHorizontal: 12, flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 3 },
+    launchTitle: { color: INK, fontSize: 15, lineHeight: 17, fontWeight: "900", flex: 1 },
+    launchBody: { color: MUTED, fontSize: 11, lineHeight: 14, paddingHorizontal: 12, marginTop: 4 },
+    launchImage: { position: "absolute", left: 0, right: 0, bottom: 0, height: 106, width: "100%", opacity: 0.92 },
+    launchIcon: { position: "absolute", left: 10, bottom: 10, width: 29, height: 29, borderRadius: 15, backgroundColor: "#FFFFFFE8", alignItems: "center", justifyContent: "center" },
+    draftCard: { minHeight: 102, flexDirection: "row", alignItems: "center", overflow: "hidden", borderRadius: 17, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E5DFDD", paddingRight: 11 },
+    draftImage: { width: 104, height: 102 },
+    draftCopy: { flex: 1, minWidth: 0, paddingHorizontal: 13 },
+    draftTitle: { color: INK, fontSize: 16, fontWeight: "900" },
+    draftMeta: { color: MUTED, fontSize: 11, marginTop: 4 },
+    progressTrack: { height: 5, borderRadius: 3, backgroundColor: "#EFE9E7", overflow: "hidden", marginTop: 10 },
+    progressFill: { height: "100%", borderRadius: 3, backgroundColor: MARKET_RED },
+    continueButton: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: MARKET_RED, borderRadius: 22, paddingHorizontal: 12, paddingVertical: 11 },
+    continueText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
     pressed: { opacity: 0.82, transform: [{ scale: 0.985 }] },
   });
 }
