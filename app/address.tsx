@@ -22,6 +22,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMarket, MARKETS } from "../lib/markets";
 import { addAddress, loadAddress, saveAddress, type Address } from "../lib/orders";
+import { formatPhoneInput } from "../lib/phone";
 import { loadSellerShippingSettings, saveSellerShippingSettings } from "../lib/sellerShipping";
 import { useUvel } from "../lib/store";
 import { useColors, useResolvedAppearance, type Colors } from "../lib/theme";
@@ -79,7 +80,7 @@ export default function Address() {
         const saved = settings.address;
         setSelectedCountry(saved?.country || appCountry || "US");
         setName(saved?.name || displayName);
-        setPhone(saved?.phone || "");
+        setPhone(formatPhoneInput(saved?.phone || "", saved?.country || appCountry || "US"));
         setLine1(saved?.line1 || "");
         setLine2(saved?.line2 || "");
         setCity(saved?.city || "");
@@ -97,7 +98,7 @@ export default function Address() {
     void loadAddress().then((address) => {
       if (!active || !address) return;
       setName(address.name || displayName);
-      setPhone(address.phone || "");
+      setPhone(formatPhoneInput(address.phone || "", address.country || "US"));
       setLine1(address.line1 || "");
       setLine2(address.line2 || "");
       setCity(address.city || "");
@@ -236,7 +237,7 @@ export default function Address() {
             <View style={styles.inputFrame}>
               <TextInput
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={(value) => setPhone(formatPhoneInput(value, selectedCountry))}
                 placeholder=""
                 placeholderTextColor={colors.subtle}
                 keyboardType="phone-pad"

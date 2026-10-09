@@ -4,6 +4,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getMarket } from "../lib/markets";
+import { formatPhoneInput } from "../lib/phone";
 import { loadSellerShippingSettings, saveSellerShippingSettings, type SellerAddress } from "../lib/sellerShipping";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
@@ -59,7 +60,7 @@ export default function SellerShippingAddress() {
     void loadSellerShippingSettings().then((settings) => {
       if (!settings.address) return;
       const next = settings.address;
-      setAddress({ name: next.name || app.displayName || "", phone: next.phone || "", line1: next.line1 || "", line2: next.line2 || "", city: next.city || "", region: next.region || "", postal: next.postal || "" });
+      setAddress({ name: next.name || app.displayName || "", phone: formatPhoneInput(next.phone || "", next.country || market.code), line1: next.line1 || "", line2: next.line2 || "", city: next.city || "", region: next.region || "", postal: next.postal || "" });
     });
   }, [app.displayName]);
 
@@ -90,7 +91,7 @@ export default function SellerShippingAddress() {
           <Text style={styles.heading}>Where you send from</Text>
           <Text style={styles.lede}>Add the address where you normally pack or hand over sold items.</Text>
           <Field label="Full name" value={address.name} onChange={(value) => update("name", value)} colors={colors} required />
-          <Field label="Phone number" value={address.phone} onChange={(value) => update("phone", value)} colors={colors} keyboard="phone-pad" required />
+          <Field label="Phone number" value={address.phone} onChange={(value) => update("phone", formatPhoneInput(value, market.code))} colors={colors} keyboard="phone-pad" required />
           <Field label={labels.line1} value={address.line1} onChange={(value) => update("line1", value)} colors={colors} required />
           <Field label={labels.line2} value={address.line2 || ""} onChange={(value) => update("line2", value)} colors={colors} />
           <Field label={labels.city} value={address.city} onChange={(value) => update("city", value)} colors={colors} required />
