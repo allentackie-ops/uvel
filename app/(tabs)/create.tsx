@@ -178,9 +178,11 @@ function DraftShelf({ brand, drafts, styles }: { brand?: Brand; drafts: ReturnTy
           <View style={styles.draftEmptyIcon}><Ionicons name="document-text-outline" size={22} color={MARKET_RED} /></View>
           <Text style={styles.draftEmptyTitle}>{emptyTitle}</Text>
           <Text style={styles.draftEmptyBody}>{emptyBody}</Text>
-          <Pressable onPress={() => brand ? router.push({ pathname: "/brand/list", params: { id: brand.id } }) : router.push("/brand/founder")} style={({ pressed }) => [styles.emptyDraftButton, pressed && styles.pressed]} accessibilityRole="button">
-            <Text style={styles.emptyDraftButtonText}>{brand ? "Start a product listing" : "Create your brand"}</Text><Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
-          </Pressable>
+          {brand ? (
+            <Pressable onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })} style={({ pressed }) => [styles.emptyDraftButton, pressed && styles.pressed]} accessibilityRole="button">
+              <Text style={styles.emptyDraftButtonText}>Start a product listing</Text><Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
+            </Pressable>
+          ) : null}
         </View>
       </View>
     );
