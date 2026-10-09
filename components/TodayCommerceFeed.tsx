@@ -100,7 +100,7 @@ export function TodayCommerceFeed({
   const [locationBarInteractive, setLocationBarInteractive] = useState(true);
   useFocusEffect(useCallback(() => {
     let cancelled = false;
-    void loadAddresses().then((saved) => {
+    void loadAddresses(app.uid || undefined).then((saved) => {
       if (!cancelled) setAddresses(saved);
     });
     return () => {
@@ -154,7 +154,7 @@ export function TodayCommerceFeed({
     ? `Deliver to ${firstName}${activeAddress.city || activeAddress.postal ? ` - ${[activeAddress.city, activeAddress.postal].filter(Boolean).join(", ")}` : ""}`
     : "Add delivery address";
   const openLocation = () => {
-    void loadAddresses().then(setAddresses);
+    void loadAddresses(app.uid || undefined).then(setAddresses);
     setLocationOpen(true);
   };
   const setLocationBarVisible = (visible: boolean) => {

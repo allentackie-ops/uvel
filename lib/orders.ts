@@ -116,8 +116,8 @@ export type Order = {
 
 const ORDERS = "uvel-orders-v1";
 
-function addressStorageKeys() {
-  const uid = firebaseAuth().currentUser?.uid || "signed-out";
+function addressStorageKeys(accountUid?: string) {
+  const uid = accountUid || firebaseAuth().currentUser?.uid || "signed-out";
   return {
     address: `uvel-address-v1:${uid}`,
     addresses: `uvel-addresses-v1:${uid}`,
@@ -227,20 +227,20 @@ export function allOrders() {
   return cache;
 }
 
-export async function loadAddress(): Promise<Address | null> {
-  const addresses = await loadAddresses();
-  const { active } = addressStorageKeys();
+export async function loadAddress(accountUid?: string): Promise<Address | null> {
+  const addresses = await loadAddresses(accountUid);
+  const { active } = addressStorageKeys(accountUid);
   const activeId = await AsyncStorage.getItem(active);
   return addresses.find((address) => address.id === activeId) || addresses[0] || null;
 }
 
-export async function loadAddresses(): Promise<Address[]> {
+export async function loadAddresses(accountUid?: string): Promise<Address[]> {
   try {
-    const { addresses: addressesKey } = addressStorageKeys();
+    const { addresses: addressesKey } = addressStorageKeys(accountUid);
     const saved = await AsyncStorage.getItem(addressesKey);
     if (saved) {
       const addresses = JSON.parse(saved) as Address[];
-      const { active } = addressStorageKeys();
+      const { active } = addressStorageKeys(accountUid);
       const activeId = await AsyncStorage.getItem(active);
       return activeId ? [...addresses.filter((address) => address.id === activeId), ...addresses.filter((address) => address.id !== activeId)] : addresses;
     }
