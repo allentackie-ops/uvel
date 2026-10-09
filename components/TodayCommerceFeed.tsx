@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AccessiblePressable } from "./AccessiblePressable";
@@ -98,7 +98,7 @@ export function TodayCommerceFeed({
   const locationBarHidden = useRef(false);
   const previousScrollY = useRef(0);
   const [locationBarInteractive, setLocationBarInteractive] = useState(true);
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let cancelled = false;
     void loadAddresses().then((saved) => {
       if (!cancelled) setAddresses(saved);
@@ -106,7 +106,7 @@ export function TodayCommerceFeed({
     return () => {
       cancelled = true;
     };
-  }, [app.uid]);
+  }, [app.uid]));
   useEffect(() => {
     let active = true;
     if (!app.uid || app.uid === "guest") {
