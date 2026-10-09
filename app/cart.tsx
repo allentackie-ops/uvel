@@ -309,7 +309,9 @@ function make(colors: Colors) {
       paddingRight: 8,
       paddingVertical: 8,
       borderRadius: 24,
-      backgroundColor: "#16140F",
+      borderWidth: 1,
+      borderColor: `${colors.bone}20`,
+      backgroundColor: colors.surface,
       flexDirection: "row",
       alignItems: "center",
       gap: 10,
@@ -319,8 +321,8 @@ function make(colors: Colors) {
       shadowOffset: { width: 0, height: 6 },
       elevation: 10,
     },
-    toastText: { flex: 1, fontSize: 14, fontWeight: "700", color: "#F4F0E6" },
-    undo: { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: "#D6E27A", alignItems: "center", justifyContent: "center" },
-    undoText: { color: "#16140F", fontSize: 13, fontWeight: "800" },
+    toastText: { flex: 1, fontSize: 14, fontWeight: "700", color: colors.bone },
+    undo: { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: MARKET_RED, alignItems: "center", justifyContent: "center" },
+    undoText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
   });
 }
