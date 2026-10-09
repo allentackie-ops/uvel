@@ -19,7 +19,8 @@ import {
   resetPassword,
   signInApple,
   signInGoogle,
-  signInOrCreateEmail,
+  signInEmail,
+  signUpEmail,
 } from "../lib/auth";
 import { requestTodayFeedRefreshAfterSignIn } from "../lib/store";
 import { DOCS } from "../lib/legal";
@@ -27,6 +28,7 @@ import { useColors, useResolvedAppearance } from "../lib/theme";
 
 type Provider = "apple" | "google";
 type Screen = "entry" | "email-password";
+type EmailIntent = "sign-in" | "create";
 type Busy = Provider | "email" | "reset" | null;
 type LegalId = "privacy" | "terms";
 
@@ -76,12 +78,12 @@ export function AuthScreen({ onClose }: { onClose?: () => void } = {}) {
     setScreen("email-password");
   }
 
-  function submitPassword() {
+  function submitPassword(intent: EmailIntent = "sign-in") {
     if (!password) {
       setError("Enter your password to continue.");
       return;
     }
-    void run("email", () => signInOrCreateEmail(email, password));
+    void run("email", () => intent === "create" ? signUpEmail(email, password) : signInEmail(email, password));
   }
 
   function openLegal(id: LegalId) {
@@ -252,7 +254,7 @@ export function AuthScreen({ onClose }: { onClose?: () => void } = {}) {
               <Text style={[styles.emailDisplay, { color: colors.bone }]}>{email.trim()}</Text>
               <Text style={[styles.passwordTitle, { color: colors.bone }]}>Enter your password</Text>
               <Text style={[styles.passwordSubtitle, { color: colors.muted }]}>
-                Sign in, or choose a password to create your Uvel account.
+                Use your existing password to sign in, or choose Create account if this email is new to Uvel.
               </Text>
 
               <View style={[styles.passwordField, { borderBottomColor: accent }]}>
@@ -262,7 +264,7 @@ export function AuthScreen({ onClose }: { onClose?: () => void } = {}) {
                     setPassword(value);
                     setError("");
                   }}
-                  onSubmitEditing={submitPassword}
+                  onSubmitEditing={() => submitPassword("sign-in")}
                   placeholder="Password"
                   placeholderTextColor={colors.muted}
                   autoCapitalize="none"
@@ -282,7 +284,7 @@ export function AuthScreen({ onClose }: { onClose?: () => void } = {}) {
               {error ? <Text style={[styles.error, { color: colors.danger }]}>{error}</Text> : null}
               {notice ? <Text style={[styles.notice, { color: colors.success }]}>{notice}</Text> : null}
               <Pressable
-                onPress={submitPassword}
+                onPress={() => submitPassword("sign-in")}
                 disabled={!password || buttonDisabled}
                 accessibilityRole="button"
                 accessibilityState={{ disabled: !password || buttonDisabled, busy: busy === "email" }}
@@ -292,7 +294,16 @@ export function AuthScreen({ onClose }: { onClose?: () => void } = {}) {
                   (!password || buttonDisabled) && styles.disabled,
                 ]}
               >
-                {busy === "email" ? <OrbitLoader size={22} /> : <Text style={[styles.continueText, { color: password ? colors.ink : "#FFFFFF" }]}>Continue</Text>}
+                {busy === "email" ? <OrbitLoader size={22} /> : <Text style={[styles.continueText, { color: password ? colors.ink : "#FFFFFF" }]}>Sign in</Text>}
+              </Pressable>
+              <Pressable
+                onPress={() => submitPassword("create")}
+                disabled={!password || buttonDisabled}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !password || buttonDisabled, busy: busy === "email" }}
+                style={[styles.createAccountButton, (!password || buttonDisabled) && styles.disabled]}
+              >
+                <Text style={[styles.createAccountText, { color: accent }]}>Create account</Text>
               </Pressable>
               <Pressable onPress={() => void sendReset()} disabled={buttonDisabled} style={styles.resetButton}>
                 <Text style={[styles.resetText, { color: accent }]}>Forgot password?</Text>
@@ -368,6 +379,8 @@ const styles = StyleSheet.create({
   notice: { fontSize: 13, lineHeight: 18, marginTop: 10 },
   continueButton: { height: 58, borderRadius: 30, alignItems: "center", justifyContent: "center", marginTop: 42 },
   continueText: { fontSize: 17, fontWeight: "600" },
+  createAccountButton: { alignItems: "center", justifyContent: "center", minHeight: 48, marginTop: 8 },
+  createAccountText: { fontSize: 15, fontWeight: "600" },
   legalRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "baseline", marginTop: 46, paddingHorizontal: 10 },
   legalText: { fontSize: 14, lineHeight: 21 },
   legalLink: { fontSize: 14, lineHeight: 21, textDecorationLine: "underline", fontWeight: "500" },
