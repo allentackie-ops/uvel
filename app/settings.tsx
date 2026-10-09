@@ -51,7 +51,15 @@ export default function Settings({ onBack }: { onBack?: () => void }) {
 
   async function toggleNotes(on: boolean) {
     if (!on) {
-      void app.setWantsUpdates(false);
+      await app.setWantsUpdates(false);
+      void import("../lib/push").then((m) => m.disableLegacyPushToken(app.uid)).catch(() => undefined);
+      try {
+        const { setNotificationPreference } = await import("../lib/supabaseSocial");
+        const updatedAt = await setNotificationPreference(false);
+        await app.setWantsUpdates(false, updatedAt);
+      } catch {
+        // Keep the local opt-out; it will sync when the backend is reachable.
+      }
       void import("../lib/engagement").then((m) => m.syncEngagement({ allowed: false, hasFirstFind: false, hasClosetItems: false, uid: app.uid, cartSignature })).catch(() => undefined);
       return;
     }
@@ -59,13 +67,18 @@ export default function Settings({ onBack }: { onBack?: () => void }) {
       Alert.alert(C.signInFirst, C.notificationsFollow);
       return;
     }
-    void app.setWantsUpdates(true);
-    const { enablePush } = await import("../lib/push");
-    const result = await enablePush(app.uid);
-    if (result !== "granted") {
-      await app.setWantsUpdates(false);
+    await app.setWantsUpdates(true);
+    try {
+      const { setNotificationPreference } = await import("../lib/supabaseSocial");
+      const updatedAt = await setNotificationPreference(true);
+      await app.setWantsUpdates(true, updatedAt);
+    } catch {
+      // Keep the local opt-in; it will sync when the backend is reachable.
+    }
+    const { registerPushToken } = await import("../lib/push");
+    const result = await registerPushToken(app.uid);
+    if (result.permission === "denied") {
       Alert.alert(C.turnNotificationsOn, C.notificationsSettings);
-      return;
     }
     void import("../lib/engagement").then((m) => m.syncEngagement({
       allowed: true,

@@ -1,6 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void };
+
 const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 const FIREBASE_API_KEY = Deno.env.get("FIREBASE_API_KEY") || "AIzaSyBYacCvSdirUvZkw6nFZAjm894ZoAPAaPw";
 const headers = { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-firebase-id-token" };
@@ -66,8 +68,13 @@ async function analyzeListing(sourceUrl: string, currency: string) {
 }
 
 async function notify(identity: Identity, listingId: string, title: string, body: string) {
-  const { data: profile } = await supabase.from("profiles").select("expo_push_token").eq("legacy_firebase_uid", identity.firebaseUid).maybeSingle();
-  const token = text(profile?.expo_push_token, 500);
+  const { data: preference, error: preferenceError } = await supabase.from("user_notification_preferences").select("enabled,expo_push_token").eq("firebase_uid", identity.firebaseUid).maybeSingle();
+  if (preferenceError) throw preferenceError;
+  let token = preference?.enabled ? text(preference.expo_push_token, 500) : "";
+  if (!preference) {
+    const { data: profile } = await supabase.from("profiles").select("expo_push_token").eq("legacy_firebase_uid", identity.firebaseUid).maybeSingle();
+    token = text(profile?.expo_push_token, 500);
+  }
   if (!token) return;
   await fetch("https://exp.host/--/api/v2/push/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ to: token, title, body, sound: "default", priority: "high", data: { kind: "listing_processing_complete", listingId } }) }).catch(() => undefined);
 }

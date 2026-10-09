@@ -1,7 +1,7 @@
 import Constants from "expo-constants";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import { AppState, Platform } from "react-native";
-import { firebaseDb, firebaseReady } from "./firebase";
+import { firebaseAuth, firebaseDb, firebaseReady } from "./firebase";
 import { getSupabase } from "./supabase";
 
 /** Bundled stitch chime. Filename must match app.json expo-notifications sounds. */
@@ -67,51 +67,69 @@ function channelFor(kind: string) {
   return "activity-stitch";
 }
 
-export async function registerPushToken(uid: string) {
-  if (!uid || !firebaseReady()) return false;
+export type PushRegistrationResult =
+  | { permission: "granted"; tokenRegistered: boolean }
+  | { permission: "denied" | "unknown"; tokenRegistered: false };
+
+export async function registerPushToken(
+  uid: string,
+  options: { requestPermission?: boolean } = {},
+): Promise<PushRegistrationResult> {
+  if (!uid || !firebaseReady()) return { permission: "unknown", tokenRegistered: false };
+  let permissionGranted = false;
   try {
     armNotificationHandler();
     await ensureAndroidChannels();
     const N = await notifications();
     const perm = await N.getPermissionsAsync();
     let status = perm.status;
-    if (status !== "granted") {
+    if (status !== "granted" && options.requestPermission !== false) {
       const asked = await N.requestPermissionsAsync({
         ios: { allowAlert: true, allowBadge: true, allowSound: true },
       });
       status = asked.status;
     }
-    if (status !== "granted") return false;
+    if (status !== "granted") return { permission: "denied", tokenRegistered: false };
+    permissionGranted = true;
     const projectId =
       Constants.easConfig?.projectId ??
       (Constants.expoConfig?.extra as { eas?: { projectId?: string } } | undefined)?.eas?.projectId;
     const token = (await N.getExpoPushTokenAsync(projectId ? { projectId } : undefined)).data;
-    if (!token) return false;
+    if (!token) return { permission: "granted", tokenRegistered: false };
+    const supabase = getSupabase();
+    const user = firebaseAuth().currentUser;
+    if (!supabase || !user || user.uid !== uid) return { permission: "granted", tokenRegistered: false };
+    const idToken = await user.getIdToken();
+    const { data, error } = await supabase.functions.invoke("firebase-social-gateway", {
+      body: { action: "register_push_token", expoPushToken: token },
+      headers: { "x-firebase-id-token": idToken },
+    });
+    if (error || data?.error || data?.enabled === false) return { permission: "granted", tokenRegistered: false };
     await setDoc(
       doc(firebaseDb(), "users", uid),
-      { expoPushToken: token, lastSeen: Date.now(), updatedAt: Date.now() },
+      // Compatibility mirror for existing Firebase Cloud Functions; Supabase
+      // remains the authoritative notification preference and token store.
+      { wantsUpdates: true, expoPushToken: token, lastSeen: Date.now(), updatedAt: Date.now() },
       { merge: true },
-    );
-    const supabase = getSupabase();
-    if (supabase) {
-      try {
-        await supabase.from("profiles").upsert(
-          { legacy_firebase_uid: uid, expo_push_token: token, updated_at: new Date().toISOString() },
-          { onConflict: "legacy_firebase_uid" },
-        );
-      } catch {
-        /* Firebase token registration should still succeed if Supabase profile RLS blocks this mirror. */
-      }
-    }
-    return true;
+    ).catch(() => undefined);
+    return { permission: "granted", tokenRegistered: true };
   } catch {
-    return false;
+    return { permission: permissionGranted ? "granted" : "unknown", tokenRegistered: false };
   }
 }
 
+export async function disableLegacyPushToken(uid: string) {
+  if (!uid || !firebaseReady()) return;
+  await setDoc(
+    doc(firebaseDb(), "users", uid),
+    { wantsUpdates: false, expoPushToken: null, updatedAt: Date.now() },
+    { merge: true },
+  ).catch(() => undefined);
+}
+
 export async function enablePush(uid: string) {
-  const ok = await registerPushToken(uid);
-  if (!ok) return "denied" as const;
+  const result = await registerPushToken(uid);
+  if (result.permission !== "granted") return "denied" as const;
   // Enabling notifications should not create an immediate local notification.
   // The app's timed engagement reminders and real activity events are scheduled
   // separately, after onboarding and settings changes have finished.
@@ -154,8 +172,15 @@ export async function sendPush(toToken: string, title: string, body: string, dat
 export async function notifyUser(uid: string, title: string, body: string, data: Record<string, string>) {
   if (!uid || !firebaseReady()) return;
   try {
-    const snap = await getDoc(doc(firebaseDb(), "users", uid));
-    const token = typeof snap.data()?.expoPushToken === "string" ? String(snap.data()?.expoPushToken) : "";
+    const user = firebaseAuth().currentUser;
+    const supabase = getSupabase();
+    if (!user || !supabase) return;
+    const { data: result, error } = await supabase.functions.invoke("marketplace-messaging", {
+      body: { action: "profile", uid },
+      headers: { "x-firebase-id-token": await user.getIdToken() },
+    });
+    if (error) return;
+    const token = typeof result?.profile?.expoPushToken === "string" ? result.profile.expoPushToken : "";
     if (!token) return;
     await sendPush(token, title, body, data);
   } catch {

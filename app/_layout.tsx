@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { AppState, Pressable, Text, View } from "react-native";
 import { markActivityNotificationRead } from "../lib/activityNotifications";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -18,7 +18,7 @@ import { armNotificationHandler, registerPushToken, watchLastSeen } from "../lib
 import { syncEngagement } from "../lib/engagement";
 import { useCart } from "../lib/cart";
 import { useFirstFind } from "../lib/firstFind";
-import { useUvel } from "../lib/store";
+import { snapshot, useUvel } from "../lib/store";
 import { useColors, useResolvedAppearance } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
 import { pullLooks } from "../lib/trends";
@@ -77,6 +77,7 @@ function AlertSync() {
 function PushSync() {
   const app = useUvel();
   const uid = app.uid;
+  const notificationInitUid = useRef("");
   const cart = useCart();
   const find = useFirstFind();
   const pieces = useWardrobe();
@@ -86,8 +87,99 @@ function PushSync() {
     armNotificationHandler();
   }, []);
   useEffect(() => {
+    if (!uid) {
+      notificationInitUid.current = "";
+      return;
+    }
+    if (!app.profileChecked || notificationInitUid.current === uid) return;
+    notificationInitUid.current = uid;
+    let live = true;
+    void (async () => {
+      const { getNotificationPreference, setNotificationPreference } = await import("../lib/supabaseSocial");
+      let remotePreference: { enabled: boolean; updatedAt: number } | null = null;
+      try {
+        remotePreference = await getNotificationPreference();
+      } catch {
+        // Keep the locally persisted preference if the device is offline.
+      }
+      if (!live) return;
+      const localPreference = snapshot();
+      if (remotePreference !== null) {
+        const localChoiceIsNewer = localPreference.notificationChoiceMade && localPreference.notificationChoiceUpdatedAt > remotePreference.updatedAt;
+        if (localChoiceIsNewer) {
+          try {
+            const updatedAt = await setNotificationPreference(localPreference.wantsUpdates);
+            const latest = snapshot();
+            if (live && latest.notificationChoiceUpdatedAt === localPreference.notificationChoiceUpdatedAt) {
+              await app.setWantsUpdates(localPreference.wantsUpdates, updatedAt);
+            }
+          } catch {
+            // The local choice remains newer and will be retried next launch.
+          }
+          if (snapshot().wantsUpdates) void registerPushToken(uid, { requestPermission: false });
+          else void import("../lib/push").then((m) => m.disableLegacyPushToken(uid)).catch(() => undefined);
+          return;
+        }
+        if (!localPreference.notificationChoiceMade || localPreference.wantsUpdates !== remotePreference.enabled || localPreference.notificationChoiceUpdatedAt !== remotePreference.updatedAt) {
+          await app.setWantsUpdates(remotePreference.enabled, remotePreference.updatedAt);
+        }
+        if (remotePreference.enabled) void registerPushToken(uid, { requestPermission: false });
+        else void import("../lib/push").then((m) => m.disableLegacyPushToken(uid)).catch(() => undefined);
+        return;
+      }
+      if (localPreference.notificationChoiceMade || localPreference.wantsUpdates) {
+        if (!localPreference.notificationChoiceMade) await app.setWantsUpdates(localPreference.wantsUpdates);
+        const choice = snapshot();
+        try {
+          const updatedAt = await setNotificationPreference(choice.wantsUpdates);
+          const latest = snapshot();
+          if (live && latest.notificationChoiceUpdatedAt === choice.notificationChoiceUpdatedAt) {
+            await app.setWantsUpdates(choice.wantsUpdates, updatedAt);
+          }
+        } catch {
+          // The local choice remains available for a later retry.
+        }
+        if (snapshot().wantsUpdates) void registerPushToken(uid, { requestPermission: false });
+        else void import("../lib/push").then((m) => m.disableLegacyPushToken(uid)).catch(() => undefined);
+        return;
+      }
+      const firstRunChoiceTimestamp = localPreference.notificationChoiceUpdatedAt;
+      const result = await registerPushToken(uid);
+      if (!live) return;
+      const latest = snapshot();
+      if (latest.notificationChoiceMade || latest.notificationChoiceUpdatedAt !== firstRunChoiceTimestamp) return;
+      if (result.permission === "granted") {
+        await app.setWantsUpdates(true);
+        try {
+          const updatedAt = await setNotificationPreference(true);
+          if (live) await app.setWantsUpdates(true, updatedAt);
+        } catch {
+          // The local opt-in remains set and will be synced on a later launch.
+        }
+      } else if (result.permission === "denied") {
+        await app.setWantsUpdates(false);
+        void import("../lib/push").then((m) => m.disableLegacyPushToken(uid)).catch(() => undefined);
+        try {
+          const updatedAt = await setNotificationPreference(false);
+          if (live) await app.setWantsUpdates(false, updatedAt);
+        } catch {
+          // The local decision remains set and will be synced on a later launch.
+        }
+      }
+    })().catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [uid, app.profileChecked]);
+  useEffect(() => {
+    if (!uid || !app.profileChecked || !app.wantsUpdates) return;
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void registerPushToken(uid, { requestPermission: false });
+    });
+    return () => subscription.remove();
+  }, [uid, app.profileChecked, app.wantsUpdates]);
+  useEffect(() => {
     if (!uid) return;
-    void registerPushToken(uid);
     const stop = watchLastSeen(uid);
     let sub: { remove: () => void } | undefined;
       void import("expo-notifications")

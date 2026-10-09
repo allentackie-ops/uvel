@@ -81,8 +81,17 @@ Deno.serve(async (req) => {
 
     if (action === "upload_attachment") return out({ url: await uploadAttachment(user.uid, text(body.base64, 12_000_000), text(body.contentType, 80)) });
     if (action === "profile") {
-      const { data } = await db.from("profiles").select("display_name,expo_push_token").eq("legacy_firebase_uid", text(body.uid, 160)).maybeSingle();
-      return out({ profile: data ? { displayName: data.display_name || "", expoPushToken: data.expo_push_token || "" } : null });
+      const targetUid = text(body.uid, 160);
+      const [{ data, error }, { data: preference, error: preferenceError }] = await Promise.all([
+        db.from("profiles").select("display_name,expo_push_token").eq("legacy_firebase_uid", targetUid).maybeSingle(),
+        db.from("user_notification_preferences").select("enabled,expo_push_token").eq("firebase_uid", targetUid).maybeSingle(),
+      ]);
+      if (error) throw error;
+      if (preferenceError) throw preferenceError;
+      const expoPushToken = preference
+        ? preference.enabled ? preference.expo_push_token || "" : ""
+        : data?.expo_push_token || "";
+      return out({ profile: data ? { displayName: data.display_name || "", expoPushToken } : { displayName: "", expoPushToken } });
     }
     if (action === "upsert_thread") {
       const value = body.thread || {};

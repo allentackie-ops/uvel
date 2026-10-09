@@ -48,6 +48,20 @@ export async function socialCall<T = any>(action: string, payload: Record<string
   return data as T;
 }
 
+export async function getNotificationPreference(): Promise<{ enabled: boolean; updatedAt: number } | null> {
+  const result = await socialCall<{ preference: { enabled: boolean; updatedAt: string } | null }>("notification_preference");
+  const preference = result.preference;
+  if (!preference || typeof preference.enabled !== "boolean") return null;
+  const updatedAt = Date.parse(preference.updatedAt);
+  return { enabled: preference.enabled, updatedAt: Number.isFinite(updatedAt) ? updatedAt : 0 };
+}
+
+export async function setNotificationPreference(enabled: boolean) {
+  const result = await socialCall<{ updatedAt?: string }>("set_notification_preference", { enabled });
+  const updatedAt = Date.parse(result.updatedAt || "");
+  return Number.isFinite(updatedAt) ? updatedAt : Date.now();
+}
+
 export async function searchSupabaseUsers(term: string) {
   const result = await socialCall<{ users: PublicUser[] }>("search_users", { term });
   return result.users || [];

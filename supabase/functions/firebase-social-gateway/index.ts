@@ -40,6 +40,28 @@ async function uploadProfileAvatar(uid: string, body: any) {
   if (profileError) throw profileError;
   return out({ avatarUri });
 }
+async function readNotificationPreference(uid: string) {
+  const { data, error } = await db.from("user_notification_preferences").select("enabled,updated_at").eq("firebase_uid", uid).maybeSingle();
+  if (error) throw error;
+  return data && typeof data.enabled === "boolean" ? { enabled: data.enabled, updatedAt: data.updated_at } : null;
+}
+async function saveNotificationPreference(uid: string, enabled: boolean, requestedToken?: string) {
+  const { data: current, error: lookupError } = await db.from("user_notification_preferences").select("expo_push_token").eq("firebase_uid", uid).maybeSingle();
+  if (lookupError) throw lookupError;
+  const now = new Date().toISOString();
+  const token = enabled ? requestedToken || current?.expo_push_token || null : null;
+  const { error } = await db.from("user_notification_preferences").upsert({ firebase_uid: uid, enabled, expo_push_token: token, updated_at: now }, { onConflict: "firebase_uid" });
+  if (error) throw error;
+  const { error: legacyMirrorError } = await db.from("profiles").update({ expo_push_token: token, updated_at: now }).eq("legacy_firebase_uid", uid);
+  if (legacyMirrorError) console.warn("Could not mirror notification token to legacy profile", legacyMirrorError);
+  return { enabled, hasToken: Boolean(token), updatedAt: now };
+}
+async function registerNotificationToken(uid: string, token: string) {
+  if (!/^(Expo|Exponent)PushToken\[[^\]\s]+\]$/.test(token)) throw new Error("That push token is invalid.");
+  const current = await readNotificationPreference(uid);
+  if (current?.enabled === false) return { enabled: false, hasToken: false };
+  return await saveNotificationPreference(uid, true, token);
+}
 async function notify(recipientUid: string, kind: string, requestId: string, actor: any, id: string) { const { error } = await db.from("friend_notifications").upsert({ id, recipient_uid: recipientUid, kind, request_id: requestId, actor, read_at: null }, { onConflict: "id" }); if (error) throw error; }
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
@@ -51,6 +73,15 @@ Deno.serve(async (req) => {
     const requestedAction = text(body.action, 40);
     const legacyDecision = ["accepted", "declined"].includes(requestedAction) ? requestedAction : "";
     const route = legacyDecision ? "respond_request" : requestedAction;
+    if (route === "notification_preference") return out({ preference: await readNotificationPreference(uid) });
+    if (route === "set_notification_preference") {
+      if (typeof body.enabled !== "boolean") return out({ error: "A notification preference is required." }, 400);
+      return out(await saveNotificationPreference(uid, body.enabled, text(body.expoPushToken, 500) || undefined));
+    }
+    if (route === "register_push_token") {
+      const result = await registerNotificationToken(uid, text(body.expoPushToken, 500));
+      return out({ ok: result.enabled, ...result });
+    }
     if (route === "sync_profile") return out({ profile: await syncProfile(uid, body.profile) });
     if (route === "upload_profile_avatar") return await uploadProfileAvatar(uid, body);
     if (route === "search_users") {

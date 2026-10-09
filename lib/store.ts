@@ -33,6 +33,8 @@ type State = {
   styles: string[];
   wardrobeUris: string[];
   wantsUpdates: boolean;
+  notificationChoiceMade: boolean;
+  notificationChoiceUpdatedAt: number;
   accessibilityMode: boolean;
 };
 
@@ -64,6 +66,8 @@ const defaults: State = {
   styles: [],
   wardrobeUris: [],
   wantsUpdates: false,
+  notificationChoiceMade: false,
+  notificationChoiceUpdatedAt: 0,
   accessibilityMode: false,
 };
 
@@ -148,6 +152,7 @@ async function applyAccount(
     createdAt: user.createdAt,
     lastSignInAt: user.lastSignInAt,
   });
+  const sameAccount = memory.uid === user.uid;
   if (knownDone) {
     memory = {
       ...memory,
@@ -167,7 +172,9 @@ async function applyAccount(
       archetype: (stashed?.archetype as string) || memory.archetype,
       palette: (stashed?.palette as string) || memory.palette,
       silhouette: (stashed?.silhouette as string) || memory.silhouette,
-      wantsUpdates: Boolean(stashed?.wantsUpdates) || memory.wantsUpdates,
+      wantsUpdates: typeof stashed?.wantsUpdates === "boolean" ? stashed.wantsUpdates : sameAccount ? memory.wantsUpdates : defaults.wantsUpdates,
+      notificationChoiceMade: typeof stashed?.notificationChoiceMade === "boolean" ? stashed.notificationChoiceMade : sameAccount ? memory.notificationChoiceMade : defaults.notificationChoiceMade,
+      notificationChoiceUpdatedAt: typeof stashed?.notificationChoiceUpdatedAt === "number" ? stashed.notificationChoiceUpdatedAt : sameAccount ? memory.notificationChoiceUpdatedAt : defaults.notificationChoiceUpdatedAt,
       accessibilityMode: typeof stashed?.accessibilityMode === "boolean" ? stashed.accessibilityMode : memory.accessibilityMode,
       locale: (typeof stashed?.locale === "string" && stashed.locale) || memory.locale,
       avatarUri: supabaseProfileAvatar(stashed?.avatarUri) || supabaseProfileAvatar(memory.avatarUri),
@@ -252,7 +259,9 @@ async function applyAccount(
     archetype: (typeof remote?.archetype === "string" && remote.archetype) || (stashed?.archetype as string) || memory.archetype,
     palette: (typeof remote?.palette === "string" && remote.palette) || (stashed?.palette as string) || memory.palette,
     silhouette: (typeof remote?.silhouette === "string" && remote.silhouette) || (stashed?.silhouette as string) || memory.silhouette,
-    wantsUpdates: typeof remote?.wantsUpdates === "boolean" ? remote.wantsUpdates : typeof stashed?.wantsUpdates === "boolean" ? stashed.wantsUpdates : memory.wantsUpdates,
+    wantsUpdates: typeof stashed?.wantsUpdates === "boolean" ? stashed.wantsUpdates : memory.wantsUpdates,
+    notificationChoiceMade: typeof stashed?.notificationChoiceMade === "boolean" ? stashed.notificationChoiceMade : memory.notificationChoiceMade,
+    notificationChoiceUpdatedAt: typeof stashed?.notificationChoiceUpdatedAt === "number" ? stashed.notificationChoiceUpdatedAt : memory.notificationChoiceUpdatedAt,
     accessibilityMode: typeof remote?.accessibilityMode === "boolean" ? remote.accessibilityMode : typeof stashed?.accessibilityMode === "boolean" ? stashed.accessibilityMode : memory.accessibilityMode,
     locale: typeof remote?.locale === "string" && remote.locale ? remote.locale : (typeof stashed?.locale === "string" && stashed.locale) || memory.locale,
     avatarUri: profileAvatarUri,
@@ -274,7 +283,6 @@ async function applyAccount(
           archetype: memory.archetype,
           palette: memory.palette,
           silhouette: memory.silhouette,
-          wantsUpdates: memory.wantsUpdates,
         }),
       );
     }
@@ -310,6 +318,8 @@ async function stashProfile() {
       palette: memory.palette,
       silhouette: memory.silhouette,
       wantsUpdates: memory.wantsUpdates,
+      notificationChoiceMade: memory.notificationChoiceMade,
+      notificationChoiceUpdatedAt: memory.notificationChoiceUpdatedAt,
       accessibilityMode: memory.accessibilityMode,
       locale: memory.locale,
     };
@@ -430,13 +440,9 @@ export function useUvel() {
       }
       return save({ accessibilityMode }).then(() => stashProfile());
     },
-    setWantsUpdates: (wantsUpdates: boolean) => {
-      if (memory.uid) {
-        void import("./auth").then(({ writeUserProfile }) =>
-          writeUserProfile(memory.uid, { wantsUpdates }),
-        );
-      }
-      return save({ wantsUpdates }).then(() => stashProfile());
+    setWantsUpdates: (wantsUpdates: boolean, updatedAt?: number) => {
+      const choiceUpdatedAt = typeof updatedAt === "number" ? updatedAt : Math.max(Date.now(), memory.notificationChoiceUpdatedAt + 1);
+      return save({ wantsUpdates, notificationChoiceMade: true, notificationChoiceUpdatedAt: choiceUpdatedAt }).then(() => stashProfile());
     },
     setLocale: (locale: string) => {
       if (memory.uid) {
