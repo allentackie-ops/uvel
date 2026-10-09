@@ -2,7 +2,7 @@ import { StatusBar } from "expo-status-bar";
 import { useMemo } from "react";
 import { ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useUvel } from "../lib/store";
-import { useColors, type Colors } from "../lib/theme";
+import { MARKET_RED, useColors, type Colors } from "../lib/theme";
 import { updatePiece, useWardrobe, useWardrobeHydrated } from "../lib/wardrobe";
 
 export default function SellingAvailability() {
@@ -42,7 +42,7 @@ export default function SellingAvailability() {
             value={paused}
             onValueChange={toggle}
             disabled={disabled}
-            trackColor={{ false: colors.surface, true: colors.success }}
+            trackColor={{ false: colors.surface, true: MARKET_RED }}
             thumbColor="#fff"
             accessibilityLabel="Pause my listings"
             accessibilityHint="Hide or show your normal listings in the marketplace."

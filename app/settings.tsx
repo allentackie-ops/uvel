@@ -11,7 +11,7 @@ import { getMarket } from "../lib/markets";
 import { requestFeedback } from "../lib/feedback";
 import { useUvel } from "../lib/store";
 import { useCopy } from "../lib/useCopy";
-import { useColors, type Colors } from "../lib/theme";
+import { MARKET_RED, useColors, type Colors } from "../lib/theme";
 import { loadHapticsEnabled, setHapticsEnabled } from "../lib/haptics";
 import { useWardrobe } from "../lib/wardrobe";
 
@@ -140,7 +140,7 @@ export default function Settings({ onBack }: { onBack?: () => void }) {
           <Switch
             value={hapticsEnabled}
             onValueChange={(value) => void toggleHaptics(value)}
-            trackColor={{ false: colors.surface, true: colors.success }}
+            trackColor={{ false: colors.surface, true: MARKET_RED }}
             thumbColor="#fff"
             accessibilityRole="switch"
             accessibilityLabel="Haptic feedback"
@@ -182,7 +182,7 @@ export default function Settings({ onBack }: { onBack?: () => void }) {
           <Switch
             value={app.wantsUpdates}
             onValueChange={(v) => void toggleNotes(v)}
-            trackColor={{ false: colors.surface, true: colors.success }}
+            trackColor={{ false: colors.surface, true: MARKET_RED }}
             thumbColor="#fff"
             accessibilityLabel={C.notifications}
             accessibilityHint={C.notificationHint}
@@ -197,7 +197,7 @@ export default function Settings({ onBack }: { onBack?: () => void }) {
           <Switch
             value={app.accessibilityMode}
             onValueChange={(v) => void app.setAccessibilityMode(v)}
-            trackColor={{ false: colors.surface, true: colors.success }}
+            trackColor={{ false: colors.surface, true: MARKET_RED }}
             thumbColor="#fff"
             accessibilityLabel={C.accessibilityFeatures}
             accessibilityHint={C.accessibilityHint}

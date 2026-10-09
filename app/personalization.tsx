@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Alert, Linking, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { clearPersonalization } from "../lib/personalization";
 import { useUvel } from "../lib/store";
-import { useColors } from "../lib/theme";
+import { MARKET_RED, useColors } from "../lib/theme";
 
 export default function Personalization() {
   const app = useUvel();
@@ -64,7 +64,7 @@ export default function Personalization() {
           <Switch
             value={crossApp}
             onValueChange={(enabled) => void toggleCrossApp(enabled)}
-            trackColor={{ false: colors.neutral, true: colors.success }}
+            trackColor={{ false: colors.neutral, true: MARKET_RED }}
             thumbColor={crossApp ? colors.successInk : "#FFFFFF"}
             accessibilityLabel="Activity from other apps"
           />

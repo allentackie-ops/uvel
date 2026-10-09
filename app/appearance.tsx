@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View, useColorScheme } from "react-native";
 import { useUvel } from "../lib/store";
-import { palettes, resolveAppearance, useColors } from "../lib/theme";
+import { MARKET_RED, palettes, resolveAppearance, useColors } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
 
 export default function Appearance() {
@@ -44,7 +44,7 @@ export default function Appearance() {
         <Switch
           value={app.appearance === "system"}
           onValueChange={(enabled) => void app.setAppearance(enabled ? "system" : current)}
-          trackColor={{ false: colors.neutral, true: colors.success }}
+          trackColor={{ false: colors.neutral, true: MARKET_RED }}
           thumbColor={app.appearance === "system" ? colors.successInk : "#FFFFFF"}
           accessibilityLabel={C.matchSystem}
           accessibilityHint={C.matchSystemHint}

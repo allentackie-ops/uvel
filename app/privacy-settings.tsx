@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { loadPrivacySettings, savePrivacySetting, type PrivacySettingKey, type PrivacySettings } from "../lib/privacy";
-import { useColors, type Colors } from "../lib/theme";
+import { MARKET_RED, useColors, type Colors } from "../lib/theme";
 import { useUvel } from "../lib/store";
 
 const OPTIONS: Array<{ key: PrivacySettingKey; title: string; body: string }> = [
@@ -77,7 +77,7 @@ export default function PrivacySettings() {
             <Switch
               value={settings[option.key]}
               onValueChange={(value) => void toggle(option.key, value)}
-              trackColor={{ false: colors.neutral, true: colors.success }}
+              trackColor={{ false: colors.neutral, true: MARKET_RED }}
               thumbColor={settings[option.key] ? colors.successInk : "#FFFFFF"}
               accessibilityRole="switch"
               accessibilityLabel={option.title}
