@@ -1,10 +1,11 @@
-export function formatPhoneInput(value: string, countryCode: string): string {
-  const code = countryCode.toUpperCase();
-  if (code !== "US" && code !== "CA") return value;
+import { AsYouType, type CountryCode } from "libphonenumber-js";
 
-  const digits = value.replace(/\D/g, "").slice(0, 10);
-  if (!digits) return "";
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+export function formatPhoneInput(value: string, countryCode: string): string {
+  if (!value) return "";
+
+  try {
+    return new AsYouType(countryCode.toUpperCase() as CountryCode).input(value);
+  } catch {
+    return value;
+  }
 }
