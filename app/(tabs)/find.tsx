@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActionSheetIOS, Alert, Platform, Share as NativeShare } from "react-native";
 import { FriendShareSheet, type FriendSharePayload } from "../../components/FriendShareSheet";
 import { MirrorStudioView } from "../../components/MirrorStudioView";
@@ -15,9 +15,9 @@ type GarmentPick =
   | { kind: "uvel"; piece: ClosetPiece }
   | { kind: "photo" | "link"; uri: string; name: string };
 
-type MirrorProps = { standalone?: boolean; initialJobId?: string };
+type MirrorProps = { standalone?: boolean; initialJobId?: string; initialPieceId?: string };
 
-export default function Mirror({ standalone = false, initialJobId }: MirrorProps = {}) {
+export default function Mirror({ standalone = false, initialJobId, initialPieceId }: MirrorProps = {}) {
   const app = useUvel();
   useWardrobe();
   const marketplaceSync = useMarketplaceSyncState();
@@ -37,11 +37,28 @@ export default function Mirror({ standalone = false, initialJobId }: MirrorProps
   const [jobSource, setJobSource] = useState<MirrorJobSource | null>(null);
   const [jobPieceId, setJobPieceId] = useState("");
   const [jobGarmentName, setJobGarmentName] = useState("");
+  const initialPieceApplied = useRef(false);
 
   const garmentUri = picked?.kind === "uvel" ? picked.piece.photo : picked?.uri;
   const selectedGarmentName = picked?.kind === "uvel" ? picked.piece.name : picked?.name;
   const garmentName = selectedGarmentName || jobGarmentName || "this look";
   const garmentCat = picked?.kind === "uvel" ? picked.piece.category : "clothes";
+
+  useEffect(() => {
+    if (initialPieceApplied.current || !initialPieceId) return;
+    const piece = getPiece(initialPieceId);
+    if (!piece) return;
+    initialPieceApplied.current = true;
+    setPicked({ kind: "uvel", piece });
+    setResult(null);
+    setJobStatus(null);
+    setJobSource(null);
+    setJobPieceId("");
+    setJobGarmentName("");
+    setErr("");
+    setJobId(null);
+    if (app.uid) void setActiveMirrorJobId(app.uid, null);
+  }, [app.uid, initialPieceId, live]);
 
   useEffect(() => {
     if (!app.hydrated || !app.uid || initialJobId) return;

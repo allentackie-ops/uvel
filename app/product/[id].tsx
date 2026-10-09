@@ -80,7 +80,7 @@ export default function Product() {
           </Glass>
         </AccessiblePressable>
         <AccessiblePressable
-          onPress={() => router.push({ pathname: "/try-on", params: { g: garment.id } })}
+          onPress={() => router.push({ pathname: "/mirror", params: { piece: `test-${garment.id}` } })}
           accessibilityRole="button"
           accessibilityLabel="Try this item on"
           accessibilityHint="Double tap to open the try-on experience."

@@ -823,7 +823,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           <Action
             icon="body-outline"
             label="Try it on"
-            onPress={() => { onGuideDismiss(); router.push({ pathname: "/try-on", params: { piece: piece.id } }); }}
+            onPress={() => { onGuideDismiss(); router.push({ pathname: "/mirror", params: { piece: piece.id } }); }}
             styles={styles}
             colors={colors}
           />

@@ -395,7 +395,7 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
               <Text style={styles.bagText}>{inBag ? "In bag" : "Add to cart"}</Text>
             </Pressable>
             <Pressable
-              onPress={() => router.push({ pathname: "/try-on", params: { piece: piece.id } })}
+              onPress={() => router.push({ pathname: "/mirror", params: { piece: piece.id } })}
               style={styles.tryOnButton}
               accessibilityRole="button"
               accessibilityLabel={`Try on ${piece.name}`}
