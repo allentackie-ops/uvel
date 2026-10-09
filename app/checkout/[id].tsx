@@ -6,6 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  InteractionManager,
   Platform,
   ScrollView,
   StyleSheet,
@@ -533,8 +534,9 @@ export default function Checkout() {
     if (!session || !address) return;
     setCardSession(null);
     setPaying(true);
-    // Let the custom modal dismiss before Stripe presents its Link authentication UI.
-    await new Promise((resolve) => setTimeout(resolve, 220));
+    // Let the custom card modal fully dismiss before Stripe presents Link.
+    await new Promise<void>((resolve) => InteractionManager.runAfterInteractions(() => resolve()));
+    await new Promise((resolve) => setTimeout(resolve, 120));
     try {
       const initialized = await initPaymentSheet({
         merchantDisplayName: "Uvel",
@@ -548,7 +550,7 @@ export default function Checkout() {
         link: { display: LinkDisplay.AUTOMATIC },
         paymentMethodOrder: ["link", "card"],
         primaryButtonLabel: "Pay now",
-        style: "alwaysDark",
+        style: colors.ink === "#FFFFFF" ? "alwaysLight" : "alwaysDark",
         allowsDelayedPaymentMethods: false,
         ...stripePaymentSheetAddress(address, app.email || undefined),
       });

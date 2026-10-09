@@ -3,7 +3,7 @@ import { Image } from "expo-image";
 import { router, useFocusEffect } from "expo-router";
 import { LinkDisplay, PlatformPay, useStripe } from "@stripe/stripe-react-native";
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, InteractionManager, Platform, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { AccessiblePressable } from "./AccessiblePressable";
@@ -511,7 +511,8 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
     if (!session || !address || paying) return;
     setCardSession(null);
     setPaying(true);
-    await new Promise((resolve) => setTimeout(resolve, 220));
+    await new Promise<void>((resolve) => InteractionManager.runAfterInteractions(() => resolve()));
+    await new Promise((resolve) => setTimeout(resolve, 120));
     try {
       const initialized = await initPaymentSheet({
         merchantDisplayName: "Uvel",
@@ -522,7 +523,7 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
         link: { display: LinkDisplay.AUTOMATIC },
         paymentMethodOrder: ["link", "card"],
         primaryButtonLabel: "Pay now",
-        style: "alwaysDark",
+        style: colors.ink === "#FFFFFF" ? "alwaysLight" : "alwaysDark",
         allowsDelayedPaymentMethods: false,
         ...stripePaymentSheetAddress(address, app.email || undefined),
       });

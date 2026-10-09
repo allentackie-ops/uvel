@@ -138,7 +138,7 @@ export function CardCheckoutSheet({
                 onCardChange={(details) => setCardComplete(details.complete)}
                 disabled={busy}
                 cardStyle={{
-                  backgroundColor: "transparent",
+                  backgroundColor: colors.surface,
                   borderColor: "transparent",
                   borderWidth: 0,
                   borderRadius: 0,
@@ -242,7 +242,7 @@ function makeStyles(colors: Colors) {
   closeButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   title: { color: FG, fontSize: 18, fontWeight: "700", letterSpacing: 0.1 },
   headerSpacer: { width: 40 },
-  cardRow: { minHeight: 50, borderWidth: 1, borderColor: BORDER, borderRadius: 3, flexDirection: "row", alignItems: "center", paddingHorizontal: 9, backgroundColor: colors.ink },
+  cardRow: { minHeight: 50, borderWidth: 1, borderColor: BORDER, borderRadius: 3, flexDirection: "row", alignItems: "center", paddingHorizontal: 9, backgroundColor: colors.surface },
   cardIcon: { marginRight: 8 },
   cardField: { flex: 1, height: 44, minWidth: 0 },
   zipInput: { width: 44, height: 40, color: FG, fontSize: 13, textAlign: "center", paddingHorizontal: 0, borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: BORDER },
