@@ -220,6 +220,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const [showMessagesHint, setShowMessagesHint] = useState(false);
   const messagesHintDismissRef = useRef<(() => void) | null>(null);
   const [firstListingForHint, setFirstListingForHint] = useState(false);
+  const [todayTabBarHidden, setTodayTabBarHidden] = useState(false);
   const listingOpensRef = useRef<number | null>(null);
   const doubleTapHintShownRef = useRef(false);
   const listingOpenWorkRef = useRef(Promise.resolve());
@@ -239,6 +240,10 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
     setShowMessagesHint(visible);
     messagesHintDismissRef.current = visible ? (dismiss || null) : null;
   }, []);
+  const handleTodayScrollDirection = useCallback((hidden: boolean) => {
+    setTodayTabBarHidden(hidden);
+    onScrollDirectionChange?.(hidden);
+  }, [onScrollDirectionChange]);
   const dna = useMemo(
     () => dnaFrom(app),
     [app.archetype, app.palette, app.silhouette, app.styles, app.gender],
@@ -798,7 +803,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           onOpenStyle={() => router.push("/style-dna")}
           refreshing={refreshing}
           onRefresh={() => void onRefresh()}
-          onScrollDirectionChange={onScrollDirectionChange}
+          onScrollDirectionChange={handleTodayScrollDirection}
         />
       ) : (
         <ScrollView
@@ -838,7 +843,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           showDoubleTapHint={showDoubleTapHint}
           onDoubleTapHintDismiss={dismissDoubleTapHint}
           firstListing={firstListingForHint}
-          reserveTabBarSpace
+          reserveTabBarSpace={!todayTabBarHidden}
           onInteraction={personalization.record}
         />
       ) : null}
