@@ -1,6 +1,6 @@
 import * as SplashScreen from "expo-splash-screen";
 import { useVideoPlayer, VideoView } from "expo-video";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import Animated, {
@@ -19,6 +19,12 @@ const EXIT_MS = 260;
 const NATIVE_SPLASH_FALLBACK_MS = 1_200;
 const PLAYBACK_FALLBACK_MS = 15_000;
 
+export const LaunchIntroCompleteContext = createContext(false);
+
+export function useLaunchIntroComplete() {
+  return useContext(LaunchIntroCompleteContext);
+}
+
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export function LaunchSplash({
@@ -31,6 +37,8 @@ export function LaunchSplash({
   const player = useVideoPlayer(INTRO_VIDEO, (instance) => {
     instance.loop = false;
     instance.muted = true;
+    instance.volume = 0;
+    instance.audioMixingMode = "mixWithOthers";
   });
   const started = useRef(false);
   const dismissed = useRef(false);

@@ -10,6 +10,7 @@ import { ownedBrand, useBrands, type Brand } from "../../lib/brands";
 import { useUvel } from "../../lib/store";
 import { MARKET_RED, useColors, useResolvedAppearance, type Colors } from "../../lib/theme";
 import { brandListingDraftProgress, useBrandListingDrafts } from "../../lib/brandListingDraft";
+import { useLaunchIntroComplete } from "../../components/LaunchSplash";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const LAUNCH_IMAGES = [
@@ -91,9 +92,11 @@ function HeroCarousel({ brand, styles, fontLoaded }: { brand?: Brand; styles: Sc
   const [index, setIndex] = useState(0);
   const transition = useRef(new Animated.Value(0)).current;
   const banner = BANNERS[index];
+  const introComplete = useLaunchIntroComplete();
   const compositeBanner = "composite" in banner && banner.composite;
 
   useEffect(() => {
+    if (!introComplete) return;
     const timer = setInterval(() => {
       Animated.timing(transition, { toValue: 1, duration: 320, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(({ finished }) => {
         if (!finished) return;
@@ -106,7 +109,7 @@ function HeroCarousel({ brand, styles, fontLoaded }: { brand?: Brand; styles: Sc
       clearInterval(timer);
       transition.stopAnimation();
     };
-  }, [transition]);
+  }, [introComplete, transition]);
 
   const slideStyle = {
     opacity: transition.interpolate({ inputRange: [-1, 0, 1], outputRange: [0, 1, 0] }),

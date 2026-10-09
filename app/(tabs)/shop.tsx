@@ -41,6 +41,7 @@ import { useFirstFind } from "../../lib/firstFind";
 import { convertCents, getMarket, moneyExact, moneyInMarket } from "../../lib/markets";
 import { recordReviewListingView, requestNativeReviewIfEligible } from "../../lib/appReview";
 import { keepTodayBannerStory, type BannerStory } from "../../lib/todayBannerStories";
+import { useLaunchIntroComplete } from "../../components/LaunchSplash";
 
 const MIN_REFRESH_MS = 1200;
 // Show the workspace drawer tutorial once per installation.
@@ -116,11 +117,13 @@ function FrozenClip({
 function TodaySwipeHint({ onDismiss }: { onDismiss: () => void }) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const introComplete = useLaunchIntroComplete();
   const dimOpacity = useRef(new Animated.Value(0)).current;
   const titleOpacity = useRef(new Animated.Value(0)).current;
   const bounceX = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (!introComplete) return;
     const reveal = Animated.sequence([
       Animated.timing(dimOpacity, { toValue: 0.9, duration: 260, useNativeDriver: true }),
       Animated.timing(titleOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
@@ -140,7 +143,7 @@ function TodaySwipeHint({ onDismiss }: { onDismiss: () => void }) {
       bounce.stop();
       clearTimeout(timeout);
     };
-  }, [bounceX, dimOpacity, onDismiss, titleOpacity]);
+  }, [bounceX, dimOpacity, introComplete, onDismiss, titleOpacity]);
 
   return (
     <View pointerEvents="none" style={swipeHintStyles.swipeHint}>

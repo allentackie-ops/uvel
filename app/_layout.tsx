@@ -8,7 +8,7 @@ import { Pressable, Text, View } from "react-native";
 import { markActivityNotificationRead } from "../lib/activityNotifications";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { LaunchSplash } from "../components/LaunchSplash";
+import { LaunchIntroCompleteContext, LaunchSplash } from "../components/LaunchSplash";
 import { AuthScreen } from "../components/AuthScreen";
 import { AccountDetailsScreen } from "../components/AccountDetailsScreen";
 import { ShakeToReport } from "../components/ShakeToReport";
@@ -775,8 +775,9 @@ export default function Root() {
   }, [hydrated]);
 
   return (
-    <SafeAreaProvider>
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
+    <LaunchIntroCompleteContext.Provider value={!intro}>
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.ink }}>
         <StatusBar style={appearance === "dark" ? "light" : "dark"} />
         <ReviewSync enabled={Boolean(signedIn && gateReady && !intro && profileDone)} />
         {gateReady ? (
@@ -791,7 +792,8 @@ export default function Root() {
         {signedIn && profileDone && gateReady && !intro ? <FounderCheckNotice /> : null}
         {signedIn && profileDone && gateReady && !intro ? <FriendShareLinkNotice uid={uid} /> : null}
         {intro || !gateReady ? <LaunchSplash ready={gateReady} onDone={dismiss} /> : null}
-      </GestureHandlerRootView>
-    </SafeAreaProvider>
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
+    </LaunchIntroCompleteContext.Provider>
   );
 }

@@ -14,6 +14,7 @@ import type { Colors } from "../lib/theme";
 import { MARKET_RED, useColors } from "../lib/theme";
 import { getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
+import { useLaunchIntroComplete } from "./LaunchSplash";
 import { loadAddresses, setActiveAddress, type Address } from "../lib/orders";
 import type { BannerStory } from "../lib/todayBannerStories";
 import { curateTodayBanners, type CuratedTodayBanner } from "../lib/todayBannerEngine";
@@ -77,6 +78,7 @@ export function TodayCommerceFeed({
   const colors = useColors();
   const styles = make(colors);
   const app = useUvel();
+  const animationsEnabled = useLaunchIntroComplete();
   const insets = useSafeAreaInsets();
   const market = getMarket(app.country);
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -192,7 +194,7 @@ export function TodayCommerceFeed({
         bounces
         onScroll={handleScroll}
       >
-      <PosterCarousel banners={bannerTemplates} onOpenBanner={onOpenBanner} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterHeight={posterHeight} posterInterval={posterInterval} />
+      <PosterCarousel banners={bannerTemplates} onOpenBanner={onOpenBanner} styles={styles} scrollX={posterScrollX} posterWidth={posterWidth} posterHeight={posterHeight} posterInterval={posterInterval} animationsEnabled={animationsEnabled} />
 
       {pieces.length === 0 ? (
         <View style={{ marginHorizontal: 20, marginTop: 26, padding: 22, borderRadius: 20, backgroundColor: "#201F1C", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" }}>
@@ -224,13 +226,13 @@ export function TodayCommerceFeed({
       <SectionTitle title="Trending in your world" onPress={onOpenSearch} />
       <ProductRail pieces={editors} market={market} onOpen={onOpenPiece} />
       <View style={styles.coralStrip}>
-        <LoopingVideo source={WEEKEND_UNIFORM_LOOP} style={styles.coralStripVideo} contentFit="cover" />
+          <LoopingVideo source={WEEKEND_UNIFORM_LOOP} style={styles.coralStripVideo} contentFit="cover" active={animationsEnabled} />
         <View style={styles.coralStripContent}>
           <View style={styles.stripCopy}><Text style={styles.stripTitle}>Build your weekend uniform</Text><Text style={styles.stripSub}>Versatile pieces. More good days.</Text></View>
         </View>
       </View>
 
-      <DealsFeature pieces={deals} market={market} onOpen={onOpenPiece} />
+      <DealsFeature pieces={deals} market={market} onOpen={onOpenPiece} active={animationsEnabled} />
       <View style={styles.creatorCard}>
         <View style={styles.creatorCopy}><Text style={styles.creatorTitle}>Styled by people{`\n`}you’ll love</Text><Text style={styles.creatorSub}>Real looks. Real people.</Text><Pressable onPress={onOpenCreators} style={styles.whiteButton} accessibilityRole="button" accessibilityLabel="See creators"><Text style={styles.whiteButtonText}>See creators ›</Text></Pressable></View>
         <View style={styles.creatorFaces}>{followed.slice(0, 3).map((piece) => <Image key={piece.id} source={{ uri: piece.photo }} style={styles.creatorFace} contentFit="cover" accessible={false} />)}</View>
@@ -283,6 +285,7 @@ function PosterCarousel({
   posterWidth,
   posterHeight,
   posterInterval,
+  animationsEnabled,
 }: {
   banners: CuratedTodayBanner[];
   onOpenBanner: TodayCommerceFeedProps["onOpenBanner"];
@@ -291,6 +294,7 @@ function PosterCarousel({
   posterWidth: number;
   posterHeight: number;
   posterInterval: number;
+  animationsEnabled: boolean;
 }) {
   const interval = posterInterval;
   const carouselRef = useRef<ScrollView>(null);
@@ -299,6 +303,7 @@ function PosterCarousel({
   const [activeIndex, setActiveIndex] = useState(0);
   const stories = banners;
   const scheduleAutoAdvance = () => {
+    if (!animationsEnabled || stories.length < 2) return;
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       const next = (activeIndexRef.current + 1) % stories.length;
@@ -309,11 +314,12 @@ function PosterCarousel({
     }, 5000);
   };
   useEffect(() => {
+    if (!animationsEnabled || stories.length < 2) return;
     scheduleAutoAdvance();
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [interval, stories.length]);
+  }, [animationsEnabled, interval, stories.length]);
   const openBanner = (story: BannerStory) => {
     onOpenBanner(story);
   };
@@ -340,7 +346,7 @@ function PosterCarousel({
       >
         {stories.map((story, index) => {
           return <Pressable key={story.id} onPress={() => openBanner({ id: story.id, title: story.title, subtitle: story.subtitle, color: story.color, headerColor: BANNER_COLORS[index] ?? story.color, eyebrow: story.title.toUpperCase(), footer: story.title.toUpperCase(), pieces: story.pieces, detailPieces: story.detailPieces })} style={{ width: posterWidth, height: posterHeight, marginRight: 12 }} accessibilityRole="button" accessibilityLabel={`Open ${story.title} editorial`}>
-            <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} staticAsset={story.id === "trending-now" ? TRENDING_NOW_FINAL : story.id === "new-in" ? NEW_IN_ANIMATED_BASE : story.id === "accessories" ? FINISHING_PIECES_POSTER : story.id === "quiet-luxury" ? MINIMAL_WITH_PRESENCE_BANNER : undefined} videoAsset={story.id === "deals" ? DEALS_MOTION_BANNER : undefined} videoActive={activeIndex === index} />
+            <EditorialPoster story={story} pieces={story.id === "new-in" ? story.detailPieces : story.pieces} styles={styles} animationsEnabled={animationsEnabled} staticAsset={story.id === "trending-now" ? TRENDING_NOW_FINAL : story.id === "new-in" ? NEW_IN_ANIMATED_BASE : story.id === "accessories" ? FINISHING_PIECES_POSTER : story.id === "quiet-luxury" ? MINIMAL_WITH_PRESENCE_BANNER : undefined} videoAsset={story.id === "deals" ? DEALS_MOTION_BANNER : undefined} videoActive={animationsEnabled && activeIndex === index} />
           </Pressable>;
         })}
       </Animated.ScrollView>
@@ -350,7 +356,7 @@ function PosterCarousel({
 
 type EditorialVariant = "float" | "slide" | "explode" | "collage" | "luxury";
 
-function EditorialPoster({ story, pieces, styles, staticAsset, videoAsset, videoActive }: { story: { title: string; subtitle: string; color: string; variant: EditorialVariant; image?: string }; pieces: ClosetPiece[]; styles: ReturnType<typeof make>; staticAsset?: number; videoAsset?: number; videoActive?: boolean }) {
+function EditorialPoster({ story, pieces, styles, animationsEnabled, staticAsset, videoAsset, videoActive }: { story: { title: string; subtitle: string; color: string; variant: EditorialVariant; image?: string }; pieces: ClosetPiece[]; styles: ReturnType<typeof make>; animationsEnabled: boolean; staticAsset?: number; videoAsset?: number; videoActive?: boolean }) {
   const motion = useRef(new Animated.Value(0)).current;
   const secondaryMotionValue = useRef(new Animated.Value(0)).current;
   const tertiaryMotionValue = useRef(new Animated.Value(0)).current;
@@ -364,21 +370,21 @@ function EditorialPoster({ story, pieces, styles, staticAsset, videoAsset, video
   const [newInSetIndex, setNewInSetIndex] = useState(0);
   const activePieces = story.variant === "slide" ? displayedPieces : pieces;
   useEffect(() => {
-    if (story.variant !== "slide") return;
+    if (!animationsEnabled || story.variant !== "slide") return;
     const stickerLoop = Animated.loop(Animated.sequence([
       Animated.timing(latestStickerMotion, { toValue: 1, duration: 1350, useNativeDriver: true }),
       Animated.timing(latestStickerMotion, { toValue: 0, duration: 1350, useNativeDriver: true }),
     ]));
     stickerLoop.start();
     return () => stickerLoop.stop();
-  }, [latestStickerMotion, story.variant]);
+  }, [animationsEnabled, latestStickerMotion, story.variant]);
   useEffect(() => {
-    if (story.variant !== "slide" || pieces.length <= 0) return;
+    if (!animationsEnabled || story.variant !== "slide" || pieces.length <= 0) return;
     const rotationTimer = setInterval(() => setNewInSetIndex((index) => index + 1), 6000);
     return () => clearInterval(rotationTimer);
-  }, [pieces.length, story.variant]);
+  }, [animationsEnabled, pieces.length, story.variant]);
   useEffect(() => {
-    if (story.variant !== "slide") return;
+    if (!animationsEnabled || story.variant !== "slide") return;
     const pool = pieces.slice(0, 40);
     if (!pool.length) return;
     const start = pool.length > 4 ? (newInSetIndex * 4) % pool.length : newInSetIndex % pool.length;
@@ -406,8 +412,9 @@ function EditorialPoster({ story, pieces, styles, staticAsset, videoAsset, video
       cascadeGeneration.current += 1;
       exitSequence.stop();
     };
-  }, [newInOpacities, newInScales, newInSetIndex, pieces, story.variant]);
+  }, [animationsEnabled, newInOpacities, newInScales, newInSetIndex, pieces, story.variant]);
   useEffect(() => {
+    if (!animationsEnabled) return;
     const durations = story.variant === "luxury" ? [5200, 6200, 7000, 5800] : story.variant === "slide" ? [2800, 3600, 4400, 3200] : story.variant === "explode" ? [3000, 3900, 4700, 3400] : story.variant === "collage" ? [3400, 4300, 5100, 3700] : [3600, 4600, 5400, 4000];
     const createLoop = (value: Animated.Value, duration: number, delay: number) => Animated.loop(Animated.sequence([
       Animated.delay(delay),
@@ -422,7 +429,7 @@ function EditorialPoster({ story, pieces, styles, staticAsset, videoAsset, video
     ];
     animations.forEach((animation) => animation.start());
     return () => animations.forEach((animation) => animation.stop());
-  }, [fourthMotionValue, motion, secondaryMotionValue, story.variant, tertiaryMotionValue]);
+  }, [animationsEnabled, fourthMotionValue, motion, secondaryMotionValue, story.variant, tertiaryMotionValue]);
   const heroMotion = story.variant === "float"
     ? { transform: [{ translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [0, -12] }) }, { rotate: motion.interpolate({ inputRange: [0, 1], outputRange: ["-4deg", "3deg"] }) }, { scale: motion.interpolate({ inputRange: [0, 1], outputRange: [1, 1.025] }) }] }
     : story.variant === "slide"
@@ -485,15 +492,18 @@ function EditorialPoster({ story, pieces, styles, staticAsset, videoAsset, video
   </View>;
 }
 
-function LoopingVideo({ source, style, contentFit = "cover" }: { source: number; style: StyleProp<ViewStyle>; contentFit?: "cover" | "contain" }) {
+function LoopingVideo({ source, style, contentFit = "cover", active }: { source: number; style: StyleProp<ViewStyle>; contentFit?: "cover" | "contain"; active: boolean }) {
   const player = useVideoPlayer(source, (instance) => {
     instance.loop = true;
     instance.muted = true;
     instance.volume = 0;
     instance.audioMixingMode = "mixWithOthers";
-    instance.play();
   });
   useEffect(() => {
+    if (!active) {
+      player.pause();
+      return;
+    }
     const startPlayback = () => {
       player.loop = true;
       player.muted = true;
@@ -514,7 +524,7 @@ function LoopingVideo({ source, style, contentFit = "cover" }: { source: number;
       retryTimers.forEach(clearTimeout);
       player.pause();
     };
-  }, [player]);
+  }, [active, player]);
   return <View pointerEvents="none" style={[StyleSheet.absoluteFill, style]}>
     <VideoView player={player} style={StyleSheet.absoluteFill} contentFit={contentFit} nativeControls={false} surfaceType="textureView" />
   </View>;
@@ -552,17 +562,18 @@ function ProductRail({ pieces, market, onOpen, deals, compact }: { pieces: Close
   return <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingBottom: 3 }}>{pieces.map((piece, index) => <ProductCard key={`${piece.id}-${index}`} piece={piece} market={market} onOpen={onOpen} deals={deals} compact={compact} />)}</ScrollView>;
 }
 
-function DealsFeature({ pieces, market, onOpen }: { pieces: ClosetPiece[]; market: ReturnType<typeof getMarket>; onOpen: TodayCommerceFeedProps["onOpenPiece"] }) {
+function DealsFeature({ pieces, market, onOpen, active }: { pieces: ClosetPiece[]; market: ReturnType<typeof getMarket>; onOpen: TodayCommerceFeedProps["onOpenPiece"]; active: boolean }) {
   const styles = make(useColors());
   const beamMotion = useRef(new Animated.Value(0)).current;
   useEffect(() => {
+    if (!active) return;
     const beamLoop = Animated.loop(Animated.sequence([
       Animated.timing(beamMotion, { toValue: 1, duration: 1100, useNativeDriver: true }),
       Animated.timing(beamMotion, { toValue: 0, duration: 1100, useNativeDriver: true }),
     ]));
     beamLoop.start();
     return () => beamLoop.stop();
-  }, [beamMotion]);
+  }, [active, beamMotion]);
   const beamOpacity = beamMotion.interpolate({ inputRange: [0, 1], outputRange: [0.36, 0.95] });
   const beamScale = beamMotion.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1.06] });
   const stickerOpacity = beamMotion.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] });
