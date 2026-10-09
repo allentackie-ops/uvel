@@ -58,6 +58,7 @@ export type TodayCommerceFeedProps = {
   onOpenStyle: () => void;
   refreshing: boolean;
   onRefresh: () => void;
+  onScrollDirectionChange?: (hidden: boolean) => void;
 };
 
 export function TodayCommerceFeed({
@@ -74,6 +75,7 @@ export function TodayCommerceFeed({
   onOpenStyle,
   refreshing,
   onRefresh,
+  onScrollDirectionChange,
 }: TodayCommerceFeedProps) {
   const colors = useColors();
   const styles = make(colors);
@@ -152,9 +154,16 @@ export function TodayCommerceFeed({
       const y = event.nativeEvent.contentOffset.y;
       const delta = y - previousScrollY.current;
       previousScrollY.current = y;
-      if (y <= 12) setLocationBarVisible(true);
-      else if (delta > 2) setLocationBarVisible(false);
-      else if (delta < -2) setLocationBarVisible(true);
+      if (y <= 12) {
+        setLocationBarVisible(true);
+        onScrollDirectionChange?.(false);
+      } else if (delta > 2) {
+        setLocationBarVisible(false);
+        onScrollDirectionChange?.(true);
+      } else if (delta < -2) {
+        setLocationBarVisible(true);
+        onScrollDirectionChange?.(false);
+      }
       if (pullTriggered.current) return;
       if (y < 0) pullOffset.setValue(Math.min(72, -y));
       else pullOffset.setValue(0);

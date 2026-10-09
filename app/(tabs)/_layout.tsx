@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "../../lib/haptics";
 import { router, usePathname } from "expo-router";
 import PagerView, { type PagerViewOnPageScrollEvent, type PagerViewOnPageSelectedEvent } from "react-native-pager-view";
-import { useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import { Dimensions, Pressable, StyleSheet, Text, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
@@ -45,11 +45,29 @@ export default function TabsLayout() {
   const [pageIndex, setPageIndex] = useState(() => routeIndex(pathname) ?? 0);
   const [open, setOpen] = useState(false);
   const [listingOpen, setListingOpen] = useState(false);
+  const [tabBarHidden, setTabBarHidden] = useState(false);
   const [tooltipIndex, setTooltipIndex] = useState<number | null>(null);
   const longPressRef = useRef(false);
   const tabProgress = useSharedValue(pageIndex);
   const tabWidth = (SCREEN_W - TAB_BAR_HORIZONTAL_PADDING * 2) / ROUTES.length;
+  const tabBarOffset = 64 + Math.max(insets.bottom, 8);
+  const tabBarTranslation = useSharedValue(0);
+  const tabBarHiddenRef = useRef(false);
+  const tabBarMotion = useAnimatedStyle(() => ({
+    opacity: interpolate(tabBarTranslation.value, [0, tabBarOffset], [1, 0], "clamp"),
+    transform: [{ translateY: tabBarTranslation.value }],
+  }), [tabBarOffset]);
   const dashStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tabProgress.value * tabWidth }] }));
+  const setTabBarVisible = useCallback((visible: boolean) => {
+    const hidden = !visible;
+    if (tabBarHiddenRef.current === hidden) return;
+    tabBarHiddenRef.current = hidden;
+    setTabBarHidden(hidden);
+    tabBarTranslation.value = withTiming(visible ? 0 : tabBarOffset, { duration: 220 });
+  }, [tabBarOffset, tabBarTranslation]);
+  const handleTodayScrollDirection = useCallback((hidden: boolean) => {
+    setTabBarVisible(!hidden);
+  }, [setTabBarVisible]);
 
   function openSettings() {
     if (open) setOpen(false);
@@ -64,12 +82,12 @@ export default function TabsLayout() {
 
   const tabs = useMemo<TabScreen[]>(
     () => [
-      { key: "today", screen: <Today onOpenTools={() => setOpen(true)} drawerOpen={open} onListingOpenChange={setListingOpen} /> },
+      { key: "today", screen: <Today onOpenTools={() => setOpen(true)} drawerOpen={open} onListingOpenChange={setListingOpen} onScrollDirectionChange={handleTodayScrollDirection} /> },
       { key: "create", screen: <Create /> },
       { key: "you", screen: <You onOpenSettings={openSettings} /> },
       { key: "settings", screen: <Settings onBack={closeSettings} /> },
     ],
-    [C.today, C.create, C.you, open],
+    [C.today, C.create, C.you, handleTodayScrollDirection, open],
   );
 
   useEffect(() => {
@@ -139,6 +157,9 @@ export default function TabsLayout() {
 
   const onToday = pageIndex === 0;
   const isCreate = pageIndex === 1;
+  useEffect(() => {
+    if (!onToday || open) setTabBarVisible(true);
+  }, [onToday, open, setTabBarVisible]);
   const createTabBackground = appearance === "dark" ? colors.ink : "#FFFEFC";
   const createTabInactive = appearance === "dark" ? "#A9A398" : "#6F6A69";
   const createTabActive = appearance === "dark" ? "#FFFFFF" : "#111111";
@@ -209,7 +230,12 @@ export default function TabsLayout() {
               accessibilityLabel="Dismiss tab explanation"
             />
           ) : null}
-          <View style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: tabBackground }]} pointerEvents={open ? "none" : "auto"}>
+          <Animated.View
+            style={[styles.barWrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: tabBackground }, tabBarMotion]}
+            pointerEvents={open || tabBarHidden ? "none" : "auto"}
+            accessibilityElementsHidden={tabBarHidden}
+            importantForAccessibility={tabBarHidden ? "no-hide-descendants" : "auto"}
+          >
             <View style={[styles.bar, { backgroundColor: tabBackground }]}>
               <Animated.View pointerEvents="none" style={[styles.activeDash, { left: TAB_BAR_HORIZONTAL_PADDING + (tabWidth - 30) / 2 }, dashStyle, { backgroundColor: tabActive }]} />
               {ROUTES.map((_, index) => {
@@ -239,7 +265,7 @@ export default function TabsLayout() {
                 );
               })}
             </View>
-          </View>
+          </Animated.View>
           {open ? (
             <Pressable
               onPress={closeDrawer}

@@ -172,7 +172,7 @@ function TodaySwipeHint({ onDismiss }: { onDismiss: () => void }) {
   );
 }
 
-export default function Shop({ todayHome = false, onOpenTools, drawerOpen = false, onListingOpenChange }: { todayHome?: boolean; onOpenTools?: () => void; drawerOpen?: boolean; onListingOpenChange?: (open: boolean) => void }) {
+export default function Shop({ todayHome = false, onOpenTools, drawerOpen = false, onListingOpenChange, onScrollDirectionChange }: { todayHome?: boolean; onOpenTools?: () => void; drawerOpen?: boolean; onListingOpenChange?: (open: boolean) => void; onScrollDirectionChange?: (hidden: boolean) => void }) {
   const colors = useColors();
   const styles = make(colors);
   const insets = useSafeAreaInsets();
@@ -892,6 +892,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           onOpenStyle={() => router.push("/style-dna")}
           refreshing={refreshing}
           onRefresh={() => void onRefresh()}
+          onScrollDirectionChange={onScrollDirectionChange}
         />
       ) : (
         <ScrollView
