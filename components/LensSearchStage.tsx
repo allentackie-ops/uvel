@@ -256,7 +256,7 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
               ) : null}
               {natural && !detectionDone ? (
                 <View pointerEvents="none" style={styles.scanningOverlay}>
-                  <View style={styles.scanningPill}><OrbitLoader size={22} /><Text style={styles.scanningText}>Finding the garment</Text></View>
+                  <View style={styles.scanningPill}><OrbitLoader size={22} /><Text style={styles.scanningText}>Finding the item</Text></View>
                 </View>
               ) : null}
             </View>
