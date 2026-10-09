@@ -16,7 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { clearCart, useCart } from "../lib/cart";
-import { useColors } from "../lib/theme";
+import { MARKET_RED, useColors } from "../lib/theme";
 
 const FAB = 58;
 const TRASH = 68;
@@ -276,13 +276,13 @@ export function TodayCartFab({
       <GestureDetector gesture={gesture}>
         <Animated.View
           pointerEvents={cart.count && (!listingOpen || showWhileListing) ? "auto" : "none"}
-          style={[styles.wrap, { backgroundColor: colors.bone }, fabStyle]}
+          style={[styles.wrap, { backgroundColor: MARKET_RED }, fabStyle]}
           accessibilityRole="button"
           accessibilityLabel={cart.count ? `Cart, ${cart.count} ${cart.count === 1 ? "item" : "items"}` : "Cart"}
           accessibilityHint="Double tap to open your bag. Drag to move it. Touch and hold, then drag to the trash to empty it."
         >
           <View style={styles.hit}>
-            <Ionicons name="cart" size={26} color={colors.ink} />
+            <Ionicons name="cart" size={26} color="#FFFFFF" />
             {cart.count ? (
               <View style={[styles.badge, { backgroundColor: colors.success }]}>
                 <Text style={[styles.badgeText, { color: colors.successInk }]}>{cart.count > 9 ? "9+" : String(cart.count)}</Text>

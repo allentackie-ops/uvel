@@ -11,7 +11,7 @@ import { restoreToCart, useCart, type CartItem } from "../lib/cart";
 import { useFirstFind } from "../lib/firstFind";
 import { convertCents, getMarket, moneyInMarket } from "../lib/markets";
 import { useUvel } from "../lib/store";
-import { useColors, type Colors } from "../lib/theme";
+import { MARKET_RED, useColors, type Colors } from "../lib/theme";
 import { getPiece, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 
 type Removed = { item: CartItem; index: number; name: string };
@@ -167,7 +167,6 @@ export default function Cart() {
                         accessibilityHint="Only this item will be checked out. Other bag items will stay in your bag."
                       >
                         <Text style={styles.itemCheckoutText}>Checkout item</Text>
-                        <Ionicons name="arrow-forward" size={14} color={colors.successInk} />
                       </Pressable>
                     ) : null}
                   </View>
@@ -202,7 +201,6 @@ export default function Cart() {
           <Text style={styles.totalHint}>Buyer protection and shipping are added at checkout.</Text>
           <Pressable onPress={checkout} style={styles.pay} accessibilityRole="button" accessibilityLabel={`Checkout ${rows.length} ${rows.length === 1 ? "piece" : "pieces"}`}>
             <Text style={styles.payText}>Checkout</Text>
-            <Ionicons name="arrow-forward" size={18} color={colors.successInk} />
           </Pressable>
         </View>
       ) : null}
@@ -286,8 +284,8 @@ function make(colors: Colors) {
     price: { color: colors.success, fontSize: 16, fontWeight: "800", marginTop: 10, fontVariant: ["tabular-nums"] },
     was: { color: `${colors.bone}66`, fontSize: 14, fontWeight: "600", textDecorationLine: "line-through", fontVariant: ["tabular-nums"] },
     remove: { color: `${colors.bone}88`, fontSize: 13, fontWeight: "700", marginTop: 10, textDecorationLine: "underline" },
-    itemCheckout: { alignSelf: "flex-end", minHeight: 36, marginTop: 10, paddingHorizontal: 11, borderRadius: 18, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
-    itemCheckoutText: { color: colors.successInk, fontSize: 12, fontWeight: "800" },
+    itemCheckout: { alignSelf: "flex-end", minHeight: 36, marginTop: 10, paddingHorizontal: 11, borderRadius: 18, backgroundColor: MARKET_RED, flexDirection: "row", alignItems: "center", justifyContent: "center" },
+    itemCheckoutText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800" },
     sheetTitle: { color: colors.bone, fontSize: 23, lineHeight: 29, fontWeight: "800", letterSpacing: -0.25 },
     sheetItemName: { color: colors.bone, fontSize: 16, lineHeight: 22, fontWeight: "700", marginTop: 12 },
     sheetDescription: { color: `${colors.bone}CC`, fontSize: 15, lineHeight: 23, marginTop: 8 },
@@ -302,8 +300,8 @@ function make(colors: Colors) {
     totalL: { color: colors.muted, fontSize: 14, fontWeight: "700" },
     totalV: { color: colors.bone, fontSize: 20, fontWeight: "800", fontVariant: ["tabular-nums"] },
     totalHint: { color: `${colors.bone}70`, fontSize: 12, marginTop: 6, marginBottom: 14 },
-    pay: { minHeight: 54, borderRadius: 27, backgroundColor: colors.success, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-    payText: { color: colors.successInk, fontSize: 16, fontWeight: "800" },
+    pay: { minHeight: 54, borderRadius: 27, backgroundColor: MARKET_RED, flexDirection: "row", alignItems: "center", justifyContent: "center" },
+    payText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
     toastWrap: { position: "absolute", left: 16, right: 16, zIndex: 40 },
     toast: {
       minHeight: 48,
