@@ -25,7 +25,6 @@ import { recordListingTrendSignal, type TrendInteraction } from "../lib/trending
 import { shopFloor, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import type { PersonalizationAction } from "../lib/personalization";
 import { MARKET_RED, useColors, type Colors } from "../lib/theme";
-import { BrandVerifiedMark } from "./VerifiedMark";
 import { TodayCartFab } from "./TodayCartFab";
 import { FriendShareSheet, type FriendSharePayload } from "./FriendShareSheet";
 
@@ -97,7 +96,7 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
         ? `Pay with ${paymentMethod.label}`
         : "Buy now";
   const paymentAccessibilityLabel = paymentMethod?.kind === "apple" ? "Pay with Apple Pay" : paymentButtonLabel;
-  const sellerName = brand?.name || piece.ownerName || piece.listedByName || "Uvel seller";
+  const sellerName = piece.ownerName || piece.listedByName || brand?.name || "Uvel seller";
   const moreSellerListings = useMemo(() => {
     const candidates = [...wardrobePieces, ...shopFloor(app.country)];
     const byId = new Map<string, ClosetPiece>();
@@ -331,7 +330,7 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
       animateBack({ ...rect, radius: fallbackOrigin.radius });
     });
   };
-  const openSeller = () => { if (brand?.id) router.push({ pathname: "/brand/[id]", params: { id: brand.id } }); else if (sellerId) router.push({ pathname: "/seller/[id]", params: { id: sellerId } }); };
+  const openSeller = () => { if (sellerId) router.push({ pathname: "/seller/[id]", params: { id: sellerId } }); };
   return (
     <View style={styles.root}>
       <Animated.View style={[styles.backdrop, backdropMotion]}><Pressable style={StyleSheet.absoluteFill} onPress={closeListing} accessibilityRole="button" accessibilityLabel="Close listing details" /></Animated.View>
@@ -349,7 +348,7 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sizeRail}>{sizes.map((size) => <Pressable key={size} onPress={() => setSelectedSize(size)} style={[styles.size, selectedSize === size && styles.sizeSelected]} accessibilityRole="button" accessibilityState={{ selected: selectedSize === size }}><Text style={[styles.sizeText, selectedSize === size && styles.sizeTextSelected]}>{size}</Text></Pressable>)}</ScrollView>
             <Pressable onPress={() => setDetailsOpen((open) => !open)} style={styles.details} accessibilityRole="button" accessibilityLabel="Product details"><View style={styles.detailsTitle}><Ionicons name="shirt-outline" size={18} color={colors.bone} /><Text style={styles.detailsText}>Product Details</Text></View><Ionicons name={detailsOpen ? "chevron-up" : "chevron-forward"} size={19} color={colors.bone} /></Pressable>
             {detailsOpen ? <View style={styles.detailsBody}><Fact styles={styles} label="Color" value={piece.color || "Original"} /><Fact styles={styles} label="Material" value={piece.material || "Not specified"} /><Fact styles={styles} label="Listed by" value={sellerName} /></View> : null}
-            <View style={styles.seller}><View style={styles.sellerTop}><Pressable onPress={openSeller} disabled={!brand?.id && !sellerId} style={styles.sellerTap} accessibilityRole={brand?.id || sellerId ? "button" : undefined}>{brand?.logoUri || piece.ownerPhoto ? <Image source={{ uri: brand?.logoUri || piece.ownerPhoto }} style={styles.avatar} contentFit="cover" /> : <View style={styles.avatarFallback}><Text style={styles.avatarText}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}<View style={styles.sellerCopy}><Text style={styles.sellerLabel}>{brand ? "Sold by" : "Listed by"}</Text><View style={styles.sellerNameRow}><Text style={styles.sellerName} numberOfLines={1}>{sellerName}</Text><BrandVerifiedMark brand={brand as Brand | undefined} size={13} /></View><Text style={styles.sellerMeta}>Trusted seller · buyer protection</Text></View></Pressable><Pressable onPress={() => router.push({ pathname: "/ask/[id]", params: { id: piece.id, pieceName: piece.name, piecePhoto: piece.photo, piecePriceCents: String(piece.listPriceCents), ...(brand?.id ? { brandId: brand.id } : {}) } })} style={styles.messageButton} accessibilityRole="button" accessibilityLabel={`Message ${sellerName}`}><Ionicons name="chatbubble-outline" size={17} color={colors.bone} /><Text style={styles.messageText}>Message</Text></Pressable></View><View style={styles.sellerRating}><Text style={styles.stars}>★★★★★</Text><Text style={styles.reviewCount}>({piece.likedBy?.length || 0})</Text></View></View>
+            <View style={styles.seller}><View style={styles.sellerTop}><Pressable onPress={openSeller} disabled={!sellerId} style={styles.sellerTap} accessibilityRole={sellerId ? "button" : undefined}>{piece.ownerPhoto ? <Image source={{ uri: piece.ownerPhoto }} style={styles.avatar} contentFit="cover" /> : <View style={styles.avatarFallback}><Text style={styles.avatarText}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}<View style={styles.sellerCopy}><Text style={styles.sellerLabel}>Listed by</Text><View style={styles.sellerNameRow}><Text style={styles.sellerName} numberOfLines={1}>{sellerName}</Text></View><Text style={styles.sellerMeta}>Trusted seller · buyer protection</Text></View></Pressable><Pressable onPress={() => router.push({ pathname: "/ask/[id]", params: { id: piece.id, pieceName: piece.name, piecePhoto: piece.photo, piecePriceCents: String(piece.listPriceCents), ...(brand?.id ? { brandId: brand.id } : {}) } })} style={styles.messageButton} accessibilityRole="button" accessibilityLabel={`Message ${sellerName}`}><Ionicons name="chatbubble-outline" size={17} color={colors.bone} /><Text style={styles.messageText}>Message</Text></Pressable></View><View style={styles.sellerRating}><Text style={styles.stars}>★★★★★</Text><Text style={styles.reviewCount}>({piece.likedBy?.length || 0})</Text></View></View>
             <View style={styles.descriptionSection}><Text style={styles.descriptionTitle}>Description</Text><Text style={styles.description}>{piece.notes?.trim() || "The seller hasn’t added a description yet."}</Text></View>
             {moreSellerListings.length ? <Pressable onPress={openSeller} style={styles.moreListings} accessibilityRole="button" accessibilityLabel={`View ${moreSellerListings.length} more listing${moreSellerListings.length === 1 ? "" : "s"} from ${sellerName}`}>
               <View style={styles.moreListingsCopy}><Text style={styles.moreListingsTitle}>More listings from {sellerName}</Text><Text style={styles.moreListingsBody}>{moreSellerListings.length} more {moreSellerListings.length === 1 ? "listing" : "listings"}</Text></View><Ionicons name="chevron-forward" size={20} color={colors.success} />

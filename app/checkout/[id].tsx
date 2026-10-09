@@ -227,12 +227,12 @@ export default function Checkout() {
   const wallet = useWallet(market.currency);
   const walletCovers = wallet.availableCents >= total && total > 0;
   const method = methods.find((m) => m.id === pay) ?? methods[0];
-  const policyName = brand?.name || piece?.brand || "Brand";
+  const policyName = piece?.ownerName || piece?.listedByName || "Seller";
   const policyMode = brand?.customerPolicyMode || "standard_returns";
   const policyWindow = brand?.customerReturnWindowDays || 14;
   const policyShipping =
     brand?.customerReturnShipping === "brand"
-      ? "The brand covers return shipping."
+      ? "The seller covers return shipping."
       : "The buyer covers return shipping.";
 
   useEffect(() => {
@@ -881,7 +881,7 @@ export default function Checkout() {
           )}
           {brand?.customerPolicyNote ? (
             <Text style={styles.sheetP}>
-              Brand note: {brand.customerPolicyNote}
+              Seller note: {brand.customerPolicyNote}
             </Text>
           ) : null}
         </ScrollView>

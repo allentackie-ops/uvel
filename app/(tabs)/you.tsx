@@ -5,22 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "../../lib/haptics";
-import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { GARMENTS, getGarment, usd, CATEGORIES } from "../../lib/catalog";
 import { getMarket, moneyExact, moneyInMarket } from "../../lib/markets";
 import { useWallet } from "../../lib/wallet";
 import { useFirstFind } from "../../lib/firstFind";
-import {
-  acceptInvite,
-  declineInvite,
-  memberBrands,
-  ownedBrand,
-  brandApproved,
-  pendingInvitesFor,
-  useBrands,
-  useInvites,
-} from "../../lib/brands";
 import { useOrders, watchMyOrders, type Order } from "../../lib/orders";
 import { pickAvatar, takeAvatar } from "../../lib/photo";
 import { seedFromStyles } from "../../lib/styleDna";
@@ -68,11 +57,6 @@ export default function You({ onOpenSettings }: { onOpenSettings?: () => void })
   const wallet = useWallet(market.currency);
   const firstFind = useFirstFind();
   useEffect(() => watchMyOrders(app.uid), [app.uid]);
-  useBrands();
-  useInvites();
-  const mine = ownedBrand(app.uid);
-  const teams = memberBrands(app.uid).filter((b) => b.ownerId !== app.uid);
-  const invites = pendingInvitesFor(app.uid, app.email);
   const [hub, setHub] = useState<Hub>("shop");
   const [soldFilter, setSoldFilter] = useState("all");
   const [buyFilter, setBuyFilter] = useState("all");
@@ -203,16 +187,7 @@ export default function You({ onOpenSettings }: { onOpenSettings?: () => void })
       <View style={styles.content}>
         <View style={styles.top}>
           <View style={{ flex: 1, paddingRight: 12 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              <Text style={styles.title}>{app.displayName || "Your closet"}</Text>
-              <BrandVerifiedMark brand={mine} size={18} />
-              {brandApproved(mine) && mine?.logoUri ? <Image cachePolicy="memory-disk" source={{ uri: mine.logoUri }} style={styles.ownerBrandLogo} contentFit="cover" /> : null}
-            </View>
-            {mine ? (
-              <Text style={styles.ownerLine}>{brandApproved(mine) ? `Owner of ${mine.name}` : `Filing for ${mine.name}`}</Text>
-            ) : teams[0] ? (
-              <Text style={styles.ownerLine}>Team at {teams[0].name}</Text>
-            ) : null}
+            <Text style={styles.title}>{app.displayName || "Your closet"}</Text>
           </View>
           <Pressable onPress={changeFace} style={styles.faceBtn} accessibilityLabel={C.changeProfilePicture}>
             {face ? (
@@ -232,21 +207,6 @@ export default function You({ onOpenSettings }: { onOpenSettings?: () => void })
             <View style={styles.dash} />
           </Pressable>
         </View>
-
-        {invites.map((inv) => (
-          <View key={inv.id} style={styles.invite}>
-            <Text style={styles.inviteH}>{inv.brandName}</Text>
-            <Text style={styles.inviteP}>{inv.fromName} invited you to post on this brand.</Text>
-            <View style={styles.inviteRow}>
-              <Pressable onPress={() => void acceptInvite(inv.id, app.uid, app.displayName || "You", app.avatarUri || undefined).catch((error) => Alert.alert("Couldn’t join brand", error instanceof Error ? error.message : "Try again in a moment."))} style={styles.inviteYes}>
-                <Text style={styles.inviteYesTxt}>Join</Text>
-              </Pressable>
-              <Pressable onPress={() => declineInvite(inv.id)} style={styles.inviteNo}>
-                <Text style={styles.inviteNoTxt}>No</Text>
-              </Pressable>
-            </View>
-          </View>
-        ))}
 
         <View style={styles.tabs}>
           {(["shop", "sold", "purchases", "likes"] as const).map((id) => {
@@ -331,11 +291,6 @@ export default function You({ onOpenSettings }: { onOpenSettings?: () => void })
         <Text style={styles.dnaChevron}>›</Text>
       </Pressable>
 
-        {teams.map((b) => (
-          <Pressable key={b.id} onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })} style={styles.toolRow}>
-            <View style={{ flex: 1 }}><Text style={styles.brandK}>TEAM</Text><Text style={styles.brandName}>{b.name}</Text><Text style={styles.brandP}>You post on this house</Text></View><Text style={styles.brandGo}>Open</Text>
-          </Pressable>
-        ))}
       </ScrollView>
     </View>
   );
@@ -825,17 +780,6 @@ function make(colors: Colors) {
     refreshOrbit: { position: "absolute", top: 8, left: 0, right: 0, alignItems: "center" },
     kicker: { color: `${colors.bone}6B`, letterSpacing: 1.8, fontSize: 11, fontWeight: "600" },
     title: { color: colors.bone, fontWeight: "700", fontSize: 28, marginTop: 8, lineHeight: 34, flexShrink: 1 },
-    ownerBrandLogo: { width: 19, height: 19, borderRadius: 5, marginLeft: 1, transform: [{ translateY: 3 }] },
-    ownerLine: { color: `${colors.bone}80`, fontSize: 13, marginTop: 4 },
-    invite: { marginTop: 16, backgroundColor: colors.surface, borderRadius: 18, padding: 16 },
-    inviteH: { color: colors.bone, fontWeight: "700", fontSize: 16 },
-    inviteP: { color: `${colors.bone}80`, fontSize: 13, marginTop: 4 },
-    inviteRow: { flexDirection: "row", gap: 8, marginTop: 12 },
-    inviteYes: { height: 34, paddingHorizontal: 16, borderRadius: 17, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
-    inviteYesTxt: { color: colors.successInk, fontWeight: "800", fontSize: 13 },
-    inviteNo: { height: 34, paddingHorizontal: 16, borderRadius: 17, borderWidth: 1, borderColor: `${colors.bone}29`, alignItems: "center", justifyContent: "center" },
-    inviteNoTxt: { color: colors.bone, fontWeight: "700", fontSize: 13 },
-    brandArea: { marginBottom: 8 },
     sectionLabel: { color: `${colors.bone}6B`, letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 22, marginBottom: 9 },
     walletCard: { marginTop: 2, marginBottom: 8, backgroundColor: colors.surface, borderRadius: 20, padding: 16, flexDirection: "row", alignItems: "center", gap: 12 },
     walletK: { color: `${colors.bone}6B`, letterSpacing: 1.4, fontSize: 10, fontWeight: "800" },
@@ -844,22 +788,6 @@ function make(colors: Colors) {
     moneyRow: { flexDirection: "row", gap: 10, marginTop: 28 },
     moneyCell: { flex: 1, backgroundColor: colors.surface, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14 },
     moneyV: { color: colors.success, fontWeight: "800", fontSize: 20, marginTop: 6, fontVariant: ["tabular-nums"] },
-    brandAreaLabel: { color: `${colors.bone}6B`, letterSpacing: 1.6, fontSize: 10, fontWeight: "800", marginTop: 10, marginBottom: 9 },
-    brandCard: {
-      marginTop: 16,
-      backgroundColor: colors.surface,
-      borderRadius: 20,
-      padding: 16,
-      flexDirection: "row",
-      alignItems: "center",
-    },
-    brandK: { color: `${colors.bone}6B`, letterSpacing: 1.4, fontSize: 10, fontWeight: "700" },
-    brandName: { color: colors.bone, fontWeight: "700", fontSize: 17 },
-    brandP: { color: `${colors.bone}80`, fontSize: 13, marginTop: 4 },
-    brandGo: { color: colors.bone, fontWeight: "700", fontSize: 13 },
-    brandCardMain: { flex: 1, flexDirection: "row", alignItems: "center", minWidth: 0 },
-    brandHQButton: { marginLeft: 12, minWidth: 44, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
-    brandHQText: { color: colors.successInk, fontWeight: "800", fontSize: 12, letterSpacing: 0.4 },
     top: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
     faceBtn: { marginRight: 8, marginTop: 4 },
     avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surface },

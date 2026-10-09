@@ -408,10 +408,10 @@ export function FirstLaunchWelcome({
             Shop one-of-a-kind finds.
           </Animated.Text>
           <Animated.Text style={[stylesForTheme.tagline, { color: textColor }, line2Style]}>
-            Turn your idea into a brand.
+            List a piece you love.
           </Animated.Text>
           <Animated.Text style={[stylesForTheme.tagline, { color: textColor }, line3Style]}>
-            Sell alongside labels you love.
+            Find your next favorite.
           </Animated.Text>
         </View>
 

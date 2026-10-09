@@ -11,7 +11,6 @@ import { useUvel } from "../lib/store";
 import { MARKET_RED, useColors } from "../lib/theme";
 import { shopLookOf } from "../lib/shopLook";
 import { getPiece, isRemoteListedPiece, likeCount, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
-import { BrandVerifiedMark } from "./VerifiedMark";
 import type { PersonalizationAction } from "../lib/personalization";
 
 const IMAGE_OVERLAY_TEXT = "#F4F0E6";
@@ -167,7 +166,6 @@ export function ListingCard({
           <Text style={[styles.brand, framed && styles.brandFramed, hasCustomLook && { color: shopLook.muted }, { flexShrink: 1 }]} numberOfLines={1}>
             {brand.toUpperCase()}
           </Text>
-          <BrandVerifiedMark brand={house} size={11} />
         </View>
         <Text style={[styles.name, framed && styles.nameFramed, hasCustomLook && { color: shopLook.bone }]} numberOfLines={2}>
           {piece.name}

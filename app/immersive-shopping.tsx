@@ -16,11 +16,9 @@ import { ListingOfferSheet } from "../components/ListingOfferSheet";
 import { TodayCartFab } from "../components/TodayCartFab";
 import TodayToolsDrawer from "../components/TodayToolsDrawer";
 import { SellerProfileView } from "./seller/[id]";
-import { BrandPageView } from "./brand/[id]";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
 import * as Haptics from "../lib/haptics";
 import { addToCart, useCart } from "../lib/cart";
-import { getBrand, isFollowing, toggleFollow, useBrands } from "../lib/brands";
 import { useFirstFind } from "../lib/firstFind";
 import { getMarket, moneyExact, moneyInMarket } from "../lib/markets";
 import { hydrateFollowedSellers, isSellerFollowed, syncSellerFollow, toggleSellerFollow } from "../lib/sellers";
@@ -38,12 +36,6 @@ const MIN_REFRESH_MS = 1200;
 const MAX_REFRESH_WAIT_MS = 10000;
 const IMMERSIVE_WELCOME_KEY = "uvel-immersive-welcome-seen-v1";
 let immersiveResumeIndex = 0;
-const CATALOG_BRAND_IDS: Record<string, string> = {
-  "Maison Found": "maison-found",
-  "Archive 1982": "archive-1982",
-  "Atelier No. 4": "atelier-no4",
-};
-
 type ShopFloorPiece = ReturnType<typeof shopFloor>[number];
 
 type FeedSession = { queue: ShopFloorPiece[]; repeat: ShopFloorPiece[]; seed: number };
@@ -94,7 +86,6 @@ export default function ImmersiveShopping() {
   const C = useCopy();
   const taskbarHeight = 64 + Math.max(insets.bottom, 8);
   const contentHeight = Math.max(1, SCREEN_HEIGHT - taskbarHeight);
-  useBrands();
   useEffect(() => { void hydrateFollowedSellers(); }, []);
   const wardrobePieces = useWardrobe();
   const bundledPieces = useMemo(() => fallbackShopFloor(), []);
@@ -195,10 +186,7 @@ export default function ImmersiveShopping() {
   const nextPiece = feedWindow.next;
   visiblePieceId.current = activePiece?.id;
   const profileSource = profilePiece || activePiece;
-  const profileBrand = profileSource?.brandId ? getBrand(profileSource.brandId) : undefined;
-  const profileSellerId = profileSource && !profileBrand
-    ? profileSource.ownerId || profileSource.listedByUid || (profileSource.brand ? CATALOG_BRAND_IDS[profileSource.brand] : "")
-    : "";
+  const profileSellerId = profileSource?.ownerId || profileSource?.listedByUid || "";
   const openProfile = useCallback((piece: ShopFloorPiece) => {
     setProfilePiece(piece);
     setTimeout(() => profilePagerRef.current?.setPage(1), 0);
@@ -488,7 +476,7 @@ export default function ImmersiveShopping() {
         ref={profilePagerRef}
         style={styles.pager}
         initialPage={0}
-        scrollEnabled={!drawerOpen && Boolean(profileBrand || profileSellerId)}
+        scrollEnabled={!drawerOpen && Boolean(profileSellerId)}
         onPageSelected={(event) => {
           if (event.nativeEvent.position === 0) setProfilePiece(null);
           else if (!profilePiece && activePiece) setProfilePiece(activePiece);
@@ -556,9 +544,7 @@ export default function ImmersiveShopping() {
       </GestureDetector>
       </View>
       <View key="profile-page" style={styles.pagerPage}>
-        {profileBrand ? (
-          <BrandPageView routeId={profileBrand.id} onBack={closeProfile} />
-        ) : profileSellerId ? (
+        {profileSellerId ? (
           <SellerProfileView routeId={profileSellerId} onBack={closeProfile} />
         ) : (
           <View style={styles.page} />
@@ -629,7 +615,6 @@ const welcomeStyles = StyleSheet.create({
 function ImmersiveTaskbar({ colors, C, insets, styles }: { colors: Colors; C: ReturnType<typeof useCopy>; insets: { bottom: number }; styles: ReturnType<typeof make> }) {
   const tabs = [
     { route: "/" as const, icon: "compass" as const, inactive: "compass-outline" as const, label: C.today },
-    { route: "/create" as const, icon: "pricetag" as const, inactive: "pricetag-outline" as const, label: C.create || "Create" },
     { route: "/you" as const, icon: "person-outline" as const, inactive: "person-outline" as const, label: C.you || "You" },
   ];
   return (
@@ -672,12 +657,9 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const heartOpacity = useSharedValue(0);
   const saveTargetX = useSharedValue(SCREEN_WIDTH - 42);
   const saveTargetY = useSharedValue(SCREEN_HEIGHT - insets.bottom - 132 - 99);
-  const brandRecord = piece.brandId ? getBrand(piece.brandId) : undefined;
-  const catalogBrandId = !brandRecord && piece.brand ? CATALOG_BRAND_IDS[piece.brand] : undefined;
-  const followId = brandRecord?.id || piece.ownerId || piece.listedByUid || catalogBrandId || "";
-  const isBrand = Boolean(brandRecord);
   const sellerId = piece.ownerId || piece.listedByUid || "";
-  const canMakeOffer = !piece.brandId && !brandRecord && !catalogBrandId && Boolean(sellerId) && sellerId !== app.uid && piece.status === "listed" && piece.listPriceCents > 1;
+  const followId = sellerId;
+  const canMakeOffer = Boolean(sellerId) && sellerId !== app.uid && piece.status === "listed" && piece.listPriceCents > 1;
   const hasFirstFindMatch = firstFind.matches(piece);
   const market = getMarket(app.country);
   const itemCurrency = piece.currency || getMarket(piece.country || app.country).currency;
@@ -687,8 +669,8 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   const salePrice = moneyInMarket(sale, market.currency, market);
   const liked = app.saved.includes(piece.id);
   const brand = piece.brand && piece.brand !== "Unlabeled" ? piece.brand : piece.category;
-  const sellerName = brandRecord?.name || piece.ownerName || piece.listedByName || (piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Uvel seller");
-  const sellerPhoto = brandRecord?.logoUri || piece.ownerPhoto || null;
+  const sellerName = piece.ownerName || piece.listedByName || (piece.brand && piece.brand !== "Unlabeled" ? piece.brand : "Uvel seller");
+  const sellerPhoto = piece.ownerPhoto || null;
   const sharePayload: FriendSharePayload = { kind: "listing", id: piece.id, title: piece.name, deepLink: `uvel://piece/${piece.id}`, imageUri: piece.photo, previewText: `Have a look at ${piece.name} on Uvel.`, listing: { id: piece.id, kind: "closet", name: piece.name, brand: piece.brand || piece.category || "Uvel", priceCents: piece.listPriceCents, currency: piece.currency, photoUri: piece.photo } };
   const heartStyle = useAnimatedStyle(() => ({
     opacity: heartOpacity.value,
@@ -731,8 +713,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
       onOpenSeller(piece);
       return;
     }
-    if (brandRecord) router.push({ pathname: "/brand/[id]", params: { id: brandRecord.id } });
-    else if (followId) router.push({ pathname: "/seller/[id]", params: { id: followId } });
+    if (followId) router.push({ pathname: "/seller/[id]", params: { id: followId } });
   }
   function openOfferSheet() {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
@@ -819,7 +800,7 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
           <AccessiblePressable onPress={openSeller} style={styles.profileButton} accessibilityRole="button" accessibilityLabel={`View ${sellerName} profile`}>
             {sellerPhoto ? <Image source={{ uri: sellerPhoto }} style={styles.profileAvatar} contentFit="cover" /> : <View style={styles.profileFallback}><Text style={styles.sellerInitial}>{sellerName.slice(0, 1).toUpperCase()}</Text></View>}
           </AccessiblePressable>
-          <FollowControl followId={followId} isBrand={isBrand} sellerName={sellerName} uid={app.uid} colors={colors} styles={styles} />
+          <FollowControl followId={followId} sellerName={sellerName} uid={app.uid} colors={colors} styles={styles} />
         </View> : null}
         <View style={styles.actionGuideAnchor}>
           {guideStep === 2 ? <GuideBubble action styles={styles} title="Tap this to add to your bag" copy="Keep this listing close so you can find it again." onDismiss={onGuideDismiss} /> : null}
@@ -902,10 +883,9 @@ function ImmersiveItem({ piece, active, colors, styles, insets, app, firstFind, 
   );
 }
 
-function FollowControl({ followId, isBrand, sellerName, uid, colors, styles }: { followId: string; isBrand: boolean; sellerName: string; uid: string; colors: Colors; styles: ReturnType<typeof make> }) {
+function FollowControl({ followId, sellerName, uid, colors, styles }: { followId: string; sellerName: string; uid: string; colors: Colors; styles: ReturnType<typeof make> }) {
   const overlayColor = colors.ink === "#000000" ? colors.bone : "#FFFFFF";
-  const followUid = uid || "me";
-  const [following, setFollowing] = useState(() => isBrand ? isFollowing(followId, followUid) : isSellerFollowed(followId));
+  const [following, setFollowing] = useState(() => isSellerFollowed(followId));
   const [showStatus, setShowStatus] = useState(false);
   const followingRef = useRef(following);
   const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -918,10 +898,10 @@ function FollowControl({ followId, isBrand, sellerName, uid, colors, styles }: {
   }));
 
   useEffect(() => {
-    const stored = isBrand ? isFollowing(followId, followUid) : isSellerFollowed(followId);
+    const stored = isSellerFollowed(followId);
     followingRef.current = stored;
     setFollowing(stored);
-  }, [followId, followUid, isBrand]);
+  }, [followId]);
 
   useEffect(() => () => {
     if (statusTimer.current) clearTimeout(statusTimer.current);
@@ -935,11 +915,8 @@ function FollowControl({ followId, isBrand, sellerName, uid, colors, styles }: {
     const next = !followingRef.current;
     followingRef.current = next;
     setFollowing(next);
-    if (isBrand) toggleFollow(followId, followUid);
-    else {
-      toggleSellerFollow(followId);
-      void syncSellerFollow(uid, followId, next);
-    }
+    toggleSellerFollow(followId);
+    void syncSellerFollow(uid, followId, next);
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
 
     if (statusTimer.current) clearTimeout(statusTimer.current);

@@ -17,9 +17,6 @@ import { TodayCartFab } from "../../components/TodayCartFab";
 import { TodayCommerceFeed } from "../../components/TodayCommerceFeed";
 import { OrbitLoader, useMinHold } from "../../components/OrbitLoader";
 import { ShopSkeleton } from "../../components/ScreenSkeletons";
-import { recordCampaignAttribution } from "../../lib/attribution";
-import { BrandVerifiedMark } from "../../components/VerifiedMark";
-import { followedBrandIds, getBrand, verifiedBrands, useBrands, brandCheck } from "../../lib/brands";
 import { CATEGORIES } from "../../lib/catalog";
 import { forYou, lensScan, matchListings } from "../../lib/lookMatch";
 import { dnaFrom } from "../../lib/styleDna";
@@ -28,7 +25,6 @@ import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
 import { useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
-import { useLiveShopCampaigns } from "../../lib/marketing";
 import { refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
 import { FEED_PAGE_SIZE, feedPage } from "../../lib/feedOrder";
 import { unreadFor, useInbox } from "../../lib/chat";
@@ -229,9 +225,6 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const listingOpenWorkRef = useRef(Promise.resolve());
   const wardrobePieces = useWardrobe();
   const wardrobeReady = useWardrobeHydrated();
-  const brandState = useBrands();
-  const followedIds = useMemo(() => followedBrandIds(app.uid), [brandState, app.uid]);
-  const followedKey = followedIds.join("|");
   const personalization = usePersonalization(app.uid || "guest");
   const firstFind = useFirstFind();
   const pathname = usePathname();
@@ -294,8 +287,6 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
     const timer = setTimeout(() => setFindHint(false), 3200);
     return () => clearTimeout(timer);
   }, [findHint]);
-  const houses = verifiedBrands();
-
   useEffect(() => {
     if (!app.hydrated) return;
     app.seedSavedLikes();
@@ -413,7 +404,6 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const orbitOn = useMinHold(refreshing, MIN_REFRESH_MS);
   const refreshSkeletonActive = todayHome && showRefreshSkeleton;
   const live = useMemo(() => shopFloor(country), [country, wardrobePieces]);
-  const liveCampaigns = useLiveShopCampaigns();
   const scanningLook = Boolean(scan === "1" || look || frame || videoUrl);
 
   useEffect(() => {
@@ -430,20 +420,6 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
     const timer = setTimeout(() => personalization.record("search", undefined, query), 700);
     return () => clearTimeout(timer);
   }, [q, scanningLook, personalization.record]);
-
-  const shopCampaignRows = useMemo(() => liveCampaigns
-    .filter((campaign) => campaign.channel === "shop" && (!campaign.startAt || campaign.startAt <= Date.now()) && (!campaign.endAt || campaign.endAt >= Date.now()))
-    .map((campaign) => ({ campaign, lead: campaign.productIds.map((productId) => live.find((piece) => piece.id === productId)).find(Boolean) }))
-    .filter((row): row is { campaign: (typeof liveCampaigns)[number]; lead: (typeof live)[number] } => Boolean(row.lead))
-    .slice(0, 6), [liveCampaigns, live]);
-
-  useEffect(() => {
-    if (!app.uid || scanningLook || todayHome) return;
-    const day = new Date().toISOString().slice(0, 10);
-    shopCampaignRows.forEach(({ campaign }) => {
-      void recordCampaignAttribution({ brandId: campaign.brandId, campaignId: campaign.id, channel: "shop", type: "impression", eventId: `shop_impression_${campaign.id}_${app.uid}_${day}` }).catch(() => undefined);
-    });
-  }, [app.uid, scanningLook, todayHome, shopCampaignRows.map(({ campaign }) => campaign.id).join("|")]);
 
   useEffect(() => {
     if (!scanningLook) return;
@@ -500,12 +476,12 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
       frozenOrder.current = null;
     }
     if (!frozenOrder.current && live.length) {
-      const rows = look ? matchListings(look, live, taste, followedIds) : forYou(live, taste, country, followedIds);
+      const rows = look ? matchListings(look, live, taste, []) : forYou(live, taste, country, []);
       frozenOrder.current = personalization.rank(rows, country, dna).map((p) => p.id);
     }
     const byId = new Map(live.map((p) => [p.id, p]));
     return (frozenOrder.current || []).map((id) => byId.get(id)).filter((p): p is ClosetPiece => Boolean(p)).filter(passQ);
-  }, [live, look, aiIds, q, cat, taste, country, scanningLook, followedKey, dna, personalization.rank, feedEpoch]);
+  }, [live, look, aiIds, q, cat, taste, country, scanningLook, dna, personalization.rank, feedEpoch]);
   const featured = todayHome && !scanningLook ? ranked[0] : undefined;
   const feedRanked = useMemo(() => todayHome && !scanningLook ? ranked.slice(featured ? 1 : 0) : ranked, [featured, ranked, scanningLook, todayHome]);
   const todayFeedKey = `${feedEpoch}:${feedRanked.map((piece) => piece.id).join("|")}`;
@@ -778,76 +754,6 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           );
         })}
       </ScrollView> : null}
-      {!todayHome && !scanningLook && houses.length ? (
-        <View>
-          <View style={styles.brandHead}>
-            <Text style={styles.brandHeadTxt}>{C.brands}</Text>
-            <Text style={styles.brandHeadGo}>›</Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.brandRail}>
-            {houses.map((b) => (
-              <AccessiblePressable
-                key={b.id}
-                onPress={() => router.push({ pathname: "/brand/[id]", params: { id: b.id } })}
-                style={({ pressed }) => [styles.house, pressed && { opacity: 0.92 }]}
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${b.name}${brandCheck(b) !== "none" ? ", verified brand" : ""}`}
-                accessibilityHint="Double tap to open this brand."
-              >
-                {b.logoUri ? <Image cachePolicy="memory-disk" source={{ uri: b.logoUri }} style={styles.houseLogo} contentFit="cover" /> : <View style={styles.houseLogo} />}
-                <View style={styles.houseMeta}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                    <Text style={styles.houseName} numberOfLines={1}>{b.name}</Text>
-                    <BrandVerifiedMark brand={b} size={12} />
-                  </View>
-                  <Text style={styles.houseLine} numberOfLines={1}>{b.tagline || b.vertical}</Text>
-                </View>
-              </AccessiblePressable>
-            ))}
-          </ScrollView>
-        </View>
-      ) : null}
-      {!todayHome && !scanningLook && shopCampaignRows.length ? (
-        <View style={styles.campaignSection}>
-          <View style={styles.campaignHead}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.campaignKicker}>{C.shopCampaigns}</Text>
-              <Text style={styles.campaignSub}>{C.liveDrops}</Text>
-            </View>
-            <Text style={styles.campaignLive}>{C.live}</Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.campaignRail}>
-            {shopCampaignRows.map(({ campaign, lead }) => {
-              const brand = getBrand(campaign.brandId);
-              return (
-                <AccessiblePressable
-                  key={campaign.id}
-                  onPress={() => {
-                    void recordCampaignAttribution({ brandId: campaign.brandId, campaignId: campaign.id, channel: "shop", type: "engagement", listingId: lead.id, eventId: `shop_engagement_${campaign.id}_${app.uid || "guest"}_${Date.now()}` }).catch(() => undefined);
-                    router.push({ pathname: "/closet/[id]", params: { id: lead.id, campaignId: campaign.id, collectionId: campaign.collectionId || "", promotionId: campaign.promotionId || "", campaignChannel: "shop" } });
-                  }}
-                  style={({ pressed }) => [styles.campaignCard, pressed && { opacity: 0.92 }]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Shop ${brand?.name || "brand"} campaign ${campaign.headline || campaign.name}`}
-                  accessibilityHint="Double tap to explore this drop."
-                >
-                  <Image cachePolicy="memory-disk" source={{ uri: lead.photo }} style={styles.campaignImg} contentFit="cover" accessible={false} />
-                  <View style={styles.campaignCopy}>
-                    <View style={styles.campaignBrandRow}>
-                      {brand?.logoUri ? <Image cachePolicy="memory-disk" source={{ uri: brand.logoUri }} style={styles.campaignLogo} contentFit="cover" /> : null}
-                      <Text style={styles.campaignBrand} numberOfLines={1}>{brand?.name || "Brand drop"}</Text>
-                      <BrandVerifiedMark brand={brand} size={11} />
-                    </View>
-                    <Text style={styles.campaignTitle} numberOfLines={2}>{campaign.headline || campaign.name}</Text>
-                    <Text style={styles.campaignBody} numberOfLines={2}>{campaign.body || C.exploreLatestDrop}</Text>
-                    <Text style={styles.campaignGo}>{C.shopTheDrop}</Text>
-                  </View>
-                </AccessiblePressable>
-              );
-            })}
-          </ScrollView>
-        </View>
-      ) : null}
       {scanning ? <Text style={styles.count}>{C.lookingAtFrame}</Text> : null}
       {editorialHome && feedRanked.length ? <Text style={styles.editorialFeedTitle}>{C.forYou}</Text> : null}
     </>
@@ -1061,40 +967,7 @@ function make(colors: Colors) {
     emptyCopy: { color: `${colors.bone}94`, fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 6 },
     emptyPrimary: { marginTop: 16, minHeight: 44, paddingHorizontal: 18, borderRadius: 22, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     emptyPrimaryTxt: { color: colors.successInk, fontSize: 13, fontWeight: "800" },
-    campaignSection: { marginTop: 22 },
-    campaignHead: { flexDirection: "row", alignItems: "flex-end", gap: 10, marginBottom: 10 },
-    campaignKicker: { color: colors.success, fontSize: 11, fontWeight: "800", letterSpacing: 1.5 },
-    campaignSub: { color: `${colors.bone}85`, fontSize: 13, marginTop: 3 },
-    campaignLive: { color: colors.successInk, backgroundColor: colors.success, borderRadius: 11, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "800", letterSpacing: 1 },
-    campaignRail: { gap: 10, paddingBottom: 4 },
-    campaignCard: { width: 292, minHeight: 148, borderRadius: 16, overflow: "hidden", backgroundColor: colors.surface, flexDirection: "row" },
-    campaignImg: { width: 106, height: "100%", minHeight: 148, backgroundColor: colors.surface },
-    campaignCopy: { flex: 1, paddingHorizontal: 12, paddingVertical: 11, justifyContent: "center" },
-    campaignBrandRow: { flexDirection: "row", alignItems: "center", gap: 5, minHeight: 18 },
-    campaignLogo: { width: 18, height: 18, borderRadius: 5, backgroundColor: colors.surface },
-    campaignBrand: { flexShrink: 1, color: `${colors.bone}94`, fontSize: 11, fontWeight: "800", letterSpacing: 0.7 },
-    campaignTitle: { color: colors.bone, fontSize: 17, lineHeight: 20, fontWeight: "700", marginTop: 6 },
-    campaignBody: { color: `${colors.bone}94`, fontSize: 12, lineHeight: 16, marginTop: 4 },
-    campaignGo: { color: colors.success, fontSize: 12, fontWeight: "800", marginTop: 8 },
     focused: { borderWidth: 2, borderColor: colors.success },
-    brandHead: { flexDirection: "row", alignItems: "center", marginTop: 6, marginBottom: 10, gap: 4 },
-    brandHeadTxt: { color: colors.bone, fontWeight: "700", fontSize: 18 },
-    brandHeadGo: { color: `${colors.bone}73`, fontSize: 22, marginTop: -2 },
-    brandRail: { gap: 10, paddingBottom: 4 },
-    house: {
-      width: 220,
-      backgroundColor: colors.surface,
-      borderRadius: 16,
-      overflow: "hidden",
-      flexDirection: "row",
-      padding: 8,
-      gap: 10,
-      alignItems: "center",
-    },
-    houseLogo: { width: 56, height: 56, borderRadius: 12, backgroundColor: colors.surface },
-    houseMeta: { flex: 1, paddingRight: 4 },
-    houseName: { color: colors.bone, fontWeight: "700", fontSize: 14, flexShrink: 1 },
-    houseLine: { color: `${colors.bone}80`, fontSize: 12, marginTop: 3 },
     look: { color: `${colors.bone}9E`, marginTop: 6, fontSize: 16 },
     frame: {
       marginTop: 16,

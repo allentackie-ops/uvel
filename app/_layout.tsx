@@ -27,10 +27,6 @@ import { MERCHANT_ID, paymentsExtra } from "../lib/pay";
 import { watchMyOrders } from "../lib/orders";
 import { consumeListingDraftNotice } from "../lib/listingDraft";
 import { recordReviewSession } from "../lib/appReview";
-import { armFounderDesk, founderDeskRoute, getFounderDeskJob, revealFounderDesk } from "../lib/founderDesk";
-import { useFounderCheckSync } from "../lib/founderCheck";
-import { FounderDeskNotice } from "../components/FounderDeskNotice";
-import { FounderCheckNotice } from "../components/FounderCheckNotice";
 import { FriendShareLinkNotice } from "../components/FriendShareLinkNotice";
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -38,7 +34,6 @@ void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 function OrderSync() {
   const { uid } = useUvel();
   useEffect(() => watchMyOrders(uid), [uid]);
-  useFounderCheckSync(uid);
   return null;
 }
 
@@ -115,17 +110,6 @@ function PushSync() {
           }
           if (["offer_received", "offer_declined", "offer_expired"].includes(kind) && listingId && offerThreadId) {
             router.push({ pathname: "/ask/[id]", params: { id: listingId, threadId: offerThreadId } });
-            return;
-          }
-          if (kind === "founder_desk") {
-            void revealFounderDesk().then(() => {
-              const next = getFounderDeskJob();
-              if (next && next.phase !== "reviewing") router.push(founderDeskRoute(next));
-            });
-            return;
-          }
-          if (kind === "founder_check" && typeof data.brandId === "string") {
-            router.push({ pathname: "/brand/[id]", params: { id: data.brandId } });
             return;
           }
           if (kind === "friend_request" || kind === "friend_accepted" || kind === "friend_added") {
@@ -757,13 +741,6 @@ export default function Root() {
   const gateReady = hydrated && profileChecked;
   const signedIn = Boolean(uid);
   useEffect(() => {
-    if (!signedIn || !profileDone || intro) return;
-    void AsyncStorage.getItem("uvel-pending-brand-invite").then((inviteId) => {
-      if (inviteId) router.replace({ pathname: "/brand/accept-invite", params: { id: inviteId } });
-    });
-  }, [signedIn, profileDone, intro]);
-
-  useEffect(() => {
     if (!gateReady || intro || signedIn) return;
     if (pathname !== "/") router.replace("/");
   }, [gateReady, intro, pathname, signedIn]);
@@ -771,7 +748,6 @@ export default function Root() {
   useEffect(() => {
     if (!hydrated) return;
     void pullLooks();
-    void armFounderDesk();
   }, [hydrated]);
 
   return (
@@ -788,8 +764,6 @@ export default function Root() {
         {gateReady && !signedIn ? <AuthScreen /> : null}
         {gateReady && signedIn && !profileDone ? <AccountDetailsScreen /> : null}
         {signedIn && profileDone && gateReady && !intro ? <DraftResumeNotice /> : null}
-        {signedIn && profileDone && gateReady && !intro ? <FounderDeskNotice /> : null}
-        {signedIn && profileDone && gateReady && !intro ? <FounderCheckNotice /> : null}
         {signedIn && profileDone && gateReady && !intro ? <FriendShareLinkNotice uid={uid} /> : null}
         {intro || !gateReady ? <LaunchSplash ready={gateReady} onDone={dismiss} /> : null}
         </GestureHandlerRootView>

@@ -10,16 +10,15 @@ import { Drawer, DrawerGestureContext, useDrawerProgress } from "react-native-dr
 import { TodayToolsDrawer } from "../../components/TodayToolsDrawer";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Today from "./index";
-import Create from "./create";
 import You from "./you";
 import Settings from "../settings";
 import { useColors, useResolvedAppearance } from "../../lib/theme";
 import { useCopy } from "../../lib/useCopy";
 
-const ROUTES = ["/", "/create", "/you"] as const;
-const SETTINGS_INDEX = 3;
-const ICONS = ["compass-outline", "pricetag-outline", "person-outline"] as const;
-const ACTIVE_ICONS = ["compass", "pricetag", "person"] as const;
+const ROUTES = ["/", "/you"] as const;
+const SETTINGS_INDEX = 2;
+const ICONS = ["compass-outline", "person-outline"] as const;
+const ACTIVE_ICONS = ["compass", "person"] as const;
 const TAB_ICON_SIZE = 26;
 const SCREEN_W = Dimensions.get("window").width;
 const DRAWER_W = Math.min(SCREEN_W * 0.78, 340);
@@ -27,7 +26,6 @@ const TAB_BAR_HORIZONTAL_PADDING = 10;
 const TAB_TOOLTIP_WIDTH = Math.min(210, SCREEN_W - 24);
 const TAB_TOOLTIPS = [
   { title: "Today", body: "Discover fresh listings and shop what's new." },
-  { title: "Create", body: "Turn your ideas into a brand. Add your logo, list products, and grow your shop." },
   { title: "You", body: "Manage your profile, wardrobe, and settings." },
 ] as const;
 
@@ -76,18 +74,17 @@ export default function TabsLayout() {
   }
 
   function closeSettings() {
-    setPageIndex(2);
-    pagerRef.current?.setPage(2);
+    setPageIndex(1);
+    pagerRef.current?.setPage(1);
   }
 
   const tabs = useMemo<TabScreen[]>(
     () => [
       { key: "today", screen: <Today onOpenTools={() => setOpen(true)} drawerOpen={open} onListingOpenChange={setListingOpen} onScrollDirectionChange={handleTodayScrollDirection} /> },
-      { key: "create", screen: <Create /> },
       { key: "you", screen: <You onOpenSettings={openSettings} /> },
       { key: "settings", screen: <Settings onBack={closeSettings} /> },
     ],
-    [C.today, C.create, C.you, handleTodayScrollDirection, open],
+    [C.today, C.you, handleTodayScrollDirection, open],
   );
 
   useEffect(() => {
@@ -95,7 +92,7 @@ export default function TabsLayout() {
     if (next === null) return;
     // Settings is an adjacent pager page while the URL remains /you. Do not
     // snap it back to You on the next render while the page is open.
-    if (pageIndex === SETTINGS_INDEX && next === 2 && pathname === "/you") return;
+    if (pageIndex === SETTINGS_INDEX && next === 1 && pathname === "/you") return;
     if (next === pageIndex) return;
     setPageIndex(next);
     tabProgress.value = next;
@@ -141,14 +138,14 @@ export default function TabsLayout() {
     const next = event.nativeEvent.position;
     if (next === pageIndex) return;
     setPageIndex(next);
-    tabProgress.value = withTiming(next, { duration: 220 });
+    tabProgress.value = withTiming(Math.min(next, ROUTES.length - 1), { duration: 220 });
     void Haptics.selectionAsync().catch(() => undefined);
     const route = ROUTES[next];
     if (route && route !== pathname) router.navigate(route);
   }
 
   function onPageScroll(event: PagerViewOnPageScrollEvent) {
-    tabProgress.value = event.nativeEvent.position + event.nativeEvent.offset;
+    tabProgress.value = Math.min(event.nativeEvent.position + event.nativeEvent.offset, ROUTES.length - 1);
   }
 
   function closeDrawer() {
@@ -156,16 +153,12 @@ export default function TabsLayout() {
   }
 
   const onToday = pageIndex === 0;
-  const isCreate = pageIndex === 1;
   useEffect(() => {
     if (!onToday || open) setTabBarVisible(true);
   }, [onToday, open, setTabBarVisible]);
-  const createTabBackground = appearance === "dark" ? colors.ink : "#FFFEFC";
-  const createTabInactive = appearance === "dark" ? "#A9A398" : "#6F6A69";
-  const createTabActive = appearance === "dark" ? "#FFFFFF" : "#111111";
-  const tabBackground = isCreate ? createTabBackground : colors.ink;
-  const tabInactive = isCreate ? createTabInactive : inactiveIcon;
-  const tabActive = isCreate ? createTabActive : colors.success;
+  const tabBackground = colors.ink;
+  const tabInactive = inactiveIcon;
+  const tabActive = colors.success;
   const swipeEnabled = !listingOpen && (onToday || open);
 
   return (
@@ -239,7 +232,7 @@ export default function TabsLayout() {
             <View style={[styles.bar, { backgroundColor: tabBackground }]}>
               <Animated.View pointerEvents="none" style={[styles.activeDash, { left: TAB_BAR_HORIZONTAL_PADDING + (tabWidth - 30) / 2 }, dashStyle, { backgroundColor: tabActive }]} />
               {ROUTES.map((_, index) => {
-                const active = pageIndex === index;
+                const active = pageIndex === index || (pageIndex === SETTINGS_INDEX && index === 1);
                 return (
                   <Pressable
                     key={index}
@@ -248,7 +241,7 @@ export default function TabsLayout() {
                     delayLongPress={450}
                     style={({ pressed }) => [styles.tab, pressed && styles.tabPressed]}
                     accessibilityRole="tab"
-                    accessibilityLabel={[C.today, C.create ?? "Create", C.you][index]}
+                    accessibilityLabel={[C.today, C.you][index]}
                     accessibilityState={{ selected: active }}
                   >
                     {tooltipIndex === index ? (
@@ -335,8 +328,8 @@ function DrawerAwarePager({
 
 function routeIndex(pathname: string): number | null {
   if (pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/")) return 0;
-  if (pathname === "/create" || pathname.endsWith("/(tabs)/create") || pathname === "/closet" || pathname.endsWith("/(tabs)/closet")) return 1;
-  if (pathname.includes("/you")) return 2;
+  if (pathname === "/create" || pathname.endsWith("/(tabs)/create") || pathname === "/closet" || pathname.endsWith("/(tabs)/closet")) return 0;
+  if (pathname.includes("/you")) return 1;
   return null;
 }
 

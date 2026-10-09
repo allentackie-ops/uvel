@@ -6,9 +6,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors, useResolvedAppearance } from "../lib/theme";
 import { useCopy } from "../lib/useCopy";
 
-const ROUTES = ["/", "/create", "/you"] as const;
-const ICONS = ["compass-outline", "pricetag-outline", "person-outline"] as const;
-const ACTIVE_ICONS = ["compass", "pricetag", "person"] as const;
+const ROUTES = ["/", "/you"] as const;
+const ICONS = ["compass-outline", "person-outline"] as const;
+const ACTIVE_ICONS = ["compass", "person"] as const;
 
 export function BottomTaskbar() {
   const colors = useColors();
@@ -17,12 +17,8 @@ export function BottomTaskbar() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const inactiveIcon = appearance === "dark" ? "#A9A398" : colors.muted;
-  const activeIndex = pathname === "/create" || pathname.startsWith("/create/")
-    ? 1
-    : pathname === "/you" || pathname.startsWith("/you/")
-      ? 2
-      : 0;
-  const labels = [copy.today, copy.create ?? "Create", copy.you];
+  const activeIndex = pathname === "/you" || pathname.startsWith("/you/") ? 1 : 0;
+  const labels = [copy.today, copy.you];
 
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 8), backgroundColor: colors.ink }]}>

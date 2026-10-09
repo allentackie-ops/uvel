@@ -1,9 +1,8 @@
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ownedBrand, useBrands } from "../lib/brands";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { likesOnMine, useWardrobe } from "../lib/wardrobe";
@@ -13,13 +12,7 @@ export default function SellerAnalytics() {
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const app = useUvel();
-  useBrands();
   const pieces = useWardrobe();
-  const mine = ownedBrand(app.uid);
-
-  useEffect(() => {
-    if (mine) router.replace({ pathname: "/brand/hq", params: { id: mine.id } });
-  }, [mine?.id]);
 
   const owned = useMemo(
     () => pieces.filter((piece) => Boolean(app.uid) && piece.ownerId === app.uid),
@@ -42,8 +35,6 @@ export default function SellerAnalytics() {
       </View>
     );
   }
-
-  if (mine) return <View style={styles.page} />;
 
   return (
     <View style={styles.page}>

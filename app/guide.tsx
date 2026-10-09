@@ -46,11 +46,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "How do I list something?",
-    a: "Open Create, choose Sell from your closet, then add your own photos and enter the name, category, condition, price, and shipping details. You can save and finish later. Don’t list replicas.",
-  },
-  {
-    q: "How do I start a brand?",
-    a: "Open Create, choose Start a brand, and use Founder Studio to shape your idea, first product, and identity. When you’re ready, apply. If approved, you’ll get Brand HQ.",
+    a: "From Today or You, choose List an item, then add your own photos and enter the name, category, condition, price, and shipping details. You can save and finish later. Don’t list replicas.",
   },
   {
     q: "How do invites work?",
@@ -82,14 +78,14 @@ const TABS: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string 
     body: "Find Mirror in the Today drawer. Take or choose a photo to preview how a piece looks on you. It won’t show the fit.",
   },
   {
-    icon: "add-outline",
-    title: "Create",
-    body: "Start a brand in Founder Studio, or list something you already own from your closet.",
+    icon: "pricetag-outline",
+    title: "List an item",
+    body: "List something you already own with your own photos, details, and price.",
   },
   {
     icon: "person-outline",
     title: "You",
-    body: "Find saved pieces, Style DNA, Wallet, Settings, Founder Studio, and Brand HQ.",
+    body: "Find your listings, saved pieces, orders, wallet, Style DNA, and settings.",
   },
 ];
 

@@ -5,8 +5,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Animated, FlatList, Keyboard, KeyboardAvoidingView, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
-import { BrandVerifiedMark } from "../components/VerifiedMark";
-import { getBrand, useBrands } from "../lib/brands";
 import { markSeen, unreadFor, useInbox, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
 import { useColors, useResolvedAppearance, type Colors } from "../lib/theme";
@@ -50,7 +48,6 @@ export default function Inbox() {
   const styles = make(colors);
   const insets = useSafeAreaInsets();
   const { uid } = useUvel();
-  useBrands();
   const me = uid || "me";
   const threads = useInbox(me);
   const [mode, setMode] = useState<InboxMode>("Messages");
@@ -398,8 +395,7 @@ export default function Inbox() {
 
 function PriorityCard({ thread: t, uid, colors }: { thread: ChatThread; uid: string; colors: Colors }) {
   const styles = make(colors);
-  const brand = t.brandId ? getBrand(t.brandId) : undefined;
-  const who = brand?.name || t.sellerName || t.buyerName || "Uvel member";
+  const who = t.sellerName || t.buyerName || "Uvel member";
   return <Pressable onPress={() => router.push({ pathname: "/ask/[id]", params: { id: t.pieceId, threadId: t.id, pieceName: t.pieceName, piecePhoto: t.piecePhoto, piecePriceCents: String(t.piecePriceCents), brandId: t.brandId || "" } })} style={styles.priorityCard} accessibilityRole="button" accessibilityLabel={`Reply to ${who}`}>
     {t.piecePhoto ? <Image source={{ uri: t.piecePhoto }} style={styles.priorityImage} contentFit="cover" /> : <View style={[styles.priorityImage, styles.avatar]}><Text style={styles.avatarTxt}>{who.slice(0, 1).toUpperCase()}</Text></View>}
     <View style={styles.priorityCopy}><Text style={styles.priorityName} numberOfLines={1}>{who}</Text><Text style={styles.priorityMessage} numberOfLines={1}>{t.lastText || t.pieceName}</Text><Text style={styles.priorityMeta} numberOfLines={1}>{t.pieceName}</Text></View><Text style={styles.priorityArrow}>›</Text>
@@ -562,9 +558,8 @@ function Row({
   colors: Colors;
 }) {
   const styles = make(colors);
-  const brand = t.brandId ? getBrand(t.brandId) : undefined;
   const iAmSeller = t.sellerId === uid || (t.recipientIds || []).includes(uid);
-  const who = !iAmSeller && (brand?.name || t.brandName) ? brand?.name || t.brandName || "Brand" : iAmSeller ? t.buyerName || "Buyer" : t.sellerName || "Seller";
+  const who = iAmSeller ? t.buyerName || "Buyer" : t.sellerName || "Seller";
   const you = t.lastFrom === uid || t.lastFrom === "me";
   const unread = unreadFor(t, uid);
   return (
@@ -572,9 +567,7 @@ function Row({
       onPress={() => router.push({ pathname: "/ask/[id]", params: { id: t.pieceId, threadId: t.id, pieceName: t.pieceName, piecePhoto: t.piecePhoto, piecePriceCents: String(t.piecePriceCents), brandId: t.brandId || "" } })}
       style={styles.row}
     >
-      {brand?.logoUri ? (
-        <Image cachePolicy="memory-disk" source={{ uri: brand.logoUri }} style={styles.thumb} contentFit="cover" />
-      ) : t.piecePhoto ? (
+      {t.piecePhoto ? (
         <Image cachePolicy="memory-disk" source={{ uri: t.piecePhoto }} style={styles.thumb} contentFit="cover" />
       ) : (
         <View style={[styles.thumb, styles.avatar]}>
@@ -586,7 +579,6 @@ function Row({
           <Text style={[styles.name, unread ? { fontWeight: "800" } : null]} numberOfLines={1}>
             {who}
           </Text>
-          {!iAmSeller ? <BrandVerifiedMark brand={brand} size={16} /> : null}
           {t.lastAt ? <Text style={styles.time}>{when(t.lastAt)}</Text> : null}
         </View>
         <Text style={[styles.prev, unread ? { color: colors.bone } : null]} numberOfLines={1}>

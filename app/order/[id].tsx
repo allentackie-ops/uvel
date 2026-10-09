@@ -72,7 +72,7 @@ export default function OrderDone() {
     setBusy(true);
     try {
       await requestOrderResolution(id, type, reason);
-      Alert.alert("Request sent", type === "return" ? "The brand will review your return request." : "The brand will review your cancellation request.");
+      Alert.alert("Request sent", type === "return" ? "Your return request has been sent for review." : "Your cancellation request has been sent for review.");
     } catch (error) {
       Alert.alert("Could not send request", error instanceof Error ? error.message : "Please try again.");
     } finally {
@@ -81,7 +81,7 @@ export default function OrderDone() {
   }
 
   function chooseSupportReason() {
-    Alert.alert("What do you need help with?", "Choose a reason so the brand team can route your case.", [...supportReasonOptions.map(([category, label]) => ({ text: label, onPress: () => void openSupport(category) })), { text: "Not now", style: "cancel" as const }]);
+    Alert.alert("What do you need help with?", "Choose a reason so support can route your case.", [...supportReasonOptions.map(([category, label]) => ({ text: label, onPress: () => void openSupport(category) })), { text: "Not now", style: "cancel" as const }]);
   }
 
   async function openSupport(category: SupportCategory) {

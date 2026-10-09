@@ -11,7 +11,7 @@ import { useColors, type Colors } from "../lib/theme";
 import { fallbackShopFloor, listedPieces, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { addRecentSearch, loadRecentSearches, saveRecentSearches } from "../lib/searchHistory";
 
-const TABS = ["All", "Women", "Men", "Brand"] as const;
+const TABS = ["All", "Women", "Men"] as const;
 type SearchTab = (typeof TABS)[number];
 
 const TRENDING_SEARCHES = [
@@ -24,13 +24,8 @@ const TRENDING_SEARCHES = [
   "summer dresses",
 ];
 
-const NON_BRAND_NAMES = new Set(["unlabeled", "unbranded", "private label", ""]);
 const WOMEN_CATEGORIES = new Set(["Dresses", "Skirts", "Lingerie", "Swim", "Hair"]);
 const MEN_CATEGORIES = new Set(["Ties"]);
-
-function isBrandPiece(piece: ClosetPiece) {
-  return Boolean(piece.brandId) || !NON_BRAND_NAMES.has(piece.brand.trim().toLowerCase());
-}
 
 function audienceForPiece(piece: ClosetPiece): "women" | "men" | "unisex" {
   const searchable = [piece.name, piece.brand, piece.category, piece.notes].join(" ").toLowerCase();
@@ -43,7 +38,6 @@ function audienceForPiece(piece: ClosetPiece): "women" | "men" | "unisex" {
 
 function matchesTab(piece: ClosetPiece, tab: SearchTab) {
   if (tab === "All") return true;
-  if (tab === "Brand") return isBrandPiece(piece);
   return audienceForPiece(piece) === tab.toLowerCase();
 }
 
@@ -85,7 +79,7 @@ export default function Search() {
   }, [activeTab, live, submittedNeedle]);
 
   const suggestionCategories = activeTab === "All"
-    ? ["Women’s clothing", "Men’s clothing", "Brand pieces"]
+    ? ["Women’s clothing", "Men’s clothing", "Clothing"]
     : [`${activeTab} clothing`, `${activeTab} tops`, `${activeTab} new arrivals`];
   const popularSuggestions = [`${term.trim()} outfits`, `${term.trim()} for ${activeTab === "All" ? "everyone" : activeTab.toLowerCase()}`, `${term.trim()} vintage`, `${term.trim()} sale`];
 
@@ -167,7 +161,7 @@ export default function Search() {
                   <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
                 </Pressable>
               ))}
-              <Animated.View style={[styles.tabIndicator, { width: tabWidth, transform: [{ translateX: tabIndex.interpolate({ inputRange: [0, 1, 2, 3], outputRange: [0, tabWidth, tabWidth * 2, tabWidth * 3] }) }] }]} />
+              <Animated.View style={[styles.tabIndicator, { width: tabWidth, transform: [{ translateX: tabIndex.interpolate({ inputRange: [0, 1, 2], outputRange: [0, tabWidth, tabWidth * 2] }) }] }]} />
             </View>
             <View style={styles.searchBox}>
               <Pressable onPress={() => router.back()} style={styles.backButton} hitSlop={10} accessibilityRole="button" accessibilityLabel="Go back">
@@ -180,7 +174,7 @@ export default function Search() {
                 onSubmitEditing={submitSearch}
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
-                placeholder={`Search ${activeTab === "All" ? "all clothing" : activeTab === "Brand" ? "brand pieces" : `${activeTab.toLowerCase()}'s clothing`}`}
+                placeholder={`Search ${activeTab === "All" ? "all clothing" : `${activeTab.toLowerCase()}'s clothing`}`}
                 placeholderTextColor={colors.subtle}
                 accessibilityLabel={copy.searchListings}
                 returnKeyType="search"

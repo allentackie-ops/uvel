@@ -10,7 +10,7 @@ const QUICK_GUIDE: { icon: keyof typeof Ionicons.glyphMap; title: string; body: 
   {
     icon: "search-outline",
     title: "Find your next piece",
-    body: "Browse pre-loved clothes and first pieces from new labels.",
+    body: "Browse pre-loved clothes and unique finds from Uvel sellers.",
   },
   {
     icon: "body-outline",
@@ -24,8 +24,8 @@ const QUICK_GUIDE: { icon: keyof typeof Ionicons.glyphMap; title: string; body: 
   },
   {
     icon: "pricetag-outline",
-    title: "Create or sell",
-    body: "Start a brand in Founder Studio, or list something you already own from your closet.",
+    title: "List an item",
+    body: "List something you own with your own photos, details, and price.",
   },
 ];
 
@@ -42,7 +42,7 @@ export default function AboutUvel() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.lede}>An app for clothes.{"\n"}That’s the whole plot.</Text>
-        <Text style={styles.intro}>Find a piece. Try it on. Buy it, sell it, or turn an idea into a brand.</Text>
+        <Text style={styles.intro}>Find a piece. Try it on. Buy it, or list something you own.</Text>
 
         <Text style={styles.section}>What you can do</Text>
         <View style={styles.cardGrid}>
@@ -72,9 +72,9 @@ export default function AboutUvel() {
             styles={styles}
           />
           <DetailRow
-            icon="business-outline"
-            title="Building a brand?"
-            body="Founder Studio helps you shape the idea. Approved brands get Brand HQ for their shop, orders, and earnings."
+            icon="pricetag-outline"
+            title="Listing an item?"
+            body="Add your own photos, accurate condition, price, and shipping details from List an item."
             colors={colors}
             styles={styles}
             last

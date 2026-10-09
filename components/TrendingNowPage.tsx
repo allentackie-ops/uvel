@@ -9,12 +9,11 @@ import { OrbitLoader } from "./OrbitLoader";
 import { TodayListingOverlay, type ListingOrigin } from "./TodayListingOverlay";
 import { CATEGORIES, type Category } from "../lib/catalog";
 import { getMarket, moneyInMarket } from "../lib/markets";
-import { fetchTrendingScores, type TrendScore, type TrendingBrandItem } from "../lib/trending";
+import { fetchTrendingScores, type TrendScore } from "../lib/trending";
 import type { BannerStory } from "../lib/todayBannerStories";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
 import { refreshMarketplaceListings, shopFloor, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
-import { listingVisibleIn } from "../lib/ships";
 
 type RankedPiece = { piece: ClosetPiece; score: TrendScore };
 const EMPTY_SCORES: TrendScore[] = [];
@@ -37,7 +36,6 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
   const wardrobe = useWardrobe();
   const market = useMemo(() => getMarket(app.country), [app.country]);
   const [marketScores, setMarketScores] = useState<TrendScore[]>(EMPTY_SCORES);
-  const [brandItems, setBrandItems] = useState<TrendingBrandItem[]>([]);
   const [windowDays, setWindowDays] = useState(7);
   const [minDwellSeconds, setMinDwellSeconds] = useState(10);
   const [loading, setLoading] = useState(true);
@@ -61,7 +59,6 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
       const result = await fetchTrendingScores(market.code);
       if (currentRequest !== requestId.current) return;
       setMarketScores(result.marketScores);
-      setBrandItems(result.brandItems);
       setWindowDays(result.windowDays);
       setMinDwellSeconds(result.minDwellSeconds);
     } catch {
@@ -122,11 +119,6 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
       items: rankedLocal.filter(({ piece }) => piece.category === category).slice(0, 10),
     }))
     .filter((section) => section.items.length > 0), [rankedLocal]);
-  const rankedBrandItems = useMemo(() => brandItems
-    .filter(({ piece }) => piece.brandId && listingVisibleIn({ origin: piece.country, shipsTo: piece.shipsTo, buyer: market.code }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 10), [brandItems, market.code]);
-
   const openListing = useCallback((piece: ClosetPiece, ref: { current: View | null }) => {
     const measure = (callback: (rect: { x: number; y: number; width: number; height: number }) => void) => {
       ref.current?.measureInWindow((x, y, width, height) => callback({ x, y, width, height }));
@@ -198,22 +190,6 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
           </View>
         ))}
 
-        <View style={styles.section}>
-          <View style={styles.sectionHeading}>
-            <View>
-              <Text style={[styles.sectionTitle, { color: colors.bone }]}>Trending brand pieces</Text>
-              <Text style={[styles.sectionSub, { color: colors.muted }]}>Across stores · available in {market.name}</Text>
-            </View>
-          </View>
-          {rankedBrandItems.length
-            ? <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
-              {rankedBrandItems.map((item) => <BrandRankedCard key={item.piece.id} item={item} market={market} colors={colors} onOpen={openListing} />)}
-            </ScrollView>
-            : <View style={[styles.empty, { backgroundColor: colors.surface }]}>
-              <Ionicons name="globe-outline" size={20} color={colors.muted} />
-              <Text style={[styles.emptyText, { color: colors.muted }]}>Newly published brand pieces that ship to {market.name} will appear here when shoppers engage with them.</Text>
-            </View>}
-        </View>
       </Animated.ScrollView>
 
       {refreshing ? <View pointerEvents="none" style={[styles.pullOrbitLayer, { top: insets.top + 64 }]}><OrbitLoader size={58} /></View> : null}
@@ -230,19 +206,6 @@ function RankedCard({ item, market, colors, onOpen }: { item: RankedPiece; marke
       {piece.photo ? <Image source={{ uri: piece.photo }} style={styles.image} contentFit="cover" cachePolicy="memory-disk" /> : null}
     </View>
     <Text style={[styles.brand, { color: colors.muted }]} numberOfLines={1}>{(piece.brand || "Uvel seller").toUpperCase()}</Text>
-    <Text style={[styles.name, { color: colors.bone }]} numberOfLines={2}>{piece.name}</Text>
-    <Text style={[styles.price, { color: colors.bone }]}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
-  </Pressable>;
-}
-
-function BrandRankedCard({ item, market, colors, onOpen }: { item: TrendingBrandItem; market: ReturnType<typeof getMarket>; colors: ReturnType<typeof useColors>; onOpen: (piece: ClosetPiece, ref: { current: View | null }) => void }) {
-  const ref = useRef<View>(null);
-  const piece = item.piece;
-  return <Pressable ref={ref} onPress={() => onOpen(piece, ref)} style={[styles.card, { backgroundColor: colors.surface }]} accessibilityRole="button" accessibilityLabel={`Open ${piece.brand}, ${piece.name}`}>
-    <View style={[styles.imageFrame, { backgroundColor: colors.neutral }]}>
-      {piece.photo ? <Image source={{ uri: piece.photo }} style={styles.image} contentFit="cover" cachePolicy="memory-disk" /> : null}
-    </View>
-    <Text style={[styles.brand, { color: colors.muted }]} numberOfLines={1}>{(piece.brand || "Brand").toUpperCase()}</Text>
     <Text style={[styles.name, { color: colors.bone }]} numberOfLines={2}>{piece.name}</Text>
     <Text style={[styles.price, { color: colors.bone }]}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
   </Pressable>;

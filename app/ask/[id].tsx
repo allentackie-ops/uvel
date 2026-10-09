@@ -16,7 +16,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader } from "../../components/OrbitLoader";
-import { BrandVerifiedMark } from "../../components/VerifiedMark";
 import { brandCheck, getBrand, inquiryRecipients, useBrands } from "../../lib/brands";
 import { usd } from "../../lib/catalog";
 import {
@@ -355,8 +354,7 @@ export default function Ask() {
     );
   }
 
-  const conversationBrand = brand || (activeThread?.brandId ? getBrand(activeThread.brandId) : undefined);
-  const handle = conversationBrand?.name || sellerHandle.trim() || "Seller";
+  const handle = sellerHandle.trim() || "Seller";
   const visibleMsgs = searchQuery.trim() ? msgs.filter((message) => message.text.toLowerCase().includes(searchQuery.trim().toLowerCase())) : msgs;
 
   if (!piece) {
@@ -390,7 +388,6 @@ export default function Ask() {
             <Text style={styles.navTitle} numberOfLines={1}>
               {handle}
             </Text>
-            <BrandVerifiedMark brand={conversationBrand} size={16} />
           </View>
           <View style={styles.navActions}>
             <Pressable onPress={() => setSearchOpen((value) => !value)} hitSlop={12} style={styles.navBtn} accessibilityRole="button" accessibilityLabel="Search conversation"><Text style={styles.searchIcon}>⌕</Text></Pressable>
@@ -410,7 +407,7 @@ export default function Ask() {
           </View>
         </View>
 
-        {linkedOrderId ? <View style={styles.supportContext}><Text style={styles.supportKicker}>ORDER SUPPORT</Text><Text style={styles.supportTitle}>{supportOrder ? `Help with ${supportOrder.pieceName}` : "Order-linked conversation"}</Text><Text style={styles.supportMeta}>{supportOrder ? `Order #${supportOrder.id} · ${supportOrder.fulfillmentStatus || supportOrder.status}` : `Order #${linkedOrderId}`}</Text><Text style={styles.supportHint}>The brand team can see this order context. Internal notes stay private to the brand.</Text></View> : !isSellerSide ? <View style={styles.actions}>{!brand && !piece.brandId ? <Pressable onPress={() => setOfferOn(true)} style={styles.offerBtn}><Text style={styles.offerTxt}>Make an offer</Text></Pressable> : null}<Pressable onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id } })} style={styles.buyBtn}><Text style={styles.buyTxt}>Buy now</Text></Pressable></View> : null}
+        {linkedOrderId ? <View style={styles.supportContext}><Text style={styles.supportKicker}>ORDER SUPPORT</Text><Text style={styles.supportTitle}>{supportOrder ? `Help with ${supportOrder.pieceName}` : "Order-linked conversation"}</Text><Text style={styles.supportMeta}>{supportOrder ? `Order #${supportOrder.id} · ${supportOrder.fulfillmentStatus || supportOrder.status}` : `Order #${linkedOrderId}`}</Text><Text style={styles.supportHint}>The seller can see this order context. Private notes stay limited to the support team.</Text></View> : !isSellerSide ? <View style={styles.actions}>{!brand && !piece.brandId ? <Pressable onPress={() => setOfferOn(true)} style={styles.offerBtn}><Text style={styles.offerTxt}>Make an offer</Text></Pressable> : null}<Pressable onPress={() => router.push({ pathname: "/checkout/[id]", params: { id: piece.id } })} style={styles.buyBtn}><Text style={styles.buyTxt}>Buy now</Text></Pressable></View> : null}
 
         <View style={styles.rule} />
 
@@ -429,8 +426,8 @@ export default function Ask() {
         >
           {hasOlder || msgs.length >= 80 ? <Pressable onPress={() => void loadOlder()} style={styles.loadOlder} accessibilityRole="button" accessibilityLabel="Load older messages">{loadingOlder ? <OrbitLoader size={24} /> : <Text style={styles.loadOlderTxt}>Load older messages</Text>}</Pressable> : null}
           <View style={styles.hello}>
-            {conversationBrand?.logoUri ? (
-              <Image cachePolicy="memory-disk" source={{ uri: conversationBrand.logoUri }} style={styles.avatarImg} contentFit="cover" />
+            {piece.ownerPhoto ? (
+              <Image cachePolicy="memory-disk" source={{ uri: piece.ownerPhoto }} style={styles.avatarImg} contentFit="cover" />
             ) : (
               <View style={styles.avatar}>
                 <Text style={styles.avatarTxt}>{handle.slice(0, 1).toUpperCase()}</Text>
@@ -439,7 +436,6 @@ export default function Ask() {
             <View style={styles.helloCard}>
               <View style={styles.helloNameRow}>
                 <Text style={styles.helloHi}>Hi, I’m {handle}</Text>
-                <BrandVerifiedMark brand={conversationBrand} size={18} />
               </View>
               {place ? <Text style={styles.helloMeta}>{place}</Text> : null}
               <Text style={styles.helloMeta}>{seen || "Usually replies in a few hours"}</Text>
