@@ -797,6 +797,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           onOpenBanner={openTodayBanner}
           onOpenSearch={() => router.push("/search")}
           onOpenMessages={() => router.push("/inbox")}
+          inboxUnreadCount={unreadSocial}
           onOpenTools={() => onOpenTools?.()}
           onOpenCountries={() => router.push("/store")}
           onOpenCreators={() => router.push("/find")}

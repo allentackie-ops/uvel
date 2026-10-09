@@ -53,6 +53,7 @@ export type TodayCommerceFeedProps = {
   onOpenBanner: (story: BannerStory) => void;
   onOpenSearch: () => void;
   onOpenMessages: () => void;
+  inboxUnreadCount: number;
   onOpenTools: () => void;
   onOpenCountries: () => void;
   onOpenCreators: () => void;
@@ -70,6 +71,7 @@ export function TodayCommerceFeed({
   onOpenBanner,
   onOpenSearch,
   onOpenMessages,
+  inboxUnreadCount,
   onOpenTools,
   onOpenCountries,
   onOpenCreators,
@@ -236,7 +238,10 @@ export function TodayCommerceFeed({
         </Animated.View>
         <View style={styles.headerActions}>
           <AccessiblePressable onPress={onOpenSearch} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Search Uvel"><Ionicons name="search-outline" size={24} color={colors.bone} /></AccessiblePressable>
-          <AccessiblePressable onPress={onOpenMessages} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open messages"><Ionicons name="chatbubble-ellipses-outline" size={23} color={colors.bone} /></AccessiblePressable>
+          <AccessiblePressable onPress={onOpenMessages} style={styles.topIcon} accessibilityRole="button" accessibilityLabel={`Open Inbox${inboxUnreadCount ? `, ${inboxUnreadCount} unread` : ""}`}>
+            <Ionicons name="chatbubble-ellipses-outline" size={23} color={colors.bone} />
+            {inboxUnreadCount ? <View style={styles.inboxBadge}><Text style={styles.inboxBadgeText}>{inboxUnreadCount > 9 ? "9+" : inboxUnreadCount}</Text></View> : null}
+          </AccessiblePressable>
         </View>
       </View>
       <Animated.ScrollView
@@ -746,6 +751,8 @@ function make(colors: Colors) {
     wordmarkButton: { minHeight: 48, justifyContent: "center" },
     wordmark: { color: colors.pulse, fontFamily: "Georgia", fontSize: 35, lineHeight: 40, fontStyle: "italic", fontWeight: "700", letterSpacing: -0.8 },
     topIcon: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
+    inboxBadge: { position: "absolute", right: 1, top: 1, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: colors.success, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.ink },
+    inboxBadgeText: { color: colors.successInk, fontSize: 9, fontWeight: "900" },
     locationButton: { flex: 1, minHeight: 42, marginHorizontal: 4, paddingHorizontal: 8, flexDirection: "row", alignItems: "center", gap: 5 },
     locationText: { color: colors.bone, flexShrink: 1, fontSize: 12, fontWeight: "700" },
     locationBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
