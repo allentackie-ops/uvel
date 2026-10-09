@@ -15,7 +15,7 @@ import { pickAvatar, takeAvatar } from "../../lib/photo";
 import { seedFromStyles } from "../../lib/styleDna";
 import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
-import { useColors, type Colors } from "../../lib/theme";
+import { MARKET_RED, useColors, type Colors } from "../../lib/theme";
 import { semanticStatus, statusToneFor } from "../../lib/status";
 import { getPiece, likesOnMine, refreshMarketplaceListings, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { draftProgress, useListingDraft, type ListingDraft } from "../../lib/listingDraft";
@@ -807,11 +807,11 @@ function make(colors: Colors) {
       width: 18,
       height: 18,
       borderRadius: 9,
-      backgroundColor: colors.success,
+      backgroundColor: MARKET_RED,
       alignItems: "center",
       justifyContent: "center",
     },
-    faceDotTxt: { color: colors.successInk, fontSize: 13, fontWeight: "800", marginTop: -1 },
+    faceDotTxt: { color: "#FFFFFF", fontSize: 13, fontWeight: "800", marginTop: -1 },
     menuBtn: {
       width: 44,
       height: 44,
