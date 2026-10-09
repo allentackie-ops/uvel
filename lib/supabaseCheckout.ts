@@ -38,7 +38,19 @@ async function checkoutCall<T>(action: string, payload: Record<string, unknown> 
   return data as T;
 }
 
-/** Supabase receives an optional checkout mirror; Firebase remains the order source of truth. */
+async function groupedCheckoutCall<T>(action: string, payload: Record<string, unknown> = {}) {
+  if (!firebaseReady() || !firebaseAuth().currentUser) throw new Error("Sign in before checking out.");
+  const token = await firebaseAuth().currentUser!.getIdToken();
+  const { data, error } = await requireSupabase().functions.invoke("supabase-checkout-gateway", {
+    body: { action, ...payload },
+    headers: { "x-firebase-id-token": token },
+  });
+  if (error) throw new Error(await invokeErrorMessage(error));
+  if (data?.error) throw new Error(String(data.error));
+  return data as T;
+}
+
+/** Supabase is the source of truth for grouped checkout records. */
 export async function mirrorCheckoutOrder(order: Order) {
   return checkoutCall<{ order: { id: string; firebase_order_id: string; status: string } }>("mirror_order", { order });
 }
@@ -52,11 +64,11 @@ export async function supabaseHostedCheckout(input: CheckoutPay) {
 }
 
 export async function supabaseGroupedCheckout(input: { checkoutBatchId: string; listingIds: string[]; address: Address; shippingChoices: Array<{ listingId: string; carrierId: string; creditCents: number; promotionId?: string; promotionCode?: string }> }) {
-  return checkoutCall<GroupedCheckout>("grouped_create", { input });
+  return groupedCheckoutCall<GroupedCheckout>("grouped_create", { input });
 }
 
 export async function supabaseGroupedStripeIntent(checkoutBatchId: string) {
-  return checkoutCall<GroupedStripePaymentIntent>("grouped_intent", { checkoutBatchId });
+  return groupedCheckoutCall<GroupedStripePaymentIntent>("grouped_intent", { checkoutBatchId });
 }
 
 export async function supabaseValidatePromotion(input: { brandId?: string; listingId: string; promotionId?: string; code?: string; currency: string; itemCents: number }) {

@@ -17,7 +17,7 @@ import {
   validatePromotion,
   type PromotionQuote,
 } from "../lib/pay";
-import { loadAddress, type Address } from "../lib/orders";
+import { cacheOrder, loadAddress, type Address } from "../lib/orders";
 import { removeManyFromCart } from "../lib/cart";
 import { rememberLastPaymentMethod } from "../lib/paymentPreference";
 import { getBrand } from "../lib/brands";
@@ -431,6 +431,7 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
         throw new Error(
           "A listing price or shipping amount changed. Return to your bag and refresh checkout.",
         );
+      await Promise.all((batch.orders || []).map((order) => cacheOrder(order)));
       const intent = await createGroupedStripePaymentIntent(
         batch.checkoutBatchId,
       );

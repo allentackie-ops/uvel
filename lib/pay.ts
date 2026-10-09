@@ -73,6 +73,7 @@ export type StripePaymentIntent = {
 export type GroupedCheckout = {
   checkoutBatchId: string;
   orderIds: Array<{ id: string; pieceId: string }>;
+  orders?: import("./orders").Order[];
   amountCents: number;
 };
 
