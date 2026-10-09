@@ -114,10 +114,16 @@ export type Order = {
   createdAt: number;
 };
 
-const ADDR = "uvel-address-v1";
-const ADDRESSES = "uvel-addresses-v1";
-const ACTIVE_ADDR = "uvel-active-address-v1";
 const ORDERS = "uvel-orders-v1";
+
+function addressStorageKeys() {
+  const uid = firebaseAuth().currentUser?.uid || "signed-out";
+  return {
+    address: `uvel-address-v1:${uid}`,
+    addresses: `uvel-addresses-v1:${uid}`,
+    active: `uvel-active-address-v1:${uid}`,
+  };
+}
 
 let cache: Order[] = [];
 const listeners = new Set<() => void>();
@@ -223,60 +229,62 @@ export function allOrders() {
 
 export async function loadAddress(): Promise<Address | null> {
   const addresses = await loadAddresses();
-  const activeId = await AsyncStorage.getItem(ACTIVE_ADDR);
+  const { active } = addressStorageKeys();
+  const activeId = await AsyncStorage.getItem(active);
   return addresses.find((address) => address.id === activeId) || addresses[0] || null;
 }
 
 export async function loadAddresses(): Promise<Address[]> {
   try {
-    const saved = await AsyncStorage.getItem(ADDRESSES);
+    const { addresses: addressesKey } = addressStorageKeys();
+    const saved = await AsyncStorage.getItem(addressesKey);
     if (saved) {
       const addresses = JSON.parse(saved) as Address[];
-      const activeId = await AsyncStorage.getItem(ACTIVE_ADDR);
+      const { active } = addressStorageKeys();
+      const activeId = await AsyncStorage.getItem(active);
       return activeId ? [...addresses.filter((address) => address.id === activeId), ...addresses.filter((address) => address.id !== activeId)] : addresses;
     }
-    const legacy = await AsyncStorage.getItem(ADDR);
-    if (!legacy) return [];
-    const address = { ...(JSON.parse(legacy) as Address), id: "primary" };
-    await AsyncStorage.setItem(ADDRESSES, JSON.stringify([address]));
-    return [address];
+    return [];
   } catch {
     return [];
   }
 }
 
 export async function saveAddress(a: Address, makeDefault = true) {
+  const { address: addressKey, addresses: addressesKey, active: activeKey } = addressStorageKeys();
   const addresses = await loadAddresses();
-  const activeId = await AsyncStorage.getItem(ACTIVE_ADDR);
+  const activeId = await AsyncStorage.getItem(activeKey);
   const current = addresses.find((address) => address.id === activeId) || addresses[0];
   const next = { ...a, id: a.id || current?.id || `address-${Date.now()}` };
   const updated = addresses.length ? addresses.map((address) => address.id === next.id ? next : address) : [next];
-  await AsyncStorage.setItem(ADDRESSES, JSON.stringify(updated));
+  await AsyncStorage.setItem(addressesKey, JSON.stringify(updated));
   const active = makeDefault
     ? next
     : updated.find((address) => address.id === activeId && address.id !== next.id) || updated.find((address) => address.id !== next.id) || next;
-  await AsyncStorage.setItem(ADDR, JSON.stringify(active));
-  await AsyncStorage.setItem(ACTIVE_ADDR, active.id || "");
+  await AsyncStorage.setItem(addressKey, JSON.stringify(active));
+  await AsyncStorage.setItem(activeKey, active.id || "");
 }
 
 export async function addAddress(a: Address, makeDefault = true) {
+  const { address: addressKey, addresses: addressesKey, active: activeKey } = addressStorageKeys();
   const next = { ...a, id: a.id || `address-${Date.now()}` };
   const addresses = await loadAddresses();
-  const activeId = await AsyncStorage.getItem(ACTIVE_ADDR);
+  const activeId = await AsyncStorage.getItem(activeKey);
   const updated = [...addresses, next];
-  await AsyncStorage.setItem(ADDRESSES, JSON.stringify(updated));
+  await AsyncStorage.setItem(addressesKey, JSON.stringify(updated));
   const active = makeDefault
     ? next
     : updated.find((address) => address.id === activeId) || updated[0] || next;
-  await AsyncStorage.setItem(ACTIVE_ADDR, active.id || "");
-  await AsyncStorage.setItem(ADDR, JSON.stringify(active));
+  await AsyncStorage.setItem(activeKey, active.id || "");
+  await AsyncStorage.setItem(addressKey, JSON.stringify(active));
 }
 
 export async function setActiveAddress(id: string) {
+  const { address: addressKey, active: activeKey } = addressStorageKeys();
   const address = (await loadAddresses()).find((item) => item.id === id);
   if (!address) return;
-  await AsyncStorage.setItem(ACTIVE_ADDR, id);
-  await AsyncStorage.setItem(ADDR, JSON.stringify(address));
+  await AsyncStorage.setItem(activeKey, id);
+  await AsyncStorage.setItem(addressKey, JSON.stringify(address));
 }
 
 export function watchOrder(id: string, onStatus: (status: Order["status"] | null, fulfillmentStatus?: FulfillmentStatus | null) => void) {

@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import { MARKETS, getMarket } from "./markets";
+import { firebaseAuth } from "./firebase";
 
 export type SellerShippingMethod = "dropoff" | "pickup";
 
@@ -51,9 +52,12 @@ export type SellerShippingSettings = {
   updatedAt: number;
 };
 
-const KEY = "uvel-seller-shipping-v1";
+function storageKey() {
+  return `uvel-seller-shipping-v1:${firebaseAuth().currentUser?.uid || "signed-out"}`;
+}
 let current: SellerShippingSettings | null = null;
 let loaded = false;
+let loadedForScope: string | null = null;
 let loading: Promise<SellerShippingSettings> | null = null;
 const listeners = new Set<(settings: SellerShippingSettings) => void>();
 
@@ -148,11 +152,13 @@ function normalize(value?: Partial<SellerShippingSettings> | null): SellerShippi
 }
 
 async function hydrate() {
-  if (loaded && current) return current;
+  const key = storageKey();
+  if (loaded && current && loadedForScope === key) return current;
   if (loading) return loading;
-  loading = AsyncStorage.getItem(KEY).then((raw) => {
+  loading = AsyncStorage.getItem(key).then((raw) => {
     current = normalize(raw ? (JSON.parse(raw) as Partial<SellerShippingSettings>) : undefined);
     loaded = true;
+    loadedForScope = key;
     listeners.forEach((listener) => listener(current as SellerShippingSettings));
     return current as SellerShippingSettings;
   }).catch(() => {
@@ -172,10 +178,13 @@ export async function loadSellerShippingSettings() {
 }
 
 export async function saveSellerShippingSettings(patch: Partial<SellerShippingSettings>) {
-  const next = normalize({ ...(current || normalize()), ...patch, updatedAt: Date.now() });
+  const key = storageKey();
+  const base = await hydrate();
+  const next = normalize({ ...base, ...patch, updatedAt: Date.now() });
   current = next;
   loaded = true;
-  await AsyncStorage.setItem(KEY, JSON.stringify(next));
+  loadedForScope = key;
+  await AsyncStorage.setItem(key, JSON.stringify(next));
   listeners.forEach((listener) => listener(next));
   return next;
 }

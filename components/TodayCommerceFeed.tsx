@@ -102,7 +102,7 @@ export function TodayCommerceFeed({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [app.uid]);
   const posterWidth = Math.min(352, Dimensions.get("window").width - 48);
   const posterInterval = posterWidth + 12;
   const posterHeight = Math.round(Math.min(470, Math.max(390, posterWidth * 1.24)));
