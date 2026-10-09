@@ -395,7 +395,8 @@ export default function Checkout() {
         address,
         madeByUvel: making,
       });
-      void mirrorCheckoutOrder(order).catch(() => undefined);
+      const supabaseMirror = mirrorCheckoutOrder(order);
+      void supabaseMirror.catch(() => undefined);
       if (piece.brandId && typeof campaignId === "string" && campaignId)
         void recordCampaignAttribution({
           brandId: piece.brandId,
@@ -421,6 +422,7 @@ export default function Checkout() {
       if (method.kind === "apple" || market.code === "US") {
         if (!paymentsExtra.stripePk)
           throw new Error("Stripe checkout is not configured yet.");
+        await supabaseMirror;
         const intent = await createStripePaymentIntent(order.id);
         if (method.kind === "apple") {
           const immediate = (label: string, amount: number): PlatformPay.CartSummaryItem => ({

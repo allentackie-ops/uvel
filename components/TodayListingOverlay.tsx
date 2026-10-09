@@ -210,7 +210,8 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
         address,
         madeByUvel: Boolean(brand && brandMakes(brand)),
       });
-      void mirrorCheckoutOrder(order).catch(() => undefined);
+      const supabaseMirror = mirrorCheckoutOrder(order);
+      void supabaseMirror.catch(() => undefined);
       if (wallet.availableCents >= total && total > 0) {
         await payWithWallet(order.id);
         await rememberLastPaymentMethod(market.code, paymentMethod.id);
@@ -220,6 +221,7 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
       }
       if (paymentMethod.kind === "apple" || market.code === "US") {
         if (!paymentsExtra.stripePk) throw new Error("Stripe checkout is not configured yet.");
+        await supabaseMirror;
         const intent = await createStripePaymentIntent(order.id);
         if (paymentMethod.kind === "apple") {
           const immediate = (label: string, amount: number): PlatformPay.CartSummaryItem => ({
