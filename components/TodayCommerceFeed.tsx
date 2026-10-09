@@ -88,6 +88,10 @@ export function TodayCommerceFeed({
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [locationOpen, setLocationOpen] = useState(false);
   const posterScrollX = useRef(new Animated.Value(0)).current;
+  const locationBarMotion = useRef(new Animated.Value(0)).current;
+  const locationBarHidden = useRef(false);
+  const previousScrollY = useRef(0);
+  const [locationBarInteractive, setLocationBarInteractive] = useState(true);
   useEffect(() => {
     let cancelled = false;
     void loadAddresses().then((saved) => {
@@ -132,10 +136,25 @@ export function TodayCommerceFeed({
     void loadAddresses().then(setAddresses);
     setLocationOpen(true);
   };
+  const setLocationBarVisible = (visible: boolean) => {
+    if (locationBarHidden.current === !visible) return;
+    locationBarHidden.current = !visible;
+    setLocationBarInteractive(visible);
+    Animated.timing(locationBarMotion, {
+      toValue: visible ? 0 : 1,
+      duration: 180,
+      useNativeDriver: true,
+    }).start();
+  };
   const handleScroll = Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
     useNativeDriver: true,
     listener: (event: { nativeEvent: { contentOffset: { y: number } } }) => {
       const y = event.nativeEvent.contentOffset.y;
+      const delta = y - previousScrollY.current;
+      previousScrollY.current = y;
+      if (y <= 12) setLocationBarVisible(true);
+      else if (delta > 2) setLocationBarVisible(false);
+      else if (delta < -2) setLocationBarVisible(true);
       if (pullTriggered.current) return;
       if (y < 0) pullOffset.setValue(Math.min(72, -y));
       else pullOffset.setValue(0);
@@ -175,10 +194,20 @@ export function TodayCommerceFeed({
         <AccessiblePressable onPress={onOpenTools} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open Today tools">
           <View style={styles.menuIcon}><View style={styles.menuLine} /><View style={styles.menuLine} /><View style={styles.menuLine} /></View>
         </AccessiblePressable>
-        <AccessiblePressable onPress={openLocation} style={styles.locationButton} accessibilityRole="button" accessibilityLabel={deliveryLabel} accessibilityHint="Open saved delivery addresses">
-          <Ionicons name="location-outline" size={16} color={colors.bone} />
-          <Text style={styles.locationText} numberOfLines={1}>{deliveryLabel}</Text>
-        </AccessiblePressable>
+        <Animated.View
+          style={[{ flex: 1 }, {
+            opacity: locationBarMotion.interpolate({ inputRange: [0, 1], outputRange: [1, 0] }),
+            transform: [{ translateY: locationBarMotion.interpolate({ inputRange: [0, 1], outputRange: [0, -56] }) }],
+          }]}
+          pointerEvents={locationBarInteractive ? "auto" : "none"}
+          accessibilityElementsHidden={!locationBarInteractive}
+          importantForAccessibility={locationBarInteractive ? "auto" : "no-hide-descendants"}
+        >
+          <AccessiblePressable onPress={openLocation} style={styles.locationButton} accessibilityRole="button" accessibilityLabel={deliveryLabel} accessibilityHint="Open saved delivery addresses">
+            <Ionicons name="location-outline" size={16} color={colors.bone} />
+            <Text style={styles.locationText} numberOfLines={1}>{deliveryLabel}</Text>
+          </AccessiblePressable>
+        </Animated.View>
         <View style={styles.headerActions}>
           <AccessiblePressable onPress={onOpenSearch} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Search Uvel"><Ionicons name="search-outline" size={24} color={colors.bone} /></AccessiblePressable>
           <AccessiblePressable onPress={onOpenMessages} style={styles.topIcon} accessibilityRole="button" accessibilityLabel="Open messages"><Ionicons name="chatbubble-ellipses-outline" size={23} color={colors.bone} /></AccessiblePressable>
