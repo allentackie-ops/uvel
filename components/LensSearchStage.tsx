@@ -8,7 +8,6 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingCardSkeleton } from "./ListingCard";
-import { BottomTaskbar } from "./BottomTaskbar";
 import { LensHeroClip } from "./LensHeroClip";
 import { Sheet } from "./Sheet";
 import type { ClosetPiece } from "../lib/wardrobe";
@@ -294,7 +293,6 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
           </Animated.View>
         </>
       )}
-      <BottomTaskbar />
       <Sheet open={Boolean(openFilter)} onClose={() => setOpenFilter(null)}>
         <Text style={styles.filterSheetTitle}>{openFilter === "sort" ? "Sort matches" : openFilter === "size" ? "Choose a size" : openFilter === "color" ? "Choose a color" : "Filter matches"}</Text>
         <View style={styles.filterOptions}>{filterOptions.map((option) => <Pressable key={option} onPress={() => chooseFilter(option)} style={styles.filterOption}><Text style={styles.filterOptionText}>{option}</Text><Ionicons name="chevron-forward" size={18} color={colors.muted} /></Pressable>)}</View>
