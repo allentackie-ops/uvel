@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useColors } from "../lib/theme";
+import { MARKET_RED, useColors } from "../lib/theme";
 
 export function TodayMessagesButton({
   onPress,
@@ -14,7 +14,7 @@ export function TodayMessagesButton({
 }) {
   const colors = useColors();
   const { width: screenWidth } = useWindowDimensions();
-  const styles = useMemo(() => make(colors.bone, colors.success, screenWidth), [colors.bone, colors.success, screenWidth]);
+  const styles = useMemo(() => make(colors.bone, MARKET_RED, screenWidth), [colors.bone, screenWidth]);
   const iconColor = "#F4F0E6";
   const [hintVisible, setHintVisible] = useState(false);
   const hintOpacity = useRef(new Animated.Value(0)).current;

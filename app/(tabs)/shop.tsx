@@ -23,7 +23,7 @@ import { dnaFrom } from "../../lib/styleDna";
 import { watchLookScan, finishLookScan, clearLookScan, type LookScan } from "../../lib/lookSearch";
 import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
-import { useColors, type Colors } from "../../lib/theme";
+import { MARKET_RED, useColors, type Colors } from "../../lib/theme";
 import { bundledLooks } from "../../lib/trends";
 import { refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, useWardrobeHydrated, type ClosetPiece } from "../../lib/wardrobe";
 import { FEED_PAGE_SIZE, feedPage } from "../../lib/feedOrder";
@@ -964,8 +964,8 @@ function make(colors: Colors) {
     wordmarkUnderline: { width: 82, height: 2, borderRadius: 2, backgroundColor: colors.success, opacity: 0.82, marginTop: 2, marginBottom: 1 },
     wordmarkChevron: { color: `${colors.success}D9`, fontSize: 18, fontWeight: "700", lineHeight: 18 },
     messageButton: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
-    messageBadge: { position: "absolute", right: -2, top: -3, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
-    messageBadgeText: { color: colors.successInk, fontSize: 9, fontWeight: "900" },
+    messageBadge: { position: "absolute", right: -2, top: -3, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4, backgroundColor: MARKET_RED, alignItems: "center", justifyContent: "center" },
+    messageBadgeText: { color: "#FFFFFF", fontSize: 9, fontWeight: "900" },
     emptyState: { marginTop: 22, padding: 22, borderRadius: 20, backgroundColor: colors.surface, alignItems: "center" },
     emptyQuiet: { paddingVertical: 28, alignItems: "center" },
     emptyQuietTxt: { color: `${colors.bone}7A`, fontSize: 15, textAlign: "center" },

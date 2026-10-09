@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { OrbitLoader, useMinHold } from "../components/OrbitLoader";
 import { markSeen, unreadFor, useInbox, type ChatThread } from "../lib/chat";
 import { useUvel } from "../lib/store";
-import { useColors, useResolvedAppearance, type Colors } from "../lib/theme";
+import { MARKET_RED, useColors, useResolvedAppearance, type Colors } from "../lib/theme";
 import * as Haptics from "../lib/haptics";
 import { useAlertCenter, markAlertRead, type AlertEvent } from "../lib/alerts";
 import { useActivityNotifications, markActivityNotificationRead, type ActivityNotification } from "../lib/activityNotifications";
@@ -641,8 +641,8 @@ function make(colors: Colors) {
     modeButtonContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
     modeText: { color: colors.muted, fontSize: 15, fontWeight: "700" },
     modeTextOn: { color: colors.bone },
-    modeCount: { minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.success },
-    modeCountText: { color: colors.successInk, fontSize: 11, fontWeight: "900" },
+    modeCount: { minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: MARKET_RED },
+    modeCountText: { color: "#FFFFFF", fontSize: 11, fontWeight: "900" },
     activityTabs: { flexDirection: "row", gap: 10, marginHorizontal: 16, marginTop: -2, marginBottom: 12 },
     activityTab: { minHeight: 40, paddingHorizontal: 18, borderRadius: 20, backgroundColor: `${colors.bone}0D`, alignItems: "center", justifyContent: "center" },
     activityTabOn: { backgroundColor: `${colors.success}24` },
