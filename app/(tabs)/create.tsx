@@ -165,18 +165,21 @@ function LaunchShelf({ brand, styles }: { brand?: Brand; styles: ScreenStyles })
 }
 
 function DraftShelf({ brand, drafts, styles }: { brand?: Brand; drafts: ReturnType<typeof useBrandListingDrafts>; styles: ScreenStyles }) {
-  if (!brand) return null;
-  const draft = drafts[0];
+  const draft = brand ? drafts[0] : undefined;
   if (!draft) {
+    const emptyTitle = brand ? "No unfinished products yet" : "No saved drafts yet";
+    const emptyBody = brand
+      ? `Start listing a piece for ${brand.name}. Anything you leave unfinished will be saved here.`
+      : "Create your brand to start a product listing. Any listing you leave unfinished will be saved here.";
     return (
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Saved drafts</Text>
         <View style={styles.draftEmptyCard}>
-          <View style={styles.draftEmptyIcon}><Ionicons name="shirt-outline" size={22} color={MARKET_RED} /></View>
-          <Text style={styles.draftEmptyTitle}>No unfinished products yet</Text>
-          <Text style={styles.draftEmptyBody}>Start listing a piece for {brand.name}. Anything you leave unfinished will be saved here.</Text>
-          <Pressable onPress={() => router.push({ pathname: "/brand/list", params: { id: brand.id } })} style={({ pressed }) => [styles.emptyDraftButton, pressed && styles.pressed]} accessibilityRole="button">
-            <Text style={styles.emptyDraftButtonText}>Start a product listing</Text><Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
+          <View style={styles.draftEmptyIcon}><Ionicons name="document-text-outline" size={22} color={MARKET_RED} /></View>
+          <Text style={styles.draftEmptyTitle}>{emptyTitle}</Text>
+          <Text style={styles.draftEmptyBody}>{emptyBody}</Text>
+          <Pressable onPress={() => brand ? router.push({ pathname: "/brand/list", params: { id: brand.id } }) : router.push("/brand/founder")} style={({ pressed }) => [styles.emptyDraftButton, pressed && styles.pressed]} accessibilityRole="button">
+            <Text style={styles.emptyDraftButtonText}>{brand ? "Start a product listing" : "Create your brand"}</Text><Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
           </Pressable>
         </View>
       </View>
