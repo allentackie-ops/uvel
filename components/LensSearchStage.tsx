@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingCardSkeleton } from "./ListingCard";
 import { BottomTaskbar } from "./BottomTaskbar";
 import { LensHeroClip } from "./LensHeroClip";
+import { Sheet } from "./Sheet";
 import type { ClosetPiece } from "../lib/wardrobe";
 import type { NormalizedBox } from "../lib/lookMatch";
 import { MARKET_RED, useColors, type Colors } from "../lib/theme";
@@ -18,6 +19,7 @@ const MIN_CROP_SIZE = 56;
 const HANDLE_HIT_SIZE = 42;
 type Mode = "move" | "tl" | "tr" | "bl" | "br";
 type SearchStatus = "idle" | "detecting" | "searching" | "ready" | "error";
+type FilterKind = "sort" | "size" | "color" | "filter";
 
 type Props = {
   uri: string | null;
@@ -40,10 +42,26 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const heroHeight = Math.max(220, Math.min(screenWidth * 1.08, screenHeight * 0.42));
-  const frameHeight = uri ? Math.min(292, screenHeight * 0.3) : Math.max(190, Math.min(screenWidth * 1.24, screenHeight - insets.top - insets.bottom - 390));
+  const frameHeight = uri ? Math.min(500, screenHeight * 0.46) : Math.max(190, Math.min(screenWidth * 1.24, screenHeight - insets.top - insets.bottom - 390));
   const frame = useMemo(() => ({ width: uri ? screenWidth - 28 : Math.min(screenWidth - 28, frameHeight * 0.82), height: frameHeight }), [frameHeight, screenWidth, uri]);
   const resultWidth = Math.max(136, (screenWidth - 45) / 2);
-  const resultRows = useMemo(() => Array.from({ length: Math.ceil(items.length / 2) }, (_, index) => items.slice(index * 2, index * 2 + 2)), [items]);
+  const [openFilter, setOpenFilter] = useState<FilterKind | null>(null);
+  const [sortBy, setSortBy] = useState("Relevance");
+  const [sizeFilter, setSizeFilter] = useState("Any size");
+  const [colorFilter, setColorFilter] = useState("Any color");
+  const [availabilityFilter, setAvailabilityFilter] = useState("All pieces");
+  const filteredItems = useMemo(() => {
+    const next = items.filter((piece) => {
+      const sizes = [piece.size, ...(piece.sizes || [])].filter(Boolean).map((value) => String(value).toLowerCase());
+      const color = String(piece.color || "").toLowerCase();
+      const sizeMatch = sizeFilter === "Any size" || sizes.includes(sizeFilter.toLowerCase());
+      const colorMatch = colorFilter === "Any color" || color.includes(colorFilter.toLowerCase());
+      const availabilityMatch = availabilityFilter === "All pieces" || (availabilityFilter === "In stock" ? piece.stockQuantity !== 0 : Date.now() - (piece.createdAt || 0) < 14 * 24 * 60 * 60 * 1000);
+      return sizeMatch && colorMatch && availabilityMatch;
+    });
+    return next.sort((a, b) => sortBy === "Price low" ? a.listPriceCents - b.listPriceCents : sortBy === "Price high" ? b.listPriceCents - a.listPriceCents : sortBy === "Newest" ? b.createdAt - a.createdAt : 0);
+  }, [availabilityFilter, colorFilter, items, sizeFilter, sortBy]);
+  const resultRows = useMemo(() => Array.from({ length: Math.ceil(filteredItems.length / 2) }, (_, index) => filteredItems.slice(index * 2, index * 2 + 2)), [filteredItems]);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const imageBox = useMemo(() => {
     if (!natural) return { left: 0, top: 0, width: frame.width, height: frame.height };
@@ -71,6 +89,22 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
   const startBottom = useSharedValue(0);
   const mode = useSharedValue<Mode>("move");
   const changed = useSharedValue(0);
+  const sheetHeight = Math.max(420, screenHeight - insets.top - insets.bottom - 70);
+  const sheetCollapsed = Math.max(0, sheetHeight - 430);
+  const sheetY = useSharedValue(sheetCollapsed);
+  const sheetStartY = useSharedValue(sheetCollapsed);
+  useEffect(() => {
+    sheetY.value = withSpring(sheetCollapsed, { damping: 28, stiffness: 240 });
+  }, [sheetCollapsed, sheetY]);
+  const sheetAnimatedStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetY.value }] }));
+  const sheetPan = Gesture.Pan().onStart(() => {
+    sheetStartY.value = sheetY.value;
+  }).onUpdate((event) => {
+    sheetY.value = Math.max(0, Math.min(sheetCollapsed, sheetStartY.value + event.translationY));
+  }).onEnd((event) => {
+    const shouldExpand = sheetY.value < sheetCollapsed / 2 || event.velocityY < -700;
+    sheetY.value = withSpring(shouldExpand ? 0 : sheetCollapsed, { damping: 28, stiffness: 240 });
+  });
 
   useEffect(() => {
     if (!uri || !natural) return;
@@ -146,6 +180,21 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
     if (changed.value) runOnJS(cropImage)();
   });
 
+  const filterOptions = openFilter === "sort"
+    ? ["Relevance", "Newest", "Price low", "Price high"]
+    : openFilter === "size"
+      ? ["Any size", "XS", "S", "M", "L", "XL"]
+      : openFilter === "color"
+        ? ["Any color", "Black", "White", "Green", "Blue", "Red"]
+        : ["All pieces", "In stock", "New this week"];
+  function chooseFilter(value: string) {
+    if (openFilter === "sort") setSortBy(value);
+    if (openFilter === "size") setSizeFilter(value);
+    if (openFilter === "color") setColorFilter(value);
+    if (openFilter === "filter") setAvailabilityFilter(value);
+    setOpenFilter(null);
+  }
+
   const statusText = status === "detecting"
     ? "Finding the clothing item…"
     : status === "searching"
@@ -169,11 +218,7 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
           <Ionicons name="chevron-back" size={26} color={colors.bone} />
         </Pressable>
         <Text style={styles.headerTitle}>Search with a photo</Text>
-        {uri ? (
-          <Pressable onPress={onChangePhoto} style={styles.changeButton} hitSlop={8} accessibilityRole="button" accessibilityLabel="Choose another photo">
-            <Text style={styles.changeText}>Change</Text>
-          </Pressable>
-        ) : <View style={styles.headerButton} />}
+        <View style={styles.headerButton} />
       </View>
 
       {!uri ? (
@@ -187,16 +232,25 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
         </View>
       ) : (
         <>
-          <View style={styles.photoArea}>
+          <View style={[styles.photoArea, { height: frameHeight + 16 }]}>
             <View style={[styles.frame, { width: frame.width, height: frame.height }]}>
               <Image cachePolicy="memory-disk" source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" />
               {!natural ? <View style={styles.loadingImage}><ActivityIndicator color={colors.success} /></View> : null}
-              {natural && detectionDone && box ? (
-                <View pointerEvents="none" style={styles.hotspotLayer}>
-                  {[box.top, (box.top + box.bottom) / 2, box.bottom].map((position, index) => (
-                    <View key={`hotspot-${index}`} style={[styles.hotspot, { left: `${((box.left + box.right) / 2) * 100}%`, top: `${position * 100}%` }]} />
-                  ))}
-                </View>
+              {natural && detectionDone ? (
+                <GestureDetector gesture={cropGesture}>
+                  <View style={styles.gestureSurface}>
+                    <Animated.View pointerEvents="none" style={[styles.outsideMask, topMaskStyle]} />
+                    <Animated.View pointerEvents="none" style={[styles.outsideMask, leftMaskStyle]} />
+                    <Animated.View pointerEvents="none" style={[styles.outsideMask, rightMaskStyle]} />
+                    <Animated.View pointerEvents="none" style={[styles.outsideMask, bottomMaskStyle]} />
+                    <Animated.View pointerEvents="none" style={[styles.cropBox, cropStyle]}>
+                      <View style={styles.grid}><View style={styles.gridV1} /><View style={styles.gridV2} /><View style={styles.gridH1} /><View style={styles.gridH2} /></View>
+                      <View style={styles.cropBorder} />
+                      <View style={[styles.handle, styles.tl]} /><View style={[styles.handle, styles.tr]} />
+                      <View style={[styles.handle, styles.bl]} /><View style={[styles.handle, styles.br]} />
+                    </Animated.View>
+                  </View>
+                </GestureDetector>
               ) : null}
               {natural && !detectionDone ? (
                 <View pointerEvents="none" style={styles.scanningOverlay}>
@@ -205,11 +259,13 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
               ) : null}
             </View>
           </View>
-          <View style={[styles.resultsSheet, { paddingBottom: 10 }]}>
+          <Animated.View style={[styles.resultsSheet, { height: sheetHeight, paddingBottom: 10 }, sheetAnimatedStyle]}>
+            <GestureDetector gesture={sheetPan}>
+              <View style={styles.sheetHandle}><View style={styles.sheetGrip} /><Text style={styles.sheetHandleText}>Swipe up for all matches</Text></View>
+            </GestureDetector>
             <View style={styles.addSearchBox}>
               <Ionicons name="search-outline" size={18} color={colors.muted} />
               <TextInput placeholder="Add to your search" placeholderTextColor={colors.subtle} style={styles.addSearchInput} />
-              <Ionicons name="camera-outline" size={20} color={colors.bone} />
             </View>
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeading}>
@@ -219,9 +275,9 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
               {status === "detecting" || status === "searching" ? <ActivityIndicator color={colors.success} /> : <Ionicons name="sparkles-outline" size={21} color={colors.success} />}
             </View>
             <View style={styles.filterRow}>
-              {['Sort', 'Size', 'Color', 'Filter'].map((label) => <Pressable key={label} style={styles.filterChip}><Text style={styles.filterChipText}>{label}</Text><Ionicons name="chevron-down" size={13} color={colors.muted} /></Pressable>)}
+              {[['Sort', sortBy], ['Size', sizeFilter], ['Color', colorFilter], ['Filter', availabilityFilter]].map(([label, value]) => <Pressable key={label} onPress={() => setOpenFilter(label.toLowerCase() as FilterKind)} style={[styles.filterChip, value !== label && value !== ({ Sort: 'Relevance', Size: 'Any size', Color: 'Any color', Filter: 'All pieces' } as Record<string, string>)[label] && styles.filterChipActive]}><Text style={styles.filterChipText} numberOfLines={1}>{label}</Text><Ionicons name="chevron-down" size={13} color={colors.muted} /></Pressable>)}
             </View>
-            {items.length ? (
+            {filteredItems.length ? (
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.resultsGrid}>
                 {resultRows.map((row, rowIndex) => <View key={`result-row-${rowIndex}`} style={styles.resultRow}>{row.map((piece) => <View key={piece.id} style={{ width: resultWidth }}><ListingCard piece={piece} wide={resultWidth} framed /></View>)}{row.length === 1 ? <View style={{ width: resultWidth }} /> : null}</View>)}
               </ScrollView>
@@ -233,10 +289,14 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
               </View>
             )}
             <Text style={styles.adjustHint}>Matches update automatically as Uvel finds better pieces.</Text>
-          </View>
+          </Animated.View>
         </>
       )}
       <BottomTaskbar />
+      <Sheet open={Boolean(openFilter)} onClose={() => setOpenFilter(null)}>
+        <Text style={styles.filterSheetTitle}>{openFilter === "sort" ? "Sort matches" : openFilter === "size" ? "Choose a size" : openFilter === "color" ? "Choose a color" : "Filter matches"}</Text>
+        <View style={styles.filterOptions}>{filterOptions.map((option) => <Pressable key={option} onPress={() => chooseFilter(option)} style={styles.filterOption}><Text style={styles.filterOptionText}>{option}</Text><Ionicons name="chevron-forward" size={18} color={colors.muted} /></Pressable>)}</View>
+      </Sheet>
     </View>
   );
 }
@@ -269,7 +329,7 @@ function make(colors: Colors) {
     sourcePressed: { opacity: 0.78 },
     sourceLabel: { color: colors.bone, fontSize: 15, fontWeight: "600", flex: 1 },
     sourceLabelPrimary: { color: colors.ink },
-    photoArea: { height: 292, alignItems: "center", justifyContent: "center", paddingVertical: 8 },
+    photoArea: { alignItems: "center", justifyContent: "center", paddingVertical: 8 },
     frame: { overflow: "hidden", backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", borderRadius: 18 },
     loadingImage: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
     gestureSurface: { ...StyleSheet.absoluteFill },
@@ -289,7 +349,10 @@ function make(colors: Colors) {
     scanningOverlay: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
     scanningPill: { flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 15, paddingVertical: 11, backgroundColor: `${colors.surface}F2`, borderRadius: 999, borderWidth: 1, borderColor: `${colors.bone}20` },
     scanningText: { color: colors.bone, fontSize: 13, fontWeight: "600" },
-    resultsSheet: { flex: 1, minHeight: 284, paddingTop: 12, paddingHorizontal: 14, backgroundColor: colors.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22 },
+    resultsSheet: { position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 20, minHeight: 284, paddingTop: 8, paddingHorizontal: 14, backgroundColor: colors.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22 },
+    sheetHandle: { alignItems: "center", justifyContent: "center", minHeight: 34, marginBottom: 4 },
+    sheetGrip: { width: 42, height: 4, borderRadius: 2, backgroundColor: `${colors.muted}88` },
+    sheetHandleText: { color: colors.subtle, fontSize: 10, fontWeight: "700", marginTop: 5 },
     addSearchBox: { minHeight: 46, borderRadius: 23, borderWidth: 1, borderColor: `${colors.bone}28`, backgroundColor: colors.ink, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
     addSearchInput: { flex: 1, minHeight: 42, color: colors.bone, fontSize: 14, paddingVertical: 0 },
     sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 11 },
@@ -298,6 +361,7 @@ function make(colors: Colors) {
     sheetSubhead: { color: colors.muted, fontSize: 12, marginTop: 4 },
     filterRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
     filterChip: { minHeight: 30, paddingHorizontal: 9, borderRadius: 15, borderWidth: 1, borderColor: `${colors.bone}20`, flexDirection: "row", alignItems: "center", gap: 3 },
+    filterChipActive: { borderColor: MARKET_RED, backgroundColor: `${MARKET_RED}18` },
     filterChipText: { color: colors.muted, fontSize: 11, fontWeight: "700" },
     resultsGrid: { gap: 12, paddingBottom: 24 },
     resultRow: { flexDirection: "row", gap: 12 },
@@ -306,5 +370,9 @@ function make(colors: Colors) {
     emptyMatches: { minHeight: 132, justifyContent: "center", alignItems: "center", paddingHorizontal: 12 },
     emptyMatchesText: { color: colors.muted, fontSize: 13, lineHeight: 19, textAlign: "center" },
     adjustHint: { color: colors.subtle, fontSize: 11, lineHeight: 15, marginTop: 4, textAlign: "center" },
+    filterSheetTitle: { color: colors.bone, fontSize: 22, fontWeight: "800", marginTop: 4, marginBottom: 12 },
+    filterOptions: { gap: 2 },
+    filterOption: { minHeight: 52, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}18`, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    filterOptionText: { color: colors.bone, fontSize: 15, fontWeight: "700" },
   });
 }
