@@ -931,11 +931,11 @@ function make(colors: Colors) {
       height: 48,
       paddingHorizontal: 28,
       borderRadius: 24,
-      backgroundColor: colors.success,
+      backgroundColor: MARKET_RED,
       alignItems: "center",
       justifyContent: "center",
     },
-    startTxt: { color: colors.successInk, fontWeight: "800", fontSize: 16 },
+    startTxt: { color: "#FFFFFF", fontWeight: "800", fontSize: 16 },
     chips: { gap: 8, paddingVertical: 16 },
     chip: {
       height: 36,
