@@ -18,6 +18,7 @@ import { useLaunchIntroComplete } from "./LaunchSplash";
 import { loadAddresses, setActiveAddress, type Address } from "../lib/orders";
 import type { BannerStory } from "../lib/todayBannerStories";
 import { curateTodayBanners, type CuratedTodayBanner } from "../lib/todayBannerEngine";
+import { fetchFriendTrending } from "../lib/friendTrending";
 import type { ListingOrigin } from "./TodayListingOverlay";
 
 type ListingRect = Pick<ListingOrigin, "x" | "y" | "width" | "height">;
@@ -88,6 +89,7 @@ export function TodayCommerceFeed({
   const pullTriggered = useRef(false);
   const wasRefreshing = useRef(false);
   const [addresses, setAddresses] = useState<Address[]>([]);
+  const [friendTrendingIds, setFriendTrendingIds] = useState<string[]>([]);
   const [locationOpen, setLocationOpen] = useState(false);
   const posterScrollX = useRef(new Animated.Value(0)).current;
   const locationBarMotion = useRef(new Animated.Value(0)).current;
@@ -103,6 +105,17 @@ export function TodayCommerceFeed({
       cancelled = true;
     };
   }, [app.uid]);
+  useEffect(() => {
+    let active = true;
+    if (!app.uid || app.uid === "guest") {
+      setFriendTrendingIds([]);
+      return () => { active = false; };
+    }
+    void fetchFriendTrending(12).then((result) => {
+      if (active) setFriendTrendingIds(result.listingIds);
+    });
+    return () => { active = false; };
+  }, [app.uid]);
   const posterWidth = Math.min(352, Dimensions.get("window").width - 48);
   const posterInterval = posterWidth + 12;
   const posterHeight = Math.round(Math.min(470, Math.max(390, posterWidth * 1.24)));
@@ -116,6 +129,10 @@ export function TodayCommerceFeed({
   const deals = feedPieces.slice(8, 12).length >= 3 ? feedPieces.slice(8, 12) : feedPieces.slice(0, 4);
   const followed = feedPieces.slice(12, 16).length >= 3 ? feedPieces.slice(12, 16) : feedPieces.slice(0, 4);
   const personalized = feedPieces.slice(16, 24).length >= 4 ? feedPieces.slice(16, 24) : feedPieces.slice(0, 8);
+  const friendTrending = friendTrendingIds
+    .map((id) => pieces.find((piece) => piece.id === id))
+    .filter((piece): piece is ClosetPiece => Boolean(piece));
+  const trendingWorld = blendTrendingWorld(personalized, friendTrending);
   const bannerTemplates = curateTodayBanners(pieces);
   const topColorFade = scrollY.interpolate({ inputRange: [0, 180], outputRange: [1, 0], extrapolate: "clamp" });
   const logoMotion = {
@@ -262,7 +279,7 @@ export function TodayCommerceFeed({
       </View>
 
       <SectionTitle title="Trending in your world" onPress={onOpenSearch} />
-      <ProductRail pieces={editors} market={market} onOpen={onOpenPiece} />
+      <ProductRail pieces={trendingWorld.length ? trendingWorld : editors} market={market} onOpen={onOpenPiece} />
       <View style={styles.coralStrip}>
           <LoopingVideo source={WEEKEND_UNIFORM_LOOP} style={styles.coralStripVideo} contentFit="cover" active={animationsEnabled} />
         <View style={styles.coralStripContent}>
@@ -313,6 +330,24 @@ export function TodayCommerceFeed({
       {refreshing ? <View pointerEvents="none" style={[styles.pullOrbitLayer, { top: insets.top + 62 }]}><OrbitLoader size={58} /></View> : null}
     </View>
   );
+}
+
+function blendTrendingWorld(personal: ClosetPiece[], friends: ClosetPiece[]) {
+  const personalById = new Map(personal.map((piece) => [piece.id, piece]));
+  const friendById = new Map(friends.map((piece) => [piece.id, piece]));
+  const result: ClosetPiece[] = [];
+  const add = (piece?: ClosetPiece) => {
+    if (!piece || result.some((item) => item.id === piece.id)) return;
+    result.push(piece);
+  };
+  for (let index = 0; result.length < 8 && (index < personal.length || index < friends.length); index += 1) {
+    add(friends[index]);
+    add(personal[index]);
+  }
+  if (result.length < 4) {
+    for (const piece of [...friendById.values(), ...personalById.values()]) add(piece);
+  }
+  return result.slice(0, 8);
 }
 
 function PosterCarousel({

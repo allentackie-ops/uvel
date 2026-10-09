@@ -21,6 +21,7 @@ import { carriersForListing } from "../lib/sellerShipping";
 import { brandMakes } from "../lib/brandMake";
 import { useUvel } from "../lib/store";
 import { recordListingView } from "../lib/alerts";
+import { recordFriendListingView } from "../lib/friendTrending";
 import { recordListingTrendSignal, type TrendInteraction } from "../lib/trending";
 import { shopFloor, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import type { PersonalizationAction } from "../lib/personalization";
@@ -43,6 +44,7 @@ export function TodayListingOverlay({ piece, origin, onClose, onInteraction, pre
     const sellerUid = piece.ownerId || piece.listedByUid || "";
     if (!app.uid || previewOnly || (piece.status !== "listed" && piece.status !== "sold") || sellerUid === app.uid) return;
     void recordListingView(app.uid, piece.id);
+    void recordFriendListingView(piece.id);
   }, [app.uid, piece.id, piece.listedByUid, piece.ownerId, piece.status, previewOnly]);
   const { confirmPlatformPayPayment, initPaymentSheet, presentPaymentSheet } = useStripe();
   const cart = useCart();
