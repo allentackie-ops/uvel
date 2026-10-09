@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Image as RNImage, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { Image as RNImage, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard, ListingCardSkeleton } from "./ListingCard";
 import { LensHeroClip } from "./LensHeroClip";
 import { Sheet } from "./Sheet";
+import { OrbitLoader } from "./OrbitLoader";
 import type { ClosetPiece } from "../lib/wardrobe";
 import type { NormalizedBox } from "../lib/lookMatch";
 import { MARKET_RED, useColors, type Colors } from "../lib/theme";
@@ -236,7 +237,7 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
           <View style={[styles.photoArea, { height: frameHeight + 16 }]}>
             <View style={[styles.frame, { width: frame.width, height: frame.height }]}>
               <Image cachePolicy="memory-disk" source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" />
-              {!natural ? <View style={styles.loadingImage}><ActivityIndicator color={colors.success} /></View> : null}
+              {!natural ? <View style={styles.loadingImage}><OrbitLoader size={42} /></View> : null}
               {natural && detectionDone ? (
                 <GestureDetector gesture={cropGesture}>
                   <View style={styles.gestureSurface}>
@@ -255,7 +256,7 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
               ) : null}
               {natural && !detectionDone ? (
                 <View pointerEvents="none" style={styles.scanningOverlay}>
-                  <View style={styles.scanningPill}><ActivityIndicator size="small" color={colors.success} /><Text style={styles.scanningText}>Finding the garment</Text></View>
+                  <View style={styles.scanningPill}><OrbitLoader size={22} /><Text style={styles.scanningText}>Finding the garment</Text></View>
                 </View>
               ) : null}
             </View>
@@ -273,7 +274,7 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
                 <Text style={styles.sheetTitle}>Live matches</Text>
                 <Text numberOfLines={1} style={styles.sheetSubhead}>{statusText}</Text>
               </View>
-              {status === "detecting" || status === "searching" ? <ActivityIndicator color={colors.success} /> : <Ionicons name="sparkles-outline" size={21} color={colors.success} />}
+              {status === "detecting" || status === "searching" ? <OrbitLoader size={28} /> : <Ionicons name="sparkles-outline" size={21} color={colors.success} />}
             </View>
             <View style={styles.filterRow}>
               {[['Sort', sortBy], ['Size', sizeFilter], ['Color', colorFilter], ['Filter', availabilityFilter]].map(([label, value]) => <Pressable key={label} onPress={() => setOpenFilter(label.toLowerCase() as FilterKind)} style={[styles.filterChip, value !== label && value !== ({ Sort: 'Relevance', Size: 'Any size', Color: 'Any color', Filter: 'All pieces' } as Record<string, string>)[label] && styles.filterChipActive]}><Text style={styles.filterChipText} numberOfLines={1}>{label}</Text><Ionicons name="chevron-down" size={13} color={colors.muted} /></Pressable>)}
