@@ -363,7 +363,15 @@ export default function Inbox() {
       </Modal> : null}
 
       <View style={styles.modeToggle}>
-        {(["Messages", "Activity"] as InboxMode[]).map((item) => <Pressable key={item} onPress={() => setMode(item)} style={[styles.modeButton, mode === item && styles.modeButtonOn]} accessibilityRole="tab" accessibilityState={{ selected: mode === item }}><Text style={[styles.modeText, mode === item && styles.modeTextOn]}>{item}</Text></Pressable>)}
+        {(["Messages", "Activity"] as InboxMode[]).map((item) => {
+          const count = item === "Messages" ? unreadMessageCount : unreadActivityCount;
+          return <Pressable key={item} onPress={() => setMode(item)} style={[styles.modeButton, mode === item && styles.modeButtonOn]} accessibilityRole="tab" accessibilityLabel={`${item}${count ? `, ${count} unread` : ""}`} accessibilityState={{ selected: mode === item }}>
+            <View style={styles.modeButtonContent}>
+              <Text style={[styles.modeText, mode === item && styles.modeTextOn]}>{item}</Text>
+              {count ? <View style={styles.modeCount}><Text style={styles.modeCountText}>{count > 99 ? "99+" : count}</Text></View> : null}
+            </View>
+          </Pressable>;
+        })}
       </View>
       {mode === "Activity" ? <View style={styles.activityTabs} accessibilityRole="tablist">
         {(["friends", "requests"] as ActivityTab[]).map((tab) => <Pressable key={tab} onPress={() => setActivityTab(tab)} style={[styles.activityTab, activityTab === tab && styles.activityTabOn]} accessibilityRole="tab" accessibilityState={{ selected: activityTab === tab }}><Text style={[styles.activityTabText, activityTab === tab && styles.activityTabTextOn]}>{tab === "friends" ? "Friends" : `Requests${pendingFriendRequests.length ? ` · ${pendingFriendRequests.length}` : ""}`}</Text></Pressable>)}
@@ -630,8 +638,11 @@ function make(colors: Colors) {
     modeToggle: { marginHorizontal: 16, marginBottom: 12, padding: 3, borderRadius: 24, backgroundColor: `${colors.bone}10`, flexDirection: "row" },
     modeButton: { flex: 1, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
     modeButtonOn: { backgroundColor: colors.surface },
+    modeButtonContent: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
     modeText: { color: colors.muted, fontSize: 15, fontWeight: "700" },
     modeTextOn: { color: colors.bone },
+    modeCount: { minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: colors.success },
+    modeCountText: { color: colors.successInk, fontSize: 11, fontWeight: "900" },
     activityTabs: { flexDirection: "row", gap: 10, marginHorizontal: 16, marginTop: -2, marginBottom: 12 },
     activityTab: { minHeight: 40, paddingHorizontal: 18, borderRadius: 20, backgroundColor: `${colors.bone}0D`, alignItems: "center", justifyContent: "center" },
     activityTabOn: { backgroundColor: `${colors.success}24` },
