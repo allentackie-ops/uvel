@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "../lib/theme";
 
@@ -11,11 +11,19 @@ type Props = {
   onSelect: (isoDate: string) => void;
 };
 
-type MonthView = { year: number; month: number };
+type WheelProps = {
+  label: string;
+  values: Array<number | string>;
+  selectedIndex: number;
+  onChange: (index: number) => void;
+  textColor: string;
+  mutedColor: string;
+  highlightColor: string;
+};
 
 const MIN_YEAR = 1920;
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const WEEKDAYS = ["S", "M", "T", "W", "T", "F", "S"];
+const ROW_HEIGHT = 48;
 
 function latestEligibleDate() {
   const today = new Date();
@@ -44,224 +52,148 @@ function formatDate(date: Date | null) {
   return date ? date.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }) : "Choose a day";
 }
 
+function clampDate(date: Date, maxDate: Date) {
+  const year = Math.max(MIN_YEAR, Math.min(date.getFullYear(), maxDate.getFullYear()));
+  const maxMonth = year === maxDate.getFullYear() ? maxDate.getMonth() : 11;
+  const month = Math.min(date.getMonth(), maxMonth);
+  const maxDay = year === maxDate.getFullYear() && month === maxDate.getMonth()
+    ? maxDate.getDate()
+    : new Date(year, month + 1, 0).getDate();
+  const day = Math.min(date.getDate(), maxDay);
+  return new Date(year, month, day);
+}
+
+function Wheel({ label, values, selectedIndex, onChange, textColor, mutedColor, highlightColor }: WheelProps) {
+  const ref = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    ref.current?.scrollTo({ y: selectedIndex * ROW_HEIGHT, animated: false });
+  }, [selectedIndex, values.length]);
+
+  return (
+    <View style={styles.wheel} accessibilityLabel={label}>
+      <View pointerEvents="none" style={[styles.selectionBand, { backgroundColor: highlightColor }]} />
+      <ScrollView
+        ref={ref}
+        showsVerticalScrollIndicator={false}
+        snapToInterval={ROW_HEIGHT}
+        decelerationRate="fast"
+        contentContainerStyle={styles.wheelContent}
+        onMomentumScrollEnd={(event) => {
+          const index = Math.max(0, Math.min(values.length - 1, Math.round(event.nativeEvent.contentOffset.y / ROW_HEIGHT)));
+          onChange(index);
+        }}
+        accessibilityRole="adjustable"
+        accessibilityLabel={`${label}, ${String(values[selectedIndex])}`}
+      >
+        {values.map((value, index) => {
+          const distance = Math.abs(index - selectedIndex);
+          return (
+            <Pressable key={`${label}-${value}`} onPress={() => onChange(index)} style={styles.wheelRow}>
+              <Text style={[styles.wheelText, { color: distance === 0 ? textColor : mutedColor, opacity: distance > 1 ? 0.42 : distance === 1 ? 0.7 : 1 }]}>
+                {value}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
 export function DateOfBirthPicker({ visible, value, onClose, onSelect }: Props) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const accent = colors.link || colors.pulse;
   const maxDate = useMemo(latestEligibleDate, []);
-  const [view, setView] = useState<MonthView>(() => {
-    const initial = fromIso(value) ?? maxDate;
-    return { year: initial.getFullYear(), month: initial.getMonth() };
-  });
   const [draftDate, setDraftDate] = useState<Date | null>(() => fromIso(value));
-  const [choosingYear, setChoosingYear] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
     const selected = fromIso(value);
-    const initial = selected ?? maxDate;
-    setView({ year: initial.getFullYear(), month: initial.getMonth() });
-    setDraftDate(selected);
-    setChoosingYear(false);
+    setDraftDate(selected ? clampDate(selected, maxDate) : null);
   }, [visible, value, maxDate]);
 
-  const minDate = useMemo(() => new Date(MIN_YEAR, 0, 1), []);
-  const firstDay = new Date(view.year, view.month, 1).getDay();
-  const daysInMonth = new Date(view.year, view.month + 1, 0).getDate();
-  const weekCount = Math.ceil((firstDay + daysInMonth) / 7);
-  const maxMonth = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
-  const previousMonth = new Date(view.year, view.month - 1, 1);
-  const nextMonth = new Date(view.year, view.month + 1, 1);
-  const canGoBack = previousMonth >= new Date(MIN_YEAR, 0, 1);
-  const canGoForward = nextMonth <= maxMonth;
-  const yearOptions = useMemo(
-    () => Array.from({ length: maxDate.getFullYear() - MIN_YEAR + 1 }, (_, index) => maxDate.getFullYear() - index),
-    [maxDate],
-  );
+  const fallbackDate = draftDate ?? maxDate;
+  const years = useMemo(() => Array.from({ length: maxDate.getFullYear() - MIN_YEAR + 1 }, (_, index) => maxDate.getFullYear() - index), [maxDate]);
+  const daysInMonth = new Date(fallbackDate.getFullYear(), fallbackDate.getMonth() + 1, 0).getDate();
+  const days = useMemo(() => Array.from({ length: daysInMonth }, (_, index) => index + 1), [daysInMonth]);
+  const yearIndex = years.indexOf(fallbackDate.getFullYear());
+  const monthIndex = fallbackDate.getMonth();
+  const dayIndex = Math.min(fallbackDate.getDate() - 1, days.length - 1);
+  const surface = Platform.OS === "ios" ? colors.ink : colors.surface;
+  const sheet = Platform.OS === "ios" ? colors.surface : colors.ink;
+  const highlight = Platform.OS === "ios" ? colors.subtle : colors.surface;
 
-  function changeMonth(delta: number) {
-    const next = new Date(view.year, view.month + delta, 1);
-    setView({ year: next.getFullYear(), month: next.getMonth() });
+  function updateDate(part: "year" | "month" | "day", index: number) {
+    const nextYear = part === "year" ? years[index] : fallbackDate.getFullYear();
+    const nextMonth = part === "month" ? index : fallbackDate.getMonth();
+    const nextDay = part === "day" ? index + 1 : fallbackDate.getDate();
+    setDraftDate(clampDate(new Date(nextYear, nextMonth, nextDay), maxDate));
   }
 
-  function chooseYear(year: number) {
-    setView((current) => ({ year, month: Math.min(current.month, year === maxDate.getFullYear() ? maxDate.getMonth() : 11) }));
-    setChoosingYear(false);
-  }
-
-  function pickDay(day: number) {
-    const next = new Date(view.year, view.month, day);
-    if (next < minDate || next > maxDate) return;
-    setDraftDate(next);
-  }
-
-  const styles = make(colors);
+  const stylesForColors = makeStyles(colors);
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
-      <View style={[styles.page, { backgroundColor: colors.ink, paddingTop: Math.max(insets.top, 12) }]}>
-        <View style={[styles.topBar, { borderBottomColor: colors.subtle }]}>
-          <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close date picker" style={[styles.closeButton, { backgroundColor: colors.surface }]}>
-            <Ionicons name="close" size={21} color={colors.bone} />
-          </Pressable>
-          <Text style={[styles.topTitle, { color: colors.bone }]}>Date of birth</Text>
-          <View style={styles.closeSpacer} />
-        </View>
-
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentInner} showsVerticalScrollIndicator={false}>
-          <Text style={[styles.intro, { color: colors.muted }]}>Choose your birthday. Tap the month and year to jump straight to your birth year.</Text>
-
-          <View style={[styles.calendar, { backgroundColor: colors.surface, borderColor: colors.subtle }]}>
-            <View style={styles.monthBar}>
-              <Pressable
-                onPress={() => changeMonth(-1)}
-                disabled={!canGoBack || choosingYear}
-                accessibilityRole="button"
-                accessibilityLabel="Previous month"
-                style={styles.monthArrow}
-              >
-                <Ionicons name="chevron-back" size={21} color={canGoBack && !choosingYear ? colors.bone : colors.subtle} />
-              </Pressable>
-              <Pressable
-                onPress={() => setChoosingYear((current) => !current)}
-                accessibilityRole="button"
-                accessibilityLabel={choosingYear ? "Return to calendar" : "Choose birth year"}
-                style={styles.monthLabel}
-              >
-                <Text style={[styles.monthText, { color: colors.bone }]}>{MONTHS[view.month]} {view.year}</Text>
-                <Ionicons name={choosingYear ? "chevron-up" : "chevron-down"} size={16} color={accent} />
-              </Pressable>
-              <Pressable
-                onPress={() => changeMonth(1)}
-                disabled={!canGoForward || choosingYear}
-                accessibilityRole="button"
-                accessibilityLabel="Next month"
-                style={styles.monthArrow}
-              >
-                <Ionicons name="chevron-forward" size={21} color={canGoForward && !choosingYear ? colors.bone : colors.subtle} />
-              </Pressable>
-            </View>
-
-            {choosingYear ? (
-              <ScrollView nestedScrollEnabled style={styles.yearScroll} contentContainerStyle={styles.yearGrid} showsVerticalScrollIndicator={false}>
-                {yearOptions.map((year) => (
-                  <Pressable
-                    key={year}
-                    onPress={() => chooseYear(year)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Choose ${year}`}
-                    accessibilityState={{ selected: view.year === year }}
-                    style={[styles.yearOption, year === view.year && { backgroundColor: accent }]}
-                  >
-                    <Text style={[styles.yearText, { color: year === view.year ? colors.ink : colors.bone }]}>{year}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            ) : (
-              <>
-                <View style={styles.dayRow}>
-                  {WEEKDAYS.map((day, index) => (
-                    <View key={`${day}-${index}`} style={styles.dayCell}>
-                      <Text style={[styles.weekday, { color: colors.muted }]}>{day}</Text>
-                    </View>
-                  ))}
-                </View>
-                {Array.from({ length: weekCount }, (_, week) => (
-                  <View key={`week-${week}`} style={styles.dayRow}>
-                    {Array.from({ length: 7 }, (_, column) => {
-                      const day = week * 7 + column - firstDay + 1;
-                      if (day < 1 || day > daysInMonth) return <View key={`empty-${column}`} style={styles.dayCell} />;
-                      const date = new Date(view.year, view.month, day);
-                      const disabled = date < minDate || date > maxDate;
-                      const selected = Boolean(draftDate && toIso(draftDate) === toIso(date));
-                      return (
-                        <Pressable
-                          key={day}
-                          onPress={() => pickDay(day)}
-                          disabled={disabled}
-                          accessibilityRole="button"
-                          accessibilityLabel={date.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}
-                          accessibilityState={{ disabled, selected }}
-                          style={[styles.dayCell, styles.dayButton, selected && { backgroundColor: accent }, disabled && styles.disabledDay]}
-                        >
-                          <Text style={[styles.dayText, { color: selected ? colors.ink : disabled ? colors.subtle : colors.bone }]}>{day}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ))}
-              </>
-            )}
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={[stylesForColors.backdrop, { backgroundColor: "rgba(0, 0, 0, 0.56)" }]}>
+        <View style={[stylesForColors.sheet, { backgroundColor: sheet, paddingBottom: Math.max(insets.bottom, 12) + 12 }]}>
+          <View style={stylesForColors.handle} />
+          <View style={stylesForColors.header}>
+            <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Cancel date of birth">
+              <Text style={[stylesForColors.headerAction, { color: colors.muted }]}>Cancel</Text>
+            </Pressable>
+            <Text style={[stylesForColors.title, { color: colors.bone }]}>Date of birth</Text>
+            <Pressable
+              onPress={() => {
+                if (draftDate) {
+                  onSelect(toIso(draftDate));
+                  onClose();
+                }
+              }}
+              disabled={!draftDate}
+              accessibilityRole="button"
+              accessibilityLabel="Save date of birth"
+            >
+              <Text style={[stylesForColors.headerAction, { color: draftDate ? (colors.link || colors.pulse) : colors.subtle, fontWeight: "700" }]}>Done</Text>
+            </Pressable>
           </View>
 
-          <View style={[styles.selectedCard, { backgroundColor: colors.surface }]}>
-            <Ionicons name="calendar-outline" size={20} color={accent} />
-            <View style={styles.selectedCopy}>
-              <Text style={[styles.selectedLabel, { color: colors.muted }]}>Selected date</Text>
-              <Text style={[styles.selectedDate, { color: colors.bone }]}>{formatDate(draftDate)}</Text>
-            </View>
+          <View style={[stylesForColors.wheels, { backgroundColor: surface }]}>
+            <Wheel label="Day" values={days} selectedIndex={dayIndex} onChange={(index) => updateDate("day", index)} textColor={colors.bone} mutedColor={colors.muted} highlightColor={highlight} />
+            <Wheel label="Month" values={MONTHS} selectedIndex={monthIndex} onChange={(index) => updateDate("month", index)} textColor={colors.bone} mutedColor={colors.muted} highlightColor={highlight} />
+            <Wheel label="Year" values={years} selectedIndex={yearIndex} onChange={(index) => updateDate("year", index)} textColor={colors.bone} mutedColor={colors.muted} highlightColor={highlight} />
           </View>
-          <Text style={[styles.ageNote, { color: colors.muted }]}>You must be 18 or older to create an account.</Text>
-        </ScrollView>
 
-        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) + 16 }]}>
-          <Pressable
-            onPress={() => {
-              if (!draftDate) return;
-              onSelect(toIso(draftDate));
-              onClose();
-            }}
-            disabled={!draftDate}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !draftDate }}
-            style={[styles.confirmButton, { backgroundColor: draftDate ? accent : colors.subtle }, !draftDate && styles.disabledButton]}
-          >
-            <Text style={[styles.confirmText, { color: draftDate ? colors.ink : colors.muted }]}>Use this date</Text>
-          </Pressable>
-          <Pressable onPress={onClose} accessibilityRole="button" style={styles.cancelButton}>
-            <Text style={[styles.cancelText, { color: colors.muted }]}>Cancel</Text>
-          </Pressable>
+          <View style={stylesForColors.summary}>
+            <Ionicons name="calendar-outline" size={18} color={colors.link || colors.pulse} />
+            <Text style={[stylesForColors.summaryText, { color: colors.bone }]}>{draftDate ? formatDate(draftDate) : "Choose your birthday"}</Text>
+          </View>
+          <Text style={[stylesForColors.note, { color: colors.muted }]}>You must be 18 or older to create an account.</Text>
         </View>
       </View>
     </Modal>
   );
 }
 
-function make(colors: ReturnType<typeof useColors>) {
+const styles = StyleSheet.create({
+  wheel: { flex: 1, height: ROW_HEIGHT * 3, overflow: "hidden", position: "relative" },
+  wheelContent: { paddingVertical: ROW_HEIGHT },
+  wheelRow: { height: ROW_HEIGHT, alignItems: "center", justifyContent: "center", paddingHorizontal: 2 },
+  wheelText: { fontSize: 22, fontWeight: "500" },
+  selectionBand: { position: "absolute", zIndex: 1, left: 0, right: 0, top: ROW_HEIGHT, height: ROW_HEIGHT, borderRadius: 12 },
+});
+
+function makeStyles(colors: ReturnType<typeof useColors>) {
   return StyleSheet.create({
-    page: { flex: 1 },
-    topBar: { minHeight: 62, paddingHorizontal: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderBottomWidth: StyleSheet.hairlineWidth },
-    closeButton: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
-    closeSpacer: { width: 42, height: 42 },
-    topTitle: { flex: 1, textAlign: "center", fontSize: 17, fontWeight: "700" },
-    content: { flex: 1 },
-    contentInner: { paddingHorizontal: 22, paddingTop: 20, paddingBottom: 16 },
-    intro: { fontSize: 14, lineHeight: 21, marginBottom: 18 },
-    calendar: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 20, paddingHorizontal: 10, paddingBottom: 8, overflow: "hidden" },
-    monthBar: { height: 54, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-    monthArrow: { width: 42, height: 42, alignItems: "center", justifyContent: "center" },
-    monthLabel: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, minHeight: 42, paddingHorizontal: 8 },
-    monthText: { fontSize: 16, fontWeight: "700" },
-    yearScroll: { height: 294 },
-    yearGrid: { flexDirection: "row", flexWrap: "wrap", paddingVertical: 6 },
-    yearOption: { width: "25%", minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 14 },
-    yearText: { fontSize: 15, fontWeight: "600" },
-    dayRow: { flexDirection: "row", justifyContent: "space-between" },
-    dayCell: { flex: 1, minHeight: 42, alignItems: "center", justifyContent: "center", marginVertical: 1 },
-    weekday: { fontSize: 12, fontWeight: "600" },
-    dayButton: { borderRadius: 21 },
-    dayText: { fontSize: 14, fontWeight: "500" },
-    disabledDay: { opacity: 0.62 },
-    selectedCard: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderRadius: 16, marginTop: 18 },
-    selectedCopy: { flex: 1 },
-    selectedLabel: { fontSize: 12, lineHeight: 16 },
-    selectedDate: { fontSize: 16, fontWeight: "600", marginTop: 3 },
-    ageNote: { fontSize: 12, lineHeight: 17, textAlign: "center", marginTop: 14 },
-    footer: { paddingHorizontal: 22, paddingTop: 12, alignItems: "center" },
-    confirmButton: { minHeight: 56, alignSelf: "stretch", alignItems: "center", justifyContent: "center", borderRadius: 28 },
-    confirmText: { fontSize: 16, fontWeight: "700" },
-    cancelButton: { minHeight: 44, justifyContent: "center", paddingHorizontal: 18, marginTop: 4 },
-    cancelText: { fontSize: 14, fontWeight: "600" },
-    disabledButton: { opacity: 0.7 },
+    backdrop: { flex: 1, justifyContent: "flex-end" },
+    sheet: { borderTopLeftRadius: 26, borderTopRightRadius: 26, paddingHorizontal: 18, paddingTop: 10 },
+    handle: { alignSelf: "center", width: 38, height: 4, borderRadius: 2, backgroundColor: colors.subtle, marginBottom: 12 },
+    header: { minHeight: 46, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    headerAction: { fontSize: 16, minWidth: 54 },
+    title: { fontSize: 17, fontWeight: "700" },
+    wheels: { flexDirection: "row", borderRadius: 16, overflow: "hidden", marginTop: 7 },
+    summary: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 16 },
+    summaryText: { fontSize: 16, fontWeight: "600" },
+    note: { textAlign: "center", fontSize: 12, lineHeight: 17, marginTop: 8 },
   });
 }
