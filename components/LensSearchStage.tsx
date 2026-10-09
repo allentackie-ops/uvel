@@ -2,17 +2,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Image as RNImage, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Image as RNImage, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ListingCard } from "./ListingCard";
+import { ListingCard, ListingCardSkeleton } from "./ListingCard";
 import { BottomTaskbar } from "./BottomTaskbar";
 import { LensHeroClip } from "./LensHeroClip";
 import type { ClosetPiece } from "../lib/wardrobe";
 import type { NormalizedBox } from "../lib/lookMatch";
-import { useColors, type Colors } from "../lib/theme";
+import { MARKET_RED, useColors, type Colors } from "../lib/theme";
 
 const MIN_CROP_SIZE = 56;
 const HANDLE_HIT_SIZE = 42;
@@ -40,8 +40,10 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const heroHeight = Math.max(220, Math.min(screenWidth * 1.08, screenHeight * 0.42));
-  const frameHeight = Math.max(190, Math.min(screenWidth * 1.24, screenHeight - insets.top - insets.bottom - 390));
-  const frame = useMemo(() => ({ width: Math.min(screenWidth - 28, frameHeight * 0.82), height: frameHeight }), [frameHeight, screenWidth]);
+  const frameHeight = uri ? Math.min(292, screenHeight * 0.3) : Math.max(190, Math.min(screenWidth * 1.24, screenHeight - insets.top - insets.bottom - 390));
+  const frame = useMemo(() => ({ width: uri ? screenWidth - 28 : Math.min(screenWidth - 28, frameHeight * 0.82), height: frameHeight }), [frameHeight, screenWidth, uri]);
+  const resultWidth = Math.max(136, (screenWidth - 45) / 2);
+  const resultRows = useMemo(() => Array.from({ length: Math.ceil(items.length / 2) }, (_, index) => items.slice(index * 2, index * 2 + 2)), [items]);
   const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
   const imageBox = useMemo(() => {
     if (!natural) return { left: 0, top: 0, width: frame.width, height: frame.height };
@@ -189,21 +191,12 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
             <View style={[styles.frame, { width: frame.width, height: frame.height }]}>
               <Image cachePolicy="memory-disk" source={{ uri }} style={StyleSheet.absoluteFill} contentFit="contain" />
               {!natural ? <View style={styles.loadingImage}><ActivityIndicator color={colors.success} /></View> : null}
-              {natural && detectionDone ? (
-                <GestureDetector gesture={cropGesture}>
-                  <View style={styles.gestureSurface}>
-                    <Animated.View pointerEvents="none" style={[styles.outsideMask, topMaskStyle]} />
-                    <Animated.View pointerEvents="none" style={[styles.outsideMask, leftMaskStyle]} />
-                    <Animated.View pointerEvents="none" style={[styles.outsideMask, rightMaskStyle]} />
-                    <Animated.View pointerEvents="none" style={[styles.outsideMask, bottomMaskStyle]} />
-                    <Animated.View pointerEvents="none" style={[styles.cropBox, cropStyle]}>
-                      <View style={styles.grid}><View style={styles.gridV1} /><View style={styles.gridV2} /><View style={styles.gridH1} /><View style={styles.gridH2} /></View>
-                      <View style={styles.cropBorder} />
-                      <View style={[styles.handle, styles.tl]} /><View style={[styles.handle, styles.tr]} />
-                      <View style={[styles.handle, styles.bl]} /><View style={[styles.handle, styles.br]} />
-                    </Animated.View>
-                  </View>
-                </GestureDetector>
+              {natural && detectionDone && box ? (
+                <View pointerEvents="none" style={styles.hotspotLayer}>
+                  {[box.top, (box.top + box.bottom) / 2, box.bottom].map((position, index) => (
+                    <View key={`hotspot-${index}`} style={[styles.hotspot, { left: `${((box.left + box.right) / 2) * 100}%`, top: `${position * 100}%` }]} />
+                  ))}
+                </View>
               ) : null}
               {natural && !detectionDone ? (
                 <View pointerEvents="none" style={styles.scanningOverlay}>
@@ -213,6 +206,11 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
             </View>
           </View>
           <View style={[styles.resultsSheet, { paddingBottom: 10 }]}>
+            <View style={styles.addSearchBox}>
+              <Ionicons name="search-outline" size={18} color={colors.muted} />
+              <TextInput placeholder="Add to your search" placeholderTextColor={colors.subtle} style={styles.addSearchInput} />
+              <Ionicons name="camera-outline" size={20} color={colors.bone} />
+            </View>
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeading}>
                 <Text style={styles.sheetTitle}>Live matches</Text>
@@ -220,16 +218,21 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
               </View>
               {status === "detecting" || status === "searching" ? <ActivityIndicator color={colors.success} /> : <Ionicons name="sparkles-outline" size={21} color={colors.success} />}
             </View>
+            <View style={styles.filterRow}>
+              {['Sort', 'Size', 'Color', 'Filter'].map((label) => <Pressable key={label} style={styles.filterChip}><Text style={styles.filterChipText}>{label}</Text><Ionicons name="chevron-down" size={13} color={colors.muted} /></Pressable>)}
+            </View>
             {items.length ? (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.resultsRail}>
-                {items.map((piece) => <ListingCard key={piece.id} piece={piece} wide={156} framed />)}
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.resultsGrid}>
+                {resultRows.map((row, rowIndex) => <View key={`result-row-${rowIndex}`} style={styles.resultRow}>{row.map((piece) => <View key={piece.id} style={{ width: resultWidth }}><ListingCard piece={piece} wide={resultWidth} framed /></View>)}{row.length === 1 ? <View style={{ width: resultWidth }} /> : null}</View>)}
               </ScrollView>
+            ) : status === "detecting" || status === "searching" ? (
+              <View style={styles.resultsGrid}><View style={styles.resultRow}><View style={{ width: resultWidth }}><ListingCardSkeleton wide={resultWidth} framed /></View><View style={{ width: resultWidth }}><ListingCardSkeleton wide={resultWidth} framed /></View></View></View>
             ) : (
               <View style={styles.emptyMatches}>
-                <Text style={styles.emptyMatchesText}>{status === "ready" ? box ? "No close Uvel listings yet." : "No garment was detected automatically. Move or resize the frame to try again." : status === "error" ? "Move or resize the frame to try again." : "Similar pieces will appear here as the scan finishes."}</Text>
+                <Text style={styles.emptyMatchesText}>{status === "ready" ? box ? "No close Uvel listings yet." : "No garment was detected automatically." : status === "error" ? "Search could not finish. Try another photo." : "Similar pieces will appear here as the scan finishes."}</Text>
               </View>
             )}
-            <Text style={styles.adjustHint}>Move the frame or drag a corner to refine. Matches update automatically.</Text>
+            <Text style={styles.adjustHint}>Matches update automatically as Uvel finds better pieces.</Text>
           </View>
         </>
       )}
@@ -250,8 +253,8 @@ function SourceButton({ icon, label, onPress, primary, colors, styles }: { icon:
 
 function make(colors: Colors) {
   return StyleSheet.create({
-    page: { flex: 1, backgroundColor: "#0B0A08" },
-    hero: { width: "100%", overflow: "hidden", backgroundColor: "#0B0A08" },
+    page: { flex: 1, backgroundColor: colors.ink },
+    hero: { width: "100%", overflow: "hidden", backgroundColor: colors.ink },
     header: { minHeight: 54, paddingHorizontal: 12, paddingBottom: 5, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
     headerOverHero: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 2 },
     headerButton: { width: 48, height: 44, alignItems: "center", justifyContent: "center" },
@@ -266,32 +269,40 @@ function make(colors: Colors) {
     sourcePressed: { opacity: 0.78 },
     sourceLabel: { color: colors.bone, fontSize: 15, fontWeight: "600", flex: 1 },
     sourceLabelPrimary: { color: colors.ink },
-    photoArea: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 8 },
-    frame: { overflow: "hidden", backgroundColor: "#171613", alignItems: "center", justifyContent: "center", borderRadius: 8 },
+    photoArea: { height: 292, alignItems: "center", justifyContent: "center", paddingVertical: 8 },
+    frame: { overflow: "hidden", backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", borderRadius: 18 },
     loadingImage: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
     gestureSurface: { ...StyleSheet.absoluteFill },
     outsideMask: { position: "absolute", backgroundColor: "rgba(4,4,4,0.54)" },
-    cropBox: { position: "absolute", minWidth: MIN_CROP_SIZE, minHeight: MIN_CROP_SIZE, backgroundColor: "rgba(184,236,85,0.035)" },
+    cropBox: { position: "absolute", minWidth: MIN_CROP_SIZE, minHeight: MIN_CROP_SIZE, backgroundColor: "rgba(165,34,49,0.035)" },
     cropBorder: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, borderWidth: 2, borderColor: colors.success },
     grid: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
     gridV1: { position: "absolute", top: 0, bottom: 0, left: "33.33%", borderLeftWidth: 1, borderColor: "rgba(255,255,255,0.52)" },
     gridV2: { position: "absolute", top: 0, bottom: 0, left: "66.66%", borderLeftWidth: 1, borderColor: "rgba(255,255,255,0.52)" },
     gridH1: { position: "absolute", left: 0, right: 0, top: "33.33%", borderTopWidth: 1, borderColor: "rgba(255,255,255,0.52)" },
     gridH2: { position: "absolute", left: 0, right: 0, top: "66.66%", borderTopWidth: 1, borderColor: "rgba(255,255,255,0.52)" },
-    handle: { position: "absolute", width: 20, height: 20, borderColor: colors.success, borderWidth: 3, backgroundColor: "#0B0A08" },
+    handle: { position: "absolute", width: 20, height: 20, borderColor: MARKET_RED, borderWidth: 3, backgroundColor: colors.ink },
     tl: { top: -2, left: -2, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 4 },
     tr: { top: -2, right: -2, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 4 },
     bl: { bottom: -2, left: -2, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 4 },
     br: { bottom: -2, right: -2, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 4 },
     scanningOverlay: { ...StyleSheet.absoluteFill, alignItems: "center", justifyContent: "center" },
-    scanningPill: { flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 15, paddingVertical: 11, backgroundColor: "rgba(11,10,8,0.86)", borderRadius: 999, borderWidth: 1, borderColor: "rgba(255,255,255,0.12)" },
+    scanningPill: { flexDirection: "row", alignItems: "center", gap: 9, paddingHorizontal: 15, paddingVertical: 11, backgroundColor: `${colors.surface}F2`, borderRadius: 999, borderWidth: 1, borderColor: `${colors.bone}20` },
     scanningText: { color: colors.bone, fontSize: 13, fontWeight: "600" },
-    resultsSheet: { minHeight: 284, paddingTop: 15, paddingHorizontal: 16, backgroundColor: "#171613", borderTopLeftRadius: 22, borderTopRightRadius: 22 },
+    resultsSheet: { flex: 1, minHeight: 284, paddingTop: 12, paddingHorizontal: 14, backgroundColor: colors.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22 },
+    addSearchBox: { minHeight: 46, borderRadius: 23, borderWidth: 1, borderColor: `${colors.bone}28`, backgroundColor: colors.ink, paddingHorizontal: 13, flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+    addSearchInput: { flex: 1, minHeight: 42, color: colors.bone, fontSize: 14, paddingVertical: 0 },
     sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 11 },
     sheetHeading: { flex: 1 },
     sheetTitle: { color: colors.bone, fontSize: 18, fontWeight: "700" },
     sheetSubhead: { color: colors.muted, fontSize: 12, marginTop: 4 },
-    resultsRail: { gap: 11, paddingBottom: 8 },
+    filterRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 },
+    filterChip: { minHeight: 30, paddingHorizontal: 9, borderRadius: 15, borderWidth: 1, borderColor: `${colors.bone}20`, flexDirection: "row", alignItems: "center", gap: 3 },
+    filterChipText: { color: colors.muted, fontSize: 11, fontWeight: "700" },
+    resultsGrid: { gap: 12, paddingBottom: 24 },
+    resultRow: { flexDirection: "row", gap: 12 },
+    hotspotLayer: { ...StyleSheet.absoluteFill },
+    hotspot: { position: "absolute", width: 22, height: 22, marginLeft: -11, marginTop: -11, borderRadius: 11, borderWidth: 3, borderColor: "#FFFFFF", backgroundColor: MARKET_RED, shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 5, elevation: 4 },
     emptyMatches: { minHeight: 132, justifyContent: "center", alignItems: "center", paddingHorizontal: 12 },
     emptyMatchesText: { color: colors.muted, fontSize: 13, lineHeight: 19, textAlign: "center" },
     adjustHint: { color: colors.subtle, fontSize: 11, lineHeight: 15, marginTop: 4, textAlign: "center" },

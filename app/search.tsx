@@ -1,15 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
 import { Stack, router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Animated, FlatList, Keyboard, Pressable, StatusBar, StyleSheet, Text, TextInput, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "../components/ListingCard";
+import { Sheet } from "../components/Sheet";
 import { usePersonalization } from "../lib/personalization";
 import { useCopy } from "../lib/useCopy";
 import { useUvel } from "../lib/store";
 import { useColors, type Colors } from "../lib/theme";
 import { fallbackShopFloor, listedPieces, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { addRecentSearch, loadRecentSearches, saveRecentSearches } from "../lib/searchHistory";
+import { pickFromLibrary, takePhoto } from "../lib/photo";
 
 const TABS = ["All", "Women", "Men"] as const;
 type SearchTab = (typeof TABS)[number];
@@ -58,6 +61,7 @@ export default function Search() {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [searchFocused, setSearchFocused] = useState(false);
   const [activeTab, setActiveTab] = useState<SearchTab>("All");
+  const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
   const tabIndex = useRef(new Animated.Value(0)).current;
   const inputRef = useRef<TextInput>(null);
   const tabWidth = Math.max(1, (width - 36) / TABS.length);
@@ -140,6 +144,20 @@ export default function Search() {
     Alert.alert("Voice search", "Voice search is ready to connect to speech recognition. Type your search for now.");
   }
 
+  async function startPhotoSearch(source: "photos" | "camera" | "files") {
+    setPhotoSourceOpen(false);
+    try {
+      const uri = source === "photos"
+        ? await pickFromLibrary()
+        : source === "camera"
+          ? await takePhoto(false)
+          : (await DocumentPicker.getDocumentAsync({ type: ["image/*"], copyToCacheDirectory: true, multiple: false })).assets?.[0]?.uri || null;
+      if (uri) router.push({ pathname: "/lens-search", params: { photoUri: uri } });
+    } catch (error) {
+      Alert.alert(source === "camera" ? "Camera" : source === "files" ? "Files" : "Photos", error instanceof Error ? error.message : "Couldn’t open that photo source.");
+    }
+  }
+
   const resultRows = showResults ? Array.from({ length: Math.ceil(rows.length / 2) }, (_, index) => rows.slice(index * 2, index * 2 + 2)) : [];
 
   return (
@@ -187,7 +205,7 @@ export default function Search() {
               <Pressable onPress={startVoiceSearch} style={styles.voiceButton} accessibilityRole="button" accessibilityLabel="Search by voice">
                 <Ionicons name="mic-outline" size={23} color={colors.bone} />
               </Pressable>
-              <Pressable onPress={() => router.push("/lens-search")} style={styles.cameraButton} accessibilityRole="button" accessibilityLabel="Search with a photo">
+              <Pressable onPress={() => setPhotoSourceOpen(true)} style={styles.cameraButton} accessibilityRole="button" accessibilityLabel="Search with a photo">
                 <View style={styles.cameraIconWrap}>
                   <Ionicons name="camera-outline" size={23} color={colors.bone} />
                   <Ionicons name="sparkles" size={11} color={colors.bone} style={styles.cameraSparkle} />
@@ -229,6 +247,23 @@ export default function Search() {
         renderItem={({ item }) => <View style={styles.resultRow}>{item.map((piece) => <View key={piece.id} style={styles.resultCell}><ListingCard piece={piece} framed onInteraction={personalization.record} /></View>)}{item.length === 1 ? <View style={styles.resultCell} /> : null}</View>}
         ListEmptyComponent={showResults ? <View style={styles.empty}>{syncState === "loading" ? <ActivityIndicator color={colors.success} /> : <><Text style={styles.emptyTitle}>Nothing here yet.</Text><Text style={styles.emptyText}>{syncState === "unavailable" ? copy.searchUnavailable ?? "Search is unavailable right now." : `Try another search in ${activeTab}.`}</Text></>}</View> : null}
       />
+      <Sheet open={photoSourceOpen} onClose={() => setPhotoSourceOpen(false)}>
+        <Text style={styles.photoSheetEyebrow}>SEARCH BY PHOTO</Text>
+        <Text style={styles.photoSheetTitle}>Find the piece in your photo.</Text>
+        <Text style={styles.photoSheetBody}>Pick a photo and Uvel will detect the clothing automatically, then show live matches.</Text>
+        <Pressable onPress={() => void startPhotoSearch("photos")} style={styles.photoSourcePrimary} accessibilityRole="button" accessibilityLabel="Upload photo">
+          <Ionicons name="images-outline" size={21} color="#FFFFFF" />
+          <Text style={styles.photoSourcePrimaryText}>Upload photo</Text>
+        </Pressable>
+        <Pressable onPress={() => void startPhotoSearch("camera")} style={styles.photoSourceSecondary} accessibilityRole="button" accessibilityLabel="Take picture">
+          <Ionicons name="camera-outline" size={21} color={colors.bone} />
+          <Text style={styles.photoSourceSecondaryText}>Take picture</Text>
+        </Pressable>
+        <Pressable onPress={() => void startPhotoSearch("files")} style={styles.photoSourceLink} accessibilityRole="button" accessibilityLabel="Choose an image file">
+          <Ionicons name="folder-open-outline" size={18} color={colors.muted} />
+          <Text style={styles.photoSourceLinkText}>Choose from Files</Text>
+        </Pressable>
+      </Sheet>
     </View>
   );
 }
@@ -250,6 +285,15 @@ function makeStyles(colors: Colors) {
     cameraButton: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
     cameraIconWrap: { width: 28, height: 28, alignItems: "center", justifyContent: "center", position: "relative" },
     cameraSparkle: { position: "absolute", top: -3, right: -4 },
+    photoSheetEyebrow: { color: colors.muted, fontSize: 11, fontWeight: "800", letterSpacing: 1.7, marginTop: 4 },
+    photoSheetTitle: { color: colors.bone, fontSize: 27, lineHeight: 32, fontWeight: "800", marginTop: 10 },
+    photoSheetBody: { color: colors.muted, fontSize: 14, lineHeight: 21, marginTop: 10, marginBottom: 20 },
+    photoSourcePrimary: { minHeight: 54, borderRadius: 27, backgroundColor: "#A52231", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
+    photoSourcePrimaryText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+    photoSourceSecondary: { minHeight: 54, marginTop: 10, borderRadius: 27, borderWidth: 1, borderColor: `${colors.bone}35`, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
+    photoSourceSecondaryText: { color: colors.bone, fontSize: 15, fontWeight: "800" },
+    photoSourceLink: { minHeight: 48, marginTop: 8, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7 },
+    photoSourceLinkText: { color: colors.muted, fontSize: 13, fontWeight: "700" },
     sectionTitle: { color: colors.bone, fontSize: 16, fontWeight: "800", marginTop: 24, marginBottom: 10 },
     recentPanel: { marginTop: 8 },
     recentHeadingRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

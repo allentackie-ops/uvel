@@ -1,5 +1,5 @@
 import * as DocumentPicker from "expo-document-picker";
-import { Stack, router } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
 import { LensSearchStage } from "../components/LensSearchStage";
@@ -12,6 +12,7 @@ type SearchStatus = "idle" | "detecting" | "searching" | "ready" | "error";
 
 export default function LensSearch() {
   const app = useUvel();
+  const { photoUri } = useLocalSearchParams<{ photoUri?: string }>();
   const wardrobe = useWardrobe();
   const pieces = useMemo(() => shopFloor(app.country), [app.country, wardrobe]);
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -69,6 +70,10 @@ export default function LensSearch() {
     setStatus("detecting");
     setRequestVersion((version) => version + 1);
   }, []);
+
+  useEffect(() => {
+    if (photoUri && typeof photoUri === "string" && imageUri !== photoUri) setPhoto(photoUri);
+  }, [imageUri, photoUri, setPhoto]);
 
   const onTakePhoto = useCallback(async () => {
     try {
