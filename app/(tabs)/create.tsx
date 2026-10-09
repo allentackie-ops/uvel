@@ -79,9 +79,6 @@ export default function Create() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.collageIntro} accessibilityRole="image" accessibilityLabel="Floating collage of a red leather jacket, handbag, and megaphone">
-          <Image source={require("../../assets/create/header-collage-compact.png")} style={styles.collageIntroImage} contentFit="cover" cachePolicy="memory-disk" accessible={false} />
-        </View>
         <HeroCarousel brand={brand} styles={styles} fontLoaded={fontLoaded} />
         <LaunchShelf brand={brand} styles={styles} />
         <DraftShelf brand={brand} drafts={drafts} styles={styles} />
@@ -216,15 +213,12 @@ function openLaunch(kind: (typeof LAUNCH_ITEMS)[number]["kind"], brand?: Brand) 
 function makeStyles(colors: Colors, width: number, _fontLoaded: boolean) {
   const dark = colors.ink !== "#FFFFFF";
   const horizontal = Math.max(14, Math.min(22, width * 0.042));
-  const collageHeight = Math.max(112, Math.min(120, width * 0.30));
   const heroHeight = Math.max(230, Math.min(278, width * 0.64));
   const cardHeight = Math.max(164, Math.min(184, width * 0.42));
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: dark ? colors.ink : "#FFFEFC" },
     scroll: { flex: 1 },
     content: { paddingHorizontal: horizontal },
-    collageIntro: { height: collageHeight, width: "100%", marginBottom: 5, overflow: "hidden", position: "relative" },
-    collageIntroImage: { ...StyleSheet.absoluteFill, width: "100%", height: "100%" },
     hero: { height: heroHeight, borderRadius: 19, overflow: "hidden", position: "relative", marginBottom: 16 },
     heroSlide: { ...StyleSheet.absoluteFill, overflow: "hidden" },
     heroBackdrop: { ...StyleSheet.absoluteFill, zIndex: 0 },
