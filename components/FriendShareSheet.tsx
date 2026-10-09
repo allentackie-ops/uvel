@@ -11,7 +11,6 @@ import Animated, { Extrapolation, interpolate, runOnJS, useAnimatedScrollHandler
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createFriendChat, getCachedFriendInbox, refreshFriendInbox, sendFriendMessage, uploadFriendAttachment, restoreFriendInboxCache } from "../lib/friendChat";
 import { searchUsers, sendFriendRequest, type PublicUser } from "../lib/friends";
-import { addActivityNotification } from "../lib/activityNotifications";
 import { sharedListingPayload, type SharedListingShare } from "../lib/sharedListing";
 import { useColors } from "../lib/theme";
 import { useUvel } from "../lib/store";
@@ -124,20 +123,27 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare, o
   async function deliverShare(recipientIds: string[], text: string, imageUri?: string) {
     let photoUrl = "";
     if (imageUri) {
-      const base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: FileSystem.EncodingType.Base64 });
-      photoUrl = await uploadFriendAttachment(base64, "image/jpeg");
+      if (/^https?:\/\//i.test(imageUri)) {
+        // Listing photos are usually already public Supabase URLs. Re-uploading
+        // them as local files makes the share fail before the message is sent.
+        photoUrl = imageUri;
+      } else {
+        const base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: FileSystem.EncodingType.Base64 });
+        photoUrl = await uploadFriendAttachment(base64, "image/jpeg");
+      }
     }
     const results = await Promise.allSettled(recipientIds.map(async (friendUid) => {
       const id = await createFriendChat(friendUid);
-      return sendFriendMessage(id, text, photoUrl);
+      await sendFriendMessage(id, text, photoUrl);
+      return friendUid;
     }));
-    if (results.some((result) => result.status === "rejected")) {
-      console.warn("One or more friend shares failed to deliver.");
-    }
-    return results.some((result) => result.status === "fulfilled");
+    return {
+      delivered: results.flatMap((result) => result.status === "fulfilled" ? [result.value] : []),
+      failed: results.flatMap((result, index) => result.status === "rejected" ? [{ uid: recipientIds[index], error: result.reason }] : []),
+    };
   }
 
-  function sendSelected() {
+  async function sendSelected() {
     if (!payload || sending) return;
     const recipients = Object.values(selected);
     if (!recipients.length) return;
@@ -145,23 +151,25 @@ export function FriendShareSheet({ visible, payload, onClose, onExternalShare, o
     const listingText = payload.kind === "listing" && payload.listing ? sharedListingPayload(payload.listing, message) : "";
     const text = listingText || `${message.trim() ? `${message.trim()}\n\n` : ""}${payload.previewText || `Check this out: ${payload.title}`}\n${shareLink}`;
     setSending(true);
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    void addActivityNotification(app.uid, {
-      kind: "share_sent",
-      title: "Shared",
-      body: `Sent to ${names.join(", ")}.`,
-      lookId: payload.id || payload.deepLink,
-      target: "none",
-    }).catch(() => undefined);
-    void deliverShare(recipients.map((friend) => friend.uid), text, payload.imageUri).then((delivered) => {
-      if (delivered && payload.kind === "listing") onListingSignal?.("share");
-    }).catch((error) => {
+    try {
+      const result = await deliverShare(recipients.map((friend) => friend.uid), text, payload.imageUri);
+      if (result.failed.length) {
+        const failedNames = result.failed.map(({ uid }) => recipients.find((friend) => friend.uid === uid)?.displayName || "that friend");
+        const deliveredCopy = result.delivered.length ? ` Sent to ${result.delivered.length} friend${result.delivered.length === 1 ? "" : "s"}.` : "";
+        Alert.alert("Share not fully sent", `${failedNames.join(", ")} didn’t receive it.${deliveredCopy} Please try again.`);
+        return;
+      }
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (payload.kind === "listing") onListingSignal?.("share");
+      setSelected({});
+      setMessage("");
+      onClose();
+    } catch (error) {
       console.warn("Friend share delivery failed", error);
-    });
-    setSelected({});
-    setMessage("");
-    onClose();
-    setSending(false);
+      Alert.alert("Share not sent", error instanceof Error ? error.message : "Couldn’t send this share. Please try again.");
+    } finally {
+      setSending(false);
+    }
   }
 
   async function findFriends() {
