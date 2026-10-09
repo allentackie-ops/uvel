@@ -90,7 +90,7 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
   const changed = useSharedValue(0);
   const sheetHeight = Math.max(420, screenHeight - insets.top - insets.bottom - 70);
   const photoBottom = insets.top + 60 + frameHeight + 16;
-  const collapsedVisibleHeight = Math.max(250, screenHeight - photoBottom - insets.bottom);
+  const collapsedVisibleHeight = Math.max(250, screenHeight - photoBottom - insets.bottom + 56);
   const sheetCollapsed = Math.max(0, sheetHeight - collapsedVisibleHeight);
   const sheetY = useSharedValue(sheetCollapsed);
   const sheetStartY = useSharedValue(sheetCollapsed);
