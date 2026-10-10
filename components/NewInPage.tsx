@@ -157,7 +157,7 @@ function CategoryListingsPage({ story, onClose, mode }: { story: BannerStory; on
           <Text style={[styles.pageSubtitle, { color: colors.muted }]}>{mode === "deals" ? "Price drops from sellers, organized by category." : "Freshly listed pieces, organized by category."}</Text>
         </View>
 
-          {loading && !sections.length ? <LoadingOrbit /> : sections.length ? sections.map((section) => (
+        {loading && !sections.length ? <LoadingOrbit /> : sections.length ? sections.map((section) => (
           <View key={section.category} style={styles.section}>
             <View style={styles.sectionHeading}>
               <View>
