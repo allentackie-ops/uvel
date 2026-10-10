@@ -202,6 +202,19 @@ export default function Inbox() {
   const unreadMessageCount = threads.reduce((total, thread) => total + unreadFor(thread, me), 0) + offerNotifications.filter((item) => !item.read).length;
   const unreadActivityCount = friendNotifications.filter((item) => !item.readAt).length + activityOnlyNotifications.filter((item) => !item.read).length + alertEvents.filter((item) => !item.read).length;
   const unreadNotifications = unreadMessageCount + unreadActivityCount;
+  function markNotificationTabRead(tab: "messages" | "activity") {
+    const tasks = tab === "messages"
+      ? [
+          ...threads.map((thread) => markSeen(thread.id, me)),
+          ...offerNotifications.map((item) => markActivityNotificationRead(me, item.id)),
+        ]
+      : [
+          ...friendNotifications.map((item) => markFriendNotificationRead(me, item.id)),
+          ...activityOnlyNotifications.map((item) => markActivityNotificationRead(me, item.id)),
+          ...alertEvents.map((item) => markAlertRead(me, item.id)),
+        ];
+    void Promise.allSettled(tasks);
+  }
 
   const visible = useMemo(() => threads.filter((t) => {
     const selling = t.sellerId === me || (t.recipientIds || []).includes(me);
@@ -310,6 +323,7 @@ export default function Inbox() {
         messageThreads={threads}
         messageUnreadCount={unreadMessageCount}
         activityUnreadCount={unreadActivityCount}
+        onNotificationTabSelected={markNotificationTabRead}
         expanded={friendSheetExpanded}
         onOpenMessageThread={openMessageNotification}
         friendTab={friendTab}
@@ -421,8 +435,8 @@ function FindFriendsBanner({ onPress, colors, styles }: { onPress: () => void; c
   </Pressable>;
 }
 
-function FriendSheet({ visible, mode, friendTab, setFriendTab, notificationTab, setNotificationTab, searchTab, setSearchTab, searchQuery, setSearchQuery, uid, messageThreads, activityChats, messageUnreadCount, activityUnreadCount, expanded, onOpenMessageThread, onOpenActivitySearchChat, onClose, onModeChange, friends, notifications, activityNotifications, alertEvents, onOpenActivityNotification, onOpenAlertNotification, onMarkFriendNotificationRead, friendTerm, setFriendTerm, discoveryTerm, setDiscoveryTerm, setFriendResults, setFriendError, setFriendNotice, friendResults, friendSentIds, friendSearchBusy, addFriendBusy, requestBusy, friendError, friendNotice, onSearchUsers, onAddFriend, onRespond, onOpenChat, colors, styles, insets, panHandlers, dragY }: {
-  visible: boolean; mode: FriendPanelMode; friendTab: FriendTab; setFriendTab: (tab: FriendTab) => void; notificationTab: NotificationTab; setNotificationTab: (tab: NotificationTab) => void; searchTab: NotificationTab; setSearchTab: (tab: NotificationTab) => void; searchQuery: string; setSearchQuery: (query: string) => void; uid: string; messageThreads: ChatThread[]; activityChats: FriendChatPreview[]; messageUnreadCount: number; activityUnreadCount: number; expanded: boolean; onOpenMessageThread: (thread: ChatThread) => void; onOpenActivitySearchChat: (chat: FriendChatPreview, user: PublicUser | undefined, otherUid: string) => void; onClose: () => void; onModeChange: (mode: FriendPanelMode) => void;
+function FriendSheet({ visible, mode, friendTab, setFriendTab, notificationTab, setNotificationTab, searchTab, setSearchTab, searchQuery, setSearchQuery, uid, messageThreads, activityChats, messageUnreadCount, activityUnreadCount, onNotificationTabSelected, expanded, onOpenMessageThread, onOpenActivitySearchChat, onClose, onModeChange, friends, notifications, activityNotifications, alertEvents, onOpenActivityNotification, onOpenAlertNotification, onMarkFriendNotificationRead, friendTerm, setFriendTerm, discoveryTerm, setDiscoveryTerm, setFriendResults, setFriendError, setFriendNotice, friendResults, friendSentIds, friendSearchBusy, addFriendBusy, requestBusy, friendError, friendNotice, onSearchUsers, onAddFriend, onRespond, onOpenChat, colors, styles, insets, panHandlers, dragY }: {
+  visible: boolean; mode: FriendPanelMode; friendTab: FriendTab; setFriendTab: (tab: FriendTab) => void; notificationTab: NotificationTab; setNotificationTab: (tab: NotificationTab) => void; searchTab: NotificationTab; setSearchTab: (tab: NotificationTab) => void; searchQuery: string; setSearchQuery: (query: string) => void; uid: string; messageThreads: ChatThread[]; activityChats: FriendChatPreview[]; messageUnreadCount: number; activityUnreadCount: number; onNotificationTabSelected: (tab: "messages" | "activity") => void; expanded: boolean; onOpenMessageThread: (thread: ChatThread) => void; onOpenActivitySearchChat: (chat: FriendChatPreview, user: PublicUser | undefined, otherUid: string) => void; onClose: () => void; onModeChange: (mode: FriendPanelMode) => void;
   friends: PublicUser[]; notifications: FriendNotification[]; activityNotifications: ActivityNotification[]; alertEvents: AlertEvent[]; onOpenActivityNotification: (item: ActivityNotification) => void; onOpenAlertNotification: (item: AlertEvent) => void; onMarkFriendNotificationRead: (item: FriendNotification) => void; friendTerm: string; setFriendTerm: (value: string) => void; discoveryTerm: string; setDiscoveryTerm: (value: string) => void; setFriendResults: (value: PublicUser[]) => void; setFriendError: (value: string) => void; setFriendNotice: (value: string) => void;
   friendResults: PublicUser[]; friendSentIds: Set<string>; friendSearchBusy: boolean; addFriendBusy: string | null; requestBusy: string | null; friendError: string; friendNotice: string; onSearchUsers: () => Promise<void>; onAddFriend: (user: PublicUser) => Promise<void>; onRespond: (item: FriendNotification, action: "accepted" | "declined") => Promise<void>; onOpenChat: (user: PublicUser) => Promise<void>;
   colors: Colors; styles: ReturnType<typeof make>; insets: { bottom: number }; panHandlers: ReturnType<typeof PanResponder.create>["panHandlers"]; dragY: Animated.Value;
@@ -494,7 +508,7 @@ function FriendSheet({ visible, mode, friendTab, setFriendTab, notificationTab, 
           <View style={styles.notificationTabs} accessibilityRole="tablist">
             {(["messages", "activity"] as const).map((tab) => {
               const count = tab === "messages" ? messageUnreadCount : activityUnreadCount;
-              return <Pressable key={tab} onPress={() => setNotificationTab(tab)} style={[styles.notificationTab, notificationTab === tab && styles.notificationTabOn]} accessibilityRole="tab" accessibilityState={{ selected: notificationTab === tab }}><Text style={[styles.notificationTabText, notificationTab === tab && styles.notificationTabTextOn]}>{tab === "messages" ? "Messages" : "Activity"}</Text>{count > 0 ? <View style={styles.notificationCategoryCount}><Text style={styles.notificationCategoryCountText}>{count > 9 ? "9+" : count}</Text></View> : null}</Pressable>;
+              return <Pressable key={tab} onPress={() => { setNotificationTab(tab); onNotificationTabSelected(tab); }} style={[styles.notificationTab, notificationTab === tab && styles.notificationTabOn]} accessibilityRole="tab" accessibilityState={{ selected: notificationTab === tab }}><Text style={[styles.notificationTabText, notificationTab === tab && styles.notificationTabTextOn]}>{tab === "messages" ? "Messages" : "Activity"}</Text>{count > 0 ? <View style={styles.notificationCategoryCount}><Text style={styles.notificationCategoryCountText}>{count > 9 ? "9+" : count}</Text></View> : null}</Pressable>;
             })}
           </View>
           {notificationTab === null ? <View style={styles.notificationPrompt}><Text style={styles.notificationPromptText}>Choose Messages or Activity to view your notifications.</Text></View> : notificationTab === "messages" ? <ScrollView style={[styles.sheetList, styles.notificationList]} keyboardShouldPersistTaps="handled">
