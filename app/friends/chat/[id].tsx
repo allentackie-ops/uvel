@@ -324,6 +324,9 @@ export default function FriendChat() {
     setVoiceElapsedMs(0);
     setIsRecordingVoice(true);
     setAttachMenuOpen(false);
+    // Keep the composer focused while the mic is held. Toggling editable to
+    // false here would blur the TextInput and dismiss the keyboard on iOS.
+    requestAnimationFrame(() => messageInputRef.current?.focus());
     void startVoiceRecording();
   }
 
@@ -630,7 +633,7 @@ export default function FriendChat() {
           </View> : null}
         </View>
         <View style={styles.composerField}>
-          <TextInput ref={messageInputRef} value={draft} onChangeText={setDraft} editable={!isRecordingVoice} placeholder={isRecordingVoice ? "Recording voice note…" : `Message ${messageRecipientName}`} placeholderTextColor={colors.subtle} style={styles.input} maxLength={2000} multiline blurOnSubmit={false} textAlignVertical="center" accessibilityLabel="Write a message" />
+          <TextInput ref={messageInputRef} value={draft} onChangeText={setDraft} editable={!conversationUnavailable} placeholder={isRecordingVoice ? "Recording voice note…" : `Message ${messageRecipientName}`} placeholderTextColor={colors.subtle} style={styles.input} maxLength={2000} multiline blurOnSubmit={false} textAlignVertical="center" accessibilityLabel="Write a message" />
           <Text style={styles.charCount}>{draft.length >= 1800 ? `${draft.length}/2000` : ""}</Text>
         </View>
         <Pressable onPressIn={beginVoicePress} onPressOut={releaseVoicePress} style={[styles.voiceRecordButton, isRecordingVoice && styles.voiceRecordButtonActive]} accessibilityRole="button" accessibilityLabel={isRecordingVoice ? "Recording voice note, release to send" : "Hold to record a voice note"} accessibilityHint="Press and hold to record. Release to send the voice note.">
