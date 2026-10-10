@@ -119,7 +119,7 @@ export default function PromoCodes() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
+      <StatusBar style={colors.ink === "#0B0D12" ? "light" : "dark"} />
       {!app.uid ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>Sign in to create promo codes</Text>

@@ -774,7 +774,7 @@ function make(colors: Colors) {
     reviewBtn: { minHeight: 40, paddingHorizontal: 17, borderRadius: 20, backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
     reviewTxt: { color: colors.successInk, fontWeight: "800" },
     activitySection: { color: colors.subtle, fontSize: 12, letterSpacing: 1.5, fontWeight: "800", marginHorizontal: 16, marginTop: 26, marginBottom: 6 },
-    activityRow: { flexDirection: "row", gap: 14, alignItems: "center", paddingHorizontal: 16, paddingVertical: 18, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}15` },
+    activityRow: { flexDirection: "row", gap: 14, alignItems: "center", paddingHorizontal: 16, paddingVertical: 18 },
     activityRequestContent: { paddingBottom: 28 },
     activityRequestHeader: { paddingHorizontal: 16, marginBottom: 10 },
     activityRequestSubtitle: { color: colors.muted, fontSize: 15, marginTop: 5 },

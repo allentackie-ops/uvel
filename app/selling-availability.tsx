@@ -25,7 +25,7 @@ export default function SellingAvailability() {
 
   return (
     <View style={styles.page}>
-      <StatusBar style={colors.ink === "#000000" ? "light" : "dark"} />
+      <StatusBar style={colors.ink === "#0B0D12" ? "light" : "dark"} />
       <ScrollView contentContainerStyle={styles.content}>
         <View style={[styles.row, disabled && styles.rowDisabled]}>
           <View style={styles.copy}>
