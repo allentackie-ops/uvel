@@ -280,6 +280,7 @@ export default function FriendChat() {
     setMessages(cachedMessages || []);
     setLoading(!cachedMessages);
     setLoadError("");
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
     if (peerUid && (!peer?.username || !peer?.avatarUri)) void listFriends().then((friends) => { if (active) setPeer(friends.find((friend) => friend.uid === peerUid) || peer); }).catch(() => undefined);
     if (chatId) void markFriendChatRead(String(chatId)).catch(() => undefined);
     const unsubscribe = subscribeFriendMessages(String(chatId || ""), (next) => {
@@ -297,8 +298,15 @@ export default function FriendChat() {
       if (!active) return;
       setLoading(false);
       setLoadError(friendChatErrorMessage(error, "Messages are temporarily unavailable. Please try again shortly."));
+      // Transport failures are implementation details: keep the conversation
+      // usable and reconnect quietly instead of showing an alarming banner.
+      retryTimer = setTimeout(() => {
+        if (!active) return;
+        setLoadError("");
+        setRetryCount((count) => count + 1);
+      }, 5000);
     });
-    return () => { active = false; unsubscribe(); };
+    return () => { active = false; if (retryTimer) clearTimeout(retryTimer); unsubscribe(); };
   }, [chatId, peerUid, retryCount, uid, conversationUnavailable]);
 
   useEffect(() => {
@@ -604,7 +612,6 @@ export default function FriendChat() {
 
     <KeyboardAvoidingView style={styles.keyboardArea} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={0}>
       {conversationUnavailable ? <View style={styles.blockedConversation}><Ionicons name="ban-outline" size={34} color={colors.danger} /><Text style={styles.blockedConversationTitle}>{blockedByMe ? "Blocked" : "Unavailable"}</Text><Text style={styles.blockedConversationCopy}>{blockedByMe ? "You blocked this person. Their profile and conversation details are hidden." : blockedByThem ? "This person is unavailable. You can’t view or send messages in this conversation." : "You’re no longer friends, so this conversation is unavailable."}</Text>{blockedByMe ? <Pressable onPress={() => void unblockCurrentFriend()} style={styles.unblockButton}><Text style={styles.unblockButtonText}>Unblock</Text></Pressable> : null}</View> : <>
-      {loadError ? <View style={styles.errorBanner}><Ionicons name="cloud-offline-outline" size={17} color={colors.danger} /><Text style={styles.errorText} numberOfLines={3}>{loadError}</Text><Pressable onPress={() => { setLoading(true); setLoadError(""); setRetryCount((count) => count + 1); }} accessibilityRole="button" accessibilityLabel="Retry loading messages"><Text style={styles.retryText}>Retry</Text></Pressable></View> : null}
       {!loading && !loadError && visibleMessages.length === 0 ? <View pointerEvents="none" style={styles.emptyPrompt}><Text style={styles.emptyPromptText}>Say hi to {listName}</Text></View> : null}
       {!loading && searchQuery.trim() && visibleMessages.length === 0 ? <View style={styles.searchEmpty}><Ionicons name="search-outline" size={26} color={colors.subtle} /><Text style={styles.searchEmptyTitle}>No matching messages</Text><Text style={styles.searchEmptyCopy}>Try another word or name.</Text></View> : null}
       <FlatList
@@ -775,9 +782,6 @@ function make(colors: ReturnType<typeof useColors>) {
     emptyPromptText: { color: colors.muted, fontSize: 13 },
     loading: { position: "absolute", zIndex: 2, alignSelf: "center", top: "43%", alignItems: "center", gap: 10 },
     loadingText: { color: colors.muted, fontSize: 12 },
-    errorBanner: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 12, marginTop: 8, paddingHorizontal: 11, paddingVertical: 9, borderRadius: 12, backgroundColor: `${colors.danger}12` },
-    errorText: { flex: 1, color: colors.danger, fontSize: 12, lineHeight: 17 },
-    retryText: { color: colors.danger, fontSize: 12, fontWeight: "800", paddingHorizontal: 4 },
     searchEmpty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 7 },
     searchEmptyTitle: { color: colors.bone, fontSize: 15, fontWeight: "700" },
     searchEmptyCopy: { color: colors.muted, fontSize: 12 },
