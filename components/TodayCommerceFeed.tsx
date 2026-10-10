@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
@@ -53,6 +52,28 @@ const STYLE_DNA_GRADIENTS: Record<string, [string, string, string]> = {
   "Tailored city": ["#1D2A3B", "#4F6C8E", "#C8B9A5"],
   "Bourgeois chic": ["#2D2337", "#6D5A86", "#CDB79E"],
 };
+const STYLE_DNA_GRADIENT_STEPS = 24;
+function hexToRgb(hex: string) {
+  const value = hex.replace("#", "");
+  return {
+    r: Number.parseInt(value.slice(0, 2), 16),
+    g: Number.parseInt(value.slice(2, 4), 16),
+    b: Number.parseInt(value.slice(4, 6), 16),
+  };
+}
+function mixHex(start: string, end: string, amount: number) {
+  const a = hexToRgb(start);
+  const b = hexToRgb(end);
+  const channel = (from: number, to: number) => Math.round(from + (to - from) * amount).toString(16).padStart(2, "0");
+  return `#${channel(a.r, b.r)}${channel(a.g, b.g)}${channel(a.b, b.b)}`;
+}
+function buildStyleDnaGradientColors(colors: [string, string, string]) {
+  return Array.from({ length: STYLE_DNA_GRADIENT_STEPS }, (_, index) => {
+    const position = index / (STYLE_DNA_GRADIENT_STEPS - 1);
+    if (position <= 0.54) return mixHex(colors[0], colors[1], position / 0.54);
+    return mixHex(colors[1], colors[2], (position - 0.54) / 0.46);
+  });
+}
 const FEED_FADE_STRIPS = Array.from({ length: 56 }, (_, index) => {
   const progress = index / 55;
   return Math.pow(progress, 1.65);
@@ -136,6 +157,7 @@ export function TodayCommerceFeed({
   const insets = useSafeAreaInsets();
   const market = getMarket(app.country);
   const styleDnaGradient = STYLE_DNA_GRADIENTS[app.archetype] || ["#1D2936", "#526D86", "#B7C3C5"];
+  const styleDnaGradientColors = buildStyleDnaGradientColors(styleDnaGradient);
   const scrollY = useRef(new Animated.Value(0)).current;
   const pullOffset = useRef(new Animated.Value(0)).current;
   const pullTriggered = useRef(false);
@@ -379,12 +401,15 @@ export function TodayCommerceFeed({
       <DealsFeature pieces={deals} market={market} onOpen={onOpenPiece} active={animationsEnabled} />
 
       <Pressable onPress={onOpenStyle} style={styles.styleDna} accessibilityRole="button" accessibilityLabel="See your Style DNA">
-        <LinearGradient colors={styleDnaGradient} locations={[0, 0.54, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.styleDnaGradient}>
+        <View style={styles.styleDnaGradient}>
+          <View pointerEvents="none" style={styles.styleDnaGradientStrips}>
+            {styleDnaGradientColors.map((color, index) => <View key={`${color}-${index}`} style={[styles.styleDnaGradientStrip, { width: `${100 / STYLE_DNA_GRADIENT_STEPS}%`, backgroundColor: color }]} />)}
+          </View>
           <View pointerEvents="none" style={[styles.styleDnaGlow, styles.styleDnaGlowOne]} />
           <View pointerEvents="none" style={[styles.styleDnaGlow, styles.styleDnaGlowTwo]} />
           <View style={styles.styleDnaCopy}><Text style={styles.styleDnaTitle}>Your Style DNA</Text><Text style={styles.styleDnaBody}>A personal point of view for the pieces, colours and layers you discover.</Text><Text style={styles.styleDnaButton}>See your style ›</Text></View>
           <View style={styles.swatches}>{styleDnaGradient.map((color) => <View key={color} style={[styles.swatch, { backgroundColor: color }]} />)}</View>
-        </LinearGradient>
+        </View>
       </Pressable>
 
       <SectionTitle title="Because you saved relaxed tailoring" onPress={onOpenSearch} />
@@ -947,7 +972,9 @@ function make(colors: Colors) {
     lookButton: { color: colors.link ?? colors.pulse, fontSize: 12, fontWeight: "900", marginTop: 12 },
     lookImage: { width: 150, height: "100%" },
     styleDna: { minHeight: 145, borderRadius: 17, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
-    styleDnaGradient: { flex: 1, minHeight: 145, padding: 16, flexDirection: "row", alignItems: "center", overflow: "hidden" },
+    styleDnaGradient: { flex: 1, minHeight: 145, padding: 16, flexDirection: "row", alignItems: "center", overflow: "hidden", position: "relative" },
+    styleDnaGradientStrips: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, flexDirection: "row" },
+    styleDnaGradientStrip: { height: "100%" },
     styleDnaGlow: { position: "absolute", borderRadius: 999, backgroundColor: "rgba(255,255,255,0.18)" },
     styleDnaGlowOne: { width: 170, height: 170, right: -52, top: -74 },
     styleDnaGlowTwo: { width: 110, height: 110, right: 92, bottom: -74, opacity: 0.52 },
