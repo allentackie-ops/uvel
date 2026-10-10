@@ -2,8 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Haptics from "../lib/haptics";
 import type { Category } from "../lib/catalog";
 import { getMarket, moneyInMarket } from "../lib/markets";
 import type { BannerStory } from "../lib/todayBannerStories";
@@ -50,6 +51,10 @@ export function FinishingPiecesPage({ story, onClose }: { story: BannerStory; on
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin>({ x: 0, y: 0, width: 0, height: 0 });
   const bannerColor = story.headerColor || story.color;
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const pullOffset = useRef(new Animated.Value(0)).current;
+  const pullTriggered = useRef(false);
+  const wasRefreshing = useRef(false);
 
   const load = useCallback(async (showPullLoader = false) => {
     setLoadError("");
@@ -67,6 +72,37 @@ export function FinishingPiecesPage({ story, onClose }: { story: BannerStory; on
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (refreshing) {
+      wasRefreshing.current = true;
+      Animated.spring(pullOffset, { toValue: 72, damping: 22, stiffness: 180, mass: 0.8, useNativeDriver: true }).start();
+    } else if (wasRefreshing.current) {
+      wasRefreshing.current = false;
+      Animated.timing(pullOffset, { toValue: 0, duration: 280, useNativeDriver: true }).start(() => {
+        pullTriggered.current = false;
+      });
+    }
+  }, [pullOffset, refreshing]);
+
+  const handleScroll = useMemo(() => Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    {
+      useNativeDriver: true,
+      listener: (event: { nativeEvent: { contentOffset: { y: number } } }) => {
+        const y = event.nativeEvent.contentOffset.y;
+        if (pullTriggered.current) return;
+        if (y < 0) pullOffset.setValue(Math.min(72, -y));
+        else pullOffset.setValue(0);
+        if (y <= -60 && !refreshing) {
+          pullTriggered.current = true;
+          pullOffset.setValue(72);
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          void load(true);
+        }
+      },
+    },
+  ), [load, pullOffset, refreshing, scrollY]);
 
   const sections = useMemo(() => {
     const live = shopFloor(market.code)
@@ -111,17 +147,21 @@ export function FinishingPiecesPage({ story, onClose }: { story: BannerStory; on
         </Pressable>
       </View>
 
-      <ScrollView
+      <Animated.ScrollView
+        style={{ transform: [{ translateY: pullOffset }] }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: insets.bottom + 34 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={colors.bone} />}
+        alwaysBounceVertical
+        bounces
+        scrollEventThrottle={16}
+        onScroll={handleScroll}
       >
         <View style={styles.intro}>
           <Text style={[styles.pageTitle, { color: colors.bone }]}>Complete the look</Text>
           <Text style={[styles.pageSubtitle, { color: colors.muted }]}>The final details, from chains and watches to shoes, scarves, and more.</Text>
         </View>
 
-        {loading && !sections.length ? (
+        {loading ? (
           <View style={styles.loadingRow}><OrbitLoader size={58} label="Loading finishing pieces" caption="Fetching from Supabase" /></View>
         ) : sections.length ? sections.map((section) => (
           <View key={section.title} style={styles.section}>
@@ -138,8 +178,9 @@ export function FinishingPiecesPage({ story, onClose }: { story: BannerStory; on
             <Text style={[styles.emptyText, { color: colors.muted }]}>{emptyMessage}</Text>
           </View>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
 
+      {refreshing ? <View pointerEvents="none" style={[styles.pullOrbitLayer, { top: insets.top + 64 }]}><OrbitLoader size={58} /></View> : null}
       {openPiece ? <TodayListingOverlay piece={openPiece} origin={openOrigin} onClose={() => setOpenPiece(null)} closeMode="instant" /> : null}
     </View>
   );
@@ -167,6 +208,7 @@ const styles = StyleSheet.create({
   bannerColorFade: { position: "absolute", left: 0, right: 0, bottom: 0, flexDirection: "column" },
   bannerColorFadeStrip: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, gap: 10, zIndex: 1 },
+  pullOrbitLayer: { position: "absolute", left: 0, right: 0, height: 72, alignItems: "center", justifyContent: "center", zIndex: 4 },
   headerButton: { width: 34, height: 42, alignItems: "center", justifyContent: "center" },
   headerSearch: { flex: 1, height: 50, borderRadius: 25, borderWidth: 1, flexDirection: "row", alignItems: "center", paddingHorizontal: 14, gap: 9 },
   headerSearchText: { fontSize: 15 },

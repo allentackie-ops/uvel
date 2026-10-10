@@ -18,6 +18,7 @@ import { useLaunchIntroComplete } from "./LaunchSplash";
 import { loadAddresses, setActiveAddress, type Address } from "../lib/orders";
 import type { BannerStory } from "../lib/todayBannerStories";
 import { curateTodayBanners, type CuratedTodayBanner } from "../lib/todayBannerEngine";
+import { fetchTrendingScores } from "../lib/trending";
 import { fetchFriendTrending } from "../lib/friendTrending";
 import type { ListingOrigin } from "./TodayListingOverlay";
 
@@ -92,6 +93,7 @@ export function TodayCommerceFeed({
   const wasRefreshing = useRef(false);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [friendTrendingIds, setFriendTrendingIds] = useState<string[]>([]);
+  const [marketTrendingIds, setMarketTrendingIds] = useState<string[]>([]);
   const [locationOpen, setLocationOpen] = useState(false);
   const posterScrollX = useRef(new Animated.Value(0)).current;
   const locationBarMotion = useRef(new Animated.Value(0)).current;
@@ -118,6 +120,20 @@ export function TodayCommerceFeed({
     });
     return () => { active = false; };
   }, [app.uid]);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setMarketTrendingIds([]);
+    void fetchTrendingScores(market.code).then((result) => {
+      if (!active) return;
+      setMarketTrendingIds(result.marketScores
+        .filter((score) => score.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .map((score) => score.listingId));
+    }).catch(() => {
+      if (active) setMarketTrendingIds([]);
+    });
+    return () => { active = false; };
+  }, [market.code]));
   const posterWidth = Math.min(352, Dimensions.get("window").width - 48);
   const posterInterval = posterWidth + 12;
   const posterHeight = Math.round(Math.min(470, Math.max(390, posterWidth * 1.24)));
@@ -135,7 +151,7 @@ export function TodayCommerceFeed({
     .map((id) => pieces.find((piece) => piece.id === id))
     .filter((piece): piece is ClosetPiece => Boolean(piece));
   const trendingWorld = blendTrendingWorld(personalized, friendTrending);
-  const bannerTemplates = curateTodayBanners(pieces);
+  const bannerTemplates = curateTodayBanners(pieces, marketTrendingIds);
   const topColorFade = scrollY.interpolate({ inputRange: [0, 180], outputRange: [1, 0], extrapolate: "clamp" });
   const logoMotion = {
     opacity: scrollY.interpolate({ inputRange: [0, 80], outputRange: [1, 0.86], extrapolate: "clamp" }),
