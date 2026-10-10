@@ -9,7 +9,7 @@ import { useUvel } from "../lib/store";
 import { getMarket, moneyInMarket } from "../lib/markets";
 import { rankCreatorProfiles, type CreatorProfile } from "../lib/creatorDiscovery";
 import { useWardrobe, type ClosetPiece } from "../lib/wardrobe";
-import { useColors } from "../lib/theme";
+import { useColors, useResolvedAppearance } from "../lib/theme";
 import { TodayListingOverlay, type ListingOrigin } from "../components/TodayListingOverlay";
 
 const WISDOM_SOURCE = "https://www.vogue.com/article/wisdom-kaye-tik-tok-fashion-interview";
@@ -17,6 +17,7 @@ export default function CreatorDiscovery() {
   const insets = useSafeAreaInsets();
   const app = useUvel();
   const colors = useColors();
+  const appearance = useResolvedAppearance();
   const pieces = useWardrobe();
   const market = getMarket(app.country);
   const creators = useMemo(() => rankCreatorProfiles(pieces, 12), [pieces]);
@@ -25,7 +26,7 @@ export default function CreatorDiscovery() {
   const rows = useMemo(() => Array.from({ length: Math.ceil(shopPieces.length / 2) }, (_, index) => shopPieces.slice(index * 2, index * 2 + 2)), [shopPieces]);
   const [openPiece, setOpenPiece] = useState<ClosetPiece | null>(null);
   const [openOrigin, setOpenOrigin] = useState<ListingOrigin>({ x: 0, y: 0, width: 0, height: 0 });
-  const styles = makeStyles(colors);
+  const styles = makeStyles(colors, appearance === "dark");
 
   function openListing(piece: ClosetPiece, ref: { current: View | null }) {
     ref.current?.measureInWindow((x, y, width, height) => {
@@ -37,7 +38,7 @@ export default function CreatorDiscovery() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
+      <StatusBar style={appearance === "dark" ? "light" : "dark"} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: insets.bottom + 36 }}>
         <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
           <Pressable onPress={() => router.back()} style={styles.back} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back to Today"><Ionicons name="arrow-back" size={23} color={colors.bone} /></Pressable>
@@ -91,8 +92,7 @@ function ListingCard({ piece, market, styles, onOpen }: { piece: ClosetPiece; ma
   return <Pressable ref={ref} onPress={() => onOpen(piece, ref)} style={styles.listingCard} accessibilityRole="button" accessibilityLabel={`Open ${piece.name}`}><View style={styles.listingImageWrap}>{piece.photo ? <Image source={{ uri: piece.photo }} style={styles.listingImage} contentFit="cover" cachePolicy="memory-disk" /> : null}<View style={styles.creatorPill}><Text style={styles.creatorPillText} numberOfLines={1}>{creator}</Text></View></View><Text style={styles.listingBrand} numberOfLines={1}>{(piece.brand || "UVEL").toUpperCase()}</Text><Text style={styles.listingName} numberOfLines={2}>{piece.name}</Text><Text style={styles.listingPrice}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text></Pressable>;
 }
 
-function makeStyles(colors: ReturnType<typeof useColors>) {
-  const dark = colors.ink === "#000000";
+function makeStyles(colors: ReturnType<typeof useColors>, dark = false) {
   const background = dark ? colors.ink : "#F6F0E7";
   const paper = colors.surface;
   const ink = colors.bone;
