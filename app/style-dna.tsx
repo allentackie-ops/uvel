@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useEffect, useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
@@ -46,7 +47,11 @@ export default function StyleDna() {
     <View style={styles.page}>
       <StatusBar style={appearance === "dark" ? "light" : "dark"} />
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <AccessiblePressable onPress={() => router.back()} style={styles.back} hitSlop={12} accessibilityRole="button" accessibilityLabel="Go back">
+          <Ionicons name="arrow-back" size={23} color={colors.bone} />
+        </AccessiblePressable>
         <Text style={styles.title}>Style DNA</Text>
+        <View style={styles.headerSpacer} />
       </View>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 36 }]}>
         <Text style={styles.question}>What should your Today page feel like?</Text>
@@ -79,8 +84,10 @@ export default function StyleDna() {
 function makeStyles(colors: Colors) {
   return StyleSheet.create({
     page: { flex: 1, backgroundColor: colors.ink },
-    header: { minHeight: 68, alignItems: "center", justifyContent: "center", paddingHorizontal: 18, paddingBottom: 12 },
+    header: { minHeight: 68, alignItems: "center", justifyContent: "space-between", paddingHorizontal: 18, paddingBottom: 12, flexDirection: "row" },
+    back: { width: 28, height: 34, alignItems: "flex-start", justifyContent: "center" },
     title: { color: colors.bone, fontSize: 18, fontWeight: "900" },
+    headerSpacer: { width: 28, height: 34 },
     content: { paddingHorizontal: 18, paddingTop: 26 },
     question: { color: colors.bone, fontSize: 28, lineHeight: 33, fontWeight: "900", letterSpacing: -0.5 },
     hint: { color: colors.muted, fontSize: 14, lineHeight: 20, marginTop: 9, marginBottom: 23 },
