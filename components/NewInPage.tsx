@@ -152,7 +152,7 @@ function CategoryListingsPage({ story, onClose, mode }: { story: BannerStory; on
         onScroll={handleScroll}
       >
         <View style={styles.intro}>
-          <Text style={[styles.pageTitle, { color: colors.bone }]}>{mode === "deals" ? `Deals in ${market.name}` : `New in ${market.name}`}</Text>
+          <Text style={[styles.pageTitle, { color: colors.bone }]}>{mode === "deals" ? "Deals" : "New in"}</Text>
           <Text style={[styles.pageSubtitle, { color: colors.muted }]}>{mode === "deals" ? "Price drops from sellers, organized by category." : "Freshly listed pieces, organized by category."}</Text>
         </View>
 
@@ -170,8 +170,7 @@ function CategoryListingsPage({ story, onClose, mode }: { story: BannerStory; on
           </View>
         )) : (
           <View style={[styles.empty, { backgroundColor: colors.surface }]}>
-            <Ionicons name="sparkles-outline" size={20} color={colors.muted} />
-            <Text style={[styles.emptyText, { color: colors.muted }]}>{loadError || (mode === "deals" ? `No reduced listings in ${market.name} right now. Pull down to check again.` : `No new listings in ${market.name} yet. Pull down to check again.`)}</Text>
+            <Text style={[styles.emptyText, { color: colors.muted }]}>{loadError || (mode === "deals" ? "No reduced listings right now. Pull down to check again." : "No new listings yet. Pull down to check again.")}</Text>
           </View>
         )}
       </Animated.ScrollView>
@@ -244,7 +243,7 @@ const styles = StyleSheet.create({
   priceRow: { flexDirection: "row", alignItems: "baseline", paddingHorizontal: 10, gap: 7, marginTop: 8 },
   wasPrice: { fontSize: 11, fontWeight: "600", textDecorationLine: "line-through", flexShrink: 1 },
   priceInRow: { fontSize: 15, lineHeight: 19, fontWeight: "900", flexShrink: 1 },
-  empty: { marginHorizontal: 18, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 15, marginTop: 18, flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  empty: { marginHorizontal: 18, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 15, marginTop: 18 },
   emptyText: { flex: 1, fontSize: 12, lineHeight: 18 },
   loadingRow: { height: 210, alignItems: "center", justifyContent: "center" },
 });
