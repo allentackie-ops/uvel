@@ -228,6 +228,13 @@ Deno.serve(async (request) => {
     if (error) throw error;
 
     const listings = (data || []) as unknown as ListingRow[];
+    const ownerIds = [...new Set(listings.map((listing) => listing.owner_firebase_uid || listing.owner_id).filter((id): id is string => Boolean(id)))];
+    const { data: profiles, error: profileError } = ownerIds.length
+      ? await supabase.from("social_profiles").select("firebase_uid,display_name,avatar_uri").in("firebase_uid", ownerIds).limit(100)
+      : { data: [], error: null };
+    if (profileError) console.error("Could not load creator profiles for Today", profileError);
+    const profileRows = (profiles || []) as Array<{ firebase_uid: string; display_name?: string | null; avatar_uri?: string | null }>;
+    const profileById = new Map(profileRows.map((profile) => [profile.firebase_uid, profile]));
     const paths = [...new Set(listings.flatMap((listing) => (listing.listing_photos || [])
       .map((photo) => photo.render_storage_path || photo.storage_path)
       .filter((path): path is string => Boolean(path))))];
@@ -247,9 +254,14 @@ Deno.serve(async (request) => {
     }
 
     return response({
-      listings: listings.map((listing) => ({
+      listings: listings.map((listing) => {
+        const ownerId = listing.owner_firebase_uid || listing.owner_id || "";
+        const profile = ownerId ? profileById.get(ownerId) : undefined;
+        return {
         id: listing.id,
-        ownerId: listing.owner_firebase_uid || listing.owner_id || undefined,
+        ownerId: ownerId || undefined,
+        ownerName: profile?.display_name || undefined,
+        ownerPhoto: profile?.avatar_uri || undefined,
         title: listing.title,
         brand: listing.brand,
         category: listing.category,
@@ -271,7 +283,8 @@ Deno.serve(async (request) => {
             return path ? signedUrls.get(path) : undefined;
           })
           .filter((url): url is string => Boolean(url)),
-      })),
+        };
+      }),
     });
   } catch (error) {
     console.error("Today marketplace feed failed", error);

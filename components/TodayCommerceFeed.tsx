@@ -21,6 +21,7 @@ import { curateTodayBanners, type CuratedTodayBanner } from "../lib/todayBannerE
 import { fetchTrendingScores } from "../lib/trending";
 import { fetchFriendTrending } from "../lib/friendTrending";
 import { fetchPaidPurchaseSignals, type PurchaseSignal } from "../lib/supabasePurchaseHistory";
+import { rankCreatorProfiles } from "../lib/creatorDiscovery";
 import type { ListingOrigin } from "./TodayListingOverlay";
 
 type ListingRect = Pick<ListingOrigin, "x" | "y" | "width" | "height">;
@@ -205,6 +206,7 @@ export function TodayCommerceFeed({
   const deals = feedPieces.slice(8, 12).length >= 3 ? feedPieces.slice(8, 12) : feedPieces.slice(0, 4);
   const followed = feedPieces.slice(12, 16).length >= 3 ? feedPieces.slice(12, 16) : feedPieces.slice(0, 4);
   const personalized = feedPieces.slice(16, 24).length >= 4 ? feedPieces.slice(16, 24) : feedPieces.slice(0, 8);
+  const creatorProfiles = rankCreatorProfiles(pieces, 12);
   const friendTrending = friendTrendingIds
     .map((id) => pieces.find((piece) => piece.id === id))
     .filter((piece): piece is ClosetPiece => Boolean(piece));
@@ -369,7 +371,7 @@ export function TodayCommerceFeed({
       <DealsFeature pieces={deals} market={market} onOpen={onOpenPiece} active={animationsEnabled} />
       <View style={styles.creatorCard}>
         <View style={styles.creatorCopy}><Text style={styles.creatorTitle}>Styled by people{`\n`}you’ll love</Text><Text style={styles.creatorSub}>Real looks. Real people.</Text><Pressable onPress={onOpenCreators} style={styles.whiteButton} accessibilityRole="button" accessibilityLabel="See creators"><Text style={styles.whiteButtonText}>See creators ›</Text></Pressable></View>
-        <View style={styles.creatorFaces}>{followed.slice(0, 3).map((piece) => <Image key={piece.id} source={{ uri: piece.photo }} style={styles.creatorFace} contentFit="cover" accessible={false} />)}</View>
+        <View style={styles.creatorFaces}>{creatorProfiles.slice(0, 3).map((creator) => creator.photo ? <Image key={creator.id} source={{ uri: creator.photo }} style={styles.creatorFace} contentFit="cover" accessible={false} /> : <View key={creator.id} style={[styles.creatorFace, styles.creatorFaceFallback]}><Text style={styles.creatorFaceInitial}>{creator.name.slice(0, 1).toUpperCase()}</Text></View>)}</View>
       </View>
 
       <Pressable onPress={onOpenStyle} style={styles.styleDna} accessibilityRole="button" accessibilityLabel="See your Style DNA">
@@ -935,6 +937,8 @@ function make(colors: Colors) {
     creatorSub: { color: "#FFFFFF", fontSize: 15, marginTop: 7 },
     creatorFaces: { width: 154, flexDirection: "row", alignItems: "center", justifyContent: "flex-end" },
     creatorFace: { width: 67, height: 67, borderRadius: 34, borderWidth: 3, borderColor: "#FFFFFF", marginLeft: -11 },
+    creatorFaceFallback: { backgroundColor: colors.success, alignItems: "center", justifyContent: "center" },
+    creatorFaceInitial: { color: colors.ink, fontSize: 26, fontWeight: "900" },
     lookGrid: { gap: 10 },
     lookCard: { minHeight: 176, borderRadius: 17, backgroundColor: colors.surface, overflow: "hidden", flexDirection: "row", borderWidth: colors.ink === "#FFFFFF" ? StyleSheet.hairlineWidth : 0, borderColor: colors.ink === "#FFFFFF" ? "#D5D9D9" : "transparent" },
     lookCopy: { flex: 1, padding: 15, justifyContent: "center", zIndex: 2 },

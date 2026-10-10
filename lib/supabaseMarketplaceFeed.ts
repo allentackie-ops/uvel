@@ -3,6 +3,8 @@ import { requireSupabase } from "./supabase";
 export type SupabaseMarketplaceListing = {
   id: string;
   ownerId?: string | null;
+  ownerName?: string | null;
+  ownerPhoto?: string | null;
   title?: string | null;
   brand?: string | null;
   category?: string | null;

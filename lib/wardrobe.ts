@@ -243,6 +243,8 @@ function supabaseListingToPiece(listing: SupabaseMarketplaceListing): ClosetPiec
     status: "listed",
     createdAt: Number.isFinite(parsedCreatedAt) ? parsedCreatedAt : Date.now(),
     ownerId,
+    ownerName: listing.ownerName || undefined,
+    ownerPhoto: listing.ownerPhoto || undefined,
     listedByUid: ownerId,
     country: listing.country || undefined,
     currency: listing.currency || undefined,

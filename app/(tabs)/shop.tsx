@@ -800,7 +800,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
           inboxUnreadCount={unreadSocial}
           onOpenTools={() => onOpenTools?.()}
           onOpenCountries={() => router.push("/store")}
-          onOpenCreators={() => router.push("/find")}
+          onOpenCreators={() => router.push("/creator-discovery")}
           onOpenStyle={() => router.push("/style-dna")}
           refreshing={refreshing}
           onRefresh={() => void onRefresh()}
