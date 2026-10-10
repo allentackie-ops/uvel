@@ -213,7 +213,7 @@ function NewInCard({ piece, market, colors, mode, onOpen }: { piece: ClosetPiece
 }
 
 function LoadingOrbit() {
-  return <View style={styles.loadingRow}><OrbitLoader size={58} label="Loading listings" caption="Fetching from Supabase" /></View>;
+  return <View style={styles.loadingRow}><OrbitLoader size={58} /></View>;
 }
 
 const styles = StyleSheet.create({

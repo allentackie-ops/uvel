@@ -162,7 +162,7 @@ export function FinishingPiecesPage({ story, onClose }: { story: BannerStory; on
         </View>
 
         {loading ? (
-          <View style={styles.loadingRow}><OrbitLoader size={58} label="Loading finishing pieces" caption="Fetching from Supabase" /></View>
+          <View style={styles.loadingRow}><OrbitLoader size={58} /></View>
         ) : sections.length ? sections.map((section) => (
           <View key={section.title} style={styles.section}>
             <View style={styles.sectionHeading}>

@@ -57,7 +57,7 @@ export function TodayBannerStoryPage({ story, onClose, onOpenPiece }: { story: B
         {sections.length ? sections.map((section) => <ProductSection key={section.title} title={section.title} pieces={section.items} color={story.color} market={market} colors={colors} onOpenPiece={onOpenPiece} />) : <View style={styles.emptyState}><Text style={[styles.emptyText, { color: colors.muted }]}>No available listings in this edit right now.</Text></View>}
       </Animated.ScrollView>
       <Animated.View pointerEvents={loading ? "auto" : "none"} style={[styles.loading, { top: headerHeight, opacity: loaderFade }]}>
-        {showLoader ? <OrbitLoader size={64} label="Loading edit" caption="Curating pieces" /> : null}
+        {showLoader ? <OrbitLoader size={64} /> : null}
       </Animated.View>
     </View>
   );
