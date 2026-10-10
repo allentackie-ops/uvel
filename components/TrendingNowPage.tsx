@@ -163,7 +163,7 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
           <View style={styles.sectionHeading}>
             <View>
               <Text style={[styles.sectionTitle, { color: colors.bone }]}>Trending in {market.name}</Text>
-              <Text style={[styles.sectionSub, { color: colors.muted }]}>Top 10 · local listings · last {windowDays} days</Text>
+              <Text style={[styles.sectionSub, { color: colors.muted }]}>Local listings · last {windowDays} days</Text>
             </View>
           </View>
           {loading && !topTen.length ? <LoadingOrbit /> : topTen.length
@@ -180,7 +180,7 @@ export function TrendingNowPage({ story, onClose }: { story: BannerStory; onClos
           <View key={section.category} style={styles.section}>
             <View style={styles.sectionHeading}>
               <View>
-                <Text style={[styles.sectionTitle, { color: colors.bone }]}>{section.category} trending in {market.name}</Text>
+                <Text style={[styles.sectionTitle, { color: colors.bone }]}>{section.category}</Text>
                 <Text style={[styles.sectionSub, { color: colors.muted }]}>This store · top {section.items.length}</Text>
               </View>
             </View>
