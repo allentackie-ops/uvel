@@ -10,7 +10,7 @@ import { getMarket, moneyInMarket } from "../lib/markets";
 import type { BannerStory } from "../lib/todayBannerStories";
 import { useUvel } from "../lib/store";
 import { useColors } from "../lib/theme";
-import { refreshMarketplaceListings, shopFloor, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
+import { refreshMarketplaceListings, shopFloor, useMarketplaceSyncState, useWardrobe, type ClosetPiece } from "../lib/wardrobe";
 import { OrbitLoader } from "./OrbitLoader";
 import { TodayListingOverlay, type ListingOrigin } from "./TodayListingOverlay";
 
@@ -37,6 +37,7 @@ function CategoryListingsPage({ story, onClose, mode }: { story: BannerStory; on
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const wardrobe = useWardrobe();
+  const marketplaceSync = useMarketplaceSyncState();
   const market = useMemo(() => getMarket(app.country), [app.country]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -156,7 +157,7 @@ function CategoryListingsPage({ story, onClose, mode }: { story: BannerStory; on
           <Text style={[styles.pageSubtitle, { color: colors.muted }]}>{mode === "deals" ? "Price drops from sellers, organized by category." : "Freshly listed pieces, organized by category."}</Text>
         </View>
 
-        {loading && !sections.length ? <LoadingOrbit /> : sections.length ? sections.map((section) => (
+          {loading && !sections.length ? <LoadingOrbit /> : sections.length ? sections.map((section) => (
           <View key={section.category} style={styles.section}>
             <View style={styles.sectionHeading}>
               <View>
@@ -170,7 +171,7 @@ function CategoryListingsPage({ story, onClose, mode }: { story: BannerStory; on
           </View>
         )) : (
           <View style={[styles.empty, { backgroundColor: colors.surface }]}>
-            <Text style={[styles.emptyText, { color: colors.muted }]}>{loadError || (mode === "deals" ? "No reduced listings right now. Pull down to check again." : "No new listings yet. Pull down to check again.")}</Text>
+            <Text style={[styles.emptyText, { color: colors.muted }]}>{loadError || (marketplaceSync === "unavailable" ? "New listings couldn’t load from Supabase. Pull down to try again." : mode === "deals" ? "No reduced listings right now. Pull down to check again." : "No new listings yet. Pull down to check again.")}</Text>
           </View>
         )}
       </Animated.ScrollView>
@@ -212,7 +213,7 @@ function NewInCard({ piece, market, colors, mode, onOpen }: { piece: ClosetPiece
 }
 
 function LoadingOrbit() {
-  return <View style={styles.loadingRow}><OrbitLoader size={58} /></View>;
+  return <View style={styles.loadingRow}><OrbitLoader size={58} label="Loading listings" caption="Fetching from Supabase" /></View>;
 }
 
 const styles = StyleSheet.create({
