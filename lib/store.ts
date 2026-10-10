@@ -418,7 +418,17 @@ export function useUvel() {
     },
     consumeFind: () => true,
     consumeTryOn: () => true,
-    setStyle: (patch: Partial<State>) => save(patch),
+    setStyle: async (patch: Partial<State>) => {
+      await save(patch);
+      if (memory.uid && (patch.archetype !== undefined || patch.palette !== undefined || patch.silhouette !== undefined || patch.styles !== undefined)) {
+        void import("./supabaseStyleDna").then(({ writeSupabaseStyleDna }) => writeSupabaseStyleDna({
+          archetype: memory.archetype,
+          palette: memory.palette,
+          silhouette: memory.silhouette,
+          styles: memory.styles,
+        })).catch(() => undefined);
+      }
+    },
     setAppearance: (appearance: AppearancePreference) => save({ appearance }),
     setPerson: (uri: string | null) => save({ personUri: uri }),
     setAvatar: async (uri: string | null) => {
