@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { useVideoPlayer, VideoView } from "expo-video";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, Animated, Dimensions, Modal, Pressable, ScrollView, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
@@ -42,6 +43,16 @@ const STYLE_LOOKS = [
 ];
 
 const BANNER_COLORS = ["#F05237", "#2762C5", "#A5B98A", "#5B20D8", "#CFF7C8", "#8D74D6", "#E96B91", "#5F8D56"];
+const STYLE_DNA_GRADIENTS: Record<string, [string, string, string]> = {
+  "Quiet luxury": ["#211C1A", "#765E4B", "#C9AE8D"],
+  Street: ["#101722", "#3155A6", "#D25C70"],
+  "Vintage archive": ["#34202B", "#8C5360", "#C79A63"],
+  Utility: ["#1D302B", "#58715F", "#B8AA7B"],
+  Romantic: ["#4B2038", "#9E5578", "#E7B5BF"],
+  "Western city": ["#35221C", "#81533D", "#D49B62"],
+  "Tailored city": ["#1D2A3B", "#4F6C8E", "#C8B9A5"],
+  "Bourgeois chic": ["#2D2337", "#6D5A86", "#CDB79E"],
+};
 const FEED_FADE_STRIPS = Array.from({ length: 56 }, (_, index) => {
   const progress = index / 55;
   return Math.pow(progress, 1.65);
@@ -124,6 +135,7 @@ export function TodayCommerceFeed({
   const animationsEnabled = useLaunchIntroComplete();
   const insets = useSafeAreaInsets();
   const market = getMarket(app.country);
+  const styleDnaGradient = STYLE_DNA_GRADIENTS[app.archetype] || ["#1D2936", "#526D86", "#B7C3C5"];
   const scrollY = useRef(new Animated.Value(0)).current;
   const pullOffset = useRef(new Animated.Value(0)).current;
   const pullTriggered = useRef(false);
@@ -367,8 +379,12 @@ export function TodayCommerceFeed({
       <DealsFeature pieces={deals} market={market} onOpen={onOpenPiece} active={animationsEnabled} />
 
       <Pressable onPress={onOpenStyle} style={styles.styleDna} accessibilityRole="button" accessibilityLabel="See your Style DNA">
-        <View style={styles.styleDnaCopy}><Text style={styles.styleDnaTitle}>Your Style DNA{`\n`}is getting clearer</Text><Text style={styles.styleDnaBody}>You gravitate toward classic shapes, neutral tones and modern layers.</Text><Text style={styles.styleDnaButton}>See your style ›</Text></View>
-        <View style={styles.swatches}>{["#EEEAE2", "#AF9782", "#5B4637", "#586247"].map((color) => <View key={color} style={[styles.swatch, { backgroundColor: color }]} />)}</View>
+        <LinearGradient colors={styleDnaGradient} locations={[0, 0.54, 1]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.styleDnaGradient}>
+          <View pointerEvents="none" style={[styles.styleDnaGlow, styles.styleDnaGlowOne]} />
+          <View pointerEvents="none" style={[styles.styleDnaGlow, styles.styleDnaGlowTwo]} />
+          <View style={styles.styleDnaCopy}><Text style={styles.styleDnaTitle}>Your Style DNA</Text><Text style={styles.styleDnaBody}>A personal point of view for the pieces, colours and layers you discover.</Text><Text style={styles.styleDnaButton}>See your style ›</Text></View>
+          <View style={styles.swatches}>{styleDnaGradient.map((color) => <View key={color} style={[styles.swatch, { backgroundColor: color }]} />)}</View>
+        </LinearGradient>
       </Pressable>
 
       <SectionTitle title="Because you saved relaxed tailoring" onPress={onOpenSearch} />
@@ -930,11 +946,15 @@ function make(colors: Colors) {
     lookBody: { color: colors.muted, fontSize: 12, lineHeight: 16, marginTop: 7 },
     lookButton: { color: colors.link ?? colors.pulse, fontSize: 12, fontWeight: "900", marginTop: 12 },
     lookImage: { width: 150, height: "100%" },
-    styleDna: { minHeight: 145, borderRadius: 17, backgroundColor: "#DCCBFA", padding: 16, flexDirection: "row", alignItems: "center", overflow: "hidden" },
+    styleDna: { minHeight: 145, borderRadius: 17, overflow: "hidden", shadowColor: "#000", shadowOpacity: 0.18, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+    styleDnaGradient: { flex: 1, minHeight: 145, padding: 16, flexDirection: "row", alignItems: "center", overflow: "hidden" },
+    styleDnaGlow: { position: "absolute", borderRadius: 999, backgroundColor: "rgba(255,255,255,0.18)" },
+    styleDnaGlowOne: { width: 170, height: 170, right: -52, top: -74 },
+    styleDnaGlowTwo: { width: 110, height: 110, right: 92, bottom: -74, opacity: 0.52 },
     styleDnaCopy: { flex: 1, zIndex: 2 },
-    styleDnaTitle: { color: "#181714", fontSize: 22, lineHeight: 24, fontWeight: "900" },
-    styleDnaBody: { color: "#514D43", fontSize: 12, lineHeight: 16, marginTop: 7, maxWidth: 250 },
-    styleDnaButton: { color: colors.link ?? colors.pulse, fontSize: 12, fontWeight: "900", marginTop: 12 },
+    styleDnaTitle: { color: "#FFFFFF", fontSize: 22, lineHeight: 24, fontWeight: "900", letterSpacing: -0.35 },
+    styleDnaBody: { color: "rgba(255,255,255,0.82)", fontSize: 12, lineHeight: 16, marginTop: 7, maxWidth: 250 },
+    styleDnaButton: { color: "#FFFFFF", fontSize: 12, fontWeight: "900", marginTop: 12 },
     swatches: { width: 88, flexDirection: "row", flexWrap: "wrap", gap: 5, transform: [{ rotate: "7deg" }] },
     swatch: { width: 37, height: 37, borderRadius: 9, borderWidth: 2, borderColor: "#FFFFFF" },
   });
