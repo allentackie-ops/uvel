@@ -66,7 +66,7 @@ export const TODAY_BANNER_TEMPLATES: TodayBannerTemplate[] = [
   {
     id: "new-in",
     title: "New in",
-    subtitle: "Listed clothes, accessories, and objects with a point of view.",
+    subtitle: "Freshly listed pieces, organized by category.",
     color: "#2762C5",
     variant: "slide",
     maxProducts: 4,
