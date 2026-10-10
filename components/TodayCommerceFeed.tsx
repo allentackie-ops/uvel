@@ -20,6 +20,7 @@ import type { BannerStory } from "../lib/todayBannerStories";
 import { curateTodayBanners, type CuratedTodayBanner } from "../lib/todayBannerEngine";
 import { fetchTrendingScores } from "../lib/trending";
 import { fetchFriendTrending } from "../lib/friendTrending";
+import { fetchPaidPurchaseSignals, type PurchaseSignal } from "../lib/supabasePurchaseHistory";
 import type { ListingOrigin } from "./TodayListingOverlay";
 
 type ListingRect = Pick<ListingOrigin, "x" | "y" | "width" | "height">;
@@ -45,6 +46,44 @@ const FEED_FADE_STRIPS = Array.from({ length: 56 }, (_, index) => {
   const progress = index / 55;
   return Math.pow(progress, 1.65);
 });
+
+function searchTerms(value: string) {
+  return new Set(value.toLowerCase().replace(/[^a-z0-9]+/g, " ").split(/\s+/).filter((term) => term.length > 2));
+}
+
+function purchaseSimilarity(piece: ClosetPiece, purchase: PurchaseSignal, anchor?: ClosetPiece) {
+  let score = 0;
+  if (piece.id === purchase.listingId) return -1;
+  if (anchor) {
+    if (piece.category === anchor.category) score += 44;
+    if (piece.brandId && anchor.brandId && piece.brandId === anchor.brandId) score += 36;
+    else if (piece.brand && anchor.brand && piece.brand.toLowerCase() === anchor.brand.toLowerCase()) score += 28;
+    if (piece.color && anchor.color && piece.color.toLowerCase() === anchor.color.toLowerCase()) score += 22;
+    if (piece.material && anchor.material && piece.material.toLowerCase() === anchor.material.toLowerCase()) score += 18;
+    const priceDistance = Math.abs(piece.listPriceCents - anchor.listPriceCents) / Math.max(anchor.listPriceCents, 1);
+    score += Math.max(0, 12 - priceDistance * 12);
+  }
+  if (purchase.brandId && piece.brandId && purchase.brandId === piece.brandId) score += 30;
+  const purchaseWords = searchTerms(purchase.listingName);
+  const pieceWords = searchTerms(`${piece.name} ${piece.notes} ${piece.category} ${piece.color} ${piece.material}`);
+  purchaseWords.forEach((word) => {
+    if (pieceWords.has(word)) score += 8;
+  });
+  return score;
+}
+
+function rankPurchaseSimilarPieces(pieces: ClosetPiece[], purchases: PurchaseSignal[]) {
+  const purchasedIds = new Set(purchases.map((purchase) => purchase.listingId).filter(Boolean));
+  return pieces
+    .filter((piece) => !purchasedIds.has(piece.id))
+    .map((piece) => {
+      const score = Math.max(...purchases.map((purchase) => purchaseSimilarity(piece, purchase, pieces.find((candidate) => candidate.id === purchase.listingId))));
+      return { piece, score };
+    })
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score || b.piece.createdAt - a.piece.createdAt)
+    .map((row) => row.piece);
+}
 
 export type TodayCommerceFeedProps = {
   pieces: ClosetPiece[];
@@ -94,6 +133,7 @@ export function TodayCommerceFeed({
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [friendTrendingIds, setFriendTrendingIds] = useState<string[]>([]);
   const [marketTrendingIds, setMarketTrendingIds] = useState<string[]>([]);
+  const [purchaseSignals, setPurchaseSignals] = useState<PurchaseSignal[]>([]);
   const [locationOpen, setLocationOpen] = useState(false);
   const posterScrollX = useRef(new Animated.Value(0)).current;
   const locationBarMotion = useRef(new Animated.Value(0)).current;
@@ -134,6 +174,20 @@ export function TodayCommerceFeed({
     });
     return () => { active = false; };
   }, [market.code]));
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    if (!app.uid || app.uid === "guest") {
+      setPurchaseSignals([]);
+      return () => { active = false; };
+    }
+    void fetchPaidPurchaseSignals().then((signals) => {
+      if (active) setPurchaseSignals(signals);
+    }).catch(() => {
+      // Keep the interest-based fallback when purchase history is unavailable.
+      if (active) setPurchaseSignals([]);
+    });
+    return () => { active = false; };
+  }, [app.uid]));
   const posterWidth = Math.min(352, Dimensions.get("window").width - 48);
   const posterInterval = posterWidth + 12;
   const posterHeight = Math.round(Math.min(470, Math.max(390, posterWidth * 1.24)));
@@ -143,6 +197,10 @@ export function TodayCommerceFeed({
     : [];
   const featured = feedPieces.slice(0, 4);
   const recommended = feedPieces.slice(0, 8);
+  const purchaseSimilar = purchaseSignals.length ? rankPurchaseSimilarPieces(pieces, purchaseSignals) : [];
+  const keepShopping = purchaseSimilar.length
+    ? purchaseSimilar.slice(0, 4)
+    : recommended.slice(4, 8).length ? recommended.slice(4, 8) : recommended.slice(0, 4);
   const editors = feedPieces.slice(2, 6).length >= 3 ? feedPieces.slice(2, 6) : feedPieces.slice(0, 4);
   const deals = feedPieces.slice(8, 12).length >= 3 ? feedPieces.slice(8, 12) : feedPieces.slice(0, 4);
   const followed = feedPieces.slice(12, 16).length >= 3 ? feedPieces.slice(12, 16) : feedPieces.slice(0, 4);
@@ -288,7 +346,7 @@ export function TodayCommerceFeed({
       <ProductRail pieces={recommended.slice(0, 4)} market={market} onOpen={onOpenPiece} deals />
 
       <SectionTitle title="Keep shopping for" onPress={onOpenSearch} />
-      <ProductRail pieces={recommended.slice(4, 8).length ? recommended.slice(4, 8) : recommended.slice(0, 4)} market={market} onOpen={onOpenPiece} compact />
+      <ProductRail pieces={keepShopping} market={market} onOpen={onOpenPiece} compact />
 
       <SectionTitle title="We think you’ll love these" onPress={onOpenSearch} />
       <View style={styles.editorHero}>
