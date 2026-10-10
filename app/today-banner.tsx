@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 import { TodayBannerStoryPage } from "../components/TodayBannerStoryPage";
 import { DealsPage, NewInPage } from "../components/NewInPage";
+import { FinishingPiecesPage } from "../components/FinishingPiecesPage";
 import { TrendingNowPage } from "../components/TrendingNowPage";
 import { useColors } from "../lib/theme";
 import { getTodayBannerStory, releaseTodayBannerStory } from "../lib/todayBannerStories";
@@ -41,6 +42,8 @@ export default function TodayBannerRoute() {
         <NewInPage story={story} onClose={goBack} />
       ) : story.id === "deals" ? (
         <DealsPage story={story} onClose={goBack} />
+      ) : story.id === "accessories" ? (
+        <FinishingPiecesPage story={story} onClose={goBack} />
       ) : (
         <TodayBannerStoryPage
           story={story}
