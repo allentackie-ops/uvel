@@ -76,7 +76,7 @@ export const TODAY_BANNER_TEMPLATES: TodayBannerTemplate[] = [
   {
     id: "deals",
     title: "Early Prime Big Deals",
-    subtitle: "Premium pieces, better prices.",
+    subtitle: "Real price drops, organized by category.",
     color: "#A5B98A",
     variant: "explode",
     maxProducts: 4,

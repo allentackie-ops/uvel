@@ -242,7 +242,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   }, [draftParam, existing?.id]);
 
   useEffect(() => {
-    if (existing || draftParam !== "1" || !newListingId) return;
+    if (!newListingId || (!existing && draftParam !== "1")) return;
     let active = true;
     const poll = async () => {
       try {
@@ -275,7 +275,7 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     void poll();
     const timer = setInterval(() => void poll(), 3500);
     return () => { active = false; clearInterval(timer); };
-  }, [draftParam, existing, newListingId]);
+  }, [draftParam, existing?.id, newListingId]);
 
   useEffect(() => {
     void loadSellerShippingSettings().then(setShippingSettings);
@@ -567,7 +567,16 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
     }
     const uris = photos.map((p) => p.uri);
     const listingId = existing?.id || newListingId || `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, "0").slice(-12)}`;
-    if (!existing?.id && !newListingId) setNewListingId(listingId);
+    const listPriceCents = Math.max(1, Number(price) || 0) * 100;
+    const enteredOriginalPriceCents = Math.max(0, Number(was) || 0) * 100;
+    const priorListPriceCents = existing?.listPriceCents || 0;
+    const originalPriceCents = priorListPriceCents > listPriceCents
+      ? priorListPriceCents
+      : enteredOriginalPriceCents > listPriceCents
+        ? enteredOriginalPriceCents
+        : existing?.originalPriceCents && existing.originalPriceCents > listPriceCents
+          ? existing.originalPriceCents
+          : 0;
     const draft = {
       photo: uris[0],
       photos: uris,
@@ -581,8 +590,8 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
       material: material.trim(),
       notes: notes.trim(),
       measurements,
-      listPriceCents: Math.max(1, Number(price) || 0) * 100,
-      originalPriceCents: Math.max(0, Number(was) || 0) * 100,
+      listPriceCents,
+      originalPriceCents,
       country: origin,
       currency: listingCurrency,
       shipsTo,
@@ -613,10 +622,12 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
         material: listed.material,
         description: listed.notes,
         priceCents: listed.listPriceCents,
+        originalPriceCents: listed.originalPriceCents,
         currency: listed.currency || listingCurrency,
         country: listed.country || origin,
       });
       setSupabaseProcessingStatus("queued");
+      setNewListingId(listingId);
     } catch (error) {
       if (!existing && !getPiece(listingId)) addPiece({ ...listed, id: listingId, status: "draft" });
       const message = error instanceof Error ? error.message : "The listing could not be started.";
@@ -630,15 +641,26 @@ export default function Sell({ embedded = false }: { embedded?: boolean }) {
   }
 
   async function publish() {
-    if (supabaseProcessingStatus !== "completed" || !newListingId) return;
+    const listingId = newListingId || existing?.id;
+    if (supabaseProcessingStatus !== "completed" || !listingId) return;
     if (!canList) return;
+    const listPriceCents = Math.max(1, Number(price) || 0) * 100;
+    const enteredOriginalPriceCents = Math.max(0, Number(was) || 0) * 100;
+    const priorListPriceCents = existing?.listPriceCents || 0;
+    const originalPriceCents = priorListPriceCents > listPriceCents
+      ? priorListPriceCents
+      : enteredOriginalPriceCents > listPriceCents
+        ? enteredOriginalPriceCents
+        : existing?.originalPriceCents && existing.originalPriceCents > listPriceCents
+          ? existing.originalPriceCents
+          : 0;
     try {
-      await publishSupabaseListing(newListingId);
-      if (getPiece(newListingId)) updatePiece(newListingId, { status: "listed" });
+      await publishSupabaseListing(listingId, listPriceCents, originalPriceCents);
+      if (getPiece(listingId)) updatePiece(listingId, { status: "listed", listPriceCents, originalPriceCents });
       setDraftDisabled(true);
       void clearListingDraft();
       setGate({ phase: "pass" });
-      setTimeout(() => completeNavigation(newListingId), 900);
+      setTimeout(() => completeNavigation(listingId), 900);
     } catch (error) {
       setGate({ phase: "block", headline: "Couldn’t post the listing", reasons: [error instanceof Error ? error.message : "Please try again."] });
     }

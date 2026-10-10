@@ -12,6 +12,7 @@ export type SupabaseMarketplaceListing = {
   material?: string | null;
   description?: string | null;
   priceCents?: number | null;
+  originalPriceCents?: number | null;
   currency?: string | null;
   country?: string | null;
   createdAt?: string | null;

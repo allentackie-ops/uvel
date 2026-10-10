@@ -17,6 +17,7 @@ export type SupabaseListingProcessingInput = {
   material?: string;
   description?: string;
   priceCents?: number;
+  originalPriceCents?: number;
   currency: string;
   country: string;
 };
@@ -144,6 +145,7 @@ export async function startSupabaseListingProcessing(input: SupabaseListingProce
     material: input.material,
     description: input.description,
     priceCents: input.priceCents,
+    originalPriceCents: input.originalPriceCents,
     currency: input.currency,
     country: input.country,
     selectedBackgroundKey: input.selectedBackgroundKey,
@@ -158,7 +160,7 @@ export async function getSupabaseListingStatus(listingId: string) {
   return result.listing;
 }
 
-export async function publishSupabaseListing(listingId: string) {
+export async function publishSupabaseListing(listingId: string, priceCents?: number, originalPriceCents?: number) {
   const { token } = await currentIdentity();
-  return processorCall<{ ok: true; listingId: string }>(token, { action: "publish", listingId });
+  return processorCall<{ ok: true; listingId: string }>(token, { action: "publish", listingId, priceCents, originalPriceCents });
 }

@@ -142,15 +142,32 @@ Deno.serve(async (request) => {
     if (action === "publish") {
       const listing = await ownerListing(identity, listingId);
       if (!listing || listing.processing_status !== "completed") return response({ error: "Listing is not ready to publish" }, 409);
-      const { error } = await supabase.from("listings").update({ status: "listed", updated_at: new Date().toISOString() }).eq("id", listingId);
+      const requestedPrice = Number(body.priceCents);
+      const priceCents = Number.isSafeInteger(requestedPrice) && requestedPrice > 0 ? requestedPrice : Number(listing.price_cents) || null;
+      const previousPrice = Number(listing.previous_price_cents) || 0;
+      const requestedOriginal = Number(body.originalPriceCents) || 0;
+      const storedOriginal = Number(listing.original_price_cents) || 0;
+      const originalPriceCents = priceCents
+        ? (previousPrice > priceCents ? previousPrice : requestedOriginal > priceCents ? requestedOriginal : storedOriginal > priceCents ? storedOriginal : null)
+        : null;
+      const { error } = await supabase.from("listings").update({ status: "listed", price_cents: priceCents, original_price_cents: originalPriceCents, previous_price_cents: null, updated_at: new Date().toISOString() }).eq("id", listingId);
       if (error) throw error;
       return response({ ok: true, listingId });
     }
     if (action !== "start") return response({ error: "Unsupported action" }, 400);
     const photos = Array.isArray(body.photos) ? body.photos.slice(0, MAX_PHOTOS) as PhotoInput[] : [];
     if (photos.length < 3 || photos.length > MAX_PHOTOS) return response({ error: "Add between 3 and 6 photos" }, 400);
+    const existingListing = await ownerListing(identity, listingId);
+    const requestedPrice = Number(body.priceCents);
+    const priceCents = Number.isSafeInteger(requestedPrice) && requestedPrice > 0 ? requestedPrice : null;
+    const previousPrice = Number(existingListing?.price_cents) || 0;
+    const requestedOriginal = Number(body.originalPriceCents) || 0;
+    const storedOriginal = Number(existingListing?.original_price_cents) || 0;
+    const originalPriceCents = priceCents
+      ? (previousPrice > priceCents ? previousPrice : requestedOriginal > priceCents ? requestedOriginal : storedOriginal > priceCents ? storedOriginal : null)
+      : null;
     const { data: profile } = await supabase.from("profiles").select("id").eq("legacy_firebase_uid", identity.firebaseUid).maybeSingle();
-    const listing = { legacy_firebase_id: listingId, owner_firebase_uid: identity.firebaseUid, owner_id: profile?.id || null, source: "supabase", status: "analyzing", processing_status: "queued", processing_message: "Getting the listing right", title: text(body.title, 120) || null, brand: text(body.brand, 120) || null, category: text(body.category, 80) || null, color: text(body.color, 80) || null, size: text(body.size, 80) || null, condition: text(body.condition, 80) || null, material: text(body.material, 120) || null, description: text(body.description, 500) || null, price_cents: Number(body.priceCents) > 0 ? Number(body.priceCents) : null, currency: text(body.currency, 3).toUpperCase(), country: text(body.country, 2).toUpperCase(), selected_background_key: text(body.selectedBackgroundKey, 80) || null, background_map: body.backgroundMap && typeof body.backgroundMap === "object" ? body.backgroundMap : {}, ai_analysis: {}, ai_suggestions: {}, moderation: { status: "pending", source: "supabase-listing-processor" }, updated_at: new Date().toISOString() };
+    const listing = { legacy_firebase_id: listingId, owner_firebase_uid: identity.firebaseUid, owner_id: profile?.id || null, source: "supabase", status: "analyzing", processing_status: "queued", processing_message: "Getting the listing right", title: text(body.title, 120) || null, brand: text(body.brand, 120) || null, category: text(body.category, 80) || null, color: text(body.color, 80) || null, size: text(body.size, 80) || null, condition: text(body.condition, 80) || null, material: text(body.material, 120) || null, description: text(body.description, 500) || null, price_cents: priceCents, original_price_cents: originalPriceCents, previous_price_cents: previousPrice || null, currency: text(body.currency, 3).toUpperCase(), country: text(body.country, 2).toUpperCase(), selected_background_key: text(body.selectedBackgroundKey, 80) || null, background_map: body.backgroundMap && typeof body.backgroundMap === "object" ? body.backgroundMap : {}, ai_analysis: {}, ai_suggestions: {}, moderation: { status: "pending", source: "supabase-listing-processor" }, updated_at: new Date().toISOString() };
     const { data: saved, error } = await supabase.from("listings").upsert(listing, { onConflict: "legacy_firebase_id" }).select("id").single();
     if (error) throw error;
     await supabase.from("listing_photos").delete().eq("listing_id", saved.id);

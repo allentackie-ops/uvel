@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo } from "react";
 import { Pressable, Text, View } from "react-native";
 import { TodayBannerStoryPage } from "../components/TodayBannerStoryPage";
-import { NewInPage } from "../components/NewInPage";
+import { DealsPage, NewInPage } from "../components/NewInPage";
 import { TrendingNowPage } from "../components/TrendingNowPage";
 import { useColors } from "../lib/theme";
 import { getTodayBannerStory, releaseTodayBannerStory } from "../lib/todayBannerStories";
@@ -39,6 +39,8 @@ export default function TodayBannerRoute() {
         <TrendingNowPage story={story} onClose={goBack} />
       ) : story.id === "new-in" ? (
         <NewInPage story={story} onClose={goBack} />
+      ) : story.id === "deals" ? (
+        <DealsPage story={story} onClose={goBack} />
       ) : (
         <TodayBannerStoryPage
           story={story}

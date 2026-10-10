@@ -18,12 +18,21 @@ const COLOR_FADE_STRIPS = Array.from({ length: 56 }, (_, index) => Math.pow(inde
 const MAX_ITEMS_PER_CATEGORY = 10;
 
 type CategorySection = { category: Category; items: ClosetPiece[] };
+type PageMode = "new-in" | "deals";
 
 function isAvailable(piece: ClosetPiece) {
   return piece.status === "listed" && !piece.sellerPaused && (piece.stockQuantity === undefined || piece.stockQuantity > 0) && Boolean(piece.photo);
 }
 
 export function NewInPage({ story, onClose }: { story: BannerStory; onClose: () => void }) {
+  return <CategoryListingsPage story={story} onClose={onClose} mode="new-in" />;
+}
+
+export function DealsPage({ story, onClose }: { story: BannerStory; onClose: () => void }) {
+  return <CategoryListingsPage story={story} onClose={onClose} mode="deals" />;
+}
+
+function CategoryListingsPage({ story, onClose, mode }: { story: BannerStory; onClose: () => void; mode: PageMode }) {
   const app = useUvel();
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -94,12 +103,15 @@ export function NewInPage({ story, onClose }: { story: BannerStory; onClose: () 
   ), [load, pullOffset, refreshing, scrollY]);
 
   const sections = useMemo<CategorySection[]>(() => {
-    const latest = shopFloor(market.code).filter(isAvailable).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const latest = shopFloor(market.code).filter((piece) => isAvailable(piece) && (mode === "new-in" || discounted(piece)));
+    latest.sort((a, b) => mode === "new-in"
+      ? (b.createdAt || 0) - (a.createdAt || 0)
+      : discountPercent(b) - discountPercent(a) || (b.originalPriceCents - b.listPriceCents) - (a.originalPriceCents - a.listPriceCents));
     return CATEGORIES
       .filter((category): category is Category => category !== "All")
       .map((category) => ({ category, items: latest.filter((piece) => piece.category === category).slice(0, MAX_ITEMS_PER_CATEGORY) }))
       .filter((section) => section.items.length > 0);
-  }, [market.code, wardrobe]);
+  }, [market.code, mode, wardrobe]);
 
   const openListing = useCallback((piece: ClosetPiece, ref: { current: View | null }) => {
     const measure = (callback: (rect: { x: number; y: number; width: number; height: number }) => void) => {
@@ -140,26 +152,26 @@ export function NewInPage({ story, onClose }: { story: BannerStory; onClose: () 
         onScroll={handleScroll}
       >
         <View style={styles.intro}>
-          <Text style={[styles.pageTitle, { color: colors.bone }]}>New in {market.name}</Text>
-          <Text style={[styles.pageSubtitle, { color: colors.muted }]}>Freshly listed pieces, organized by category.</Text>
+          <Text style={[styles.pageTitle, { color: colors.bone }]}>{mode === "deals" ? `Deals in ${market.name}` : `New in ${market.name}`}</Text>
+          <Text style={[styles.pageSubtitle, { color: colors.muted }]}>{mode === "deals" ? "Price drops from sellers, organized by category." : "Freshly listed pieces, organized by category."}</Text>
         </View>
 
         {loading && !sections.length ? <LoadingOrbit /> : sections.length ? sections.map((section) => (
           <View key={section.category} style={styles.section}>
             <View style={styles.sectionHeading}>
               <View>
-                <Text style={[styles.sectionTitle, { color: colors.bone }]}>New in {section.category}</Text>
-                <Text style={[styles.sectionSub, { color: colors.muted }]}>Latest {section.items.length} {section.items.length === 1 ? "listing" : "listings"}</Text>
+                <Text style={[styles.sectionTitle, { color: colors.bone }]}>{mode === "deals" ? `Deals in ${section.category}` : `New in ${section.category}`}</Text>
+                <Text style={[styles.sectionSub, { color: colors.muted }]}>{mode === "deals" ? `${section.items.length} reduced ${section.items.length === 1 ? "price" : "prices"}` : `Latest ${section.items.length} ${section.items.length === 1 ? "listing" : "listings"}`}</Text>
               </View>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
-              {section.items.map((piece) => <NewInCard key={piece.id} piece={piece} market={market} colors={colors} onOpen={openListing} />)}
+              {section.items.map((piece) => <NewInCard key={piece.id} piece={piece} market={market} colors={colors} mode={mode} onOpen={openListing} />)}
             </ScrollView>
           </View>
         )) : (
           <View style={[styles.empty, { backgroundColor: colors.surface }]}>
             <Ionicons name="sparkles-outline" size={20} color={colors.muted} />
-            <Text style={[styles.emptyText, { color: colors.muted }]}>{loadError || `No new listings in ${market.name} yet. Pull down to check again.`}</Text>
+            <Text style={[styles.emptyText, { color: colors.muted }]}>{loadError || (mode === "deals" ? `No reduced listings in ${market.name} right now. Pull down to check again.` : `No new listings in ${market.name} yet. Pull down to check again.`)}</Text>
           </View>
         )}
       </Animated.ScrollView>
@@ -170,16 +182,32 @@ export function NewInPage({ story, onClose }: { story: BannerStory; onClose: () 
   );
 }
 
-function NewInCard({ piece, market, colors, onOpen }: { piece: ClosetPiece; market: ReturnType<typeof getMarket>; colors: ReturnType<typeof useColors>; onOpen: (piece: ClosetPiece, ref: { current: View | null }) => void }) {
+function discounted(piece: ClosetPiece) {
+  return piece.originalPriceCents > piece.listPriceCents && piece.listPriceCents > 0;
+}
+
+function discountPercent(piece: ClosetPiece) {
+  return piece.originalPriceCents > 0 ? (piece.originalPriceCents - piece.listPriceCents) / piece.originalPriceCents : 0;
+}
+
+function NewInCard({ piece, market, colors, mode, onOpen }: { piece: ClosetPiece; market: ReturnType<typeof getMarket>; colors: ReturnType<typeof useColors>; mode: PageMode; onOpen: (piece: ClosetPiece, ref: { current: View | null }) => void }) {
   const ref = useRef<View>(null);
+  const was = moneyInMarket(piece.originalPriceCents, piece.currency || market.currency, market);
+  const now = moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market);
+  const discount = Math.round(discountPercent(piece) * 100);
   return (
-    <Pressable ref={ref} onPress={() => onOpen(piece, ref)} style={[styles.card, { backgroundColor: colors.surface }]} accessibilityRole="button" accessibilityLabel={`Open ${piece.name}, ${moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}`}>
+    <Pressable ref={ref} onPress={() => onOpen(piece, ref)} style={[styles.card, { backgroundColor: colors.surface }]} accessibilityRole="button" accessibilityLabel={mode === "deals" ? `Open ${piece.name}, was ${was}, now ${now}, save ${discount} percent` : `Open ${piece.name}, ${now}`}>
       <View style={[styles.imageFrame, { backgroundColor: colors.neutral }]}>
         <Image source={{ uri: piece.photo }} style={styles.image} contentFit="cover" cachePolicy="memory-disk" />
       </View>
       <Text style={[styles.brand, { color: colors.muted }]} numberOfLines={1}>{(piece.brand || "Uvel seller").toUpperCase()}</Text>
       <Text style={[styles.name, { color: colors.bone }]} numberOfLines={2}>{piece.name}</Text>
-      <Text style={[styles.price, { color: colors.bone }]}>{moneyInMarket(piece.listPriceCents, piece.currency || market.currency, market)}</Text>
+      {mode === "deals" ? (
+        <View style={styles.priceRow}>
+          <Text style={[styles.wasPrice, { color: colors.muted }]} numberOfLines={1}>{was}</Text>
+          <Text style={[styles.priceInRow, { color: colors.success }]} numberOfLines={1}>{now}</Text>
+        </View>
+      ) : <Text style={[styles.price, { color: colors.bone }]}>{now}</Text>}
     </Pressable>
   );
 }
@@ -213,6 +241,9 @@ const styles = StyleSheet.create({
   brand: { fontSize: 9, fontWeight: "800", letterSpacing: 0.8, paddingHorizontal: 10, marginTop: 9 },
   name: { fontSize: 13, lineHeight: 17, fontWeight: "700", paddingHorizontal: 10, marginTop: 4, minHeight: 34 },
   price: { fontSize: 16, fontWeight: "900", paddingHorizontal: 10, marginTop: 7 },
+  priceRow: { flexDirection: "row", alignItems: "baseline", paddingHorizontal: 10, gap: 7, marginTop: 8 },
+  wasPrice: { fontSize: 11, fontWeight: "600", textDecorationLine: "line-through", flexShrink: 1 },
+  priceInRow: { fontSize: 15, lineHeight: 19, fontWeight: "900", flexShrink: 1 },
   empty: { marginHorizontal: 18, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 15, marginTop: 18, flexDirection: "row", alignItems: "flex-start", gap: 10 },
   emptyText: { flex: 1, fontSize: 12, lineHeight: 18 },
   loadingRow: { height: 210, alignItems: "center", justifyContent: "center" },

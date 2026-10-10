@@ -239,7 +239,7 @@ function supabaseListingToPiece(listing: SupabaseMarketplaceListing): ClosetPiec
     material: listing.material || "",
     notes: listing.description || "",
     listPriceCents: priceCents,
-    originalPriceCents: priceCents,
+    originalPriceCents: Number.isFinite(Number(listing.originalPriceCents)) ? Number(listing.originalPriceCents) : 0,
     status: "listed",
     createdAt: Number.isFinite(parsedCreatedAt) ? parsedCreatedAt : Date.now(),
     ownerId,
