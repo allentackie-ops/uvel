@@ -25,7 +25,7 @@ const COL = (W - 52) / 2;
 const MIN_REFRESH_MS = 650;
 const PULL_REFRESH_DISTANCE = 28;
 
-type Hub = "shop" | "sold" | "purchases" | "likes";
+type Hub = "shop" | "sold" | "purchases";
 
 function orderStatusLabel(order: Order) {
   const resolution = order.resolution;
@@ -72,8 +72,6 @@ export default function You({ onOpenSettings }: { onOpenSettings?: () => void })
   const soldPieces = pieces.filter((p) => p.status === "sold" && Boolean(app.uid) && p.ownerId === app.uid);
   const soldOrders = orders.filter((o) => o.sellerId === app.uid);
   const buyOrders = orders.filter((o) => o.buyerId === app.uid);
-  const likedPieces = app.saved.map((id) => getPiece(id)).filter(Boolean) as ClosetPiece[];
-  const likedGarments = app.saved.map((id) => getGarment(id)).filter((g): g is NonNullable<typeof g> => Boolean(g));
 
   useEffect(() => {
     if (app.archetype || !app.styles.length) return;
@@ -209,9 +207,9 @@ export default function You({ onOpenSettings }: { onOpenSettings?: () => void })
         </View>
 
         <View style={styles.tabs}>
-          {(["shop", "sold", "purchases", "likes"] as const).map((id) => {
+          {(["shop", "sold", "purchases"] as const).map((id) => {
             const on = hub === id;
-            const label = id === "shop" ? C.shop : id === "sold" ? C.sold : id === "purchases" ? C.purchases : C.likes;
+            const label = id === "shop" ? C.shop : id === "sold" ? C.sold : C.purchases;
             return (
               <Pressable key={id} onPress={() => setHub(id)} style={styles.tab}>
                 <Text style={[styles.tabTxt, on && styles.tabOn]}>{label}</Text>
@@ -247,16 +245,8 @@ export default function You({ onOpenSettings }: { onOpenSettings?: () => void })
             styles={styles}
             copy={C}
           />
-        ) : hub === "purchases" ? (
-          <BuyPane rows={buyRows} filter={buyFilter} setFilter={setBuyFilter} colors={colors} styles={styles} copy={C} />
         ) : (
-          <LikesPane
-            received={likesOnMine(app.uid)}
-            pieces={likedPieces}
-            garments={likedGarments}
-            styles={styles}
-            copy={C}
-          />
+          <BuyPane rows={buyRows} filter={buyFilter} setFilter={setBuyFilter} colors={colors} styles={styles} copy={C} />
         )}
 
       <View style={styles.moneyRow}>
