@@ -683,13 +683,13 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
           style={styles.actionRow}
           accessibilityRole="button"
           accessibilityLabel={`Payment method: ${selectedPayMethod.label}. Change payment method.`}
-        >
-          <View style={styles.actionIcon}>
-            {selectedPayMethod.kind === "apple" ? (
-              <Text style={styles.paymentAppleMark}>Pay</Text>
-            ) : (
-              <Ionicons name="card-outline" size={21} color={colors.success} />
-            )}
+          >
+            <View style={styles.actionIcon}>
+              {selectedPayMethod.kind === "apple" ? (
+                <Image source={require("../assets/pay/apple-pay.png")} style={styles.paymentAppleLogo} contentFit="contain" />
+              ) : (
+                <Ionicons name="card-outline" size={21} color={colors.success} />
+              )}
           </View>
           <View style={styles.actionCopy}>
             <Text style={styles.actionTitle}>Payment</Text>
@@ -797,7 +797,6 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
         <Text style={styles.secureText}>
           This payment will be processed by Stripe
         </Text>
-        <PaymentBrands styles={styles} />
       </View>
       <Sheet
         open={priceBreakdownOpen}
@@ -1068,10 +1067,10 @@ export function GroupedCheckout({ ids }: { ids: string[] }) {
             accessibilityRole="radio"
             accessibilityLabel={method.label}
             accessibilityState={{ selected: selectedPayMethod.id === method.id }}
-          >
+            >
             <View style={styles.paymentOptionIcon}>
               {method.kind === "apple" ? (
-                <Text style={styles.paymentOptionApple}>Pay</Text>
+                <Image source={require("../assets/pay/apple-pay.png")} style={styles.paymentOptionAppleLogo} contentFit="contain" />
               ) : (
                 <Ionicons name="card-outline" size={23} color={colors.bone} />
               )}
@@ -1309,10 +1308,10 @@ function make(colors: Colors) {
     appleGlyph: { color: colors.ink, fontSize: 25, lineHeight: 27, marginTop: -2 },
     cardButtonContent: { width: "100%", position: "relative", flexDirection: "row", alignItems: "center", justifyContent: "center" },
     cardButtonIcon: { position: "absolute", right: 22 },
-    paymentAppleMark: { color: colors.success, fontSize: 13, fontWeight: "800" },
+    paymentAppleLogo: { width: 40, height: 25 },
     paymentOption: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: `${colors.bone}20` },
     paymentOptionIcon: { width: 44, height: 44, borderRadius: 13, backgroundColor: colors.info, borderWidth: 1, borderColor: `${colors.bone}20`, alignItems: "center", justifyContent: "center" },
-    paymentOptionApple: { color: colors.bone, fontSize: 12, fontWeight: "800" },
+    paymentOptionAppleLogo: { width: 38, height: 24 },
     paymentOptionName: { flex: 1, color: colors.bone, fontSize: 16, fontWeight: "700" },
     secureText: {
       color: colors.bone,
@@ -1321,17 +1320,6 @@ function make(colors: Colors) {
       marginTop: 8,
       letterSpacing: 0.1,
     },
-    paymentBrands: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 8 },
-    brandTile: { width: 54, height: 36, borderRadius: 8, backgroundColor: "#FFFFFF", borderWidth: 2, borderColor: "#9A9A9A", alignItems: "center", justifyContent: "center", overflow: "hidden" },
-    appleBrand: { width: 46, height: 29 },
-    visaBrand: { color: "#163A80", fontSize: 17, fontStyle: "italic", fontWeight: "900", letterSpacing: -1.4 },
-    mastercardBrand: { flexDirection: "row", alignItems: "center", justifyContent: "center", width: 42, height: 26 },
-    cardCircle: { width: 20, height: 20, borderRadius: 10, marginHorizontal: -3 },
-    cardCircleRed: { backgroundColor: "#EB001B" },
-    cardCircleOrange: { backgroundColor: "#F79E1B" },
-    cardCircleBlue: { backgroundColor: "#2563C7" },
-    amexTile: { width: 54, height: 36, borderRadius: 10, backgroundColor: "#2674C8", borderWidth: 2, borderColor: "#9DC7F2", alignItems: "center", justifyContent: "center" },
-    amexBrand: { color: "#FFFFFF", fontSize: 12, fontWeight: "900", letterSpacing: -0.5 },
     policyScroll: { flexShrink: 1 },
     policyBody: { paddingBottom: 8 },
     detailsBody: { paddingBottom: 12 },
@@ -1395,28 +1383,4 @@ function make(colors: Colors) {
     policyCopy: { color: `${colors.bone}E0`, fontSize: 14, lineHeight: 21, marginTop: 8 },
     detailsTotal: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: StyleSheet.hairlineWidth, borderColor: `${colors.bone}24`, paddingTop: 14, marginTop: 12 },
   });
-}
-
-function PaymentBrands({ styles }: { styles: ReturnType<typeof make> }) {
-  return (
-    <View style={styles.paymentBrands} accessibilityLabel="Accepted payment methods">
-      <View style={styles.brandTile}>
-        <Image source={require("../assets/pay/apple-pay.png")} style={styles.appleBrand} contentFit="contain" />
-      </View>
-      <View style={styles.brandTile}><Text style={styles.visaBrand}>VISA</Text></View>
-      <View style={styles.brandTile}>
-        <View style={styles.mastercardBrand}>
-          <View style={[styles.cardCircle, styles.cardCircleRed]} />
-          <View style={[styles.cardCircle, styles.cardCircleOrange]} />
-        </View>
-      </View>
-      <View style={styles.brandTile}>
-        <View style={styles.mastercardBrand}>
-          <View style={[styles.cardCircle, styles.cardCircleRed]} />
-          <View style={[styles.cardCircle, styles.cardCircleBlue]} />
-        </View>
-      </View>
-      <View style={styles.amexTile}><Text style={styles.amexBrand}>AMEX</Text></View>
-    </View>
-  );
 }
