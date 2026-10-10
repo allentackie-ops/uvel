@@ -13,7 +13,7 @@ import { Sheet } from "./Sheet";
 import { OrbitLoader } from "./OrbitLoader";
 import type { ClosetPiece } from "../lib/wardrobe";
 import type { NormalizedBox } from "../lib/lookMatch";
-import { MARKET_RED, useColors, type Colors } from "../lib/theme";
+import { MARKET_RED, useColors, useResolvedAppearance, type Colors } from "../lib/theme";
 
 const MIN_CROP_SIZE = 56;
 const HANDLE_HIT_SIZE = 42;
@@ -38,6 +38,7 @@ type Props = {
 
 export function LensSearchStage({ uri, box, detectionDone, status, detectedItem, items, onBack, onChangePhoto, onTakePhoto, onPickPhotos, onPickFiles, onCropChange }: Props) {
   const colors = useColors();
+  const appearance = useResolvedAppearance();
   const styles = useMemo(() => make(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
@@ -209,7 +210,7 @@ export function LensSearchStage({ uri, box, detectionDone, status, detectedItem,
 
   return (
     <View style={styles.page}>
-      <StatusBar style="light" />
+      <StatusBar style={appearance === "dark" ? "light" : "dark"} />
       {!uri ? (
         <View style={[styles.hero, { height: heroHeight }]}>
           <LensHeroClip />
