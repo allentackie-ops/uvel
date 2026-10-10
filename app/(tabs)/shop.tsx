@@ -230,6 +230,8 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
   const firstFind = useFirstFind();
   const pathname = usePathname();
   const todayRouteActive = pathname === "/" || pathname.endsWith("/(tabs)") || pathname.endsWith("/(tabs)/");
+  const [appliedDna, setAppliedDna] = useState<ReturnType<typeof dnaFrom> | null>(null);
+  const appliedDnaInitialized = useRef(false);
   const dismissSwipeHint = useCallback(() => setShowSwipeHint(false), []);
   const dismissDoubleTapHint = useCallback(() => setShowDoubleTapHint(false), []);
   const handleImmersiveHintVisibility = useCallback((visible: boolean, dismiss?: () => void) => {
@@ -248,6 +250,11 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
     () => dnaFrom(app),
     [app.archetype, app.palette, app.silhouette, app.styles, app.gender],
   );
+  useEffect(() => {
+    if (!app.hydrated || appliedDnaInitialized.current) return;
+    appliedDnaInitialized.current = true;
+    setAppliedDna(dna);
+  }, [app.hydrated, dna]);
   const openTodayListing = useCallback(async (piece: ClosetPiece, origin: ListingOrigin) => {
     setOpenOrigin(origin);
     setOpenPiece(piece);
@@ -358,6 +365,9 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
       frozenOrder.current = null;
       setFeedEpoch((n) => n + 1);
       if (todayHome) {
+        // Style DNA is intentionally staged: it becomes an active secondary
+        // signal only when the user explicitly refreshes Today.
+        setAppliedDna(dnaFrom(app));
         resettingAfterRefresh.current = true;
         todayListRef.current?.scrollToOffset({ offset: 0, animated: false });
         scrollY.stopAnimation();
@@ -371,7 +381,7 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
       setShowRefreshSkeleton(false);
       resettingAfterRefresh.current = false;
     }
-  }, [scrollY, todayHome]);
+  }, [dna, scrollY, todayHome]);
 
   useEffect(() => {
     const sequence = app.todayFeedRefreshSequence;
@@ -482,11 +492,11 @@ export default function Shop({ todayHome = false, onOpenTools, drawerOpen = fals
     }
     if (!frozenOrder.current && live.length) {
       const rows = look ? matchListings(look, live, taste, []) : forYou(live, taste, country, []);
-      frozenOrder.current = personalization.rank(rows, country, dna).map((p) => p.id);
+      frozenOrder.current = personalization.rank(rows, country, appliedDna || undefined).map((p) => p.id);
     }
     const byId = new Map(live.map((p) => [p.id, p]));
     return (frozenOrder.current || []).map((id) => byId.get(id)).filter((p): p is ClosetPiece => Boolean(p)).filter(passQ);
-  }, [live, look, aiIds, q, cat, taste, country, scanningLook, dna, personalization.rank, feedEpoch]);
+  }, [live, look, aiIds, q, cat, taste, country, scanningLook, appliedDna, personalization.rank, feedEpoch]);
   const featured = todayHome && !scanningLook ? ranked[0] : undefined;
   const feedRanked = useMemo(() => todayHome && !scanningLook ? ranked.slice(featured ? 1 : 0) : ranked, [featured, ranked, scanningLook, todayHome]);
   const todayFeedKey = `${feedEpoch}:${feedRanked.map((piece) => piece.id).join("|")}`;

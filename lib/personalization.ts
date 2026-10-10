@@ -385,8 +385,11 @@ function dnaBoost(piece: ClosetPiece, dna: Dna | undefined, events: number) {
   if (!dna || !dnaIsSet(dna)) return 0;
   const raw = scorePieceAgainstDna(piece, dna);
   if (!raw) return 0;
-  const weight = events < 6 ? 2.8 : events < 20 ? 2.2 : 1.6;
-  return Math.min(64, raw * weight);
+  // Style DNA is a gentle preference signal, not the primary ranking engine.
+  // Behaviour, saves, purchases, feedback, freshness, and peer quality remain
+  // stronger signals in the final Today order.
+  const weight = events < 6 ? 0.72 : events < 20 ? 0.6 : 0.48;
+  return Math.min(18, raw * weight);
 }
 
 function score(piece: ClosetPiece, country: string, profile: PersonalizationProfile, dna?: Dna, shared?: RecommendationSignal) {

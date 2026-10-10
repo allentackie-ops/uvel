@@ -8,7 +8,6 @@ import { AccessiblePressable } from "../components/AccessiblePressable";
 import { ARCH } from "../lib/styleDna";
 import { useUvel } from "../lib/store";
 import { useColors, useResolvedAppearance, type Colors } from "../lib/theme";
-import { pullLooks } from "../lib/trends";
 import { readSupabaseStyleDna } from "../lib/supabaseStyleDna";
 
 const MOOD_COPY = "The mood you love";
@@ -47,7 +46,6 @@ export default function StyleDna() {
 
   async function pickMood(value: MoodKey) {
     await app.setStyle({ archetype: value });
-    await pullLooks({ fresh: true });
   }
 
   return (
