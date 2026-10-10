@@ -751,7 +751,7 @@ function make(colors: Colors) {
     wordmarkButton: { minHeight: 48, justifyContent: "center" },
     wordmark: { color: colors.pulse, fontFamily: "Georgia", fontSize: 35, lineHeight: 40, fontStyle: "italic", fontWeight: "700", letterSpacing: -0.8 },
     topIcon: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
-    inboxBadge: { position: "absolute", right: 1, top: 1, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: MARKET_RED, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: colors.ink },
+    inboxBadge: { position: "absolute", right: 1, top: 1, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: MARKET_RED, alignItems: "center", justifyContent: "center" },
     inboxBadgeText: { color: "#FFFFFF", fontSize: 9, fontWeight: "900" },
     locationButton: { flex: 1, minHeight: 42, marginHorizontal: 4, paddingHorizontal: 8, flexDirection: "row", alignItems: "center", gap: 5 },
     locationText: { color: colors.bone, flexShrink: 1, fontSize: 12, fontWeight: "700" },
