@@ -17,7 +17,7 @@ import { useUvel } from "../../lib/store";
 import { useCopy } from "../../lib/useCopy";
 import { MARKET_RED, useColors, type Colors } from "../../lib/theme";
 import { semanticStatus, statusToneFor } from "../../lib/status";
-import { getPiece, likesOnMine, refreshMarketplaceListings, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
+import { getPiece, likeCount, likesOnMine, refreshMarketplaceListings, useWardrobe, type ClosetPiece } from "../../lib/wardrobe";
 import { draftProgress, useListingDraft, type ListingDraft } from "../../lib/listingDraft";
 
 const W = Dimensions.get("window").width;
@@ -234,7 +234,7 @@ export default function You({ onOpenSettings }: { onOpenSettings?: () => void })
         </View>
 
         {hub === "shop" ? (
-          <ShopPane listed={listed} draft={draft} styles={styles} copy={C} />
+          <ShopPane listed={listed} draft={draft} uid={app.uid} styles={styles} copy={C} />
         ) : hub === "sold" ? (
           <SoldPane
             rows={soldRows}
@@ -286,7 +286,7 @@ export default function You({ onOpenSettings }: { onOpenSettings?: () => void })
   );
 }
 
-function ShopPane({ listed, draft, styles, copy }: { listed: ClosetPiece[]; draft: ListingDraft | null; styles: ReturnType<typeof make>; copy: ReturnType<typeof useCopy> }) {
+function ShopPane({ listed, draft, uid, styles, copy }: { listed: ClosetPiece[]; draft: ListingDraft | null; uid: string; styles: ReturnType<typeof make>; copy: ReturnType<typeof useCopy> }) {
 
   return (
     <View>
@@ -303,7 +303,7 @@ function ShopPane({ listed, draft, styles, copy }: { listed: ClosetPiece[]; draf
         <Text style={styles.active}>{copy.activeListings} ({listed.length})</Text>
       </View>
       {listed.length ? (
-        <ActiveListingsSummary listed={listed} styles={styles} />
+        <ActiveListingsSummary listed={listed} uid={uid} styles={styles} />
       ) : (
         <View style={styles.empty}>
           <Rack />
@@ -318,7 +318,7 @@ function ShopPane({ listed, draft, styles, copy }: { listed: ClosetPiece[]; draf
   );
 }
 
-function ActiveListingsSummary({ listed, styles }: { listed: ClosetPiece[]; styles: ReturnType<typeof make> }) {
+function ActiveListingsSummary({ listed, uid, styles }: { listed: ClosetPiece[]; uid: string; styles: ReturnType<typeof make> }) {
   const preview = listed.slice(0, 4);
 
   return (
@@ -330,9 +330,10 @@ function ActiveListingsSummary({ listed, styles }: { listed: ClosetPiece[]; styl
             onPress={() => router.push({ pathname: "/closet/[id]", params: { id: piece.id } })}
             style={styles.listingsThumbButton}
             accessibilityRole="button"
-            accessibilityLabel={`Open ${piece.name}`}
+            accessibilityLabel={`Open ${piece.name}, ${likeCount(piece, [], uid)} ${likeCount(piece, [], uid) === 1 ? "like" : "likes"}`}
           >
             <Image cachePolicy="memory-disk" source={{ uri: piece.photo }} style={styles.listingsThumb} contentFit="cover" />
+            <View style={styles.listingLikeBadge}><Ionicons name="heart" size={11} color="#FFFFFF" /><Text style={styles.listingLikeCount}>{likeCount(piece, [], uid)}</Text></View>
           </Pressable>
         ))}
         {listed.length > preview.length ? (
@@ -866,6 +867,8 @@ function make(colors: Colors) {
     listingsThumbGrid: { width: 112, flexDirection: "row", flexWrap: "wrap", gap: 4, alignContent: "flex-start" },
     listingsThumbButton: { width: 54, height: 68, borderRadius: 10, overflow: "hidden", backgroundColor: colors.ink },
     listingsThumb: { width: "100%", height: "100%" },
+    listingLikeBadge: { position: "absolute", left: 4, bottom: 4, minWidth: 25, height: 18, paddingHorizontal: 5, borderRadius: 9, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 3, backgroundColor: MARKET_RED },
+    listingLikeCount: { color: "#FFFFFF", fontSize: 10, fontWeight: "900" },
     listingsMoreThumb: { width: 54, height: 68, borderRadius: 10, backgroundColor: colors.ink, alignItems: "center", justifyContent: "center" },
     listingsMoreNumber: { color: colors.success, fontSize: 17, fontWeight: "800" },
     listingsMoreLabel: { color: `${colors.bone}80`, fontSize: 10, fontWeight: "700", marginTop: 1 },
